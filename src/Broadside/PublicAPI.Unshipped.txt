@@ -4943,3 +4943,31 @@ Broadside.PdfDocument.AutoTag() -> Broadside.Layout.AutoTaggingResult!
 Broadside.PdfDocument.AutoTag(Broadside.Layout.AutoTaggingOptions! options) -> Broadside.Layout.AutoTaggingResult!
 Broadside.PdfDocument.CachedBytes.get -> long
 Broadside.PdfDocument.TrimCaches(long maxBytes) -> long
+Broadside.Filters.ImageFilterContext.Reduction.get -> int
+Broadside.Filters.ImageFilterContext.Reduction.init -> void
+Broadside.Filters.ImageHeader.MaxReduction.get -> int
+Broadside.Filters.ImageHeader.MaxReduction.init -> void
+Broadside.Images.DecodedImage.Reduction.get -> int
+Broadside.Images.DecodedImageBuilder.Reduction.get -> int
+Broadside.Images.DecodedImageBuilder.Reduction.set -> void
+Broadside.Rendering.DisplayImage.GetReduction(in Broadside.Graphics.Matrix transform, double samplesPerPixel, Broadside.Graphics.PdfColorConverter? converter) -> int
+Broadside.Rendering.DisplayImage.GetSamplesAt(int reduction) -> Broadside.Rendering.DisplayImageSamples?
+Broadside.Rendering.DisplayImage.MaxReduction.get -> int
+Broadside.Rendering.DisplayImageSamples
+Broadside.Rendering.DisplayImageSamples.BitsPerComponent.get -> int
+Broadside.Rendering.DisplayImageSamples.Components.get -> int
+Broadside.Rendering.DisplayImageSamples.GetRow(int y) -> System.ReadOnlySpan<byte>
+Broadside.Rendering.DisplayImageSamples.Height.get -> int
+Broadside.Rendering.DisplayImageSamples.Reduction.get -> int
+Broadside.Rendering.DisplayImageSamples.Samples.get -> System.ReadOnlySpan<byte>
+Broadside.Rendering.DisplayImageSamples.SourceHeight.get -> int
+Broadside.Rendering.DisplayImageSamples.SourceWidth.get -> int
+Broadside.Rendering.DisplayImageSamples.StorageBits.get -> int
+Broadside.Rendering.DisplayImageSamples.Stride.get -> int
+Broadside.Rendering.DisplayImageSamples.Width.get -> int
+Broadside.Rendering.DisplayImageSamples.DisplayImageSamples() -> void
+Broadside.Rendering.DisplayImageSamples.Equals(Broadside.Rendering.DisplayImageSamples other) -> bool
+override Broadside.Rendering.DisplayImageSamples.Equals(object? obj) -> bool
+override Broadside.Rendering.DisplayImageSamples.GetHashCode() -> int
+static Broadside.Rendering.DisplayImageSamples.operator !=(Broadside.Rendering.DisplayImageSamples left, Broadside.Rendering.DisplayImageSamples right) -> bool
+static Broadside.Rendering.DisplayImageSamples.operator ==(Broadside.Rendering.DisplayImageSamples left, Broadside.Rendering.DisplayImageSamples right) -> bool

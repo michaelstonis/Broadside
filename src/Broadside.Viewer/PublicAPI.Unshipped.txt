@@ -723,3 +723,10 @@ Broadside.Viewer.ViewerOptions.UseRemoteRenderer(Broadside.Viewer.IRemoteTileRen
 Broadside.Viewer.DocumentSession.RemoteRenderer.get -> Broadside.Viewer.IRemoteTileRenderer?
 Broadside.Viewer.IRenderSurface.AcceptsDevicePixels.get -> bool
 Broadside.Viewer.ITileRender.ReadBack() -> void
+Broadside.Viewer.SoftwareTileBackend.SoftwareTileBackend(bool scaledImageDecode, double imageSamplesPerPixel) -> void
+Broadside.Viewer.ViewerOptions.ImageSamplesPerPixel.get -> double
+Broadside.Viewer.ViewerOptions.ImageSamplesPerPixel.set -> void
+Broadside.Viewer.ViewerOptions.ScaledImageDecode.get -> bool
+Broadside.Viewer.ViewerOptions.ScaledImageDecode.set -> void
+Broadside.Viewer.ViewerOptions.WithImageSamplesPerPixel(double samplesPerPixel) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewerOptions.WithScaledImageDecode(bool scaledImageDecode) -> Broadside.Viewer.ViewerOptions!

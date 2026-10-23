@@ -28,6 +28,7 @@ public sealed class DecodedImage : IDisposable
 {
     private byte[]? _buffer;
     private readonly int _length;
+    private readonly byte _reduction;
 
     internal DecodedImage(DecodedImageBuilder builder, byte[] buffer, int length, DecodedImage? alpha)
     {
@@ -40,6 +41,7 @@ public sealed class DecodedImage : IDisposable
         StorageBits = builder.StorageBits;
         Stride = builder.Stride;
         DecodedRows = builder.DecodedRows;
+        _reduction = (byte)builder.Reduction;
         SamplesInverted = builder.SamplesInverted;
         ColorModel = builder.ColorModel;
         IccProfile = builder.IccProfile;
@@ -80,6 +82,17 @@ public sealed class DecodedImage : IDisposable
     /// and records as a diagnostic. An image mask's missing rows paint nothing.
     /// </remarks>
     public int DecodedRows { get; }
+
+    /// <summary>
+    /// Gets the reduction the samples were decoded at, as a power of two: 0 for the image's full resolution, 1 for half, 2 for a
+    /// quarter, 3 for an eighth (<see cref="Filters.ImageFilterContext.Reduction"/>).
+    /// </summary>
+    /// <remarks>
+    /// A reduction s = 2^n of a W × H image leaves <see cref="Width"/> = ⌈W / s⌉ and <see cref="Height"/> = ⌈H / s⌉ samples; sample i
+    /// covers the source samples i·s to (i + 1)·s − 1, so the last one may cover less than s. Painted into the unit square (ISO
+    /// 32000-2 §8.9.4), the reduced samples span ⌈W / s⌉·s / W of it, clipped at 1.
+    /// </remarks>
+    public int Reduction => _reduction;
 
     /// <summary>Gets all rows: <see cref="Stride"/> × <see cref="Height"/> bytes.</summary>
     /// <exception cref="ObjectDisposedException">The image was disposed.</exception>

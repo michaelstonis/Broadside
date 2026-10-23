@@ -26,6 +26,9 @@ internal sealed class ManagedPipeline : ColorPipeline
     }
 
     /// <inheritdoc/>
+    public override int MaxImageReduction => ImageReductions.Of(_converter);
+
+    /// <inheritdoc/>
     public override void Convert(ReadOnlySpan<byte> source, Span<byte> destination, int count)
     {
         if (_copiesBytes)
@@ -76,6 +79,10 @@ internal sealed class ManagedPipeline : ColorPipeline
 internal sealed class IndexedPipeline : ColorPipeline
 {
     private readonly float[] _palette;
+
+    /// <inheritdoc/>
+    /// <remarks>ISO 32000-2 §8.6.6.3: samples are indices into the table, never averaged.</remarks>
+    public override int MaxImageReduction => ImageReductions.None;
     private readonly byte[] _bytes;
     private readonly int _high;
 
@@ -218,6 +225,9 @@ internal sealed class TintPipeline : ColorPipeline
 internal sealed class AllColorantsPipeline(DeviceColorModel target, int outputs) : ColorPipeline([new ComponentRange(0, 1)], outputs)
 {
     /// <inheritdoc/>
+    public override int MaxImageReduction => ImageReductions.Any;
+
+    /// <inheritdoc/>
     public override void Convert(ReadOnlySpan<float> source, Span<float> destination, int count)
     {
         int outputs = OutputCount;
@@ -233,6 +243,9 @@ internal sealed class AllColorantsPipeline(DeviceColorModel target, int outputs)
 /// <remarks>ISO 32000-2 §8.6.6.4 and §8.6.6.5. The colour written is no ink (white, or CMYK 0 0 0 0); painters check <see cref="PaintsNothing"/>.</remarks>
 internal sealed class NoColorantPipeline(int inputs, DeviceColorModel target, int outputs) : ColorPipeline(Unit(inputs), outputs)
 {
+    /// <inheritdoc/>
+    public override int MaxImageReduction => ImageReductions.Any;
+
     /// <inheritdoc/>
     public override bool PaintsNothing => true;
 

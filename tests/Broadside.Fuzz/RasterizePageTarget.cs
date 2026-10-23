@@ -12,7 +12,8 @@ namespace Broadside.Fuzz;
 /// <c>pattern-*</c> corpus files; since #110 also function-based shadings and triangle meshes, since #111 patch meshes, their
 /// Matrix, mesh data and Decode), forms, image XObjects and Type 3 glyph descriptions (issue #108, from the <c>text-type3*</c>
 /// files: each description built once per list and replayed at every show) reach the rasterizer, and so do the annotation and
-/// form-field layers (issue #98: appearances, flags, NoZoom/NoRotate placement, opacity layers) for the view or the print intent.
+/// form-field layers (issue #98: appearances, flags, NoZoom/NoRotate placement, opacity layers) for the view or the print intent,
+/// for half the inputs with images decoded at the resolution drawn (issue #362).
 /// The first page is also rendered with overprint preview (issue #227: colourant planes, spot colourants, OP/op/OPM), twice.
 /// Invariants: nothing throws besides an unreadable input; no colour channel exceeds its alpha; a list rendered twice, and a second
 /// list built from the same page (the display-list cache is off, issue #103), render identically.
@@ -48,7 +49,9 @@ internal static class RasterizePageTarget
 
         // Issue #104: any combination of the anti-aliasing switches (print lists also select DefaultForPrinting alternates).
         var antiAliasing = (AntiAliasing)(data.Length / 64 % 8);
-        using var rasterizer = new SoftwareRasterizer();
+        // Issue #362: half the inputs render as a viewer does, decoding images that reduce at the resolution drawn (the lists are
+        // the same; each reduction is decoded once and the renders still agree).
+        using var rasterizer = new SoftwareRasterizer { ScaledImageDecode = data.Length / 512 % 2 == 1 };
         using var first = new Bitmap(Size, Size);
         using var second = new Bitmap(Size, Size);
         using var rebuilt = new Bitmap(Size, Size);

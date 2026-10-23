@@ -19,6 +19,8 @@ namespace Broadside.Filters;
 /// </remarks>
 public sealed class ImageFilterContext
 {
+    private readonly byte _reduction;
+
     /// <summary>Initializes a new instance of the <see cref="ImageFilterContext"/> class.</summary>
     /// <param name="filter">The filter context of the decode: the codec's <c>DecodeParms</c>, the image dictionary, diagnostics.</param>
     public ImageFilterContext(FilterContext filter)
@@ -54,6 +56,27 @@ public sealed class ImageFilterContext
     /// <summary>Gets a value indicating whether the dictionary's <c>SMaskInData</c> asks for the codestream's opacity channel; without it a codec may skip that work.</summary>
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87.</remarks>
     public bool WantsAlpha { get; init; }
+
+    /// <summary>
+    /// Gets the reduction asked for, as a power of two: 0 (the default) for the full resolution, 1 for half, 2 for a quarter, 3 for
+    /// an eighth. A codec that cannot reduce, or not that far, delivers less and says so in <see cref="DecodedImageBuilder.Reduction"/>.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative or more than 15.</exception>
+    /// <remarks>
+    /// Asked for only by a viewer drawing the image smaller than its resolution, never for printing, export or image extraction. A
+    /// reduction s = 2^n of a W × H image is ⌈W / s⌉ × ⌈H / s⌉ samples, each standing for the s × s source samples it covers (see
+    /// <see cref="DecodedImage.Reduction"/>); <see cref="TryCreateImage"/> takes the reduced size.
+    /// </remarks>
+    public int Reduction
+    {
+        get => _reduction;
+        init
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(value, ImageGeometry.MaxReduction);
+            _reduction = (byte)value;
+        }
+    }
 
     /// <summary>Gets the most pixels one image may have.</summary>
     public long MaxPixels { get; init; } = PdfOptions.DefaultMaxImagePixels;

@@ -14,6 +14,7 @@ public sealed class ViewerOptions
     public static readonly TimeSpan DefaultSliceBudget = TimeSpan.FromMilliseconds(8);
 
     private TimeSpan _sliceBudget = DefaultSliceBudget;
+    private double _imageSamplesPerPixel = RenderOptions.DefaultImageSamplesPerPixel;
     private int _maxConcurrency = Math.Max(1, Environment.ProcessorCount - 1); // one core stays with the UI thread (#357)
 
     /// <summary>Gets or sets the engine that opens the document; <see langword="null"/> (the default) builds one from <see cref="DocumentOptions"/>.</summary>
@@ -116,6 +117,55 @@ public sealed class ViewerOptions
     public ViewerOptions WithIntent(DisplayIntent intent)
     {
         Intent = intent;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the default backend decodes images at the resolution they are drawn at rather than
+    /// their own; <see langword="true"/> by default, since a viewer's tiles are for display only.
+    /// </summary>
+    /// <remarks>
+    /// See <see cref="RenderOptions.ScaledImageDecode"/>: a large photograph shown small is decoded at a power-of-two reduction that
+    /// keeps <see cref="ImageSamplesPerPixel"/> samples per device pixel. Applies to the default <see cref="SoftwareTileBackend"/>;
+    /// a backend from <see cref="BackendFactory"/> makes its own choice. Printing and export never use reduced images.
+    /// </remarks>
+    public bool ScaledImageDecode { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the fewest decoded samples per device pixel a reduced image keeps:
+    /// <see cref="RenderOptions.DefaultImageSamplesPerPixel"/> (2) by default; 1 is faster and coarser.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a finite number of at least 1.</exception>
+    /// <remarks>See <see cref="RenderOptions.ImageSamplesPerPixel"/>.</remarks>
+    public double ImageSamplesPerPixel
+    {
+        get => _imageSamplesPerPixel;
+        set
+        {
+            if (!double.IsFinite(value) || value < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "The samples per pixel must be a finite number of at least 1.");
+            }
+
+            _imageSamplesPerPixel = value;
+        }
+    }
+
+    /// <summary>Sets <see cref="ScaledImageDecode"/>.</summary>
+    /// <param name="scaledImageDecode">Whether images are decoded at the resolution they are drawn at.</param>
+    /// <returns>These options.</returns>
+    public ViewerOptions WithScaledImageDecode(bool scaledImageDecode)
+    {
+        ScaledImageDecode = scaledImageDecode;
+        return this;
+    }
+
+    /// <summary>Sets <see cref="ImageSamplesPerPixel"/>.</summary>
+    /// <param name="samplesPerPixel">The fewest decoded samples per device pixel, at least 1.</param>
+    /// <returns>These options.</returns>
+    public ViewerOptions WithImageSamplesPerPixel(double samplesPerPixel)
+    {
+        ImageSamplesPerPixel = samplesPerPixel;
         return this;
     }
 

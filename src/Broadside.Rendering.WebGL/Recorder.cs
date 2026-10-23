@@ -164,7 +164,7 @@ internal sealed class Recorder : IRenderingBackend
 
     public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
     {
-        if (Fallback is not null)
+        if (Fallback is not null || image.GetSamplesAt(0) is null)
         {
             return;
         }

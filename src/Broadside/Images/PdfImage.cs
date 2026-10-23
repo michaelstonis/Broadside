@@ -322,12 +322,29 @@ public sealed class PdfImage
     /// <summary>As <see cref="Decode()"/>, stopping with <see cref="OperationCanceledException"/> when <paramref name="cancellationToken"/> is cancelled.</summary>
     /// <param name="cancellationToken">Given to the filters (<see cref="FilterContext.CancellationToken"/>); what they rented is returned.</param>
     /// <returns>As <see cref="Decode()"/>.</returns>
-    internal DecodedImage? DecodeSamples(CancellationToken cancellationToken)
+    internal DecodedImage? DecodeSamples(CancellationToken cancellationToken) => Load(keepEncoded: false, cancellationToken).Decoded;
+
+    /// <summary>
+    /// Decodes the image's samples as <see cref="Decode()"/> does, unless its codec decodes reduced resolutions: then only the
+    /// codestream's header is read, and the data the codec needs is kept to be decoded when the image is drawn, at the resolution
+    /// it is drawn at.
+    /// </summary>
+    /// <param name="cancellationToken">Given to the filters.</param>
+    /// <returns>The samples or the encoded image; neither when the image cannot be decoded (each reason a diagnostic).</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.4 and §8.9.5.1. Kept encoded only when everything a renderer needs before the samples is known without them:
+    /// an image XObject or alternate (not a mask, an inline image or a stencil) with a <c>ColorSpace</c> whose component count is
+    /// the codestream's, no <c>SMaskInData</c>, read leniently (strict mode decodes now, so that a deviation throws where it always
+    /// did), and a codec whose header says it reduces (<see cref="ImageHeader.MaxReduction"/>).
+    /// </remarks>
+    internal PreparedImage Prepare(CancellationToken cancellationToken) => Load(keepEncoded: true, cancellationToken);
+
+    private PreparedImage Load(bool keepEncoded, CancellationToken cancellationToken)
     {
         ImageLayout layout = ReadLayout();
         if (!layout.IsDecodable)
         {
-            return null;
+            return default;
         }
 
         StreamDecoder streams = _document.Streams;
@@ -335,7 +352,7 @@ public sealed class PdfImage
             && ImageGeometry.CheckLimits(layout.Width, layout.Height, layout.Components, layout.BitsPerComponent, streams.MaxImagePixels, streams.MaxDecodedLength) is { } reason)
         {
             Report(DiagnosticCodes.ImageTooLarge, $"The image is not decoded: {reason}.", DiagnosticSeverity.Error);
-            return null;
+            return default;
         }
 
         long expected = layout.BitsPerComponent > 0 ? ImageGeometry.Stride(layout.Width, Math.Max(1, layout.Components), layout.BitsPerComponent) * layout.Height : 0;
@@ -343,12 +360,14 @@ public sealed class PdfImage
         streams.Decode(_stream, data, 0, stopBeforeImageFilter: true, out StreamDecoder.ChainOutcome outcome, cancellationToken);
         if (!outcome.Complete)
         {
-            return null;
+            return default;
         }
 
+#pragma warning disable CA2000 // The prepared image hands the samples to the caller, who owns them.
         return outcome.ImageFilter is { } filter
-            ? DecodeWithFilter(filter, outcome.ImageContext!, data.WrittenMemory, layout)
-            : FromSamples(data.WrittenSpan, layout);
+            ? DecodeWithFilter(filter, outcome.ImageContext!, data.WrittenMemory, layout, keepEncoded)
+            : new PreparedImage(FromSamples(data.WrittenSpan, layout), null);
+#pragma warning restore CA2000
     }
 
     /// <summary>Returns the Decode mapping for samples of this image decoded as <paramref name="decoded"/>.</summary>
@@ -359,8 +378,14 @@ public sealed class PdfImage
     public ImageDecodeMap CreateDecodeMap(DecodedImage decoded)
     {
         ArgumentNullException.ThrowIfNull(decoded);
+        return CreateDecodeMapFor(decoded.Components, decoded.BitsPerComponent, decoded.SamplesInverted);
+    }
+
+    /// <summary>Returns the Decode mapping for samples of <paramref name="components"/> components at <paramref name="bitsPerComponent"/> bits.</summary>
+    /// <remarks>ISO 32000-2 §8.9.5.2, Table 88; as <see cref="CreateDecodeMap(DecodedImage)"/>, for samples not decoded yet.</remarks>
+    internal ImageDecodeMap CreateDecodeMapFor(int components, int bitsPerComponent, bool inverted)
+    {
         IReadOnlyList<double> array = DecodeArray;
-        int components = decoded.Components;
         double[] decode = new double[2 * components];
         for (int c = 0; c < components; c++)
         {
@@ -368,11 +393,11 @@ public sealed class PdfImage
             double low = known ? array[2 * c] : 0;
             double high = known ? array[(2 * c) + 1] : 1;
 
-            decode[2 * c] = decoded.SamplesInverted ? high : low;
-            decode[(2 * c) + 1] = decoded.SamplesInverted ? low : high;
+            decode[2 * c] = inverted ? high : low;
+            decode[(2 * c) + 1] = inverted ? low : high;
         }
 
-        return ImageDecodeMap.Create(decode, components, decoded.BitsPerComponent);
+        return ImageDecodeMap.Create(decode, components, bitsPerComponent);
     }
 
     /// <summary>
@@ -811,7 +836,7 @@ public sealed class PdfImage
         }
     }
 
-    private DecodedImage? DecodeWithFilter(IImageFilter filter, FilterContext filterContext, ReadOnlyMemory<byte> data, ImageLayout layout)
+    private PreparedImage DecodeWithFilter(IImageFilter filter, FilterContext filterContext, ReadOnlyMemory<byte> data, ImageLayout layout, bool keepEncoded)
     {
         StreamDecoder streams = _document.Streams;
         var context = new ImageFilterContext(filterContext)
@@ -828,7 +853,7 @@ public sealed class PdfImage
 
         if (data.IsEmpty)
         {
-            return null;
+            return default;
         }
 
         StrongBox<ImageHeader>? read = streams.RunImageFilter(
@@ -839,20 +864,23 @@ public sealed class PdfImage
             && ImageGeometry.CheckLimits(header.Width, header.Height, Math.Clamp(header.Components, 1, ImageGeometry.MaxComponents), Math.Clamp(header.BitsPerComponent, 1, 16), streams.MaxImagePixels, streams.MaxDecodedLength) is { } reason)
         {
             Report(DiagnosticCodes.ImageTooLarge, $"The image is not decoded: its {filter.Name.Value} header declares {reason}.", DiagnosticSeverity.Error);
-            return null;
+            return default;
+        }
+
+        if (keepEncoded && read?.Value is { } kept && CanKeepEncoded(kept, layout))
+        {
+            ReportDimensions(filter, kept.Width, kept.Height, layout);
+            return new PreparedImage(null, new EncodedImage(
+                data.ToArray(), filter, streams, filterContext.Parameters, filterContext.StreamDictionary, kept, layout.Width, layout.Height, layout.BitsPerComponent));
         }
 
         DecodedImage? decoded = streams.RunImageFilter(filter.Name, () => filter.DecodeImage(data, context), filterContext.CancellationToken);
         if (decoded is null)
         {
-            return null;
+            return default;
         }
 
-        if (decoded.Width != layout.Width || decoded.Height != layout.Height)
-        {
-            Report(DiagnosticCodes.ImageDimensionMismatch, FormattableString.Invariant(
-                $"The {filter.Name.Value} data is {decoded.Width} x {decoded.Height} where the dictionary says {layout.Width} x {layout.Height}; the data's size is used."));
-        }
+        ReportDimensions(filter, decoded.Width, decoded.Height, layout);
 
         if (layout.Components > 0 && decoded.Components != layout.Components)
         {
@@ -860,12 +888,36 @@ public sealed class PdfImage
                 $"The {filter.Name.Value} data has {decoded.Components} components where the colour space has {layout.Components}; {(decoded.Components > layout.Components ? "the first ones are used" : "the missing ones are 0")}."));
             using (decoded)
             {
-                return WithComponents(decoded, layout.Components, context);
+#pragma warning disable CA2000 // The prepared image hands the samples to the caller, who owns them.
+                return new PreparedImage(WithComponents(decoded, layout.Components, context), null);
+#pragma warning restore CA2000
             }
         }
 
-        return decoded;
+        return new PreparedImage(decoded, null);
     }
+
+    /// <summary>Records that the codestream's size differs from the dictionary's (§7.4.9: the codestream's is used).</summary>
+    private void ReportDimensions(IImageFilter filter, int width, int height, ImageLayout layout)
+    {
+        if (width != layout.Width || height != layout.Height)
+        {
+            Report(DiagnosticCodes.ImageDimensionMismatch, FormattableString.Invariant(
+                $"The {filter.Name.Value} data is {width} x {height} where the dictionary says {layout.Width} x {layout.Height}; the data's size is used."));
+        }
+    }
+
+    /// <summary>Whether the image can wait to be decoded until it is drawn (see <see cref="Prepare"/>).</summary>
+    private bool CanKeepEncoded(in ImageHeader header, ImageLayout layout) =>
+        header.MaxReduction > 0
+        && _role is ImageRole.XObject or ImageRole.Alternate
+        && !layout.IsStencil
+        && layout.ColorSpace is not null
+        && header is { Width: > 0, Height: > 0, BitsPerComponent: >= 1 and <= 16, HasAlpha: false }
+        && header.Components == layout.Components
+        && header.Components is >= 1 and <= ImageGeometry.MaxComponents
+        && SoftMaskInData == 0
+        && !_document.DiagnosticSink.IsStrict;
 
     /// <summary>
     /// Copies <paramref name="decoded"/> with <paramref name="components"/> components per sample: the first ones it has, 0 for those
@@ -1007,6 +1059,11 @@ public sealed class PdfImage
 
     private void Report(string code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
         _document.DiagnosticSink.Report(code, severity, message, offset: null, _owner);
+
+    /// <summary>What <see cref="Prepare"/> returns: the samples, or the image kept encoded; neither when it cannot be decoded.</summary>
+    /// <param name="Decoded">The samples, which the caller owns.</param>
+    /// <param name="Encoded">The image kept encoded until it is drawn.</param>
+    internal readonly record struct PreparedImage(DecodedImage? Decoded, EncodedImage? Encoded);
 
     /// <summary>The dictionary values decoding needs, read with their defaults.</summary>
     private readonly record struct ImageLayout(

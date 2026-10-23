@@ -31,6 +31,9 @@ internal sealed class IccAlternateConverter : IColorConverter
     /// <inheritdoc/>
     public int InputCount { get; }
 
+    /// <summary>Gets the alternate space's converter, which does all the converting after the clip.</summary>
+    public IColorConverter Alternate => _alternate;
+
     /// <inheritdoc/>
     public int OutputCount { get; }
 
