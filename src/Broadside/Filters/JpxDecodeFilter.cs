@@ -30,6 +30,15 @@ namespace Broadside.Filters;
 /// <c>SMaskInData 2</c> or a premultiplied channel definition.
 /// </para>
 /// <para>
+/// Reduced resolutions (issue #362): asked for a reduction d by <see cref="ImageFilterContext.Reduction"/>, the image facet decodes
+/// resolutions 0 to N_L − d of every tile-component (ITU-T T.800 B.5), skipping tier-1 for the code-blocks of the dropped sub-bands
+/// and the inverse DWT of the dropped levels, which gives the image at 1/2^d, as <c>opj_decompress -r d</c> does. The header offers
+/// the fewest decomposition levels of any tile-component (<see cref="ImageHeader.MaxReduction"/>), and no more than keep the image
+/// origin on the reduced grid. The packets of dropped resolutions are still read in order where the progression interleaves them
+/// (PCRL, CPRL, LRCP with several layers, progression order changes); in RLCP, RPCL and LRCP with one layer they are the tile's
+/// last and are not read (B.12.1). Only viewers ask for it.
+/// </para>
+/// <para>
 /// Through <see cref="IStreamFilter.Decode"/> the output is the colour samples of <see cref="DecodeImage"/> in the §8.9.3 layout, at
 /// the bits per component of the greatest precision (rounded up to 8 or 16 for 3 to 7 and 9 to 15).
 /// Lenient repair: a truncated codestream decodes what is present (<c>JpxCodestreamTruncated</c>); strict mode throws instead.

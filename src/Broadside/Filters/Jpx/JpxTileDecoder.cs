@@ -39,6 +39,9 @@ internal sealed class JpxTileDecoder : IDisposable
     private byte[] _joined = ArrayPool<byte>.Shared.Rent(256);
     private int _structures;
 
+    // The highest resolution any component keeps in a reduced decode; packets above it can end a resolution-major sequence.
+    private int _keptResolution;
+
     public JpxTileDecoder(CodecReporter reporter) => _reporter = reporter;
 
     /// <summary>
@@ -46,8 +49,22 @@ internal sealed class JpxTileDecoder : IDisposable
     /// or <see langword="null"/>) into <paramref name="buffers"/>, one rented buffer per component of <c>Width * Height</c> samples
     /// (relative to the tile-component's origin), and returns the tile-components.
     /// </summary>
+    /// <param name="size">The image size.</param>
+    /// <param name="parameters">The tile's coding parameters.</param>
+    /// <param name="tile">The tile index.</param>
+    /// <param name="data">The tile's packets.</param>
+    /// <param name="headers">The packed packet headers, or <see langword="null"/>.</param>
+    /// <param name="buffers">One buffer per component.</param>
+    /// <param name="reduction">
+    /// The resolution levels dropped (issue #362; B.5): 0 for the full image; d decodes resolutions 0 to N_L − d of every component
+    /// (at most every component's N_L), skipping tier-1 for the code-blocks of the dropped sub-bands and the inverse DWT of the
+    /// dropped levels. Their packets are still read in order, which every progression needs to find the kept ones, except where
+    /// the dropped packets are the tile's last (RLCP, RPCL, and LRCP with one layer, without progression order changes): there the
+    /// reading stops after the last kept resolution (B.12.1). The tile-components returned are then those of the kept
+    /// resolution, their samples the top-left of each buffer, contiguous.
+    /// </param>
     /// <returns>The tile-components; <see langword="null"/> when the tile's structure is over the limits.</returns>
-    public JpxTileComponent[]? Decode(JpxImageSize size, JpxTileParameters parameters, int tile, ReadOnlySpan<byte> data, byte[]? headers, int[][] buffers)
+    public JpxTileComponent[]? Decode(JpxImageSize size, JpxTileParameters parameters, int tile, ReadOnlySpan<byte> data, byte[]? headers, int[][] buffers, int reduction = 0)
     {
         _chunkCount = 0;
         _structures = 0;
@@ -63,26 +80,64 @@ internal sealed class JpxTileDecoder : IDisposable
             components[c] = component;
         }
 
+        _keptResolution = -1;
+        foreach (JpxTileComponent component in components)
+        {
+            _keptResolution = Math.Max(_keptResolution, component.Style.Levels - reduction);
+        }
+
         var cursor = new PacketCursor(data, headers);
-        ReadPackets(parameters, components, (tx0, ty0, tx1, ty1), ref cursor);
+        ReadPackets(parameters, components, (tx0, ty0, tx1, ty1), ref cursor, reduction > 0);
         for (int c = 0; c < components.Length; c++)
         {
             JpxTileComponent component = components[c];
+            int top = Math.Max(0, component.Style.Levels - reduction);
             int[] buffer = buffers[c];
             buffer.AsSpan(0, component.Width * component.Height).Clear();
-            DecodeBlocks(component, data, buffer);
+            DecodeBlocks(component, data, buffer, top);
             _reporter.ThrowIfCancellationRequested();
             if (component.Style.Reversible)
             {
-                JpxWavelet.Inverse53(component, buffer, _reporter);
+                JpxWavelet.Inverse53(component, buffer, _reporter, top);
             }
             else
             {
-                JpxWavelet.Inverse97(component, MemoryMarshal.Cast<int, float>(buffer.AsSpan()), _reporter);
+                JpxWavelet.Inverse97(component, MemoryMarshal.Cast<int, float>(buffer.AsSpan()), _reporter, top);
+            }
+
+            if (top < component.Resolutions.Length - 1)
+            {
+                components[c] = Reduced(component, buffer, top);
             }
         }
 
         return components;
+    }
+
+    /// <summary>
+    /// The tile-component at resolution <paramref name="top"/>: its bounds are the resolution's (B-15), and its samples, the top-left
+    /// of <paramref name="buffer"/> at the full width, are moved together row by row.
+    /// </summary>
+    private static JpxTileComponent Reduced(JpxTileComponent component, int[] buffer, int top)
+    {
+        JpxResolution resolution = component.Resolutions[top];
+        for (int y = 1; y < resolution.Height; y++)
+        {
+            buffer.AsSpan(y * component.Width, resolution.Width).CopyTo(buffer.AsSpan(y * resolution.Width));
+        }
+
+        return new JpxTileComponent
+        {
+            X0 = resolution.X0,
+            Y0 = resolution.Y0,
+            Width = resolution.Width,
+            Height = resolution.Height,
+            Style = component.Style,
+            Dx = component.Dx,
+            Dy = component.Dy,
+            RoiShift = component.RoiShift,
+            Resolutions = component.Resolutions[..(top + 1)],
+        };
     }
 
     /// <summary>Returns the pooled buffers.</summary>
@@ -277,7 +332,7 @@ internal sealed class JpxTileDecoder : IDisposable
     /// Reads every packet of the tile until the data ends: one progression volume per POC entry (B.12.2), else one volume in the COD
     /// order over the whole tile. A packet a volume repeats is skipped (each precinct's layers are read once, in order).
     /// </summary>
-    private void ReadPackets(JpxTileParameters parameters, JpxTileComponent[] components, (long X0, long Y0, long X1, long Y1) tile, ref PacketCursor cursor)
+    private void ReadPackets(JpxTileParameters parameters, JpxTileComponent[] components, (long X0, long Y0, long X1, long Y1) tile, ref PacketCursor cursor, bool reduced)
     {
         JpxCodingStyle coding = parameters.Coding;
         int maxLevels = 0;
@@ -288,7 +343,11 @@ internal sealed class JpxTileDecoder : IDisposable
 
         if (parameters.Volumes.Count == 0)
         {
-            ReadVolume(coding, components, tile, new JpxProgressionVolume(0, 0, coding.Layers, maxLevels + 1, components.Length, coding.Progression), ref cursor);
+            // B.12.1: in RLCP and RPCL, and in LRCP with one layer, every packet of a dropped resolution comes after every kept one,
+            // so the sequence ends at the last kept resolution. In the other orders they are interleaved and are read through.
+            bool tail = reduced && (coding.Progression is 1 or 2 || (coding.Progression == 0 && coding.Layers == 1));
+            int resolutions = tail ? Math.Min(maxLevels + 1, _keptResolution + 1) : maxLevels + 1;
+            ReadVolume(coding, components, tile, new JpxProgressionVolume(0, 0, coding.Layers, resolutions, components.Length, coding.Progression), ref cursor);
             return;
         }
 
@@ -734,11 +793,11 @@ internal sealed class JpxTileDecoder : IDisposable
     }
 
     /// <summary>Decodes every code-block of a tile-component into its buffer, with the reconstruction of E.1.1.</summary>
-    private void DecodeBlocks(JpxTileComponent component, ReadOnlySpan<byte> data, int[] buffer)
+    private void DecodeBlocks(JpxTileComponent component, ReadOnlySpan<byte> data, int[] buffer, int kept)
     {
         int stride = component.Width;
         int roi = component.RoiShift;
-        foreach (JpxResolution resolution in component.Resolutions)
+        foreach (JpxResolution resolution in component.Resolutions.AsSpan(0, kept + 1))
         {
             int bandCount = resolution.Bands.Length;
             for (int p = 0; p < resolution.PrecinctBands.Length; p++)

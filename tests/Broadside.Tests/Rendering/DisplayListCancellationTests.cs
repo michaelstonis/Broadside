@@ -22,7 +22,8 @@ public sealed class DisplayListCancellationTests
     [Theory]
     // pdfjs/issue12841_reduced.pdf (one 5280 x 3792 JPEG) is no longer here: its build only reads the JPEG header, the decode runs
     // when the image is drawn (issue #362), and Broadside.Rendering.Tests.DeferredDecodeCancellationTests cancels it there.
-    [InlineData("pdfjs/issue5567.pdf")] // One 1500 x 1125 JPEG 2000 image: code-blocks, wavelet, composition.
+    // pdfjs/issue5567.pdf (one 1500 x 1125 JPEG 2000 image) is not here either: its codec reduces too, so its build reads only
+    // the header and its decode runs, with the render's token, when it is drawn.
     [InlineData("pdfjs/bug1978317.pdf")] // About 430,000 operators: the interpreter's own checks.
     public void Cancelling_the_build_of_a_large_real_world_page_stops_within_10_ms(string file)
     {
