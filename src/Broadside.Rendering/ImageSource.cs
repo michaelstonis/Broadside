@@ -38,7 +38,9 @@ internal sealed class ImageSource : IDisposable
     private PdfColorConverter? _converter;
     private PixelModel _model;
 
-    // Whether the image's soft mask was folded into the samples converted last (at their reduction, so given by them and the image).
+    // Whether the soft mask was folded into the samples converted last: for the same samples it can differ, when a finer
+    // reduction of the soft mask was at hand the first time and not the next. The size comes from the samples, so the source is
+    // no larger than before reductions (every software render has one).
     private bool _folded;
 
     /// <summary>Gets the converted pixels, <see cref="Width"/> × <see cref="Height"/>, rows top to bottom.</summary>
@@ -47,11 +49,11 @@ internal sealed class ImageSource : IDisposable
     /// <summary>Gets the pooled array behind <see cref="Pixels"/>, possibly longer.</summary>
     public uint[] Buffer => _pixels;
 
-    /// <summary>Gets the width of the image converted last.</summary>
-    public int Width { get; private set; }
+    /// <summary>Gets the width of the image converted last; 0 when none is remembered.</summary>
+    public int Width => _samples == default ? 0 : _samples.Width;
 
-    /// <summary>Gets the height of the image converted last.</summary>
-    public int Height { get; private set; }
+    /// <summary>Gets the height of the image converted last; 0 when none is remembered.</summary>
+    public int Height => _samples == default ? 0 : _samples.Height;
 
     /// <summary>
     /// Whether the image's soft mask has the size of the samples painted, at the image's own resolution, so that its opacity is
@@ -216,8 +218,6 @@ internal sealed class ImageSource : IDisposable
             }
         }
 
-        Width = width;
-        Height = height;
         _samples = samples;
         _folded = soft is not null;
         _converter = converter;
@@ -228,7 +228,6 @@ internal sealed class ImageSource : IDisposable
     public void Forget()
     {
         _samples = default;
-        _folded = false;
         _converter = null;
     }
 
@@ -244,8 +243,6 @@ internal sealed class ImageSource : IDisposable
         Pooled.Return(ref _rgb);
         Pooled.Return(ref _alpha);
         Pooled.Return(ref _alphaValues);
-        Width = 0;
-        Height = 0;
     }
 
     /// <summary>Rounds <paramref name="value"/> / 255 for 0 ≤ value ≤ 255 × 255.</summary>

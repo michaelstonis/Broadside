@@ -58,7 +58,7 @@ public sealed class DisplayImage
         // Issue #362: a large image decoded when the list was built is reduced from its full decode, by a box average, when drawn
         // small (Flate, LZW, raw samples, CCITT, JBIG2); a small one is converted whole.
         _source = cache is not null && (long)samples.Width * samples.Height >= MinimumReducedPixels
-            ? new Reductions(null, cache, ImageGeometry.MaxReduction) { Samples = samples }
+            ? new DecodedReductions(samples, cache)
             : samples;
         ColorSpace = colorSpace;
         DecodeMap = decodeMap;
@@ -67,7 +67,7 @@ public sealed class DisplayImage
 
     internal DisplayImage(EncodedImage encoded, ByteBudgetCache<(object Source, int Slot), IBudgetedEntry> cache, PdfColorSpace colorSpace, ImageDecodeMap decodeMap, bool interpolate)
     {
-        _source = new Reductions(encoded, cache, Math.Clamp(encoded.Header.MaxReduction, 0, ImageGeometry.MaxReduction));
+        _source = new Reductions(encoded, cache);
         ColorSpace = colorSpace;
         DecodeMap = decodeMap;
         Interpolate = interpolate;
@@ -503,8 +503,12 @@ public sealed class DisplayImage
         }
     }
 
-    /// <summary>The state of an image decoded when drawn: its encoded data, the cache its samples go to, one slot per reduction.</summary>
-    private sealed class Reductions(EncodedImage? encoded, ByteBudgetCache<(object Source, int Slot), IBudgetedEntry> cache, int maxReduction)
+    /// <summary>
+    /// The state of an image decoded when drawn: its encoded data, the cache its samples go to, one slot per reduction. As small as
+    /// it was before images decoded at build could be reduced (the bench gate counts its bytes): their extra state is in
+    /// <see cref="DecodedReductions"/>.
+    /// </summary>
+    private class Reductions(EncodedImage? encoded, ByteBudgetCache<(object Source, int Slot), IBudgetedEntry> cache)
     {
         private Slot[]? _slots;
         private bool _failed;
@@ -512,17 +516,21 @@ public sealed class DisplayImage
         /// <summary>Gets the encoded image, or <see langword="null"/> for one decoded at build.</summary>
         public EncodedImage? Encoded { get; } = encoded;
 
-        /// <summary>Gets or sets the full decode of an image decoded at build, reduced from by a box average.</summary>
-        public DecodedImage? Samples { get; init; }
+        /// <summary>Gets the full decode of an image decoded at build, reduced from by a box average; <see langword="null"/> for one kept encoded.</summary>
+        public virtual DecodedImage? Samples => null;
 
         /// <summary>Gets the document's image cache.</summary>
         public ByteBudgetCache<(object Source, int Slot), IBudgetedEntry> Cache { get; } = cache;
 
-        /// <summary>Gets or sets the Decode mapping of reduced samples widened to 8 bits, made once.</summary>
-        public ImageDecodeMap? Widened { get; set; }
+        /// <summary>Gets or sets the Decode mapping of reduced samples widened to 8 bits, made once (images decoded at build only).</summary>
+        public virtual ImageDecodeMap? Widened
+        {
+            get => null;
+            set { }
+        }
 
-        /// <summary>Gets the largest reduction.</summary>
-        public int MaxReduction { get; } = maxReduction;
+        /// <summary>Gets the largest reduction: what the codec's header offers, or any for an image decoded at build.</summary>
+        public int MaxReduction => Encoded is { } encodedImage ? encodedImage.Header.MaxReduction : ImageGeometry.MaxReduction;
 
         /// <summary>Gets one slot per reduction, 0 to the largest, made on first use.</summary>
         public Slot[] Slots => Volatile.Read(ref _slots) ?? CreateSlots();
@@ -544,6 +552,16 @@ public sealed class DisplayImage
 
             return Interlocked.CompareExchange(ref _slots, slots, null) ?? slots;
         }
+    }
+
+    /// <summary>The reduction state of a large image decoded at build: its full decode, and the widened Decode mapping once made.</summary>
+    private sealed class DecodedReductions(DecodedImage samples, ByteBudgetCache<(object Source, int Slot), IBudgetedEntry> cache) : Reductions(null, cache)
+    {
+        /// <inheritdoc/>
+        public override DecodedImage? Samples { get; } = samples;
+
+        /// <inheritdoc/>
+        public override ImageDecodeMap? Widened { get; set; }
     }
 
     /// <summary>The once-gate and the references of one reduction.</summary>
