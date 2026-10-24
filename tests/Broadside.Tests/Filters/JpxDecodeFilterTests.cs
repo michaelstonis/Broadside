@@ -219,7 +219,7 @@ public sealed class JpxDecodeFilterTests
         Assert.True(new JpxDecodeFilter().TryReadHeader(JpxSamples.Vector("Tiled").Data, context, out ImageHeader header));
         Assert.Equal(new ImageHeader(21, 17, 3, 8) { ColorModel = ImageColorModel.Rgb }, header);
         Assert.True(new JpxDecodeFilter().TryReadHeader(JpxSamples.Vector("Signed12").Data, context, out header));
-        Assert.Equal(new ImageHeader(11, 6, 1, 12) { ColorModel = ImageColorModel.Gray }, header);
+        Assert.Equal(new ImageHeader(11, 6, 1, 12) { ColorModel = ImageColorModel.Gray, MaxReduction = 1 }, header);
     }
 
     [Fact]

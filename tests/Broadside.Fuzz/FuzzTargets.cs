@@ -1086,7 +1086,8 @@ internal static class FuzzTargets
     /// <c>jpx-lossless.pdf</c> seeds it in smoke mode), decoded through the image facet with a 2^16-pixel limit and through the
     /// plain filter path; an odd-length input also asks for the opacity channel (SMaskInData). A decoded image must have the size,
     /// channels and alpha its header declares and exactly Stride x Height bytes (its alpha plane too), and without the opacity
-    /// channel the plain path must write those same bytes.
+    /// channel the plain path must write those same bytes; decoded again with 1 to 3 resolution levels dropped (issue #362), it
+    /// must have the header's size divided by 2^d, rounded up, d no more than asked for nor than the header offers.
     /// </summary>
     /// <remarks>ISO 32000-2 §7.4.9; ITU-T T.800 | ISO/IEC 15444-1 Annexes A to G and I.</remarks>
     private static void Jpx(ReadOnlySpan<byte> data)
@@ -1132,6 +1133,23 @@ internal static class FuzzTargets
         if (!output.WrittenSpan.SequenceEqual(image.Samples) && output.WrittenCount != 0)
         {
             throw new InvalidOperationException("JPXDecode's plain filter path wrote other bytes than the image facet decoded.");
+        }
+
+        // Issue #362: dropping resolution levels gives the header's size divided by 2^d (rounded up), d at most what it offers.
+        int asked = 1 + (data.Length % 3);
+        var reducedContext = new ImageFilterContext(new FilterContext { MaxDecodedLength = 1 << 20 }) { MaxPixels = 1 << 16, Reduction = asked };
+        using DecodedImage? reduced = filter.DecodeImage(bytes, reducedContext);
+        if (reduced is null)
+        {
+            return;
+        }
+
+        int d = reduced.Reduction;
+        if (d > Math.Min(asked, header.MaxReduction) || reduced.Width != (int)(((long)header.Width + (1L << d) - 1) >> d)
+            || reduced.Height != (int)(((long)header.Height + (1L << d) - 1) >> d) || reduced.Components != image.Components
+            || reduced.Samples.Length != (long)reduced.Stride * reduced.Height)
+        {
+            throw new InvalidOperationException($"JPXDecode at reduction {d} (asked {asked}, header {header.MaxReduction}) made a {reduced.Width} x {reduced.Height} x {reduced.Components} image from {header.Width} x {header.Height}.");
         }
     }
 
