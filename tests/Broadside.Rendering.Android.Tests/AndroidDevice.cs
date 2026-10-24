@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.IO.Compression;
 using Broadside.GoldenImages;
 using Broadside.Rendering.Android.Device;
 using Broadside.TestSupport;
@@ -11,8 +12,12 @@ namespace Broadside.Rendering.Android.Tests;
 /// built APK on the attached device or emulator over adb, renders the files there, and reads back the results and the pixels.
 /// </summary>
 /// <remarks>
-/// The pixels come back in one <c>adb pull</c> of the output directory, retried after reconnecting: an emulator's adb transport can
-/// drop to "device offline" during a long transfer, which one <c>exec-out</c> per file turned into dozens of failed tests.
+/// The files render in batches of <see cref="BatchSize"/>, one instrumentation run each, and each batch's pixels (gzip-compressed
+/// on the device) are pulled before the next starts, a few files per <c>adb pull</c>. An emulator's adb transport can drop to
+/// "device offline" (issue #344), so the device is checked before every phase, and a pull, install or clear that fails is retried
+/// after reconnecting (<see cref="Adb"/>). An instrumentation run is repeated only when the transport cut it off, never when it
+/// reported a result; when the transport stays down the run fails with <see cref="AdbTransportLostException"/>, the one failure the
+/// CI job retries.
 /// </remarks>
 /// <remarks>
 /// Where it finds things: adb in <c>ANDROID_HOME</c> or <c>ANDROID_SDK_ROOT</c> (<c>platform-tools</c>), the default SDK location on
@@ -29,9 +34,14 @@ internal sealed class AndroidDevice
     /// <summary>Replays per page for the allocation and time measurement.</summary>
     private const int Replays = 20;
 
-    private const int PullAttempts = 3;
+    /// <summary>Corpus files per instrumentation run.</summary>
+    private const int BatchSize = 8;
 
-    private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(10);
+    /// <summary>Pixel files per <c>adb pull</c>.</summary>
+    private const int PullGroup = 16;
+
+    /// <summary>Runs of one batch's instrumentation, when the transport cuts it off.</summary>
+    private const int InstrumentAttempts = 3;
 
     private static readonly Lazy<AndroidDevice> Shared = new(Start);
 
@@ -76,7 +86,7 @@ internal sealed class AndroidDevice
         int height = int.Parse(size[1], CultureInfo.InvariantCulture);
         string path = Path.Combine(_pixels, DeviceProtocol.PixelFile(fileName, page, variant));
         Assert.True(File.Exists(path), $"The device wrote no {DeviceProtocol.PixelFile(fileName, page, variant)}.");
-        byte[] pixels = File.ReadAllBytes(path);
+        byte[] pixels = Decompress(path);
         Assert.True(pixels.Length == width * height * 4, $"{path} holds {pixels.Length} bytes; a {width} x {height} render needs {width * height * 4}.");
         return GoldenImage.FromPixels(pixels, width, height, width * 4, GoldenPixelFormat.Bgra8);
     }
@@ -126,13 +136,13 @@ internal sealed class AndroidDevice
 
     private static AndroidDevice Start()
     {
-        string? adb = FindAdb();
-        if (adb is null)
+        string? adbPath = FindAdb();
+        if (adbPath is null)
         {
             return new AndroidDevice("adb was not found (set ANDROID_HOME or put platform-tools on the PATH).");
         }
 
-        string? serial = FindDevice(adb);
+        string? serial = FindDevice(adbPath);
         if (serial is null)
         {
             return new AndroidDevice("No Android device or emulator is attached (adb devices lists none).");
@@ -144,53 +154,101 @@ internal sealed class AndroidDevice
             return new AndroidDevice("The device app is not built: run 'dotnet build tests/Broadside.Rendering.Android.Device' or set BROADSIDE_ANDROID_APK.");
         }
 
-        Check(RunAdb(adb, ["-s", serial, "install", "-r", "-t", apk]), "install");
-        Check(RunAdb(adb, ["-s", serial, "shell", "rm", "-rf", $"{DeviceProtocol.DeviceFilesDirectory}/{DeviceProtocol.OutputDirectory}"]), "clear");
+        var adb = new Adb(adbPath, serial, Path.Combine(RepositoryRoot, "artifacts", "test-results", "android-adb.log"));
+        adb.Log($"device {serial}, apk {apk}");
+        adb.EnsureReady("install");
+        adb.Retry("install", ["install", "-r", "-t", apk]);
 
-        (byte[] output, int exitCode) = RunAdb(adb, [
-            "-s", serial, "shell", "am", "instrument", "-w",
-            "-e", DeviceProtocol.FilesArgument, string.Join(',', AndroidBackendTests.Files),
-            "-e", DeviceProtocol.UncachedArgument, string.Join(',', AndroidBackendTests.UncachedFiles),
-            "-e", DeviceProtocol.ReplaysArgument, Replays.ToString(CultureInfo.InvariantCulture),
-            $"{DeviceProtocol.Package}/{DeviceProtocol.Instrumentation}",
-        ]);
-        string text = System.Text.Encoding.UTF8.GetString(output);
-        Dictionary<string, string> results = ParseResults(text);
-        if (exitCode != 0 || !text.Contains("INSTRUMENTATION_CODE: -1", StringComparison.Ordinal) || results.ContainsKey(DeviceProtocol.ErrorKey))
+        string remote = $"{DeviceProtocol.DeviceFilesDirectory}/{DeviceProtocol.OutputDirectory}";
+        string pixels = Directory.CreateTempSubdirectory("broadside-android-").FullName;
+        var results = new Dictionary<string, string>(StringComparer.Ordinal);
+        string[][] batches = [.. AndroidBackendTests.Files.Distinct(StringComparer.Ordinal).Chunk(BatchSize)];
+        for (int batch = 0; batch < batches.Length; batch++)
         {
-            throw new InvalidOperationException($"The instrumentation failed on {serial}:{Environment.NewLine}{text}");
+            string phase = $"batch {batch + 1}/{batches.Length}";
+            adb.EnsureReady(phase);
+            adb.Retry($"{phase} clear", ["shell", "rm", "-rf", remote]);
+            foreach ((string key, string value) in Instrument(adb, phase, serial, batches[batch]))
+            {
+                results[key] = value;
+            }
+
+            adb.EnsureReady($"{phase} pull");
+            Pull(adb, phase, remote, pixels);
         }
 
-        return new AndroidDevice(null, results, Pull(adb, serial));
+        adb.Log("done");
+        return new AndroidDevice(null, results, pixels);
     }
 
     /// <summary>
-    /// Copies the app's output directory to a new local directory and returns the copy, reconnecting and retrying when the transfer
-    /// fails.
+    /// Runs the instrumentation over a batch of files and returns its results; runs it again (after recovering the device) only when
+    /// the transport cut it off before it reported a result code, and fails without retrying when the instrumentation itself failed.
     /// </summary>
-    private static string Pull(string adb, string serial)
+    private static Dictionary<string, string> Instrument(Adb adb, string phase, string serial, string[] files)
     {
-        string remote = $"{DeviceProtocol.DeviceFilesDirectory}/{DeviceProtocol.OutputDirectory}";
-        (byte[] Output, int ExitCode) result = default;
-        for (int attempt = 0; attempt < PullAttempts; attempt++)
+        for (int attempt = 1; ; attempt++)
         {
-            if (attempt > 0)
+            if (attempt > 1)
             {
-                RunAdb(adb, ["reconnect", "offline"]);
-                RunAdb(adb, ["-s", serial, "wait-for-device"]);
+                adb.Recover($"{phase} instrument", attempt);
             }
 
-            string local = Directory.CreateTempSubdirectory("broadside-android-").FullName;
-            result = RunAdb(adb, ["-s", serial, "pull", remote, local]);
-            if (result.ExitCode == 0)
+            (byte[] output, int exitCode) = adb.Device([
+                "shell", "am", "instrument", "-w",
+                "-e", DeviceProtocol.FilesArgument, string.Join(',', files),
+                "-e", DeviceProtocol.UncachedArgument, string.Join(',', AndroidBackendTests.UncachedFiles),
+                "-e", DeviceProtocol.ReplaysArgument, Replays.ToString(CultureInfo.InvariantCulture),
+                $"{DeviceProtocol.Package}/{DeviceProtocol.Instrumentation}",
+            ]);
+            string text = System.Text.Encoding.UTF8.GetString(output);
+            if (!text.Contains("INSTRUMENTATION_CODE:", StringComparison.Ordinal))
             {
-                return Path.Combine(local, DeviceProtocol.OutputDirectory);
+                // No result code: am instrument never finished talking to the host, so the transport (not the app) failed.
+                adb.Log($"{phase} instrument: attempt {attempt} cut off ({exitCode}): {text.Trim()}");
+                if (attempt == InstrumentAttempts)
+                {
+                    throw new AdbTransportLostException(
+                        $"{Adb.TransportLostMarker}: the instrumentation of {phase} was cut off {InstrumentAttempts} times ({exitCode}): {text.Trim()} (log: {adb.LogPath})");
+                }
+
+                continue;
             }
+
+            Dictionary<string, string> results = ParseResults(text);
+            if (exitCode != 0 || !text.Contains("INSTRUMENTATION_CODE: -1", StringComparison.Ordinal) || results.ContainsKey(DeviceProtocol.ErrorKey))
+            {
+                throw new InvalidOperationException($"The instrumentation failed on {serial} ({phase}):{Environment.NewLine}{text}");
+            }
+
+            adb.Log($"{phase} instrument: {results.Count} results");
+            return results;
+        }
+    }
+
+    /// <summary>Copies the batch's pixel files from the device's output directory into <paramref name="local"/>, a few per <c>adb pull</c>.</summary>
+    private static void Pull(Adb adb, string phase, string remote, string local)
+    {
+        (byte[] listing, _) = adb.Retry($"{phase} list", ["shell", "ls", "-1", remote]);
+        string[] names = [.. System.Text.Encoding.UTF8.GetString(listing).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+        foreach (string[] group in names.Chunk(PullGroup))
+        {
+            adb.Retry($"{phase} pull", ["pull", .. group.Select(name => $"{remote}/{name}"), local]);
         }
 
-        Check(result, "pull");
-        throw new UnreachableException();
+        adb.Log($"{phase} pull: {names.Length} files");
     }
+
+    private static byte[] Decompress(string path)
+    {
+        using FileStream file = File.OpenRead(path);
+        using var pixels = new GZipStream(file, CompressionMode.Decompress);
+        using var buffer = new MemoryStream();
+        pixels.CopyTo(buffer);
+        return buffer.ToArray();
+    }
+
+    private static string RepositoryRoot => Path.GetFullPath(Path.Combine(Corpus.Directory, "..", ".."));
 
     /// <summary>Reads the <c>INSTRUMENTATION_RESULT: key=value</c> lines <c>am instrument</c> prints for the finishing bundle.</summary>
     private static Dictionary<string, string> ParseResults(string text)
@@ -251,7 +309,7 @@ internal sealed class AndroidDevice
             return serial;
         }
 
-        (byte[] output, int exitCode) = RunAdb(adb, ["devices"]);
+        (byte[] output, int exitCode) = RunAdb(adb, ["devices"], TimeSpan.FromMinutes(1));
         if (exitCode != 0)
         {
             return null;
@@ -276,21 +334,14 @@ internal sealed class AndroidDevice
             return File.Exists(apk) ? apk : null;
         }
 
-        string output = Path.GetFullPath(Path.Combine(Corpus.Directory, "..", "..", "artifacts", "bin", "Broadside.Rendering.Android.Device"));
+        string output = Path.Combine(RepositoryRoot, "artifacts", "bin", "Broadside.Rendering.Android.Device");
         return Directory.Exists(output)
             ? Directory.EnumerateFiles(output, "*-Signed.apk", SearchOption.AllDirectories).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault()
             : null;
     }
 
-    private static void Check((byte[] Output, int ExitCode) result, string step)
-    {
-        if (result.ExitCode != 0)
-        {
-            throw new InvalidOperationException($"adb {step} failed ({result.ExitCode}): {System.Text.Encoding.UTF8.GetString(result.Output)}");
-        }
-    }
-
-    private static (byte[] Output, int ExitCode) RunAdb(string adb, IReadOnlyList<string> arguments)
+    /// <summary>Runs adb and returns what it printed (standard error appended when it failed) and its exit code; -1 when it timed out.</summary>
+    internal static (byte[] Output, int ExitCode) RunAdb(string adb, IReadOnlyList<string> arguments, TimeSpan timeout)
     {
         var start = new ProcessStartInfo(adb)
         {
@@ -312,10 +363,10 @@ internal sealed class AndroidDevice
             return buffer.ToArray();
         });
         Task<string> error = process.StandardError.ReadToEndAsync();
-        if (!process.WaitForExit(Timeout) || !output.Wait(Timeout))
+        if (!process.WaitForExit(timeout) || !output.Wait(timeout))
         {
             process.Kill(entireProcessTree: true);
-            throw new TimeoutException($"adb {string.Join(' ', arguments)} did not finish within {Timeout}.");
+            return (System.Text.Encoding.UTF8.GetBytes($"adb {string.Join(' ', arguments)} did not finish within {timeout}."), -1);
         }
 
         byte[] bytes = output.GetAwaiter().GetResult();
