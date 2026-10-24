@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using Broadside.Diagnostics;
+using Broadside.Layout;
 using Broadside.Objects;
 using Broadside.TestSupport;
 
@@ -104,6 +105,36 @@ public sealed class FirstPageFirstTests
         Assert.All(server.Requests.Skip(opened), request => Assert.True(
             allowed.Any(range => range.Contains(request)),
             $"{request} lies outside the last page's hinted range and its shared objects: {server}"));
+    }
+
+    [Theory]
+    [InlineData(PdfCrossReferenceLayout.Table)]
+    [InlineData(PdfCrossReferenceLayout.Stream)]
+    public async Task A_hinted_page_finds_its_index_and_extracts_its_layout_without_the_page_tree(PdfCrossReferenceLayout layout)
+    {
+        // Issue #410: the layout (the browser viewer's text selection and accessibility) asks the page collection for the page's
+        // index. Walking the page tree for it needs the main cross-reference section at the end of the file, which a browser
+        // cannot fetch synchronously, so the viewer reported a PdfRangeNotLoadedException for every page of a remote linearized file.
+        (byte[] file, Layout parts) = LargeLinearized(layout);
+        using var server = new RangeServer(file);
+        using HttpClient client = server.CreateClient();
+        using PdfDocument document = await PdfDocument.OpenAsync(client, FileUri, new PdfOptions().WithSynchronousRangeFetch(false), TestContext.Current.CancellationToken);
+
+        foreach (int index in (int[])[0, 1, PageCount - 1])
+        {
+            PdfPage page = await document.Pages.PrefetchAsync(index, TestContext.Current.CancellationToken);
+            await page.PrefetchAsync(TestContext.Current.CancellationToken);
+            int fetched = server.Requests.Count;
+
+            Assert.Equal(index, document.Pages.IndexOf(page));
+            LayoutPage laidOut = Assert.Single(page.ExtractLayout().Pages);
+            Assert.Equal(index, laidOut.PageIndex);
+            Assert.Contains(string.Create(CultureInfo.InvariantCulture, $"Page {index + 1}"), laidOut.Text.Text, StringComparison.Ordinal);
+            Assert.Equal(fetched, server.Requests.Count); // what the page's prefetch fetched is all its layout needs
+        }
+
+        Assert.Empty(document.Diagnostics);
+        Assert.False(server.AnyServed(RoundUp(parts.MainCrossReference), file.Length), $"The main cross-reference section was fetched: {server}");
     }
 
     [Theory]

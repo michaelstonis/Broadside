@@ -297,8 +297,13 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
     /// <summary>Returns the index of the page whose page object is <paramref name="page"/>, or -1 when no page has it.</summary>
     /// <param name="page">A page object, as resolved through the document (resolving returns the same instance every time).</param>
     /// <returns>The 0-based index, or -1.</returns>
-    /// <remarks>For destinations (§12.3.2.2) and any other object that refers to a page. Built once per page list.</remarks>
-    internal int IndexOf(CosDictionary page) => Current.Indexes.TryGetValue(page, out int index) ? index : -1;
+    /// <remarks>
+    /// For destinations (§12.3.2.2) and any other object that refers to a page. Built once per page list. While the hint tables
+    /// locate the pages (a linearized remote file), a page they handed out is found without reading the page tree, which would
+    /// need the file's main cross-reference section and every node of the tree (F.3.7: the hints give the pages in page order).
+    /// </remarks>
+    internal int IndexOf(CosDictionary page) =>
+        TryGetHintedIndex(page, out int hinted) ? hinted : Current.Indexes.TryGetValue(page, out int index) ? index : -1;
 
     /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
@@ -306,6 +311,12 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
     /// <summary>Finds the page whose page object is <paramref name="pageObject"/> (by identity), for references such as a structure element's <c>Pg</c>.</summary>
     internal bool TryGetPage(CosDictionary pageObject, [MaybeNullWhen(false)] out PdfPage page)
     {
+        if (TryGetHintedIndex(pageObject, out int hinted) && _hinted!.Get(hinted) is { } found)
+        {
+            page = found;
+            return true;
+        }
+
         PageList current = Current;
         if (current.Indexes.TryGetValue(pageObject, out int index))
         {
@@ -315,6 +326,13 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
 
         page = null;
         return false;
+    }
+
+    /// <summary>The index of a page the hint tables handed out, while they are in use.</summary>
+    private bool TryGetHintedIndex(CosDictionary pageObject, out int index)
+    {
+        index = -1;
+        return HintedCount is not null && _hinted!.TryGetIndex(pageObject, out index);
     }
 
     private static CosNumber Number(double value) =>

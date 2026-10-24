@@ -15,15 +15,20 @@ public sealed class RemoteFirstPageTests(BrowserHost host)
     private const int PageCount = 30;
     private const int PagePadding = 40 * 1024;
 
-    [Fact]
-    public async Task Page_one_of_a_remote_linearized_file_shows_before_the_download_completes()
+    [Theory]
+    [InlineData("chromium")]
+    [InlineData("webkit")]
+    [InlineData("firefox")]
+    public async Task Page_one_of_a_remote_linearized_file_shows_before_the_download_completes(string browserName)
     {
         BrowserHost.RequireApp();
+        IBrowser browser = await host.GetBrowserAsync(browserName);
         (byte[] file, long firstPageEnd) = LargeLinearized();
-        HostedDocument document = host.Serve("large-linearized.pdf", file, gateFrom: firstPageEnd);
-        await using IBrowserContext context = await host.Browser.NewContextAsync(new BrowserNewContextOptions { ViewportSize = new ViewportSize { Width = 1000, Height = 800 } });
+        string name = $"large-linearized-{browserName}.pdf";
+        HostedDocument document = host.Serve(name, file, gateFrom: firstPageEnd);
+        await using IBrowserContext context = await browser.NewContextAsync(new BrowserNewContextOptions { ViewportSize = new ViewportSize { Width = 1000, Height = 800 } });
         IPage page = await context.NewPageAsync();
-        await page.GotoAsync(new Uri(host.AppAddress, "?file=../files/large-linearized.pdf").ToString());
+        await page.GotoAsync(new Uri(host.AppAddress, $"?file=../files/{name}").ToString());
 
         await page.WaitForFunctionAsync(
             "() => { const v = document.querySelector('.bs-viewer'); return v && Number(v.dataset.tilesPresented) > 0 && Number(v.dataset.pageCount) > 0; }",
@@ -32,11 +37,21 @@ public sealed class RemoteFirstPageTests(BrowserHost host)
         int dark = await page.EvaluateAsync<int>(Viewer.CountDarkPixels);
         long served = Interlocked.Read(ref document.Served);
         Viewer.Log(
-            $"file {file.Length} B, first page ends at {firstPageEnd}, served {served} B before page 1 showed; {Volatile.Read(ref document.Held)} request(s) held");
+            $"{browserName}: file {file.Length} B, first page ends at {firstPageEnd}, served {served} B before page 1 showed; {Volatile.Read(ref document.Held)} request(s) held");
 
         Assert.Equal(PageCount.ToString(CultureInfo.InvariantCulture), await Viewer.Data(page, "pageCount"));
         Assert.True(dark > 0, "page 1 has ink on the canvas");
         Assert.True(served < file.Length / 2, $"served {served} of {file.Length} bytes");
+
+        // Page 1's text layer (its selectable text and accessible tree) loads from the first-page section too, while the rest of the
+        // file is still held, and without an error: reading a page's layout used to walk the page tree, which needs the main
+        // cross-reference section at the end of the file (#410). The sample showed that error as a message above the viewer, whose
+        // resize then stopped the jump to the last page below, at whatever page it had reached.
+        await page.WaitForFunctionAsync(
+            "() => document.querySelector('.bs-a11y section') !== null || document.querySelector('.message') !== null",
+            null,
+            new PageWaitForFunctionOptions { Timeout = 60_000 });
+        Assert.Null(await page.EvaluateAsync<string?>("() => document.querySelector('.message')?.innerText ?? null"));
 
         // The rest of the file arrives once the gate opens: the last page becomes reachable.
         document.Release();
@@ -52,7 +67,8 @@ public sealed class RemoteFirstPageTests(BrowserHost host)
         }
 
         await page.WaitForTimeoutAsync(1500);
-        await Viewer.LogFramesAsync(page, "remote 30-page linearized file");
+        await Viewer.LogFramesAsync(page, $"remote 30-page linearized file ({browserName})");
+        Assert.Null(await page.EvaluateAsync<string?>("() => document.querySelector('.message')?.innerText ?? null"));
     }
 
     /// <summary>

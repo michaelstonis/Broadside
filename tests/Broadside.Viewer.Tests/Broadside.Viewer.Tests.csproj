@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <Compile Include="../Broadside.Tests/Document/RangeServer.cs" Link="Shared/RangeServer.cs" />
+    <Compile Include="../Broadside.Tests/Document/TestPdf.cs" Link="Shared/TestPdf.cs" />
   </ItemGroup>
 
 </Project>
