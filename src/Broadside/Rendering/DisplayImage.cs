@@ -157,14 +157,14 @@ public sealed class DisplayImage
         ArgumentOutOfRangeException.ThrowIfNegative(reduction);
         if (_source is DecodedImage decodedAtBuild)
         {
-            return new DisplayImageSamples(decodedAtBuild, decodedAtBuild.Width, decodedAtBuild.Height, DecodeMap);
+            return new DisplayImageSamples(decodedAtBuild, decodedAtBuild.Width, decodedAtBuild.Height);
         }
 
         var reductions = (Reductions)_source;
         int wanted = Math.Min(reduction, reductions.MaxReduction);
         if (reductions.Samples is { } whole && wanted == 0)
         {
-            return new DisplayImageSamples(whole, whole.Width, whole.Height, DecodeMap);
+            return new DisplayImageSamples(whole, whole.Width, whole.Height);
         }
 
         if (reductions.Failed)
@@ -214,7 +214,7 @@ public sealed class DisplayImage
                 slot.Alias = true;
             }
 
-            return new DisplayImageSamples(decoded, Width, Height, MapFor(decoded));
+            return new DisplayImageSamples(decoded, Width, Height);
         }
     }
 
@@ -294,6 +294,16 @@ public sealed class DisplayImage
 
         return reduction;
     }
+
+    /// <summary>
+    /// Returns the mapping from the raw values of <paramref name="samples"/> (from <see cref="GetSamplesAt(int)"/>) to colour
+    /// components: <see cref="DecodeMap"/>, at 8 bits when a reduction turned samples of fewer bits (a 1-bit scan, a 4-bit image)
+    /// into 8-bit averages.
+    /// </summary>
+    /// <param name="samples">Samples of this image.</param>
+    /// <returns>The mapping; the same instance on every call for samples of the same depth.</returns>
+    /// <remarks>ISO 32000-2 §8.9.5.2, Table 88: linear, so the mean of raw values maps to the mean of their component values.</remarks>
+    public ImageDecodeMap DecodeMapFor(DisplayImageSamples samples) => MapFor(samples.Decoded);
 
     /// <summary>The Decode mapping of reduced samples: the image's, at 8 bits when the reduction widened samples of fewer.</summary>
     private ImageDecodeMap MapFor(DecodedImage decoded)
@@ -464,7 +474,7 @@ public sealed class DisplayImage
         Slot slot = reductions.Slots[reduction];
         if (slot.Strong is { } strong)
         {
-            return new DisplayImageSamples(strong, Width, Height, MapFor(strong));
+            return new DisplayImageSamples(strong, Width, Height);
         }
 
         if (!slot.Weak.TryGetTarget(out DecodedImage? samples))
@@ -478,7 +488,7 @@ public sealed class DisplayImage
             Keep(reductions, samples.Reduction, samples);
         }
 
-        return new DisplayImageSamples(samples, Width, Height, MapFor(samples));
+        return new DisplayImageSamples(samples, Width, Height);
     }
 
     /// <summary>Offers the samples to the document's image cache, and holds them here when the cache will not keep them.</summary>

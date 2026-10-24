@@ -35,11 +35,11 @@ internal sealed class ImageSource : IDisposable
     private byte[] _alpha = [];
     private float[] _alphaValues = [];
     private DisplayImageSamples _samples;
-
-    // The soft mask folded into the samples converted last, if any; at their reduction, so its samples are a function of it.
-    private DisplayImage? _soft;
     private PdfColorConverter? _converter;
     private PixelModel _model;
+
+    // Whether the image's soft mask was folded into the samples converted last (at their reduction, so given by them and the image).
+    private bool _folded;
 
     /// <summary>Gets the converted pixels, <see cref="Width"/> × <see cref="Height"/>, rows top to bottom.</summary>
     public ReadOnlySpan<uint> Pixels => _pixels.AsSpan(0, Width * Height);
@@ -76,7 +76,7 @@ internal sealed class ImageSource : IDisposable
     /// <param name="soft">The soft mask's samples when they are folded in: the soft mask has the image's size and these are at the samples' reduction (<see cref="FoldsSoftMask"/>); otherwise <see langword="null"/>.</param>
     public void Prepare(DisplayImage image, DisplayImageSamples samples, DisplayImageSamples? soft, PdfColorConverter converter, PdfColorConverter? baseConverter = null, PixelModel model = default)
     {
-        if (samples == _samples && ReferenceEquals(soft is null ? null : image.SoftMask, _soft) && ReferenceEquals(converter, _converter) && model == _model)
+        if (samples == _samples && (soft is not null) == _folded && ReferenceEquals(converter, _converter) && model == _model)
         {
             return;
         }
@@ -92,7 +92,7 @@ internal sealed class ImageSource : IDisposable
 
         PdfColorSpace space = image.ColorSpace;
         var indexed = space as PdfIndexedColorSpace;
-        ImageDecodeMap map = samples.DecodeMap;
+        ImageDecodeMap map = image.DecodeMapFor(samples);
         Span<ComponentRange> ranges = stackalloc ComponentRange[components];
         for (int c = 0; c < components; c++)
         {
@@ -105,6 +105,7 @@ internal sealed class ImageSource : IDisposable
         bool matte = foldSoft && !image.Matte.IsEmpty
             && (indexed is null ? image.Matte.Length == components : baseConverter is not null && image.Matte.Length == indexed.Base.ComponentCount);
         bool alpha = foldSoft || foldMask || colorKey;
+        ImageDecodeMap? softMap = foldSoft ? image.SoftMask!.DecodeMapFor(soft!.Value) : null;
 
         RowKind kind = matte ? (indexed is null ? RowKind.Values : RowKind.TableValues)
             : indexed is not null ? RowKind.Indices
@@ -148,7 +149,7 @@ internal sealed class ImageSource : IDisposable
 
             if (foldSoft)
             {
-                MaskSource.SoftRow(soft!.Value, y, opacity, _raw.AsSpan(values, width), _alphaValues.AsSpan(0, width));
+                MaskSource.SoftRow(soft!.Value, softMap!, y, opacity, _raw.AsSpan(values, width), _alphaValues.AsSpan(0, width));
             }
             else if (foldMask)
             {
@@ -218,7 +219,7 @@ internal sealed class ImageSource : IDisposable
         Width = width;
         Height = height;
         _samples = samples;
-        _soft = soft is null ? null : image.SoftMask;
+        _folded = soft is not null;
         _converter = converter;
         _model = model;
     }
@@ -227,7 +228,7 @@ internal sealed class ImageSource : IDisposable
     public void Forget()
     {
         _samples = default;
-        _soft = null;
+        _folded = false;
         _converter = null;
     }
 

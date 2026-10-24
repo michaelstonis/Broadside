@@ -61,8 +61,9 @@ public sealed class RowReductionRenderingTests
         }
 
         Assert.Equal((byte)(((ones * 255) + 32) / 64), reduced.Samples[0]);
-        Assert.Equal(1f, reduced.DecodeMap.Map(0, 0));
-        Assert.Equal(0f, reduced.DecodeMap.Map(0, 255));
+        Assert.Equal(1f, image.DecodeMapFor(reduced).Map(0, 0));
+        Assert.Equal(0f, image.DecodeMapFor(reduced).Map(0, 255));
+        Assert.Same(image.DecodeMapFor(reduced), image.DecodeMapFor(reduced));
     }
 
     [Theory]
