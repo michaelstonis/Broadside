@@ -19,8 +19,8 @@ namespace Broadside.Rendering;
 /// values are equal when they view the same samples. The default value views nothing and must not be read.
 /// </para>
 /// <para>
-/// The samples are raw values like the image's (<see cref="DisplayImage.DecodeMap"/> applies to them), averaged in the codec's own
-/// space before any colour conversion. Immutable; safe to read from any number of threads. A backend may key a per-surface cache
+/// The samples are raw values like the image's (<see cref="DisplayImage.DecodeMapFor"/> gives the mapping that applies to them),
+/// averaged in the codec's own space, or the samples' own for an image decoded when its list was built, before any colour conversion. Immutable; safe to read from any number of threads. A backend may key a per-surface cache
 /// on the value (its samples are kept while anything holds them).
 /// </para>
 /// </remarks>

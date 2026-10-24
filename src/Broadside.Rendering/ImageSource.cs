@@ -38,24 +38,29 @@ internal sealed class ImageSource : IDisposable
     private PdfColorConverter? _converter;
     private PixelModel _model;
 
+    // Whether the soft mask was folded into the samples converted last: for the same samples it can differ, when a finer
+    // reduction of the soft mask was at hand the first time and not the next. The size comes from the samples, so the source is
+    // no larger than before reductions (every software render has one).
+    private bool _folded;
+
     /// <summary>Gets the converted pixels, <see cref="Width"/> × <see cref="Height"/>, rows top to bottom.</summary>
     public ReadOnlySpan<uint> Pixels => _pixels.AsSpan(0, Width * Height);
 
     /// <summary>Gets the pooled array behind <see cref="Pixels"/>, possibly longer.</summary>
     public uint[] Buffer => _pixels;
 
-    /// <summary>Gets the width of the image converted last.</summary>
-    public int Width { get; private set; }
+    /// <summary>Gets the width of the image converted last; 0 when none is remembered.</summary>
+    public int Width => _samples == default ? 0 : _samples.Width;
 
-    /// <summary>Gets the height of the image converted last.</summary>
-    public int Height { get; private set; }
+    /// <summary>Gets the height of the image converted last; 0 when none is remembered.</summary>
+    public int Height => _samples == default ? 0 : _samples.Height;
 
     /// <summary>
     /// Whether the image's soft mask has the size of the samples painted, at the image's own resolution, so that its opacity is
     /// folded into the converted pixels; a mask of a reduced image is resampled on its own grid (#362).
     /// </summary>
-    public static bool FoldsSoftMask(DisplayImage image, DisplayImageSamples samples) =>
-        samples.Reduction == 0 && image.SoftMask is { } soft && soft.Width == samples.Width && soft.Height == samples.Height;
+    public static bool FoldsSoftMask(DisplayImage image, DisplayImageSamples samples, DisplayImageSamples? soft) =>
+        soft is { } folded && image.SoftMask is { } mask && mask.Width == image.Width && mask.Height == image.Height && folded.Reduction == samples.Reduction;
 
     /// <summary>Whether the image's explicit mask has the size of the samples painted, at the image's own resolution, so that it is folded into the converted pixels.</summary>
     public static bool FoldsMask(DisplayImage image, DisplayImageSamples samples) =>
@@ -70,9 +75,10 @@ internal sealed class ImageSource : IDisposable
     /// table's colours); otherwise unused.
     /// </param>
     /// <param name="model">What the pixels hold: RGB, or a transparency group's gray or CMYK plane; the converters convert to its target.</param>
-    public void Prepare(DisplayImage image, DisplayImageSamples samples, PdfColorConverter converter, PdfColorConverter? baseConverter = null, PixelModel model = default)
+    /// <param name="soft">The soft mask's samples when they are folded in: the soft mask has the image's size and these are at the samples' reduction (<see cref="FoldsSoftMask"/>); otherwise <see langword="null"/>.</param>
+    public void Prepare(DisplayImage image, DisplayImageSamples samples, DisplayImageSamples? soft, PdfColorConverter converter, PdfColorConverter? baseConverter = null, PixelModel model = default)
     {
-        if (samples == _samples && ReferenceEquals(converter, _converter) && model == _model)
+        if (samples == _samples && (soft is not null) == _folded && ReferenceEquals(converter, _converter) && model == _model)
         {
             return;
         }
@@ -88,19 +94,20 @@ internal sealed class ImageSource : IDisposable
 
         PdfColorSpace space = image.ColorSpace;
         var indexed = space as PdfIndexedColorSpace;
-        ImageDecodeMap map = image.DecodeMap;
+        ImageDecodeMap map = image.DecodeMapFor(samples);
         Span<ComponentRange> ranges = stackalloc ComponentRange[components];
         for (int c = 0; c < components; c++)
         {
             ranges[c] = space.GetComponentRange(c);
         }
 
-        bool foldSoft = FoldsSoftMask(image, samples);
+        bool foldSoft = FoldsSoftMask(image, samples, soft);
         bool foldMask = FoldsMask(image, samples);
         bool colorKey = !image.ColorKey.IsEmpty;
         bool matte = foldSoft && !image.Matte.IsEmpty
             && (indexed is null ? image.Matte.Length == components : baseConverter is not null && image.Matte.Length == indexed.Base.ComponentCount);
         bool alpha = foldSoft || foldMask || colorKey;
+        ImageDecodeMap? softMap = foldSoft ? image.SoftMask!.DecodeMapFor(soft!.Value) : null;
 
         RowKind kind = matte ? (indexed is null ? RowKind.Values : RowKind.TableValues)
             : indexed is not null ? RowKind.Indices
@@ -144,7 +151,7 @@ internal sealed class ImageSource : IDisposable
 
             if (foldSoft)
             {
-                MaskSource.SoftRow(image.SoftMask!, y, opacity, _raw.AsSpan(values, width), _alphaValues.AsSpan(0, width));
+                MaskSource.SoftRow(soft!.Value, softMap!, y, opacity, _raw.AsSpan(values, width), _alphaValues.AsSpan(0, width));
             }
             else if (foldMask)
             {
@@ -211,9 +218,8 @@ internal sealed class ImageSource : IDisposable
             }
         }
 
-        Width = width;
-        Height = height;
         _samples = samples;
+        _folded = soft is not null;
         _converter = converter;
         _model = model;
     }
@@ -237,8 +243,6 @@ internal sealed class ImageSource : IDisposable
         Pooled.Return(ref _rgb);
         Pooled.Return(ref _alpha);
         Pooled.Return(ref _alphaValues);
-        Width = 0;
-        Height = 0;
     }
 
     /// <summary>Rounds <paramref name="value"/> / 255 for 0 ≤ value ≤ 255 × 255.</summary>

@@ -319,7 +319,7 @@ public sealed class ScaledImageDecodeTests
     [Theory]
     [InlineData("Separation", 1, 1)]
     [InlineData("Indexed", 1, 0)]
-    [InlineData("CalRGB", 3, 2)]
+    [InlineData("CalRGB", 3, 1)]
     [InlineData("Lab", 3, 1)]
     [InlineData("DeviceCMYK", 4, 1)]
     [InlineData("DeviceGray", 1, 3)]

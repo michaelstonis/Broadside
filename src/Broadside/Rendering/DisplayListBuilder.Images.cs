@@ -194,7 +194,7 @@ internal sealed partial class DisplayListBuilder
                 return null;
             }
 
-            MaskParts parts = DecodeMasks(model, null, space, cancellationToken);
+            MaskParts parts = DecodeMasks(model, null, space, document.Caches.Images, cancellationToken);
             return new DisplayImage(encoded, document.Caches.Images, space, model.CreateDecodeMapFor(space.ComponentCount, encoded.Header.BitsPerComponent, inverted: false), model.Interpolate)
             {
                 Mask = parts.Mask,
@@ -216,8 +216,8 @@ internal sealed partial class DisplayListBuilder
                 return null;
             }
 
-            MaskParts mask = DecodeMasks(model, decoded, space, cancellationToken);
-            var image = new DisplayImage(decoded, space, model.CreateDecodeMap(decoded), model.Interpolate)
+            MaskParts mask = DecodeMasks(model, decoded, space, document.Caches.Images, cancellationToken);
+            var image = new DisplayImage(decoded, space, model.CreateDecodeMap(decoded), model.Interpolate, document.Caches.Images)
             {
                 Mask = mask.Mask,
                 SoftMask = mask.SoftMask,
@@ -249,7 +249,7 @@ internal sealed partial class DisplayListBuilder
     /// key), §11.6.5.2 (soft mask and Matte), §7.4.9 and Table 87 (SMaskInData: 1 opacity, 2 opacity premultiplied into the
     /// colour, which is a Matte of zeros). An unusable mask leaves the image unmasked; its reason is already a diagnostic.
     /// </remarks>
-    private static MaskParts DecodeMasks(PdfImage model, DecodedImage? decoded, PdfColorSpace space, CancellationToken cancellationToken)
+    private static MaskParts DecodeMasks(PdfImage model, DecodedImage? decoded, PdfColorSpace space, ByteBudgetCache<(object Source, int Slot), IBudgetedEntry> cache, CancellationToken cancellationToken)
     {
         switch (model.MaskKind)
         {
@@ -257,11 +257,11 @@ internal sealed partial class DisplayListBuilder
                 return new MaskParts(DecodeMask(explicitMask, cancellationToken), null, [], []);
             case PdfImageMaskKind.ColorKey when model.ColorKey is { } ranges:
                 return new MaskParts(null, null, [.. ranges], []);
-            case PdfImageMaskKind.Soft when model.Mask is { } softMask && DecodeSoftMask(softMask, cancellationToken) is { } soft:
+            case PdfImageMaskKind.Soft when model.Mask is { } softMask && DecodeSoftMask(softMask, cache, cancellationToken) is { } soft:
                 return new MaskParts(null, soft, [], model.Matte is { } matte ? [.. matte.Select(static m => (float)m)] : []);
             case PdfImageMaskKind.SoftInData when decoded?.Alpha is { } alpha:
                 int components = space is PdfIndexedColorSpace indexed ? indexed.Base.ComponentCount : space.ComponentCount;
-                var opacity = new DisplayImage(alpha, PdfDeviceGrayColorSpace.Instance, ImageDecodeMap.Create([0, 1], 1, alpha.BitsPerComponent), model.Interpolate);
+                var opacity = new DisplayImage(alpha, PdfDeviceGrayColorSpace.Instance, ImageDecodeMap.Create([0, 1], 1, alpha.BitsPerComponent), model.Interpolate, cache);
                 return new MaskParts(null, opacity, [], model.SoftMaskInData == 2 || decoded!.AlphaPremultiplied ? new float[components] : []);
             default:
                 return new MaskParts(null, null, [], []);
@@ -292,7 +292,7 @@ internal sealed partial class DisplayListBuilder
 
     /// <summary>Decodes a soft-mask image at its own size, as a one-component image whose Decode mapping gives the opacity.</summary>
     /// <returns>The soft mask, or <see langword="null"/> when it cannot be decoded (already a diagnostic) or has more than one component.</returns>
-    private static DisplayImage? DecodeSoftMask(PdfImage model, CancellationToken cancellationToken)
+    private static DisplayImage? DecodeSoftMask(PdfImage model, ByteBudgetCache<(object Source, int Slot), IBudgetedEntry> cache, CancellationToken cancellationToken)
     {
         DecodedImage? decoded = model.DecodeSamples(cancellationToken);
         try
@@ -302,7 +302,7 @@ internal sealed partial class DisplayListBuilder
                 return null;
             }
 
-            var soft = new DisplayImage(decoded, PdfDeviceGrayColorSpace.Instance, model.CreateDecodeMap(decoded), model.Interpolate);
+            var soft = new DisplayImage(decoded, PdfDeviceGrayColorSpace.Instance, model.CreateDecodeMap(decoded), model.Interpolate, cache);
             decoded = null;
             return soft;
         }

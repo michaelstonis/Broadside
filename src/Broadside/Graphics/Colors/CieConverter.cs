@@ -44,10 +44,6 @@ internal sealed class CieConverter : IColorConverter
     /// <inheritdoc/>
     public int InputCount { get; }
 
-    /// <summary>Gets a value indicating whether the conversion is a gamma tone curve and a matrix (CalGray, CalRGB), not Lab's cube roots.</summary>
-    /// <remarks>ISO 32000-2 §8.6.5.2 and §8.6.5.3.</remarks>
-    public bool IsToneCurve => _family is PdfColorSpaceFamily.CalGray or PdfColorSpaceFamily.CalRgb;
-
     /// <inheritdoc/>
     public int OutputCount { get; }
 
