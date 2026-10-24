@@ -220,6 +220,48 @@ public sealed class DocumentSessionTests
         Assert.True(session.TryGetPageMetrics(1, out _));
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(29)]
+    public async Task A_remote_linearized_page_loads_its_links_text_and_accessible_tree_without_synchronous_fetches(int pageIndex)
+    {
+        // Issue #410: in the browser, a remote linearized file's text and accessibility loads asked for the page's index through the
+        // page tree, which needs the main cross-reference section at the end of the file: every page's load failed with a
+        // PdfRangeNotLoadedException, which the Blazor sample showed as a message (and the message's resize stopped a scroll).
+        // The pages are padded so that the file is far larger than the first request: the main cross-reference section stays unread.
+        var objects = new List<string>
+        {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [" + string.Join(' ', Enumerable.Range(0, 30).Select(static page => $"{4 + (2 * page)} 0 R")) + "] /Count 30 >>",
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+        };
+        for (int i = 0; i < 30; i++)
+        {
+            objects.Add($"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents {5 + (2 * i)} 0 R >>");
+            string content = $"BT /F1 36 Tf 72 560 Td (Page {i + 1}) Tj ET\n" + string.Concat(Enumerable.Repeat("%" + new string('x', 78) + "\n", 400));
+            objects.Add($"<< /Length {content.Length} >>\nstream\n{content}\nendstream");
+        }
+
+        using PdfDocument source = PdfDocument.Open(new TestPdf().Build([.. objects]));
+        using var linearized = new MemoryStream();
+        await source.SaveAsync(linearized, new PdfSaveOptions().WithLinearize(true).WithStreamCompression(PdfStreamCompression.None), Token);
+        using var server = new RangeServer(linearized.ToArray());
+        using HttpClient client = server.CreateClient();
+        var options = new ViewerOptions().WithThreading(ViewerThreading.Cooperative).UseEngine(new PdfEngine(new PdfOptions().WithSynchronousRangeFetch(false)));
+        await using DocumentSession session = await DocumentSession.OpenAsync(client, new Uri("https://example.test/many.pdf"), options, Token);
+
+        await new AnnotationLayer(session).LoadPageAsync(pageIndex, Token);
+        SelectableText text = await new TextSelection(session).LoadPageAsync(pageIndex, Token);
+        AccessibleNode page = await new AccessibilityBridge(session).LoadPageAsync(pageIndex, Token);
+
+        Assert.True(session.Document.IsLinearized);
+        Assert.Equal(pageIndex, session.Document.Pages.IndexOf(text.Page));
+        Assert.Contains($"Page {pageIndex + 1}", text.Page.ExtractText().Text, StringComparison.Ordinal);
+        Assert.Equal(pageIndex, page.PageIndex);
+        Assert.Empty(session.Document.Diagnostics);
+    }
+
     [Fact]
     public async Task Invalid_tiles_and_pages_are_refused()
     {
