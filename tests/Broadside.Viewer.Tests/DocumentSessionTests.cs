@@ -262,6 +262,36 @@ public sealed class DocumentSessionTests
         Assert.Empty(session.Document.Diagnostics);
     }
 
+    [Theory]
+    [InlineData(ViewerThreading.Cooperative)]
+    [InlineData(ViewerThreading.Background)]
+    public async Task A_remote_linearized_tagged_page_loads_its_accessible_tree_and_links_without_synchronous_fetches(ViewerThreading threading)
+    {
+        // Issue #417: the structure tree of a linearized file lies after its pages (Annex F, F.3.10), so a page's prefetch does not
+        // reach it, and its elements' Pg entries named pages the hints had not handed out, which walked the page tree. In the browser
+        // both needed the main cross-reference section at the end of the file synchronously, and the page's load failed.
+        using var server = new RangeServer(TaggedLinearizedFile.Create());
+        using HttpClient client = server.CreateClient();
+        var options = new ViewerOptions().WithThreading(threading).UseEngine(new PdfEngine(new PdfOptions().WithSynchronousRangeFetch(false)));
+        await using DocumentSession session = await DocumentSession.OpenAsync(client, new Uri("https://example.test/tagged.pdf"), options, Token);
+        var bridge = new AccessibilityBridge(session);
+        var layer = new AnnotationLayer(session);
+
+        foreach (int pageIndex in TaggedLinearizedFile.StructurePages)
+        {
+            AccessibleNode page = await bridge.LoadPageAsync(pageIndex, Token);
+            SelectableText text = await new TextSelection(session).LoadPageAsync(pageIndex, Token);
+            Assert.Equal(pageIndex, page.PageIndex);
+            Assert.Equal(pageIndex, session.Document.Pages.IndexOf(text.Page));
+        }
+
+        // The link on page 1 goes to page 25, which no load has handed out: its page comes from the hints.
+        await layer.LoadPageAsync(0, Token);
+        var link = (Annotations.PdfLinkAnnotation)session.Document.Pages[0].Annotations[0];
+        Assert.Equal(TaggedLinearizedFile.LinkedPage, Assert.IsType<PdfExplicitDestination>(link.Destination).PageIndex);
+        Assert.Empty(session.Document.Diagnostics);
+    }
+
     [Fact]
     public async Task Invalid_tiles_and_pages_are_refused()
     {

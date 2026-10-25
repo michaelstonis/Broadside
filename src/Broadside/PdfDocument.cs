@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using Broadside.Annotations;
@@ -643,6 +644,12 @@ public sealed partial class PdfDocument : IDisposable
     /// resolve to (§7.3.10); live-view caches built from many containers record it with their <c>Version</c>s.
     /// </summary>
     internal int ObjectsVersion => _loader.ObjectsVersion;
+
+    /// <summary>Returns the object <paramref name="reference"/> refers to when it has already been loaded, without reading the file.</summary>
+    /// <param name="reference">The reference.</param>
+    /// <param name="value">The loaded object.</param>
+    /// <returns><see langword="true"/> when the object has been loaded.</returns>
+    internal bool TryGetLoaded(CosReference reference, [NotNullWhen(true)] out CosObject? value) => _loader.TryGetLoaded(reference, out value);
 
     /// <summary>Returns <paramref name="value"/>, or the indirect object it refers to when it is a <see cref="CosReference"/>.</summary>
     /// <param name="value">A COS object from this document, or <see langword="null"/>.</param>

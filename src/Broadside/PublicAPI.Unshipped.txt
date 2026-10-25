@@ -5025,3 +5025,4 @@ Broadside.PdfOptions.WithPlatformImageDecoder(string! name, bool enabled) -> Bro
 Broadside.PdfOptions.WithPlatformImageDecoding(bool enabled) -> Broadside.PdfOptions!
 Broadside.PdfOptions.WithPlatformImageVerification(bool verify) -> Broadside.PdfOptions!
 Broadside.Rendering.DisplayList.PrefetchImagesAsync(in Broadside.Graphics.Matrix deviceTransform, Broadside.PdfRectangle? region, double samplesPerPixel, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Broadside.PdfDocument.ReadAsync<T>(System.Func<Broadside.PdfDocument!, T>! read, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!

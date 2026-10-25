@@ -447,20 +447,24 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
 
     /// <summary>
     /// Reads the document off the caller's thread: on a worker in <see cref="ViewerThreading.Background"/> mode, outside any edit
-    /// (<see cref="BeginEdit"/>); on the caller's thread in cooperative mode.
+    /// (<see cref="BeginEdit"/>); on the caller's thread in cooperative mode. A remote document's read fetches what it misses
+    /// asynchronously (<see cref="PdfDocument.ReadAsync{T}"/>): what a page's prefetch does not reach, such as the structure tree
+    /// of a linearized file, which lies after its pages (issue #417).
     /// </summary>
     internal async ValueTask<T> ReadAsync<T>(Func<CancellationToken, T> work, CancellationToken cancellationToken)
     {
         if (_reads is not { } reads)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return work(cancellationToken);
+            return _remote ? await ReadRemoteAsync(work, cancellationToken).ConfigureAwait(false) : work(cancellationToken);
         }
 
         CancellationTokenSource operation = Enter(cancellationToken);
         try
         {
-            return await reads.ReadAsync(work, operation.Token).ConfigureAwait(false);
+            return _remote
+                ? await ReadRemoteAsync(reads, work, operation.Token).ConfigureAwait(false)
+                : await reads.ReadAsync(work, operation.Token).ConfigureAwait(false);
         }
         finally
         {
@@ -593,6 +597,11 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
                 return (page, PageMetrics.Of(pageIndex, page));
             },
             token);
+
+    private Task<T> ReadRemoteAsync<T>(Func<CancellationToken, T> work, CancellationToken token) => Document.ReadAsync(_ => work(token), token);
+
+    private Task<T> ReadRemoteAsync<T>(DocumentGate reads, Func<CancellationToken, T> work, CancellationToken token) =>
+        reads.ReadAsync(read => Task.Run(() => Document.ReadAsync(_ => work(read), read), read), token);
 
     private Task<(PdfPage, PageMetrics)> PrefetchPageAsync(DocumentGate reads, int pageIndex, CancellationToken token) =>
         reads.ReadAsync(
