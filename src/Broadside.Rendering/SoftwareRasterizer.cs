@@ -296,6 +296,25 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// <summary>Gets the samples per pixel a list render reduces images to, or 0 for the images' own resolution.</summary>
     private double ListImageSamples => ScaledImageDecode ? _imageSamplesPerPixel : 0;
 
+    /// <summary>
+    /// Has the engine's platform image decoders decode the images that a render of <paramref name="list"/> into a
+    /// <paramref name="width"/> × <paramref name="height"/> bitmap under <paramref name="deviceTransform"/> will draw, at the
+    /// reductions this rasterizer will ask for (<see cref="ScaledImageDecode"/>, <see cref="ImageSamplesPerPixel"/>): the
+    /// asynchronous step to await before <see cref="BeginRender(DisplayList, Bitmap, in Matrix, CancellationToken, IProgress{double})"/>.
+    /// </summary>
+    /// <param name="list">The display list to be rendered.</param>
+    /// <param name="deviceTransform">The transform the render will use.</param>
+    /// <param name="width">The bitmap's width in pixels.</param>
+    /// <param name="height">The bitmap's height in pixels.</param>
+    /// <param name="cancellationToken">Cancels the decodes only this call waits for.</param>
+    /// <returns>A task that completes when the images are decoded or left to the managed codec; at once when there is nothing to do.</returns>
+    /// <remarks>ISO 32000-2 §7.4.8 and §8.9.4. See <see cref="DisplayList.PrefetchImagesAsync"/>; the render works the same without it.</remarks>
+    public ValueTask PrefetchImagesAsync(DisplayList list, in Matrix deviceTransform, int width, int height, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(list);
+        return list.PrefetchImagesAsync(deviceTransform, TryGetRegion(deviceTransform, width, height, out PdfRectangle region) ? region : null, ListImageSamples, cancellationToken);
+    }
+
     /// <summary>Gets the samples per pixel a page render reduces images to, or 0 for the images' own resolution.</summary>
     private static double ImageSamples(RenderOptions options) => options.ScaledImageDecode ? options.ImageSamplesPerPixel : 0;
 

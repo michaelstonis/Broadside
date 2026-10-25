@@ -28,6 +28,11 @@ internal static partial class DiagnosticCodes
     public const string ImageMatteInvalid = nameof(ImageMatteInvalid);
     public const string ImageSoftMaskInDataIgnored = nameof(ImageSoftMaskInDataIgnored);
 
+    // Platform image decoders (§7.4.8; issue #372).
+    public const string ImageDecodedManaged = nameof(ImageDecodedManaged);
+    public const string PlatformImageVerified = nameof(PlatformImageVerified);
+    public const string PlatformImageMismatch = nameof(PlatformImageMismatch);
+
     // Inline images (§8.9.7).
     public const string InlineImageFilterNotAllowed = nameof(InlineImageFilterNotAllowed);
     public const string InlineImageKeyInvalid = nameof(InlineImageKeyInvalid);

@@ -53,6 +53,8 @@ public sealed class PdfOptions
     private readonly List<ISecurityHandler> _securityHandlers = [];
     private readonly List<IFontProgramParser> _fontProgramParsers = [];
     private readonly List<IFontResolver> _fontResolvers = [];
+    private List<IPlatformImageDecoder>? _platformImageDecoders;
+    private HashSet<string>? _disabledPlatformImageDecoders;
     private long _maxDecodedStreamLength = DefaultMaxDecodedStreamLength;
     private long _streamBufferLimit = DefaultStreamBufferLimit;
     private int _rangeBlockSize = DefaultRangeBlockSize;
@@ -124,6 +126,99 @@ public sealed class PdfOptions
         }
 
         _filters.Add(filter);
+        return this;
+    }
+
+    /// <summary>Gets the platform image decoders registered with <see cref="UsePlatformImageDecoder"/> and not turned off, in registration order.</summary>
+    /// <remarks>Not public, so configuration binding never sees it; decoders are code, set with <see cref="UsePlatformImageDecoder"/>.</remarks>
+    internal IEnumerable<IPlatformImageDecoder> PlatformImageDecoders =>
+        _platformImageDecoders?.Where(decoder => _disabledPlatformImageDecoders?.Contains(decoder.Name) != true) ?? [];
+
+    /// <summary>Gets a value indicating whether any platform image decoder is registered.</summary>
+    internal bool HasPlatformImageDecoders => _platformImageDecoders is { Count: > 0 };
+
+    /// <summary>
+    /// Offers the images a viewer is about to draw to <paramref name="decoder"/>, a platform's own decoder, before the managed codec:
+    /// asynchronously, before a tile is drawn (<see cref="Rendering.DisplayList.PrefetchImagesAsync"/>). Registering the same decoder
+    /// twice has no further effect; with several, the first that takes an image decodes it.
+    /// </summary>
+    /// <param name="decoder">The decoder. Shared by every document and thread of the engine.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.4.8. The platform image decoder extension point; the managed codecs stay the default and the fallback, and the
+    /// only decoders of <see cref="PdfImage.Decode()"/>, text extraction and export. Turn decoders off with
+    /// <see cref="WithPlatformImageDecoding"/> (all) or <see cref="WithPlatformImageDecoder"/> (one).
+    /// </remarks>
+    public PdfOptions UsePlatformImageDecoder(IPlatformImageDecoder decoder)
+    {
+        ArgumentNullException.ThrowIfNull(decoder);
+        _ = decoder.Name ?? throw new ArgumentException("The platform image decoder has no name.", nameof(decoder));
+        _platformImageDecoders ??= [];
+        if (!_platformImageDecoders.Contains(decoder))
+        {
+            _platformImageDecoders.Add(decoder);
+        }
+
+        return this;
+    }
+
+    /// <summary>Gets or sets a value indicating whether platform image decoders are used at all. The default is <see langword="true"/>.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.4.8. Off, every image decodes with the managed codecs, as if no decoder were registered with
+    /// <see cref="UsePlatformImageDecoder"/>.
+    /// </remarks>
+    public bool PlatformImageDecoding { get; set; } = true;
+
+    /// <summary>Sets <see cref="PlatformImageDecoding"/>.</summary>
+    /// <param name="enabled"><see langword="false"/> to decode every image with the managed codecs.</param>
+    /// <returns>These options.</returns>
+    public PdfOptions WithPlatformImageDecoding(bool enabled)
+    {
+        PlatformImageDecoding = enabled;
+        return this;
+    }
+
+    /// <summary>Decodes every image with the managed codecs, whatever decoders are registered: <see cref="WithPlatformImageDecoding"/> with <see langword="false"/>.</summary>
+    /// <returns>These options.</returns>
+    public PdfOptions UseManagedImageDecoding() => WithPlatformImageDecoding(false);
+
+    /// <summary>Turns one registered platform image decoder off, or on again, by its <see cref="IPlatformImageDecoder.Name"/>.</summary>
+    /// <param name="name">The decoder's name.</param>
+    /// <param name="enabled"><see langword="false"/> to leave the decoder out; <see langword="true"/> (every decoder's default) to use it.</param>
+    /// <returns>These options.</returns>
+    public PdfOptions WithPlatformImageDecoder(string name, bool enabled)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        if (enabled)
+        {
+            _disabledPlatformImageDecoders?.Remove(name);
+        }
+        else
+        {
+            (_disabledPlatformImageDecoders ??= new HashSet<string>(StringComparer.Ordinal)).Add(name);
+        }
+
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether every platform decode is checked against the managed codec. The default is
+    /// <see langword="false"/>.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.4.8. For tests and diagnosis: each image a platform decoder returns is also decoded with the managed codec at
+    /// the same reduction, and the document records <c>PlatformImageVerified</c> (Information) or, when the difference exceeds the
+    /// decoder's <see cref="IPlatformImageDecoder.Fidelity"/>, <c>PlatformImageMismatch</c> (Warning), each with the largest
+    /// difference, the PSNR and the share of pixels more than 2 levels apart. The platform's samples are still the ones drawn.
+    /// </remarks>
+    public bool VerifyPlatformImageDecoder { get; set; }
+
+    /// <summary>Sets <see cref="VerifyPlatformImageDecoder"/>.</summary>
+    /// <param name="verify"><see langword="true"/> to check every platform decode against the managed codec.</param>
+    /// <returns>These options.</returns>
+    public PdfOptions WithPlatformImageVerification(bool verify)
+    {
+        VerifyPlatformImageDecoder = verify;
         return this;
     }
 

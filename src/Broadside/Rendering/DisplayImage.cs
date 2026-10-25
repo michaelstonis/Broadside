@@ -218,6 +218,82 @@ public sealed class DisplayImage
         }
     }
 
+    /// <summary>Gets a value indicating whether the image is kept encoded with a codec a platform image decoder may be offered.</summary>
+    internal bool IsPlatformCandidate => _source is Reductions { Encoded: not null, Failed: false, PlatformFailed: false };
+
+    /// <summary>
+    /// Starts decoding the image at <paramref name="reduction"/> with a platform image decoder, unless the cache already holds that
+    /// reduction or a finer one, the image is not eligible, no decoder takes it, or a platform decode of it failed before; the result
+    /// goes into the cache under the same once-gate <see cref="GetSamplesAt(int, CancellationToken)"/> uses.
+    /// </summary>
+    /// <returns>The decode, shared with any other prefetch of the same reduction in flight; <see langword="null"/> when there is nothing to do.</returns>
+    /// <remarks>ISO 32000-2 §7.4.8 and §8.9.3. A failure leaves the image to the managed codec and is recorded once.</remarks>
+    internal Task? Prefetch(int reduction, PlatformImageDecoding platform, CancellationToken cancellationToken)
+    {
+        if (_source is not Reductions { Encoded: { } encoded } reductions || reductions.Failed || reductions.PlatformFailed)
+        {
+            return null;
+        }
+
+        int wanted = Math.Min(reduction, reductions.MaxReduction);
+        for (int finer = wanted; finer >= 0; finer--)
+        {
+            if (Find(reductions, finer) is not null)
+            {
+                return null;
+            }
+        }
+
+        if (!encoded.TryCreatePlatformRequest(out PlatformImageRequest request))
+        {
+            return null;
+        }
+
+        request = request with { Reduction = wanted };
+        if (platform.Choose(request) is not { } decoder)
+        {
+            return null;
+        }
+
+        return Start(reductions, encoded, decoder, request, platform, cancellationToken);
+    }
+
+    // Its own method so that the closure is made only when a decode starts, not on every call of Prefetch.
+    private Task Start(Reductions reductions, EncodedImage encoded, IPlatformImageDecoder decoder, PlatformImageRequest request, PlatformImageDecoding platform, CancellationToken cancellationToken) =>
+        platform.Join(this, request.Reduction, () => DecodeOnPlatformAsync(reductions, encoded, decoder, request, platform, cancellationToken));
+
+    private async Task DecodeOnPlatformAsync(Reductions reductions, EncodedImage encoded, IPlatformImageDecoder decoder, PlatformImageRequest request, PlatformImageDecoding platform, CancellationToken cancellationToken)
+    {
+#pragma warning disable CA2000 // The cache and the slots own the samples from here on.
+        DecodedImage? decoded = await platform.DecodeAsync(encoded, decoder, request, cancellationToken).ConfigureAwait(false);
+#pragma warning restore CA2000
+        if (decoded is null)
+        {
+            reductions.PlatformFailed = true;
+            return;
+        }
+
+        int wanted = request.Reduction;
+        Slot slot = reductions.Slots[wanted];
+        lock (slot.Gate)
+        {
+            if (cancellationToken.IsCancellationRequested || Find(reductions, wanted) is not null)
+            {
+                // Cancelled, or a replay decoded it with the managed codec meanwhile: keep nothing of this decode.
+                decoded.Dispose();
+                cancellationToken.ThrowIfCancellationRequested();
+                return;
+            }
+
+            Keep(reductions, decoded.Reduction, decoded);
+            if (decoded.Reduction != wanted)
+            {
+                slot.Weak.SetTarget(decoded);
+                slot.Alias = true;
+            }
+        }
+    }
+
     /// <summary>
     /// Returns the reduction to ask <see cref="GetSamplesAt(int)"/> for when the image is drawn under <paramref name="transform"/>: the
     /// largest power of two that still leaves at least <paramref name="samplesPerPixel"/> samples per device pixel along the image's
@@ -512,6 +588,7 @@ public sealed class DisplayImage
     {
         private Slot[]? _slots;
         private bool _failed;
+        private bool _platformFailed;
 
         /// <summary>Gets the encoded image, or <see langword="null"/> for one decoded at build.</summary>
         public EncodedImage? Encoded { get; } = encoded;
@@ -540,6 +617,13 @@ public sealed class DisplayImage
         {
             get => Volatile.Read(ref _failed);
             set => Volatile.Write(ref _failed, value);
+        }
+
+        /// <summary>Gets or sets a value indicating whether a platform decode failed (reported once; the managed codec decodes it).</summary>
+        public bool PlatformFailed
+        {
+            get => Volatile.Read(ref _platformFailed);
+            set => Volatile.Write(ref _platformFailed, value);
         }
 
         private Slot[] CreateSlots()
