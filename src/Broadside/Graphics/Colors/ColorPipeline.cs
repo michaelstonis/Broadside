@@ -41,6 +41,12 @@ internal abstract class ColorPipeline
     /// <summary>Gets a value indicating whether colours in this space paint nothing (Separation <c>None</c>, an all-None DeviceN).</summary>
     public virtual bool PaintsNothing => false;
 
+    /// <summary>
+    /// Gets how far image samples may be averaged before this conversion rather than after it (<see cref="ImageReductions"/>):
+    /// without limit for an affine conversion, less for a curved one, not at all for a table lookup.
+    /// </summary>
+    public virtual int MaxImageReduction => ImageReductions.Curved;
+
     /// <summary>Converts <paramref name="count"/> colours of <see cref="InputCount"/> components.</summary>
     /// <param name="source">The components, colour after colour.</param>
     /// <param name="destination">Receives the device colours, colour after colour.</param>

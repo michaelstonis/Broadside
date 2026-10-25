@@ -40,6 +40,7 @@ internal static class JpxDecoder
 
         var quiet = new CodecReporter(context.Filter, silent: true);
         JpxOutputPlan plan = JpxOutputPlan.Create(size, JpxFileHeader.Read(data, quiet), context, quiet);
+        int maxReduction = OnReducedGrid(size, JpxCodestreamReader.ReadMainHeaderLevels(data.Slice(range.Offset, range.Length), size.Components.Length));
         header = new ImageHeader(
             (int)Math.Min(size.Width - size.OriginX, int.MaxValue),
             (int)Math.Min(size.Height - size.OriginY, int.MaxValue),
@@ -48,9 +49,64 @@ internal static class JpxDecoder
         {
             HasAlpha = plan.Alpha is not null,
             ColorModel = plan.Model,
+            MaxReduction = maxReduction,
         };
         return true;
     }
+
+    /// <summary>
+    /// The most resolution levels a reduced decode may drop (issue #362; ITU-T T.800 B.5): the fewest decomposition levels of any
+    /// tile-component, and no more than keep the image origin on the reduced grid, so a reduction by 2^d is exactly ⌈W / 2^d⌉ x
+    /// ⌈H / 2^d⌉ samples. The header offers the main header's levels (<see cref="JpxCodestreamReader.ReadMainHeaderLevels"/>); a
+    /// tile-part header that lowers them makes the decode deliver less than asked, which the samples' reduction says.
+    /// </summary>
+    private static int MaxReduction(JpxCodestream stream)
+    {
+        int levels = ImageGeometry.MaxReduction;
+        foreach (JpxTile tile in stream.Tiles)
+        {
+            foreach (JpxComponentStyle style in JpxTileParameters.Resolve(stream.Main, tile.Markers).Components)
+            {
+                levels = Math.Min(levels, style.Levels);
+            }
+        }
+
+        if (stream.Tiles.Count == 0)
+        {
+            foreach (JpxComponentStyle style in JpxTileParameters.Resolve(stream.Main, stream.Main).Components)
+            {
+                levels = Math.Min(levels, style.Levels);
+            }
+        }
+
+        return OnReducedGrid(stream.Size, levels);
+    }
+
+    /// <summary>Lowers <paramref name="levels"/> until the image origin divides by 2^levels; at most <see cref="ImageGeometry.MaxReduction"/>.</summary>
+    private static int OnReducedGrid(JpxImageSize size, int levels)
+    {
+        levels = Math.Clamp(levels, 0, ImageGeometry.MaxReduction);
+        while (levels > 0 && ((size.OriginX & ((1L << levels) - 1)) != 0 || (size.OriginY & ((1L << levels) - 1)) != 0))
+        {
+            levels--;
+        }
+
+        return levels;
+    }
+
+    /// <summary>The image size at a reduction of 2^<paramref name="reduction"/>: the reference grid divided, rounded up (B-15).</summary>
+    private static JpxImageSize Reduce(JpxImageSize size, int reduction) => reduction == 0 ? size : new JpxImageSize
+    {
+        Width = JpxMath.CeilShift(size.Width, reduction),
+        Height = JpxMath.CeilShift(size.Height, reduction),
+        OriginX = JpxMath.CeilShift(size.OriginX, reduction),
+        OriginY = JpxMath.CeilShift(size.OriginY, reduction),
+        TileWidth = size.TileWidth,
+        TileHeight = size.TileHeight,
+        TileOriginX = size.TileOriginX,
+        TileOriginY = size.TileOriginY,
+        Components = size.Components,
+    };
 
     /// <summary>Decodes the image, or returns <see langword="null"/> after reporting why it cannot be.</summary>
     public static DecodedImage? Decode(ReadOnlySpan<byte> data, ImageFilterContext context)
@@ -79,8 +135,10 @@ internal static class JpxDecoder
         }
 
         JpxImageSize size = stream.Size;
-        long width = size.Width - size.OriginX;
-        long height = size.Height - size.OriginY;
+        int reduction = context.Reduction > 0 ? Math.Min(context.Reduction, MaxReduction(stream)) : 0;
+        JpxImageSize output = Reduce(size, reduction);
+        long width = output.Width - output.OriginX;
+        long height = output.Height - output.OriginY;
         if (width > int.MaxValue || height > int.MaxValue)
         {
             reporter.Report(DiagnosticCodes.JpxLimitExceeded, DiagnosticSeverity.Error, $"The JPEG 2000 image of {width} x {height} samples is too large.");
@@ -88,7 +146,7 @@ internal static class JpxDecoder
         }
 
         JpxOutputPlan plan = JpxOutputPlan.Create(size, file, context, reporter);
-        if (!CheckLimits(stream, plan, context, reporter))
+        if (!CheckLimits(stream, output, plan, context, reporter))
         {
             return null;
         }
@@ -112,7 +170,7 @@ internal static class JpxDecoder
             {
                 if (plan.UsedComponents[c])
                 {
-                    planes[c] = new JpxPlane(size, c);
+                    planes[c] = new JpxPlane(output, c);
                 }
             }
 
@@ -121,12 +179,13 @@ internal static class JpxDecoder
                 foreach (JpxTile tile in stream.Tiles)
                 {
                     reporter.ThrowIfCancellationRequested();
-                    DecodeTile(stream, tile, codestream, tiles, planes, reporter);
+                    DecodeTile(stream, tile, codestream, tiles, planes, reporter, reduction);
                 }
             }
 
             reporter.ThrowIfCancellationRequested();
-            JpxComposer.Compose(size, plan, planes, builder, alpha, reporter);
+            JpxComposer.Compose(output, plan, planes, builder, alpha, reporter);
+            builder.Reduction = reduction;
             builder.ColorModel = plan.Model;
             if (plan.IccProfile is { } profile)
             {
@@ -147,7 +206,7 @@ internal static class JpxDecoder
         }
     }
 
-    private static bool CheckLimits(JpxCodestream stream, JpxOutputPlan plan, ImageFilterContext context, CodecReporter reporter)
+    private static bool CheckLimits(JpxCodestream stream, JpxImageSize output, JpxOutputPlan plan, ImageFilterContext context, CodecReporter reporter)
     {
         JpxImageSize size = stream.Size;
         foreach (JpxTile tile in stream.Tiles)
@@ -169,7 +228,7 @@ internal static class JpxDecoder
         {
             if (plan.UsedComponents[c])
             {
-                planes += JpxPlane.Area(size, c);
+                planes += JpxPlane.Area(output, c);
             }
         }
 
@@ -185,7 +244,7 @@ internal static class JpxDecoder
         return true;
     }
 
-    private static void DecodeTile(JpxCodestream stream, JpxTile tile, ReadOnlySpan<byte> codestream, JpxTileDecoder decoder, JpxPlane?[] planes, CodecReporter reporter)
+    private static void DecodeTile(JpxCodestream stream, JpxTile tile, ReadOnlySpan<byte> codestream, JpxTileDecoder decoder, JpxPlane?[] planes, CodecReporter reporter, int reduction)
     {
         JpxImageSize size = stream.Size;
         (long tx0, long ty0, long tx1, long ty1) = size.TileBounds(tile.Index);
@@ -231,7 +290,7 @@ internal static class JpxDecoder
                 headers = [];
             }
 
-            if (decoder.Decode(size, parameters, tile.Index, data, headers, buffers) is not { } components)
+            if (decoder.Decode(size, parameters, tile.Index, data, headers, buffers, reduction) is not { } components)
             {
                 return;
             }

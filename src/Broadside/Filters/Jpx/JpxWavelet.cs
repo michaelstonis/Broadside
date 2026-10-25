@@ -29,12 +29,16 @@ internal static class JpxWavelet
     private const float K = 1.230174104914001f;
     private const float InverseK = (float)(1 / 1.230174104914001);
 
-    /// <summary>Reconstructs <paramref name="component"/>'s samples from its sub-bands with the 5/3 reversible filter.</summary>
-    public static void Inverse53(JpxTileComponent component, int[] buffer, CodecReporter reporter)
+    /// <summary>
+    /// Reconstructs <paramref name="component"/>'s samples from its sub-bands with the 5/3 reversible filter, up to resolution
+    /// <paramref name="top"/> (its last for the full image; a lower one for a reduced decode, B.5, whose samples are then the
+    /// top-left of the buffer at the full stride).
+    /// </summary>
+    public static void Inverse53(JpxTileComponent component, int[] buffer, CodecReporter reporter, int top)
     {
         int stride = component.Width;
         int longest = Math.Max(component.Width, component.Height);
-        if (component.Resolutions.Length < 2 || longest == 0)
+        if (top < 1 || longest == 0)
         {
             return;
         }
@@ -43,7 +47,7 @@ internal static class JpxWavelet
         int[] lows = ArrayPool<int>.Shared.Rent(longest);
         try
         {
-            for (int r = 1; r < component.Resolutions.Length; r++)
+            for (int r = 1; r <= top; r++)
             {
                 JpxResolution resolution = component.Resolutions[r];
                 JpxResolution lower = component.Resolutions[r - 1];
@@ -129,11 +133,15 @@ internal static class JpxWavelet
 
     /// <summary>Reconstructs <paramref name="component"/>'s samples from its dequantized sub-bands with the 9/7 irreversible filter.</summary>
     /// <remarks>ITU-T T.800 F.3.8.2, equation F-7 and Table F.4: K scales the low-pass samples, 1/K the high-pass ones.</remarks>
-    public static void Inverse97(JpxTileComponent component, Span<float> buffer, CodecReporter reporter)
+    /// <param name="component">The tile-component.</param>
+    /// <param name="buffer">Its sub-bands, reconstructed in place.</param>
+    /// <param name="reporter">The cancellation.</param>
+    /// <param name="top">The resolution reconstructed, as for <see cref="Inverse53"/>.</param>
+    public static void Inverse97(JpxTileComponent component, Span<float> buffer, CodecReporter reporter, int top)
     {
         int stride = component.Width;
         int longest = Math.Max(component.Width, component.Height);
-        if (component.Resolutions.Length < 2 || longest == 0)
+        if (top < 1 || longest == 0)
         {
             return;
         }
@@ -142,7 +150,7 @@ internal static class JpxWavelet
         float[] lows = ArrayPool<float>.Shared.Rent(longest * Columns);
         try
         {
-            for (int r = 1; r < component.Resolutions.Length; r++)
+            for (int r = 1; r <= top; r++)
             {
                 JpxResolution resolution = component.Resolutions[r];
                 JpxResolution lower = component.Resolutions[r - 1];

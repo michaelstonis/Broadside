@@ -59,6 +59,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
     private readonly Backend _backend = new();
     private DisplayListReplay? _progressive;
     private bool _disposed;
+    private double _imageSamplesPerPixel = RenderOptions.DefaultImageSamplesPerPixel;
 
     /// <summary>Renders <paramref name="page"/> at 72 DPI into a new pooled bitmap, on white.</summary>
     /// <param name="page">The page.</param>
@@ -84,7 +85,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         var bitmap = new Bitmap(geometry.PixelWidth, geometry.PixelHeight);
         try
         {
-            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, options.TransparentBackground ? null : White, options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, options.CancellationToken, DrawingProgress(options));
+            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, options.TransparentBackground ? null : White, options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, ImageSamples(options), options.CancellationToken, DrawingProgress(options));
         }
         catch
         {
@@ -113,7 +114,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(options);
         ThrowIfBusy();
         PageGeometry geometry = CheckTarget(page, target, options);
-        Draw(Build(page, options), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, Background(options), options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, options.CancellationToken, DrawingProgress(options));
+        Draw(Build(page, options), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, Background(options), options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, ImageSamples(options), options.CancellationToken, DrawingProgress(options));
     }
     /// <summary>
     /// Builds <paramref name="page"/>'s display list and starts drawing it into the top-left <see cref="RenderOptions.GetPixelSize"/>
@@ -142,7 +143,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         PageGeometry geometry = CheckTarget(page, target, options);
         DisplayList list = Build(page, options);
         Fill(target, geometry.PixelWidth, geometry.PixelHeight, Background(options));
-        return Begin(list, target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, options.CancellationToken, DrawingProgress(options));
+        return Begin(list, target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, ImageSamples(options), options.CancellationToken, DrawingProgress(options));
     }
 
     /// <summary>
@@ -162,7 +163,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
         ThrowIfBusy();
-        return Begin(list, target, deviceTransform, target.Width, target.Height, AntiAliasing.All, cull: true, preview: false, cancellationToken, progress);
+        return Begin(list, target, deviceTransform, target.Width, target.Height, AntiAliasing.All, cull: true, preview: false, ListImageSamples, cancellationToken, progress);
     }
 
     /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, without a background.</summary>
@@ -183,7 +184,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
         ThrowIfBusy();
-        Draw(list, target, deviceTransform, target.Width, target.Height, background: null, AntiAliasing.All, cull: true, preview: false, CancellationToken.None, progress: null);
+        Draw(list, target, deviceTransform, target.Width, target.Height, background: null, AntiAliasing.All, cull: true, preview: false, ListImageSamples, CancellationToken.None, progress: null);
     }
 
     /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, anti-aliasing only the kinds of painting given.</summary>
@@ -197,7 +198,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
         ThrowIfBusy();
-        Draw(list, target, deviceTransform, target.Width, target.Height, background: null, antiAliasing, cull: true, preview: false, CancellationToken.None, progress: null);
+        Draw(list, target, deviceTransform, target.Width, target.Height, background: null, antiAliasing, cull: true, preview: false, ListImageSamples, CancellationToken.None, progress: null);
     }
 
     /// <summary>
@@ -271,6 +272,33 @@ public sealed partial class SoftwareRasterizer : IDisposable
         }
     }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the renders of a display list given to this rasterizer
+    /// (<see cref="Render(DisplayList, Bitmap, in Matrix)"/> and <see cref="BeginRender(DisplayList, Bitmap, in Matrix, CancellationToken, IProgress{double})"/>)
+    /// decode images at the resolution they are drawn at rather than their own; <see langword="false"/> by default. Page renders
+    /// take <see cref="RenderOptions.ScaledImageDecode"/> instead.
+    /// </summary>
+    /// <remarks>For viewers only, never for printing or export: see <see cref="RenderOptions.ScaledImageDecode"/>.</remarks>
+    public bool ScaledImageDecode { get; set; }
+
+    /// <summary>
+    /// Gets or sets the fewest decoded samples per device pixel a reduced image keeps when <see cref="ScaledImageDecode"/> is on: 2
+    /// by default; 1 is faster and coarser.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a finite number of at least 1.</exception>
+    /// <remarks>See <see cref="RenderOptions.ImageSamplesPerPixel"/>.</remarks>
+    public double ImageSamplesPerPixel
+    {
+        get => _imageSamplesPerPixel;
+        set => _imageSamplesPerPixel = RenderOptions.CheckSamplesPerPixel(value);
+    }
+
+    /// <summary>Gets the samples per pixel a list render reduces images to, or 0 for the images' own resolution.</summary>
+    private double ListImageSamples => ScaledImageDecode ? _imageSamplesPerPixel : 0;
+
+    /// <summary>Gets the samples per pixel a page render reduces images to, or 0 for the images' own resolution.</summary>
+    private static double ImageSamples(RenderOptions options) => options.ScaledImageDecode ? options.ImageSamplesPerPixel : 0;
+
     /// <summary>Builds the page's display list with the options' token, reporting its progress as the first half of the render's.</summary>
     private static DisplayList Build(PdfPage page, RenderOptions options)
     {
@@ -320,9 +348,9 @@ public sealed partial class SoftwareRasterizer : IDisposable
         }
     }
 
-    private ProgressiveRender Begin(DisplayList list, Bitmap target, in Matrix device, int width, int height, AntiAliasing antiAliasing, bool cull, bool preview, CancellationToken cancellationToken, IProgress<double>? progress)
+    private ProgressiveRender Begin(DisplayList list, Bitmap target, in Matrix device, int width, int height, AntiAliasing antiAliasing, bool cull, bool preview, double imageSamplesPerPixel, CancellationToken cancellationToken, IProgress<double>? progress)
     {
-        _backend.Begin(list.Document, target, device, width, height, preview, antiAliasing);
+        _backend.Begin(list.Document, target, device, width, height, preview, antiAliasing, imageSamplesPerPixel, cancellationToken);
         DisplayListReplay replay = cull && TryGetRegion(device, width, height, out PdfRectangle region)
             ? list.BeginReplay(_backend, region, cancellationToken, progress)
             : list.BeginReplay(_backend, cancellationToken, progress);
@@ -330,14 +358,14 @@ public sealed partial class SoftwareRasterizer : IDisposable
         return new ProgressiveRender(this, replay, target);
     }
 
-    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, uint? background, AntiAliasing antiAliasing, bool cull, bool preview, CancellationToken cancellationToken, IProgress<double>? progress)
+    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, uint? background, AntiAliasing antiAliasing, bool cull, bool preview, double imageSamplesPerPixel, CancellationToken cancellationToken, IProgress<double>? progress)
     {
         if (background is { } pixel)
         {
             Fill(target, width, height, pixel);
         }
 
-        _backend.Begin(list.Document, target, device, width, height, preview, antiAliasing);
+        _backend.Begin(list.Document, target, device, width, height, preview, antiAliasing, imageSamplesPerPixel, cancellationToken);
         try
         {
             PdfRectangle region = default;
@@ -445,9 +473,11 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
         public Backend() => _stroker = new Stroker(_scan);
 
-        public void Begin(PdfDocument document, Bitmap target, in Matrix device, int width, int height, bool preview, AntiAliasing antiAliasing = AntiAliasing.All)
+        public void Begin(PdfDocument document, Bitmap target, in Matrix device, int width, int height, bool preview, AntiAliasing antiAliasing = AntiAliasing.All, double imageSamplesPerPixel = 0, CancellationToken cancellationToken = default)
         {
             SetAntiAliasing(antiAliasing);
+            _imageSamplesPerPixel = preview ? 0 : imageSamplesPerPixel;
+            _cancellationToken = cancellationToken;
             _document = document;
             _target = target;
             _device = device;

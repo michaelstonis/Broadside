@@ -19,6 +19,7 @@ on:
       - 'tests/Golden/**'
       - 'tests/Corpus/**'
       - '.github/workflows/android.yml'
+      - '.github/scripts/android-emulator-tests.sh'
 
 concurrency:
   group: android-${{ github.event.pull_request.number || github.ref }}
@@ -85,6 +86,10 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # The emulator's adb transport used to drop mid-run (issue #344). The device now gzips its pixels and the harness renders and
+      # pulls in small batches, checking the device before each phase and retrying transport-only steps; the script retries the
+      # whole test step once, and only when the harness reports the transport lost. 3 of the runner's 4 cores and 4 GB of its
+      # 16 GB go to the emulator.
       - name: Run the tests on an emulator
         uses: reactivecircus/android-emulator-runner@v2
         env:
@@ -93,16 +98,22 @@ jobs:
           api-level: ${{ matrix.api-level }}
           arch: x86_64
           target: google_apis
+          cores: 3
+          ram-size: 4096M
+          heap-size: 576M
           disable-animations: true
-          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect
-          script: dotnet test tests/Broadside.Rendering.Android.Tests -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
+          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none
+          script: bash .github/scripts/android-emulator-tests.sh
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: android-test-results
-          path: artifacts/test-results/**/*.trx
+          path: |
+            artifacts/test-results/**/*.trx
+            artifacts/test-results/**/*.log
+            artifacts/test-results/**/*.txt
           if-no-files-found: warn
 
       - name: Upload golden-image differences

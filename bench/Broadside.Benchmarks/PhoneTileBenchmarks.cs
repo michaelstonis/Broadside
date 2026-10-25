@@ -14,8 +14,9 @@ namespace Broadside.Benchmarks;
 /// the way the viewer's tile backends render them (spec #33 story 14): the Skia backend onto a tile's canvas (as
 /// <c>SkiaTileBackend</c> does for the MAUI viewer on iOS and Android) and the software rasterizer (the Blazor viewer). The pages are the
 /// cases the performance deep dive found slow per tile: an image larger than the image cache budget (re-converted on every tile
-/// before), and a text page (every tile replayed the whole page on Skia before). Compare one tile's cost with
-/// <see cref="TileRenderingBenchmarks"/>.
+/// before), and a text page (every tile replayed the whole page on Skia before); since issue #362 also the catalogue-class photo
+/// (<see cref="CatalogueSamples.Cover"/>, a 2550 x 3150 DCT image), which the software tiles decode at the resolution drawn, as
+/// the viewer's software backend does. Compare one tile's cost with <see cref="TileRenderingBenchmarks"/>.
 /// </summary>
 [MemoryDiagnoser]
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "BenchmarkDotNet releases them in [GlobalCleanup].")]
@@ -35,8 +36,8 @@ public class PhoneTileBenchmarks
     private int _columns;
     private int _rows;
 
-    /// <summary>The page: an image over the image cache budget, or a text-heavy page.</summary>
-    [Params("image-over-budget", "text-heavy")]
+    /// <summary>The page: an image over the image cache budget, a text-heavy page, or the catalogue-class photograph.</summary>
+    [Params("image-over-budget", "text-heavy", "image-photo")]
     public string Page { get; set; } = "";
 
     /// <summary>The tile backend.</summary>
@@ -46,9 +47,12 @@ public class PhoneTileBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        _document = Page == "image-over-budget"
-            ? PdfDocument.Open(LargeImage(1024), new PdfOptions().WithImageCacheBudget(1 << 20))
-            : PdfDocument.Open(TextSamples.Page(ContentSamples.TextHeavy(10_000)));
+        _document = Page switch
+        {
+            "image-over-budget" => PdfDocument.Open(LargeImage(1024), new PdfOptions().WithImageCacheBudget(1 << 20)),
+            "image-photo" => PdfDocument.Open(CatalogueSamples.Cover()),
+            _ => PdfDocument.Open(TextSamples.Page(ContentSamples.TextHeavy(10_000))),
+        };
         PdfPage page = _document.Pages[0];
         _list = page.CreateDisplayList();
         var options = new RenderOptions().WithScale(PhoneWidth / (double)new RenderOptions().GetPixelSize(page).Width);
@@ -57,7 +61,7 @@ public class PhoneTileBenchmarks
         _columns = (size.Width + TileSize - 1) / TileSize;
         _rows = (size.Height + TileSize - 1) / TileSize;
         _tile = new Bitmap(TileSize, TileSize);
-        _rasterizer = new SoftwareRasterizer();
+        _rasterizer = new SoftwareRasterizer { ScaledImageDecode = true };
         _skia = new SkiaBackend();
         _skiaTile = new SKBitmap(new SKImageInfo(TileSize, TileSize, SKColorType.Bgra8888, SKAlphaType.Premul));
         _skiaCanvas = new SKCanvas(_skiaTile);

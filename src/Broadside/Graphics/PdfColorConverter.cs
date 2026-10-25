@@ -51,6 +51,17 @@ public sealed class PdfColorConverter
     /// <summary>Gets the number of components of a device colour: 1, 3 or 4.</summary>
     public int OutputCount => _pipeline.OutputCount;
 
+    /// <summary>
+    /// Gets the largest reduction, as a power of two, at which image samples may be averaged before this conversion instead of
+    /// after it: <see cref="ImageReductions.Any"/> for an affine conversion, 1 for a curved one, 0 for a
+    /// table lookup (Indexed).
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §8.6 and §8.9.5: f(mean(x)) = mean(f(x)) holds only for an affine f. A codec that decodes an image at a reduced
+    /// resolution averages its samples in the codec's own space, before this conversion; the rasterizer box-filters after it.
+    /// </remarks>
+    internal int MaxImageReduction => _pipeline.MaxImageReduction;
+
     /// <summary>Gets a value indicating whether colours of the source space paint nothing (Separation <c>None</c>, an all-None DeviceN).</summary>
     /// <remarks>ISO 32000-2 §8.6.6.4 and §8.6.6.5. Converted colours are then no ink: white, or CMYK 0 0 0 0.</remarks>
     public bool PaintsNothing => _pipeline.PaintsNothing;

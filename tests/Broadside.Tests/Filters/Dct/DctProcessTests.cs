@@ -63,7 +63,7 @@ public sealed class DctProcessTests
         Assert.True(filter.TryReadHeader(Jpeg("precision12"), context, out ImageHeader header));
         using DecodedImage decoded = filter.DecodeImage(Jpeg("precision12"), context)!;
 
-        Assert.Equal(new ImageHeader(75, 43, 3, 8) { ColorModel = ImageColorModel.Rgb }, header);
+        Assert.Equal(new ImageHeader(75, 43, 3, 8) { ColorModel = ImageColorModel.Rgb, MaxReduction = 3 }, header);
         Assert.Equal((8, 43), (decoded.BitsPerComponent, decoded.DecodedRows));
         AssertWithinOne(Golden("precision12"), decoded.Samples);
     }
@@ -166,7 +166,7 @@ public sealed class DctProcessTests
         Assert.True(filter.TryReadHeader(jpeg, context, out ImageHeader header));
         using DecodedImage decoded = filter.DecodeImage(jpeg, context)!;
 
-        Assert.Equal(new ImageHeader(gray.Width, gray.Height, 5, 8), header with { ColorModel = ImageColorModel.Unknown });
+        Assert.Equal(new ImageHeader(gray.Width, gray.Height, 5, 8) { MaxReduction = 3 }, header with { ColorModel = ImageColorModel.Unknown });
         Assert.Equal((gray.Width, gray.Height, 5), (decoded.Width, decoded.Height, decoded.Components));
         Assert.Equal(gray.Samples.SelectMany(value => Enumerable.Repeat(value, 5)), decoded.Samples.ToArray());
         Assert.False(decoded.ColorTransformApplied);

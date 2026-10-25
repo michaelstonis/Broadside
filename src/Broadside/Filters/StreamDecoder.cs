@@ -116,7 +116,10 @@ internal sealed class StreamDecoder
     /// <param name="output">Where to write the decoded data.</param>
     /// <param name="depth">How many decodes are in progress beneath this one.</param>
     /// <param name="stopBeforeImageFilter">Whether to leave a last image filter to the caller.</param>
-    /// <param name="outcome">Whether every filter ran, and the image filter left to the caller, if any.</param>
+    /// <param name="outcome">
+    /// Whether every filter ran, and the image filter left to the caller, if any. When that filter is the only one, nothing is
+    /// written to <paramref name="output"/>: <see cref="ChainOutcome.Codestream"/> is the stream's data itself, not a copy.
+    /// </param>
     /// <param name="cancellationToken">
     /// Cancels the decode: given to every filter's context (<see cref="FilterContext.CancellationToken"/>), and the
     /// <see cref="OperationCanceledException"/> a filter throws for it passes through instead of becoming a diagnostic.
@@ -155,6 +158,14 @@ internal sealed class StreamDecoder
         }
 
         ReadOnlyMemory<byte> data = stream.EncodedData;
+        if (outcome.ImageFilter is not null && chain.Count == 0)
+        {
+            // The image filter is the only one. A stream's data is never written in place (it is replaced, or read anew from the
+            // source), so the caller can keep it instead of a copy.
+            outcome = outcome with { Codestream = data, HasCodestream = true };
+            return;
+        }
+
         PooledBufferWriter? current = null;
         PooledBufferWriter? next = null;
         try
@@ -469,5 +480,12 @@ internal sealed class StreamDecoder
     /// <param name="Complete">Whether every filter ran; <see langword="false"/> when the chain stopped at a filter it could not run.</param>
     /// <param name="ImageFilter">The last filter, left to the caller because it has an image facet; <see langword="null"/> otherwise.</param>
     /// <param name="ImageContext">The context for that filter: its parameters and the stream dictionary.</param>
-    internal readonly record struct ChainOutcome(bool Complete, IImageFilter? ImageFilter, FilterContext? ImageContext);
+    internal readonly record struct ChainOutcome(bool Complete, IImageFilter? ImageFilter, FilterContext? ImageContext)
+    {
+        /// <summary>Gets the image filter's data when it is the stream's own (no filter runs before it); otherwise the output holds it.</summary>
+        public ReadOnlyMemory<byte> Codestream { get; init; }
+
+        /// <summary>Gets a value indicating whether <see cref="Codestream"/> holds the image filter's data.</summary>
+        public bool HasCodestream { get; init; }
+    }
 }

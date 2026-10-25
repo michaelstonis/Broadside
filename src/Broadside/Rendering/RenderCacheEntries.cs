@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Broadside.Caching;
 using Broadside.Graphics;
+using Broadside.Images;
 using Broadside.Objects;
 
 namespace Broadside.Rendering;
@@ -17,6 +18,12 @@ internal sealed class DisplayImageEntry(long epoch, DisplayImage? image, Display
     /// <summary>The bytes charged for an entry beyond what it holds.</summary>
     public const long Overhead = 64;
 
+    /// <summary>The cache slot of an image XObject painted as an image: the key is its stream.</summary>
+    public const int ImageSlot = -2;
+
+    /// <summary>The cache slot of an image XObject painted as a stencil mask: the key is its stream.</summary>
+    public const int StencilSlot = -1;
+
     /// <summary>Gets the image; <see langword="null"/> for a stencil or an image that cannot be painted.</summary>
     public DisplayImage? Image { get; } = image;
 
@@ -25,6 +32,23 @@ internal sealed class DisplayImageEntry(long epoch, DisplayImage? image, Display
 
     /// <inheritdoc/>
     public override long Bytes { get; } = Overhead + (image?.RetainedBytes ?? 0) + (mask?.RetainedBytes ?? 0);
+}
+
+/// <summary>
+/// The samples of an image kept encoded in a display list, decoded at one reduction when it was drawn (issue #362), in the
+/// document's image cache under the image and the reduction. Always current: the image is immutable, so its samples are too.
+/// </summary>
+/// <param name="samples">The samples.</param>
+internal sealed class DisplayImageSamplesEntry(DecodedImage samples) : IBudgetedEntry
+{
+    /// <summary>Gets the samples.</summary>
+    public DecodedImage Samples { get; } = samples;
+
+    /// <inheritdoc/>
+    public long Bytes { get; } = DisplayImageEntry.Overhead + samples.RetainedBytes;
+
+    /// <inheritdoc/>
+    public bool IsCurrent => true;
 }
 
 /// <summary>

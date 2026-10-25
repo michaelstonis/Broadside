@@ -20,6 +20,7 @@ public sealed class DecodedImageBuilder : IDisposable
     private readonly int _length;
     private DecodedImageBuilder? _alpha;
     private int _decodedRows;
+    private byte _reduction;
 
     internal DecodedImageBuilder(int width, int height, int components, int bitsPerComponent)
     {
@@ -75,6 +76,27 @@ public sealed class DecodedImageBuilder : IDisposable
             ArgumentOutOfRangeException.ThrowIfNegative(value);
             ArgumentOutOfRangeException.ThrowIfGreaterThan(value, Height);
             _decodedRows = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the reduction the samples were decoded at, as a power of two: 0 for the image's full resolution, 1 for half, 2
+    /// for a quarter, 3 for an eighth. A codec that honours <see cref="Filters.ImageFilterContext.Reduction"/> sets it to what it
+    /// delivered, which may be less than was asked for.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative or more than 15.</exception>
+    /// <remarks>
+    /// A reduction s = 2^n of a W × H image leaves ⌈W / s⌉ × ⌈H / s⌉ samples (the builder's <see cref="Width"/> and
+    /// <see cref="Height"/>); sample i covers the source samples i·s to (i + 1)·s − 1, the last one only those that exist.
+    /// </remarks>
+    public int Reduction
+    {
+        get => _reduction;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(value, ImageGeometry.MaxReduction);
+            _reduction = (byte)value;
         }
     }
 

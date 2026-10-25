@@ -19,6 +19,12 @@ public sealed partial class SoftwareRasterizer
         private PdfColorConverter? _imageConverter;
         private PdfColorConverter? _imageBaseConverter;
 
+        // The fewest decoded samples per device pixel a reduced image keeps (#362), or 0 to draw images at their own resolution.
+        private double _imageSamplesPerPixel;
+
+        // The render's token: a decode at replay (#362) stops with the render.
+        private CancellationToken _cancellationToken;
+
         /// <summary>
         /// Draws the image's samples into the parallelogram the unit square maps to: the outline is scan converted like a filled path
         /// (so its edges are anti-aliased and the clipping path cuts it as it cuts fills and strokes, §8.5.4), and each covered pixel
@@ -33,7 +39,7 @@ public sealed partial class SoftwareRasterizer
         /// </remarks>
         public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
         {
-            if ((long)image.Width * image.Height > Array.MaxLength || _clip.IsEmpty || _fillCompositor.PaintsNothing)
+            if (_clip.IsEmpty || _fillCompositor.PaintsNothing)
             {
                 return;
             }
@@ -50,39 +56,104 @@ public sealed partial class SoftwareRasterizer
                 return;
             }
 
+            int reduction = _imageSamplesPerPixel > 0 ? image.GetReduction(_toDevice, _imageSamplesPerPixel, converter) : 0;
             if (_previewing)
             {
                 PreviewImage(image, defaultColorSpaces, conversion, inverse);
                 return;
             }
 
+            if (image.GetSamplesAt(reduction, _cancellationToken) is not { } samples || (long)samples.Width * samples.Height > Array.MaxLength)
+            {
+                // ISO 32000-2 §8.9.5: an image that cannot be decoded paints nothing (its reason is a diagnostic of the document).
+                _scan.Reset(_width, _height);
+                return;
+            }
+
             PdfColorConverter? baseConverter = image.ColorSpace is PdfIndexedColorSpace indexed && !image.Matte.IsEmpty
                 ? _imageBaseConverter ??= _document!.GetColorConverter(indexed.Base, _pixelModel.Convert(conversion), defaultColorSpaces)
                 : null;
-            _imageSource.Prepare(image, converter, baseConverter, _pixelModel);
-            (byte[]? opacity, int maskWidth, int maskHeight, bool maskInterpolate) = PrepareImageMask(image);
+            DisplayImageSamples? soft = FoldedSoftMask(image, samples);
+            _imageSource.Prepare(image, samples, soft, converter, baseConverter, _pixelModel);
+            ImageMask mask = PrepareImageMask(image, samples, soft);
             Bitmap target = _target!;
             var painter = new ImagePainter(
-                target.Pixels, target.Stride, _imageSource.Buffer, image.Width, image.Height, inverse, image.Interpolate, opacity, maskWidth, maskHeight, maskInterpolate, _fillCompositor, Averages);
+                target.Pixels,
+                target.Stride,
+                _imageSource.Buffer,
+                samples.Width,
+                samples.Height,
+                ToSamples(inverse, samples),
+                image.Interpolate,
+                mask.Opacity,
+                mask.Width,
+                mask.Height,
+                mask.Interpolate,
+                _fillCompositor,
+                Averages,
+                mask.ScaleU,
+                mask.ScaleV);
             PaintImage(ref painter);
         }
 
-        /// <summary>Prepares the image's mask of another size than its own (§8.9.6.3, §11.6.5.2): its opacities and grid, or none.</summary>
-        private (byte[]? Opacity, int Width, int Height, bool Interpolate) PrepareImageMask(DisplayImage image)
+        /// <summary>
+        /// Returns the transform from device pixels to the grid of <paramref name="samples"/>, from the one to the image's own grid: a
+        /// reduction by s divides positions by s, so reduced sample i covers source samples i·s to (i + 1)·s, and the reduced grid,
+        /// ⌈W / s⌉·s source samples wide, overhangs the unit square, which the outline clips (#362).
+        /// </summary>
+        private static Matrix ToSamples(in Matrix inverse, DisplayImageSamples samples)
         {
-            if (image.SoftMask is { } soft && !ImageSource.FoldsSoftMask(image) && (long)soft.Width * soft.Height <= Array.MaxLength)
+            if (samples.Reduction == 0)
             {
-                _maskSource.Prepare(soft);
-                return (_maskSource.Buffer, soft.Width, soft.Height, soft.Interpolate);
+                return inverse;
             }
 
-            if (image.Mask is { } mask && !ImageSource.FoldsMask(image) && (long)mask.Width * mask.Height <= Array.MaxLength)
+            double scale = 1.0 / (1 << samples.Reduction);
+            return inverse * new Matrix(scale, 0, 0, scale, 0, 0);
+        }
+
+        /// <summary>
+        /// Returns the samples of the image's soft mask that fold into its converted pixels: a soft mask of the image's own size, at the
+        /// reduction the image's samples have (§11.6.5.2; a Matte needs it, and the grids then align exactly); otherwise null.
+        /// </summary>
+        private DisplayImageSamples? FoldedSoftMask(DisplayImage image, DisplayImageSamples samples)
+        {
+            if (image.SoftMask is not { } mask || mask.Width != image.Width || mask.Height != image.Height)
             {
-                _maskSource.Prepare(mask);
-                return (_maskSource.Buffer, mask.Width, mask.Height, mask.Interpolate);
+                return null;
             }
 
-            return (null, 1, 1, false);
+            return mask.GetSamplesAt(samples.Reduction, _cancellationToken) is { } soft && soft.Reduction == samples.Reduction ? soft : null;
+        }
+
+        /// <summary>
+        /// Prepares the image's mask when it is not folded into the converted pixels (another size than the samples painted, §8.9.6.3,
+        /// §11.6.5.2): its opacities, grid and the factors from the samples' grid to its own; or none. A viewer reduces it by its own
+        /// rule at its own size (#362), a soft mask through its samples, an image mask to 8-bit coverage.
+        /// </summary>
+        private ImageMask PrepareImageMask(DisplayImage image, DisplayImageSamples samples, DisplayImageSamples? folded)
+        {
+            double scale = 1 << samples.Reduction;
+            if (image.SoftMask is { } soft && folded is null && (long)soft.Width * soft.Height <= Array.MaxLength)
+            {
+                int reduction = _imageSamplesPerPixel > 0 ? soft.GetReduction(_toDevice, _imageSamplesPerPixel, null) : 0;
+                if (soft.GetSamplesAt(reduction, _cancellationToken) is { } opacity)
+                {
+                    _maskSource.Prepare(soft, opacity);
+                    double factor = scale / (1 << opacity.Reduction);
+                    return new ImageMask(_maskSource.Buffer, _maskSource.Width, _maskSource.Height, soft.Interpolate, factor * soft.Width / image.Width, factor * soft.Height / image.Height);
+                }
+            }
+
+            if (image.Mask is { } mask && !ImageSource.FoldsMask(image, samples) && (long)mask.Width * mask.Height <= Array.MaxLength)
+            {
+                int reduction = _imageSamplesPerPixel > 0 ? mask.GetReduction(_toDevice, _imageSamplesPerPixel) : 0;
+                _maskSource.Prepare(mask, reduction);
+                double factor = scale / (1 << reduction);
+                return new ImageMask(_maskSource.Buffer, _maskSource.Width, _maskSource.Height, mask.Interpolate, factor * mask.Width / image.Width, factor * mask.Height / image.Height);
+            }
+
+            return new ImageMask(null, 1, 1, false, 0, 0);
         }
 
         /// <summary>Paints the colour through the stencil mask in the parallelogram the unit square maps to.</summary>
@@ -111,9 +182,13 @@ public sealed partial class SoftwareRasterizer
 
             Span<float> rgb = stackalloc float[4];
             converter.Convert(color.Components, rgb);
-            _maskSource.Prepare(mask);
+
+            // A viewer resamples a large mask drawn small from its 8-bit coverage at a reduction (#362), not from every bit.
+            int reduction = _imageSamplesPerPixel > 0 ? mask.GetReduction(_toDevice, _imageSamplesPerPixel) : 0;
+            _maskSource.Prepare(mask, reduction);
+            Matrix toMask = reduction == 0 ? inverse : inverse * new Matrix(1.0 / (1 << reduction), 0, 0, 1.0 / (1 << reduction), 0, 0);
             Bitmap target = _target!;
-            var painter = new ImagePainter(target.Pixels, target.Stride, Pack(rgb), _maskSource.Buffer, mask.Width, mask.Height, inverse, mask.Interpolate, _fillCompositor, Averages);
+            var painter = new ImagePainter(target.Pixels, target.Stride, Pack(rgb), _maskSource.Buffer, _maskSource.Width, _maskSource.Height, toMask, mask.Interpolate, _fillCompositor, Averages);
             PaintImage(ref painter);
         }
 
@@ -133,6 +208,9 @@ public sealed partial class SoftwareRasterizer
                 _scan.Rule = _pathRule;
             }
         }
+
+        /// <summary>A mask resampled on its own grid: its opacities and size, and the factors from the painted samples' positions to its own.</summary>
+        private readonly record struct ImageMask(byte[]? Opacity, int Width, int Height, bool Interpolate, double ScaleU, double ScaleV);
 
         private static bool IsFinite(in Matrix m) =>
             double.IsFinite(m.A) && double.IsFinite(m.B) && double.IsFinite(m.C) && double.IsFinite(m.D) && double.IsFinite(m.E) && double.IsFinite(m.F);

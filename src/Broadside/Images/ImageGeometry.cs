@@ -6,6 +6,12 @@ internal static class ImageGeometry
     /// <summary>The most components a sample may have (a DeviceN space's limit, Annex C).</summary>
     public const int MaxComponents = 32;
 
+    /// <summary>The largest reduction a decode may be asked for, as a power of two: 1/2^15.</summary>
+    public const int MaxReduction = 15;
+
+    /// <summary>Returns the number of samples a reduction by 2^<paramref name="reduction"/> leaves of <paramref name="size"/>: ⌈size / 2^reduction⌉.</summary>
+    public static int Reduce(int size, int reduction) => (int)(((long)size + (1L << reduction) - 1) >> reduction);
+
     /// <summary>Returns the storage width for a logical depth: the depth itself for 1, 2, 4, 8 and 16; 8 for 3, 5, 6 and 7; else 16.</summary>
     public static int StorageBits(int bitsPerComponent) => bitsPerComponent switch
     {

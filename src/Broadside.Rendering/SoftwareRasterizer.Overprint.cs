@@ -449,11 +449,20 @@ public sealed partial class SoftwareRasterizer
             PdfColorConverter? baseConverter = image.ColorSpace is PdfIndexedColorSpace indexed && !image.Matte.IsEmpty
                 ? _previewImageBaseConverter ??= _document!.GetColorConverter(indexed.Base, conversion with { Target = DeviceColorModel.Cmyk }, defaultColorSpaces)
                 : null;
+            // A print preview draws every image at its own resolution (#362: reductions are for displaying only).
+            if (image.GetSamplesAt(0, _cancellationToken) is not { } samples || (long)samples.Width * samples.Height > Array.MaxLength)
+            {
+                _scan.Reset(_width, _height);
+                return;
+            }
+
             ImageSource cmy = _cmyImage ??= new ImageSource();
             ImageSource black = _blackImage ??= new ImageSource();
-            cmy.Prepare(image, converter, baseConverter, CmyPass);
-            black.Prepare(image, converter, baseConverter, BlackPass);
-            (byte[]? opacity, int maskWidth, int maskHeight, bool maskInterpolate) = PrepareImageMask(image);
+            DisplayImageSamples? soft = FoldedSoftMask(image, samples);
+            cmy.Prepare(image, samples, soft, converter, baseConverter, CmyPass);
+            black.Prepare(image, samples, soft, converter, baseConverter, BlackPass);
+            ImageMask mask = PrepareImageMask(image, samples, soft);
+            (byte[]? opacity, int maskWidth, int maskHeight, bool maskInterpolate) = (mask.Opacity, mask.Width, mask.Height, mask.Interpolate);
             if (!TryBeginLayers(black: true, out PixelBounds bounds))
             {
                 return;
@@ -464,10 +473,10 @@ public sealed partial class SoftwareRasterizer
             try
             {
                 var cmyPainter = new ImagePainter(
-                    _cmyLayer!.Pixels, _cmyLayer.Stride, cmy.Buffer, image.Width, image.Height, inverse, image.Interpolate, opacity, maskWidth, maskHeight, maskInterpolate, average: Averages);
+                    _cmyLayer!.Pixels, _cmyLayer.Stride, cmy.Buffer, samples.Width, samples.Height, inverse, image.Interpolate, opacity, maskWidth, maskHeight, maskInterpolate, average: Averages);
                 _scan.Paint(FillRule.NonZero, ref cmyPainter, keep: true);
                 var blackPainter = new ImagePainter(
-                    _blackLayer!.Pixels, _blackLayer.Stride, black.Buffer, image.Width, image.Height, inverse, image.Interpolate, opacity, maskWidth, maskHeight, maskInterpolate, average: Averages);
+                    _blackLayer!.Pixels, _blackLayer.Stride, black.Buffer, samples.Width, samples.Height, inverse, image.Interpolate, opacity, maskWidth, maskHeight, maskInterpolate, average: Averages);
                 _scan.Paint(FillRule.NonZero, ref blackPainter);
             }
             finally

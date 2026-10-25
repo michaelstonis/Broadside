@@ -81,7 +81,7 @@ public sealed class DctImageFilterTests
         // The DNL vector's frame says 0 lines: the header still gives the 43 of its DNL segment, and reports nothing yet.
         Assert.True(new DctDecodeFilter().TryReadHeader(Jpeg("dnl"), context, out ImageHeader header));
 
-        Assert.Equal(new ImageHeader(75, 43, 3, 8) { ColorModel = ImageColorModel.Rgb }, header);
+        Assert.Equal(new ImageHeader(75, 43, 3, 8) { ColorModel = ImageColorModel.Rgb, MaxReduction = 3 }, header);
         Assert.Empty(context.Filter.Diagnostics);
     }
 

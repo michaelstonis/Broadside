@@ -14,6 +14,24 @@ public readonly record struct ImageHeader(int Width, int Height, int Components,
     /// <remarks>ISO 32000-2 §7.4.9 (<c>SMaskInData</c>).</remarks>
     public bool HasAlpha { get; init; }
 
+    /// <summary>
+    /// Gets the largest reduction, as a power of two, that <see cref="IImageFilter.DecodeImage"/> delivers when asked for it through
+    /// <see cref="ImageFilterContext.Reduction"/>: 0 (the default) for a codec that always decodes at full resolution, 3 for one that
+    /// decodes at 1/2, 1/4 and 1/8.
+    /// </summary>
+    /// <remarks>
+    /// A display list keeps the encoded data of an image whose codec reduces, and decodes it when it is drawn, at the resolution it
+    /// is drawn at (see <c>DisplayImage.GetSamplesAt</c>); other images are decoded when the list is built.
+    /// </remarks>
+    public int MaxReduction
+    {
+        get => _maxReduction;
+        init => _maxReduction = (byte)Math.Clamp(value, 0, ImageGeometry.MaxReduction);
+    }
+
+    // A byte, so the header is no larger than it was: it is boxed once per image decode.
+    private readonly byte _maxReduction;
+
     /// <summary>Gets the colour model the codestream declares, or <see cref="ImageColorModel.Unknown"/>.</summary>
     /// <remarks>ISO 32000-2 §7.4.9.</remarks>
     public ImageColorModel ColorModel { get; init; }

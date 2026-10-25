@@ -34,7 +34,9 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     private readonly bool _cooperative;
     private readonly TimeSpan _sliceBudget;
     private readonly DisplayIntent _intent;
-    private readonly Func<ITileBackend> _backendFactory;
+    private readonly Func<ITileBackend>? _backendFactory;
+    private readonly bool _scaledImageDecode;
+    private readonly double _imageSamplesPerPixel;
     private readonly Func<CancellationToken, ValueTask> _yield;
     private readonly Lock _gate = new();
     private readonly CancellationTokenSource _closing = new();
@@ -60,7 +62,9 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         _cooperative = options.IsCooperative;
         _sliceBudget = options.SliceBudget;
         _intent = options.Intent;
-        _backendFactory = options.BackendFactory ?? (static () => new SoftwareTileBackend());
+        _backendFactory = options.BackendFactory;
+        _scaledImageDecode = options.ScaledImageDecode;
+        _imageSamplesPerPixel = options.ImageSamplesPerPixel;
         _yield = options.Yield ?? YieldAsync;
         _slots = new SemaphoreSlim(options.MaxConcurrency, options.MaxConcurrency);
         MaxConcurrency = options.MaxConcurrency;
@@ -801,7 +805,9 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
             }
         }
 
-        ITileBackend created = _backendFactory();
+#pragma warning disable CA2000 // The session owns the backend: it is returned to the pool and disposed when the session closes.
+        ITileBackend created = _backendFactory?.Invoke() ?? new SoftwareTileBackend(_scaledImageDecode, _imageSamplesPerPixel);
+#pragma warning restore CA2000
         Interlocked.Increment(ref _liveBackends);
         return created;
     }

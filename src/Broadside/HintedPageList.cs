@@ -38,6 +38,7 @@ internal sealed class HintedPageList
     private readonly DiagnosticSink _diagnostics;
     private readonly OnceCache<int, PdfPage?> _pages = new();
     private readonly ConcurrentDictionary<CosReference, PdfPage> _created = DeterministicTable.Create<CosReference, PdfPage>();
+    private readonly ConcurrentDictionary<CosDictionary, int> _indexes = DeterministicTable.Create<CosDictionary, int>(ReferenceEqualityComparer.Instance);
 
     /// <summary>Initializes a new instance of the <see cref="HintedPageList"/> class.</summary>
     /// <param name="document">The document.</param>
@@ -81,6 +82,15 @@ internal sealed class HintedPageList
     /// <returns><see langword="true"/> when one was handed out.</returns>
     public bool TryGetCreated(CosReference reference, [MaybeNullWhen(false)] out PdfPage page) => _created.TryGetValue(reference, out page);
 
+    /// <summary>
+    /// Returns the index of a page this list handed out, found by its page object, without reading the page tree: the hints give
+    /// pages in page order (F.3.7), so the index is the tree's.
+    /// </summary>
+    /// <param name="pageObject">The page object.</param>
+    /// <param name="index">The page's index.</param>
+    /// <returns><see langword="true"/> when this list handed out a page with that page object.</returns>
+    public bool TryGetIndex(CosDictionary pageObject, out int index) => _indexes.TryGetValue(pageObject, out index);
+
     private PdfPage? Create(int index)
     {
         PdfPageHint hint = _linearization.Hints!.Pages[index];
@@ -97,7 +107,9 @@ internal sealed class HintedPageList
         {
             var page = new PdfPage(_document, dictionary, reference, ancestors: null);
             PageTreeReader.CheckPage(page, _diagnostics);
-            return _created.GetOrAdd(reference, page);
+            PdfPage created = _created.GetOrAdd(reference, page);
+            _indexes.TryAdd(created.Dictionary, index);
+            return created;
         }
 
         _diagnostics.Report(

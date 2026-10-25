@@ -3,16 +3,21 @@ using System.Runtime.CompilerServices;
 namespace Broadside.Filters.Dct;
 
 /// <summary>
-/// Dequantization, the 8 x 8 inverse DCT, level shift and clamping for 8-bit and 12-bit samples: a port of libjpeg's
+/// Dequantization, the inverse DCT, level shift and clamping for 8-bit and 12-bit samples: a port of libjpeg's
 /// <c>jpeg_idct_islow</c> (the Loeffler-Ligtenberg-Moschytz integer algorithm), so the samples equal libjpeg-turbo's
-/// <c>-dct int</c> output exactly.
+/// <c>-dct int</c> output exactly; and of its reduced-size IDCTs <c>jpeg_idct_4x4</c>, <c>jpeg_idct_2x2</c> and
+/// <c>jpeg_idct_1x1</c>, which give a block's 4 x 4, 2 x 2 or 1 x 1 samples for a decode at 1/2, 1/4 or 1/8 (issue #362), equal
+/// to libjpeg-turbo's <c>-scale 1/s -dct int</c> output.
 /// </summary>
 /// <remarks>
 /// ITU-T T.81 §A.3.3 (the IDCT, informative), §A.3.4 (dequantization R = S x Q, normative), §A.3.1 and §F.2.1.5 (level shift by
-/// 2^(P-1) and clamp). Ported from libjpeg-turbo <c>src/jidctint.c</c> (commit 43ea8097), which is the Independent JPEG Group's
-/// software (see THIRD-PARTY-NOTICES.txt). Changes: C# syntax, coefficients in natural order with the quantization table as
-/// <see cref="int"/>s, 32-bit arithmetic for 8-bit samples (libjpeg's <c>JLONG</c> on 32-bit platforms; it wraps the same way on
-/// corrupt input) and 64-bit arithmetic for 12-bit samples, whose products need it (libjpeg's 12-bit build, PASS1_BITS 1).
+/// 2^(P-1) and clamp). Ported from libjpeg-turbo <c>src/jidctint.c</c> (commit 43ea8097) and <c>src/jidctred.c</c>, which are
+/// the Independent JPEG Group's software (see THIRD-PARTY-NOTICES.txt). Changes: C# syntax, coefficients in natural order with
+/// the quantization table as <see cref="int"/>s, 32-bit arithmetic for 8-bit samples (libjpeg's <c>JLONG</c> on 32-bit platforms;
+/// it wraps the same way on corrupt input) and 64-bit arithmetic for 12-bit samples, whose products need it (libjpeg's 12-bit
+/// build, PASS1_BITS 1). A reduced IDCT computes the 8-point IDCT's samples averaged over 2 x 2, 4 x 4 or the whole block, to
+/// within rounding, from the coefficients that contribute to them (the 4 x 4 one never reads row or column 4, the 2 x 2 one
+/// only the odd rows and columns and the DC).
 /// </remarks>
 internal static class InverseDct
 {
@@ -31,6 +36,16 @@ internal static class InverseDct
     private const int Fix2053119869 = 16819;
     private const int Fix2562915447 = 20995;
     private const int Fix3072711026 = 25172;
+    private const int Fix0211164243 = 1730;
+    private const int Fix0509795579 = 4176;
+    private const int Fix0601344887 = 4926;
+    private const int Fix0720959822 = 5906;
+    private const int Fix0850430095 = 6967;
+    private const int Fix1061594337 = 8697;
+    private const int Fix1272758580 = 10426;
+    private const int Fix1451774981 = 11893;
+    private const int Fix2172734803 = 17799;
+    private const int Fix3624509785 = 29692;
 
     /// <summary>
     /// libjpeg's post-IDCT range-limit table indexed by the descaled value masked to 10 bits: [0, 127] map to 128-255, [128, 511]
@@ -254,6 +269,327 @@ internal static class InverseDct
             o[4] = range[(int)((tmp13 - tmp0 + round) >> shift) & mask];
         }
     }
+
+    /// <summary>Transforms one block into its 4 x 4 samples at half the resolution (libjpeg's <c>jpeg_idct_4x4</c>).</summary>
+    /// <param name="coefficients">The 64 quantized coefficients in natural order.</param>
+    /// <param name="quantization">The 64 quantization values in natural order.</param>
+    /// <param name="output">Where the first sample row starts.</param>
+    /// <param name="stride">The distance between sample rows in <paramref name="output"/>.</param>
+    [SkipLocalsInit]
+    public static void Transform4(ReadOnlySpan<short> coefficients, ReadOnlySpan<int> quantization, Span<byte> output, int stride)
+    {
+        Span<int> workspace = stackalloc int[32];
+        coefficients = coefficients[..64];
+        quantization = quantization[..64];
+        byte[] range = RangeLimit;
+
+        // Pass 1: columns 0-3 and 5-7 (the second pass never reads column 4) into 4 workspace rows.
+        for (int column = 0; column < 8; column++)
+        {
+            if (column == 4)
+            {
+                continue;
+            }
+
+            if (coefficients[8 + column] == 0 && coefficients[16 + column] == 0 && coefficients[24 + column] == 0
+                && coefficients[40 + column] == 0 && coefficients[48 + column] == 0 && coefficients[56 + column] == 0)
+            {
+                int dc = coefficients[column] * quantization[column] << Pass1Bits;
+                workspace[column] = dc;
+                workspace[8 + column] = dc;
+                workspace[16 + column] = dc;
+                workspace[24 + column] = dc;
+                continue;
+            }
+
+            int tmp0 = coefficients[column] * quantization[column] << (ConstBits + 1);
+            int tmp2 = (coefficients[16 + column] * quantization[16 + column] * Fix1847759065)
+                + (coefficients[48 + column] * quantization[48 + column] * -Fix0765366865);
+            int tmp10 = tmp0 + tmp2;
+            int tmp12 = tmp0 - tmp2;
+
+            int z1 = coefficients[56 + column] * quantization[56 + column];
+            int z2 = coefficients[40 + column] * quantization[40 + column];
+            int z3 = coefficients[24 + column] * quantization[24 + column];
+            int z4 = coefficients[8 + column] * quantization[8 + column];
+            Odd4(z1, z2, z3, z4, out tmp0, out tmp2);
+
+            const int shift = ConstBits - Pass1Bits + 1;
+            const int round = 1 << (shift - 1);
+            workspace[column] = (tmp10 + tmp2 + round) >> shift;
+            workspace[24 + column] = (tmp10 - tmp2 + round) >> shift;
+            workspace[8 + column] = (tmp12 + tmp0 + round) >> shift;
+            workspace[16 + column] = (tmp12 - tmp0 + round) >> shift;
+        }
+
+        // Pass 2: the 4 rows into 4 samples each.
+        for (int row = 0; row < 4; row++)
+        {
+            Span<int> w = workspace.Slice(row * 8, 8);
+            Span<byte> o = output.Slice(row * stride, 4);
+            if (w[1] == 0 && w[2] == 0 && w[3] == 0 && w[5] == 0 && w[6] == 0 && w[7] == 0)
+            {
+                o.Fill(range[((w[0] + (1 << (Pass1Bits + 2))) >> (Pass1Bits + 3)) & 1023]);
+                continue;
+            }
+
+            int tmp0 = w[0] << (ConstBits + 1);
+            int tmp2 = (w[2] * Fix1847759065) + (w[6] * -Fix0765366865);
+            int tmp10 = tmp0 + tmp2;
+            int tmp12 = tmp0 - tmp2;
+            Odd4(w[7], w[5], w[3], w[1], out tmp0, out tmp2);
+
+            const int shift = ConstBits + Pass1Bits + 3 + 1;
+            const int round = 1 << (shift - 1);
+            o[0] = range[((tmp10 + tmp2 + round) >> shift) & 1023];
+            o[3] = range[((tmp10 - tmp2 + round) >> shift) & 1023];
+            o[1] = range[((tmp12 + tmp0 + round) >> shift) & 1023];
+            o[2] = range[((tmp12 - tmp0 + round) >> shift) & 1023];
+        }
+    }
+
+    /// <summary>Transforms one block into its 2 x 2 samples at a quarter of the resolution (libjpeg's <c>jpeg_idct_2x2</c>).</summary>
+    /// <param name="coefficients">The 64 quantized coefficients in natural order.</param>
+    /// <param name="quantization">The 64 quantization values in natural order.</param>
+    /// <param name="output">Where the first sample row starts.</param>
+    /// <param name="stride">The distance between sample rows in <paramref name="output"/>.</param>
+    [SkipLocalsInit]
+    public static void Transform2(ReadOnlySpan<short> coefficients, ReadOnlySpan<int> quantization, Span<byte> output, int stride)
+    {
+        Span<int> workspace = stackalloc int[16];
+        coefficients = coefficients[..64];
+        quantization = quantization[..64];
+        byte[] range = RangeLimit;
+
+        // Pass 1: columns 0, 1, 3, 5 and 7 (the second pass reads no others) into 2 workspace rows.
+        for (int column = 0; column < 8; column++)
+        {
+            if (column is 2 or 4 or 6)
+            {
+                continue;
+            }
+
+            if (coefficients[8 + column] == 0 && coefficients[24 + column] == 0 && coefficients[40 + column] == 0 && coefficients[56 + column] == 0)
+            {
+                int dc = coefficients[column] * quantization[column] << Pass1Bits;
+                workspace[column] = dc;
+                workspace[8 + column] = dc;
+                continue;
+            }
+
+            int tmp10 = coefficients[column] * quantization[column] << (ConstBits + 2);
+            int tmp0 = Odd2(
+                coefficients[56 + column] * quantization[56 + column],
+                coefficients[40 + column] * quantization[40 + column],
+                coefficients[24 + column] * quantization[24 + column],
+                coefficients[8 + column] * quantization[8 + column]);
+
+            const int shift = ConstBits - Pass1Bits + 2;
+            const int round = 1 << (shift - 1);
+            workspace[column] = (tmp10 + tmp0 + round) >> shift;
+            workspace[8 + column] = (tmp10 - tmp0 + round) >> shift;
+        }
+
+        // Pass 2: the 2 rows into 2 samples each.
+        for (int row = 0; row < 2; row++)
+        {
+            Span<int> w = workspace.Slice(row * 8, 8);
+            Span<byte> o = output.Slice(row * stride, 2);
+            if (w[1] == 0 && w[3] == 0 && w[5] == 0 && w[7] == 0)
+            {
+                o.Fill(range[((w[0] + (1 << (Pass1Bits + 2))) >> (Pass1Bits + 3)) & 1023]);
+                continue;
+            }
+
+            int tmp10 = w[0] << (ConstBits + 2);
+            int tmp0 = Odd2(w[7], w[5], w[3], w[1]);
+
+            const int shift = ConstBits + Pass1Bits + 3 + 2;
+            const int round = 1 << (shift - 1);
+            o[0] = range[((tmp10 + tmp0 + round) >> shift) & 1023];
+            o[1] = range[((tmp10 - tmp0 + round) >> shift) & 1023];
+        }
+    }
+
+    /// <summary>Transforms one block into its one sample at an eighth of the resolution, from the DC alone (libjpeg's <c>jpeg_idct_1x1</c>).</summary>
+    /// <param name="coefficients">The 64 quantized coefficients in natural order; only the first is read.</param>
+    /// <param name="quantization">The 64 quantization values in natural order; only the first is read.</param>
+    /// <param name="output">Where the sample goes.</param>
+    public static void Transform1(ReadOnlySpan<short> coefficients, ReadOnlySpan<int> quantization, Span<byte> output) =>
+        output[0] = RangeLimit[((coefficients[0] * quantization[0]) + 4 >> 3) & 1023];
+
+    /// <summary>The 12-bit counterpart of <see cref="Transform4"/>.</summary>
+    /// <param name="coefficients">The 64 quantized coefficients in natural order.</param>
+    /// <param name="quantization">The 64 quantization values in natural order.</param>
+    /// <param name="output">Where the first sample row starts.</param>
+    /// <param name="stride">The distance between sample rows in <paramref name="output"/>.</param>
+    [SkipLocalsInit]
+    public static void Transform4_12(ReadOnlySpan<short> coefficients, ReadOnlySpan<int> quantization, Span<ushort> output, int stride)
+    {
+        Span<int> workspace = stackalloc int[32];
+        coefficients = coefficients[..64];
+        quantization = quantization[..64];
+        ushort[] range = RangeLimit12;
+        const int mask = 16383;
+
+        for (int column = 0; column < 8; column++)
+        {
+            if (column == 4)
+            {
+                continue;
+            }
+
+            if (coefficients[8 + column] == 0 && coefficients[16 + column] == 0 && coefficients[24 + column] == 0
+                && coefficients[40 + column] == 0 && coefficients[48 + column] == 0 && coefficients[56 + column] == 0)
+            {
+                int dc = (int)((long)coefficients[column] * quantization[column] << Pass1Bits12);
+                workspace[column] = dc;
+                workspace[8 + column] = dc;
+                workspace[16 + column] = dc;
+                workspace[24 + column] = dc;
+                continue;
+            }
+
+            long tmp0 = (long)coefficients[column] * quantization[column] << (ConstBits + 1);
+            long tmp2 = ((long)coefficients[16 + column] * quantization[16 + column] * Fix1847759065)
+                + ((long)coefficients[48 + column] * quantization[48 + column] * -Fix0765366865);
+            long tmp10 = tmp0 + tmp2;
+            long tmp12 = tmp0 - tmp2;
+            Odd4(
+                (long)coefficients[56 + column] * quantization[56 + column],
+                (long)coefficients[40 + column] * quantization[40 + column],
+                (long)coefficients[24 + column] * quantization[24 + column],
+                (long)coefficients[8 + column] * quantization[8 + column],
+                out tmp0,
+                out tmp2);
+
+            const int shift = ConstBits - Pass1Bits12 + 1;
+            const long round = 1L << (shift - 1);
+            workspace[column] = (int)((tmp10 + tmp2 + round) >> shift);
+            workspace[24 + column] = (int)((tmp10 - tmp2 + round) >> shift);
+            workspace[8 + column] = (int)((tmp12 + tmp0 + round) >> shift);
+            workspace[16 + column] = (int)((tmp12 - tmp0 + round) >> shift);
+        }
+
+        for (int row = 0; row < 4; row++)
+        {
+            Span<int> w = workspace.Slice(row * 8, 8);
+            Span<ushort> o = output.Slice(row * stride, 4);
+            if (w[1] == 0 && w[2] == 0 && w[3] == 0 && w[5] == 0 && w[6] == 0 && w[7] == 0)
+            {
+                o.Fill(range[(int)(((long)w[0] + (1 << (Pass1Bits12 + 2))) >> (Pass1Bits12 + 3)) & mask]);
+                continue;
+            }
+
+            long tmp0 = (long)w[0] << (ConstBits + 1);
+            long tmp2 = ((long)w[2] * Fix1847759065) + ((long)w[6] * -Fix0765366865);
+            long tmp10 = tmp0 + tmp2;
+            long tmp12 = tmp0 - tmp2;
+            Odd4(w[7], w[5], w[3], w[1], out tmp0, out tmp2);
+
+            const int shift = ConstBits + Pass1Bits12 + 3 + 1;
+            const long round = 1L << (shift - 1);
+            o[0] = range[(int)((tmp10 + tmp2 + round) >> shift) & mask];
+            o[3] = range[(int)((tmp10 - tmp2 + round) >> shift) & mask];
+            o[1] = range[(int)((tmp12 + tmp0 + round) >> shift) & mask];
+            o[2] = range[(int)((tmp12 - tmp0 + round) >> shift) & mask];
+        }
+    }
+
+    /// <summary>The 12-bit counterpart of <see cref="Transform2"/>.</summary>
+    /// <param name="coefficients">The 64 quantized coefficients in natural order.</param>
+    /// <param name="quantization">The 64 quantization values in natural order.</param>
+    /// <param name="output">Where the first sample row starts.</param>
+    /// <param name="stride">The distance between sample rows in <paramref name="output"/>.</param>
+    [SkipLocalsInit]
+    public static void Transform2_12(ReadOnlySpan<short> coefficients, ReadOnlySpan<int> quantization, Span<ushort> output, int stride)
+    {
+        Span<int> workspace = stackalloc int[16];
+        coefficients = coefficients[..64];
+        quantization = quantization[..64];
+        ushort[] range = RangeLimit12;
+        const int mask = 16383;
+
+        for (int column = 0; column < 8; column++)
+        {
+            if (column is 2 or 4 or 6)
+            {
+                continue;
+            }
+
+            if (coefficients[8 + column] == 0 && coefficients[24 + column] == 0 && coefficients[40 + column] == 0 && coefficients[56 + column] == 0)
+            {
+                int dc = (int)((long)coefficients[column] * quantization[column] << Pass1Bits12);
+                workspace[column] = dc;
+                workspace[8 + column] = dc;
+                continue;
+            }
+
+            long tmp10 = (long)coefficients[column] * quantization[column] << (ConstBits + 2);
+            long tmp0 = Odd2(
+                (long)coefficients[56 + column] * quantization[56 + column],
+                (long)coefficients[40 + column] * quantization[40 + column],
+                (long)coefficients[24 + column] * quantization[24 + column],
+                (long)coefficients[8 + column] * quantization[8 + column]);
+
+            const int shift = ConstBits - Pass1Bits12 + 2;
+            const long round = 1L << (shift - 1);
+            workspace[column] = (int)((tmp10 + tmp0 + round) >> shift);
+            workspace[8 + column] = (int)((tmp10 - tmp0 + round) >> shift);
+        }
+
+        for (int row = 0; row < 2; row++)
+        {
+            Span<int> w = workspace.Slice(row * 8, 8);
+            Span<ushort> o = output.Slice(row * stride, 2);
+            if (w[1] == 0 && w[3] == 0 && w[5] == 0 && w[7] == 0)
+            {
+                o.Fill(range[(int)(((long)w[0] + (1 << (Pass1Bits12 + 2))) >> (Pass1Bits12 + 3)) & mask]);
+                continue;
+            }
+
+            long tmp10 = (long)w[0] << (ConstBits + 2);
+            long tmp0 = Odd2(w[7], w[5], w[3], (long)w[1]);
+
+            const int shift = ConstBits + Pass1Bits12 + 3 + 2;
+            const long round = 1L << (shift - 1);
+            o[0] = range[(int)((tmp10 + tmp0 + round) >> shift) & mask];
+            o[1] = range[(int)((tmp10 - tmp0 + round) >> shift) & mask];
+        }
+    }
+
+    /// <summary>The 12-bit counterpart of <see cref="Transform1"/>.</summary>
+    /// <param name="coefficients">The 64 quantized coefficients in natural order; only the first is read.</param>
+    /// <param name="quantization">The 64 quantization values in natural order; only the first is read.</param>
+    /// <param name="output">Where the sample goes.</param>
+    public static void Transform1_12(ReadOnlySpan<short> coefficients, ReadOnlySpan<int> quantization, Span<ushort> output) =>
+        output[0] = RangeLimit12[(int)(((long)coefficients[0] * quantization[0]) + 4 >> 3) & 16383];
+
+    /// <summary>The odd part of the 4 x 4 IDCT: from the coefficients 7, 5, 3, 1, the terms of outputs 1/2 and 0/3.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Odd4(int z1, int z2, int z3, int z4, out int tmp0, out int tmp2)
+    {
+        tmp0 = (z1 * -Fix0211164243) + (z2 * Fix1451774981) + (z3 * -Fix2172734803) + (z4 * Fix1061594337);
+        tmp2 = (z1 * -Fix0509795579) + (z2 * -Fix0601344887) + (z3 * Fix0899976223) + (z4 * Fix2562915447);
+    }
+
+    /// <summary>The 64-bit counterpart of <see cref="Odd4(int, int, int, int, out int, out int)"/>.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Odd4(long z1, long z2, long z3, long z4, out long tmp0, out long tmp2)
+    {
+        tmp0 = (z1 * -Fix0211164243) + (z2 * Fix1451774981) + (z3 * -Fix2172734803) + (z4 * Fix1061594337);
+        tmp2 = (z1 * -Fix0509795579) + (z2 * -Fix0601344887) + (z3 * Fix0899976223) + (z4 * Fix2562915447);
+    }
+
+    /// <summary>The odd part of the 2 x 2 IDCT: from the coefficients 7, 5, 3, 1, the term the two outputs add and subtract.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int Odd2(int z7, int z5, int z3, int z1) =>
+        (z7 * -Fix0720959822) + (z5 * Fix0850430095) + (z3 * -Fix1272758580) + (z1 * Fix3624509785);
+
+    /// <summary>The 64-bit counterpart of <see cref="Odd2(int, int, int, int)"/>.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static long Odd2(long z7, long z5, long z3, long z1) =>
+        (z7 * -Fix0720959822) + (z5 * Fix0850430095) + (z3 * -Fix1272758580) + (z1 * Fix3624509785);
 
     /// <summary>The odd part of <see cref="Transform12"/>, in 64 bits.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

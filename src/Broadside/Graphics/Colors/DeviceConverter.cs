@@ -38,6 +38,16 @@ internal sealed class DeviceConverter(PdfColorSpaceFamily source, ColorConversio
     public bool IsIdentity => (source, conversion.Target) is (PdfColorSpaceFamily.DeviceRgb, DeviceColorModel.Rgb)
         or (PdfColorSpaceFamily.DeviceCmyk, DeviceColorModel.Cmyk) or (PdfColorSpaceFamily.DeviceGray, DeviceColorModel.Gray);
 
+    /// <summary>
+    /// Whether the conversion is affine on the components, so that averaging colours before it equals averaging them after it:
+    /// gray to anything, RGB to RGB or gray, CMYK to CMYK. RGB to CMYK (black generation, undercolour removal) and CMYK to RGB or
+    /// gray (a clip, or the SWOP polynomial) are not.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §10.4.2.</remarks>
+    public bool IsAffine => source == PdfColorSpaceFamily.DeviceGray
+        || (source, conversion.Target) is (PdfColorSpaceFamily.DeviceRgb, DeviceColorModel.Rgb or DeviceColorModel.Gray)
+        or (PdfColorSpaceFamily.DeviceCmyk, DeviceColorModel.Cmyk);
+
     /// <inheritdoc/>
     public void Convert(ReadOnlySpan<float> source, Span<float> destination, int count)
     {

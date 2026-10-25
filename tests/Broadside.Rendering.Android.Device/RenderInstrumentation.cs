@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.IO.Compression;
 using System.Runtime.InteropServices;
 using Android.App;
 using Android.Content;
@@ -127,7 +128,18 @@ public sealed class RenderInstrumentation : Instrumentation
         int height = bitmap.Height;
         int[] argb = new int[width * height];
         bitmap.GetPixels(argb, 0, width, 0, 0, width, height);
-        File.WriteAllBytes(Path.Combine(output, DeviceProtocol.PixelFile(fileName, index, variant)), MemoryMarshal.AsBytes(argb.AsSpan()).ToArray());
+        Compress(Path.Combine(output, DeviceProtocol.PixelFile(fileName, index, variant)), MemoryMarshal.AsBytes(argb.AsSpan()));
+    }
+
+    /// <summary>
+    /// Writes the bytes gzip-compressed: a page is mostly flat colour, so this cuts the adb transfer that brings the pixels back by one
+    /// to two orders of magnitude, and with it the window in which an emulator's adb transport can drop (issue #344).
+    /// </summary>
+    private static void Compress(string path, ReadOnlySpan<byte> bytes)
+    {
+        using FileStream file = File.Create(path);
+        using var compressed = new GZipStream(file, CompressionLevel.Fastest);
+        compressed.Write(bytes);
     }
 
     /// <summary>

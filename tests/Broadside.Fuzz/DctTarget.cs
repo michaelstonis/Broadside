@@ -9,7 +9,9 @@ namespace Broadside.Fuzz;
 /// a 4 MiB output limit and 2^20 pixels. The decoder looks for the SOI marker anywhere, so whole corpus files that embed a JPEG
 /// (<c>dct-baseline.pdf</c>) reach it. Invariants: no exception in lenient mode; the plain path writes nothing or exactly width x
 /// height x components bytes, within the limit; a decoded image has 1 to 4 components of 8 bits, the §8.9.3 stride, no more
-/// decoded rows than rows, the size its header gave, and the same samples as the plain path.
+/// decoded rows than rows, the size its header gave, and the same samples as the plain path. Issue #362: the image is decoded
+/// again at a reduction chosen from the input length (1/2, 1/4 or 1/8), which must give ⌈W / s⌉ x ⌈H / s⌉ samples of the same
+/// components and layout, the reduction asked for and no more decoded rows than rows.
 /// </summary>
 /// <remarks>ISO 32000-2 §7.4.8; ITU-T T.81.</remarks>
 internal static class DctTarget
@@ -49,6 +51,23 @@ internal static class DctTarget
         if (output.WrittenCount > 0 && !output.WrittenSpan.SequenceEqual(image.Samples))
         {
             throw new InvalidOperationException("The plain filter path and the image path decoded different samples.");
+        }
+
+        int reduction = 1 + (data.Length % 3);
+        var reducedContext = new ImageFilterContext(new FilterContext { MaxDecodedLength = MaxBytes }) { MaxPixels = 1 << 20, Reduction = reduction };
+        using DecodedImage? reduced = filter.DecodeImage(input, reducedContext);
+        if (reduced is null)
+        {
+            return;
+        }
+
+        int scale = 1 << reduction;
+        if (reduced.Reduction != reduction || reduced.Width != (image.Width + scale - 1) / scale || reduced.Height != (image.Height + scale - 1) / scale
+            || reduced.Components != image.Components || reduced.Stride != reduced.Width * reduced.Components
+            || reduced.Samples.Length != reduced.Stride * reduced.Height || reduced.DecodedRows > reduced.Height)
+        {
+            throw new InvalidOperationException(
+                $"The image decoded at 1/{scale} is {reduced.Width} x {reduced.Height} x {reduced.Components} at reduction {reduced.Reduction}, {reduced.DecodedRows} decoded rows, from {image.Width} x {image.Height}.");
         }
     }
 }

@@ -39,13 +39,13 @@ internal static class DeviceProtocol
     public const string Paths = "paths";
 
     /// <summary>
-    /// Returns the name of the file that holds a page's pixels in a render variant: 32-bit ARGB per pixel, little-endian (B, G, R, A
-    /// bytes), rows top first, no padding.
+    /// Returns the name of the file that holds a page's pixels in a render variant, gzip-compressed: 32-bit ARGB per pixel,
+    /// little-endian (B, G, R, A bytes), rows top first, no padding.
     /// </summary>
     public static string PixelFile(string fileName, int page, string variant = Native) =>
         variant.Length == 0
-            ? $"{Path.GetFileNameWithoutExtension(fileName)}.page{page}.bgra"
-            : $"{Path.GetFileNameWithoutExtension(fileName)}.page{page}.{variant}.bgra";
+            ? $"{Path.GetFileNameWithoutExtension(fileName)}.page{page}.bgra.gz"
+            : $"{Path.GetFileNameWithoutExtension(fileName)}.page{page}.{variant}.bgra.gz";
 
     /// <summary>Returns the result key of how many glyphs a render variant of the page drew through Android's font engine.</summary>
     public static string NativeGlyphsKey(string fileName, int page, string variant = Native) => $"native-glyphs{Suffix(variant)}:{fileName}:{page}";
