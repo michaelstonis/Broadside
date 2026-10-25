@@ -56,11 +56,15 @@ public sealed class BrowserImageDecoderTests(BrowserHost host)
                 Assert.Contains("max 0,", full.Messages[0], StringComparison.Ordinal); // bit-identical: the YCbCr planes
             }
 
-            // Drawn at about a quarter of its size with 2 samples per pixel: a reduced decode through desiredWidth.
+            // Drawn at about a quarter of its size with 2 samples per pixel: a reduced decode through desiredWidth where the browser
+            // scales in the DCT (Chromium; probed at start-up), else a full-size decode (Firefox resamples: 43 dB measured).
             Report reduced = await VerifyAsync(page, file, scale: 0.2, samplesPerPixel: 2, bitmapOnPage: false);
             Assert.Equal(["PlatformImageVerified"], reduced.Codes);
-            Assert.Contains("at reduction ", reduced.Messages[0], StringComparison.Ordinal);
-            Assert.DoesNotContain("at reduction 0", reduced.Messages[0], StringComparison.Ordinal);
+            if (browserName == "chromium")
+            {
+                Assert.DoesNotContain("at reduction 0", reduced.Messages[0], StringComparison.Ordinal);
+                Assert.Contains("max 0,", reduced.Messages[0], StringComparison.Ordinal);
+            }
         }
     }
 

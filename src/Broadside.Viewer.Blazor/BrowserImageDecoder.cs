@@ -2,7 +2,9 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
+using Broadside.Filters;
 using Broadside.Images;
+using Broadside.Objects;
 
 namespace Broadside.Viewer.Blazor;
 
@@ -43,6 +45,7 @@ public sealed class BrowserImageDecoder : IPlatformImageDecoder
 
     private static Task<int>? _probe;
     private static int _tiers = -1;
+    private static bool _scaledExact;
 
     private readonly BrowserImageDecoderOptions _options;
 
@@ -128,7 +131,9 @@ public sealed class BrowserImageDecoder : IPlatformImageDecoder
 
         cancellationToken.ThrowIfCancellationRequested();
         ReadOnlySpan<byte> data = encoded.Span;
-        int id = ImageDecoderInterop.Begin(MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(data), data.Length), tier, request.Reduction, request.Width, request.Height, request.Components);
+        // A browser whose reduced decode is not libjpeg's DCT scaling (probed) decodes at full size: finer, and exact for planes.
+        int asked = tier == WebCodecs && !Volatile.Read(ref _scaledExact) ? 0 : request.Reduction;
+        int id = ImageDecoderInterop.Begin(MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(data), data.Length), tier, asked, request.Width, request.Height, request.Components);
         string status;
         try
         {
@@ -149,7 +154,7 @@ public sealed class BrowserImageDecoder : IPlatformImageDecoder
         int width = int.Parse(parts[1], CultureInfo.InvariantCulture);
         int height = int.Parse(parts[2], CultureInfo.InvariantCulture);
         int reduction = -1;
-        for (int r = 0; r <= request.Reduction; r++)
+        for (int r = 0; r <= asked; r++)
         {
             if (ImageSize(request.Width, r) == width && ImageSize(request.Height, r) == height)
             {
@@ -181,14 +186,98 @@ public sealed class BrowserImageDecoder : IPlatformImageDecoder
         }
     }
 
+    /// <summary>
+    /// Decodes a small 4:2:0 test photograph at a quarter with <c>ImageDecoder</c>'s <c>desiredWidth</c> and compares it with the
+    /// managed decoder's reduced decode (libjpeg's reduced IDCT): whether this browser scales in the DCT (Chrome) or resamples a
+    /// full decode (measured at 43 dB in Firefox), feature-detected rather than read from the user agent.
+    /// </summary>
+    private static async Task<bool> ProbeScaledDecodeAsync()
+    {
+        const int size = 64;
+        const int reduction = 2;
+        try
+        {
+            byte[] rgb = new byte[size * size * 3];
+            for (int y = 0, i = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++, i += 3)
+                {
+                    rgb[i] = (byte)(x * 4);
+                    rgb[i + 1] = (byte)(((x / 3) + (y / 3)) % 2 == 0 ? 40 : 220);
+                    rgb[i + 2] = (byte)(y * 4);
+                }
+            }
+
+            var output = new System.Buffers.ArrayBufferWriter<byte>();
+            var dictionary = new CosDictionary { [new CosName("Width")] = new CosInteger(size), [new CosName("Height")] = new CosInteger(size) };
+            new DctEncoder(90, DctChromaSubsampling.HorizontalAndVertical).Encode(rgb, output, new StreamEncoderContext { StreamDictionary = dictionary });
+            byte[] jpeg = output.WrittenSpan.ToArray();
+            using DecodedImage? managed = new DctDecodeFilter().DecodeImage(jpeg, new ImageFilterContext(new FilterContext())
+            {
+                Width = size,
+                Height = size,
+                BitsPerComponent = 8,
+                ColorComponents = 3,
+                Reduction = reduction,
+            });
+            int id = ImageDecoderInterop.Begin(jpeg, WebCodecs, reduction, size, size, 3);
+            string status = await ImageDecoderInterop.Wait(id).ConfigureAwait(true);
+            int reduced = size >> reduction;
+            if (managed is null || managed.Reduction != reduction || status.Split(' ') is not ["ok", var w, var h, ..] || w != "16" || h != "16")
+            {
+                ImageDecoderInterop.Release(id);
+                return false;
+            }
+
+            byte[] browser = new byte[reduced * reduced * 3];
+            if (!ImageDecoderInterop.Read(id, browser))
+            {
+                return false;
+            }
+
+            for (int y = 0; y < reduced; y++)
+            {
+                ReadOnlySpan<byte> row = managed.GetRow(y)[..(reduced * 3)];
+                for (int i = 0; i < row.Length; i++)
+                {
+                    if (Math.Abs(row[i] - browser[(y * reduced * 3) + i]) > 3)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+#pragma warning disable CA1031 // anything unexpected: decode at full size
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+            return false;
+        }
+    }
+
     private static int ImageSize(int size, int reduction) => (int)(((long)size + (1L << reduction) - 1) >> reduction);
 
     private static async Task<int> ProbeAsync()
     {
         try
         {
-            await JSHost.ImportAsync(ImageDecoderInterop.Module, "../_content/Broadside.Viewer.Blazor/broadside-image-decoder.js").ConfigureAwait(true);
+            // In the render worker, next to the worker's own script (a worker has no import map, so a host that serves the content
+            // folder under another name is still found); on the page, where the viewer's module is.
+            string address = "../_content/Broadside.Viewer.Blazor/broadside-image-decoder.js";
+            if (RenderWorker.IsWorker && JSHost.GlobalThis.GetPropertyAsJSObject("location")?.GetPropertyAsString("href") is { } worker)
+            {
+                address = new Uri(new Uri(worker), "broadside-image-decoder.js").AbsoluteUri;
+            }
+
+            await JSHost.ImportAsync(ImageDecoderInterop.Module, address).ConfigureAwait(true);
             int tiers = await ImageDecoderInterop.Probe().ConfigureAwait(true);
+            if ((tiers & WebCodecs) != 0)
+            {
+                Volatile.Write(ref _scaledExact, await ProbeScaledDecodeAsync().ConfigureAwait(true));
+            }
+
             Volatile.Write(ref _tiers, tiers);
             return tiers;
         }
