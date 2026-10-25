@@ -10,16 +10,24 @@ namespace Broadside.Viewer.Maui.Sample;
 /// <summary>
 /// The large-photo bench (#428): BROADSIDE_PHOTO=1 (iOS simulator: SIMCTL_CHILD_BROADSIDE_PHOTO=1), or the Android intent extra
 /// "photo". It opens the generated catalogue-class page (a 2550 x 3150 DCT photograph over a letter page,
-/// <see cref="CatalogueSamples.Cover"/>; never a real catalogue), draws it at fit width, half and a quarter of it (a phone at 3 pixels per point reduces the cover only there), then 2x, and prints one BROADSIDE_PHOTO
-/// line per zoom: the tiles drawn, their total and longest draw time (the backend's own work, timed around it), the time until
-/// the view was idle, and the managed heap and decoded-image cache afterwards (process memory is sampled from outside: iOS does
-/// not report it to the app). BROADSIDE_PHOTO_FULL=1 turns scaled image decode off, for comparison.
+/// <see cref="CatalogueSamples.Cover"/>; never a real catalogue) at fit width and prints one BROADSIDE_PHOTO line: the tiles drawn,
+/// their total and longest draw time (the backend's own work, timed around it), the time until the view was idle, and the managed
+/// heap and decoded-image cache afterwards (process memory is sampled from outside: iOS does not report it to the app), then quits.
+/// One measurement per launch, so each starts from a fresh process. BROADSIDE_PHOTO_WIDTH narrows the view to a share of the
+/// window (a phone at 3 pixels per point reduces the cover at fit width only in a narrower view, or with BROADSIDE_PHOTO_K=1);
+/// BROADSIDE_PHOTO_FULL=1 turns scaled image decode off, for comparison.
 /// </summary>
 public static class PhotoBench
 {
     public static bool Requested { get; set; } = Environment.GetEnvironmentVariable("BROADSIDE_PHOTO") == "1";
 
     public static bool FullDecode { get; set; } = Environment.GetEnvironmentVariable("BROADSIDE_PHOTO_FULL") == "1";
+
+    /// <summary>Gets or sets the share of the window's width the view takes (BROADSIDE_PHOTO_WIDTH, 1 by default).</summary>
+    public static double Width { get; set; } = double.TryParse(Environment.GetEnvironmentVariable("BROADSIDE_PHOTO_WIDTH"), CultureInfo.InvariantCulture, out double width) ? width : 1;
+
+    /// <summary>Gets or sets the samples per device pixel a reduced image keeps (BROADSIDE_PHOTO_K, 2 by default).</summary>
+    public static double SamplesPerPixel { get; set; } = double.TryParse(Environment.GetEnvironmentVariable("BROADSIDE_PHOTO_K"), CultureInfo.InvariantCulture, out double k) ? k : RenderOptions.DefaultImageSamplesPerPixel;
 
     public static async Task RunAsync(PdfView view, Action<DocumentSession> show)
     {
@@ -45,32 +53,30 @@ public static class PhotoBench
         GC.WaitForPendingFinalizers();
         await Task.Delay(1000);
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"BROADSIDE_PHOTO ready decode={(FullDecode ? "full" : "scaled")} managed={GC.GetTotalMemory(false) / 1048576}MB"));
+        if (Width < 1)
+        {
+            // A narrower view (a thumbnail, a split screen): the page is drawn smaller, so the photograph is reduced at fit width.
+            view.HorizontalOptions = LayoutOptions.Start;
+            view.WidthRequest = view.Width * Width;
+            await Task.Delay(500);
+        }
+
         var timings = new TileTimings();
         ViewerOptions options = new ViewerOptions()
             .UseEngine(new PdfEngine(new PdfOptions().UseStandard14Fonts()))
             .WithScaledImageDecode(!FullDecode)
-            .UseBackend(() => new TimedTileBackend(new SkiaTileBackend(!FullDecode, RenderOptions.DefaultImageSamplesPerPixel), timings));
+            .WithImageSamplesPerPixel(SamplesPerPixel)
+            .UseBackend(() => new TimedTileBackend(new SkiaTileBackend(!FullDecode, SamplesPerPixel), timings));
         DocumentSession session = DocumentSession.Open(file, options);
         var clock = Stopwatch.StartNew();
         show(session);
-        foreach ((string name, double factor) in new[] { ("fit", 1.0), ("half", 0.5), ("quarter", 0.5), ("2x", 8.0) })
-        {
-            timings.Reset();
-            clock.Restart();
-            if (factor != 1)
-            {
-                view.ZoomBy(factor);
-            }
-
-            await IdleAsync(view);
-            double idle = clock.Elapsed.TotalMilliseconds - 500;
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            Console.WriteLine(string.Create(
-                CultureInfo.InvariantCulture,
-                $"BROADSIDE_PHOTO {name} decode={(FullDecode ? "full" : "scaled")} zoom={view.State.Zoom:F2} tiles={timings.Count} tileTotal={timings.TotalMs:F0}ms tileMax={timings.MaxMs:F0}ms idle={idle:F0}ms managed={GC.GetTotalMemory(false) / 1048576}MB imageCache={session.Document.CacheStatistics.Images.Bytes / 1048576}MB"));
-        }
-
+        await IdleAsync(view);
+        double idle = clock.Elapsed.TotalMilliseconds - 500;
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        Console.WriteLine(string.Create(
+            CultureInfo.InvariantCulture,
+            $"BROADSIDE_PHOTO fit decode={(FullDecode ? "full" : "scaled")} k={SamplesPerPixel} width={view.Width:F0}pt zoom={view.State.Zoom:F2} tiles={timings.Count} tileTotal={timings.TotalMs:F0}ms tileMax={timings.MaxMs:F0}ms idle={idle:F0}ms managed={GC.GetTotalMemory(false) / 1048576}MB imageCache={session.Document.CacheStatistics.Images.Bytes / 1048576}MB"));
     }
 
     /// <summary>Waits until the view has drawn everything it shows, then half a second more (it returns that much late).</summary>
