@@ -12,7 +12,8 @@ namespace Broadside.Viewer.Maui.Sample;
 /// "photo". It opens the generated catalogue-class page (a 2550 x 3150 DCT photograph over a letter page,
 /// <see cref="CatalogueSamples.Cover"/>; never a real catalogue), draws it at fit width, half and a quarter of it (a phone at 3 pixels per point reduces the cover only there), then 2x, and prints one BROADSIDE_PHOTO
 /// line per zoom: the tiles drawn, their total and longest draw time (the backend's own work, timed around it), the time until
-/// the view was idle, and the process's memory afterwards. BROADSIDE_PHOTO_FULL=1 turns scaled image decode off, for comparison.
+/// the view was idle, and the managed heap and decoded-image cache afterwards (process memory is sampled from outside: iOS does
+/// not report it to the app). BROADSIDE_PHOTO_FULL=1 turns scaled image decode off, for comparison.
 /// </summary>
 public static class PhotoBench
 {
@@ -38,6 +39,12 @@ public static class PhotoBench
     private static async Task RunCoreAsync(PdfView view, Action<DocumentSession> show)
     {
         byte[] file = await Task.Run(() => CatalogueSamples.Cover());
+
+        // Encoding the photograph takes memory of its own: settle it, and report where the process stands before the viewer opens.
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        await Task.Delay(1000);
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"BROADSIDE_PHOTO ready decode={(FullDecode ? "full" : "scaled")} managed={GC.GetTotalMemory(false) / 1048576}MB"));
         var timings = new TileTimings();
         ViewerOptions options = new ViewerOptions()
             .UseEngine(new PdfEngine(new PdfOptions().UseStandard14Fonts()))
@@ -61,23 +68,9 @@ public static class PhotoBench
             GC.WaitForPendingFinalizers();
             Console.WriteLine(string.Create(
                 CultureInfo.InvariantCulture,
-                $"BROADSIDE_PHOTO {name} decode={(FullDecode ? "full" : "scaled")} zoom={view.State.Zoom:F2} tiles={timings.Count} tileTotal={timings.TotalMs:F0}ms tileMax={timings.MaxMs:F0}ms idle={idle:F0}ms workingSet={Environment.WorkingSet / 1048576}MB peak={Peak() / 1048576}MB managed={GC.GetTotalMemory(false) / 1048576}MB imageCache={session.Document.CacheStatistics.Images.Bytes / 1048576}MB"));
+                $"BROADSIDE_PHOTO {name} decode={(FullDecode ? "full" : "scaled")} zoom={view.State.Zoom:F2} tiles={timings.Count} tileTotal={timings.TotalMs:F0}ms tileMax={timings.MaxMs:F0}ms idle={idle:F0}ms managed={GC.GetTotalMemory(false) / 1048576}MB imageCache={session.Document.CacheStatistics.Images.Bytes / 1048576}MB"));
         }
 
-    }
-
-    /// <summary>The process's peak working set, or -1 where the platform does not report it.</summary>
-    private static long Peak()
-    {
-        try
-        {
-            using Process process = Process.GetCurrentProcess();
-            return process.PeakWorkingSet64;
-        }
-        catch (PlatformNotSupportedException)
-        {
-            return -1;
-        }
     }
 
     /// <summary>Waits until the view has drawn everything it shows, then half a second more (it returns that much late).</summary>

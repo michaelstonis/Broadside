@@ -132,7 +132,7 @@ public sealed class SkiaScaledImageDecodeTests
     }
 
     [Fact]
-    public void A_zoom_converts_the_new_reduction_once_for_every_tile()
+    public void A_zoom_in_converts_the_new_reduction_once_for_every_tile_and_a_zoom_out_converts_nothing()
     {
         using PdfDocument document = PdfDocument.Open(CatalogueSamples.Cover(), new PdfOptions().WithDisplayListCacheBudget(0));
         PdfPage page = document.Pages[0];
@@ -140,7 +140,8 @@ public sealed class SkiaScaledImageDecodeTests
         using var backend = new SkiaBackend { ScaledImageDecode = true };
         using var tile = new SKBitmap(new SKImageInfo(64, 64, SKColorType.Bgra8888, SKAlphaType.Premul));
         using var canvas = new SKCanvas(tile);
-        foreach (double scale in new[] { 150 / 612.0, 390 / 612.0 })
+        // Zoom in (1/8 to 1/2), then out again: the half conversion serves the eighth, as the document's samples do.
+        foreach (double scale in new[] { 150 / 612.0, 390 / 612.0, 150 / 612.0 })
         {
             Matrix device = new RenderOptions().WithScale(scale).GetDeviceTransform(page);
             for (int i = 0; i < 4; i++)

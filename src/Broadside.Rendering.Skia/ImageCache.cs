@@ -72,14 +72,14 @@ internal sealed class ImageCache : IDisposable
     /// larger than a non-zero budget replaces the older of the two kept outside it.
     /// </summary>
     /// <returns>Whether the image is kept; when not, the caller disposes it after drawing.</returns>
-    public bool Keep(Entry entry, SKImage image, long bytes, ColorConversion conversion, PdfDefaultColorSpaces? defaults, int reduction = 0)
+    public bool Keep(Entry entry, SKImage image, long bytes, ColorConversion conversion, PdfDefaultColorSpaces? defaults, int delivered = 0)
     {
         Release(entry);
-        if (entry.AskedReduction != reduction)
+        if (entry.Delivered != delivered)
         {
             // Another reduction of the image (issue #362): its resamplings were for another grid.
             entry.ForgetTransforms();
-            entry.AskedReduction = reduction;
+            entry.Delivered = delivered;
         }
 
         if (bytes > Budget)
@@ -217,10 +217,7 @@ internal sealed class ImageCache : IDisposable
 
         public PdfDefaultColorSpaces? Defaults { get; set; }
 
-        /// <summary>Gets or sets the reduction the image was asked for at (issue #362), part of the key: 0 for its own resolution.</summary>
-        public int AskedReduction { get; set; }
-
-        /// <summary>Gets or sets the reduction the kept image's samples have, which may be less than asked for.</summary>
+        /// <summary>Gets or sets the reduction the kept image's samples have (issue #362): 0 for the image's own resolution.</summary>
         public int Delivered { get; set; }
 
         /// <summary>Gets or sets whether the image's mask is folded into the kept image.</summary>
@@ -285,9 +282,13 @@ internal sealed class ImageCache : IDisposable
             }
         }
 
-        /// <summary>Whether the kept image was converted with this conversion and these default colour spaces.</summary>
+        /// <summary>
+        /// Whether the kept image was converted with this conversion and these default colour spaces, at <paramref name="reduction"/>
+        /// or a finer one: a finer conversion serves a coarser request, as the document's decoded samples do (issue #362), so zooming
+        /// out converts nothing again.
+        /// </summary>
         public bool Matches(ColorConversion conversion, PdfDefaultColorSpaces? defaults, int reduction = 0) =>
-            Image is not null && AskedReduction == reduction && ReferenceEquals(Defaults, defaults) && Conversion == conversion;
+            Image is not null && Delivered <= reduction && ReferenceEquals(Defaults, defaults) && Conversion == conversion;
 
         private readonly record struct Reduction(bool Used, Matrix Transform, SKRectI Pixels, SKImage? Image, long Bytes)
         {

@@ -53,20 +53,24 @@ public sealed partial class SkiaBackend
                 reduction = image.GetReduction(toPixels, samplesPerPixel, converter);
             }
 
-            // An image kept encoded that cannot be decoded paints nothing (ISO 32000-2 §8.9.5; its reason is a diagnostic).
-            if (image.GetSamplesAt(reduction) is not { } samples)
+            ImageCache cache = Images;
+            ImageCache.Entry entry = cache.Find(image);
+            SKImage? pixels = entry.Matches(rgb, defaultColorSpaces, reduction) ? entry.Image : null;
+
+            // An image kept encoded that cannot be decoded paints nothing (ISO 32000-2 §8.9.5; its reason is a diagnostic). Pixels kept
+            // at a finer reduction than asked need no samples (issue #362: zooming out decodes nothing again).
+            DisplayImageSamples? decoded = pixels is null || reduction == 0 ? image.GetSamplesAt(reduction) : null;
+            if (decoded is null && (pixels is null || reduction == 0))
             {
                 return;
             }
 
-            ImageCache cache = Images;
-            ImageCache.Entry entry = cache.Find(image);
-            SKImage? pixels = entry.Matches(rgb, defaultColorSpaces, reduction) ? entry.Image : null;
             bool owned = false;
             int delivered;
             bool folded;
             if (pixels is null)
             {
+                DisplayImageSamples samples = decoded!.Value;
                 converter ??= _document!.GetColorConverter(image.ColorSpace, rgb, defaultColorSpaces);
                 if (converter.PaintsNothing)
                 {
@@ -89,8 +93,7 @@ public sealed partial class SkiaBackend
                 cache.PixelsConverted += (long)pixels.Width * pixels.Height;
                 delivered = samples.Reduction;
                 folded = foldSoft || foldMask;
-                owned = !cache.Keep(entry, pixels, (long)samples.Width * samples.Height * 4, rgb, defaultColorSpaces, reduction);
-                entry.Delivered = delivered;
+                owned = !cache.Keep(entry, pixels, (long)samples.Width * samples.Height * 4, rgb, defaultColorSpaces, delivered);
                 entry.Folded = folded;
             }
             else
@@ -298,7 +301,7 @@ public sealed partial class SkiaBackend
 
             ImageCache cache = Images;
             ImageCache.Entry entry = cache.Find(mask);
-            SKImage? alpha = entry.AskedReduction == reduction ? entry.Image : null;
+            SKImage? alpha = entry.Delivered <= reduction ? entry.Image : null;
             bool owned = false;
             int delivered = entry.Delivered;
             if (alpha is null)
@@ -327,8 +330,7 @@ public sealed partial class SkiaBackend
 
                 cache.Created++;
                 cache.PixelsConverted += (long)alpha.Width * alpha.Height;
-                owned = !cache.Keep(entry, alpha, (long)alpha.Width * alpha.Height, default, null, reduction);
-                entry.Delivered = delivered;
+                owned = !cache.Keep(entry, alpha, (long)alpha.Width * alpha.Height, default, null, delivered);
             }
 
             try
