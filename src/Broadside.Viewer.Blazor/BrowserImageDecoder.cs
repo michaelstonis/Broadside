@@ -30,7 +30,10 @@ namespace Broadside.Viewer.Blazor;
 /// render worker that cost leaves the page's thread, so the worker uses <c>createImageBitmap</c> there (with the Exif and ICC payloads
 /// zero-filled by the core first), for images whose chroma is not subsampled: WebKit interpolates subsampled chroma, measured at max 27
 /// levels and 1.03% of pixels over 2 levels on a 4:2:0 photograph, outside the tolerance, so those decode managed. Twelve-bit, arithmetic-coded and JPEG 2000 data always decode managed; so does anything a browser
-/// rejects, with an <c>ImageDecodedManaged</c> diagnostic. No .NET WebAssembly threads are used.
+/// rejects, with an <c>ImageDecodedManaged</c> diagnostic. <see cref="InitializeAsync"/> calibrates <c>ImageDecoder</c> once with a small
+/// 4:2:0 photograph: a browser whose subsampled chroma is not bit-identical (Firefox interpolates it) leaves 4:2:0 and 4:2:2 images to
+/// the managed decoder, and one whose <c>desiredWidth</c> resamples a full decode rather than scaling in the DCT decodes at full size.
+/// No .NET WebAssembly threads are used.
 /// </para>
 /// </remarks>
 [SupportedOSPlatform("browser")]
@@ -46,6 +49,7 @@ public sealed class BrowserImageDecoder : IPlatformImageDecoder
     private static Task<int>? _probe;
     private static int _tiers = -1;
     private static bool _scaledExact;
+    private static bool _subsampledExact;
 
     private readonly BrowserImageDecoderOptions _options;
 
@@ -118,7 +122,7 @@ public sealed class BrowserImageDecoder : IPlatformImageDecoder
     /// <inheritdoc/>
     public bool CanDecode(in PlatformImageRequest request) =>
         Tier is int tier && tier != 0 && request.Filter.Value == "DCTDecode" && !request.ArithmeticCoding && request.BitsPerComponent == 8
-        && (tier == WebCodecs || !request.ChromaSubsampled);
+        && (!request.ChromaSubsampled || (tier == WebCodecs && Volatile.Read(ref _subsampledExact)));
 
     /// <inheritdoc/>
     public async ValueTask<DecodedImage?> DecodeAsync(ReadOnlyMemory<byte> encoded, PlatformImageRequest request, CancellationToken cancellationToken)
@@ -187,31 +191,38 @@ public sealed class BrowserImageDecoder : IPlatformImageDecoder
     }
 
     /// <summary>
-    /// Decodes a small 4:2:0 test photograph at a quarter with <c>ImageDecoder</c>'s <c>desiredWidth</c> and compares it with the
-    /// managed decoder's reduced decode (libjpeg's reduced IDCT): whether this browser scales in the DCT (Chrome) or resamples a
-    /// full decode (measured at 43 dB in Firefox), feature-detected rather than read from the user agent.
+    /// Calibrates <c>ImageDecoder</c> once, with a small 4:2:0 photograph decoded by it and by the managed decoder: whether its
+    /// full-size decode of subsampled chroma is bit-identical (Chrome hands back the YCbCr planes; Firefox upsamples chroma by
+    /// interpolation, measured max 30 and 1.08% of pixels over 2 levels, outside the tolerance) and whether its reduced decode is
+    /// libjpeg's DCT scaling (Chrome) rather than a resampled full decode (Firefox, 43 dB). Feature-detected, never read from the
+    /// user agent.
     /// </summary>
-    private static async Task<bool> ProbeScaledDecodeAsync()
+    private static async Task<(bool SubsampledExact, bool ScaledExact)> CalibrateAsync()
     {
         const int size = 64;
-        const int reduction = 2;
+        byte[] rgb = new byte[size * size * 3];
+        for (int y = 0, i = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++, i += 3)
+            {
+                rgb[i] = (byte)(x * 4);
+                rgb[i + 1] = (byte)(((x / 3) + (y / 3)) % 2 == 0 ? 40 : 220);
+                rgb[i + 2] = (byte)(y * 4);
+            }
+        }
+
+        var output = new System.Buffers.ArrayBufferWriter<byte>();
+        var dictionary = new CosDictionary { [new CosName("Width")] = new CosInteger(size), [new CosName("Height")] = new CosInteger(size) };
+        new DctEncoder(90, DctChromaSubsampling.HorizontalAndVertical).Encode(rgb, output, new StreamEncoderContext { StreamDictionary = dictionary });
+        byte[] jpeg = output.WrittenSpan.ToArray();
+        return (await MatchesAsync(jpeg, size, 0, 0).ConfigureAwait(true), await MatchesAsync(jpeg, size, 2, 3).ConfigureAwait(true));
+    }
+
+    /// <summary>Returns whether the browser's decode of <paramref name="jpeg"/> at <paramref name="reduction"/> is within <paramref name="tolerance"/> levels of the managed decoder's.</summary>
+    private static async Task<bool> MatchesAsync(byte[] jpeg, int size, int reduction, int tolerance)
+    {
         try
         {
-            byte[] rgb = new byte[size * size * 3];
-            for (int y = 0, i = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++, i += 3)
-                {
-                    rgb[i] = (byte)(x * 4);
-                    rgb[i + 1] = (byte)(((x / 3) + (y / 3)) % 2 == 0 ? 40 : 220);
-                    rgb[i + 2] = (byte)(y * 4);
-                }
-            }
-
-            var output = new System.Buffers.ArrayBufferWriter<byte>();
-            var dictionary = new CosDictionary { [new CosName("Width")] = new CosInteger(size), [new CosName("Height")] = new CosInteger(size) };
-            new DctEncoder(90, DctChromaSubsampling.HorizontalAndVertical).Encode(rgb, output, new StreamEncoderContext { StreamDictionary = dictionary });
-            byte[] jpeg = output.WrittenSpan.ToArray();
             using DecodedImage? managed = new DctDecodeFilter().DecodeImage(jpeg, new ImageFilterContext(new FilterContext())
             {
                 Width = size,
@@ -220,10 +231,11 @@ public sealed class BrowserImageDecoder : IPlatformImageDecoder
                 ColorComponents = 3,
                 Reduction = reduction,
             });
+            int reduced = size >> reduction;
             int id = ImageDecoderInterop.Begin(jpeg, WebCodecs, reduction, size, size, 3);
             string status = await ImageDecoderInterop.Wait(id).ConfigureAwait(true);
-            int reduced = size >> reduction;
-            if (managed is null || managed.Reduction != reduction || status.Split(' ') is not ["ok", var w, var h, ..] || w != "16" || h != "16")
+            string expected = reduced.ToString(CultureInfo.InvariantCulture);
+            if (managed is null || managed.Reduction != reduction || status.Split(' ') is not ["ok", var w, var h, ..] || w != expected || h != expected)
             {
                 ImageDecoderInterop.Release(id);
                 return false;
@@ -240,7 +252,7 @@ public sealed class BrowserImageDecoder : IPlatformImageDecoder
                 ReadOnlySpan<byte> row = managed.GetRow(y)[..(reduced * 3)];
                 for (int i = 0; i < row.Length; i++)
                 {
-                    if (Math.Abs(row[i] - browser[(y * reduced * 3) + i]) > 3)
+                    if (Math.Abs(row[i] - browser[(y * reduced * 3) + i]) > tolerance)
                     {
                         return false;
                     }
@@ -249,7 +261,7 @@ public sealed class BrowserImageDecoder : IPlatformImageDecoder
 
             return true;
         }
-#pragma warning disable CA1031 // anything unexpected: decode at full size
+#pragma warning disable CA1031 // anything unexpected: the path is not used
         catch (Exception)
 #pragma warning restore CA1031
         {
@@ -275,7 +287,9 @@ public sealed class BrowserImageDecoder : IPlatformImageDecoder
             int tiers = await ImageDecoderInterop.Probe().ConfigureAwait(true);
             if ((tiers & WebCodecs) != 0)
             {
-                Volatile.Write(ref _scaledExact, await ProbeScaledDecodeAsync().ConfigureAwait(true));
+                (bool subsampled, bool scaled) = await CalibrateAsync().ConfigureAwait(true);
+                Volatile.Write(ref _subsampledExact, subsampled);
+                Volatile.Write(ref _scaledExact, scaled);
             }
 
             Volatile.Write(ref _tiers, tiers);
