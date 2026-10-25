@@ -37,4 +37,4 @@ Reproduce: write the page with `CatalogueSamples.Cover()`, publish the sample (`
 | Chromium | `ImageDecoder` YCbCr planes | 4:4:4 and 4:2:0: max 0 (bit-identical) | 1/2: max 0 |
 | WebKit 26 | `createImageBitmap` + read back (render worker; page only on request) | 4:4:4: max 3, 57.6 dB, 0.024% over 2 levels | not used (full decode) |
 | WebKit 26 | same, 4:2:0 | max 27, 51.6 dB, 1.03% over 2 levels: outside the tolerance, so subsampled images decode managed | |
-| Firefox | `ImageDecoder` | in CI only (Playwright Firefox does not launch on this Mac) | |
+| Firefox (CI, Linux) | `ImageDecoder` | 4:4:4 and 4:2:0: max 0 (YCbCr planes) | `desiredWidth` resamples a full decode (1/2: max 22, 43.2 dB, 14% over 2 levels), so the start-up probe turns it off and Firefox decodes at full size |
