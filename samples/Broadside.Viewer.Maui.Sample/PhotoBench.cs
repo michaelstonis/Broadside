@@ -10,7 +10,7 @@ namespace Broadside.Viewer.Maui.Sample;
 /// <summary>
 /// The large-photo bench (#428): BROADSIDE_PHOTO=1 (iOS simulator: SIMCTL_CHILD_BROADSIDE_PHOTO=1), or the Android intent extra
 /// "photo". It opens the generated catalogue-class page (a 2550 x 3150 DCT photograph over a letter page,
-/// <see cref="CatalogueSamples.Cover"/>; never a real catalogue), draws it at fit width, 2x and 4x, and prints one BROADSIDE_PHOTO
+/// <see cref="CatalogueSamples.Cover"/>; never a real catalogue), draws it at fit width, half and a quarter of it (a phone at 3 pixels per point reduces the cover only there), then 2x, and prints one BROADSIDE_PHOTO
 /// line per zoom: the tiles drawn, their total and longest draw time (the backend's own work, timed around it), the time until
 /// the view was idle, and the process's memory afterwards. BROADSIDE_PHOTO_FULL=1 turns scaled image decode off, for comparison.
 /// </summary>
@@ -22,6 +22,21 @@ public static class PhotoBench
 
     public static async Task RunAsync(PdfView view, Action<DocumentSession> show)
     {
+        try
+        {
+            await RunCoreAsync(view, show);
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine("BROADSIDE_PHOTO_FAILED " + exception);
+        }
+
+        Console.WriteLine("BROADSIDE_PHOTO_DONE");
+        Application.Current?.Quit();
+    }
+
+    private static async Task RunCoreAsync(PdfView view, Action<DocumentSession> show)
+    {
         byte[] file = await Task.Run(() => CatalogueSamples.Cover());
         var timings = new TileTimings();
         ViewerOptions options = new ViewerOptions()
@@ -31,7 +46,7 @@ public static class PhotoBench
         DocumentSession session = DocumentSession.Open(file, options);
         var clock = Stopwatch.StartNew();
         show(session);
-        foreach ((string name, double factor) in new[] { ("fit", 1.0), ("2x", 2.0), ("4x", 2.0) })
+        foreach ((string name, double factor) in new[] { ("fit", 1.0), ("half", 0.5), ("quarter", 0.5), ("2x", 8.0) })
         {
             timings.Reset();
             clock.Restart();
@@ -44,15 +59,25 @@ public static class PhotoBench
             double idle = clock.Elapsed.TotalMilliseconds - 500;
             GC.Collect();
             GC.WaitForPendingFinalizers();
-            using Process process = Process.GetCurrentProcess();
-            process.Refresh();
             Console.WriteLine(string.Create(
                 CultureInfo.InvariantCulture,
-                $"BROADSIDE_PHOTO {name} decode={(FullDecode ? "full" : "scaled")} zoom={view.State.Zoom:F2} tiles={timings.Count} tileTotal={timings.TotalMs:F0}ms tileMax={timings.MaxMs:F0}ms idle={idle:F0}ms workingSet={process.WorkingSet64 / 1048576}MB peak={process.PeakWorkingSet64 / 1048576}MB managed={GC.GetTotalMemory(false) / 1048576}MB imageCache={session.Document.CacheStatistics.Images.Bytes / 1048576}MB"));
+                $"BROADSIDE_PHOTO {name} decode={(FullDecode ? "full" : "scaled")} zoom={view.State.Zoom:F2} tiles={timings.Count} tileTotal={timings.TotalMs:F0}ms tileMax={timings.MaxMs:F0}ms idle={idle:F0}ms workingSet={Environment.WorkingSet / 1048576}MB peak={Peak() / 1048576}MB managed={GC.GetTotalMemory(false) / 1048576}MB imageCache={session.Document.CacheStatistics.Images.Bytes / 1048576}MB"));
         }
 
-        Console.WriteLine("BROADSIDE_PHOTO_DONE");
-        Application.Current?.Quit();
+    }
+
+    /// <summary>The process's peak working set, or -1 where the platform does not report it.</summary>
+    private static long Peak()
+    {
+        try
+        {
+            using Process process = Process.GetCurrentProcess();
+            return process.PeakWorkingSet64;
+        }
+        catch (PlatformNotSupportedException)
+        {
+            return -1;
+        }
     }
 
     /// <summary>Waits until the view has drawn everything it shows, then half a second more (it returns that much late).</summary>
