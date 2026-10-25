@@ -5,6 +5,8 @@
 
 Broadside is a fully managed .NET implementation of the PDF specification (ISO 32000-2 and its extensions). It reads, writes, edits and renders PDF files. Everything that interprets the PDF file itself (parsing, writing, fonts, image codecs, cryptography, content interpretation) is written in C# with no native dependency. Rendering goes through a display list that several backends consume: the managed software rasterizer, SkiaSharp, CoreGraphics, Android Canvas, Direct2D and WebGL 2. On top of that sit a framework-neutral viewer core and two viewer controls, one for Blazor WebAssembly and one for .NET MAUI. MIT licensed. The goal is to be the only PDF dependency a .NET application needs.
 
+**Try it in your browser:** the [live demo](https://michaelstonis.github.io/Broadside/demo/) runs the Blazor WebAssembly viewer and the library entirely client-side, phones included: open a PDF, search it, fill its form, annotate it, check its signatures, or create a tagged PDF/A document.
+
 > **Broadside is in preview.** The first preview, `0.1.0-preview.1`, is on NuGet.org. The public API is not frozen yet (the v1 freeze is [#262](https://github.com/michaelstonis/Broadside/issues/262)), so expect breaking changes between previews. Read the [known issues](#known-issues-and-limitations) before you depend on it.
 
 ## Contents
@@ -173,7 +175,7 @@ Give the viewer a size: its canvas and layers are absolutely positioned and its 
 
 **Samples** (in [`samples/`](https://github.com/michaelstonis/Broadside/tree/main/samples)):
 
-- [`Broadside.Viewer.Blazor.Sample`](https://github.com/michaelstonis/Broadside/blob/main/samples/Broadside.Viewer.Blazor.Sample/README.md) is a static Blazor WebAssembly app that shows the library end to end in the browser, phones included. It covers viewing, search, outline, thumbnails, annotations, forms, document information and tags, signatures, and creating PDF/A and PDF/UA documents with the layout package. It also has a renderer switch (software or WebGL) and the render worker. Run it with `dotnet run --project samples/Broadside.Viewer.Blazor.Sample`, or publish a trimmed, AOT-compiled static site with `samples/Broadside.Viewer.Blazor.Sample/publish-static.sh out/demo`.
+- [`Broadside.Viewer.Blazor.Sample`](https://github.com/michaelstonis/Broadside/blob/main/samples/Broadside.Viewer.Blazor.Sample/README.md) is a static Blazor WebAssembly app that shows the library end to end in the browser, phones included. It covers viewing, search, outline, thumbnails, annotations, forms, document information and tags, signatures, and creating PDF/A and PDF/UA documents with the layout package. It also has a renderer switch (software or WebGL) and the render worker. The documentation site hosts it as the [live demo](https://michaelstonis.github.io/Broadside/demo/). Run it with `dotnet run --project samples/Broadside.Viewer.Blazor.Sample`, or publish a trimmed, AOT-compiled static site with `samples/Broadside.Viewer.Blazor.Sample/publish-static.sh out/demo`.
 - [`Broadside.Viewer.Maui.Sample`](https://github.com/michaelstonis/Broadside/blob/main/samples/Broadside.Viewer.Maui.Sample/README.md) is a MAUI app around `PdfView` with the same gallery, for Android, iOS and Mac Catalyst. It needs the `maui` workload. Run it with `dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-maccatalyst -t:Run`, or with `-f net10.0-android` or `-f net10.0-ios`. It does less than the Blazor demo for now ([#358](https://github.com/michaelstonis/Broadside/issues/358)).
 
 ## Status and roadmap
@@ -213,7 +215,7 @@ From the [open issues](https://github.com/michaelstonis/Broadside/issues):
 
 ## Documentation
 
-- **Site and API reference:** <https://michaelstonis.github.io/Broadside/>. Its sources are in [`site/`](https://github.com/michaelstonis/Broadside/tree/main/site); build and check it locally with `./check-docs.sh`.
+- **Site and API reference:** <https://michaelstonis.github.io/Broadside/>, with the live demo at <https://michaelstonis.github.io/Broadside/demo/>. Its sources are in [`site/`](https://github.com/michaelstonis/Broadside/tree/main/site); build and check it locally with `./check-docs.sh`.
 - [`CONTEXT.md`](https://github.com/michaelstonis/Broadside/blob/main/CONTEXT.md): the vocabulary.
 - [`docs/plan/`](https://github.com/michaelstonis/Broadside/blob/main/docs/plan/README.md): phases, tracks and the issue lists.
 - [`docs/conformance/`](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/README.md): what is implemented, clause by clause, checked in CI by `tools/ConformanceCheck`. In October 2026, of the 646 rows across 17 specifications, 356 are `done`, 115 `partial`, 128 `not started` and 47 `n/a`. For ISO 32000-2 alone, 272 of 433 rows are `done` and 68 `partial`. Most of the 66 `not started` rows there are introductions, out-of-scope features (multimedia, 3D, rich media), prepress (separations, trapping, OPI) and informative annexes. Run `dotnet run --project tools/ConformanceCheck -- --summary` for the current counts.

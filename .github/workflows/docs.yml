@@ -1,5 +1,8 @@
 # Documentation site: builds the Lunet site (site/) with ./check-docs.sh on every pull request that touches it
 # or its inputs (including every README, top-level Markdown file and GitHub template, which ./check-adr-refs.sh scans), and deploys it to GitHub Pages on every push to main.
+# The site carries the live Blazor WebAssembly demo (samples/Broadside.Viewer.Blazor.Sample) at demo/, deployed with it: trimmed and
+# compiled ahead of time outside pull requests, without AOT on pull requests (AOT is the slow part; ci.yml's blazor-wasm job already
+# publishes and tests the AOT build on every pull request).
 # See .github/workflows/README.md and docs/research/doc-site-tooling.md.
 name: Docs
 
@@ -20,6 +23,8 @@ on:
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
       - 'global.json'
+      - 'samples/Broadside.Viewer.Blazor.Sample/**'
+      - 'tests/Corpus/*.pdf'
       - '.github/workflows/docs.yml'
   pull_request:
     paths:
@@ -36,6 +41,8 @@ on:
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
       - 'global.json'
+      - 'samples/Broadside.Viewer.Blazor.Sample/**'
+      - 'tests/Corpus/*.pdf'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -59,7 +66,7 @@ jobs:
   build:
     name: build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Check out
         uses: actions/checkout@v7
@@ -88,9 +95,27 @@ jobs:
           dotnet build src/Broadside.Rendering.Android -t:InstallAndroidDependencies -f net10.0-android
           -p:BroadsideBuildPlatformBackends=true -p:AndroidSdkDirectory="$ANDROID_HOME" -p:AcceptAndroidSDKLicenses=true
 
+      # Ahead-of-time compilation needs the wasm-tools workload; the pull-request build (no AOT) does without it.
+      - name: Install the wasm-tools workload
+        if: github.event_name != 'pull_request'
+        timeout-minutes: 15
+        run: dotnet workload install wasm-tools
+
+      # The demo's relative base href makes it work under /Broadside/demo/. Pages serves _framework/ as it is (Jekyll does not run
+      # for an Actions deployment), and the demo uses no WebAssembly threads, so it needs no cross-origin isolation headers.
+      # tracemonkey.pdf is left out: the paper carries an ACM copyright notice that does not allow reposting, so the gallery reads it
+      # from pdf.js's own copy instead (samples/Broadside.Viewer.Blazor.Sample/README.md, "Documents and licences").
+      - name: Publish the live demo
+        env:
+          AOT: ${{ github.event_name != 'pull_request' }}
+        run: |
+          args=(--omit tracemonkey.pdf)
+          [ "$AOT" = true ] || args+=(--no-aot)
+          samples/Broadside.Viewer.Blazor.Sample/publish-static.sh "${args[@]}" "$RUNNER_TEMP/demo"
+
       - name: Build and check the site
         # MSBuild reads the environment, so the Android build inside Lunet finds the runner's SDK.
-        run: AndroidSdkDirectory="$ANDROID_HOME" ./check-docs.sh
+        run: AndroidSdkDirectory="$ANDROID_HOME" ./check-docs.sh --demo "$RUNNER_TEMP/demo"
 
       - name: Configure Pages
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

@@ -2,6 +2,8 @@ home:
   - {path: readme.md, title: "<i class='bi bi-house-door' aria-hidden='true'></i> Home", self: true}
   - {path: articles/readme.md, title: "<i class='bi bi-book' aria-hidden='true'></i> Docs", folder: true}
   - {path: api/readme.md, title: "<i class='bi bi-braces' aria-hidden='true'></i> API", folder: true}
+  # The base path is written out: Lunet prefixes it to page paths, not to urls (so under `lunet serve`, which drops it, this link misses).
+  - {url: "/Broadside/demo/", title: "<i class='bi bi-play-circle' aria-hidden='true'></i> Live demo"}
 
 home2:
   - {url: "https://github.com/michaelstonis/Broadside", title: "<i class='bi bi-github' aria-hidden='true'></i> GitHub", link_class: btn btn-info}

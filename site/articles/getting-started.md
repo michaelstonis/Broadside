@@ -6,6 +6,8 @@ title: "Getting started"
 
 Broadside is in preview. The first preview, `0.1.0-preview.1`, is on NuGet.org, and the public API may still change before v1. The packages target `net10.0` only.
 
+To see the library before installing anything, open the [live demo](/demo/): the Blazor WebAssembly viewer and the rest of the library running in your browser.
+
 ## Install
 
 Every package is a prerelease, so pass `--prerelease`:
@@ -90,7 +92,7 @@ Reading is lenient by default: a damaged file is repaired and every repair is re
 
 Two sample apps are in [`samples/`](https://github.com/michaelstonis/Broadside/tree/main/samples):
 
-- [`Broadside.Viewer.Blazor.Sample`](https://github.com/michaelstonis/Broadside/blob/main/samples/Broadside.Viewer.Blazor.Sample/README.md): `dotnet run --project samples/Broadside.Viewer.Blazor.Sample`. To publish a trimmed, AOT-compiled static site, run `samples/Broadside.Viewer.Blazor.Sample/publish-static.sh out/demo`.
+- [`Broadside.Viewer.Blazor.Sample`](https://github.com/michaelstonis/Broadside/blob/main/samples/Broadside.Viewer.Blazor.Sample/README.md), which this site hosts as the [live demo](/demo/): `dotnet run --project samples/Broadside.Viewer.Blazor.Sample`. To publish a trimmed, AOT-compiled static site, run `samples/Broadside.Viewer.Blazor.Sample/publish-static.sh out/demo`.
 - [`Broadside.Viewer.Maui.Sample`](https://github.com/michaelstonis/Broadside/blob/main/samples/Broadside.Viewer.Maui.Sample/README.md): `dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-maccatalyst -t:Run` (or `net10.0-android`, `net10.0-ios`). It needs the `maui` workload.
 
 ## Building from source
@@ -111,6 +113,13 @@ The site is built with [Lunet](https://lunet.io), installed as a local .NET tool
 ```sh
 dotnet tool restore
 ./check-docs.sh        # builds the site into site/.lunet/build/www and checks its routes and links
+```
+
+The live demo is published separately and copied into the site's `demo/` folder; to check the site with it, as the docs job does:
+
+```sh
+samples/Broadside.Viewer.Blazor.Sample/publish-static.sh --no-aot out/demo   # the deployed site is compiled ahead of time (no --no-aot)
+./check-docs.sh --demo out/demo
 ```
 
 To see what is done, what is not released yet and what is known to be broken, read the [roadmap](roadmap.md).
