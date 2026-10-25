@@ -96,6 +96,13 @@ public sealed class BrowserHost : IAsyncLifetime
                 return browser;
             }
 
+            // Where the job names the browsers it installed (CI), any other is skipped without launching: one found in a cache
+            // restored from another job may lack its system packages (#421).
+            string? listed = Environment.GetEnvironmentVariable("BROADSIDE_BROWSERS_REQUIRED");
+            Assert.SkipWhen(
+                !string.IsNullOrEmpty(listed) && !listed.Split(',', StringSplitOptions.TrimEntries).Contains(name, StringComparer.Ordinal),
+                $"Playwright's {name} is not one of this job's browsers ({listed}).");
+
             IBrowserType type = name switch
             {
                 "webkit" => _playwright!.Webkit,

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Playwright;
 
 namespace Broadside.Viewer.Blazor.BrowserTests;
@@ -96,6 +97,60 @@ public sealed class ViewerRegressionTests(BrowserHost host)
         await page.Mouse.ClickAsync(inside.X, inside.Y);
         await page.WaitForFunctionAsync("() => document.querySelector('.bs-viewer').dataset.currentPage === '4'", null, Slow);
         Assert.Equal(0, await page.Locator("[data-link-sheet]").CountAsync());
+    }
+
+    [Fact]
+    public async Task A_banner_appearing_in_the_middle_of_a_jump_to_the_last_page_does_not_stop_it()
+    {
+        // Issue #416: a resize stopped a running page jump, so a banner or toolbar appearing (or a phone's address bar collapsing)
+        // left the viewer partway. A 40-page document; a 150 px banner is inserted above the viewer 60 ms after End is pressed.
+        BrowserHost.RequireApp();
+        host.Serve("forty-pages.pdf", BlankPages(40));
+        await using IBrowserContext context = await host.Browser.NewContextAsync(new BrowserNewContextOptions { ViewportSize = new ViewportSize { Width = 1000, Height = 800 } });
+        IPage page = await OpenAsync(context, new Uri(host.AppAddress, "?file=../files/forty-pages.pdf").ToString());
+        Assert.Equal("40", await Viewer.Data(page, "pageCount"));
+        Assert.Equal(0, await page.Locator(".message").CountAsync());
+        await page.EvaluateAsync("""
+            () => {
+              const viewer = document.querySelector('.bs-viewer');
+              window.bsBanner = new Promise(resolve => {
+                document.addEventListener('keydown', () => setTimeout(() => {
+                  const before = viewer.clientHeight;
+                  const page = viewer.dataset.currentPage;
+                  const banner = document.createElement('div');
+                  banner.className = 'test-banner';
+                  banner.style.height = '150px';
+                  banner.style.flex = 'none';
+                  document.querySelector('.app').insertBefore(banner, document.querySelector('.workspace'));
+                  requestAnimationFrame(() => resolve({ page, before, after: viewer.clientHeight }));
+                }, 60), { capture: true, once: true });
+              });
+            }
+            """);
+
+        await page.Locator(".bs-viewer").FocusAsync();
+        await page.Keyboard.PressAsync("End");
+        JsonElement banner = await page.EvaluateAsync<JsonElement>("() => window.bsBanner");
+        Viewer.Log($"banner at page {banner.GetProperty("page")}, viewer {banner.GetProperty("before")} -> {banner.GetProperty("after")} px");
+        Assert.True(banner.GetProperty("after").GetDouble() < banner.GetProperty("before").GetDouble(), "the banner shrank the viewer");
+
+        await page.WaitForFunctionAsync("() => document.querySelector('.bs-viewer').dataset.currentPage === '40'", null, Slow);
+        await page.WaitForTimeoutAsync(500);
+        Assert.Equal("40", await Viewer.Data(page, "currentPage"));
+        Assert.Equal(0, await page.Locator(".message").CountAsync());
+    }
+
+    private static byte[] BlankPages(int count)
+    {
+        using PdfDocument document = PdfDocument.Create();
+        while (document.Pages.Count < count)
+        {
+            document.Pages.Add(new PdfRectangle(0, 0, 612, 792));
+        }
+
+        using var stream = new MemoryStream();
+        document.Save(stream);
+        return stream.ToArray();
     }
 
     private static byte[] LinkedDocument()
