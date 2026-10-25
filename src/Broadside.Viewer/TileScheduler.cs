@@ -1198,14 +1198,17 @@ public sealed class TileScheduler : IDisposable
         }
 
         Matrix transform = DocumentSession.GetTileTransform(job.Page!, job.Tile);
-        job.Backend ??= _session.RentBackend();
+        // The backend is the job's only once it draws: a tile waiting for its images holds none, so tiles that wait together do not
+        // each take a backend (and each convert the same large image into its own buffers) when they resume.
+        ITileBackend backend = job.Backend ?? _session.RentBackend();
         ValueTask images;
         try
         {
-            images = job.Backend.PrefetchImagesAsync(list, transform, job.Tile.Region.Width, job.Tile.Region.Height, token);
+            images = backend.PrefetchImagesAsync(list, transform, job.Tile.Region.Width, job.Tile.Region.Height, token);
         }
         catch (OperationCanceledException)
         {
+            ReturnUnlessHeld(job, backend);
             Cancel(job);
             return;
         }
@@ -1220,15 +1223,19 @@ public sealed class TileScheduler : IDisposable
         {
             // The platform decodes off this thread: the tile continues in a later frame, which takes the list again (from the
             // document's cache) and finds the images decoded.
+            ReturnUnlessHeld(job, backend);
             job.Load = AwaitImagesAsync(job, images.AsTask());
             return;
         }
 
         if (images.IsCanceled)
         {
+            ReturnUnlessHeld(job, backend);
             Cancel(job);
             return;
         }
+
+        job.Backend = backend;
 
         job.Target = new Bitmap(job.Tile.Region.Width, job.Tile.Region.Height);
         _session.AddPixelBytes(job.Bytes);
@@ -1246,6 +1253,15 @@ public sealed class TileScheduler : IDisposable
 #pragma warning restore CA1031
         {
             Fail(job);
+        }
+    }
+
+    /// <summary>Gives back a backend rented only for a prefetch.</summary>
+    private void ReturnUnlessHeld(TileJob job, ITileBackend backend)
+    {
+        if (!ReferenceEquals(job.Backend, backend))
+        {
+            _session.ReturnBackend(backend);
         }
     }
 
