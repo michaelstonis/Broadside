@@ -10,6 +10,7 @@
   <ItemGroup>
     <Compile Include="../Broadside.Tests/Document/RangeServer.cs" Link="Shared/RangeServer.cs" />
     <Compile Include="../Broadside.Tests/Document/TestPdf.cs" Link="Shared/TestPdf.cs" />
+    <Compile Include="../Broadside.Tests/Document/TaggedLinearizedFile.cs" Link="Shared/TaggedLinearizedFile.cs" />
   </ItemGroup>
 
 </Project>

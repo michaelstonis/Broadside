@@ -24,9 +24,16 @@ namespace Broadside;
 /// A linearized file opened through range requests (<see cref="PdfEngine.OpenAsync(HttpClient, Uri, CancellationToken)"/>)
 /// finds its pages through its page offset hint table instead (ISO 32000-2 F.4.2 and Annex G, G.4; issue #208): the count is the
 /// linearization dictionary's <c>N</c>, and each page's object is read when the page is first asked for, so going to a page fetches
-/// that page and not the tree. The page tree is still read, on first use, by anything that needs it: <see cref="IndexOf(PdfPage)"/>,
-/// editing, or a page the hints do not locate (reported as <c>LinearizationHintsInvalid</c>; the pages then come from the tree, the
-/// views already handed out included).
+/// that page and not the tree. Finding a page's index (<see cref="IndexOf(PdfPage)"/>, a destination's page, a structure element's
+/// <c>Pg</c>) comes from the hints too, and enumerating goes through the hinted pages one by one. The page tree is still read, on
+/// first use, by editing or when a page the hints do not locate (reported as <c>LinearizationHintsInvalid</c>; the pages then come
+/// from the tree, the views already handed out included).
+/// </para>
+/// <para>
+/// Where synchronous fetching is off (<see cref="PdfOptions.SynchronousRangeFetch"/>, always on the browser), reading a page whose
+/// bytes have not arrived throws <see cref="PdfRangeNotLoadedException"/>: <see cref="PrefetchAsync(int, CancellationToken)"/> gets
+/// one page, and <see cref="PdfDocument.ReadAsync{T}"/> runs any read that needs more of the file (every page, for instance),
+/// fetching what it misses.
 /// </para>
 /// </remarks>
 public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
@@ -299,11 +306,22 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
     /// <returns>The 0-based index, or -1.</returns>
     /// <remarks>
     /// For destinations (§12.3.2.2) and any other object that refers to a page. Built once per page list. While the hint tables
-    /// locate the pages (a linearized remote file), a page they handed out is found without reading the page tree, which would
-    /// need the file's main cross-reference section and every node of the tree (F.3.7: the hints give the pages in page order).
+    /// locate the pages (a linearized remote file), the page is found from them without reading the page tree, which would need the
+    /// file's main cross-reference section and every node of the tree (F.3.7: the hints give the pages in page order).
     /// </remarks>
     internal int IndexOf(CosDictionary page) =>
-        TryGetHintedIndex(page, out int hinted) ? hinted : Current.Indexes.TryGetValue(page, out int index) ? index : -1;
+        HintedIndexOf(page) is int hinted ? hinted : Current.Indexes.TryGetValue(page, out int index) ? index : -1;
+
+    /// <summary>
+    /// While the hint tables locate the pages, the index of the page whose page object <paramref name="reference"/> refers to, from
+    /// its object number and without reading anything; -1 when it refers to no page; <see langword="null"/> when the hints are not
+    /// in use (resolve the reference and use <see cref="IndexOf(CosDictionary)"/>).
+    /// </summary>
+    /// <param name="reference">A reference, such as a destination's first element.</param>
+    /// <returns>The index, -1, or <see langword="null"/>.</returns>
+    /// <remarks>ISO 32000-2 Table F.4 items 1 and 2, and F.3.1 (every object of a linearized file has generation 0).</remarks>
+    internal int? HintedIndexOf(CosReference reference) =>
+        HintedCount is null ? null : _hinted!.TryGetIndex(reference, out int index) ? index : -1;
 
     /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
@@ -311,10 +329,10 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
     /// <summary>Finds the page whose page object is <paramref name="pageObject"/> (by identity), for references such as a structure element's <c>Pg</c>.</summary>
     internal bool TryGetPage(CosDictionary pageObject, [MaybeNullWhen(false)] out PdfPage page)
     {
-        if (TryGetHintedIndex(pageObject, out int hinted) && _hinted!.Get(hinted) is { } found)
+        if (HintedIndexOf(pageObject) is int hinted)
         {
-            page = found;
-            return true;
+            page = hinted >= 0 ? _hinted!.Get(hinted) : null;
+            return page is not null;
         }
 
         PageList current = Current;
@@ -328,11 +346,31 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
         return false;
     }
 
-    /// <summary>The index of a page the hint tables handed out, while they are in use.</summary>
-    private bool TryGetHintedIndex(CosDictionary pageObject, out int index)
+    /// <summary>
+    /// While the hint tables are in use, the index of the page whose page object is <paramref name="pageObject"/>, or -1 when it is
+    /// no page's: found from the pages handed out and the page objects loaded, never from the page tree. <see langword="null"/> when
+    /// the hints are not in use, or the page fails its check (they are then rejected, and the tree is read).
+    /// </summary>
+    private int? HintedIndexOf(CosDictionary pageObject)
     {
-        index = -1;
-        return HintedCount is not null && _hinted!.TryGetIndex(pageObject, out index);
+        if (HintedCount is null)
+        {
+            return null;
+        }
+
+        int index = _hinted!.Find(pageObject);
+        if (index < 0)
+        {
+            return -1;
+        }
+
+        if (_hinted.Get(index) is not { } page)
+        {
+            _hintsRejected = true;
+            return null;
+        }
+
+        return ReferenceEquals(page.Dictionary, pageObject) ? index : -1;
     }
 
     private static CosNumber Number(double value) =>

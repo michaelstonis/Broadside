@@ -51,6 +51,8 @@ public sealed class PdfExplicitDestination : PdfDestination
                     return PdfDestinationTarget.PageNumber;
                 case CosString:
                     return IsRemote ? PdfDestinationTarget.StructureElementId : PdfDestinationTarget.None;
+                case CosReference reference when !IsRemote && HintedPage(reference) >= 0:
+                    return PdfDestinationTarget.Page;
                 case CosReference or CosDictionary when !IsRemote:
                     return Document.Resolve(target) is CosDictionary node
                         ? Document.Pages.IndexOf(node) < 0 && IsStructureElement(node) ? PdfDestinationTarget.StructureElement : PdfDestinationTarget.Page
@@ -98,6 +100,11 @@ public sealed class PdfExplicitDestination : PdfDestination
                 return null;
             }
 
+            if (target is CosReference reference && HintedPage(reference) is >= 0 and var hinted)
+            {
+                return hinted;
+            }
+
             if (Document.Resolve(target) is not CosDictionary node)
             {
                 return null;
@@ -122,7 +129,8 @@ public sealed class PdfExplicitDestination : PdfDestination
     /// <summary>Gets the structure element the destination designates (a structure destination), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.3.2.3 (PDF 2.0).</remarks>
     public CosDictionary? StructureElement =>
-        !IsRemote && Document.Resolve(Target) is CosDictionary node && Document.Pages.IndexOf(node) < 0 && IsStructureElement(node) ? node : null;
+        !IsRemote && !(Target is CosReference reference && HintedPage(reference) >= 0)
+        && Document.Resolve(Target) is CosDictionary node && Document.Pages.IndexOf(node) < 0 && IsStructureElement(node) ? node : null;
 
     /// <summary>Gets the ID of the structure element in another document a remote structure destination designates, or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.3.2.3, Table 355 (ID).</remarks>
@@ -170,6 +178,12 @@ public sealed class PdfExplicitDestination : PdfDestination
         node.TryGetValue(KnownNames.Type, out CosObject? type)
             ? NavigationNames.StructElem.Equals(type)
             : node.ContainsKey(NavigationNames.S) && node.ContainsKey(NavigationNames.P);
+
+    /// <summary>
+    /// The index of the page a reference designates, from a linearized remote file's hint tables (Annex G, G.4), so the page object is
+    /// not read to find it: -1 when the hints are not in use or the reference is no page's.
+    /// </summary>
+    private int HintedPage(CosReference reference) => Document.Pages.HintedIndexOf(reference) ?? -1;
 
     /// <summary>
     /// The page of a structure destination (§12.3.2.3): the page of the first marked-content or object reference found among the
