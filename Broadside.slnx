@@ -1,6 +1,8 @@
 <Solution>
   <Folder Name="/bench/">
     <Project Path="bench/Broadside.Benchmarks/Broadside.Benchmarks.csproj" />
+    <Project Path="bench/Broadside.Benchmarks.Realistic/Broadside.Benchmarks.Realistic.csproj" />
+    <Project Path="bench/Broadside.SampleTimings/Broadside.SampleTimings.csproj" />
     <Project Path="bench/Broadside.Rendering.CoreGraphics.Benchmarks/Broadside.Rendering.CoreGraphics.Benchmarks.csproj" />
     <Project Path="bench/Broadside.Rendering.Direct2D.Benchmarks/Broadside.Rendering.Direct2D.Benchmarks.csproj" />
   </Folder>

@@ -15,6 +15,10 @@ only some of them, for example `samples/documents/build.sh textbook`. The produc
 dependencies. WeasyPrint and qpdf output is byte-for-byte reproducible. Broadside's own output differs between builds only in its
 random file identifier. Chrome and Ghostscript write the time they ran.
 
+The Blazor and MAUI demo galleries open with them (the textbook first), `bench/Broadside.Benchmarks.Realistic` is their benchmark
+tier (outside the regression gate), `tests/Broadside.Viewer.Blazor.BrowserTests/SampleDocumentTests.cs` renders every page in the
+browser within a time budget, and `docs/benchmarks/sample-documents-baseline.md` records per-page render times.
+
 ## Documents
 
 | File | Kind | Producer | Pages | Size | What it exercises |

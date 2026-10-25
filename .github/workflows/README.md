@@ -11,7 +11,7 @@
 | `conformance-map` | ubuntu | `dotnet run --project tools/ConformanceCheck -- --root . --summary` into the job summary; fails on a `done` row without a test. Its steps are skipped, with a note in the summary, until `tools/ConformanceCheck` lands (issue #7). |
 | `format` | ubuntu | `dotnet format --verify-no-changes` on `Broadside.Core.slnf`, `tests/Broadside.Fuzz`, `bench/Broadside.Benchmarks`, `tests/Broadside.Rendering.Direct2D.Tests` and `bench/Broadside.Rendering.Direct2D.Benchmarks` (the last four are outside the solution filter). |
 | `fuzz-smoke (<shard>/6)` | ubuntu | Six parallel shards: each `--list`s the fuzz targets and runs `--smoke <target> 60` for every target whose index modulo 6 is its shard; uploads `artifacts/fuzz/**` as `fuzz-findings-<shard>` on failure. |
-| `bench-dry` | ubuntu | `dotnet run --project bench/Broadside.Benchmarks -- --filter '*' --job dry`: one iteration of every benchmark, no measurement. |
+| `bench-dry` | ubuntu | `dotnet run --project bench/Broadside.Benchmarks -- --filter '*' --job dry`: one iteration of every benchmark, no measurement; then the same for the realistic tier, `bench/Broadside.Benchmarks.Realistic` (the sample documents, not gated, #363). |
 | `blazor-wasm / blazor-wasm (chrome <browsers>)` | ubuntu | Calls [`blazor-wasm.yml`](#blazor-wasmyml-the-blazor-webassembly-sample-in-browsers) with `browsers: firefox` on pull requests into the integration branch, and `firefox webkit` on pull requests into `main` and pushes to `main` (#389). |
 | `maui` | macOS | Installs the `maui` workload and builds `samples/Broadside.Viewer.Maui.Sample` (#226) for Android in Debug and in Release (ILLink and AOT on, arm64 and x86_64), and compiles its Mac Catalyst and iOS-simulator heads (`-t:Compile`: bundling needs Xcode 27, which the image lacks), all with `-warnaserror`. Then `tools/ApkAotCheck` checks that every AOT image in the Release APK holds the MVIDs of the assemblies the APK ships, the mismatch that crashed the Release app at startup in #366 (#368). The shell library itself builds in `build-test`; its tests are in `Broadside.Core.slnf`. |
 
@@ -68,7 +68,7 @@ Runs Mondays 05:47 UTC, on pull requests that touch `samples/Broadside.Viewer.Ma
 
 | Job | Runs on | What it does |
 |---|---|---|
-| `smoke (API 35)` | ubuntu | Installs the `maui-android` workload and the SDK packages it needs, builds the sample in Release for `android-x64` with `-warnaserror`, runs `tools/ApkAotCheck` on the APK, enables KVM, boots an x86_64 `google_apis` emulator (SwiftShader GPU) with `reactivecircus/android-emulator-runner` and runs `samples/Broadside.Viewer.Maui.Sample/smoke-android.sh`: install, start the smoke intent, and require `BROADSIDE_SMOKE_OK` in logcat (TraceMonkey page 1, downloaded from pdf.js's copy, captured from the GPU surface) before a `BROADSIDE_SMOKE_FAILED`, a native abort or 300 s (#368). |
+| `smoke (API 35)` | ubuntu | Installs the `maui-android` workload and the SDK packages it needs, builds the sample in Release for `android-x64` with `-warnaserror`, runs `tools/ApkAotCheck` on the APK, enables KVM, boots an x86_64 `google_apis` emulator (SwiftShader GPU) with `reactivecircus/android-emulator-runner` and runs `samples/Broadside.Viewer.Maui.Sample/smoke-android.sh`: install, start the smoke intent, and require `BROADSIDE_SMOKE_OK` in logcat (page 1 of the sample textbook chapter captured from the GPU surface) before a `BROADSIDE_SMOKE_FAILED`, a native abort or 300 s (#368). |
 
 ## `fuzz.yml`: real fuzzing, weekly and on the "Run workflow" button
 

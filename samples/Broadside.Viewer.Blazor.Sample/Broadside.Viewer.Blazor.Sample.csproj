@@ -44,8 +44,12 @@
     <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
   </ItemGroup>
 
-  <!-- The gallery: hand-written files from the test corpus, served from wwwroot/documents (linked, so they never drift). -->
+  <!--
+    The gallery: the representative sample documents (samples/documents/pdf, #363) and hand-written files from the test corpus, served
+    from wwwroot/documents (linked, so they never drift).
+  -->
   <ItemGroup>
+    <Content Include="../documents/pdf/*.pdf" Link="wwwroot/documents/%(Filename)%(Extension)" CopyToOutputDirectory="Never" />
     <Content Include="../../tests/Corpus/layout-two-column-tagged.pdf;../../tests/Corpus/layout-tables.pdf;../../tests/Corpus/tagged-structure.pdf;../../tests/Corpus/outline-full.pdf;../../tests/Corpus/annotations-link.pdf;../../tests/Corpus/acroform-fields.pdf;../../tests/Corpus/info-dictionary.pdf;../../tests/Corpus/shading-radial-cases.pdf;../../tests/Corpus/transparency-blend-modes.pdf;../../tests/Corpus/page-rotation.pdf;../../tests/Corpus/linearized.pdf"
              Link="wwwroot/documents/%(Filename)%(Extension)" CopyToOutputDirectory="Never" />
   </ItemGroup>

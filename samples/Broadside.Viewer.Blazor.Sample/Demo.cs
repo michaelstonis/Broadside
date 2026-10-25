@@ -5,8 +5,9 @@ using Microsoft.JSInterop;
 namespace Broadside.Viewer.Blazor.Sample;
 
 /// <summary>
-/// A gallery document: hand-written test corpus files and the sample's signed file, bundled with the app, and pdf.js's TraceMonkey paper
-/// (real world), read from pdf.js's own copy because its licence does not cover redistribution (see README.md, "Documents and licences").
+/// A gallery document: the representative sample documents (samples/documents), hand-written test corpus files and the sample's signed
+/// file, bundled with the app, and pdf.js's TraceMonkey paper (real world), read from pdf.js's own copy because its licence does not
+/// cover redistribution (see README.md, "Documents and licences").
 /// </summary>
 /// <param name="File">The address relative to the app, or an absolute address for a document the app does not bundle.</param>
 /// <param name="Title">What the gallery shows.</param>
@@ -25,10 +26,26 @@ public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRunti
     /// <summary>pdf.js's copy of the TraceMonkey paper, which Mozilla serves to any origin (the app does not bundle it).</summary>
     public const string TraceMonkey = "https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf";
 
-    /// <summary>The gallery, in the order the menu shows it; the first entry opens at start.</summary>
+    /// <summary>
+    /// The gallery, in the order the menu shows it; the first entry opens at start. The sample documents come first (#363), then
+    /// TraceMonkey, then the single-feature corpus files.
+    /// </summary>
     public static readonly GalleryEntry[] Gallery =
     [
-        new(TraceMonkey, "TraceMonkey paper (real world)"),
+        new("documents/textbook.pdf", "Textbook chapter (WeasyPrint)"),
+        new("documents/catalogue.pdf", "Product catalogue (WeasyPrint, CMYK and bleed)"),
+        new("documents/newsletter.pdf", "Newsletter (Chrome)"),
+        new("documents/paper.pdf", "Scientific paper with equations (Chrome)"),
+        new("documents/invoice-colourful.pdf", "Invoice, colourful (WeasyPrint)"),
+        new("documents/invoice-conservative-filled.pdf", "Invoice with a filled form (Broadside)", Panel: "form"),
+        new("documents/brochure.pdf", "Brochure, print-ready (Broadside)"),
+        new("documents/dictionary.pdf", "Dictionary (WeasyPrint)"),
+        new("documents/showcase.pdf", "Feature showcase with layers", Panel: "outline"),
+        new("documents/novel-pocket.pdf", "Novel, pocket edition (170 pages)"),
+        new("documents/novel-hardback.pdf", "Novel, hardback edition (tagged)"),
+        new("documents/novel-large-print.pdf", "Novel, large print (Broadside, PDF/UA)"),
+        new("documents/textbook-linearized.pdf", "Textbook, linearized (range requests)", Remote: true),
+        new(TraceMonkey, "TraceMonkey paper (real world, downloaded)"),
         new("documents/layout-two-column-tagged.pdf", "Two columns (tagged)"),
         new("documents/outline-full.pdf", "Outline", Note: "This file has an outline and no page content, so its page is blank (as in every viewer): its bookmarks are in the Outline panel.", Panel: "outline"),
         new("documents/acroform-fields.pdf", "Form fields"),

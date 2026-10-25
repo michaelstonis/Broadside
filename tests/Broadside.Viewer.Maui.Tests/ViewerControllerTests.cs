@@ -12,16 +12,15 @@ namespace Broadside.Viewer.Maui.Tests;
 public sealed class ViewerControllerTests
 {
     [Fact]
-    public void TraceMonkey_opens_at_the_top_of_page_one_at_fit_width_and_draws_it_with_skia() => UiThread.Run(async () =>
+    public void The_sample_textbook_opens_at_the_top_of_page_one_at_fit_width_and_draws_it_with_skia() => UiThread.Run(async () =>
     {
         // The size arrives after the document (as MAUI lays out after the source is set): the first real size still shows page 1's top.
-        Shell.RequireTraceMonkey();
-        using Shell shell = await Shell.OpenAsync(Shell.TraceMonkey, sizeFirst: false);
+        using Shell shell = await Shell.OpenAsync(Shell.SampleDocument("textbook.pdf"), sizeFirst: false);
         Viewport viewport = shell.Viewport;
         Assert.Equal(0, viewport.X);
         Assert.Equal(0, viewport.Y);
         Assert.Equal(shell.Layout.GetZoom(ZoomMode.FitWidth, viewport.Width, viewport.Height, 0, shell.Ratio * 96 / 72), viewport.Zoom, 9);
-        Assert.Equal(new PdfViewState(0, 14, viewport.Zoom / (shell.Ratio * 96 / 72), false, false), shell.Controller.State);
+        Assert.Equal(new PdfViewState(0, 8, viewport.Zoom / (shell.Ratio * 96 / 72), false, false), shell.Controller.State);
 
         using SKBitmap frame = shell.Draw();
         LayoutRectangle page = shell.Layout.PageToViewport(viewport, 0, shell.Layout.GetPageMetrics(0).CropBox);
@@ -38,7 +37,7 @@ public sealed class ViewerControllerTests
             }
         }
 
-        // Page 1's title and abstract: plenty of black text on white paper, with every visible tile drawn sharp.
+        // Page 1's heading, objectives and text: plenty of black text on white paper, with every visible tile drawn sharp.
         Assert.True(dark > 300, $"dark samples: {dark}");
         Assert.True(white > dark * 3, $"white samples: {white}");
         Assert.DoesNotContain(shell.Events, e => e.Kind == TileEventKind.Failed);
