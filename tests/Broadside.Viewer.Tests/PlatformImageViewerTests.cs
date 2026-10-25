@@ -62,10 +62,15 @@ public sealed class PlatformImageViewerTests
 
         decoder.Release();
         await decoder.Finished.Task.WaitAsync(Token);
-        for (int frame = 0; frame < 1000 && !scheduler.IsIdle; frame++)
+        // The tiles resume once the decode's continuation has run on the thread pool; the deadline only bounds a broken run.
+        using (var deadline = CancellationTokenSource.CreateLinkedTokenSource(Token))
         {
-            scheduler.RunFrame(Timeout.InfiniteTimeSpan);
-            await Task.Yield();
+            deadline.CancelAfter(TimeSpan.FromSeconds(60));
+            while (!scheduler.IsIdle && !deadline.IsCancellationRequested)
+            {
+                scheduler.RunFrame(Timeout.InfiniteTimeSpan);
+                await Task.Delay(1, Token);
+            }
         }
 
         Assert.True(scheduler.IsIdle);
