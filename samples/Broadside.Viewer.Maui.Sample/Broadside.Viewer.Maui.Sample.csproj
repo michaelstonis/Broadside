@@ -57,6 +57,11 @@
     <MauiAsset Include="$(BROADSIDE_CORPUS_DIR)/pdfjs/issue5567.pdf" LogicalName="documents/issue5567.pdf" Link="Resources/Raw/documents/issue5567.pdf" />
   </ItemGroup>
 
+  <!-- The large-photo bench's page (#428), generated at run time from public API (never a real catalogue). -->
+  <ItemGroup>
+    <Compile Include="../../tests/Broadside.TestSupport/CatalogueSamples.cs" Link="CatalogueSamples.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="../../src/Broadside.Viewer.Maui/Broadside.Viewer.Maui.csproj" />
     <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />

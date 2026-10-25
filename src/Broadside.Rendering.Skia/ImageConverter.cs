@@ -7,7 +7,7 @@ namespace Broadside.Rendering.Skia;
 
 /// <summary>
 /// Converts display-list images to Skia images: colour samples to premultiplied BGRA through colour management at the image's own
-/// resolution, with any mask of the image's size folded into the alpha, and masks to alpha-only images, as the software rasterizer's
+/// resolution or the reduction a viewer draws it at (issue #362), with any mask of the image's size folded into the alpha, and masks to alpha-only images, as the software rasterizer's
 /// image source converts them.
 /// </summary>
 /// <remarks>
@@ -26,11 +26,37 @@ internal static class ImageConverter
     public static bool FoldsMask(DisplayImage image) =>
         image.SoftMask is null && image.Mask is { } mask && mask.Width == image.Width && mask.Height == image.Height;
 
-    /// <summary>Converts a colour image to premultiplied BGRA; null when it has more pixels than a managed array can hold.</summary>
-    public static SKImage? Convert(DisplayImage image, PdfColorConverter converter, PdfColorConverter? baseConverter)
+    /// <summary>
+    /// Returns whether the image's soft mask folds into its converted <paramref name="samples"/>, and its samples to fold: at the
+    /// image's own resolution a soft mask of its size always folds (<paramref name="softSamples"/> null when the mask cannot be
+    /// decoded: its rows read as zero); reduced (issue #362), only when the mask's samples have the same reduction, so that the grids
+    /// align (§11.6.5.2).
+    /// </summary>
+    public static bool FoldsSoftMask(DisplayImage image, DisplayImageSamples samples, out DisplayImageSamples? softSamples)
     {
-        int width = image.Width;
-        int height = image.Height;
+        softSamples = null;
+        if (!FoldsSoftMask(image))
+        {
+            return false;
+        }
+
+        softSamples = image.SoftMask!.GetSamplesAt(samples.Reduction);
+        return samples.Reduction == 0 || (softSamples is { } soft && soft.Reduction == samples.Reduction);
+    }
+
+    /// <summary>Whether the image's explicit mask folds into its converted <paramref name="samples"/>: of the image's size, at its own resolution.</summary>
+    public static bool FoldsMask(DisplayImage image, DisplayImageSamples samples) => samples.Reduction == 0 && FoldsMask(image);
+
+    /// <summary>
+    /// Converts a colour image's samples, at its own resolution or a reduction (issue #362), to premultiplied BGRA; null when they
+    /// have more pixels than a managed array can hold. The soft mask folds when <paramref name="foldSoft"/> is set, through
+    /// <paramref name="softSamples"/> (null at the image's resolution: its rows are read), the explicit mask when
+    /// <paramref name="foldMask"/> is.
+    /// </summary>
+    public static SKImage? Convert(DisplayImage image, DisplayImageSamples samples, bool foldSoft, DisplayImageSamples? softSamples, bool foldMask, PdfColorConverter converter, PdfColorConverter? baseConverter)
+    {
+        int width = samples.Width;
+        int height = samples.Height;
         if ((long)width * height * 4 > Array.MaxLength)
         {
             return null;
@@ -40,22 +66,21 @@ internal static class ImageConverter
         int values = width * components;
         PdfColorSpace space = image.ColorSpace;
         var indexed = space as PdfIndexedColorSpace;
-        ImageDecodeMap map = image.DecodeMap;
+        ImageDecodeMap map = image.DecodeMapFor(samples);
+        int storageBits = samples.StorageBits;
         Span<ComponentRange> ranges = stackalloc ComponentRange[components];
         for (int c = 0; c < components; c++)
         {
             ranges[c] = space.GetComponentRange(c);
         }
 
-        bool foldSoft = FoldsSoftMask(image);
-        bool foldMask = FoldsMask(image);
         bool colorKey = !image.ColorKey.IsEmpty;
         bool matte = foldSoft && !image.Matte.IsEmpty
             && (indexed is null ? image.Matte.Length == components : baseConverter is not null && image.Matte.Length == indexed.Base.ComponentCount);
         bool alpha = foldSoft || foldMask || colorKey;
         RowKind kind = matte ? (indexed is null ? RowKind.Values : RowKind.TableValues)
             : indexed is not null ? RowKind.Indices
-            : image.StorageBits <= 8 && IsDefault(map, ranges) ? RowKind.Bytes
+            : storageBits <= 8 && IsDefault(map, ranges) ? RowKind.Bytes
             : RowKind.Values;
         int colorComponents = kind == RowKind.TableValues ? indexed!.Base.ComponentCount : components;
         int colorValues = width * colorComponents;
@@ -65,7 +90,7 @@ internal static class ImageConverter
             baseRanges[c] = indexed!.Base.GetComponentRange(c);
         }
 
-        int maskWidth = image.SoftMask?.Width ?? 0;
+        int maskWidth = foldSoft ? width : 0;
         byte[] pixels = ArrayPool<byte>.Shared.Rent(width * height * 4);
         ushort[] raw = ArrayPool<ushort>.Shared.Rent(Math.Max(values, maskWidth) + 1);
         byte[] bytes = ArrayPool<byte>.Shared.Rent(values + 1);
@@ -84,13 +109,17 @@ internal static class ImageConverter
             Span<byte> opacityRow = opacity.AsSpan(0, width);
             for (int y = 0; y < height; y++)
             {
-                ReadOnlySpan<byte> row = image.GetRow(y);
+                ReadOnlySpan<byte> row = samples.GetRow(y);
                 if (kind != RowKind.Bytes || colorKey)
                 {
-                    ImageRows.Unpack(row, image.StorageBits, values, rawRow);
+                    ImageRows.Unpack(row, storageBits, values, rawRow);
                 }
 
-                if (foldSoft)
+                if (foldSoft && softSamples is { } soft)
+                {
+                    SoftRow(image.SoftMask!, soft, y, opacityRow, raw, alphaValues);
+                }
+                else if (foldSoft)
                 {
                     SoftRow(image.SoftMask!, y, opacityRow, raw, alphaValues);
                 }
@@ -110,7 +139,7 @@ internal static class ImageConverter
                         converter.Convert(byteRow, rgbRow, width);
                         break;
                     case RowKind.Bytes:
-                        ImageRows.UnpackScaled(row, image.StorageBits, image.BitsPerComponent, values, byteRow);
+                        ImageRows.UnpackScaled(row, storageBits, samples.BitsPerComponent, values, byteRow);
                         converter.Convert(byteRow, rgbRow, width);
                         break;
                     case RowKind.TableValues:
@@ -197,6 +226,36 @@ internal static class ImageConverter
         }
     }
 
+    /// <summary>Converts a soft mask's samples at a reduction (§11.6.5.2, issue #362) to an alpha-only image; null when too large.</summary>
+    public static SKImage? ConvertSoftMask(DisplayImage mask, DisplayImageSamples samples)
+    {
+        int width = samples.Width;
+        int height = samples.Height;
+        if ((long)width * height > Array.MaxLength)
+        {
+            return null;
+        }
+
+        byte[] pixels = ArrayPool<byte>.Shared.Rent(width * height);
+        ushort[] raw = ArrayPool<ushort>.Shared.Rent(width + 1);
+        float[] values = ArrayPool<float>.Shared.Rent(width + 1);
+        try
+        {
+            for (int y = 0; y < height; y++)
+            {
+                SoftRow(mask, samples, y, pixels.AsSpan(y * width, width), raw, values);
+            }
+
+            return SKImage.FromPixelCopy(new SKImageInfo(width, height, SKColorType.Alpha8, SKAlphaType.Premul), pixels.AsSpan(0, width * height), width);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(pixels);
+            ArrayPool<ushort>.Shared.Return(raw);
+            ArrayPool<float>.Shared.Return(values);
+        }
+    }
+
     /// <summary>Converts a stencil or explicit mask (§8.9.6.2, §8.9.6.3) to an alpha-only image, opaque where it paints; null when too large.</summary>
     public static SKImage? ConvertStencil(DisplayImageMask mask)
     {
@@ -220,6 +279,81 @@ internal static class ImageConverter
         finally
         {
             ArrayPool<byte>.Shared.Return(pixels);
+        }
+    }
+
+    /// <summary>
+    /// Converts a stencil or explicit mask (§8.9.6.2, §8.9.6.3) reduced by 2^<paramref name="reduction"/> (issue #362) to an alpha-only
+    /// image: each of the ⌈W / s⌉ × ⌈H / s⌉ values is the share of the s × s samples it covers that paint (the last ones cover fewer),
+    /// so a 1-bit mask drawn small becomes 8-bit coverage; null when too large.
+    /// </summary>
+    public static SKImage? ConvertStencil(DisplayImageMask mask, int reduction)
+    {
+        if (reduction == 0)
+        {
+            return ConvertStencil(mask);
+        }
+
+        int width = mask.Width;
+        int height = mask.Height;
+        int scale = 1 << reduction;
+        int reducedWidth = (int)(((long)width + scale - 1) >> reduction);
+        int reducedHeight = (int)(((long)height + scale - 1) >> reduction);
+        byte[] pixels = ArrayPool<byte>.Shared.Rent(reducedWidth * reducedHeight);
+        long[] counts = ArrayPool<long>.Shared.Rent(reducedWidth);
+        byte[] line = ArrayPool<byte>.Shared.Rent(width);
+        try
+        {
+            for (int y = 0; y < reducedHeight; y++)
+            {
+                Span<long> sums = counts.AsSpan(0, reducedWidth);
+                sums.Clear();
+                int first = y * scale;
+                int rows = Math.Min(height, first + scale) - first;
+                for (int sy = first; sy < first + rows; sy++)
+                {
+                    ImageRows.Stencil(mask.GetRow(sy), width, mask.IsInverted, line.AsSpan(0, width));
+                    for (int x = 0; x < width; x++)
+                    {
+                        sums[x >> reduction] += line[x];
+                    }
+                }
+
+                Span<byte> target = pixels.AsSpan(y * reducedWidth, reducedWidth);
+                for (int x = 0; x < reducedWidth; x++)
+                {
+                    long area = (long)(Math.Min(width, (x + 1) * scale) - (x * scale)) * rows;
+                    target[x] = (byte)((sums[x] + (area / 2)) / area);
+                }
+            }
+
+            return SKImage.FromPixelCopy(new SKImageInfo(reducedWidth, reducedHeight, SKColorType.Alpha8, SKAlphaType.Premul), pixels.AsSpan(0, reducedWidth * reducedHeight), reducedWidth);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(pixels);
+            ArrayPool<long>.Shared.Return(counts);
+            ArrayPool<byte>.Shared.Return(line);
+        }
+    }
+
+    /// <summary>Writes the opacity of each value of a row of a soft mask's samples at a reduction, 0 to 255, through their Decode map (Table 143).</summary>
+    private static void SoftRow(DisplayImage mask, DisplayImageSamples samples, int y, Span<byte> alpha, ushort[] raw, float[] values)
+    {
+        int width = samples.Width;
+        ImageDecodeMap map = mask.DecodeMapFor(samples);
+        int top = (1 << map.BitsPerComponent) - 1;
+        if (samples.StorageBits <= 8 && map.Map(0, 0) == 0f && map.Map(0, top) == 1f)
+        {
+            ImageRows.UnpackScaled(samples.GetRow(y), samples.StorageBits, samples.BitsPerComponent, width, alpha);
+            return;
+        }
+
+        ImageRows.Unpack(samples.GetRow(y), samples.StorageBits, width, raw.AsSpan(0, width));
+        map.Map(raw.AsSpan(0, width), values.AsSpan(0, width));
+        for (int x = 0; x < width; x++)
+        {
+            alpha[x] = (byte)((Math.Clamp(values[x], 0f, 1f) * 255f) + 0.5f);
         }
     }
 

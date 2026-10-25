@@ -50,8 +50,14 @@ public sealed partial class SkiaBackend
             _patternDepth = depth;
         }
 
+        /// <summary>Gets or sets the fewest samples per device pixel a reduced image keeps (issue #362), or 0 to draw images at their own resolution; read from the backend's own replayer.</summary>
+        public double ImageSamplesPerPixel { get; set; }
+
         /// <summary>Gets how many Skia images the backend made from display-list images and masks.</summary>
         public int ImagesCreated => _imageCache?.Created ?? 0;
+
+        /// <summary>Gets how many pixels the Skia images the backend made had in all.</summary>
+        public long ImagePixelsConverted => _imageCache?.PixelsConverted ?? 0;
 
         /// <summary>Gets the bytes of converted pixels the backend keeps.</summary>
         public long CachedImageBytes => _imageCache?.Bytes ?? 0;

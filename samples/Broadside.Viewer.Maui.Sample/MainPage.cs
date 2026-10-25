@@ -129,6 +129,14 @@ public sealed class MainPage : ContentPage
         }
     }
 
+    private void Show(DocumentSession session)
+    {
+        DocumentSession? old = _session;
+        _session = session;
+        _view.Session = session;
+        old?.Dispose();
+    }
+
     private void OnStateChanged(object? sender, PdfViewStateChangedEventArgs e)
     {
         PdfViewState state = e.State;
@@ -142,6 +150,12 @@ public sealed class MainPage : ContentPage
         {
             _status.Text = status;
         }
+        if (PhotoBench.Requested && !_benchStarted && state is { PageCount: > 0, IsLoading: false })
+        {
+            _benchStarted = true;
+            _ = PhotoBench.RunAsync(_view, Show);
+        }
+
         if (FrameBench.Requested && !_benchStarted && state is { PageCount: > 0, IsLoading: false })
         {
             _benchStarted = true;
