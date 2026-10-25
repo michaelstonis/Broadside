@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The Curlew: Issue 41, Spring 2027</title>
+<meta name="author" content="Broadside sample documents">
+<meta name="description" content="A four-page club newsletter written for the Broadside project, printed by headless Chrome.">
+<style>
+@font-face { font-family: "Abril Fatface"; src: url("../fonts/abrilfatface/AbrilFatface-Regular.ttf"); }
+@font-face { font-family: "PT Serif"; src: url("../fonts/ptserif/PT_Serif-Web-Regular.ttf"); }
+@font-face { font-family: "PT Serif"; font-weight: 700; src: url("../fonts/ptserif/PT_Serif-Web-Bold.ttf"); }
+@font-face { font-family: "PT Serif"; font-style: italic; src: url("../fonts/ptserif/PT_Serif-Web-Italic.ttf"); }
+@font-face { font-family: "PT Sans"; src: url("../fonts/ptsans/PT_Sans-Web-Regular.ttf"); }
+@font-face { font-family: "PT Sans"; font-weight: 700; src: url("../fonts/ptsans/PT_Sans-Web-Bold.ttf"); }
+
+@page { size: letter; margin: 0; }
+* { box-sizing: border-box; }
+html { font: 9.6pt/1.42 "PT Serif"; color: #20262b; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { margin: 0; }
+.page { width: 8.5in; height: 11in; position: relative; overflow: hidden; padding: 0.55in 0.6in 0.6in 0.95in; page-break-after: always; }
+.page:last-child { page-break-after: auto; }
+.spine {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 0.5in; background: #24525a; color: #f4e9c8;
+}
+.spine span {
+  position: absolute; left: 0.25in; top: 50%; transform: translate(-50%, -50%) rotate(-90deg); white-space: nowrap;
+  font: 700 8pt "PT Sans"; letter-spacing: 0.4em; text-transform: uppercase;
+}
+.folio { position: absolute; bottom: 0.3in; right: 0.6in; font: 8pt "PT Sans"; color: #6c7a80; }
+.folio b { color: #24525a; }
+
+.masthead { display: flex; align-items: center; gap: 0.18in; border-bottom: 3pt double #24525a; padding-bottom: 0.1in; margin-bottom: 0.14in; }
+.masthead img { width: 0.95in; height: 0.95in; }
+.masthead h1 { font: 58pt/0.9 "Abril Fatface"; margin: 0; color: #24525a; letter-spacing: -0.01em; }
+.masthead .sub { font: 9pt "PT Sans"; color: #6c7a80; text-transform: uppercase; letter-spacing: 0.18em; margin-top: 0.04in; }
+.masthead .issue { margin-left: auto; text-align: right; font: 8.5pt/1.35 "PT Sans"; color: #24525a; }
+.masthead .issue b { font: 20pt "Abril Fatface"; display: block; color: #c4572a; }
+
+h2 { font: 24pt/1.05 "Abril Fatface"; margin: 0 0 0.06in; color: #20262b; }
+h3 { font: 700 10.5pt "PT Sans"; margin: 0.12in 0 0.04in; color: #24525a; text-transform: uppercase; letter-spacing: 0.06em; }
+.kicker { font: 700 7.5pt "PT Sans"; color: #c4572a; text-transform: uppercase; letter-spacing: 0.22em; }
+.byline { font: italic 8.5pt "PT Serif"; color: #6c7a80; margin-bottom: 0.08in; }
+p { margin: 0 0 0.07in; text-align: justify; hyphens: auto; }
+.cols3 { column-count: 3; column-gap: 0.2in; column-rule: 0.4pt solid #c9d3d6; }
+.cols2 { column-count: 2; column-gap: 0.24in; }
+.dropcap::first-letter { float: left; font: 40pt/0.8 "Abril Fatface"; padding: 0.04in 0.05in 0 0; color: #c4572a; }
+
+figure { margin: 0 0 0.1in; break-inside: avoid; }
+figure img { width: 100%; display: block; border-radius: 2pt; }
+figcaption { font: 7.6pt/1.3 "PT Sans"; color: #56646a; margin-top: 0.04in; }
+.hero img { height: 3.3in; object-fit: cover; }
+.hero { position: relative; }
+.hero .stamp {
+  position: absolute; right: 0.2in; top: 0.2in; background: rgba(196, 87, 42, 0.92); color: #fff; padding: 0.08in 0.14in;
+  font: 700 8pt "PT Sans"; letter-spacing: 0.2em; text-transform: uppercase; transform: rotate(3deg); border-radius: 2pt;
+}
+
+.pull {
+  column-span: none; margin: 0.08in 0 0.12in; padding: 0.1in 0 0.08in; border-top: 2pt solid #c4572a; border-bottom: 0.6pt solid #c4572a;
+  font: italic 14pt/1.25 "PT Serif"; color: #24525a; text-align: left; break-inside: avoid;
+}
+.pull cite { display: block; margin-top: 0.05in; font: 7.5pt "PT Sans"; font-style: normal; color: #6c7a80; text-transform: uppercase; letter-spacing: 0.12em; }
+
+.box { background: #f4e9c8; border-radius: 4pt; padding: 0.12in 0.14in; break-inside: avoid; margin-bottom: 0.1in; }
+.box h3 { margin-top: 0; }
+table.counts { width: 100%; border-collapse: collapse; font: 8pt "PT Sans"; }
+table.counts th { text-align: left; border-bottom: 1pt solid #24525a; padding: 2pt 0; }
+table.counts td { border-bottom: 0.4pt solid rgba(36, 82, 90, 0.25); padding: 2pt 0; }
+table.counts td:last-child, table.counts th:last-child { text-align: right; }
+.up { color: #2e7d4f; font-weight: 700; } .down { color: #b23a2a; font-weight: 700; }
+
+.chart { width: 100%; height: auto; }
+.events { display: grid; grid-template-columns: 1fr 1fr; gap: 0.12in; margin-top: 0.06in; }
+.event { display: flex; gap: 0.1in; align-items: flex-start; break-inside: avoid; }
+.date { flex: none; width: 0.55in; height: 0.62in; border-radius: 3pt; background: #24525a; color: #fff; text-align: center; font: 700 7pt "PT Sans"; text-transform: uppercase; padding-top: 0.05in; }
+.date b { display: block; font: 18pt/1 "Abril Fatface"; }
+.event p { margin: 0; text-align: left; font-size: 8.8pt; }
+.blend { position: relative; }
+.blend img { width: 100%; height: 2.3in; object-fit: cover; display: block; border-radius: 2pt; }
+.blend .tint { position: absolute; inset: 0; background: linear-gradient(120deg, #24525a, #c4572a); mix-blend-mode: multiply; opacity: 0.75; border-radius: 2pt; }
+.blend .over { position: absolute; left: 0.2in; bottom: 0.18in; color: #fff; font: 26pt/1 "Abril Fatface"; mix-blend-mode: screen; }
+.form { border: 1.2pt dashed #24525a; border-radius: 4pt; padding: 0.12in 0.16in; }
+.form .line { border-bottom: 0.6pt solid #8a979c; height: 0.28in; margin-bottom: 0.04in; font: 7.5pt "PT Sans"; color: #6c7a80; padding-top: 0.12in; }
+.tick { display: inline-block; width: 8pt; height: 8pt; border: 0.8pt solid #24525a; border-radius: 1.5pt; margin: 0 3pt 0 10pt; vertical-align: -1pt; }
+</style>
+</head>
+<body>
+<!-- The Millbrook Valley Naturalists, their members, events and counts are invented for the Broadside sample documents. -->
+
+<section class="page">
+  <div class="spine"><span>The Curlew · Issue 41 · Spring 2027 · Millbrook Valley Naturalists</span></div>
+  <header class="masthead">
+    <img src="images/curlew-badge.png" alt="A long-billed curlew in a round badge">
+    <div>
+      <h1>The Curlew</h1>
+      <div class="sub">Newsletter of the Millbrook Valley Naturalists</div>
+    </div>
+    <div class="issue"><b>No. 41</b>Spring 2027<br>Free to members</div>
+  </header>
+
+  <figure class="hero">
+    <img src="images/teton.jpg" alt="Snow and cloud on a steep mountain face">
+    <span class="stamp">Field trip report</span>
+    <figcaption>Late snow and low cloud on the range above the lake, photographed on the second morning of the trip. Photo: Grand Teton
+      National Park, public domain.</figcaption>
+  </figure>
+
+  <div class="kicker">Our spring trip</div>
+  <h2>Six days, forty-one species and one very patient bus driver</h2>
+  <div class="byline">By the trips committee</div>
+  <div class="cols3">
+    <p class="dropcap">Twenty-two members set off in the dark on the first of April, with flasks, three spotting scopes and a printed list
+      of every bird anyone had ever reported from the lake. We came back with forty-one species, a dozen rolls of film's worth of
+      photographs on our phones, and a new respect for the people who keep the visitor centre's feeders full through the winter.</p>
+    <p>The weather was against us for the first two days. Cloud sat on the mountains and rain came across the water in curtains, so
+      we spent most of the first afternoon in the hide at the north end, which turned out to be the best decision of the week. A pair
+      of trumpeter swans worked the reeds for an hour in front of us, close enough to hear them grumbling to each other.</p>
+    <div class="pull">“The first curlew of the year is a better clock than any calendar.”<cite>Margaret Ellison, founding member</cite></div>
+    <p>On the third day the cloud lifted, and so did the birds. By lunchtime we had added sandhill cranes, a merlin hunting low over the
+      sage, and a flock of more than three hundred American pipits that rose from the meadow all at once and settled again as if
+      nothing had happened. Our youngest member, aged nine, found the trip's only long-eared owl by asking why that branch had eyes.</p>
+    <p>The highlight, for most of us, came on the last evening. Standing on the dike with the sun going down, we heard the call before
+      we saw the bird: the long rising whistle of a long-billed curlew, back from the coast for the summer. It flew over us, landed in
+      the wet grass a hundred metres away and started feeding as if it had never left.</p>
+    <p>Thank you to everyone who came, to the visitor centre staff, and to Dale, who drove the bus, never once complained about stopping
+      for a hawk on a fence post, and has asked to come again next year.</p>
+    <h3>Next year</h3>
+    <p>The committee is already planning a trip to the coast in early autumn, when the shorebirds are heading south. If you would like to
+      help, see the members' corner on page 4.</p>
+  </div>
+  <div class="folio"><b>The Curlew</b> · Issue 41 · 1</div>
+</section>
+
+<section class="page">
+  <div class="spine"><span>Migration report · Spring 2027</span></div>
+  <div class="kicker">Counts and trends</div>
+  <h2>The migration report</h2>
+  <div class="byline">Compiled from members' records, 1 January to 31 March</div>
+  <div class="cols2">
+    <figure>
+      <img src="images/curlew.jpg" alt="A long-billed curlew walking on a mudflat, its bill open">
+      <figcaption>A long-billed curlew on the mudflats. Its bill can be longer than its body. Photo: U.S. Fish and Wildlife Service, public
+        domain.</figcaption>
+    </figure>
+    <p>Members sent in 1,184 records this quarter, our highest total since the club began collecting them on paper cards in 1987. Most
+      came through the online form, but we still receive a handful of postcards every month, and we still enter every one of them by
+      hand.</p>
+    <p>The headline is good news. Long-billed curlews returned to the valley eleven days earlier than the average of the last twenty
+      years, and the first breeding pair was reported on the old airfield on the twenty-third of March. Numbers of wintering swans were
+      also up, helped by a mild February that kept the river free of ice.</p>
+    <p>Not every trend points the same way. Counts of meadowlarks fell for the fourth year running, and the regional survey team has
+      asked clubs across the state to record every singing male they hear between April and June. Details of how to take part are in
+      the box below.</p>
+    <svg class="chart" viewBox="0 0 320 170" xmlns="http://www.w3.org/2000/svg" font-family="PT Sans" font-size="9" role="img" aria-label="Bar chart of first curlew arrival dates by year">
+      <rect width="320" height="170" fill="#fbf7ec" rx="4"/>
+      <text x="12" y="16" font-weight="700" fill="#24525a" font-size="10">First curlew of the year (day of March)</text>
+      <g fill="#24525a">
+        <rect x="30" y="58" width="22" height="92"/><rect x="62" y="64" width="22" height="86"/><rect x="94" y="52" width="22" height="98"/>
+        <rect x="126" y="70" width="22" height="80"/><rect x="158" y="76" width="22" height="74"/><rect x="190" y="68" width="22" height="82"/>
+        <rect x="222" y="82" width="22" height="68"/>
+      </g>
+      <rect x="254" y="104" width="22" height="46" fill="#c4572a"/>
+      <line x1="24" y1="150" x2="290" y2="150" stroke="#20262b" stroke-width="0.8"/>
+      <line x1="24" y1="72" x2="290" y2="72" stroke="#c4572a" stroke-dasharray="3 2" stroke-width="0.8"/>
+      <text x="292" y="75" fill="#c4572a" font-size="7.5">avg</text>
+      <g fill="#56646a" text-anchor="middle">
+        <text x="41" y="162">2020</text><text x="73" y="162">2021</text><text x="105" y="162">2022</text><text x="137" y="162">2023</text>
+        <text x="169" y="162">2024</text><text x="201" y="162">2025</text><text x="233" y="162">2026</text><text x="265" y="162" fill="#c4572a" font-weight="700">2027</text>
+      </g>
+      <g fill="#fff" text-anchor="middle" font-size="8">
+        <text x="41" y="70">31</text><text x="73" y="76">29</text><text x="105" y="64">33</text><text x="137" y="82">27</text>
+        <text x="169" y="88">25</text><text x="201" y="80">28</text><text x="233" y="94">23</text><text x="265" y="116">16</text>
+      </g>
+    </svg>
+    <div class="box">
+      <h3>Quarter at a glance</h3>
+      <table class="counts">
+        <tr><th>Species</th><th>Records</th><th>Change</th></tr>
+        <tr><td>Long-billed curlew</td><td>64</td><td class="up">▲ 38%</td></tr>
+        <tr><td>Trumpeter swan</td><td>211</td><td class="up">▲ 12%</td></tr>
+        <tr><td>Sandhill crane</td><td>148</td><td class="up">▲ 5%</td></tr>
+        <tr><td>Western meadowlark</td><td>37</td><td class="down">▼ 21%</td></tr>
+        <tr><td>Northern harrier</td><td>52</td><td>0%</td></tr>
+        <tr><td>American pipit</td><td>96</td><td class="down">▼ 9%</td></tr>
+      </table>
+    </div>
+    <div class="box">
+      <h3>Count a meadowlark</h3>
+      <p>Walk the same route once a fortnight between April and June, stop every 500 metres for three minutes, and write down every
+        meadowlark you hear. Send your sheets to the records officer; blank forms are on the club noticeboard.</p>
+    </div>
+    <p>As always, thank you to everyone who sent records. Every card and every form adds to a picture of the valley that now stretches
+      back forty years, and that picture is only as good as the people who fill it in.</p>
+  </div>
+  <div class="folio"><b>The Curlew</b> · Issue 41 · 2</div>
+</section>
+
+<section class="page">
+  <div class="spine"><span>Features · Volunteers · Events</span></div>
+  <div class="kicker">Far from home</div>
+  <h2>Still flying at seventy</h2>
+  <div class="cols2">
+    <figure>
+      <img src="images/albatross.jpg" alt="Two Laysan albatrosses greeting each other on a grassy island">
+      <figcaption>Laysan albatrosses at Midway Atoll, where the oldest known wild bird returns to nest. Photo: Kiah Walker, U.S. Fish and
+        Wildlife Service, public domain.</figcaption>
+    </figure>
+    <p>At our February meeting, our guest speaker told the story of Wisdom, a Laysan albatross first fitted with a leg band at Midway
+      Atoll in the Pacific in 1956. She was already an adult then, which makes her the oldest known wild bird in the world. Decades
+      later she is still coming back to the same island to nest, after flying, by one estimate, millions of kilometres over the ocean.</p>
+    <p>Albatrosses pair for life and take turns on the nest while the other partner feeds at sea, sometimes for weeks at a time. They
+      can sleep on the wing, glide for hours without a single flap, and smell food on the water from kilometres away. Our speaker's
+      advice for anyone hoping to see one: be patient, bring a good coat, and learn to love boats.</p>
+    <p>The talk raised £214 for the seabird recovery programme. Thank you to everyone who bought a raffle ticket, and congratulations
+      to the winner of the albatross jigsaw puzzle, which has one thousand pieces and, we are told, at least nine hundred of them blue.</p>
+  </div>
+
+  <div class="kicker" style="margin-top: 0.12in;">Volunteers</div>
+  <h2>A new hide for the north marsh</h2>
+  <div class="cols2">
+    <figure>
+      <img src="images/birders.jpg" alt="Two people looking out from a wooden bird hide through a viewing scope">
+      <figcaption>A viewing hide like the one we hope to build. Photo: Steve Hillebrand, U.S. Fish and Wildlife Service, public
+        domain.</figcaption>
+    </figure>
+    <p>After three years of fundraising and one very long planning meeting, the town council has agreed to let us replace the old hide
+      at the north marsh. The new one will have a ramp for wheelchairs and pushchairs, viewing slots at two heights, and a fixed scope
+      that children can reach.</p>
+    <p>We need volunteers for four building weekends in June. No experience is needed, only gloves and good humour; the club will provide
+      tools, lunch and an expert carpenter who has promised to teach anyone who asks how to cut a joint that does not wobble.</p>
+  </div>
+
+  <h3>Coming up</h3>
+  <div class="events">
+    <div class="event"><div class="date">Apr<b>19</b></div><p><b>Dawn chorus walk.</b> Meet at the church gate at 5:30. Breakfast at the
+      café afterwards for anyone still awake.</p></div>
+    <div class="event"><div class="date">May<b>03</b></div><p><b>Beginners' morning.</b> Binoculars to borrow, and nobody minds how many
+      times you ask what that brown bird was.</p></div>
+    <div class="event"><div class="date">May<b>21</b></div><p><b>Evening talk: moths.</b> With a live trap demonstration in the car park
+      after dark.</p></div>
+    <div class="event"><div class="date">Jun<b>07</b></div><p><b>First building weekend</b> at the north marsh. Sign up with the volunteer
+      coordinator.</p></div>
+  </div>
+  <div class="folio"><b>The Curlew</b> · Issue 41 · 3</div>
+</section>
+
+<section class="page">
+  <div class="spine"><span>Members' corner</span></div>
+  <div class="blend">
+    <img src="images/swans.jpg" alt="Swans on a lake at sunset, with reeds in the foreground">
+    <div class="tint"></div>
+    <div class="over">Members' corner</div>
+  </div>
+  <figcaption>Swans at sunset at a migratory bird refuge. Photo: Jeff Adams, U.S. Fish and Wildlife Service, public domain. The tint is
+    drawn with a multiply blend, the title with a screen blend.</figcaption>
+
+  <div class="cols2" style="margin-top: 0.14in;">
+    <h3 style="margin-top: 0;">Photograph of the season</h3>
+    <figure>
+      <img src="images/sandpiper.jpg" alt="A pectoral sandpiper standing in golden grass">
+      <figcaption>A pectoral sandpiper in the evening light. Photo: U.S. Fish and Wildlife Service, public domain.</figcaption>
+    </figure>
+    <p>This season's competition had a record thirty-four entries. The judges chose this quiet portrait of a pectoral sandpiper, almost
+      hidden in the grass, because, in their words, “it rewards anyone who takes the time to look”. Entries for the summer competition
+      close on the last day of June; the theme is “water”.</p>
+    <h3>Letters</h3>
+    <p><i>To the editor:</i> I was delighted to see the barn owl box on the cover of the winter issue. I am pleased to report that the
+      box in my orchard, built at the November workshop, now has a resident. She hisses at me every morning and I could not be happier.
+      <i>— A grateful member</i></p>
+    <p><i>To the editor:</i> Could the club consider a second beginners' morning on a weekday, for those of us who work weekends?
+      <i>— A shift worker</i> <b>The committee replies:</b> Yes. See the events list for dates once they are confirmed.</p>
+    <h3>Join us</h3>
+    <div class="form">
+      <div class="line">Name</div>
+      <div class="line">Address</div>
+      <div class="line">Email</div>
+      <p style="margin-top: 0.08in; font: 8pt 'PT Sans';">Membership:<span class="tick"></span>Individual £12<span class="tick"></span>Family £18<span class="tick"></span>Junior £4</p>
+    </div>
+    <p style="margin-top: 0.1in; font: 8pt 'PT Sans'; color: #56646a;">The Curlew is written and edited by volunteers. Opinions are the
+      writers' own. The Millbrook Valley Naturalists and everyone named in this newsletter are invented for a sample document.</p>
+  </div>
+  <div class="folio"><b>The Curlew</b> · Issue 41 · 4</div>
+</section>
+</body>
+</html>

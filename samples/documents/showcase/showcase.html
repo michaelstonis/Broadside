@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A tour of paged media</title>
+<meta name="author" content="Broadside sample documents">
+<meta name="description" content="A feature showcase written for the Broadside project: SVG, borders, counters, footnotes, bookmarks, links; Broadside adds optional content.">
+<meta name="generator" content="WeasyPrint">
+<meta name="dcterms.created" content="2026-10-25T00:00:00Z">
+<meta name="dcterms.modified" content="2026-10-25T00:00:00Z">
+<style>
+@font-face { font-family: "Fira Sans"; src: url("../fonts/firasans/FiraSans-Regular.ttf"); }
+@font-face { font-family: "Fira Sans"; font-style: italic; src: url("../fonts/firasans/FiraSans-Italic.ttf"); }
+@font-face { font-family: "Fira Sans"; font-weight: 700; src: url("../fonts/firasans/FiraSans-Bold.ttf"); }
+@font-face { font-family: "Fira Sans"; font-weight: 300; src: url("../fonts/firasans/FiraSans-Light.ttf"); }
+@font-face { font-family: "IBM Plex Mono"; src: url("../fonts/ibmplexmono/IBMPlexMono-Regular.ttf"); }
+@font-face { font-family: "Abril Fatface"; src: url("../fonts/abrilfatface/AbrilFatface-Regular.ttf"); }
+
+@page {
+  size: A4; margin: 22mm 20mm 24mm 20mm;
+  @top-right { content: "A tour of paged media · " string(part); font: 300 8pt "Fira Sans"; color: #667; }
+  @bottom-center { content: counter(page) " / " counter(pages); font: 8pt "Fira Sans"; color: #667; }
+  @footnote { border-top: 0.5pt solid #99a; padding-top: 2mm; }
+}
+@page cover { margin: 0; @top-right { content: none; } @bottom-center { content: none; } }
+
+html { font: 10pt/1.5 "Fira Sans"; color: #1e2230; }
+body { margin: 0; counter-reset: part demo; }
+h1 { font: 34pt/1.05 "Abril Fatface"; margin: 0; }
+h2 { font: 700 17pt "Fira Sans"; margin: 0 0 4mm; counter-increment: part; counter-reset: demo; string-set: part content(text); page-break-before: always; bookmark-level: 1; }
+h2::before { content: counter(part, upper-roman) ". "; color: #6a4cff; }
+h3 { font: 700 11pt "Fira Sans"; margin: 6mm 0 2mm; bookmark-level: 2; counter-increment: demo; }
+h3::before { content: counter(part, upper-roman) "." counter(demo) "  "; color: #6a4cff; }
+p { margin: 0 0 2.4mm; }
+code { font: 8.6pt "IBM Plex Mono"; background: #f0eefb; border-radius: 1mm; padding: 0 1mm; }
+
+.cover { page: cover; height: 297mm; position: relative; background: linear-gradient(160deg, #20154a 0%, #6a4cff 55%, #ff7a59 100%); color: #fff; }
+.cover .inner { position: absolute; left: 22mm; right: 22mm; top: 70mm; }
+.cover .inner p { font: 300 13pt/1.5 "Fira Sans"; max-width: 130mm; }
+.cover svg { position: absolute; right: 0; bottom: 0; width: 150mm; }
+.cover .contents { position: absolute; left: 22mm; bottom: 30mm; font-size: 9.5pt; }
+.cover .contents a { color: #fff; text-decoration: none; display: block; margin-bottom: 1.2mm; }
+.cover .contents a::after { content: " · page " target-counter(attr(href), page); opacity: 0.75; }
+
+.fn { float: footnote; font: 8pt/1.35 "Fira Sans"; }
+.fn::footnote-call { content: counter(footnote, lower-alpha); vertical-align: super; font-size: 70%; line-height: 0; color: #6a4cff; }
+.fn::footnote-marker { content: counter(footnote, lower-alpha) ". "; color: #6a4cff; }
+
+.boxes { display: flex; flex-wrap: wrap; gap: 5mm; margin: 3mm 0 5mm; }
+.box { width: 50mm; height: 26mm; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 8pt; }
+.b1 { border: 1.5pt solid #6a4cff; border-radius: 4mm; }
+.b2 { border: 3pt dashed #ff7a59; border-radius: 13mm; }
+.b3 { border: 2pt dotted #2bb3a3; border-radius: 0 8mm 0 8mm; }
+.b4 { border: 5pt double #20154a; border-radius: 2mm; }
+.b5 { border-radius: 50%; background: radial-gradient(circle, #ffd36e, #ff7a59); color: #fff; }
+.b6 { border-top: 4pt solid #6a4cff; border-right: 4pt solid #2bb3a3; border-bottom: 4pt solid #ff7a59; border-left: 4pt solid #ffd36e; border-radius: 6mm 1mm; }
+.b7 { background: repeating-linear-gradient(45deg, #f0eefb 0 3mm, #dcd5ff 3mm 6mm); border-radius: 3mm; }
+.b8 { background: #1e2230; color: #fff; border-radius: 3mm; opacity: 0.6; }
+.b9 { border: 1pt solid #99a; border-radius: 3mm; transform: rotate(-4deg); }
+
+ol.steps { counter-reset: step; list-style: none; padding: 0; }
+ol.steps li { counter-increment: step; position: relative; padding-left: 11mm; margin-bottom: 3mm; }
+ol.steps li::before { content: counter(step); position: absolute; left: 0; top: -0.5mm; width: 7mm; height: 7mm; border-radius: 50%; background: #6a4cff; color: #fff; text-align: center; font: 700 9pt/7mm "Fira Sans"; }
+ol.roman { list-style: upper-roman; }
+ol.greek { list-style: lower-greek; }
+ul.check { list-style: none; padding-left: 0; }
+ul.check li::before { content: "✓ "; color: #2bb3a3; font-weight: 700; }
+.lists { display: flex; gap: 8mm; }
+.lists > * { flex: 1; }
+
+table.matrix { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 8.6pt; border: 1pt solid #ccd; border-radius: 3mm; overflow: hidden; }
+table.matrix th { background: #20154a; color: #fff; text-align: left; padding: 2mm; }
+table.matrix td { padding: 1.8mm 2mm; border-top: 0.5pt solid #e3e3ee; }
+table.matrix tr:nth-child(even) td { background: #f7f6fd; }
+.yes { color: #2bb3a3; font-weight: 700; } .part { color: #ff7a59; font-weight: 700; }
+
+figure { margin: 3mm 0 5mm; page-break-inside: avoid; }
+figure svg { width: 100%; height: auto; }
+figcaption { font: italic 8.5pt "Fira Sans"; color: #556; }
+a.ext { color: #6a4cff; }
+a.ext::after { content: " ↗"; }
+.callout { border-left: 3pt solid #6a4cff; background: #f0eefb; padding: 3mm 4mm; border-radius: 0 3mm 3mm 0; margin: 4mm 0; }
+</style>
+</head>
+<body>
+<!-- Written for the Broadside project. -->
+
+<section class="cover">
+  <div class="inner">
+    <h1>A tour of<br>paged media</h1>
+    <p>A short catalogue of the things HTML-to-PDF tools put into PDF files, made to give a PDF reader plenty to do: vector graphics,
+      rounded and patterned borders, counters, footnotes, bookmarks, internal and external links, and, added afterwards by Broadside,
+      optional content layers you can switch on and off.</p>
+  </div>
+  <svg viewBox="0 0 600 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Overlapping translucent shapes">
+    <circle cx="420" cy="260" r="190" fill="#ffffff" fill-opacity="0.08"/>
+    <circle cx="470" cy="320" r="120" fill="#ffd36e" fill-opacity="0.35"/>
+    <rect x="250" y="210" width="220" height="220" rx="40" fill="#2bb3a3" fill-opacity="0.35" transform="rotate(-18 360 320)"/>
+    <path d="M150 420 C 260 260, 420 380, 600 180 L600 420 Z" fill="#20154a" fill-opacity="0.55"/>
+    <g fill="none" stroke="#ffffff" stroke-opacity="0.6" stroke-width="2">
+      <path d="M200 400 Q 330 200 600 260"/>
+      <path d="M240 420 Q 360 240 600 300" stroke-dasharray="8 6"/>
+    </g>
+  </svg>
+  <nav class="contents">
+    <a href="#graphics">I. Vector graphics</a>
+    <a href="#borders">II. Borders and backgrounds</a>
+    <a href="#counters">III. Counters and lists</a>
+    <a href="#notes">IV. Notes, links and layers</a>
+  </nav>
+</section>
+
+<h2 id="graphics">Vector graphics</h2>
+<p>Every illustration in this section is inline SVG, which the producer converts to PDF paths, gradients and clipping rather than to
+  pictures. A good PDF reader draws them sharp at any zoom.</p>
+
+<h3>Paths, strokes and joins</h3>
+<figure>
+<svg viewBox="0 0 520 150" xmlns="http://www.w3.org/2000/svg" font-family="Fira Sans" font-size="11">
+  <g fill="none" stroke="#20154a" stroke-width="14">
+    <polyline points="20,120 60,40 100,120" stroke-linejoin="miter"/>
+    <polyline points="140,120 180,40 220,120" stroke-linejoin="round"/>
+    <polyline points="260,120 300,40 340,120" stroke-linejoin="bevel"/>
+  </g>
+  <g stroke="#6a4cff" stroke-width="14">
+    <line x1="390" y1="40" x2="500" y2="40" stroke-linecap="butt"/>
+    <line x1="390" y1="80" x2="500" y2="80" stroke-linecap="round"/>
+    <line x1="390" y1="120" x2="500" y2="120" stroke-linecap="square"/>
+  </g>
+  <g fill="#556" text-anchor="middle"><text x="60" y="145">miter</text><text x="180" y="145">round</text><text x="300" y="145">bevel</text><text x="445" y="145">butt · round · square</text></g>
+</svg>
+<figcaption>Line joins and caps, each drawn as a single stroked path.</figcaption>
+</figure>
+
+<h3>Gradients, opacity and clipping</h3>
+<figure>
+<svg viewBox="0 0 520 170" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g1" x1="0" x2="1"><stop offset="0" stop-color="#6a4cff"/><stop offset="0.5" stop-color="#ff7a59"/><stop offset="1" stop-color="#ffd36e"/></linearGradient>
+    <radialGradient id="g2" cx="0.35" cy="0.35" r="0.7"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#2bb3a3"/></radialGradient>
+    <clipPath id="c1"><circle cx="420" cy="85" r="70"/></clipPath>
+    <pattern id="p1" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="12" height="12" fill="#f0eefb"/><circle cx="6" cy="6" r="3" fill="#6a4cff"/></pattern>
+  </defs>
+  <rect x="10" y="20" width="180" height="130" rx="16" fill="url(#g1)"/>
+  <circle cx="270" cy="85" r="65" fill="url(#g2)"/>
+  <circle cx="240" cy="60" r="40" fill="#20154a" fill-opacity="0.35"/>
+  <g clip-path="url(#c1)">
+    <rect x="340" y="10" width="170" height="160" fill="url(#p1)"/>
+    <path d="M340 140 L 420 30 L 510 150 Z" fill="#ff7a59" fill-opacity="0.7"/>
+  </g>
+</svg>
+<figcaption>A linear gradient, a radial gradient under a translucent circle, and a tiling pattern clipped to a circle.</figcaption>
+</figure>
+
+<h3>A chart</h3>
+<figure>
+<svg viewBox="0 0 520 200" xmlns="http://www.w3.org/2000/svg" font-family="Fira Sans" font-size="10">
+  <g stroke="#e3e3ee"><line x1="40" y1="20" x2="510" y2="20"/><line x1="40" y1="70" x2="510" y2="70"/><line x1="40" y1="120" x2="510" y2="120"/></g>
+  <line x1="40" y1="170" x2="510" y2="170" stroke="#556"/>
+  <path d="M40 150 C 100 140, 140 60, 200 80 S 300 150, 360 90 S 460 30, 510 40 L510 170 L40 170 Z" fill="#6a4cff" fill-opacity="0.18"/>
+  <path d="M40 150 C 100 140, 140 60, 200 80 S 300 150, 360 90 S 460 30, 510 40" fill="none" stroke="#6a4cff" stroke-width="3"/>
+  <path d="M40 160 C 120 150, 180 120, 240 125 S 360 70, 420 80 S 480 90, 510 70" fill="none" stroke="#ff7a59" stroke-width="2.5" stroke-dasharray="7 4"/>
+  <g fill="#556" text-anchor="middle"><text x="40" y="186">Jan</text><text x="157" y="186">Apr</text><text x="275" y="186">Jul</text><text x="392" y="186">Oct</text><text x="510" y="186">Dec</text></g>
+  <g font-size="9"><text x="95" y="20" fill="#6a4cff">pages read</text><text x="175" y="20" fill="#ff7a59">pages written</text></g>
+</svg>
+<figcaption>Smooth curves with a filled area beneath and a dashed comparison line (invented data).</figcaption>
+</figure>
+
+<h2 id="borders">Borders and backgrounds</h2>
+<p>CSS borders become stroked or filled paths in PDF. Rounded corners need Bézier curves, dashed and dotted borders need dash arrays
+  that fit the corners, and double borders are two paths. Each box below shows one combination.</p>
+<div class="boxes">
+  <div class="box b1">Solid, rounded</div>
+  <div class="box b2">Dashed, pill</div>
+  <div class="box b3">Dotted, leaf corners</div>
+  <div class="box b4">Double</div>
+  <div class="box b5">Radial gradient, circle</div>
+  <div class="box b6">Four colours, elliptical corners</div>
+  <div class="box b7">Repeating gradient</div>
+  <div class="box b8">Opacity 60%</div>
+  <div class="box b9">Rotated</div>
+</div>
+<div class="callout">Backgrounds can be drawn inside or under the border; this producer paints them to the outer border edge, so
+  translucent borders show the background through them.<span class="fn">Look closely at the dashed pill: its background is white, so the effect is invisible there, but the double border shows a thin line of background between its two strokes.</span></div>
+
+<h2 id="counters">Counters and lists</h2>
+<p>Counters number headings, list items, figures and footnotes. This page uses five counter styles; the section numbers above come
+  from a counter too.</p>
+<div class="lists">
+  <div>
+    <h3>Numbered steps</h3>
+    <ol class="steps">
+      <li>Write the document in HTML and CSS.</li>
+      <li>Let the producer break it into pages.</li>
+      <li>Check the result in more than one reader.</li>
+      <li>Fix the CSS, not the PDF.</li>
+    </ol>
+  </div>
+  <div>
+    <h3>Roman and Greek</h3>
+    <ol class="roman"><li>Preface</li><li>Introduction</li><li>Method</li><li>Results</li></ol>
+    <ol class="greek"><li>alpha release</li><li>beta release</li><li>gamma ray</li></ol>
+  </div>
+  <div>
+    <h3>Checklist</h3>
+    <ul class="check"><li>Fonts embedded</li><li>Images at print resolution</li><li>Links tested</li><li>Bookmarks present</li></ul>
+  </div>
+</div>
+
+<h3>Feature table</h3>
+<table class="matrix">
+  <tr><th>Feature</th><th>In this file</th><th>How it is drawn</th></tr>
+  <tr><td>Inline SVG</td><td class="yes">Yes</td><td>Paths, shadings, patterns, clipping</td></tr>
+  <tr><td>Rounded borders</td><td class="yes">Yes</td><td>Bézier curves, dash arrays</td></tr>
+  <tr><td>Counters</td><td class="yes">Yes</td><td>Text generated at layout time</td></tr>
+  <tr><td>Footnotes</td><td class="yes">Yes</td><td>Moved to the foot of the page</td></tr>
+  <tr><td>Bookmarks</td><td class="yes">Yes</td><td>The document outline, from headings</td></tr>
+  <tr><td>Links</td><td class="yes">Yes</td><td>Link annotations, internal and external</td></tr>
+  <tr><td>Optional content</td><td class="part">Added later</td><td>Two layers, written by Broadside in an incremental update</td></tr>
+</table>
+
+<h2 id="notes">Notes, links and layers</h2>
+<p>Footnotes are numbered by a counter of their own<span class="fn">This is footnote b. The counter restarts on no page; it runs through the whole document.</span> and placed at the foot of the page by the producer. Internal links jump within the file: back to the
+  <a href="#graphics">vector graphics</a> or the <a href="#counters">counters</a>. External links leave it, for example to the
+  <a class="ext" href="https://www.w3.org/TR/css-page-3/">CSS Paged Media specification</a> or the
+  <a class="ext" href="https://github.com/michaelstonis/Broadside">Broadside repository</a>.</p>
+<p>The bookmarks panel of your reader shows this document's outline: four parts and their sections, built from the headings.</p>
+
+<h3>Layers</h3>
+<p>The producer of this page knows nothing about optional content, so Broadside adds it afterwards, in an incremental update that leaves
+  the original file intact. It writes two layers: <b>Proof marks</b>, shown by default, which outlines the page margins on every page,
+  and <b>Draft stamp</b>, hidden by default, which prints a diagonal “Draft” across each page. Open the layers panel in a reader that
+  supports them and switch them on and off.</p>
+<div class="callout">If your reader has no layers panel, the proof marks are simply part of the page, and the draft stamp is never
+  shown. Both behaviours are correct.</div>
+</body>
+</html>
