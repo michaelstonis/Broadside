@@ -57,7 +57,13 @@ public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRunti
     private static ViewerOptions OptionsFor(Func<IRemoteTileRenderer?> worker) =>
         Renderers.UseWebGL || worker() is not { } renderer
             ? Options
-            : new ViewerOptions().UseEngine(Options.Engine!).UseBackend(Options.BackendFactory!).WithIntent(Options.Intent).UseRemoteRenderer(renderer);
+            : new ViewerOptions()
+                .UseEngine(Options.Engine!)
+                .UseBackend(Options.BackendFactory!)
+                .WithIntent(Options.Intent)
+                .WithScaledImageDecode(Options.ScaledImageDecode)
+                .WithImageSamplesPerPixel(Options.ImageSamplesPerPixel)
+                .UseRemoteRenderer(renderer);
 
     /// <summary>
     /// Applies the renderer the View panel selected: the software rasterizer draws content tiles in the render worker, WebGL draws them
@@ -172,7 +178,7 @@ public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRunti
                 bytes = await http.GetByteArrayAsync(new Uri(entry.Mirror), token).ConfigureAwait(true);
             }
 
-            return (DocumentSession.Open(bytes, OptionsFor(() => RenderWorker.Open(bytes, Options.Intent))), FileName(entry.File), null);
+            return (DocumentSession.Open(bytes, OptionsFor(() => RenderWorker.Open(bytes, Options))), FileName(entry.File), null);
         })).ConfigureAwait(true);
 
         if (Address == entry.File && Message is null)
@@ -196,14 +202,14 @@ public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRunti
     public Task OpenUrlAsync(string address) => RunOpenAsync(address, async token =>
     {
         Uri uri = Resolve(address);
-        DocumentSession session = await DocumentSession.OpenAsync(http, uri, OptionsFor(() => RenderWorker.Open(uri, Options.Intent)), token).ConfigureAwait(true);
+        DocumentSession session = await DocumentSession.OpenAsync(http, uri, OptionsFor(() => RenderWorker.Open(uri, Options)), token).ConfigureAwait(true);
         return (session, FileName(uri.AbsolutePath), uri);
     });
 
     /// <summary>Opens a document from bytes (a local file, a created document, or a remote one downloaded whole).</summary>
     public async Task OpenBytesAsync(string name, byte[] bytes, string? address = null, int page = 0)
     {
-        await RunOpenAsync(address, _ => Task.FromResult<(DocumentSession, string, Uri?)>((DocumentSession.Open(bytes, OptionsFor(() => RenderWorker.Open(bytes, Options.Intent))), name, null)))
+        await RunOpenAsync(address, _ => Task.FromResult<(DocumentSession, string, Uri?)>((DocumentSession.Open(bytes, OptionsFor(() => RenderWorker.Open(bytes, Options))), name, null)))
             .ConfigureAwait(true);
         if (page > 0)
         {

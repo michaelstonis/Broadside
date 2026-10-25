@@ -62,6 +62,8 @@ static Broadside.Viewer.Blazor.RenderWorker.IsRunning.get -> bool
 static Broadside.Viewer.Blazor.RenderWorker.IsWorker.get -> bool
 static Broadside.Viewer.Blazor.RenderWorker.Open(System.ReadOnlySpan<byte> document, Broadside.Rendering.DisplayIntent intent) -> Broadside.Viewer.IRemoteTileRenderer?
 static Broadside.Viewer.Blazor.RenderWorker.Open(System.Uri! address, Broadside.Rendering.DisplayIntent intent) -> Broadside.Viewer.IRemoteTileRenderer?
+static Broadside.Viewer.Blazor.RenderWorker.Open(System.ReadOnlySpan<byte> document, Broadside.Viewer.ViewerOptions! options) -> Broadside.Viewer.IRemoteTileRenderer?
+static Broadside.Viewer.Blazor.RenderWorker.Open(System.Uri! address, Broadside.Viewer.ViewerOptions! options) -> Broadside.Viewer.IRemoteTileRenderer?
 static Broadside.Viewer.Blazor.RenderWorker.Serve(System.Func<Broadside.PdfEngine!>! engine) -> void
 static Broadside.Viewer.Blazor.RenderWorker.StartAsync(System.TimeSpan? timeout = null) -> System.Threading.Tasks.Task<bool>!
 Broadside.Viewer.Blazor.BrowserImageDecoder
@@ -90,3 +92,4 @@ const Broadside.Viewer.Blazor.BrowserImageDecoder.DecoderName = "browser" -> str
 static Broadside.Viewer.Blazor.BrowserImageDecoder.InitializeAsync() -> System.Threading.Tasks.Task!
 static Broadside.Viewer.Blazor.BrowserImageDecoder.Shared.get -> Broadside.Viewer.Blazor.BrowserImageDecoder!
 static Broadside.Viewer.Blazor.BrowserImageDecoderExtensions.UseBrowserImageDecoder(this Broadside.PdfOptions! options, Broadside.Viewer.Blazor.BrowserImageDecoderOptions? decoderOptions = null) -> Broadside.PdfOptions!
+Broadside.Viewer.Blazor.WebGLTileBackend.WebGLTileBackend(bool scaledImageDecode, double imageSamplesPerPixel) -> void
