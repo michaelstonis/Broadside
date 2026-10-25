@@ -35,6 +35,31 @@ public sealed class WebGLTileBackend : ITileBackend
     public static ITileBackend Create() => new WebGLTileBackend();
 
     /// <inheritdoc />
+    /// <remarks>
+    /// ISO 32000-2 §7.4.8 and §8.9.4. The WebGL backend draws images at their own resolution, so the platform decodes them at full size
+    /// (in Chrome and Edge, the YCbCr planes: bit-identical to the managed decoder). In a browser without WebCodecs <c>ImageDecoder</c>
+    /// (Safari), simple JPEG paints go to <c>createImageBitmap</c> and are uploaded straight to a texture, never read back
+    /// (<see cref="WebGLRenderer.PrefetchImageBitmapsAsync"/>); the rest decode with the managed codec.
+    /// </remarks>
+    public ValueTask PrefetchImagesAsync(DisplayList list, in Matrix deviceTransform, int width, int height, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(list);
+        PdfRectangle? region = TileRegion.Of(deviceTransform, width, height);
+        if (BrowserImageDecoder.ImageBitmapOnly && list.Document.UsesPlatformImageDecoder(BrowserImageDecoder.DecoderName))
+        {
+            return new ValueTask(BothAsync(list, deviceTransform, region, cancellationToken));
+        }
+
+        return list.PrefetchImagesAsync(deviceTransform, region, 0, cancellationToken);
+    }
+
+    private static async Task BothAsync(DisplayList list, Matrix deviceTransform, PdfRectangle? region, CancellationToken cancellationToken)
+    {
+        await WebGLRenderer.PrefetchImageBitmapsAsync(list, deviceTransform, region, cancellationToken).ConfigureAwait(true);
+        await list.PrefetchImagesAsync(deviceTransform, region, 0, cancellationToken).ConfigureAwait(true);
+    }
+
+    /// <inheritdoc />
     public ITileRender Begin(DisplayList list, Bitmap target, in Matrix deviceTransform, CancellationToken cancellationToken)
     {
         // The canvas holds at most one finished tile; one not presented yet is read back before the next render overwrites it.

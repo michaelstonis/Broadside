@@ -47,6 +47,20 @@ internal sealed class PlatformImageDecoding
     /// <summary>Remembers the reference of an image's stream, which makes each image's diagnostics its own.</summary>
     public void Identify(EncodedImage image, CosReference reference) => _references.AddOrUpdate(image, reference);
 
+    /// <summary>Returns whether a decoder named <paramref name="name"/> is in use.</summary>
+    public bool Uses(string name)
+    {
+        foreach (IPlatformImageDecoder decoder in _decoders)
+        {
+            if (string.Equals(decoder.Name, name, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Returns the first decoder that takes <paramref name="request"/>, or <see langword="null"/>.</summary>
     public IPlatformImageDecoder? Choose(in PlatformImageRequest request)
     {

@@ -164,7 +164,9 @@ internal sealed class Recorder : IRenderingBackend
 
     public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
     {
-        if (Fallback is not null || image.GetSamplesAt(0) is null)
+        // Mode B (#373): an image whose texture the browser decoded itself needs no samples, so it never decodes here.
+        bool native = WebGLRenderer.IsNativeImagePaint(image, conversion);
+        if (Fallback is not null || (!(native && TextureCache.HasNativeImage(image)) && image.GetSamplesAt(0) is null))
         {
             return;
         }
@@ -179,7 +181,7 @@ internal sealed class Recorder : IRenderingBackend
             return;
         }
 
-        int texture = TextureCache.GetImage(image, _document, defaultColorSpaces, conversion);
+        int texture = TextureCache.GetImage(image, _document, defaultColorSpaces, conversion, native);
         if (texture == 0)
         {
             Stop("BackendImageTooLarge", "An image larger than the largest WebGL texture (ISO 32000-2 §8.9.5) made the software rasterizer draw the tile.");

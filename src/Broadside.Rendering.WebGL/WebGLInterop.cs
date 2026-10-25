@@ -21,6 +21,19 @@ internal static partial class WebGLInterop
     [JSImport("upload", Module)]
     public static partial void Upload(int id, int width, int height, int format, [JSMarshalAs<JSType.MemoryView>] Span<byte> pixels, bool interpolate);
 
+    [JSImport("beginBitmap", Module)]
+    public static partial void BeginBitmap(int key, [JSMarshalAs<JSType.MemoryView>] Span<byte> data);
+
+    [JSImport("waitBitmap", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.String>>]
+    public static partial Task<string> WaitBitmap(int key);
+
+    [JSImport("dropBitmap", Module)]
+    public static partial void DropBitmap(int key);
+
+    [JSImport("uploadBitmap", Module)]
+    public static partial bool UploadBitmap(int id, int key, bool interpolate);
+
     [JSImport("release", Module)]
     public static partial void Release(int id);
 

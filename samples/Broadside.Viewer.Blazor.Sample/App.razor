@@ -185,6 +185,9 @@
       }
     }
 
+    // The browser's own JPEG decoder (#373): probed once, before the first document is drawn.
+    await BrowserImageDecoder.InitializeAsync();
+
     // The render worker boots the app's runtime a second time, in a Web Worker: content tiles render there (#357).
     if (worker)
     {

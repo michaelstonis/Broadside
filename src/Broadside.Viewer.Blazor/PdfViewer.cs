@@ -53,7 +53,11 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
     [Parameter]
     public HttpClient? HttpClient { get; set; }
 
-    /// <summary>Gets or sets the viewer options a <see cref="Source"/> opens with (engine, fonts, credentials, slice budget).</summary>
+    /// <summary>
+    /// Gets or sets the viewer options a <see cref="Source"/> opens with (engine, fonts, credentials, slice budget). Without an engine
+    /// of its own, the browser's image decoder is added to <see cref="ViewerOptions.DocumentOptions"/> (<see cref="BrowserImageDecoder"/>;
+    /// <c>WithPlatformImageDecoder(BrowserImageDecoder.DecoderName, false)</c> there turns it off).
+    /// </summary>
     [Parameter]
     public ViewerOptions? Options { get; set; }
 
@@ -306,7 +310,15 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
             {
                 Uri address = source.IsAbsoluteUri ? source : new Uri(new Uri(Navigation.BaseUri), source);
                 HttpClient client = HttpClient ?? (_ownedClient ??= new HttpClient());
-                ViewerOptions? options = Options;
+                ViewerOptions options = Options ?? new ViewerOptions();
+                if (options.Engine is null)
+                {
+                    // The browser's own image decoder is on by default (#373); the options can turn it off by name or all platform
+                    // decoding off, and an engine the app gives is used as it is.
+                    (options.DocumentOptions ??= new PdfOptions()).UseBrowserImageDecoder();
+                    await BrowserImageDecoder.InitializeAsync().ConfigureAwait(true);
+                }
+
                 await _controller!.OpenAsync(token => DocumentSession.OpenAsync(client, address, options, token), ownsSession: true, LayoutOptions)
                     .ConfigureAwait(true);
             }

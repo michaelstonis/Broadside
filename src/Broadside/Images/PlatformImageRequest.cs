@@ -47,6 +47,13 @@ public readonly record struct PlatformImageRequest
     /// <remarks>ISO 32000-2 §7.4.8 Table 13 and Adobe Technical Note #5116 §18 (APP14). Always true for three components, false for one.</remarks>
     public bool ColorTransform { get; init; }
 
+    /// <summary>
+    /// Gets a value indicating whether a component is sampled at another rate than the first (4:2:0, 4:2:2): a decoder that upsamples
+    /// chroma by interpolation rather than replication (libjpeg's "fancy" upsampling) differs from the managed decoder at chroma edges.
+    /// </summary>
+    /// <remarks>ITU-T T.81 A.1.1 and B.2.2 (Hi, Vi); always false for one component.</remarks>
+    public bool ChromaSubsampled { get; init; }
+
     /// <summary>Gets a value indicating whether the data has an APP1 Exif segment (zero-filled for a decoder that applies orientation).</summary>
     public bool HasExif { get; init; }
 

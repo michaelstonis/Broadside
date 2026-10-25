@@ -21,3 +21,4 @@ static Broadside.Rendering.WebGL.WebGLRenderer.TextureBudget.get -> long
 static Broadside.Rendering.WebGL.WebGLRenderer.TextureBudget.set -> void
 static Broadside.Rendering.WebGL.WebGLRenderer.TextureBytes.get -> long
 static Broadside.Rendering.WebGL.WebGLRenderer.ReadCanvas(Broadside.Rendering.Bitmap! target) -> void
+static Broadside.Rendering.WebGL.WebGLRenderer.PrefetchImageBitmapsAsync(Broadside.Rendering.DisplayList! list, Broadside.Graphics.Matrix deviceTransform, Broadside.PdfRectangle? region, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
