@@ -1,0 +1,96 @@
+/* A textbook chapter for WeasyPrint: a wide outer margin for sidenotes, footnotes, numbered figures and tables, cross-references. */
+
+@font-face { font-family: "Libertinus Serif"; src: url("../fonts/libertinus/LibertinusSerif-Regular.otf"); }
+@font-face { font-family: "Libertinus Serif"; font-style: italic; src: url("../fonts/libertinus/LibertinusSerif-Italic.otf"); }
+@font-face { font-family: "Libertinus Serif"; font-weight: 700; src: url("../fonts/libertinus/LibertinusSerif-Bold.otf"); }
+@font-face { font-family: "Libertinus Serif"; font-weight: 600; src: url("../fonts/libertinus/LibertinusSerif-Semibold.otf"); }
+@font-face { font-family: "Libertinus Sans"; src: url("../fonts/libertinus/LibertinusSans-Regular.otf"); }
+@font-face { font-family: "Libertinus Sans"; font-weight: 700; src: url("../fonts/libertinus/LibertinusSans-Bold.otf"); }
+@font-face { font-family: "Libertinus Math"; src: url("../fonts/libertinus/LibertinusMath-Regular.otf"); }
+@font-face { font-family: "IBM Plex Mono"; src: url("../fonts/ibmplexmono/IBMPlexMono-Regular.ttf"); }
+
+@page {
+  size: 189mm 246mm;
+  margin: 20mm 58mm 24mm 18mm;
+  @top-left { content: string(chapter); font: 8pt "Libertinus Sans"; color: #8a5a00; text-transform: uppercase; letter-spacing: 0.12em; }
+  @top-right { content: string(section); font: italic 9pt "Libertinus Serif"; color: #555; }
+  @bottom-left { content: counter(page); font: 700 9pt "Libertinus Sans"; color: #8a5a00; }
+  @footnote { border-top: 0.5pt solid #b08030; padding-top: 2mm; margin-top: 4mm; }
+}
+@page :first {
+  @top-left { content: none; }
+  @top-right { content: none; }
+}
+
+html { font: 10.5pt/1.42 "Libertinus Serif"; color: #1d1d1d; hyphens: auto; }
+body { margin: 0; counter-reset: figure table footnote; }
+p { margin: 0; text-align: justify; orphans: 2; widows: 2; }
+p + p { text-indent: 1.2em; }
+
+.chapter-head { margin: 8mm 0 12mm; string-set: chapter "Chapter 4 · Orbits"; position: relative; }
+.chapter-head .number { font: 700 64pt/1 "Libertinus Sans"; color: #e0a63a; }
+.chapter-head h1 { font: 600 26pt/1.1 "Libertinus Serif"; margin: 2mm 0 4mm; }
+.chapter-head .lead { font-size: 12pt; font-style: italic; color: #444; }
+.objectives {
+  margin: 6mm 0 8mm; padding: 4mm 5mm; background: #fbf3e1; border-left: 2.5pt solid #e0a63a; border-radius: 0 2mm 2mm 0;
+  font: 9.5pt/1.45 "Libertinus Sans";
+}
+.objectives h2 { font: 700 9pt "Libertinus Sans"; text-transform: uppercase; letter-spacing: 0.12em; margin: 0 0 2mm; color: #8a5a00; }
+.objectives ul { margin: 0; padding-left: 5mm; }
+
+h2.section { font: 700 14pt/1.2 "Libertinus Sans"; margin: 8mm 0 3mm; string-set: section content(text); counter-increment: section; page-break-after: avoid; }
+h2.section::before { content: "4." counter(section) "  "; color: #e0a63a; }
+h3 { font: 600 11.5pt "Libertinus Serif"; font-style: italic; margin: 5mm 0 1.5mm; page-break-after: avoid; }
+
+/* Sidenotes float into the wide right margin. */
+.sidenote {
+  float: right; clear: right; width: 42mm; margin: 0.5mm -50mm 2mm 0;
+  font: 8.2pt/1.35 "Libertinus Sans"; color: #4a4a4a; text-align: left; text-indent: 0; hyphens: manual;
+}
+.sidenote b { color: #8a5a00; }
+.sidenote.key { border-top: 1.2pt solid #e0a63a; padding-top: 1.5mm; }
+
+/* Footnotes */
+.fn { float: footnote; font: 8pt/1.35 "Libertinus Serif"; text-align: left; text-indent: 0; }
+.fn::footnote-call { content: counter(footnote); font-size: 70%; vertical-align: super; line-height: 0; color: #8a5a00; }
+.fn::footnote-marker { content: counter(footnote) ". "; color: #8a5a00; }
+
+/* Figures and tables */
+figure { margin: 4mm 0; page-break-inside: avoid; counter-increment: figure; }
+figure svg, figure img { display: block; width: 100%; height: auto; }
+figure.float { float: right; width: 52mm; margin: 1mm 0 3mm 5mm; }
+figure.wide { margin-right: -50mm; }
+figcaption { font: 8.5pt/1.35 "Libertinus Sans"; color: #444; margin-top: 2mm; text-align: left; }
+figcaption::before { content: "Figure 4." counter(figure) "  "; font-weight: 700; color: #8a5a00; }
+figure.wide figcaption { width: 120mm; }
+
+table.data { border-collapse: collapse; width: 100%; font: 8.6pt/1.3 "Libertinus Sans"; margin: 2mm 0; counter-increment: table; page-break-inside: avoid; }
+table.data caption { caption-side: top; text-align: left; font: 8.5pt "Libertinus Sans"; color: #444; margin-bottom: 2mm; }
+table.data caption::before { content: "Table 4." counter(table) "  "; font-weight: 700; color: #8a5a00; }
+table.data th { text-align: left; border-bottom: 0.8pt solid #333; padding: 1.2mm 2mm; font-weight: 700; }
+table.data td { padding: 1mm 2mm; border-bottom: 0.3pt solid #ccc; }
+table.data td.n { text-align: right; font-feature-settings: "tnum"; }
+table.float { float: left; width: 58mm; margin: 1mm 5mm 3mm 0; }
+
+/* Cross-references: the target's number and page. */
+a.fig::after { content: " 4." target-counter(attr(href), figure); }
+a.tab::after { content: " 4." target-counter(attr(href), table); }
+a.page::after { content: " on page " target-counter(attr(href), page); }
+a { color: #8a5a00; text-decoration: none; }
+
+.equation { margin: 3mm 0 3mm 8mm; font: 12pt "Libertinus Math"; text-indent: 0; text-align: left; }
+.equation .label { float: right; font: 9pt "Libertinus Sans"; color: #777; }
+.math { font-family: "Libertinus Math"; }
+var { font-style: italic; }
+code { font: 8.6pt "IBM Plex Mono"; background: #f3f0ea; padding: 0 0.6mm; border-radius: 0.6mm; }
+
+.box {
+  margin: 5mm 0; padding: 4mm 5mm; border: 0.8pt solid #e0a63a; border-radius: 2.5mm; background: #fffaf0; page-break-inside: avoid;
+}
+.box h4 { margin: 0 0 2mm; font: 700 9.5pt "Libertinus Sans"; text-transform: uppercase; letter-spacing: 0.1em; color: #8a5a00; }
+.box p { font-size: 9.8pt; }
+.box ol { margin: 1mm 0 0; padding-left: 5mm; font-size: 9.8pt; }
+
+.questions ol { padding-left: 6mm; }
+.questions li { margin-bottom: 2mm; }
+.questions .level { font: 700 7pt "Libertinus Sans"; border-radius: 1mm; padding: 0 1mm; color: #fff; background: #e0a63a; margin-left: 1mm; }
