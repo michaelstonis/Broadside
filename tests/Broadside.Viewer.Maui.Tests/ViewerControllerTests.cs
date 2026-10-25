@@ -212,7 +212,9 @@ public sealed class ViewerControllerTests
     [Fact]
     public void A_resize_keeps_the_scaled_tiles_on_screen_and_never_shows_black() => UiThread.Run(async () =>
     {
-        using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("layout-three-column.pdf"));
+        // A heavy enough document that the first frame after the resize cannot finish every new tile within its budget.
+        Shell.RequireTraceMonkey();
+        using Shell shell = await Shell.OpenAsync(Shell.TraceMonkey);
         int tilesBefore = TileItems(shell);
         Assert.True(tilesBefore > 0);
         shell.Events.Clear();
