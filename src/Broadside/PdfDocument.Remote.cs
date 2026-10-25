@@ -99,6 +99,48 @@ public sealed partial class PdfDocument
         }
     }
 
+    /// <summary>
+    /// Runs a synchronous read of the document, fetching asynchronously whatever bytes of a remote file it needs that have not
+    /// arrived, and returns what it returns. For a document whose bytes are all at hand, it runs the read once.
+    /// </summary>
+    /// <typeparam name="T">What the read returns.</typeparam>
+    /// <param name="read">
+    /// The read: any synchronous use of the document, such as enumerating every page, reading the outline, the structure tree or
+    /// the named destinations. It runs again after each fetch, so it must not have side effects beyond reading the document.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the fetches.</param>
+    /// <returns>What <paramref name="read"/> returned.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="read"/> is <see langword="null"/>.</exception>
+    /// <exception cref="HttpRequestException">The server answered with an error status, or could not be reached.</exception>
+    /// <exception cref="IOException">The server's answers are inconsistent: the file changed while it was read, for instance.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>
+    /// <para>
+    /// Spec #33, viewer capability 5; ISO 32000-2 Annex G. Where <see cref="PdfOptions.SynchronousRangeFetch"/> is off (always on the
+    /// browser, which cannot block on HTTP), a synchronous read that needs bytes not fetched yet throws
+    /// <see cref="PdfRangeNotLoadedException"/>. This is the asynchronous way to run it: each miss is fetched (up to the end of the
+    /// object it falls in) and the read runs again, until it completes. A read that fails on a miss leaves nothing cached.
+    /// </para>
+    /// <para>
+    /// A linearized file's page offset hint table answers a page's index and finds its page object without the rest of the file
+    /// (<see cref="PdfPageCollection"/>), so <see cref="PdfPageCollection.PrefetchAsync(int, CancellationToken)"/> suffices for one
+    /// page. What the file stores after its pages (Annex F, F.3.10: the page tree, the outline, the structure tree, the name trees)
+    /// is reached through its main cross-reference section at the end of the file, which a read through this method fetches when it
+    /// needs it.
+    /// </para>
+    /// </remarks>
+    public Task<T> ReadAsync<T>(Func<PdfDocument, T> read, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(read);
+        if (_source is HttpRangeSource range)
+        {
+            return range.RunAsync(() => read(this), cancellationToken);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(read(this));
+    }
+
     /// <summary>Fetches the objects reading <paramref name="page"/> needs; nothing for a document whose bytes are all at hand.</summary>
     /// <param name="page">A page of this document.</param>
     /// <param name="cancellationToken">Cancels the requests.</param>

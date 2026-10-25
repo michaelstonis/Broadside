@@ -4974,3 +4974,4 @@ override Broadside.Rendering.DisplayImageSamples.Equals(object? obj) -> bool
 override Broadside.Rendering.DisplayImageSamples.GetHashCode() -> int
 static Broadside.Rendering.DisplayImageSamples.operator !=(Broadside.Rendering.DisplayImageSamples left, Broadside.Rendering.DisplayImageSamples right) -> bool
 static Broadside.Rendering.DisplayImageSamples.operator ==(Broadside.Rendering.DisplayImageSamples left, Broadside.Rendering.DisplayImageSamples right) -> bool
+Broadside.PdfDocument.ReadAsync<T>(System.Func<Broadside.PdfDocument!, T>! read, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
