@@ -24,6 +24,21 @@ public sealed class PlatformImageEligibilityTests
         Assert.Equal("DCTDecode", request.Filter.Value);
     }
 
+    [Theory]
+    [InlineData("encoded-rgb-q90-420", true)]
+    [InlineData("encoded-rgb-q90-422", true)]
+    [InlineData("encoded-rgb-q90-444", false)]
+    [InlineData("encoded-gray-q90", false)]
+    public void Subsampled_chroma_is_reported(string name, bool subsampled)
+    {
+        byte[] jpeg = DctVectors.Jpeg(name);
+        int width = name.Contains("gray", StringComparison.Ordinal) ? 37 : 75;
+        int height = name.Contains("gray", StringComparison.Ordinal) ? 21 : 43;
+
+        Assert.True(PlatformImageEligibility.TryCreateRequest(jpeg, -1, width, height, out PlatformImageRequest request, out _));
+        Assert.Equal(subsampled, request.ChromaSubsampled);
+    }
+
     [Fact]
     public void Arithmetic_coding_is_eligible_and_flagged_so_only_a_decoder_that_declares_it_is_offered_it()
     {

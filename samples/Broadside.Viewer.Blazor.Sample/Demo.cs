@@ -47,7 +47,7 @@ public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRunti
     /// drawn by <see cref="DemoTileBackend"/>: the software rasterizer, or WebGL when the View panel selects it.
     /// </summary>
     public static readonly ViewerOptions Options = new ViewerOptions()
-        .UseEngine(new PdfEngine(new PdfOptions().UseStandard14Fonts()))
+        .UseEngine(new PdfEngine(new PdfOptions().UseStandard14Fonts().UseBrowserImageDecoder()))
         .UseBackend(static () => new DemoTileBackend());
 
     /// <summary>

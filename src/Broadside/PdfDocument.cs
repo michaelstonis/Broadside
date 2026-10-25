@@ -1200,6 +1200,19 @@ public sealed partial class PdfDocument : IDisposable
     /// <remarks>ISO 32000-2 §8.6, §10.3 and §10.4; see <see cref="PdfColorConverter"/>.</remarks>
     public PdfColorConverter GetColorConverter(PdfColorSpace source) => GetColorConverter(source, default, null);
 
+    /// <summary>
+    /// Returns whether this document's engine offers images to the platform image decoder named <paramref name="name"/>: registered
+    /// with <see cref="PdfOptions.UsePlatformImageDecoder"/> and not turned off globally or by name.
+    /// </summary>
+    /// <param name="name">The decoder's <see cref="Images.IPlatformImageDecoder.Name"/>.</param>
+    /// <returns>Whether the decoder is in use.</returns>
+    /// <remarks>ISO 32000-2 §7.4.8. For a backend that hands images to the same platform itself (a browser's WebGL texture upload).</remarks>
+    public bool UsesPlatformImageDecoder(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        return Configuration?.PlatformImages?.Uses(name) == true;
+    }
+
     /// <summary>Returns the converter from <paramref name="source"/> under <paramref name="conversion"/>.</summary>
     /// <param name="source">The colour space.</param>
     /// <param name="conversion">The target model, rendering intent and device controls.</param>

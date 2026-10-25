@@ -15,6 +15,7 @@ namespace Broadside.Rendering.WebGL;
 internal static class TextureCache
 {
     private static readonly ConditionalWeakTable<object, Entry> Table = [];
+    private static readonly ConditionalWeakTable<DisplayImage, BitmapKey> Bitmaps = [];
     private static readonly List<Entry> Entries = [];
     private static int _next;
     private static long _clock;
@@ -31,13 +32,54 @@ internal static class TextureCache
     /// <summary>Starts a render: textures used from now on are not released before it ends.</summary>
     public static void BeginRender() => _clock++;
 
+    /// <summary>
+    /// Gets a value indicating whether the image can be drawn without its samples: its texture came from the browser's own
+    /// <c>ImageBitmap</c> ("mode B", #373) or such a bitmap waits to be uploaded.
+    /// </summary>
+    public static bool HasNativeImage(DisplayImage image) =>
+        Bitmaps.TryGetValue(image, out _) || (Table.TryGetValue(image, out Entry? entry) && entry.Native);
+
+    /// <summary>Gets a value indicating whether the image has a texture or a bitmap waiting for one.</summary>
+    public static bool HasTextureOrBitmap(DisplayImage image) => Bitmaps.TryGetValue(image, out _) || Table.TryGetValue(image, out _);
+
+    /// <summary>Remembers the browser's <c>ImageBitmap</c> of an image, uploaded by its next <see cref="GetImage"/> instead of converted samples.</summary>
+    public static void AttachBitmap(DisplayImage image, int key) => Bitmaps.AddOrUpdate(image, new BitmapKey(key));
+
     /// <summary>Gets the texture of a colour image; 0 when it is larger than a texture can be.</summary>
-    public static int GetImage(DisplayImage image, PdfDocument document, PdfDefaultColorSpaces defaults, ColorConversion conversion)
+    /// <param name="image">The image.</param>
+    /// <param name="document">The document, for its colour converters.</param>
+    /// <param name="defaults">The default colour spaces.</param>
+    /// <param name="conversion">The conversion.</param>
+    /// <param name="native">Whether the browser's own decode may stand for the converted samples (<see cref="WebGLRenderer.IsNativeImagePaint"/>).</param>
+    public static int GetImage(DisplayImage image, PdfDocument document, PdfDefaultColorSpaces defaults, ColorConversion conversion, bool native)
     {
-        if (Table.TryGetValue(image, out Entry? entry) && ReferenceEquals(entry.Defaults, defaults) && entry.Conversion == conversion)
+        if (Table.TryGetValue(image, out Entry? entry) && (entry.Native ? native : ReferenceEquals(entry.Defaults, defaults) && entry.Conversion == conversion))
         {
             entry.LastUse = _clock;
             return entry.Id;
+        }
+
+        if (native && Bitmaps.TryGetValue(image, out BitmapKey? bitmap))
+        {
+            Bitmaps.Remove(image);
+            int id = ++_next;
+            if (WebGLInterop.UploadBitmap(id, bitmap.Key, image.Interpolate))
+            {
+                if (entry is not null)
+                {
+                    int index = Entries.IndexOf(entry);
+                    if (index >= 0)
+                    {
+                        Remove(index);
+                    }
+                }
+
+                var uploaded = new Entry(id, (long)image.Width * image.Height * 4 * 4 / 3, new WeakReference<object>(image), defaults, conversion) { LastUse = _clock, Native = true };
+                Table.AddOrUpdate(image, uploaded);
+                Entries.Add(uploaded);
+                Bytes += uploaded.Bytes;
+                return id;
+            }
         }
 
         if (image.Width > MaxSize || image.Height > MaxSize)
@@ -184,5 +226,9 @@ internal static class TextureCache
         public ColorConversion Conversion { get; } = conversion;
 
         public long LastUse { get; set; }
+
+        public bool Native { get; init; }
     }
+
+    private sealed record BitmapKey(int Key);
 }

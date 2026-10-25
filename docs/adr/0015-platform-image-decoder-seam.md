@@ -19,7 +19,7 @@ Owner decision (2026-10-19): platform decoders are on by default, including ones
 - Encoded bytes of asynchronous decodes in flight stay alive until the decode ends; the tile scheduler's concurrency bounds them.
 - Without a registered decoder, the prefetch returns a completed task and allocates nothing; with one, a prefetch whose images are already cached allocates nothing either (`ImagePrefetchBenchmarks`).
 - Images inside soft masks and tiling-pattern cells are not offered; they decode managed as before.
-- A later extension of the same interface may return a native image handle instead of samples (the browser's "mode B", #373), only where our colour pipeline would be the identity for that image.
+- A backend may also hand an image to the platform itself and draw the platform's own image instead of samples ("mode B"): `DisplayImage.TryGetPlatformData` gives it the eligible, cleaned data. The browser's WebGL backend does this for Safari (#373), only where our colour pipeline would be the identity for that image.
 
 ## Considered Options
 

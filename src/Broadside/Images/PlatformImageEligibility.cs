@@ -45,6 +45,7 @@ internal static class PlatformImageEligibility
         bool progressive = false;
         bool arithmetic = false;
         bool rgbIdentifiers = false;
+        bool subsampled = false;
         int width = 0;
         int height = 0;
         int components = 0;
@@ -144,6 +145,11 @@ internal static class PlatformImageEligibility
                     }
 
                     rgbIdentifiers = components == 3 && segment[6] == 'R' && segment[9] == 'G' && segment[12] == 'B';
+                    for (int c = 1; c < components; c++)
+                    {
+                        subsampled |= segment[7 + (3 * c)] != segment[7];
+                    }
+
                     progressive = marker is 0xC2 or 0xCA;
                     arithmetic = marker is 0xC9 or 0xCA;
                     frame = true;
@@ -204,6 +210,7 @@ internal static class PlatformImageEligibility
                 ColorTransform = components == 3,
                 HasExif = exif,
                 HasIccProfile = icc,
+                ChromaSubsampled = subsampled,
             };
             reason = null;
             return true;

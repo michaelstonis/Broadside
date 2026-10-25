@@ -218,6 +218,42 @@ public sealed class DisplayImage
         }
     }
 
+    /// <summary>
+    /// Returns the image's encoded data when the shared platform-decoder rule allows it, prepared for a platform decoder with
+    /// <paramref name="features"/> (Exif and ICC payloads zero-filled in a copy where they say so): for a backend that hands the data
+    /// to the platform itself and draws the platform's own image (a browser's <c>ImageBitmap</c> uploaded to a texture).
+    /// </summary>
+    /// <param name="features">What the platform decoder would misread.</param>
+    /// <param name="request">The image's header facts (reduction 0).</param>
+    /// <param name="data">The codestream, or a cleaned copy of it.</param>
+    /// <returns>Whether the image is kept encoded and may go to a platform decoder.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.4.8 Table 13 and §8.9.5.1 Table 87; see <see cref="IPlatformImageDecoder"/>. The backend stays responsible for
+    /// drawing such an image only where the colour pipeline would not change its samples (no Decode mapping, masks, colour key or
+    /// transfer function, a gray or RGB colour space).
+    /// </remarks>
+    public bool TryGetPlatformData(PlatformImageFeatures features, out PlatformImageRequest request, out ReadOnlyMemory<byte> data)
+    {
+        data = default;
+        request = default;
+        if (_source is not Reductions { Encoded: { } encoded } || !encoded.TryCreatePlatformRequest(out request))
+        {
+            return false;
+        }
+
+        data = encoded.Data;
+        bool exif = request.HasExif && (features & PlatformImageFeatures.AppliesExifOrientation) != 0;
+        bool icc = request.HasIccProfile && (features & PlatformImageFeatures.ConvertsEmbeddedProfiles) != 0;
+        if (exif || icc)
+        {
+            byte[] copy = data.ToArray();
+            PlatformImageEligibility.Sanitize(copy, exif, icc);
+            data = copy;
+        }
+
+        return true;
+    }
+
     /// <summary>Gets a value indicating whether the image is kept encoded with a codec a platform image decoder may be offered.</summary>
     internal bool IsPlatformCandidate => _source is Reductions { Encoded: not null, Failed: false, PlatformFailed: false };
 

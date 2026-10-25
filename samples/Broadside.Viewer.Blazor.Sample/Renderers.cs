@@ -46,6 +46,14 @@ public sealed class DemoTileBackend : ITileBackend
     private WebGLTileBackend? _webgl;
 
     /// <inheritdoc />
+    public ValueTask PrefetchImagesAsync(DisplayList list, in Matrix deviceTransform, int width, int height, CancellationToken cancellationToken)
+    {
+        bool gpu = Renderers.UseWebGL && WebGLTileBackend.IsAvailable;
+        ITileBackend backend = gpu ? _webgl ??= new WebGLTileBackend() : _software;
+        return backend.PrefetchImagesAsync(list, deviceTransform, width, height, cancellationToken);
+    }
+
+    /// <inheritdoc />
     public ITileRender Begin(DisplayList list, Bitmap target, in Matrix deviceTransform, CancellationToken cancellationToken)
     {
         bool gpu = Renderers.UseWebGL && WebGLTileBackend.IsAvailable;

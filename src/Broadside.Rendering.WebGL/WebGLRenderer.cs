@@ -17,7 +17,7 @@ namespace Broadside.Rendering.WebGL;
 /// renders on one page are sequential (WebAssembly is single-threaded).
 /// </remarks>
 [SupportedOSPlatform("browser")]
-public sealed class WebGLRenderer : IDisposable
+public sealed partial class WebGLRenderer : IDisposable
 {
     private static readonly Diagnostic Unavailable = new(
         "BackendWebGLUnavailable",

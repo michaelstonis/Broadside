@@ -34,6 +34,11 @@ namespace Broadside.Viewer.Blazor;
 /// <see cref="Open(ReadOnlySpan{byte}, DisplayIntent)"/> (<c>options.UseRemoteRenderer(RenderWorker.Open(bytes, options.Intent)!)</c>) or, for a
 /// document read through range requests, <see cref="Open(Uri, DisplayIntent)"/>. Password-protected documents are drawn on the page's thread.
 /// </para>
+/// <para>
+/// The worker decodes JPEG images with the browser's own decoder before it draws a tile (<see cref="BrowserImageDecoder"/>: WebCodecs
+/// <c>ImageDecoder</c>, or <c>createImageBitmap</c> with a read back where the browser has no <c>ImageDecoder</c>, as in Safari). The
+/// engine of a worker given none has it on; an engine the app gives needs <c>UseBrowserImageDecoder()</c> in its options.
+/// </para>
 /// </remarks>
 [SupportedOSPlatform("browser")]
 public static partial class RenderWorker
@@ -254,7 +259,7 @@ public static partial class RenderWorker
     [JSExport]
     internal static void OpenDocument(int document, int intent, byte[] bytes)
     {
-        PdfEngine engine = _engine?.Invoke() ?? new PdfEngine();
+        PdfEngine engine = _engine?.Invoke() ?? DefaultEngine;
         Documents[document] = engine.Open(bytes);
         DocumentIntents[document] = (DisplayIntent)intent;
     }
@@ -279,7 +284,7 @@ public static partial class RenderWorker
     [JSExport]
     internal static async Task OpenAddress(int document, int intent, string address)
     {
-        PdfEngine engine = _engine?.Invoke() ?? new PdfEngine();
+        PdfEngine engine = _engine?.Invoke() ?? DefaultEngine;
         _http ??= new HttpClient();
         Opening.Add(document);
         PdfDocument opened;
@@ -333,6 +338,11 @@ public static partial class RenderWorker
         }
 
         _backend ??= new SoftwareTileBackend();
+
+        // The browser's own JPEG decoder decodes the tile's images first, in this worker (#373): ImageDecoder, or createImageBitmap
+        // with a read back where the browser has no ImageDecoder (Safari), whose cost stays off the page's thread here.
+        await BrowserImageDecoder.InitializeAsync().ConfigureAwait(true);
+        await _backend.PrefetchImagesAsync(list, transform, width, height, CancellationToken.None).ConfigureAwait(true);
         using (ITileRender render = _backend.Begin(list, target, transform, CancellationToken.None))
         {
             render.RenderSlice(Timeout.InfiniteTimeSpan);
@@ -354,6 +364,10 @@ public static partial class RenderWorker
     }
 
     private static readonly Dictionary<int, DisplayIntent> DocumentIntents = [];
+    private static PdfEngine? _defaultEngine;
+
+    /// <summary>The engine of a worker whose app gave none: the browser's own JPEG decoder on, like the page's viewer.</summary>
+    private static PdfEngine DefaultEngine => _defaultEngine ??= new PdfEngine(new PdfOptions().UseBrowserImageDecoder());
     private static readonly HashSet<int> Remote = [];
     private static HttpClient? _http;
 
