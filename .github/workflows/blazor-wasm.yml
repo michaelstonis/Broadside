@@ -93,7 +93,9 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ steps.playwright.outputs.key }}
+          # The cache service matches a key as a prefix too: the trailing ".end" keeps `firefox` from restoring `firefox-webkit`,
+          # whose WebKit lacks the system packages a firefox-only job does not install (#421).
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ steps.playwright.outputs.key }}.end
 
       - name: Install Playwright's ${{ env.BROWSERS }}
         timeout-minutes: 25
