@@ -248,6 +248,62 @@ public sealed class InputModelTests
         Assert.Equal(0, allocated);
     }
 
+    [Theory]
+    [MemberData(nameof(Modes))]
+    public async Task A_resize_in_the_middle_of_a_page_jump_retargets_it_and_the_page_is_still_reached(PageLayoutMode mode)
+    {
+        await using Harness viewer = await Harness.OpenAsync(mode, ZoomMode.FitWidth);
+
+        // A banner appears halfway through an End jump: the viewport loses 100 px of height, which moves the end of the content.
+        Assert.True(viewer.Input.KeyDown(InputKey.End, InputModifiers.None));
+        viewer.Step(TimeSpan.FromMilliseconds(120));
+        Assert.True(viewer.Input.IsAnimating);
+        viewer.Input.Resize(600, 700);
+        Assert.True(viewer.Input.IsAnimating);
+        viewer.Animate();
+
+        Assert.Equal(viewer.Layout.SpreadCount - 1, viewer.Layout.GetSpread(viewer.Input.CurrentPage));
+        Viewport end = viewer.Input.Viewport;
+        Assert.Equal(700, end.Height);
+        viewer.Input.KeyDown(InputKey.End, InputModifiers.None);
+        viewer.Animate();
+        Assert.Equal(end, viewer.Input.Viewport);
+
+        // A jump to a page in the middle, with the viewport growing and narrowing at once (a rotation), lands where a jump at the new
+        // size lands.
+        viewer.Input.GoToPage(12);
+        viewer.Step(TimeSpan.FromMilliseconds(100));
+        viewer.Input.Resize(500, 900);
+        viewer.Step(TimeSpan.FromMilliseconds(50));
+        viewer.Input.Resize(500, 900);
+        viewer.Animate();
+        Viewport landed = viewer.Input.Viewport;
+        viewer.Input.GoToPage(0);
+        viewer.Animate();
+        viewer.Input.GoToPage(12);
+        viewer.Animate();
+        Assert.Equal(landed.X, viewer.Input.Viewport.X, 6);
+        Assert.Equal(landed.Y, viewer.Input.Viewport.Y, 6);
+    }
+
+    [Fact]
+    public async Task A_gesture_still_stops_a_page_jump_that_a_resize_kept_going()
+    {
+        await using Harness viewer = await Harness.OpenAsync(PageLayoutMode.Continuous, ZoomMode.FitWidth);
+        viewer.Input.GoToPage(15);
+        viewer.Step(TimeSpan.FromMilliseconds(100));
+        viewer.Input.Resize(600, 700);
+        Assert.True(viewer.Input.IsAnimating);
+
+        viewer.Input.PointerDown(1, PointerKind.Touch, 300, 300);
+        Assert.False(viewer.Input.IsAnimating);
+        Viewport stopped = viewer.Input.Viewport;
+        viewer.Input.PointerUp(1, 300, 300);
+        viewer.Animate();
+        Assert.Equal(stopped, viewer.Input.Viewport);
+        Assert.NotEqual(15, viewer.Input.CurrentPage);
+    }
+
     [Fact]
     public async Task Arguments_are_checked()
     {
@@ -315,6 +371,16 @@ public sealed class InputModelTests
             }
 
             Input.RunFrame(TimeSpan.Zero);
+        }
+
+        /// <summary>Runs frames for a while, without finishing the animation.</summary>
+        public void Step(TimeSpan duration)
+        {
+            for (TimeSpan elapsed = TimeSpan.Zero; elapsed < duration; elapsed += TimeSpan.FromMilliseconds(16))
+            {
+                Clock.Advance(TimeSpan.FromMilliseconds(16));
+                Input.RunFrame(TimeSpan.Zero);
+            }
         }
 
         public void Settle()

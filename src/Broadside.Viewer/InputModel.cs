@@ -95,6 +95,9 @@ public sealed class InputModel
     private double _fromZoom;
     private double _toZoom;
     private int _thenPage = -1;
+    private int _toPage = -1;
+    private int _toSpread = -1;
+    private bool _toSpreadStart;
 
     /// <summary>Initializes a new instance of the <see cref="InputModel"/> class over a progressive zoom.</summary>
     /// <param name="zoom">The zoom the model drives: every scroll and zoom goes through it, and its layout decides the snapping.</param>
@@ -380,10 +383,18 @@ public sealed class InputModel
         }
     }
 
-    /// <summary>The viewport's size changed: keeps the scroll position (kept inside the content) at the new size.</summary>
+    /// <summary>
+    /// The viewport's size changed: keeps the scroll position (kept inside the content) at the new size. A running page jump or scroll
+    /// animation carries on to its destination as the new size places it, so the page it was going to is still reached; an animated zoom
+    /// carries on too. A fling stops where it is.
+    /// </summary>
     /// <param name="width">The width in device-independent pixels.</param>
     /// <param name="height">The height in device-independent pixels.</param>
     /// <exception cref="ArgumentOutOfRangeException">A size is not positive and finite.</exception>
+    /// <remarks>
+    /// A resize is not a user gesture: a banner or toolbar appearing, a mobile address bar collapsing or a rotation changes the size in the
+    /// middle of a jump. Only gestures, keys and the wheel stop a running animation.
+    /// </remarks>
     public void Resize(double width, double height)
     {
         if (!double.IsFinite(width) || width <= 0 || !double.IsFinite(height) || height <= 0)
@@ -391,9 +402,18 @@ public sealed class InputModel
             throw new ArgumentOutOfRangeException(nameof(width), "A viewport has a positive, finite size.");
         }
 
-        Stop();
+        if (_motion == Motion.Fling)
+        {
+            Stop();
+        }
+
         Viewport v = Viewport;
-        _zoom.SetViewport(Layout.Clamp(v with { Width = width * _pixelRatio, Height = height * _pixelRatio }));
+        Viewport resized = Layout.Clamp(v with { Width = width * _pixelRatio, Height = height * _pixelRatio });
+        _zoom.SetViewport(resized);
+        if (_motion == Motion.Scroll && (resized.Width != v.Width || resized.Height != v.Height))
+        {
+            Retarget(resized, _time.GetTimestamp());
+        }
     }
 
     /// <summary>Goes to a page (animated): in a paged mode its spread centred, otherwise its spread's leading edge at the viewport's (<see cref="PageLayout.ScrollTo"/>).</summary>
@@ -406,6 +426,7 @@ public sealed class InputModel
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, Layout.PageCount);
         Stop();
         AnimateScroll(PageTarget(Viewport, pageIndex));
+        _toPage = _motion == Motion.Scroll ? pageIndex : -1;
     }
 
     /// <summary>Goes to the first page of the next spread (from where a running page animation is heading).</summary>
@@ -441,6 +462,7 @@ public sealed class InputModel
 
         _motion = Motion.None;
         _thenPage = -1;
+        (_toPage, _toSpread) = (-1, -1);
     }
 
     /// <summary>
@@ -698,11 +720,11 @@ public sealed class InputModel
             double turnSpeed = TurnSpeed * _pixelRatio;
             if (_dragSpread + 1 < Layout.SpreadCount && (along > hi + turnDistance || (along > hi + EdgeTolerance && velocity > turnSpeed)))
             {
-                AnimateScroll(SpreadTarget(v, _dragSpread + 1, atStart: true));
+                AnimateToSpread(v, _dragSpread + 1, atStart: true);
             }
             else if (_dragSpread > 0 && (along < lo - turnDistance || (along < lo - EdgeTolerance && velocity < -turnSpeed)))
             {
-                AnimateScroll(SpreadTarget(v, _dragSpread - 1, atStart: true));
+                AnimateToSpread(v, _dragSpread - 1, atStart: true);
             }
             else if (along < lo || along > hi)
             {
@@ -758,6 +780,32 @@ public sealed class InputModel
         }
 
         (_motion, _motionStart, _fromX, _fromY, _toX, _toY) = (Motion.Scroll, _time.GetTimestamp(), v.X, v.Y, target.X, target.Y);
+        (_toPage, _toSpread) = (-1, -1);
+    }
+
+    /// <summary>Animates to a spread's leading or trailing edge, remembering the spread so a resize can place it again.</summary>
+    private void AnimateToSpread(in Viewport v, int spread, bool atStart)
+    {
+        AnimateScroll(SpreadTarget(v, spread, atStart));
+        (_toSpread, _toSpreadStart) = (_motion == Motion.Scroll ? spread : -1, atStart);
+    }
+
+    /// <summary>
+    /// After a resize, points the running scroll animation at its destination for the new size (the page or spread it is going to, or the
+    /// old offset kept inside the content), keeping its timing: the start is moved so the eased path passes through where it is now.
+    /// </summary>
+    private void Retarget(in Viewport v, long now)
+    {
+        Viewport target = _toPage >= 0 ? PageTarget(v, _toPage)
+            : _toSpread >= 0 ? SpreadTarget(v, _toSpread, _toSpreadStart)
+            : Layout.Clamp(v with { X = _toX, Y = _toY });
+        (_toX, _toY) = (target.X, target.Y);
+        double eased = Ease(Math.Clamp(Seconds(_motionStart, now) / _animationSeconds, 0, 1));
+        if (eased < 1)
+        {
+            _fromX = (v.X - (_toX * eased)) / (1 - eased);
+            _fromY = (v.Y - (_toY * eased)) / (1 - eased);
+        }
     }
 
     private void AdvanceScroll(long now)
@@ -792,7 +840,7 @@ public sealed class InputModel
                 if (next >= 0 && next < Layout.SpreadCount && (!wheel || _wheelTurn < _wheelBurst))
                 {
                     _wheelTurn = wheel ? now : _wheelTurn;
-                    AnimateScroll(SpreadTarget(v, next, atStart: delta > 0));
+                    AnimateToSpread(v, next, atStart: delta > 0);
                 }
 
                 return;
