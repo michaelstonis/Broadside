@@ -1155,92 +1155,81 @@ public sealed class TileScheduler : IDisposable
 
     /// <summary>
     /// Takes the page's list (built now unless the document caches it), has the backend's platform image decoders decode the tile's
-    /// images (#372; the tile continues in a later frame when that is not done at once), and starts drawing into a pooled bitmap.
+    /// images (#372; when that is not done at once, the tile continues in a later frame, where the prefetch finds them decoded), and
+    /// starts drawing into a pooled bitmap.
     /// </summary>
     private void BeginDrawing(TileJob job)
     {
         CancellationToken token = job.Operation!.Token;
         DisplayList list;
-        if (job.List is { } prefetched)
+        try
         {
-            list = prefetched;
+            list = _session.CreateDisplayList(job.Page!, job.Tile.Layers, token);
         }
-        else
+        catch (PdfRangeNotLoadedException) when (!job.Prefetched)
         {
-            try
-            {
-                list = _session.CreateDisplayList(job.Page!, job.Tile.Layers, token);
-            }
-            catch (PdfRangeNotLoadedException) when (!job.Prefetched)
-            {
-                // A remote resource outside the page's prefetched closure: fetch the closure in the background, draw in a later frame.
-                job.Prefetched = true;
-                job.Load = AwaitPageAsync(job, PrefetchAsync(job.Page!, token));
-                return;
-            }
-            catch (OperationCanceledException)
-            {
-                Cancel(job);
-                return;
-            }
+            // A remote resource outside the page's prefetched closure: fetch the closure in the background, draw in a later frame.
+            job.Prefetched = true;
+            job.Load = AwaitPageAsync(job, PrefetchAsync(job.Page!, token));
+            return;
+        }
+        catch (OperationCanceledException)
+        {
+            Cancel(job);
+            return;
+        }
 #pragma warning disable CA1031 // a page that fails to build fails its tiles, not the viewer
-            catch (Exception)
+        catch (Exception)
 #pragma warning restore CA1031
-            {
-                Fail(job);
-                return;
-            }
+        {
+            Fail(job);
+            return;
+        }
 
-            Enforce(); // the build may have grown the caches
-            if (list.OperationCount == 0 && (job.Tile.Layers & DisplayLayers.Content) == 0)
-            {
-                // An overlay with nothing on it (a page without annotations): resident without pixels, never drawn or composed (#357).
-                ForgetOldPixels(job);
-                Release(job);
-                job.Bytes = 0;
-                MakeResident(job);
-                return;
-            }
+        Enforce(); // the build may have grown the caches
+        if (list.OperationCount == 0 && (job.Tile.Layers & DisplayLayers.Content) == 0)
+        {
+            // An overlay with nothing on it (a page without annotations): resident without pixels, never drawn or composed (#357).
+            ForgetOldPixels(job);
+            Release(job);
+            job.Bytes = 0;
+            MakeResident(job);
+            return;
         }
 
         Matrix transform = DocumentSession.GetTileTransform(job.Page!, job.Tile);
         job.Backend ??= _session.RentBackend();
-        if (!job.ImagesPrefetched)
+        ValueTask images;
+        try
         {
-            job.ImagesPrefetched = true;
-            ValueTask images;
-            try
-            {
-                images = job.Backend.PrefetchImagesAsync(list, transform, job.Tile.Region.Width, job.Tile.Region.Height, token);
-            }
-            catch (OperationCanceledException)
-            {
-                Cancel(job);
-                return;
-            }
+            images = job.Backend.PrefetchImagesAsync(list, transform, job.Tile.Region.Width, job.Tile.Region.Height, token);
+        }
+        catch (OperationCanceledException)
+        {
+            Cancel(job);
+            return;
+        }
 #pragma warning disable CA1031 // a prefetch that fails leaves the images to the managed codecs
-            catch (Exception)
+        catch (Exception)
 #pragma warning restore CA1031
-            {
-                images = ValueTask.CompletedTask;
-            }
-
-            if (!images.IsCompleted)
-            {
-                // The platform decodes off this thread: draw in a later frame, from the same list.
-                job.List = list;
-                job.Load = AwaitImagesAsync(job, images.AsTask());
-                return;
-            }
-
-            if (images.IsCanceled)
-            {
-                Cancel(job);
-                return;
-            }
+        {
+            images = ValueTask.CompletedTask;
         }
 
-        job.List = null;
+        if (!images.IsCompleted)
+        {
+            // The platform decodes off this thread: the tile continues in a later frame, which takes the list again (from the
+            // document's cache) and finds the images decoded.
+            job.Load = AwaitImagesAsync(job, images.AsTask());
+            return;
+        }
+
+        if (images.IsCanceled)
+        {
+            Cancel(job);
+            return;
+        }
+
         job.Target = new Bitmap(job.Tile.Region.Width, job.Tile.Region.Height);
         _session.AddPixelBytes(job.Bytes);
         if ((job.Tile.Layers & DisplayLayers.Content) != 0)
@@ -1384,8 +1373,6 @@ public sealed class TileScheduler : IDisposable
         }
 
         job.Page = null;
-        job.List = null;
-        job.ImagesPrefetched = false;
     }
 
     private void MakeResident(TileJob job)
@@ -1670,12 +1657,6 @@ public sealed class TileScheduler : IDisposable
         public Task? Load { get; set; }
 
         public PdfPage? Page { get; set; }
-
-        /// <summary>Gets or sets the list kept while the platform decodes its images (#372).</summary>
-        public DisplayList? List { get; set; }
-
-        /// <summary>Gets or sets a value indicating whether the backend's image prefetch has run for this render.</summary>
-        public bool ImagesPrefetched { get; set; }
 
         public Bitmap? Target { get; set; }
 
