@@ -4,6 +4,7 @@ using Broadside.Filters;
 using Broadside.Fonts;
 using Broadside.Fonts.Resolution;
 using Broadside.Graphics;
+using Broadside.Images;
 using Broadside.IO;
 using Broadside.Security;
 using Microsoft.Extensions.Logging;
@@ -77,6 +78,9 @@ internal sealed class EngineConfiguration
     /// <summary>Gets the clock that dates what the engine writes (issue #162).</summary>
     public TimeProvider TimeProvider { get; private init; } = TimeProvider.System;
 
+    /// <summary>Gets the platform image decoders and their verification, or <see langword="null"/> when images decode with the managed codecs only.</summary>
+    public PlatformImageDecoding? PlatformImages { get; private init; }
+
     /// <summary>Returns a copy whose diagnostics are seen by <paramref name="observer"/> instead.</summary>
     /// <param name="observer">The observer, or <see langword="null"/> for none.</param>
     /// <returns>The copy.</returns>
@@ -112,6 +116,7 @@ internal sealed class EngineConfiguration
         ColorManagement = options.ColorManagement,
         TimeProvider = options.TimeProvider,
         FontResolvers = CreateFontResolvers(options),
+        PlatformImages = PlatformImageDecoding.Create(options),
     };
 
     private static FontResolverChain CreateFontResolvers(PdfOptions options)

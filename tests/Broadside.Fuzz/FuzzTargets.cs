@@ -50,6 +50,7 @@ internal static class FuzzTargets
         ["filter-dct"] = DctTarget.Target,
         ["filter-dct-encode"] = DctEncodeTarget.Target,
         ["png-reader"] = PngTarget.Target,
+        ["platform-image-eligibility"] = PlatformImageEligibilityTarget.Target,
         ["filter-ccitt"] = CcittTarget.Target,
         ["filter-jpx"] = Jpx,
         ["filter-jbig2"] = Jbig2Target.Target,

@@ -21,6 +21,22 @@ public interface ITileBackend : IDisposable
     /// <param name="cancellationToken">Stops the render; <see cref="ITileRender.RenderSlice"/> then throws <see cref="OperationCanceledException"/>.</param>
     /// <returns>The render in progress; the caller disposes it.</returns>
     ITileRender Begin(DisplayList list, Bitmap target, in Matrix deviceTransform, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Has the engine's platform image decoders decode the images that <see cref="Begin"/> with the same arguments will draw, at the
+    /// resolution this backend will ask for; awaited before <see cref="Begin"/>, off the frame. Does nothing by default.
+    /// </summary>
+    /// <param name="list">The tile's display list.</param>
+    /// <param name="deviceTransform">The transform <see cref="Begin"/> will be given.</param>
+    /// <param name="width">The tile's width in pixels.</param>
+    /// <param name="height">The tile's height in pixels.</param>
+    /// <param name="cancellationToken">Cancelled when the tile is.</param>
+    /// <returns>A task that completes when the images are decoded or left to the managed codec.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.4.8 and §8.9.4; see <c>DisplayList.PrefetchImagesAsync</c>. A backend that draws images at their own resolution
+    /// passes 0 samples per pixel; one that reduces them passes its own. The render must work the same when this was not awaited.
+    /// </remarks>
+    ValueTask PrefetchImagesAsync(DisplayList list, in Matrix deviceTransform, int width, int height, CancellationToken cancellationToken) => ValueTask.CompletedTask;
 }
 
 /// <summary>A tile render in progress: advanced in time slices, disposed when done or abandoned.</summary>

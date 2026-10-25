@@ -4974,3 +4974,54 @@ override Broadside.Rendering.DisplayImageSamples.Equals(object? obj) -> bool
 override Broadside.Rendering.DisplayImageSamples.GetHashCode() -> int
 static Broadside.Rendering.DisplayImageSamples.operator !=(Broadside.Rendering.DisplayImageSamples left, Broadside.Rendering.DisplayImageSamples right) -> bool
 static Broadside.Rendering.DisplayImageSamples.operator ==(Broadside.Rendering.DisplayImageSamples left, Broadside.Rendering.DisplayImageSamples right) -> bool
+Broadside.Images.IPlatformImageDecoder
+Broadside.Images.IPlatformImageDecoder.CanDecode(in Broadside.Images.PlatformImageRequest request) -> bool
+Broadside.Images.IPlatformImageDecoder.DecodeAsync(System.ReadOnlyMemory<byte> encoded, Broadside.Images.PlatformImageRequest request, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Broadside.Images.DecodedImage?>
+Broadside.Images.IPlatformImageDecoder.Features.get -> Broadside.Images.PlatformImageFeatures
+Broadside.Images.IPlatformImageDecoder.Fidelity.get -> Broadside.Images.PlatformImageFidelity
+Broadside.Images.IPlatformImageDecoder.Name.get -> string!
+Broadside.Images.PlatformImageFeatures
+Broadside.Images.PlatformImageFeatures.AppliesExifOrientation = 2 -> Broadside.Images.PlatformImageFeatures
+Broadside.Images.PlatformImageFeatures.ArithmeticCoding = 1 -> Broadside.Images.PlatformImageFeatures
+Broadside.Images.PlatformImageFeatures.ConvertsEmbeddedProfiles = 4 -> Broadside.Images.PlatformImageFeatures
+Broadside.Images.PlatformImageFeatures.None = 0 -> Broadside.Images.PlatformImageFeatures
+Broadside.Images.PlatformImageFidelity
+Broadside.Images.PlatformImageFidelity.Exact = 0 -> Broadside.Images.PlatformImageFidelity
+Broadside.Images.PlatformImageFidelity.Tolerance = 1 -> Broadside.Images.PlatformImageFidelity
+Broadside.Images.PlatformImageRequest
+Broadside.Images.PlatformImageRequest.ArithmeticCoding.get -> bool
+Broadside.Images.PlatformImageRequest.ArithmeticCoding.init -> void
+Broadside.Images.PlatformImageRequest.BitsPerComponent.get -> int
+Broadside.Images.PlatformImageRequest.BitsPerComponent.init -> void
+Broadside.Images.PlatformImageRequest.ColorTransform.get -> bool
+Broadside.Images.PlatformImageRequest.ColorTransform.init -> void
+Broadside.Images.PlatformImageRequest.Components.get -> int
+Broadside.Images.PlatformImageRequest.Components.init -> void
+Broadside.Images.PlatformImageRequest.CreateImage(int reduction) -> Broadside.Images.DecodedImageBuilder!
+Broadside.Images.PlatformImageRequest.Filter.get -> Broadside.Objects.CosName!
+Broadside.Images.PlatformImageRequest.Filter.init -> void
+Broadside.Images.PlatformImageRequest.HasExif.get -> bool
+Broadside.Images.PlatformImageRequest.HasExif.init -> void
+Broadside.Images.PlatformImageRequest.HasIccProfile.get -> bool
+Broadside.Images.PlatformImageRequest.HasIccProfile.init -> void
+Broadside.Images.PlatformImageRequest.Height.get -> int
+Broadside.Images.PlatformImageRequest.Height.init -> void
+Broadside.Images.PlatformImageRequest.PlatformImageRequest() -> void
+Broadside.Images.PlatformImageRequest.Progressive.get -> bool
+Broadside.Images.PlatformImageRequest.Progressive.init -> void
+Broadside.Images.PlatformImageRequest.ReducedHeight.get -> int
+Broadside.Images.PlatformImageRequest.ReducedWidth.get -> int
+Broadside.Images.PlatformImageRequest.Reduction.get -> int
+Broadside.Images.PlatformImageRequest.Reduction.init -> void
+Broadside.Images.PlatformImageRequest.Width.get -> int
+Broadside.Images.PlatformImageRequest.Width.init -> void
+Broadside.PdfOptions.PlatformImageDecoding.get -> bool
+Broadside.PdfOptions.PlatformImageDecoding.set -> void
+Broadside.PdfOptions.UseManagedImageDecoding() -> Broadside.PdfOptions!
+Broadside.PdfOptions.UsePlatformImageDecoder(Broadside.Images.IPlatformImageDecoder! decoder) -> Broadside.PdfOptions!
+Broadside.PdfOptions.VerifyPlatformImageDecoder.get -> bool
+Broadside.PdfOptions.VerifyPlatformImageDecoder.set -> void
+Broadside.PdfOptions.WithPlatformImageDecoder(string! name, bool enabled) -> Broadside.PdfOptions!
+Broadside.PdfOptions.WithPlatformImageDecoding(bool enabled) -> Broadside.PdfOptions!
+Broadside.PdfOptions.WithPlatformImageVerification(bool verify) -> Broadside.PdfOptions!
+Broadside.Rendering.DisplayList.PrefetchImagesAsync(in Broadside.Graphics.Matrix deviceTransform, Broadside.PdfRectangle? region, double samplesPerPixel, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask

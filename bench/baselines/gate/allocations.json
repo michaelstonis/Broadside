@@ -176,6 +176,8 @@
     "Broadside.Benchmarks.IccLutConversionBenchmarks.ConvertCmykBytes(Space: \"OutputIntent\")": 0,
     "Broadside.Benchmarks.ImageMaskBenchmarks.Replay(Dpi: 300)": 0,
     "Broadside.Benchmarks.ImageMaskBenchmarks.Replay(Dpi: 72)": 0,
+    "Broadside.Benchmarks.ImagePrefetchBenchmarks.ImagePageWarm": 0,
+    "Broadside.Benchmarks.ImagePrefetchBenchmarks.TextPage": 0,
     "Broadside.Benchmarks.ImageRenderingBenchmarks.Build(Dpi: 300)": 580472,
     "Broadside.Benchmarks.ImageRenderingBenchmarks.Build(Dpi: 72)": 580472,
     "Broadside.Benchmarks.ImageRenderingBenchmarks.Replay(Dpi: 300)": 0,

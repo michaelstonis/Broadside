@@ -492,6 +492,8 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
                 target.Pixels.Fill(byte.MaxValue); // the paper: opaque white, premultiplied BGRA
             }
 
+            // Platform image decoders decode the tile's images first (#372); the replay below never waits on them.
+            await backend.PrefetchImagesAsync(list, transform, tile.Region.Width, tile.Region.Height, token).ConfigureAwait(true);
             if (_cooperative)
             {
                 // The render outlives the presentation: a tile its backend left on the device (ADR 0012) is read back for a surface
