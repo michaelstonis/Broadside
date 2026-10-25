@@ -1,3 +1,4 @@
+using System.Net;
 using Broadside.Viewer.Blazor;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
@@ -10,7 +11,11 @@ namespace Broadside.Viewer.Blazor.Sample;
 /// <param name="Remote">Whether to open it through HTTP range requests (first page first) instead of downloading it whole.</param>
 /// <param name="Note">What to tell the user when it opens: single-feature test files can look blank or clipped on purpose.</param>
 /// <param name="Panel">The panel that shows its feature (its name in lower case), opened with it.</param>
-public sealed record GalleryEntry(string File, string Title, bool Remote = false, string? Note = null, string? Panel = null);
+/// <param name="Mirror">
+/// Where to download it when the site does not bundle it (the server answers 404): the documentation site leaves out TraceMonkey, whose
+/// licence does not cover redistribution, and reads it from pdf.js's own copy instead (see README.md, "Documents and licences").
+/// </param>
+public sealed record GalleryEntry(string File, string Title, bool Remote = false, string? Note = null, string? Panel = null, string? Mirror = null);
 
 /// <summary>
 /// The demo's state, shared by the shell and every panel: the open document (a <see cref="DocumentSession"/> the app owns and hands to
@@ -22,7 +27,7 @@ public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRunti
     /// <summary>The gallery, in the order the menu shows it; the first entry opens at start.</summary>
     public static readonly GalleryEntry[] Gallery =
     [
-        new("documents/tracemonkey.pdf", "TraceMonkey paper (real world)"),
+        new("documents/tracemonkey.pdf", "TraceMonkey paper (real world)", Mirror: "https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf"),
         new("documents/layout-two-column-tagged.pdf", "Two columns (tagged)"),
         new("documents/outline-full.pdf", "Outline", Note: "This file has an outline and no page content, so its page is blank (as in every viewer): its bookmarks are in the Outline panel.", Panel: "outline"),
         new("documents/acroform-fields.pdf", "Form fields"),
@@ -157,7 +162,16 @@ public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRunti
         ArgumentNullException.ThrowIfNull(entry);
         await (entry.Remote ? OpenUrlAsync(entry.File) : RunOpenAsync(entry.File, async token =>
         {
-            byte[] bytes = await http.GetByteArrayAsync(Resolve(entry.File), token).ConfigureAwait(true);
+            byte[] bytes;
+            try
+            {
+                bytes = await http.GetByteArrayAsync(Resolve(entry.File), token).ConfigureAwait(true);
+            }
+            catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.NotFound && entry.Mirror is not null)
+            {
+                bytes = await http.GetByteArrayAsync(new Uri(entry.Mirror), token).ConfigureAwait(true);
+            }
+
             return (DocumentSession.Open(bytes, OptionsFor(() => RenderWorker.Open(bytes, Options.Intent))), FileName(entry.File), null);
         })).ConfigureAwait(true);
 
