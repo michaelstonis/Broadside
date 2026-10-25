@@ -4,6 +4,7 @@
     The .NET MAUI viewer sample (#226): Broadside.Viewer.Maui's PdfView over the same gallery as the Blazor demo, TraceMonkey first.
     Needs the maui workload (UseMaui), so it is not part of Broadside.slnx; the ci.yml "maui" job builds it. Run on Mac Catalyst:
       dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-maccatalyst -t:Run
+    TraceMonkey is downloaded from pdf.js's copy when opened (its licence does not allow bundling it).
     With the environment variable BROADSIDE_SMOKE=1 (Android: the intent extra "smoke"), it opens TraceMonkey, waits for page 1,
     captures the GPU frame and logs "BROADSIDE_SMOKE_OK" with what it measured, then quits.
   -->
@@ -45,9 +46,9 @@
     <MauiSplashScreen Include="Resources/Splash/splash.svg" Color="#2B4C7E" BaseSize="128,128" />
   </ItemGroup>
 
-  <!-- The gallery: the Blazor demo's documents and the corpus files it links, as app assets (linked, so they never drift). -->
+  <!-- The gallery: the Blazor demo's bundled documents and the corpus files it links, as app assets (linked, so they never drift). -->
   <ItemGroup>
-    <MauiAsset Include="../Broadside.Viewer.Blazor.Sample/wwwroot/documents/tracemonkey.pdf;../Broadside.Viewer.Blazor.Sample/wwwroot/documents/signed.pdf;../../tests/Corpus/layout-two-column-tagged.pdf;../../tests/Corpus/layout-tables.pdf;../../tests/Corpus/tagged-structure.pdf;../../tests/Corpus/outline-full.pdf;../../tests/Corpus/annotations-link.pdf;../../tests/Corpus/acroform-fields.pdf;../../tests/Corpus/info-dictionary.pdf;../../tests/Corpus/shading-radial-cases.pdf;../../tests/Corpus/transparency-blend-modes.pdf;../../tests/Corpus/page-rotation.pdf;../../tests/Corpus/linearized.pdf"
+    <MauiAsset Include="../Broadside.Viewer.Blazor.Sample/wwwroot/documents/signed.pdf;../../tests/Corpus/layout-two-column-tagged.pdf;../../tests/Corpus/layout-tables.pdf;../../tests/Corpus/tagged-structure.pdf;../../tests/Corpus/outline-full.pdf;../../tests/Corpus/annotations-link.pdf;../../tests/Corpus/acroform-fields.pdf;../../tests/Corpus/info-dictionary.pdf;../../tests/Corpus/shading-radial-cases.pdf;../../tests/Corpus/transparency-blend-modes.pdf;../../tests/Corpus/page-rotation.pdf;../../tests/Corpus/linearized.pdf"
                LogicalName="documents/%(Filename)%(Extension)" Link="Resources/Raw/documents/%(Filename)%(Extension)" />
   </ItemGroup>
 
