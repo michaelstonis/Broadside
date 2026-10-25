@@ -5,8 +5,11 @@
 # First runs ./check-adr-refs.sh: no doc, README, site page, template or XML doc comment references an ADR.
 # Modelled on wieslawsoltes/TreeDataGrid check-docs.sh; see docs/research/doc-site-tooling.md.
 #
-#   ./check-docs.sh            build into site/.lunet/build/www and check it
+#   ./check-docs.sh                  build into site/.lunet/build/www and check it
+#   ./check-docs.sh --demo <folder>  also copy a published Blazor demo (samples/Broadside.Viewer.Blazor.Sample/publish-static.sh)
+#                                    into www/demo/ and check it with the rest; the site links to the live demo at demo/
 #
+# Without --demo, links into demo/ are not checked (the folder is only there when the docs job publishes the demo).
 # Runs in CI (.github/workflows/docs.yml) on every pull request that touches the site or its inputs.
 # Works with the bash 3.2 that ships with macOS (no associative arrays).
 set -euo pipefail
@@ -16,6 +19,22 @@ SITE="${ROOT}/site"
 DOC_ROOT="${SITE}/.lunet/build/www"
 # Must match site_project_basepath in site/config.scriban for the production build.
 BASEPATH="/Broadside"
+
+DEMO=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --demo)
+            [ $# -ge 2 ] || { echo "usage: $0 [--demo <published demo folder>]" >&2; exit 2; }
+            DEMO="$(cd "$2" && pwd)"
+            shift 2
+            ;;
+        *) echo "usage: $0 [--demo <published demo folder>]" >&2; exit 2 ;;
+    esac
+done
+if [ -n "${DEMO}" ] && [ ! -f "${DEMO}/index.html" ]; then
+    echo "check-docs: ${DEMO} has no index.html: is it a published demo?" >&2
+    exit 2
+fi
 
 failures=0
 fail() {
@@ -39,6 +58,12 @@ LUNET_LOG="$(mktemp)"
 trap 'rm -f "${LUNET_LOG}"' EXIT
 
 (cd "${SITE}" && dotnet tool run lunet --stacktrace build) 2>&1 | tee "${LUNET_LOG}"
+
+# The live demo goes in demo/ after Lunet has built the site, so Lunet never processes it (and its search index leaves it out).
+if [ -n "${DEMO}" ]; then
+    mkdir -p "${DOC_ROOT}/demo"
+    cp -R "${DEMO}/." "${DOC_ROOT}/demo/"
+fi
 
 # Lunet logs build errors (failed API extraction, template errors) and unresolved xrefs and still exits 0.
 # On CI runners the level is ANSI-colored ("\e[31mERR\e[39m"), so ERR may sit between "m" and ESC.
@@ -69,6 +94,19 @@ do
         fail "missing route: ${route}"
     fi
 done
+
+# 1b. The live demo: a static Blazor WebAssembly app with a relative base href, so it works under /Broadside/demo/.
+if [ -n "${DEMO}" ]; then
+    for route in demo/index.html demo/css/app.css demo/js/start.js; do
+        [ -f "${DOC_ROOT}/${route}" ] || fail "missing demo route: ${route}"
+    done
+    if ! ls "${DOC_ROOT}"/demo/*/blazor.webassembly.js >/dev/null 2>&1; then
+        fail "the demo has no blazor.webassembly.js in its runtime folder"
+    fi
+    if ! grep -q '<base href="./" */>' "${DOC_ROOT}/demo/index.html"; then
+        fail "demo/index.html has no relative base href, so it would not work under ${BASEPATH}/demo/"
+    fi
+fi
 
 # 2. Search: the index is generated and the theme renders the search box.
 if ! grep -q 'id="search-input"' "${DOC_ROOT}/index.html"; then
@@ -148,11 +186,15 @@ resolve() {
 }
 
 links_checked=0
+demo_links_skipped=0
 pairs="$(mktemp)"
-# "page directory<TAB>reference", one per distinct pair.
-grep -r -o -E '(href|src)="[^"]*"' --include='*.html' "${DOC_ROOT}" \
-    | sed -E 's#^(.*)/[^/]*\.html:(href|src)="([^"]*)"$#\1	\3#' \
-    | sort -u > "${pairs}"
+# "page directory<TAB>reference", one per distinct pair. The theme's menus quote attributes with single quotes.
+{
+    grep -r -o -E '(href|src)="[^"]*"' --include='*.html' "${DOC_ROOT}" \
+        | sed -E 's#^(.*)/[^/]*\.html:(href|src)="([^"]*)"$#\1	\3#'
+    grep -r -o -E "(href|src)='[^']*'" --include='*.html' "${DOC_ROOT}" \
+        | sed -E "s#^(.*)/[^/]*\\.html:(href|src)='([^']*)'\$#\\1	\\3#"
+} | sort -u > "${pairs}"
 
 while IFS="$(printf '\t')" read -r page_dir ref; do
     case "${ref}" in
@@ -161,6 +203,14 @@ while IFS="$(printf '\t')" read -r page_dir ref; do
     path="${ref%%#*}"
     path="${path%%\?*}"
     [ -z "${path}" ] && continue
+    if [ -z "${DEMO}" ]; then
+        case "${path}" in
+            "${BASEPATH}/demo"|"${BASEPATH}/demo/"*|demo|demo/*|../demo|../demo/*|../../demo|../../demo/*)
+                demo_links_skipped=$((demo_links_skipped + 1))
+                continue
+                ;;
+        esac
+    fi
     links_checked=$((links_checked + 1))
     case "${path}" in
         "${BASEPATH}"|"${BASEPATH}/"*)
@@ -185,4 +235,6 @@ if [ "${failures}" -ne 0 ]; then
     echo "check-docs: FAILED with ${failures} problem(s) in ${pages} pages" >&2
     exit 1
 fi
-echo "check-docs: OK, ${pages} HTML pages, ${packages_checked} packages (${types_checked} public types) covered, ${links_checked} internal references checked, output in ${DOC_ROOT#"${ROOT}/"}"
+demo_note="demo in demo/ checked"
+[ -n "${DEMO}" ] || demo_note="no demo (${demo_links_skipped} links into demo/ not checked; pass --demo <folder>)"
+echo "check-docs: OK, ${pages} HTML pages, ${packages_checked} packages (${types_checked} public types) covered, ${links_checked} internal references checked, ${demo_note}, output in ${DOC_ROOT#"${ROOT}/"}"
