@@ -212,8 +212,7 @@ public sealed class ViewerControllerTests
     public void A_resize_keeps_the_scaled_tiles_on_screen_and_never_shows_black() => UiThread.Run(async () =>
     {
         // A heavy enough document that the first frame after the resize cannot finish every new tile within its budget.
-        Shell.RequireTraceMonkey();
-        using Shell shell = await Shell.OpenAsync(Shell.TraceMonkey);
+        using Shell shell = await Shell.OpenAsync(Shell.SampleDocument("newsletter.pdf"));
         int tilesBefore = TileItems(shell);
         Assert.True(tilesBefore > 0);
         shell.Events.Clear();
