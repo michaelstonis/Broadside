@@ -20,7 +20,8 @@ addresses, so it works from any sub-path (`https://example.com/some/folder/`). A
 
 ## Walkthrough
 
-The gallery (☰) opens pdf.js's TraceMonkey paper, a real-world 14-page file, followed by hand-written files from the test corpus, one
+The gallery (☰) opens pdf.js's TraceMonkey paper, a real-world 14-page file read from pdf.js's own copy (see "Documents and
+licences"), followed by hand-written files from the test corpus, one
 feature each. You can also open a PDF from your device (it stays in the browser) or from a URL, which is read through HTTP range
 requests, so page 1 of a linearized file shows before the rest arrives (the server must allow cross-origin range requests).
 
@@ -49,7 +50,7 @@ The screenshots come from the browser tests (`BROADSIDE_BROWSER_SCREENSHOTS=<fol
 
 ## Publishing for static hosts
 
-`publish-static.sh [--no-aot] [--runtime-folder <name>] [--omit <document>]... <folder>` writes the site and prints its file count, total size and largest file.
+`publish-static.sh [--no-aot] [--runtime-folder <name>] <folder>` writes the site and prints its file count, total size and largest file.
 
 | | Files | Size | Largest file |
 |---|---|---|---|
@@ -69,23 +70,19 @@ Sizes include the 1 MB of gallery documents. A host that compresses responses se
   (`{ "imports": { "./_content/": "./framework-content/" } }`, written into `index.html`) sends the viewer's JavaScript module import
   to the renamed folder.
 - **No precompressed files.** The site has no `.br`/`.gz` copies; any host that serves `.wasm` as `application/wasm` works.
-- **Leaving documents out.** `--omit <document>` (repeatable) leaves `documents/<document>` out of the site. A gallery entry with a
-  mirror reads the document from there when the site answers 404 for it.
 - **GitHub Pages.** The documentation workflow (`.github/workflows/docs.yml`) publishes the demo into the documentation site's
-  `demo/` folder and deploys both together on every push to `main`: trimmed and AOT-compiled, with `--omit tracemonkey.pdf` (see
-  below). Pages serves `_framework/` as it is (no Jekyll for an Actions deployment) and needs no cross-origin isolation headers, because
+  `demo/` folder and deploys both together on every push to `main`: trimmed and AOT-compiled. Pages serves `_framework/` as it is (no Jekyll for an Actions deployment) and needs no cross-origin isolation headers, because
   the demo uses no WebAssembly threads.
 
 ## Documents and licences
 
-- `tracemonkey.pdf`: "Trace-based Just-in-Time Type Specialization for Dynamic Languages" (Gal et al., PLDI 2009), the default document
-  of pdf.js, taken from [mozilla/pdf.js](https://github.com/mozilla/pdf.js/tree/master/test/pdfs) `test/pdfs` at commit
-  `c53f395e`. pdf.js's Apache-2.0 licence covers pdf.js, not this paper: its first page carries the ACM's copyright notice
+- TraceMonkey: "Trace-based Just-in-Time Type Specialization for Dynamic Languages" (Gal et al., PLDI 2009), the default document
+  of pdf.js. pdf.js's Apache-2.0 licence covers pdf.js, not this paper: its first page carries the ACM's copyright notice
   ("Copyright 2009 ACM"), which allows copies for personal or classroom use and requires permission "to republish, to post on servers
-  or to redistribute to lists". So the hosted demo does not carry it: the documentation site publishes with `--omit tracemonkey.pdf`,
-  and the gallery reads the identical file (1,016,315 bytes) from pdf.js's own copy at
+  or to redistribute to lists". So neither this repository nor any build of the demo carries it: the
+  gallery reads it (1,016,315 bytes) from pdf.js's own copy at
   <https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf>, which Mozilla serves with
-  `Access-Control-Allow-Origin: *`. Local builds and the browser tests still bundle it, from this repository.
+  `Access-Control-Allow-Origin: *`, so opening it needs a network connection.
 - `signed.pdf`: written by Broadside and signed with `PdfCertificateSigner` (PAdES, `ETSI.CAdES.detached`, SHA-256) by a self-signed
   demo certificate, so a validator finds it intact but its signer untrusted. It embeds subsets of Liberation Sans and Liberation Sans
   Bold (SIL Open Font License 1.1, which allows embedding in documents).

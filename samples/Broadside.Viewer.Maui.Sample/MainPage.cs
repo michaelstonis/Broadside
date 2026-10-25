@@ -4,16 +4,22 @@ using SkiaSharp;
 
 namespace Broadside.Viewer.Maui.Sample;
 
-/// <summary>One gallery entry: an app asset and what the gallery calls it.</summary>
+/// <summary>One gallery entry: an app asset (or an https address, downloaded when opened) and what the gallery calls it.</summary>
 public sealed record GalleryEntry(string File, string Title);
 
 /// <summary>The sample's page: a toolbar over a <see cref="PdfView"/>.</summary>
 public sealed class MainPage : ContentPage
 {
+    /// <summary>
+    /// pdf.js's copy of the TraceMonkey paper: its ACM copyright notice does not allow redistribution, so the app does not bundle it
+    /// and downloads it when opened.
+    /// </summary>
+    public const string TraceMonkey = "https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf";
+
     /// <summary>The Blazor demo's gallery, TraceMonkey first.</summary>
     public static readonly GalleryEntry[] Gallery =
     [
-        new("documents/tracemonkey.pdf", "TraceMonkey paper (real world)"),
+        new(TraceMonkey, "TraceMonkey paper (real world)"),
         new("documents/layout-two-column-tagged.pdf", "Two columns (tagged)"),
         new("documents/outline-full.pdf", "Outline"),
         new("documents/acroform-fields.pdf", "Form fields"),
@@ -35,6 +41,7 @@ public sealed class MainPage : ContentPage
     private readonly PdfView _view = new() { ShowAnnotations = true };
     private readonly Picker _gallery = new() { Title = "Document", ItemsSource = Gallery.Select(g => g.Title).ToList(), WidthRequest = 260 };
     private readonly Label _status = new() { VerticalTextAlignment = TextAlignment.Center, Margin = new Thickness(8, 0) };
+    private static readonly HttpClient Http = new();
     private DocumentSession? _session;
     private bool _smokeDone;
     private bool _benchStarted;
@@ -89,15 +96,26 @@ public sealed class MainPage : ContentPage
     {
         try
         {
-            if (!await FileSystem.AppPackageFileExistsAsync(file))
+            byte[] bytes;
+            if (file.StartsWith("https://", StringComparison.Ordinal))
             {
-                return false;
+                _status.Text = "Downloading…";
+                bytes = await Http.GetByteArrayAsync(new Uri(file));
+            }
+            else
+            {
+                if (!await FileSystem.AppPackageFileExistsAsync(file))
+                {
+                    return false;
+                }
+
+                await using Stream asset = await FileSystem.OpenAppPackageFileAsync(file);
+                using var buffer = new MemoryStream();
+                await asset.CopyToAsync(buffer);
+                bytes = buffer.ToArray();
             }
 
-            await using Stream asset = await FileSystem.OpenAppPackageFileAsync(file);
-            using var bytes = new MemoryStream();
-            await asset.CopyToAsync(bytes);
-            DocumentSession session = DocumentSession.Open(bytes.ToArray(), Options);
+            DocumentSession session = DocumentSession.Open(bytes, Options);
             DocumentSession? old = _session;
             _session = session;
             _view.Session = session;

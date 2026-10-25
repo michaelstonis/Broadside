@@ -15,6 +15,7 @@ public sealed class ViewerControllerTests
     public void TraceMonkey_opens_at_the_top_of_page_one_at_fit_width_and_draws_it_with_skia() => UiThread.Run(async () =>
     {
         // The size arrives after the document (as MAUI lays out after the source is set): the first real size still shows page 1's top.
+        Shell.RequireTraceMonkey();
         using Shell shell = await Shell.OpenAsync(Shell.TraceMonkey, sizeFirst: false);
         Viewport viewport = shell.Viewport;
         Assert.Equal(0, viewport.X);
@@ -211,7 +212,7 @@ public sealed class ViewerControllerTests
     [Fact]
     public void A_resize_keeps_the_scaled_tiles_on_screen_and_never_shows_black() => UiThread.Run(async () =>
     {
-        using Shell shell = await Shell.OpenAsync(Shell.TraceMonkey);
+        using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("layout-three-column.pdf"));
         int tilesBefore = TileItems(shell);
         Assert.True(tilesBefore > 0);
         shell.Events.Clear();
@@ -337,7 +338,7 @@ public sealed class ViewerControllerTests
     [Fact]
     public void The_presenter_releases_retired_tile_images_only_when_no_frame_shows_them() => UiThread.Run(async () =>
     {
-        using Shell shell = await Shell.OpenAsync(Shell.TraceMonkey);
+        using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("layout-three-column.pdf"));
         int images = TileItems(shell);
         Assert.True(images > 0);
         shell.Controller.CloseDocument();
