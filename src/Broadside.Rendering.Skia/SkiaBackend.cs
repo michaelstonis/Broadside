@@ -58,7 +58,9 @@ namespace Broadside.Rendering.Skia;
 /// Decode, Indexed, colour key, Matte; a mask of the image's size folded into its alpha, one of another size drawn at its own
 /// resolution) and resampled to the device as the software rasterizer resamples them: a box filter where a pixel spans more than a
 /// sample, square samples or a tent (Interpolate, §8.9.5.3) where it does not, for the first four transforms each image is drawn at;
-/// further transforms, and enlargements past 256 pixels per sample, are sampled by Skia (mipmaps when reduced). Stencil masks
+/// further transforms, and enlargements past 256 pixels per sample, are sampled by Skia (mipmaps when reduced). A viewer's renders
+/// (<see cref="ScaledImageDecode"/>, <see cref="RenderOptions.ScaledImageDecode"/>) convert a large image drawn small at a
+/// power-of-two reduction of its samples instead of all of them (issue #362), each mask at its own. Stencil masks
 /// (§8.9.6.2) are alpha-only images painted in the fill colour. Converted pixels are kept within the document's
 /// <see cref="PdfOptions.ImageCacheBudget"/>; a budget of zero converts on every paint with the same output. Axial and radial
 /// shadings (§8.7.4.5.3, §8.7.4.5.4) are native linear and two-point conical gradients sampled from the function; function-based
@@ -89,6 +91,7 @@ public sealed partial class SkiaBackend : IDisposable
 
     private readonly Replayer _replayer = new();
     private readonly ReadOnlyCollection<Diagnostic> _diagnostics;
+    private double _imageSamplesPerPixel = RenderOptions.DefaultImageSamplesPerPixel;
     private bool _disposed;
 
     /// <summary>Initializes a new instance of the <see cref="SkiaBackend"/> class.</summary>
@@ -156,7 +159,8 @@ public sealed partial class SkiaBackend : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         PixelSize size = options.GetPixelSize(page);
         Matrix device = options.GetDeviceTransform(page);
-        Draw(page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions), canvas, device, new SKRect(0, 0, size.Width, size.Height), options.ForceOutlines);
+        double samplesPerPixel = options.ScaledImageDecode && !options.OverprintPreview ? options.ImageSamplesPerPixel : 0;
+        Draw(page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions), canvas, device, new SKRect(0, 0, size.Width, size.Height), options.ForceOutlines, samplesPerPixel);
     }
 
     /// <summary>
@@ -194,8 +198,39 @@ public sealed partial class SkiaBackend : IDisposable
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(canvas);
         ObjectDisposedException.ThrowIf(_disposed, this);
-        Draw(list, canvas, deviceTransform, null, forceOutlines, cull: true);
+        Draw(list, canvas, deviceTransform, null, forceOutlines, ListImageSamples, cull: true);
     }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the renders of a display list given to this backend decode images at the resolution
+    /// they are drawn at rather than their own; <see langword="false"/> by default. Page renders take
+    /// <see cref="RenderOptions.ScaledImageDecode"/> instead.
+    /// </summary>
+    /// <remarks>
+    /// For viewers only, never for printing or export (see <see cref="RenderOptions.ScaledImageDecode"/>): an image whose codec decodes
+    /// reduced resolutions, or a large one decoded when its list was built, is converted at the largest power-of-two reduction that
+    /// keeps <see cref="ImageSamplesPerPixel"/> samples per device pixel (<see cref="DisplayImage.GetReduction"/>, capped for a curved
+    /// colour conversion), and its masks at their own; the reduced samples are then resampled to the device as before. ISO 32000-2
+    /// §8.9.4 (the image unit square), §8.9.5.3 (Interpolate only affects enlargement).
+    /// </remarks>
+    public bool ScaledImageDecode { get; set; }
+
+    /// <summary>
+    /// Gets or sets the fewest decoded samples per device pixel a reduced image keeps when <see cref="ScaledImageDecode"/> is on:
+    /// <see cref="RenderOptions.DefaultImageSamplesPerPixel"/> (2) by default; 1 is faster and coarser.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a finite number of at least 1.</exception>
+    /// <remarks>See <see cref="RenderOptions.ImageSamplesPerPixel"/>; ISO 32000-2 §8.9.4.</remarks>
+    public double ImageSamplesPerPixel
+    {
+        get => _imageSamplesPerPixel;
+        set => _imageSamplesPerPixel = double.IsFinite(value) && value >= 1
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "The samples per pixel must be a finite number of at least 1.");
+    }
+
+    /// <summary>Gets the samples per pixel a list render reduces images to, or 0 for the images' own resolution.</summary>
+    private double ListImageSamples => ScaledImageDecode ? _imageSamplesPerPixel : 0;
 
     /// <summary>Releases the backend's cached Skia paths and its paints; it renders no more after this.</summary>
     public void Dispose()
@@ -212,6 +247,9 @@ public sealed partial class SkiaBackend : IDisposable
 
     /// <summary>Gets how many Skia images this backend has made from display-list images and masks (one per interned instance while kept).</summary>
     internal int ImagesCreated => _replayer.ImagesCreated;
+
+    /// <summary>Gets how many pixels the Skia images this backend made from display-list images and masks had in all (fewer for reduced images, issue #428).</summary>
+    internal long ImagePixelsConverted => _replayer.ImagePixelsConverted;
 
     /// <summary>Gets the bytes of converted image pixels this backend keeps, within the document's image cache budget.</summary>
     internal long CachedImageBytes => _replayer.CachedImageBytes;
@@ -252,7 +290,7 @@ public sealed partial class SkiaBackend : IDisposable
         return true;
     }
 
-    private void Draw(DisplayList list, SKCanvas canvas, in Matrix device, SKRect? page, bool forceOutlines, bool cull = false)
+    private void Draw(DisplayList list, SKCanvas canvas, in Matrix device, SKRect? page, bool forceOutlines, double imageSamplesPerPixel, bool cull = false)
     {
         int saveCount = canvas.Save();
         try
@@ -264,6 +302,7 @@ public sealed partial class SkiaBackend : IDisposable
             }
 
             _replayer.ForceOutlines = forceOutlines;
+            _replayer.ImageSamplesPerPixel = imageSamplesPerPixel;
             _replayer.Begin(list.Document, canvas, device);
             try
             {
