@@ -45,7 +45,11 @@ internal sealed class Shell : IViewerHost, IDisposable
 
     public PageLayout Layout => Controller.Zoom!.Layout;
 
-    public static string TraceMonkey => Path.Combine(Corpus.Directory, "..", "..", "samples", "Broadside.Viewer.Blazor.Sample", "wwwroot", "documents", "tracemonkey.pdf");
+    /// <summary>pdf.js's TraceMonkey paper from the real-world corpus (BROADSIDE_CORPUS_DIR): the repository does not carry it.</summary>
+    public static string TraceMonkey => Path.Combine(Environment.GetEnvironmentVariable("BROADSIDE_CORPUS_DIR") ?? "", "pdfjs", "tracemonkey.pdf");
+
+    /// <summary>Skips the test when the real-world corpus does not have <see cref="TraceMonkey"/>.</summary>
+    public static void RequireTraceMonkey() => Assert.SkipUnless(File.Exists(TraceMonkey), $"{TraceMonkey} is missing (set BROADSIDE_CORPUS_DIR)");
 
     public static string CorpusFile(string name) => Path.Combine(Corpus.Directory, name);
 

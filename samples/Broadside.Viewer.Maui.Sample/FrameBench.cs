@@ -13,10 +13,10 @@ public static class FrameBench
 {
     public static bool Requested { get; set; } = Environment.GetEnvironmentVariable("BROADSIDE_FRAMES") == "1";
 
-    /// <summary>The bench documents: TraceMonkey at fit width, and pdf.js issue5567 (a large JPX image) zoomed in when it was bundled.</summary>
+    /// <summary>The bench documents: TraceMonkey (downloaded) at fit width, and pdf.js issue5567 (a large JPX image) zoomed in when it was bundled.</summary>
     public static readonly (string File, double Zoom, double Step)[] Documents =
     [
-        ("documents/tracemonkey.pdf", 1, 24),
+        (MainPage.TraceMonkey, 1, 24),
         ("documents/issue5567.pdf", 3, 12),
     ];
 
