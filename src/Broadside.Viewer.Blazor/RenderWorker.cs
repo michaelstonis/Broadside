@@ -31,8 +31,10 @@ namespace Broadside.Viewer.Blazor;
 /// </code>
 /// <para>
 /// Then <see cref="StartAsync"/> starts the worker once, and each document opened from bytes gets a renderer with
-/// <see cref="Open(ReadOnlySpan{byte}, DisplayIntent)"/> (<c>options.UseRemoteRenderer(RenderWorker.Open(bytes, options.Intent)!)</c>) or, for a
-/// document read through range requests, <see cref="Open(Uri, DisplayIntent)"/>. Password-protected documents are drawn on the page's thread.
+/// <see cref="Open(ReadOnlySpan{byte}, ViewerOptions)"/> (<c>options.UseRemoteRenderer(RenderWorker.Open(bytes, options)!)</c>) or, for a
+/// document read through range requests, <see cref="Open(Uri, ViewerOptions)"/>; the worker then renders with the options' intent and
+/// decodes images as they say (at the resolution they are drawn at, by default). Password-protected documents are drawn on the page's
+/// thread.
 /// </para>
 /// <para>
 /// The worker decodes JPEG images with the browser's own decoder before it draws a tile (<see cref="BrowserImageDecoder"/>: WebCodecs
@@ -51,7 +53,7 @@ public static partial class RenderWorker
     private static readonly Dictionary<int, WorkerTileRenderer> Renderers = [];
     private static Func<PdfEngine>? _engine;
     private static Task<bool>? _start;
-    private static SoftwareTileBackend? _backend;
+    private static readonly Dictionary<double, SoftwareTileBackend> Backends = [];
     private static byte[] _rgba = [];
     private static int _nextDocument;
     private static int _nextJob;
@@ -99,7 +101,46 @@ public static partial class RenderWorker
     /// <param name="document">The document's bytes, as the page's session opens them.</param>
     /// <param name="intent">The display intent the session renders with.</param>
     /// <returns>The renderer (the session owns and disposes it), or <see langword="null"/>.</returns>
-    public static IRemoteTileRenderer? Open(ReadOnlySpan<byte> document, DisplayIntent intent)
+    /// <remarks>Images are decoded at the resolution they are drawn at, keeping 2 samples per device pixel; <see cref="Open(ReadOnlySpan{byte}, ViewerOptions)"/> follows the session's options.</remarks>
+    public static IRemoteTileRenderer? Open(ReadOnlySpan<byte> document, DisplayIntent intent) =>
+        Open(document, intent, RenderOptions.DefaultImageSamplesPerPixel);
+
+    /// <summary>
+    /// Sends a document to the worker and returns the renderer a session opened from the same bytes with <paramref name="options"/>
+    /// uses for its content tiles, or <see langword="null"/> when the worker is not running. The worker renders with the options'
+    /// display intent and decodes images as they say (<see cref="ViewerOptions.ScaledImageDecode"/>,
+    /// <see cref="ViewerOptions.ImageSamplesPerPixel"/>).
+    /// </summary>
+    /// <param name="document">The document's bytes, as the page's session opens them.</param>
+    /// <param name="options">The options the session opens with.</param>
+    /// <returns>The renderer (the session owns and disposes it), or <see langword="null"/>.</returns>
+    /// <remarks>ISO 32000-2 §8.9.4: reduced images are for display only.</remarks>
+    public static IRemoteTileRenderer? Open(ReadOnlySpan<byte> document, ViewerOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return Open(document, options.Intent, SamplesPerPixel(options));
+    }
+
+    /// <summary>
+    /// Has the worker open a document from an address through HTTP range requests and returns the renderer a session opened from the
+    /// same address with <paramref name="options"/> uses, or <see langword="null"/> when the worker is not running. The worker renders
+    /// with the options' display intent and decodes images as they say (<see cref="ViewerOptions.ScaledImageDecode"/>,
+    /// <see cref="ViewerOptions.ImageSamplesPerPixel"/>).
+    /// </summary>
+    /// <param name="address">The document's absolute address (the worker resolves nothing against the page).</param>
+    /// <param name="options">The options the session opens with.</param>
+    /// <returns>The renderer (the session owns and disposes it), or <see langword="null"/>.</returns>
+    /// <remarks>ISO 32000-2 §8.9.4: reduced images are for display only.</remarks>
+    public static IRemoteTileRenderer? Open(Uri address, ViewerOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return Open(address, options.Intent, SamplesPerPixel(options));
+    }
+
+    /// <summary>The samples per pixel the worker reduces images to for these options, or 0 for their own resolution.</summary>
+    private static double SamplesPerPixel(ViewerOptions options) => options.ScaledImageDecode ? options.ImageSamplesPerPixel : 0;
+
+    private static WorkerTileRenderer? Open(ReadOnlySpan<byte> document, DisplayIntent intent, double samplesPerPixel)
     {
         if (!IsRunning)
         {
@@ -107,7 +148,7 @@ public static partial class RenderWorker
         }
 
         int id = ++_nextDocument;
-        var renderer = new WorkerTileRenderer(id);
+        var renderer = new WorkerTileRenderer(id, samplesPerPixel);
         Renderers[id] = renderer;
         // The worker only reads the bytes (copied out of this runtime's heap before the call returns).
         ViewerInterop.WorkerOpen(id, (int)intent, MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(document), document.Length));
@@ -122,7 +163,9 @@ public static partial class RenderWorker
     /// <param name="address">The document's absolute address (the worker resolves nothing against the page).</param>
     /// <param name="intent">The display intent the session renders with.</param>
     /// <returns>The renderer (the session owns and disposes it), or <see langword="null"/>.</returns>
-    public static IRemoteTileRenderer? Open(Uri address, DisplayIntent intent)
+    public static IRemoteTileRenderer? Open(Uri address, DisplayIntent intent) => Open(address, intent, RenderOptions.DefaultImageSamplesPerPixel);
+
+    private static WorkerTileRenderer? Open(Uri address, DisplayIntent intent, double samplesPerPixel)
     {
         ArgumentNullException.ThrowIfNull(address);
         if (!IsRunning || !address.IsAbsoluteUri)
@@ -131,7 +174,7 @@ public static partial class RenderWorker
         }
 
         int id = ++_nextDocument;
-        var renderer = new WorkerTileRenderer(id);
+        var renderer = new WorkerTileRenderer(id, samplesPerPixel);
         Renderers[id] = renderer;
         ViewerInterop.WorkerOpenAddress(id, (int)intent, address.AbsoluteUri);
         return renderer;
@@ -153,7 +196,7 @@ public static partial class RenderWorker
     // ---- The page's side ----
 
     /// <summary>Renders a tile in the worker: its image, or <see langword="null"/> when the worker gave the tile back (it failed).</summary>
-    internal static async Task<JSObject?> RenderAsync(int document, Tile tile, CancellationToken token)
+    internal static async Task<JSObject?> RenderAsync(int document, Tile tile, double samplesPerPixel, CancellationToken token)
     {
         if (!IsRunning)
         {
@@ -164,7 +207,7 @@ public static partial class RenderWorker
         var pending = new TaskCompletionSource<JSObject?>(TaskCreationOptions.RunContinuationsAsynchronously);
         Jobs[job] = (document, pending);
         PixelRectangle r = tile.Region;
-        ViewerInterop.WorkerRender(job, document, tile.PageIndex, tile.Scale, tile.Rotation, r.X, r.Y, r.Width, r.Height, (int)tile.Layers);
+        ViewerInterop.WorkerRender(job, document, tile.PageIndex, tile.Scale, tile.Rotation, r.X, r.Y, r.Width, r.Height, (int)tile.Layers, samplesPerPixel);
         try
         {
             using CancellationTokenRegistration cancel = token.Register(static state => ViewerInterop.WorkerCancel((int)state!), job);
@@ -309,7 +352,7 @@ public static partial class RenderWorker
     }
 
     [JSExport]
-    internal static async Task Render(int job, int document, int pageIndex, double scale, int rotation, int x, int y, int width, int height, int layers)
+    internal static async Task Render(int job, int document, int pageIndex, double scale, int rotation, int x, int y, int width, int height, int layers, double samplesPerPixel)
     {
         PdfDocument pdf = Documents[document];
         bool remote = Remote.Contains(document);
@@ -337,13 +380,18 @@ public static partial class RenderWorker
             target.Pixels.Clear();
         }
 
-        _backend ??= new SoftwareTileBackend();
+        // The page's decode setting (issue #428): reduced images at its samples per pixel, or 0 for their own resolution.
+        if (!Backends.TryGetValue(samplesPerPixel, out SoftwareTileBackend? backend))
+        {
+            backend = samplesPerPixel >= 1 ? new SoftwareTileBackend(true, samplesPerPixel) : new SoftwareTileBackend(false, RenderOptions.DefaultImageSamplesPerPixel);
+            Backends[samplesPerPixel] = backend;
+        }
 
         // The browser's own JPEG decoder decodes the tile's images first, in this worker (#373): ImageDecoder, or createImageBitmap
         // with a read back where the browser has no ImageDecoder (Safari), whose cost stays off the page's thread here.
         await BrowserImageDecoder.InitializeAsync().ConfigureAwait(true);
-        await _backend.PrefetchImagesAsync(list, transform, width, height, CancellationToken.None).ConfigureAwait(true);
-        using (ITileRender render = _backend.Begin(list, target, transform, CancellationToken.None))
+        await backend.PrefetchImagesAsync(list, transform, width, height, CancellationToken.None).ConfigureAwait(true);
+        using (ITileRender render = backend.Begin(list, target, transform, CancellationToken.None))
         {
             render.RenderSlice(Timeout.InfiniteTimeSpan);
         }
@@ -377,7 +425,7 @@ public static partial class RenderWorker
 
 /// <summary>The page's handle on one document in the render worker: content tiles go there, overlays stay on the page.</summary>
 [SupportedOSPlatform("browser")]
-internal sealed class WorkerTileRenderer(int document) : IRemoteTileRenderer
+internal sealed class WorkerTileRenderer(int document, double samplesPerPixel) : IRemoteTileRenderer
 {
     private bool _disposed;
 
@@ -392,7 +440,7 @@ internal sealed class WorkerTileRenderer(int document) : IRemoteTileRenderer
     {
         ArgumentNullException.ThrowIfNull(surface);
         cancellationToken.ThrowIfCancellationRequested();
-        if (await RenderWorker.RenderAsync(document, tile, cancellationToken).ConfigureAwait(true) is not { } image)
+        if (await RenderWorker.RenderAsync(document, tile, samplesPerPixel, cancellationToken).ConfigureAwait(true) is not { } image)
         {
             // Given back (the worker stopped, or could not open the document): completing without presenting hands the tile to the
             // scheduler, which draws it on the page's thread now that CanRender declines.

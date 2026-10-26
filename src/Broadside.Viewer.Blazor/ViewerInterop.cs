@@ -69,7 +69,7 @@ internal static partial class ViewerInterop
     public static partial void WorkerClose(int document);
 
     [JSImport("workerRender", Module)]
-    public static partial void WorkerRender(int job, int document, int page, double scale, int rotation, int x, int y, int width, int height, int layers);
+    public static partial void WorkerRender(int job, int document, int page, double scale, int rotation, int x, int y, int width, int height, int layers, double samplesPerPixel);
 
     [JSImport("workerCancel", Module)]
     public static partial void WorkerCancel(int job);
