@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using Broadside.Annotations;
@@ -644,6 +645,12 @@ public sealed partial class PdfDocument : IDisposable
     /// </summary>
     internal int ObjectsVersion => _loader.ObjectsVersion;
 
+    /// <summary>Returns the object <paramref name="reference"/> refers to when it has already been loaded, without reading the file.</summary>
+    /// <param name="reference">The reference.</param>
+    /// <param name="value">The loaded object.</param>
+    /// <returns><see langword="true"/> when the object has been loaded.</returns>
+    internal bool TryGetLoaded(CosReference reference, [NotNullWhen(true)] out CosObject? value) => _loader.TryGetLoaded(reference, out value);
+
     /// <summary>Returns <paramref name="value"/>, or the indirect object it refers to when it is a <see cref="CosReference"/>.</summary>
     /// <param name="value">A COS object from this document, or <see langword="null"/>.</param>
     /// <returns>
@@ -1192,6 +1199,19 @@ public sealed partial class PdfDocument : IDisposable
     /// <returns>The converter, shared by every caller asking for the same source.</returns>
     /// <remarks>ISO 32000-2 §8.6, §10.3 and §10.4; see <see cref="PdfColorConverter"/>.</remarks>
     public PdfColorConverter GetColorConverter(PdfColorSpace source) => GetColorConverter(source, default, null);
+
+    /// <summary>
+    /// Returns whether this document's engine offers images to the platform image decoder named <paramref name="name"/>: registered
+    /// with <see cref="PdfOptions.UsePlatformImageDecoder"/> and not turned off globally or by name.
+    /// </summary>
+    /// <param name="name">The decoder's <see cref="Images.IPlatformImageDecoder.Name"/>.</param>
+    /// <returns>Whether the decoder is in use.</returns>
+    /// <remarks>ISO 32000-2 §7.4.8. For a backend that hands images to the same platform itself (a browser's WebGL texture upload).</remarks>
+    public bool UsesPlatformImageDecoder(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        return Configuration?.PlatformImages?.Uses(name) == true;
+    }
 
     /// <summary>Returns the converter from <paramref name="source"/> under <paramref name="conversion"/>.</summary>
     /// <param name="source">The colour space.</param>

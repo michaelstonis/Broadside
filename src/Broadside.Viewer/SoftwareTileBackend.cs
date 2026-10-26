@@ -29,6 +29,11 @@ public sealed class SoftwareTileBackend : ITileBackend
     }
 
     /// <inheritdoc/>
+    /// <remarks>ISO 32000-2 §7.4.8 and §8.9.4: at the reductions this backend's rasterizer will ask for.</remarks>
+    public ValueTask PrefetchImagesAsync(DisplayList list, in Matrix deviceTransform, int width, int height, CancellationToken cancellationToken) =>
+        _rasterizer.PrefetchImagesAsync(list, deviceTransform, width, height, cancellationToken);
+
+    /// <inheritdoc/>
     public ITileRender Begin(DisplayList list, Bitmap target, in Matrix deviceTransform, CancellationToken cancellationToken) =>
         new Rendering(_rasterizer.BeginRender(list, target, deviceTransform, cancellationToken, null));
 

@@ -103,15 +103,13 @@ jobs:
 
       # The demo's relative base href makes it work under /Broadside/demo/. Pages serves _framework/ as it is (Jekyll does not run
       # for an Actions deployment), and the demo uses no WebAssembly threads, so it needs no cross-origin isolation headers.
-      # tracemonkey.pdf is left out: the paper carries an ACM copyright notice that does not allow reposting, so the gallery reads it
-      # from pdf.js's own copy instead (samples/Broadside.Viewer.Blazor.Sample/README.md, "Documents and licences").
       - name: Publish the live demo
         env:
           AOT: ${{ github.event_name != 'pull_request' }}
         run: |
-          args=(--omit tracemonkey.pdf)
+          args=()
           [ "$AOT" = true ] || args+=(--no-aot)
-          samples/Broadside.Viewer.Blazor.Sample/publish-static.sh "${args[@]}" "$RUNNER_TEMP/demo"
+          samples/Broadside.Viewer.Blazor.Sample/publish-static.sh ${args[@]+"${args[@]}"} "$RUNNER_TEMP/demo"
 
       - name: Build and check the site
         # MSBuild reads the environment, so the Android build inside Lunet finds the runner's SDK.

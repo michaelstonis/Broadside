@@ -178,12 +178,23 @@
       {
         file = Uri.UnescapeDataString(parts[1]);
       }
+      else if (parts.Length == 2 && parts[0] == "k" && double.TryParse(parts[1], System.Globalization.CultureInfo.InvariantCulture, out double k) && k >= 1)
+      {
+        Demo.Options.ImageSamplesPerPixel = k; // ?k=1: images keep one decoded sample per device pixel (the page and the worker)
+      }
+      else if (parts.Length == 2 && parts[0] == "scaled" && parts[1] == "0")
+      {
+        Demo.Options.ScaledImageDecode = false; // ?scaled=0: images at their own resolution
+      }
       else if (parts.Length == 2 && parts[0] == "renderer" && parts[1] == "webgl")
       {
         // ?renderer=webgl draws with WebGL 2 from the first page (the View panel switches later).
         await Renderers.SetAsync(true);
       }
     }
+
+    // The browser's own JPEG decoder (#373): probed once, before the first document is drawn.
+    await BrowserImageDecoder.InitializeAsync();
 
     // The render worker boots the app's runtime a second time, in a Web Worker: content tiles render there (#357).
     if (worker)

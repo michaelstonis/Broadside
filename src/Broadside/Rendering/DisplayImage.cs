@@ -219,6 +219,118 @@ public sealed class DisplayImage
     }
 
     /// <summary>
+    /// Returns the image's encoded data when the shared platform-decoder rule allows it, prepared for a platform decoder with
+    /// <paramref name="features"/> (Exif and ICC payloads zero-filled in a copy where they say so): for a backend that hands the data
+    /// to the platform itself and draws the platform's own image (a browser's <c>ImageBitmap</c> uploaded to a texture).
+    /// </summary>
+    /// <param name="features">What the platform decoder would misread.</param>
+    /// <param name="request">The image's header facts (reduction 0).</param>
+    /// <param name="data">The codestream, or a cleaned copy of it.</param>
+    /// <returns>Whether the image is kept encoded and may go to a platform decoder.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.4.8 Table 13 and §8.9.5.1 Table 87; see <see cref="IPlatformImageDecoder"/>. The backend stays responsible for
+    /// drawing such an image only where the colour pipeline would not change its samples (no Decode mapping, masks, colour key or
+    /// transfer function, a gray or RGB colour space).
+    /// </remarks>
+    public bool TryGetPlatformData(PlatformImageFeatures features, out PlatformImageRequest request, out ReadOnlyMemory<byte> data)
+    {
+        data = default;
+        request = default;
+        if (_source is not Reductions { Encoded: { } encoded } || !encoded.TryCreatePlatformRequest(out request))
+        {
+            return false;
+        }
+
+        data = encoded.Data;
+        bool exif = request.HasExif && (features & PlatformImageFeatures.AppliesExifOrientation) != 0;
+        bool icc = request.HasIccProfile && (features & PlatformImageFeatures.ConvertsEmbeddedProfiles) != 0;
+        if (exif || icc)
+        {
+            byte[] copy = data.ToArray();
+            PlatformImageEligibility.Sanitize(copy, exif, icc);
+            data = copy;
+        }
+
+        return true;
+    }
+
+    /// <summary>Gets a value indicating whether the image is kept encoded with a codec a platform image decoder may be offered.</summary>
+    internal bool IsPlatformCandidate => _source is Reductions { Encoded: not null, Failed: false, PlatformFailed: false };
+
+    /// <summary>
+    /// Starts decoding the image at <paramref name="reduction"/> with a platform image decoder, unless the cache already holds that
+    /// reduction or a finer one, the image is not eligible, no decoder takes it, or a platform decode of it failed before; the result
+    /// goes into the cache under the same once-gate <see cref="GetSamplesAt(int, CancellationToken)"/> uses.
+    /// </summary>
+    /// <returns>The decode, shared with any other prefetch of the same reduction in flight; <see langword="null"/> when there is nothing to do.</returns>
+    /// <remarks>ISO 32000-2 §7.4.8 and §8.9.3. A failure leaves the image to the managed codec and is recorded once.</remarks>
+    internal Task? Prefetch(int reduction, PlatformImageDecoding platform, CancellationToken cancellationToken)
+    {
+        if (_source is not Reductions { Encoded: { } encoded } reductions || reductions.Failed || reductions.PlatformFailed)
+        {
+            return null;
+        }
+
+        int wanted = Math.Min(reduction, reductions.MaxReduction);
+        for (int finer = wanted; finer >= 0; finer--)
+        {
+            if (Find(reductions, finer) is not null)
+            {
+                return null;
+            }
+        }
+
+        if (!encoded.TryCreatePlatformRequest(out PlatformImageRequest request))
+        {
+            return null;
+        }
+
+        request = request with { Reduction = wanted };
+        if (platform.Choose(request) is not { } decoder)
+        {
+            return null;
+        }
+
+        return Start(reductions, encoded, decoder, request, platform, cancellationToken);
+    }
+
+    // Its own method so that the closure is made only when a decode starts, not on every call of Prefetch.
+    private Task Start(Reductions reductions, EncodedImage encoded, IPlatformImageDecoder decoder, PlatformImageRequest request, PlatformImageDecoding platform, CancellationToken cancellationToken) =>
+        platform.Join(this, request.Reduction, () => DecodeOnPlatformAsync(reductions, encoded, decoder, request, platform, cancellationToken));
+
+    private async Task DecodeOnPlatformAsync(Reductions reductions, EncodedImage encoded, IPlatformImageDecoder decoder, PlatformImageRequest request, PlatformImageDecoding platform, CancellationToken cancellationToken)
+    {
+#pragma warning disable CA2000 // The cache and the slots own the samples from here on.
+        DecodedImage? decoded = await platform.DecodeAsync(encoded, decoder, request, cancellationToken).ConfigureAwait(false);
+#pragma warning restore CA2000
+        if (decoded is null)
+        {
+            reductions.PlatformFailed = true;
+            return;
+        }
+
+        int wanted = request.Reduction;
+        Slot slot = reductions.Slots[wanted];
+        lock (slot.Gate)
+        {
+            if (cancellationToken.IsCancellationRequested || Find(reductions, wanted) is not null)
+            {
+                // Cancelled, or a replay decoded it with the managed codec meanwhile: keep nothing of this decode.
+                decoded.Dispose();
+                cancellationToken.ThrowIfCancellationRequested();
+                return;
+            }
+
+            Keep(reductions, decoded.Reduction, decoded);
+            if (decoded.Reduction != wanted)
+            {
+                slot.Weak.SetTarget(decoded);
+                slot.Alias = true;
+            }
+        }
+    }
+
+    /// <summary>
     /// Returns the reduction to ask <see cref="GetSamplesAt(int)"/> for when the image is drawn under <paramref name="transform"/>: the
     /// largest power of two that still leaves at least <paramref name="samplesPerPixel"/> samples per device pixel along the image's
     /// most enlarged direction, within what the codec delivers and what the colour conversion allows.
@@ -512,6 +624,7 @@ public sealed class DisplayImage
     {
         private Slot[]? _slots;
         private bool _failed;
+        private bool _platformFailed;
 
         /// <summary>Gets the encoded image, or <see langword="null"/> for one decoded at build.</summary>
         public EncodedImage? Encoded { get; } = encoded;
@@ -540,6 +653,13 @@ public sealed class DisplayImage
         {
             get => Volatile.Read(ref _failed);
             set => Volatile.Write(ref _failed, value);
+        }
+
+        /// <summary>Gets or sets a value indicating whether a platform decode failed (reported once; the managed codec decodes it).</summary>
+        public bool PlatformFailed
+        {
+            get => Volatile.Read(ref _platformFailed);
+            set => Volatile.Write(ref _platformFailed, value);
         }
 
         private Slot[] CreateSlots()

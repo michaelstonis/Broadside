@@ -17,7 +17,7 @@ namespace Broadside.Rendering.WebGL;
 /// renders on one page are sequential (WebAssembly is single-threaded).
 /// </remarks>
 [SupportedOSPlatform("browser")]
-public sealed class WebGLRenderer : IDisposable
+public sealed partial class WebGLRenderer : IDisposable
 {
     private static readonly Diagnostic Unavailable = new(
         "BackendWebGLUnavailable",
@@ -31,6 +31,7 @@ public sealed class WebGLRenderer : IDisposable
     private readonly Recorder _recorder;
     private SoftwareRasterizer? _software;
     private byte[] _readBack = [];
+    private double _imageSamplesPerPixel = RenderOptions.DefaultImageSamplesPerPixel;
 
     /// <summary>Initializes a new instance of the <see cref="WebGLRenderer"/> class.</summary>
     public WebGLRenderer() => _recorder = new Recorder(_commands, _diagnostics);
@@ -72,7 +73,12 @@ public sealed class WebGLRenderer : IDisposable
         PixelSize size = options.GetPixelSize(page);
         var target = new Bitmap(size.Width, size.Height);
         target.Pixels.Fill(0xFF);
-        Render(page.CreateDisplayList(), target, options.GetDeviceTransform(page));
+        double samplesPerPixel = options.ScaledImageDecode && !options.OverprintPreview ? options.ImageSamplesPerPixel : 0;
+        using WebGLRender render = Begin(page.CreateDisplayList(), target, options.GetDeviceTransform(page), readBack: true, samplesPerPixel, CancellationToken.None);
+        while (!render.Continue(Timeout.InfiniteTimeSpan))
+        {
+        }
+
         return target;
     }
 
@@ -98,11 +104,42 @@ public sealed class WebGLRenderer : IDisposable
     /// render (unless <see cref="WebGLRender.IsInCanvas"/> is false: the software rasterizer drew the render into the target).
     /// </param>
     /// <returns>The render in progress; the caller disposes it.</returns>
-    public WebGLRender BeginRender(DisplayList list, Bitmap target, in Matrix deviceTransform, bool readBack, CancellationToken cancellationToken)
+    public WebGLRender BeginRender(DisplayList list, Bitmap target, in Matrix deviceTransform, bool readBack, CancellationToken cancellationToken) =>
+        Begin(list, target, deviceTransform, readBack, ScaledImageDecode ? _imageSamplesPerPixel : 0, cancellationToken);
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the renders of a display list given to this renderer decode images at the resolution
+    /// they are drawn at rather than their own; <see langword="false"/> by default. Page renders take
+    /// <see cref="RenderOptions.ScaledImageDecode"/> instead.
+    /// </summary>
+    /// <remarks>
+    /// For viewers only, never for printing or export (see <see cref="RenderOptions.ScaledImageDecode"/>): an image is uploaded at the
+    /// largest power-of-two reduction that keeps <see cref="ImageSamplesPerPixel"/> samples per device pixel
+    /// (<see cref="DisplayImage.GetReduction"/>, capped for a curved colour conversion), a stencil mask as 8-bit coverage at its own;
+    /// the GPU then samples the smaller texture. ISO 32000-2 §8.9.4 (the image unit square), §8.9.5.3.
+    /// </remarks>
+    public bool ScaledImageDecode { get; set; }
+
+    /// <summary>
+    /// Gets or sets the fewest decoded samples per device pixel a reduced image keeps when <see cref="ScaledImageDecode"/> is on:
+    /// <see cref="RenderOptions.DefaultImageSamplesPerPixel"/> (2) by default; 1 is faster and coarser.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a finite number of at least 1.</exception>
+    /// <remarks>See <see cref="RenderOptions.ImageSamplesPerPixel"/>; ISO 32000-2 §8.9.4.</remarks>
+    public double ImageSamplesPerPixel
+    {
+        get => _imageSamplesPerPixel;
+        set => _imageSamplesPerPixel = double.IsFinite(value) && value >= 1
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "The samples per pixel must be a finite number of at least 1.");
+    }
+
+    private WebGLRender Begin(DisplayList list, Bitmap target, in Matrix deviceTransform, bool readBack, double samplesPerPixel, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
         _diagnostics.Clear();
+        _recorder.ImageSamplesPerPixel = samplesPerPixel;
         return new WebGLRender(this, list, target, deviceTransform, readBack, cancellationToken);
     }
 
@@ -159,7 +196,22 @@ public sealed class WebGLRenderer : IDisposable
 
     internal static Diagnostic UnavailableDiagnostic => Unavailable;
 
-    internal SoftwareRasterizer Software => _software ??= new SoftwareRasterizer();
+    /// <summary>Gets the software rasterizer a render falls back to, decoding images as this render's recorder does (issue #362).</summary>
+    internal SoftwareRasterizer Software
+    {
+        get
+        {
+            SoftwareRasterizer software = _software ??= new SoftwareRasterizer();
+            double samplesPerPixel = _recorder.ImageSamplesPerPixel;
+            software.ScaledImageDecode = samplesPerPixel > 0;
+            if (samplesPerPixel > 0)
+            {
+                software.ImageSamplesPerPixel = samplesPerPixel;
+            }
+
+            return software;
+        }
+    }
 
     internal Span<byte> ReadBackBuffer(int length)
     {

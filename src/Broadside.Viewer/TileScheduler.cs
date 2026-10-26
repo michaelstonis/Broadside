@@ -1153,7 +1153,11 @@ public sealed class TileScheduler : IDisposable
         }
     }
 
-    /// <summary>Takes the page's list (built now unless the document caches it) and starts drawing into a pooled bitmap.</summary>
+    /// <summary>
+    /// Takes the page's list (built now unless the document caches it), has the backend's platform image decoders decode the tile's
+    /// images (#372; when that is not done at once, the tile continues in a later frame, where the prefetch finds them decoded), and
+    /// starts drawing into a pooled bitmap.
+    /// </summary>
     private void BeginDrawing(TileJob job)
     {
         CancellationToken token = job.Operation!.Token;
@@ -1193,6 +1197,46 @@ public sealed class TileScheduler : IDisposable
             return;
         }
 
+        Matrix transform = DocumentSession.GetTileTransform(job.Page!, job.Tile);
+        // The backend is the job's only once it draws: a tile waiting for its images holds none, so tiles that wait together do not
+        // each take a backend (and each convert the same large image into its own buffers) when they resume.
+        ITileBackend backend = job.Backend ?? _session.RentBackend();
+        ValueTask images;
+        try
+        {
+            images = backend.PrefetchImagesAsync(list, transform, job.Tile.Region.Width, job.Tile.Region.Height, token);
+        }
+        catch (OperationCanceledException)
+        {
+            ReturnUnlessHeld(job, backend);
+            Cancel(job);
+            return;
+        }
+#pragma warning disable CA1031 // a prefetch that fails leaves the images to the managed codecs
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+            images = ValueTask.CompletedTask;
+        }
+
+        if (!images.IsCompleted)
+        {
+            // The platform decodes off this thread: the tile continues in a later frame, which takes the list again (from the
+            // document's cache) and finds the images decoded.
+            ReturnUnlessHeld(job, backend);
+            job.Load = AwaitImagesAsync(job, images.AsTask());
+            return;
+        }
+
+        if (images.IsCanceled)
+        {
+            ReturnUnlessHeld(job, backend);
+            Cancel(job);
+            return;
+        }
+
+        job.Backend = backend;
+
         job.Target = new Bitmap(job.Tile.Region.Width, job.Tile.Region.Height);
         _session.AddPixelBytes(job.Bytes);
         if ((job.Tile.Layers & DisplayLayers.Content) != 0)
@@ -1200,16 +1244,65 @@ public sealed class TileScheduler : IDisposable
             job.Target.Pixels.Fill(byte.MaxValue); // the paper: opaque white, premultiplied BGRA
         }
 
-        job.Backend = _session.RentBackend();
         try
         {
-            job.Rendering = job.Backend.Begin(list, job.Target, DocumentSession.GetTileTransform(job.Page!, job.Tile), token);
+            job.Rendering = job.Backend.Begin(list, job.Target, transform, token);
         }
 #pragma warning disable CA1031 // reported as a failed tile
         catch (Exception)
 #pragma warning restore CA1031
         {
             Fail(job);
+        }
+    }
+
+    /// <summary>Gives back a backend rented only for a prefetch.</summary>
+    private void ReturnUnlessHeld(TileJob job, ITileBackend backend)
+    {
+        if (!ReferenceEquals(job.Backend, backend))
+        {
+            _session.ReturnBackend(backend);
+        }
+    }
+
+    /// <summary>Waits for the platform decodes of a tile's images without blocking the frame; the tile is drawn in a later frame.</summary>
+    private async Task AwaitImagesAsync(TileJob job, Task images)
+    {
+        bool cancelled = false;
+        try
+        {
+            await images.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            cancelled = true;
+        }
+#pragma warning disable CA1031 // a prefetch that fails leaves the images to the managed codecs
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+        }
+
+        lock (_gate)
+        {
+            job.Load = null;
+            if (job.State != TileState.Drawing)
+            {
+                // Cancelled meanwhile: the operation outlived the cancellation only to see the decodes end.
+                if (job.Operation is not null)
+                {
+                    _session.Exit(job.Operation);
+                    job.Operation = null;
+                }
+
+                return;
+            }
+
+            if (cancelled)
+            {
+                Release(job);
+                job.State = TileState.New;
+            }
         }
     }
 

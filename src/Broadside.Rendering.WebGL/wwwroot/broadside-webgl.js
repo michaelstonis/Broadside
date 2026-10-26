@@ -165,6 +165,55 @@ export function upload(id, w, h, format, pixels, interpolate) {
   textures.set(id, texture);
 }
 
+// "Mode B" (#373): JPEG images the browser decodes itself with createImageBitmap, uploaded to a texture without reading the pixels
+// back, keyed by a number the .NET side chose. Used where the browser has no WebCodecs ImageDecoder (Safari).
+const bitmaps = new Map();
+const decoding = new Map();
+
+/** Starts decoding a copy of `data` (a MemoryView, read now) into an ImageBitmap stored under `key`. */
+export function beginBitmap(key, data) {
+  const bytes = data.slice();
+  decoding.set(key, createImageBitmap(new Blob([bytes], { type: "image/jpeg" }), { colorSpaceConversion: "none", premultiplyAlpha: "none" })
+    .then(bitmap => { bitmaps.set(key, bitmap); return `ok ${bitmap.width} ${bitmap.height}`; }, e => "error " + String(e && e.message ? e.message : e)));
+}
+
+/** Waits for a bitmap: "ok <width> <height>" or "error <reason>". */
+export async function waitBitmap(key) {
+  const pending = decoding.get(key);
+  if (!pending) return "error no such bitmap";
+  const result = await pending;
+  decoding.delete(key);
+  return result;
+}
+
+export function dropBitmap(key) {
+  bitmaps.get(key)?.close();
+  bitmaps.delete(key);
+}
+
+export function uploadBitmap(id, key, interpolate) {
+  const bitmap = bitmaps.get(key);
+  if (!bitmap) return false;
+  release(id);
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
+  gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.BROWSER_DEFAULT_WEBGL);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, interpolate ? gl.LINEAR : gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  textures.set(id, texture);
+  bitmap.close();
+  bitmaps.delete(key);
+  globalThis.__broadsideBitmapTextures = (globalThis.__broadsideBitmapTextures ?? 0) + 1; // diagnostics for the browser tests
+  return true;
+}
+
 export function release(id) {
   const texture = textures.get(id);
   if (texture) {

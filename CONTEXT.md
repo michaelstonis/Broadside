@@ -83,6 +83,10 @@ _Avoid_: CPU renderer, fallback renderer
 A backend that draws through a platform's own graphics API: CoreGraphics on Apple platforms, Direct2D on Windows, Android Canvas on Android.
 _Avoid_: Platform renderer, OS renderer
 
+**Platform image decoder**:
+A platform's own image codec (a browser's WebCodecs, an operating system codec) that decodes the images a viewer is about to draw, asynchronously and before the tile is replayed, behind one eligibility rule in the core; the managed codec stays the fallback and the only decoder for extraction and export.
+_Avoid_: Native filter, hardware decoder, image plugin
+
 ### Viewer
 
 **Document session**:

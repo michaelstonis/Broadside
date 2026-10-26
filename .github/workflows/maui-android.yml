@@ -35,8 +35,8 @@ env:
 
 jobs:
   # Builds the sample in Release (ILLink and AOT on) for x86_64, the emulator's ABI on a Linux runner, checks the APK's AOT images
-  # against its assemblies, boots an emulator and runs the smoke intent: TraceMonkey opens, page 1 is captured from the GPU
-  # surface, and the app logs BROADSIDE_SMOKE_OK. #366 aborted here at startup while the Debug build ran.
+  # against its assemblies, boots an emulator and runs the smoke intent: TraceMonkey opens (downloaded from pdf.js's copy, so the
+  # emulator needs network), page 1 is captured from the GPU surface, and the app logs BROADSIDE_SMOKE_OK. #366 aborted here at startup while the Debug build ran.
   smoke:
     name: smoke (API ${{ matrix.api-level }})
     runs-on: ubuntu-latest

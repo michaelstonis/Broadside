@@ -60,6 +60,41 @@ internal sealed class EncodedImage
     /// <summary>Gets the codestream's header: the size, components and depth every decode delivers at reduction 0.</summary>
     public ImageHeader Header { get; }
 
+    /// <summary>Gets the data the codec decodes; never written.</summary>
+    public ReadOnlyMemory<byte> Data => _data;
+
+    /// <summary>
+    /// Applies the shared platform-decoder rule (<see cref="PlatformImageEligibility"/>): the request for this image at reduction 0
+    /// when a platform decoder may decode it.
+    /// </summary>
+    /// <param name="request">The request.</param>
+    /// <returns>Whether the image may go to a platform decoder.</returns>
+    /// <remarks>ISO 32000-2 §7.4.8 Table 13 and §8.9.5.1 Table 87. Reads the markers in place; allocates nothing.</remarks>
+    public bool TryCreatePlatformRequest(out PlatformImageRequest request)
+    {
+        request = default;
+        if (!_filter.Name.Equals(FilterNames.DctDecode))
+        {
+            return false;
+        }
+
+        int colorTransform = -1;
+        if (_parameters is not null && _parameters.TryGetValue(FilterNames.ColorTransform, out CosObject? entry) && _streams.Resolve(entry) is CosInteger { Value: var value })
+        {
+            colorTransform = value is 0 or 1 ? (int)value : -1;
+        }
+
+        return PlatformImageEligibility.TryCreateRequest(_data.Span, colorTransform, _dictionaryWidth, _dictionaryHeight, out request, out _);
+    }
+
+    /// <summary>Records a diagnostic of this image on its document.</summary>
+    /// <param name="code">The code.</param>
+    /// <param name="severity">The severity.</param>
+    /// <param name="message">The message.</param>
+    /// <param name="reference">The image stream's reference, which makes the diagnostic the image's own; <see langword="null"/> when direct.</param>
+    public void Report(string code, DiagnosticSeverity severity, string message, CosReference? reference) =>
+        _streams.Report(new Diagnostic(code, severity, message, null, reference));
+
     /// <summary>Gets the bytes the encoded data keeps.</summary>
     public long RetainedBytes => _data.Length;
 

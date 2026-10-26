@@ -21,6 +21,13 @@ public class MainActivity : MauiAppCompatActivity
             FrameBench.Requested = true;
         }
 
+        // Large-photo bench (#428): --ez photo true, and --ez photoFull true for a full-resolution decode
+        if (Intent?.GetBooleanExtra("photo", false) == true)
+        {
+            PhotoBench.Requested = true;
+            PhotoBench.FullDecode = Intent.GetBooleanExtra("photoFull", false);
+        }
+
         base.OnCreate(savedInstanceState);
     }
 }

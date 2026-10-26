@@ -730,3 +730,5 @@ Broadside.Viewer.ViewerOptions.ScaledImageDecode.get -> bool
 Broadside.Viewer.ViewerOptions.ScaledImageDecode.set -> void
 Broadside.Viewer.ViewerOptions.WithImageSamplesPerPixel(double samplesPerPixel) -> Broadside.Viewer.ViewerOptions!
 Broadside.Viewer.ViewerOptions.WithScaledImageDecode(bool scaledImageDecode) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ITileBackend.PrefetchImagesAsync(Broadside.Rendering.DisplayList! list, in Broadside.Graphics.Matrix deviceTransform, int width, int height, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Broadside.Viewer.SoftwareTileBackend.PrefetchImagesAsync(Broadside.Rendering.DisplayList! list, in Broadside.Graphics.Matrix deviceTransform, int width, int height, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask

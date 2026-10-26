@@ -61,6 +61,9 @@ internal sealed class Recorder : IRenderingBackend
     /// <summary>Gets the reason the recording stopped (the tile then needs the software rasterizer); null while it can continue.</summary>
     public Diagnostic? Fallback { get; private set; }
 
+    /// <summary>Gets or sets the fewest samples per device pixel a reduced image keeps (issue #362), or 0 to draw images at their own resolution.</summary>
+    public double ImageSamplesPerPixel { get; set; }
+
     public IReadOnlyList<int> TemporaryTextures => _temporary;
 
     public void Reset(PdfDocument document, in Matrix device, int width, int height, CancellationTokenSource stop)
@@ -164,9 +167,45 @@ internal sealed class Recorder : IRenderingBackend
 
     public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
     {
-        if (Fallback is not null || image.GetSamplesAt(0) is null)
+        if (Fallback is not null)
         {
             return;
+        }
+
+        // Mode B (#373): an image whose texture the browser decoded itself needs no samples, so it never decodes here.
+        bool native = WebGLRenderer.IsNativeImagePaint(image, conversion);
+        bool bitmap = native && TextureCache.HasNativeImage(image);
+        DisplayImageSamples? samples = null;
+        DisplayImageSamples? softSamples = null;
+        bool foldSoft = false;
+        int reduction = 0;
+        if (!bitmap)
+        {
+            reduction = Reduction(image, defaultColorSpaces, conversion);
+        }
+
+        // A texture kept at a finer reduction than asked needs no samples (issue #362: zooming out decodes nothing again).
+        if (!bitmap && !(reduction > 0 && TextureCache.HasConverted(image, defaultColorSpaces, conversion, reduction)))
+        {
+            samples = image.GetSamplesAt(reduction);
+            if (samples is null)
+            {
+                return;
+            }
+
+            foldSoft = ImageConverter.FoldsSoftMask(image, samples.Value, out softSamples);
+            if (!foldSoft && reduction > 0 && ImageConverter.FoldsSoftMask(image))
+            {
+                // A soft mask of the image's size that does not reduce alike: the image's own resolution keeps both on the GPU.
+                reduction = 0;
+                samples = image.GetSamplesAt(0);
+                if (samples is null)
+                {
+                    return;
+                }
+
+                foldSoft = ImageConverter.FoldsSoftMask(image, samples.Value, out softSamples);
+            }
         }
 
         bool unfoldedSoft = image.SoftMask is not null && !ImageConverter.FoldsSoftMask(image);
@@ -179,7 +218,7 @@ internal sealed class Recorder : IRenderingBackend
             return;
         }
 
-        int texture = TextureCache.GetImage(image, _document, defaultColorSpaces, conversion);
+        int texture = TextureCache.GetImage(image, _document, defaultColorSpaces, conversion, native, samples, foldSoft, softSamples, reduction, out TextureGrid grid);
         if (texture == 0)
         {
             Stop("BackendImageTooLarge", "An image larger than the largest WebGL texture (ISO 32000-2 §8.9.5) made the software rasterizer draw the tile.");
@@ -191,7 +230,7 @@ internal sealed class Recorder : IRenderingBackend
         _color[1] = a;
         _color[2] = a;
         _color[3] = a;
-        DrawUnitSquare(CommandList.Image, texture);
+        DrawUnitSquare(CommandList.Image, texture, grid.ExtentU(image.Width), grid.ExtentV(image.Height));
     }
 
     public void FillImageMask(DisplayImageMask mask, in DisplayColor color)
@@ -201,14 +240,32 @@ internal sealed class Recorder : IRenderingBackend
             return;
         }
 
-        int texture = TextureCache.GetMask(mask);
+        // A viewer samples a large stencil drawn small from its 8-bit coverage at a reduction (issue #362), not from every bit.
+        int reduction = ImageSamplesPerPixel > 0 ? mask.GetReduction(_toDevice, ImageSamplesPerPixel) : 0;
+        int texture = TextureCache.GetMask(mask, reduction, out TextureGrid grid);
         if (texture == 0)
         {
             Stop("BackendImageTooLarge", "A stencil mask larger than the largest WebGL texture (ISO 32000-2 §8.9.6.2) made the software rasterizer draw the tile.");
             return;
         }
 
-        DrawUnitSquare(CommandList.Mask, texture);
+        DrawUnitSquare(CommandList.Mask, texture, grid.ExtentU(mask.Width), grid.ExtentV(mask.Height));
+    }
+
+    /// <summary>
+    /// The reduction an image is drawn at (issue #362): <see cref="DisplayImage.GetReduction"/> under the transform in force, capped by
+    /// the image's conversion to RGB; 0 when images are drawn at their own resolution, and for an image with an explicit mask, which the
+    /// GPU folds only at the image's own resolution.
+    /// </summary>
+    private int Reduction(DisplayImage image, PdfDefaultColorSpaces defaults, ColorConversion conversion)
+    {
+        if (ImageSamplesPerPixel <= 0 || image.MaxReduction == 0 || image.Mask is not null)
+        {
+            return 0;
+        }
+
+        PdfColorConverter converter = _document.GetColorConverter(image.ColorSpace, conversion with { Target = DeviceColorModel.Rgb }, defaults);
+        return image.GetReduction(_toDevice, ImageSamplesPerPixel, converter);
     }
 
     public void BeginAnnotation(in DisplayAnnotation annotation)
@@ -477,7 +534,11 @@ internal sealed class Recorder : IRenderingBackend
         _tessellator.EmitStroke(style, width / 2, _toDevice, max, device: false);
     }
 
-    private void DrawUnitSquare(int op, int texture)
+    /// <summary>
+    /// Draws the unit square textured with <paramref name="texture"/>, whose first <paramref name="extentU"/> × <paramref name="extentV"/>
+    /// it covers: 1 × 1 at the image's own resolution; less for reduced samples, whose last column and row reach past the unit square.
+    /// </summary>
+    private void DrawUnitSquare(int op, int texture, float extentU, float extentV)
     {
         SyncClip();
         int first = _commands.VertexCount;
@@ -495,11 +556,11 @@ internal sealed class Recorder : IRenderingBackend
         }
 
         // Image space: the first row is at the top of the unit square (§8.9.4), so user (x, y) samples the texture at (x, 1 - y).
-        _commands.Add((float)p00.X, (float)p00.Y, 0, 1);
-        _commands.Add((float)p10.X, (float)p10.Y, 1, 1);
-        _commands.Add((float)p11.X, (float)p11.Y, 1, 0);
-        _commands.Add((float)p00.X, (float)p00.Y, 0, 1);
-        _commands.Add((float)p11.X, (float)p11.Y, 1, 0);
+        _commands.Add((float)p00.X, (float)p00.Y, 0, extentV);
+        _commands.Add((float)p10.X, (float)p10.Y, extentU, extentV);
+        _commands.Add((float)p11.X, (float)p11.Y, extentU, 0);
+        _commands.Add((float)p00.X, (float)p00.Y, 0, extentV);
+        _commands.Add((float)p11.X, (float)p11.Y, extentU, 0);
         _commands.Add((float)p01.X, (float)p01.Y, 0, 0);
         _commands.Texture(op, texture, first, 6, _color);
     }

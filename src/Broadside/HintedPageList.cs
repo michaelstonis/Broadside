@@ -39,6 +39,7 @@ internal sealed class HintedPageList
     private readonly OnceCache<int, PdfPage?> _pages = new();
     private readonly ConcurrentDictionary<CosReference, PdfPage> _created = DeterministicTable.Create<CosReference, PdfPage>();
     private readonly ConcurrentDictionary<CosDictionary, int> _indexes = DeterministicTable.Create<CosDictionary, int>(ReferenceEqualityComparer.Instance);
+    private readonly OnceCache<bool, Dictionary<int, int>> _numbers = new();
 
     /// <summary>Initializes a new instance of the <see cref="HintedPageList"/> class.</summary>
     /// <param name="document">The document.</param>
@@ -91,10 +92,68 @@ internal sealed class HintedPageList
     /// <returns><see langword="true"/> when this list handed out a page with that page object.</returns>
     public bool TryGetIndex(CosDictionary pageObject, out int index) => _indexes.TryGetValue(pageObject, out index);
 
+    /// <summary>
+    /// Returns the index of the page whose page object <paramref name="reference"/> refers to, by its object number alone: nothing is
+    /// read, and the page is not checked (<see cref="Get"/> checks it).
+    /// </summary>
+    /// <param name="reference">A reference.</param>
+    /// <param name="index">The index of the page the hints place under that object number.</param>
+    /// <returns><see langword="true"/> when the hints give a page that object number; otherwise the reference is no page's (F.3.1: every object of a linearized file has generation 0).</returns>
+    /// <remarks>ISO 32000-2 Table F.4 items 1 and 2: the first page's object is the parameter dictionary's <c>O</c>, each other page's the first object of its entry.</remarks>
+    public bool TryGetIndex(CosReference reference, out int index)
+    {
+        index = -1;
+        return reference.Generation == 0 && Numbers().TryGetValue(reference.ObjectNumber, out index);
+    }
+
+    /// <summary>
+    /// Returns the index of the page whose page object is <paramref name="pageObject"/> without reading the file or the page tree: a
+    /// page already handed out, else a page whose page object has been loaded and is that dictionary. The page is not checked.
+    /// </summary>
+    /// <param name="pageObject">A dictionary of the document, as resolving returns it.</param>
+    /// <returns>The index, or -1 when the dictionary is no page's page object: a page object is only ever loaded under its own number.</returns>
+    public int Find(CosDictionary pageObject)
+    {
+        if (_indexes.TryGetValue(pageObject, out int index))
+        {
+            return index;
+        }
+
+        int count = Count ?? 0;
+        for (index = 0; index < count; index++)
+        {
+            if (_document.TryGetLoaded(new CosReference(PageObjectNumber(index), 0), out CosObject? loaded) && ReferenceEquals(loaded, pageObject))
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>The object number the hints give page <paramref name="index"/>'s page object (Table F.4 items 1 and 2).</summary>
+    private int PageObjectNumber(int index) => index == 0 ? _linearization.FirstPageObjectNumber : _linearization.Hints!.Pages[index].FirstObjectNumber;
+
+    private Dictionary<int, int> Numbers() => _numbers.GetOrCreate(
+        true,
+        this,
+        static (_, self) =>
+        {
+            int count = self.Count ?? 0;
+            var numbers = new Dictionary<int, int>(count);
+            for (int index = 0; index < count; index++)
+            {
+                numbers.TryAdd(self.PageObjectNumber(index), index);
+            }
+
+            return new Created<Dictionary<int, int>>(numbers);
+        },
+        static (_, _) => []);
+
     private PdfPage? Create(int index)
     {
         PdfPageHint hint = _linearization.Hints!.Pages[index];
-        int number = index == 0 ? _linearization.FirstPageObjectNumber : hint.FirstObjectNumber;
+        int number = PageObjectNumber(index);
         bool located = index == 0
             ? hint.FirstObjectNumber == number && _firstPageEntry(number) is { Kind: XrefEntryKind.InUse } entry && _headerOffset + entry.Offset == hint.Offset
             : StartsWithHeader(hint.Offset, number);

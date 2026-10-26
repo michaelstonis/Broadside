@@ -871,8 +871,14 @@ public sealed class PdfImage
         if (keepEncoded && read?.Value is { } kept && CanKeepEncoded(kept, layout))
         {
             ReportDimensions(filter, kept.Width, kept.Height, layout);
-            return new PreparedImage(null, new EncodedImage(
-                dataIsStream ? data : data.ToArray(), filter, streams, filterContext.Parameters, filterContext.StreamDictionary, kept, layout.Width, layout.Height, layout.BitsPerComponent));
+            var encoded = new EncodedImage(
+                dataIsStream ? data : data.ToArray(), filter, streams, filterContext.Parameters, filterContext.StreamDictionary, kept, layout.Width, layout.Height, layout.BitsPerComponent);
+            if (Reference is { } reference && _document.Configuration?.PlatformImages is { } platform)
+            {
+                platform.Identify(encoded, reference); // names the image in the platform decoders' diagnostics (#372)
+            }
+
+            return new PreparedImage(null, encoded);
         }
 
         DecodedImage? decoded = streams.RunImageFilter(filter.Name, () => filter.DecodeImage(data, context), filterContext.CancellationToken);

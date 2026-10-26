@@ -42,14 +42,25 @@ public static class Renderers
 [SupportedOSPlatform("browser")]
 public sealed class DemoTileBackend : ITileBackend
 {
-    private readonly SoftwareTileBackend _software = new();
+    // Both decode images as the demo's options say (?k= and ?scaled=0; at the resolution they are drawn at, by default).
+    private readonly SoftwareTileBackend _software = new(Demo.Options.ScaledImageDecode, Demo.Options.ImageSamplesPerPixel);
     private WebGLTileBackend? _webgl;
+
+    private WebGLTileBackend WebGL => _webgl ??= new WebGLTileBackend(Demo.Options.ScaledImageDecode, Demo.Options.ImageSamplesPerPixel);
+
+    /// <inheritdoc />
+    public ValueTask PrefetchImagesAsync(DisplayList list, in Matrix deviceTransform, int width, int height, CancellationToken cancellationToken)
+    {
+        bool gpu = Renderers.UseWebGL && WebGLTileBackend.IsAvailable;
+        ITileBackend backend = gpu ? WebGL : _software;
+        return backend.PrefetchImagesAsync(list, deviceTransform, width, height, cancellationToken);
+    }
 
     /// <inheritdoc />
     public ITileRender Begin(DisplayList list, Bitmap target, in Matrix deviceTransform, CancellationToken cancellationToken)
     {
         bool gpu = Renderers.UseWebGL && WebGLTileBackend.IsAvailable;
-        ITileBackend backend = gpu ? _webgl ??= new WebGLTileBackend() : _software;
+        ITileBackend backend = gpu ? WebGL : _software;
         long start = Stopwatch.GetTimestamp();
         ITileRender render = backend.Begin(list, target, deviceTransform, cancellationToken);
         return new Timed(render, gpu ? _webgl : null, Stopwatch.GetElapsedTime(start));
@@ -237,6 +248,32 @@ public static partial class RenderStats
             bitmap.SavePng(png);
             return string.Create(CultureInfo.InvariantCulture, $"{milliseconds:0.###};{codes};{Convert.ToBase64String(png.ToArray())}");
         }
+    }
+
+    /// <summary>
+    /// Renders one page with WebGL at <paramref name="scale"/>, decoding images at the resolution they are drawn at with
+    /// <paramref name="samplesPerPixel"/> samples per device pixel, or at their own with 0 (#428); returns
+    /// "texture bytes;diagnostic codes;base64 PNG". Each call is a fresh page, so the texture bytes are this render's.
+    /// </summary>
+    [JSExport]
+    public static async Task<string> RenderPageScaledAsync(string address, int page, double scale, double samplesPerPixel)
+    {
+        using var http = new HttpClient();
+        byte[] bytes = await http.GetByteArrayAsync(new Uri(address)).ConfigureAwait(true);
+        await WebGLRenderer.InitializeAsync().ConfigureAwait(true);
+        using PdfDocument document = new PdfEngine(new PdfOptions().UseStandard14Fonts()).Open(bytes);
+        RenderOptions options = new RenderOptions().WithScale(scale).WithScaledImageDecode(samplesPerPixel >= 1);
+        if (samplesPerPixel >= 1)
+        {
+            options.ImageSamplesPerPixel = samplesPerPixel;
+        }
+
+        using var renderer = new WebGLRenderer();
+        using Bitmap bitmap = renderer.Render(document.Pages[page], options);
+        string codes = string.Join(',', renderer.Diagnostics.Select(static d => d.Code));
+        using var png = new MemoryStream();
+        bitmap.SavePng(png);
+        return string.Create(CultureInfo.InvariantCulture, $"{WebGLRenderer.TextureBytes};{codes};{Convert.ToBase64String(png.ToArray())}");
     }
 
     /// <summary>
