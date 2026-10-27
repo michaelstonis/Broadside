@@ -71,3 +71,17 @@ Reading the numbers:
 - The CoreGraphics backend has no pooled tile backends, so #432's shared cache does not apply; the converted image is kept per `CoreGraphicsRenderer`, keyed by the reduction delivered (a finer conversion serves a coarser request, so zooming out converts nothing again).
 
 Reproduce: a throwaway xUnit fact in `tests/Broadside.Rendering.CoreGraphics.Tests` that opens `CatalogueSamples.Cover()`, builds the page's display list and renders it with `new CoreGraphicsRenderer { ScaledImageDecode = …, ImageSamplesPerPixel = … }` into a flipped `CGBitmapContext`, timing the first `Render` and reading `GC.GetTotalAllocatedBytes(true)` around it; run with `dotnet test --project tests/Broadside.Rendering.CoreGraphics.Tests -c Release`.
+
+## Direct2D (Windows)
+
+Not measured: Direct2D needs Windows, and no Windows machine was available for this part (#428 part 5). The MAUI sample on Windows draws with Skia, not Direct2D, and Direct2D has no tile backend, so there is no viewer to measure it in yet. The only figures available come from CI.
+
+The Windows CI job (GitHub-hosted `windows-latest` runner, WARP software device, Release build) prints the time of one list render of the catalogue cover with a new `Direct2DRenderer` (`Direct2DScaledImageDecodeTests`). Each render decodes the DCT photograph, converts it and draws the page once. The reduced render runs first, so the full one does not benefit from a warm decode. These are single runs on a shared runner: they show the size of the effect, not a benchmark.
+
+| Page width (px) | Reduction (k = 2) | Render (ms), full | reduced | Converted pixels kept (MB), full | reduced |
+|---:|---|---:|---:|---:|---:|
+| 390 | 1/2 | 583 | 205 | 31.4 | 8.4 |
+| 300 | 1/4 | 607 | 97 | 31.1 | 2.4 |
+| 150 | 1/8 | 578 | 63 | 30.8 | 0.6 |
+
+"Kept" is the renderer's image cache: the converted BGRA pixels plus their resampling to the device.
