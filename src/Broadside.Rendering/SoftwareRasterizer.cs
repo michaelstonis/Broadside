@@ -293,6 +293,31 @@ public sealed partial class SoftwareRasterizer : IDisposable
         set => _imageSamplesPerPixel = RenderOptions.CheckSamplesPerPixel(value);
     }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether this rasterizer keeps the images it converts in a cache shared by every
+    /// <see cref="SoftwareRasterizer"/> that draws the same document with this set, instead of only the last one in its own buffers;
+    /// <see langword="false"/> by default.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// For rasterizers that draw one document in parallel, such as a viewer's pool of tile backends (one per tile rendered at once):
+    /// each image is converted once for all of them, by the first that draws it while the others wait for it, instead of once per
+    /// rasterizer into buffers each keeps, and the converted pixels kept for all of them stay within the document's
+    /// <see cref="PdfOptions.ImageCacheBudget"/> (the two used last that are larger than the whole budget outside it). A converted
+    /// image is released once no rasterizer paints it and the budget has evicted it, or when the last rasterizer sharing the cache is
+    /// disposed or stops sharing. The output is the same either way. Overprint preview converts its own.
+    /// </para>
+    /// <para>ISO 32000-2 §8.9.5. Set it between renders; it takes effect on the next.</para>
+    /// </remarks>
+    public bool ShareConvertedImages
+    {
+        get => _backend.Images.Share;
+        set => _backend.Images.Share = value;
+    }
+
+    /// <summary>Gets the shared cache this rasterizer paints images from, when it shares them and has drawn an image.</summary>
+    internal SharedImageCache<SharedPixels>? SharedImages => _backend.Images.SharedImages;
+
     /// <summary>Gets the samples per pixel a list render reduces images to, or 0 for the images' own resolution.</summary>
     private double ListImageSamples => ScaledImageDecode ? _imageSamplesPerPixel : 0;
 

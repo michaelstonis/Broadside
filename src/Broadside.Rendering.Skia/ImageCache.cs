@@ -192,8 +192,12 @@ internal sealed class ImageCache : IDisposable
         }
     }
 
-    /// <summary>A kept image, the conversion it was made with, and the transforms it is resampled for.</summary>
-    internal sealed class Entry
+    /// <summary>
+    /// A kept image, the conversion it was made with, and the transforms it is resampled for: a backend's own, reused for its key, or
+    /// one conversion in a cache the backends of a viewer share (<see cref="SharedImageCache{T}"/>, issue #432), never changed once
+    /// published but for its resamplings, made under <see cref="Gate"/>.
+    /// </summary>
+    internal sealed class Entry : SharedImage
     {
         /// <summary>
         /// The most transforms an image is resampled for (an image drawn at several sizes on one page). They are the first ones it
@@ -206,6 +210,9 @@ internal sealed class ImageCache : IDisposable
         private readonly Reduction[] _reductions = new Reduction[MaxReductions];
 
         public Entry() => Node = new LinkedListNode<Entry>(this);
+
+        /// <summary>Gets or sets the lock its resamplings are made under when the entry is shared; null for a backend's own.</summary>
+        public Lock? Gate { get; set; }
 
         public LinkedListNode<Entry> Node { get; }
 
@@ -289,6 +296,14 @@ internal sealed class ImageCache : IDisposable
         /// </summary>
         public bool Matches(ColorConversion conversion, PdfDefaultColorSpaces? defaults, int reduction = 0) =>
             Image is not null && Delivered <= reduction && ReferenceEquals(Defaults, defaults) && Conversion == conversion;
+
+        /// <summary>Releases a shared entry's image and resamplings once it has left the cache and no draw holds it.</summary>
+        protected override void Free()
+        {
+            ReleaseReductions();
+            Image?.Dispose();
+            Image = null;
+        }
 
         private readonly record struct Reduction(bool Used, Matrix Transform, SKRectI Pixels, SKImage? Image, long Bytes)
         {
