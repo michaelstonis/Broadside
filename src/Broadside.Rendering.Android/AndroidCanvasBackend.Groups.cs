@@ -80,6 +80,19 @@ public sealed partial class AndroidCanvasBackend
 
         private Backend Root => _owner ?? this;
 
+        /// <summary>Returns the software rasterizer groups and soft masks fall back to, decoding images as this backend does (issue #362).</summary>
+        private SoftwareRasterizer FallbackRasterizer()
+        {
+            SoftwareRasterizer rasterizer = _rasterizer ??= new SoftwareRasterizer();
+            rasterizer.ScaledImageDecode = ImageSamplesPerPixel > 0;
+            if (ImageSamplesPerPixel > 0)
+            {
+                rasterizer.ImageSamplesPerPixel = ImageSamplesPerPixel;
+            }
+
+            return rasterizer;
+        }
+
         /// <summary>
         /// Sets the soft mask of the paints that follow (§11.6.5.1): its values are rendered once per mask, placement and clip by the
         /// software rasterizer (§11.5.2 alpha, §11.5.3 luminosity 0.30 R + 0.59 G + 0.11 B, then the transfer function) and applied to
@@ -475,7 +488,7 @@ public sealed partial class AndroidCanvasBackend
             }
 
             Backend root = Root;
-            SoftwareRasterizer rasterizer = root._rasterizer ??= new SoftwareRasterizer();
+            SoftwareRasterizer rasterizer = root.FallbackRasterizer();
             byte[] pixels = new byte[area.Width * area.Height * 4];
             using (var bitmap = new Bitmap(pixels, area.Width, area.Height, area.Width * 4))
             {
@@ -575,7 +588,7 @@ public sealed partial class AndroidCanvasBackend
                 MemoryMarshal.Cast<byte, uint>(bitmap.Pixels).Fill(backdrop);
             }
 
-            SoftwareRasterizer rasterizer = Root._rasterizer ??= new SoftwareRasterizer();
+            SoftwareRasterizer rasterizer = Root.FallbackRasterizer();
             rasterizer.Render(mask.Content, bitmap, toPixels * Matrix.CreateTranslation(-area.Left, -area.Top));
             byte[] values = new byte[width * height];
             for (int y = 0; y < height; y++)

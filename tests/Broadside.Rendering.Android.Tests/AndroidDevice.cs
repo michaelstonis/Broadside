@@ -131,6 +131,12 @@ internal sealed class AndroidDevice
     public double ReplayMicroseconds(string fileName, int page, string variant = DeviceProtocol.Native) =>
         double.Parse(Result(DeviceProtocol.ReplayTimeKey(fileName, page, variant)), CultureInfo.InvariantCulture);
 
+    /// <summary>Returns a figure of a scaled image decode case (<see cref="DeviceProtocol.ScaledKey"/>) as the device reported it.</summary>
+    public string Scaled(string name, string figure) => Result(DeviceProtocol.ScaledKey(name, figure));
+
+    /// <summary>Returns a numeric figure of a scaled image decode case.</summary>
+    public double ScaledNumber(string name, string figure) => double.Parse(Scaled(name, figure), CultureInfo.InvariantCulture);
+
     private string Result(string key) =>
         _results.TryGetValue(key, out string? value) ? value : throw new InvalidOperationException($"The instrumentation reported no '{key}'.");
 
@@ -177,6 +183,13 @@ internal sealed class AndroidDevice
             Pull(adb, phase, remote, pixels);
         }
 
+        // The scaled image decode cases (issue #428) report figures only: no pixel files to pull.
+        adb.EnsureReady("scaled");
+        foreach ((string key, string value) in Instrument(adb, "scaled", serial, [], scaled: true))
+        {
+            results[key] = value;
+        }
+
         adb.Log("done");
         return new AndroidDevice(null, results, pixels);
     }
@@ -185,7 +198,7 @@ internal sealed class AndroidDevice
     /// Runs the instrumentation over a batch of files and returns its results; runs it again (after recovering the device) only when
     /// the transport cut it off before it reported a result code, and fails without retrying when the instrumentation itself failed.
     /// </summary>
-    private static Dictionary<string, string> Instrument(Adb adb, string phase, string serial, string[] files)
+    private static Dictionary<string, string> Instrument(Adb adb, string phase, string serial, string[] files, bool scaled = false)
     {
         for (int attempt = 1; ; attempt++)
         {
@@ -194,11 +207,14 @@ internal sealed class AndroidDevice
                 adb.Recover($"{phase} instrument", attempt);
             }
 
+            // adb's shell joins the arguments with spaces, so an empty value would vanish: a run with no files names none.
+            string[] fileArguments = files.Length == 0 ? [] : ["-e", DeviceProtocol.FilesArgument, string.Join(',', files)];
             (byte[] output, int exitCode) = adb.Device([
                 "shell", "am", "instrument", "-w",
-                "-e", DeviceProtocol.FilesArgument, string.Join(',', files),
+                .. fileArguments,
                 "-e", DeviceProtocol.UncachedArgument, string.Join(',', AndroidBackendTests.UncachedFiles),
                 "-e", DeviceProtocol.ReplaysArgument, Replays.ToString(CultureInfo.InvariantCulture),
+                "-e", DeviceProtocol.ScaledArgument, scaled ? "1" : "0",
                 $"{DeviceProtocol.Package}/{DeviceProtocol.Instrumentation}",
             ]);
             string text = System.Text.Encoding.UTF8.GetString(output);

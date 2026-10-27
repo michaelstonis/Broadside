@@ -28,6 +28,9 @@ internal sealed class ImageCache : IDisposable
     /// <summary>Gets or sets how many Android bitmaps were made from display-list images and masks.</summary>
     public int Created { get; set; }
 
+    /// <summary>Gets or sets how many pixels the bitmaps made from images and masks had in all (fewer for a reduced image, issue #428).</summary>
+    public long PixelsConverted { get; set; }
+
     /// <summary>Returns the entry of <paramref name="key"/>, whose image is <see langword="null"/> when none is kept.</summary>
     public Entry Find(object key)
     {
@@ -48,9 +51,16 @@ internal sealed class ImageCache : IDisposable
 
     /// <summary>Keeps <paramref name="image"/> in <paramref name="entry"/> when it fits the budget, evicting the least recently used.</summary>
     /// <returns>Whether the image is kept; when not, the caller disposes it after drawing.</returns>
-    public bool Keep(Entry entry, PixelImage image, long bytes, ColorConversion conversion, PdfDefaultColorSpaces? defaults)
+    public bool Keep(Entry entry, PixelImage image, long bytes, ColorConversion conversion, PdfDefaultColorSpaces? defaults, int delivered = 0)
     {
         Release(entry);
+        if (entry.Delivered != delivered)
+        {
+            // Another reduction of the image (issue #362): its resamplings were for another grid.
+            entry.ForgetTransforms();
+            entry.Delivered = delivered;
+        }
+
         if (bytes > Budget)
         {
             return false;
@@ -142,6 +152,12 @@ internal sealed class ImageCache : IDisposable
 
         public PdfDefaultColorSpaces? Defaults { get; set; }
 
+        /// <summary>Gets or sets the reduction the kept image's samples have (issue #362): 0 for the image's own resolution.</summary>
+        public int Delivered { get; set; }
+
+        /// <summary>Gets or sets whether the image's mask is folded into the kept image.</summary>
+        public bool Folded { get; set; }
+
         /// <summary>Returns the slot of <paramref name="transform"/>, taking a free one for a new transform; false when all are taken.</summary>
         public bool Admit(in Matrix transform, out int slot)
         {
@@ -174,6 +190,9 @@ internal sealed class ImageCache : IDisposable
             Bytes += bytes;
         }
 
+        /// <summary>Frees every slot, its transform with it (the kept resamplings are already released).</summary>
+        public void ForgetTransforms() => Array.Clear(_reductions);
+
         /// <summary>Releases the kept resamplings; the slots keep their transforms.</summary>
         public void ReleaseReductions()
         {
@@ -184,9 +203,12 @@ internal sealed class ImageCache : IDisposable
             }
         }
 
-        /// <summary>Whether the kept image was converted with this conversion and these default colour spaces.</summary>
-        public bool Matches(ColorConversion conversion, PdfDefaultColorSpaces? defaults) =>
-            Image is not null && ReferenceEquals(Defaults, defaults) && Conversion == conversion;
+        /// <summary>
+        /// Whether the kept image was converted with this conversion and these default colour spaces, at <paramref name="reduction"/>
+        /// or finer (issue #362: a finer conversion serves a coarser request, as the document's samples do).
+        /// </summary>
+        public bool Matches(ColorConversion conversion, PdfDefaultColorSpaces? defaults, int reduction = 0) =>
+            Image is not null && Delivered <= reduction && ReferenceEquals(Defaults, defaults) && Conversion == conversion;
 
         private readonly record struct Reduction(bool Used, Matrix Transform, PixelImage? Image, long Bytes);
     }
