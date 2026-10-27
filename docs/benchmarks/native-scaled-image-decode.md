@@ -72,6 +72,20 @@ Reading the numbers:
 
 Reproduce: a throwaway xUnit fact in `tests/Broadside.Rendering.CoreGraphics.Tests` that opens `CatalogueSamples.Cover()`, builds the page's display list and renders it with `new CoreGraphicsRenderer { ScaledImageDecode = …, ImageSamplesPerPixel = … }` into a flipped `CGBitmapContext`, timing the first `Render` and reading `GC.GetTotalAllocatedBytes(true)` around it; run with `dotnet test --project tests/Broadside.Rendering.CoreGraphics.Tests -c Release`.
 
+## Direct2D (Windows)
+
+Not measured: Direct2D needs Windows, and no Windows machine was available for this part (#428 part 5). The MAUI sample on Windows draws with Skia, not Direct2D, and Direct2D has no tile backend, so there is no viewer to measure it in yet. The only figures available come from CI.
+
+The Windows CI job (GitHub-hosted `windows-latest` runner, WARP software device, Release build) prints the time of one list render of the catalogue cover with a new `Direct2DRenderer` (`Direct2DScaledImageDecodeTests`). Each render decodes the DCT photograph, converts it and draws the page once. The reduced render runs first, so the full one does not benefit from a warm decode. These are single runs on a shared runner: they show the size of the effect, not a benchmark.
+
+| Page width (px) | Reduction (k = 2) | Render (ms), full | reduced | Converted pixels kept (MB), full | reduced |
+|---:|---|---:|---:|---:|---:|
+| 390 | 1/2 | 583 | 205 | 31.4 | 8.4 |
+| 300 | 1/4 | 607 | 97 | 31.1 | 2.4 |
+| 150 | 1/8 | 578 | 63 | 30.8 | 0.6 |
+
+"Kept" is the renderer's image cache: the converted BGRA pixels plus their resampling to the device.
+
 ## Android Canvas (emulator)
 
 Measured 2026-10-27 on a scratch Android 15 (API 35, google_apis, arm64) emulator with 4 cores, 4 GB RAM and a 576 MB heap on an Apple M4 Max host, with the Release device app (`tests/Broadside.Rendering.Android.Device`, no AOT). Each row is one `am instrument` run, so a fresh process: it opens the page, builds its display list, and draws the page at the given width as 256 x 256 tiles through one `AndroidCanvasBackend` (list renders, as a viewer's tiles), twice. The Android Canvas backend has no tile backend or pool, so one backend draws every tile.

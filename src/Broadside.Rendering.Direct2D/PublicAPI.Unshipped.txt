@@ -13,3 +13,7 @@ Broadside.Rendering.Direct2D.Direct2DRenderer.Render(Broadside.PdfPage! page, Br
 Broadside.Rendering.Direct2D.Direct2DRenderer.Render(Broadside.PdfPage! page, Broadside.Rendering.RenderOptions! options) -> Broadside.Rendering.Bitmap!
 Broadside.Rendering.Direct2D.Direct2DRenderer.Render(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform) -> void
 Broadside.Rendering.Direct2D.Direct2DRenderer.Render(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, bool forceOutlines) -> void
+Broadside.Rendering.Direct2D.Direct2DRenderer.ImageSamplesPerPixel.get -> double
+Broadside.Rendering.Direct2D.Direct2DRenderer.ImageSamplesPerPixel.set -> void
+Broadside.Rendering.Direct2D.Direct2DRenderer.ScaledImageDecode.get -> bool
+Broadside.Rendering.Direct2D.Direct2DRenderer.ScaledImageDecode.set -> void
