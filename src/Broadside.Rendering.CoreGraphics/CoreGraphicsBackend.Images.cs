@@ -39,40 +39,72 @@ internal sealed partial class CoreGraphicsBackend
     /// <summary>Gets how many CoreGraphics images were made from display-list images and masks.</summary>
     internal int ImagesCreated => _images.Created;
 
+    /// <summary>Gets how many pixels the images and masks made had in all (fewer for reduced images, issue #428).</summary>
+    internal long ImagePixelsConverted => _images.PixelsConverted;
+
     /// <summary>Gets the bytes of converted pixels kept.</summary>
     internal long CachedImageBytes => _images.Bytes;
 
     /// <summary>
     /// Draws an image (ISO 32000-2 §8.9.4, §8.9.5): image space maps to the unit square through [1/w 0 0 −1/h 0 1], then the
     /// current transform. A mask of the image's size is folded into the pixels; a soft mask (§11.6.5.2) or explicit mask (§8.9.6.3)
-    /// of another size clips the image at its own resolution, so each is resampled from its own grid.
+    /// of another size clips the image at its own resolution, so each is resampled from its own grid. With scaled image decode (issue
+    /// #362) the image is converted at the reduction <see cref="DisplayImage.GetReduction"/> gives for the device, a mask not folded at
+    /// the reduction of its own rule.
     /// </summary>
     private void DrawImageCore(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
     {
-        // An image kept encoded that cannot be decoded paints nothing (ISO 32000-2 §8.9.5; its reason is a diagnostic).
-        if (_compositing.FillAlpha == 0 || image.GetSamplesAt(0) is null)
+        if (_compositing.FillAlpha == 0)
         {
             return;
         }
 
+        ColorConversion rgb = conversion with { Target = DeviceColorModel.Rgb };
+        PdfColorConverter? converter = null;
+        int reduction = 0;
+        if (image.MaxReduction > 0 && TryGetImageSamplesPerPixel(out double samplesPerPixel, out Matrix toPixels))
+        {
+            // A codec averages before colour conversion, which the converter caps where the two orders differ.
+            converter = _document!.GetColorConverter(image.ColorSpace, rgb, defaultColorSpaces);
+            if (converter.PaintsNothing)
+            {
+                return;
+            }
+
+            reduction = image.GetReduction(toPixels, samplesPerPixel, converter);
+        }
+
         ImageCache cache = _images;
         ImageCache.Entry entry = cache.Find(image);
-        ColorConversion rgb = conversion with { Target = DeviceColorModel.Rgb };
-        PixelImage? pixels = entry.Matches(rgb, defaultColorSpaces) ? entry.Image : null;
+        PixelImage? pixels = entry.Matches(rgb, defaultColorSpaces, reduction) ? entry.Image : null;
+
+        // An image kept encoded that cannot be decoded paints nothing (ISO 32000-2 §8.9.5; its reason is a diagnostic). Pixels kept at
+        // a finer reduction than asked need no samples (issue #362: zooming out decodes nothing again).
+        DisplayImageSamples? decoded = pixels is null || reduction == 0 ? image.GetSamplesAt(reduction) : null;
+        if (decoded is null && (pixels is null || reduction == 0))
+        {
+            return;
+        }
+
         bool owned = false;
+        int delivered;
+        bool folded;
         if (pixels is null)
         {
-            PdfColorConverter converter = _document!.GetColorConverter(image.ColorSpace, rgb, defaultColorSpaces);
+            DisplayImageSamples samples = decoded!.Value;
+            converter ??= _document!.GetColorConverter(image.ColorSpace, rgb, defaultColorSpaces);
             if (converter.PaintsNothing)
             {
                 return;
             }
 
             PdfColorConverter? baseConverter = image.ColorSpace is PdfIndexedColorSpace indexed && !image.Matte.IsEmpty
-                ? _document.GetColorConverter(indexed.Base, rgb, defaultColorSpaces)
+                ? _document!.GetColorConverter(indexed.Base, rgb, defaultColorSpaces)
                 : null;
+            bool foldSoft = ImageConverter.FoldsSoftMask(image, samples, out DisplayImageSamples? softSamples);
+            bool foldMask = !foldSoft && ImageConverter.FoldsMask(image, samples);
 #pragma warning disable CA2000 // Kept by the cache, or disposed in the finally block below.
-            pixels = ImageConverter.Convert(image, converter, baseConverter);
+            pixels = ImageConverter.Convert(image, samples, foldSoft, softSamples, foldMask, converter, baseConverter);
 #pragma warning restore CA2000
             if (pixels is null)
             {
@@ -81,7 +113,16 @@ internal sealed partial class CoreGraphicsBackend
             }
 
             cache.Created++;
-            owned = !cache.Keep(entry, pixels, (long)image.Width * image.Height * 4, rgb, defaultColorSpaces);
+            cache.PixelsConverted += (long)samples.Width * samples.Height;
+            delivered = samples.Reduction;
+            folded = foldSoft || foldMask;
+            owned = !cache.Keep(entry, pixels, (long)samples.Width * samples.Height * 4, rgb, defaultColorSpaces, delivered);
+            entry.Folded = folded;
+        }
+        else
+        {
+            delivered = entry.Delivered;
+            folded = entry.Folded;
         }
 
         CGContext context = _context!;
@@ -89,12 +130,12 @@ internal sealed partial class CoreGraphicsBackend
         try
         {
             context.SetAlpha((nfloat)(_compositing.FillAlpha / 255.0));
-            if (SeparateMask(image) is { } mask)
+            if (!folded && ((object?)image.SoftMask ?? image.Mask) is { } mask)
             {
                 PaintMask(mask, SampleUse.Clip, clipEdges: false);
             }
 
-            PaintSamples(pixels, entry, image.Width, image.Height, image.Interpolate, SampleUse.Draw, clipEdges: true);
+            PaintSamples(pixels, entry, new SampleGrid(pixels.Width, pixels.Height, image.Width, image.Height, delivered), image.Interpolate, SampleUse.Draw, clipEdges: true);
         }
         finally
         {
@@ -141,23 +182,16 @@ internal sealed partial class CoreGraphicsBackend
         }
     }
 
-    /// <summary>The image's soft mask, else its explicit mask, when it is not folded into the pixels (another size); otherwise null.</summary>
-    private static object? SeparateMask(DisplayImage image)
+    /// <summary>
+    /// Gets the fewest samples per device pixel a reduced image keeps (issue #362), and the transform from user space to the pixels
+    /// images are resampled in; false when images are drawn at their own resolution.
+    /// </summary>
+    private bool TryGetImageSamplesPerPixel(out double samplesPerPixel, out Matrix toPixels)
     {
-        if (image.SoftMask is { } soft)
-        {
-            return ImageConverter.FoldsSoftMask(image) ? null : soft;
-        }
-
-        if (image.Mask is { } mask)
-        {
-            return ImageConverter.FoldsMask(image) ? null : mask;
-        }
-
-        return null;
+        samplesPerPixel = Root.ImageSamplesPerPixel;
+        toPixels = _toDevice * _pixels;
+        return samplesPerPixel > 0;
     }
-
-    private static Matrix UnitSquare(int width, int height) => new(1.0 / width, 0, 0, -1.0 / height, 0, 1);
 
     private static void Concat(CGContext context, in Matrix m) =>
         context.ConcatCTM(new CGAffineTransform((nfloat)m.A, (nfloat)m.B, (nfloat)m.C, (nfloat)m.D, (nfloat)m.E, (nfloat)m.F));
@@ -180,16 +214,16 @@ internal sealed partial class CoreGraphicsBackend
     }
 
     /// <summary>
-    /// Draws, clips to or fills through samples of <paramref name="width"/> × <paramref name="height"/> mapped into the unit square
-    /// under the current transform. Mapped onto few enough device pixels, they are resampled to those pixels (<see cref="ImageReducer"/>,
-    /// kept with the image) and placed on them one to one, the outline clipped with anti-aliasing unless <paramref name="clipEdges"/> is
-    /// off (a mask whose image clips its own edges); otherwise CoreGraphics samples them under the transform. A clip is left on the
-    /// context; drawing and filling leave its state as found.
+    /// Draws, clips to or fills through samples mapped into the unit square under the current transform. Mapped onto few enough device
+    /// pixels, they are resampled to those pixels (<see cref="ImageReducer"/>, kept with the image) and placed on them one to one, the
+    /// outline clipped with anti-aliasing unless <paramref name="clipEdges"/> is off (a mask whose image clips its own edges); otherwise
+    /// CoreGraphics samples them under the transform. Reduced samples (issue #362) reach past the unit square when the reduction does
+    /// not divide the image's size; a draw is clipped to it. A clip is left on the context; drawing and filling leave its state as found.
     /// </summary>
-    private void PaintSamples(PixelImage samples, ImageCache.Entry entry, int width, int height, bool interpolate, SampleUse use, bool clipEdges)
+    private void PaintSamples(PixelImage samples, ImageCache.Entry entry, in SampleGrid grid, bool interpolate, SampleUse use, bool clipEdges)
     {
         CGContext context = _context!;
-        Matrix toTarget = UnitSquare(width, height) * _toDevice;
+        Matrix toTarget = grid.ToUnitSquare * _toDevice;
         if (!toTarget.TryInvert(out _))
         {
             if (use == SampleUse.Clip)
@@ -201,7 +235,7 @@ internal sealed partial class CoreGraphicsBackend
         }
 
         Matrix toPixels = toTarget * _pixels;
-        if (_baseInvertible && ImageReducer.Applies(width, height, toPixels, out PixelRect pixels, out bool upright))
+        if (_baseInvertible && ImageReducer.Applies(grid.Width, grid.Height, toPixels, out PixelRect pixels, out bool upright))
         {
             PixelImage? reduced = null;
             bool owned = false;
@@ -228,14 +262,14 @@ internal sealed partial class CoreGraphicsBackend
                 }
 
                 Concat(context, _fromPixels);
-                if (clipEdges)
+                if (clipEdges || (grid.Overhangs && use == SampleUse.Draw))
                 {
-                    ClipToOutline(context, toPixels, width, height, upright);
+                    ClipToOutline(context, toPixels, grid.OutlineWidth, grid.OutlineHeight, upright);
                 }
 
                 Concat(context, placement);
                 context.InterpolationQuality = CGInterpolationQuality.None;
-                Apply(context, reduced.Image, use);
+                Apply(context, reduced.Image, use, new CGRect(0, 0, 1, 1));
                 if (use == SampleUse.Clip)
                 {
                     if ((placement * _fromPixels).TryInvert(out Matrix back))
@@ -264,7 +298,12 @@ internal sealed partial class CoreGraphicsBackend
 
         Concat(context, _toDevice);
         context.InterpolationQuality = Quality(toPixels, interpolate);
-        Apply(context, samples.Image, use);
+        if (grid.Overhangs && use == SampleUse.Draw)
+        {
+            context.ClipToRect(new CGRect(0, 0, 1, 1));
+        }
+
+        Apply(context, samples.Image, use, grid.UnitSquareRect);
         if (use == SampleUse.Clip)
         {
             if (_toDevice.TryInvert(out Matrix back))
@@ -278,27 +317,31 @@ internal sealed partial class CoreGraphicsBackend
         }
     }
 
-    /// <summary>Draws, clips to or fills through an image over the unit square of the current user space.</summary>
-    private static void Apply(CGContext context, CGImage image, SampleUse use)
+    /// <summary>Draws, clips to or fills through an image over <paramref name="rect"/> of the current user space (a fill covers the unit square).</summary>
+    private static void Apply(CGContext context, CGImage image, SampleUse use, CGRect rect)
     {
-        var unit = new CGRect(0, 0, 1, 1);
         switch (use)
         {
             case SampleUse.Draw:
-                context.DrawImage(unit, image);
+                context.DrawImage(rect, image);
                 break;
             case SampleUse.Clip:
-                context.ClipToMask(unit, image);
+                context.ClipToMask(rect, image);
                 break;
             default:
-                context.ClipToMask(unit, image);
-                context.FillRect(unit);
+                context.ClipToMask(rect, image);
+                context.FillRect(new CGRect(0, 0, 1, 1));
                 break;
         }
     }
 
-    /// <summary>Intersects the clip with the outline of the samples on the device (the current user space), anti-aliased like a fill.</summary>
-    private static void ClipToOutline(CGContext context, in Matrix toPixels, int width, int height, bool upright)
+    /// <summary>Intersects the clip with the outline of the unit square on the device (the current user space), anti-aliased like a fill.</summary>
+    /// <param name="context">The context.</param>
+    /// <param name="toPixels">The transform from the sample grid to the device.</param>
+    /// <param name="width">The unit square's width on the grid: the image's width in samples over the reduction.</param>
+    /// <param name="height">The unit square's height on the grid.</param>
+    /// <param name="upright">Whether the transform has neither rotation nor skew.</param>
+    private static void ClipToOutline(CGContext context, in Matrix toPixels, double width, double height, bool upright)
     {
         PathPoint p0 = toPixels.Transform(0, 0);
         PathPoint p2 = toPixels.Transform(width, height);
@@ -319,30 +362,44 @@ internal sealed partial class CoreGraphicsBackend
         context.Clip();
     }
 
-    /// <summary>Clips to or fills through a mask (a soft mask image or a stencil) as an alpha plane over the unit square.</summary>
+    /// <summary>
+    /// Clips to or fills through a mask (a soft mask image or a stencil) as an alpha plane over the unit square: at its own resolution,
+    /// or with scaled image decode at the reduction of its own rule (issue #362; a stencil as 8-bit coverage).
+    /// </summary>
     private void PaintMask(object mask, SampleUse use, bool clipEdges)
     {
-        ImageCache cache = _images;
-        ImageCache.Entry entry = cache.Find(mask);
-        PixelImage? alpha = entry.Image;
-        bool owned = false;
-        int width;
-        int height;
-        bool interpolate;
-        if (mask is DisplayImage soft)
+        var soft = mask as DisplayImage;
+        var stencil = mask as DisplayImageMask;
+        (int width, int height, bool interpolate) = soft is not null ? (soft.Width, soft.Height, soft.Interpolate) : (stencil!.Width, stencil.Height, stencil.Interpolate);
+        int reduction = 0;
+        if (TryGetImageSamplesPerPixel(out double samplesPerPixel, out Matrix toPixels))
         {
-            (width, height, interpolate) = (soft.Width, soft.Height, soft.Interpolate);
-        }
-        else
-        {
-            var stencil = (DisplayImageMask)mask;
-            (width, height, interpolate) = (stencil.Width, stencil.Height, stencil.Interpolate);
+            reduction = soft is not null ? soft.GetReduction(toPixels, samplesPerPixel, null) : stencil!.GetReduction(toPixels, samplesPerPixel);
         }
 
+        ImageCache cache = _images;
+        ImageCache.Entry entry = cache.Find(mask);
+        PixelImage? alpha = entry.Delivered <= reduction ? entry.Image : null;
+        bool owned = false;
+        int delivered = entry.Delivered;
         if (alpha is null)
         {
 #pragma warning disable CA2000 // Kept by the cache, or disposed in the finally block below.
-            alpha = mask is DisplayImage image ? ImageConverter.ConvertSoftMask(image) : ImageConverter.ConvertStencil((DisplayImageMask)mask);
+            if (soft is null)
+            {
+                delivered = reduction;
+                alpha = ImageConverter.ConvertStencil(stencil!, reduction);
+            }
+            else if (reduction > 0 && soft.GetSamplesAt(reduction) is { } samples)
+            {
+                delivered = samples.Reduction;
+                alpha = ImageConverter.ConvertSoftMask(soft, samples);
+            }
+            else
+            {
+                delivered = 0;
+                alpha = ImageConverter.ConvertSoftMask(soft);
+            }
 #pragma warning restore CA2000
             if (alpha is null)
             {
@@ -351,19 +408,59 @@ internal sealed partial class CoreGraphicsBackend
             }
 
             cache.Created++;
-            owned = !cache.Keep(entry, alpha, (long)width * height, default, null);
+            cache.PixelsConverted += (long)alpha.Width * alpha.Height;
+            owned = !cache.Keep(entry, alpha, (long)alpha.Width * alpha.Height, default, null, delivered);
         }
 
         try
         {
             // The mask's samples map onto the unit square at their own resolution (§8.9.6.2, §8.9.6.3, §11.6.5.2).
-            PaintSamples(alpha, entry, width, height, interpolate, use, clipEdges);
+            PaintSamples(alpha, entry, new SampleGrid(alpha.Width, alpha.Height, width, height, delivered), interpolate, use, clipEdges);
         }
         finally
         {
             if (owned)
             {
                 alpha.Dispose();
+            }
+        }
+    }
+
+    /// <summary>
+    /// The grid of samples drawn: <see cref="Width"/> × <see cref="Height"/> samples of an image of <see cref="SourceWidth"/> ×
+    /// <see cref="SourceHeight"/>, reduced by 2^<see cref="Reduction"/> (issue #362). Reduced sample i covers source samples i·s to
+    /// (i + 1)·s (ISO 32000-2 §8.9.4), so the grid maps to the unit square through s, then [1/W 0 0 −1/H 0 1], and reaches past it
+    /// when s does not divide the size.
+    /// </summary>
+    private readonly record struct SampleGrid(int Width, int Height, int SourceWidth, int SourceHeight, int Reduction)
+    {
+        /// <summary>Gets the transform from the grid (y down from the first row) to the unit square.</summary>
+        public Matrix ToUnitSquare => Reduction == 0
+            ? new Matrix(1.0 / Width, 0, 0, -1.0 / Height, 0, 1)
+            : new Matrix((double)(1 << Reduction) / SourceWidth, 0, 0, -(double)(1 << Reduction) / SourceHeight, 0, 1);
+
+        /// <summary>Gets the unit square's width on the grid.</summary>
+        public double OutlineWidth => Reduction == 0 ? Width : (double)SourceWidth / (1 << Reduction);
+
+        /// <summary>Gets the unit square's height on the grid.</summary>
+        public double OutlineHeight => Reduction == 0 ? Height : (double)SourceHeight / (1 << Reduction);
+
+        /// <summary>Gets a value indicating whether the grid reaches past the unit square.</summary>
+        public bool Overhangs => Reduction > 0 && (OutlineWidth != Width || OutlineHeight != Height);
+
+        /// <summary>Gets the rectangle of user space (y up) the samples cover: the unit square, or more for a grid that reaches past it.</summary>
+        public CGRect UnitSquareRect
+        {
+            get
+            {
+                if (!Overhangs)
+                {
+                    return new CGRect(0, 0, 1, 1);
+                }
+
+                double width = Width / OutlineWidth;
+                double height = Height / OutlineHeight;
+                return new CGRect(0, 1 - height, width, height);
             }
         }
     }

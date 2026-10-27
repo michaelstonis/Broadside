@@ -51,6 +51,19 @@ internal sealed partial class CoreGraphicsBackend
 
     private GroupInspector? _inspector;
     private SoftwareRasterizer? _rasterizer;
+
+    /// <summary>Returns the software rasterizer groups and soft masks fall back to, decoding images as this backend does (issue #362).</summary>
+    private SoftwareRasterizer FallbackRasterizer()
+    {
+        SoftwareRasterizer rasterizer = _rasterizer ??= new SoftwareRasterizer();
+        rasterizer.ScaledImageDecode = ImageSamplesPerPixel > 0;
+        if (ImageSamplesPerPixel > 0)
+        {
+            rasterizer.ImageSamplesPerPixel = ImageSamplesPerPixel;
+        }
+
+        return rasterizer;
+    }
     private MaskImage?[]? _masks;
     private byte[]? _transfer;
     private long _maskClock;
@@ -448,7 +461,7 @@ internal sealed partial class CoreGraphicsBackend
         }
 
         CoreGraphicsBackend root = Root;
-        SoftwareRasterizer rasterizer = root._rasterizer ??= new SoftwareRasterizer();
+        SoftwareRasterizer rasterizer = root.FallbackRasterizer();
         byte[] pixels = new byte[area.Width * area.Height * 4];
         using (var bitmap = new Bitmap(pixels, area.Width, area.Height, area.Width * 4))
         {
@@ -547,7 +560,7 @@ internal sealed partial class CoreGraphicsBackend
             MemoryMarshal.Cast<byte, uint>(bitmap.Pixels).Fill(backdrop);
         }
 
-        SoftwareRasterizer rasterizer = Root._rasterizer ??= new SoftwareRasterizer();
+        SoftwareRasterizer rasterizer = Root.FallbackRasterizer();
         rasterizer.Render(mask.Content, bitmap, toPixels * Matrix.CreateTranslation(-area.Left, -area.Top));
         byte[] values = new byte[width * height];
         for (int y = 0; y < height; y++)
