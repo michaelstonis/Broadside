@@ -70,6 +70,24 @@ internal sealed unsafe partial class Direct2DBackend
 
     private Direct2DBackend Root => _owner ?? this;
 
+    /// <summary>Returns the software rasterizer groups and soft masks fall back to, decoding images as this backend does (issue #362).</summary>
+    private SoftwareRasterizer FallbackRasterizer()
+    {
+        SoftwareRasterizer rasterizer = _rasterizer ??= new SoftwareRasterizer();
+        ConfigureScaledImageDecode(rasterizer, ImageSamplesPerPixel);
+        return rasterizer;
+    }
+
+    /// <summary>Sets a software rasterizer's scaled image decode (issue #362): on at <paramref name="samplesPerPixel"/>, or off at 0.</summary>
+    internal static void ConfigureScaledImageDecode(SoftwareRasterizer rasterizer, double samplesPerPixel)
+    {
+        rasterizer.ScaledImageDecode = samplesPerPixel > 0;
+        if (samplesPerPixel > 0)
+        {
+            rasterizer.ImageSamplesPerPixel = samplesPerPixel;
+        }
+    }
+
     /// <summary>Replaces the diagnostics of the replay, which drew nothing that is kept, by the one of a page the software rasterizer drew.</summary>
     public void ReportPageRasterized()
     {
@@ -423,7 +441,7 @@ internal sealed unsafe partial class Direct2DBackend
             return;
         }
 
-        SoftwareRasterizer rasterizer = Root._rasterizer ??= new SoftwareRasterizer();
+        SoftwareRasterizer rasterizer = Root.FallbackRasterizer();
         byte[] pixels = new byte[area.Width * area.Height * 4];
         using (var bitmap = new Bitmap(pixels, area.Width, area.Height, area.Width * 4))
         {
@@ -511,7 +529,7 @@ internal sealed unsafe partial class Direct2DBackend
         int height = area.Height;
         using var bitmap = new Bitmap(width, height);
         MemoryMarshal.Cast<byte, uint>(bitmap.Pixels).Fill(backdrop);
-        SoftwareRasterizer rasterizer = Root._rasterizer ??= new SoftwareRasterizer();
+        SoftwareRasterizer rasterizer = Root.FallbackRasterizer();
         rasterizer.Render(mask.Content, bitmap, toPixels * Matrix.CreateTranslation(-area.Left, -area.Top));
         byte[] values = new byte[width * height];
         for (int y = 0; y < height; y++)
