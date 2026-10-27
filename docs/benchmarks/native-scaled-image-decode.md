@@ -47,3 +47,17 @@ What changed:
 The Blazor viewer draws on the page's thread one tile at a time (a cooperative session), so its software rasterizers rarely converted the same image twice; its memory does not change. Interpreter build, Playwright Chromium, render worker off, `ScrollFrameTests` with the same page: page WebAssembly plus JS heap 304 MiB before, 293 MiB after (desktop 1280 x 900 at 2x); 294 and 293 MiB (phone 390 x 844 at 3x, CPU/4). With the worker on, the page holds 178 to 184 MiB and the worker 139 to 140 MiB, before and after.
 
 Reproduce the browser figures: write the page with `CatalogueSamples.Cover()`, publish the sample with `publish-static.sh --no-aot`, then run `ScrollFrameTests` as described in `browser-image-decoder.md` with `BROADSIDE_FRAME_BENCH_DOCUMENTS` set to the page.
+
+## Direct2D (Windows)
+
+Not measured: Direct2D needs Windows, and no Windows machine was available for this part (#428 part 5). The MAUI sample on Windows draws with Skia, not Direct2D, and Direct2D has no tile backend, so there is no viewer to measure it in yet. The only figures available come from CI.
+
+The Windows CI job (GitHub-hosted `windows-latest` runner, WARP software device, Release build) prints the time of one list render of the catalogue cover with a new `Direct2DRenderer` (`Direct2DScaledImageDecodeTests`). Each render decodes the DCT photograph, converts it and draws the page once. The reduced render runs first, so the full one does not benefit from a warm decode. These are single runs on a shared runner: they show the size of the effect, not a benchmark.
+
+| Page width (px) | Reduction (k = 2) | Render (ms), full | reduced | Converted pixels kept (MB), full | reduced |
+|---:|---|---:|---:|---:|---:|
+| 390 | 1/2 | 583 | 205 | 31.4 | 8.4 |
+| 300 | 1/4 | 607 | 97 | 31.1 | 2.4 |
+| 150 | 1/8 | 578 | 63 | 30.8 | 0.6 |
+
+"Kept" is the renderer's image cache: the converted BGRA pixels plus their resampling to the device.

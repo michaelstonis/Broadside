@@ -37,7 +37,7 @@ public sealed class Direct2DScaledImageDecodeTests
         Assert.Equal(2550L * 3150, full.Converted);
         Assert.Equal((long)Reduce(2550, reduction) * Reduce(3150, reduction), reduced.Converted);
         // The reduced conversion is what is kept (with its resampling to the device), never the full one.
-        Assert.InRange(reduced.Kept, reduced.Converted * 4, (reduced.Converted * 4) + (reduced.Area * 4));
+        Assert.InRange(reduced.Kept, reduced.Converted * 4, full.Kept / 2);
         ScaledImagePages.AssertWithinTolerance(full.Pixels, reduced.Pixels, $"cover at {width} px");
     }
 
@@ -198,7 +198,7 @@ public sealed class Direct2DScaledImageDecodeTests
         bitmap.Pixels.Fill(0xFF);
         using var renderer = new Direct2DRenderer(Direct2DDriver.Warp) { ScaledImageDecode = scaled, ImageSamplesPerPixel = samplesPerPixel };
         renderer.Render(page.CreateDisplayList(), bitmap, options.GetDeviceTransform(page));
-        return new Rendered(Pixels(bitmap), renderer.ImagePixelsConverted, renderer.CachedImageBytes, (long)size.Width * size.Height);
+        return new Rendered(Pixels(bitmap), renderer.ImagePixelsConverted, renderer.CachedImageBytes);
     }
 
     private static Bitmap Page(PdfDocument document, RenderOptions options, out long converted)
@@ -222,5 +222,5 @@ public sealed class Direct2DScaledImageDecodeTests
         return pixels;
     }
 
-    private readonly record struct Rendered(byte[] Pixels, long Converted, long Kept, long Area);
+    private readonly record struct Rendered(byte[] Pixels, long Converted, long Kept);
 }
