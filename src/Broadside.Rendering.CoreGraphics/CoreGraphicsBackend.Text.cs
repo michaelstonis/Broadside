@@ -33,6 +33,9 @@ internal sealed partial class CoreGraphicsBackend
     /// <summary>Gets or sets a value indicating whether every glyph is filled from its outline (<see cref="RenderOptions.ForceOutlines"/>).</summary>
     public bool ForceOutlines { get; set; }
 
+    /// <summary>Gets or sets the fewest samples per device pixel a reduced image keeps (issue #362), or 0 to draw images at their own resolution; read from the backend that owns the render.</summary>
+    public double ImageSamplesPerPixel { get; set; }
+
     /// <summary>
     /// Draws each glyph of the run: filled (modes 0, 2, 4, 6) by CoreGraphics from the run's TrueType or OpenType program at the glyph's
     /// transform, or from its outline by the non-zero rule when the program cannot be drawn natively or outlines are forced; stroked

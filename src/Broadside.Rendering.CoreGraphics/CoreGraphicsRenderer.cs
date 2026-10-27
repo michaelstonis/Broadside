@@ -57,6 +57,7 @@ namespace Broadside.Rendering.CoreGraphics;
 public sealed class CoreGraphicsRenderer : IDisposable
 {
     private readonly CoreGraphicsBackend _backend = new();
+    private double _imageSamplesPerPixel = RenderOptions.DefaultImageSamplesPerPixel;
     private bool _disposed;
 
     /// <summary>Initializes a renderer; reuse it for many renders.</summary>
@@ -102,6 +103,7 @@ public sealed class CoreGraphicsRenderer : IDisposable
             target.SetFillColor(White);
             target.FillRect(area);
             _backend.ForceOutlines = options.ForceOutlines;
+            _backend.ImageSamplesPerPixel = options.ScaledImageDecode && !options.OverprintPreview ? options.ImageSamplesPerPixel : 0;
             _backend.Replay(list, target, device);
         }
         finally
@@ -144,7 +146,36 @@ public sealed class CoreGraphicsRenderer : IDisposable
         ArgumentNullException.ThrowIfNull(context);
         ObjectDisposedException.ThrowIf(_disposed, this);
         _backend.ForceOutlines = forceOutlines;
+        _backend.ImageSamplesPerPixel = ScaledImageDecode ? _imageSamplesPerPixel : 0;
         _backend.Replay(list, context, deviceTransform);
+    }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the renders of a display list given to this renderer decode images at the resolution
+    /// they are drawn at rather than their own; <see langword="false"/> by default. Page renders take
+    /// <see cref="RenderOptions.ScaledImageDecode"/> instead.
+    /// </summary>
+    /// <remarks>
+    /// For viewers only, never for printing or export (see <see cref="RenderOptions.ScaledImageDecode"/>): an image whose codec decodes
+    /// reduced resolutions, or a large one decoded when its list was built, is converted at the largest power-of-two reduction that
+    /// keeps <see cref="ImageSamplesPerPixel"/> samples per device pixel (<see cref="DisplayImage.GetReduction"/>, capped for a curved
+    /// colour conversion), and its masks at their own; the reduced samples are then resampled to the device as before. ISO 32000-2
+    /// §8.9.4 (the image unit square), §8.9.5.3 (Interpolate only affects enlargement).
+    /// </remarks>
+    public bool ScaledImageDecode { get; set; }
+
+    /// <summary>
+    /// Gets or sets the fewest decoded samples per device pixel a reduced image keeps when <see cref="ScaledImageDecode"/> is on:
+    /// <see cref="RenderOptions.DefaultImageSamplesPerPixel"/> (2) by default; 1 is faster and coarser.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a finite number of at least 1.</exception>
+    /// <remarks>See <see cref="RenderOptions.ImageSamplesPerPixel"/>; ISO 32000-2 §8.9.4.</remarks>
+    public double ImageSamplesPerPixel
+    {
+        get => _imageSamplesPerPixel;
+        set => _imageSamplesPerPixel = double.IsFinite(value) && value >= 1
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "The samples per pixel must be a finite number of at least 1.");
     }
 
     /// <summary>Gets what the last render could not draw exactly as the file asks: one diagnostic per kind.</summary>
@@ -153,6 +184,9 @@ public sealed class CoreGraphicsRenderer : IDisposable
 
     /// <summary>Gets how many CoreGraphics images the renderer made from display-list images and masks.</summary>
     internal int ImagesCreated => _backend.ImagesCreated;
+
+    /// <summary>Gets how many pixels the CoreGraphics images the renderer made had in all (fewer for reduced images, issue #428).</summary>
+    internal long ImagePixelsConverted => _backend.ImagePixelsConverted;
 
     /// <summary>Gets the bytes of converted pixels the renderer keeps.</summary>
     internal long CachedImageBytes => _backend.CachedImageBytes;

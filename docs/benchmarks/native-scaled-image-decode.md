@@ -48,6 +48,30 @@ The Blazor viewer draws on the page's thread one tile at a time (a cooperative s
 
 Reproduce the browser figures: write the page with `CatalogueSamples.Cover()`, publish the sample with `publish-static.sh --no-aot`, then run `ScrollFrameTests` as described in `browser-image-decoder.md` with `BROADSIDE_FRAME_BENCH_DOCUMENTS` set to the page.
 
+## CoreGraphics (macOS)
+
+The CoreGraphics backend has no tile backend or viewer shell yet, so it was measured on macOS directly: `CoreGraphicsRenderer` list renders of the same page into a `CGBitmapContext` of the page's pixel size, Release build of the CoreGraphics test app, macOS 27.0.1 on an Apple M4 Max, 2026-10-27. "Before" is `ScaledImageDecode` off, which draws exactly what the integration branch drew (the hashes of 116 page renders of the scaled-image pages, the cover and 20 corpus image files at four scales are identical before and after); "after" is `ScaledImageDecode = true` with the default k = 2 unless shown. Median of 7 runs, each with a fresh document and renderer.
+
+- **First render**: the first render of the page's list, which decodes the photograph (at the reduction asked for) and converts it to a CGImage.
+- **Allocated**: managed bytes allocated by that first render (the decoded samples and the converted pixels).
+- **Kept**: the converted pixels the renderer keeps afterwards (the CGImage's pixels and its resampling to the device).
+
+| Page width (px) | Reduction | First render (ms), before | after | Allocated (MB), before | after | Kept (MB), before | after | Pixels converted, before | after |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1180 | none (k = 2) | 299 | 282 | 69.7 | 69.7 | 37.5 | 37.5 | 8,032,500 | 8,032,500 |
+| 1180 | 1/2 (k = 1) | 299 | 122 | 69.7 | 22.7 | 37.5 | 14.5 | 8,032,500 | 2,008,125 |
+| 590 | 1/2 | 249 | 97 | 64.4 | 17.4 | 32.4 | 9.4 | 8,032,500 | 2,008,125 |
+| 390 | 1/2 | 236 | 95 | 63.4 | 16.5 | 31.4 | 8.4 | 8,032,500 | 2,008,125 |
+| 294 | 1/4 | 229 | 52 | 63.1 | 4.4 | 31.1 | 2.3 | 8,032,500 | 502,744 |
+| 150 | 1/8 | 221 | 36 | 62.8 | 1.1 | 30.8 | 0.6 | 8,032,500 | 125,686 |
+
+Reading the numbers:
+- **When a reduction applies, the first render is 2.4x (1/2) to 6x (1/8) faster, and the renderer allocates and keeps 4x to 50x less.** A warm render (the conversion kept) takes under 1 ms either way, so the gain is in opening and zooming.
+- **Without a reduction nothing changes** (the first row; the difference is noise).
+- The CoreGraphics backend has no pooled tile backends, so #432's shared cache does not apply; the converted image is kept per `CoreGraphicsRenderer`, keyed by the reduction delivered (a finer conversion serves a coarser request, so zooming out converts nothing again).
+
+Reproduce: a throwaway xUnit fact in `tests/Broadside.Rendering.CoreGraphics.Tests` that opens `CatalogueSamples.Cover()`, builds the page's display list and renders it with `new CoreGraphicsRenderer { ScaledImageDecode = …, ImageSamplesPerPixel = … }` into a flipped `CGBitmapContext`, timing the first `Render` and reading `GC.GetTotalAllocatedBytes(true)` around it; run with `dotnet test --project tests/Broadside.Rendering.CoreGraphics.Tests -c Release`.
+
 ## Android Canvas (emulator)
 
 Measured 2026-10-27 on a scratch Android 15 (API 35, google_apis, arm64) emulator with 4 cores, 4 GB RAM and a 576 MB heap on an Apple M4 Max host, with the Release device app (`tests/Broadside.Rendering.Android.Device`, no AOT). Each row is one `am instrument` run, so a fresh process: it opens the page, builds its display list, and draws the page at the given width as 256 x 256 tiles through one `AndroidCanvasBackend` (list renders, as a viewer's tiles), twice. The Android Canvas backend has no tile backend or pool, so one backend draws every tile.
