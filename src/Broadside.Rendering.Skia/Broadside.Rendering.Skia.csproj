@@ -9,4 +9,9 @@
     <PackageReference Include="SkiaSharp" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The converted images a viewer's pooled backends share (issue #432): the software rasterizer's implementation, compiled here too. -->
+    <Compile Include="../Broadside.Rendering/SharedImageCache.cs" Link="SharedImageCache.cs" />
+  </ItemGroup>
+
 </Project>

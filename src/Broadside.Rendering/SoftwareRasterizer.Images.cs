@@ -74,13 +74,41 @@ public sealed partial class SoftwareRasterizer
                 ? _imageBaseConverter ??= _document!.GetColorConverter(indexed.Base, _pixelModel.Convert(conversion), defaultColorSpaces)
                 : null;
             DisplayImageSamples? soft = FoldedSoftMask(image, samples);
+            if (_imageSource.SharedFor(_document!) is { } shared)
+            {
+                // The rasterizers of a viewer's pool share the conversion (issue #432), leased while it is painted.
+                SharedPixels leased = _imageSource.Lease(shared, image, samples, soft, converter, baseConverter, _pixelModel);
+                try
+                {
+                    PaintConverted(image, samples, soft, inverse, leased.Pixels);
+                }
+                finally
+                {
+                    shared.Release(leased);
+                }
+
+                return;
+            }
+
             _imageSource.Prepare(image, samples, soft, converter, baseConverter, _pixelModel);
+            PaintConverted(image, samples, soft, inverse, _imageSource.Buffer);
+        }
+
+        /// <summary>
+        /// Gets the converter of this backend's images, which shares them with the other rasterizers drawing the same document when
+        /// told to (issue #432).
+        /// </summary>
+        public ImageSource Images => _imageSource;
+
+        /// <summary>Paints an image's converted pixels through its mask, when not folded into them, in the unit square's parallelogram.</summary>
+        private void PaintConverted(DisplayImage image, DisplayImageSamples samples, DisplayImageSamples? soft, in Matrix inverse, uint[] pixels)
+        {
             ImageMask mask = PrepareImageMask(image, samples, soft);
             Bitmap target = _target!;
             var painter = new ImagePainter(
                 target.Pixels,
                 target.Stride,
-                _imageSource.Buffer,
+                pixels,
                 samples.Width,
                 samples.Height,
                 ToSamples(inverse, samples),

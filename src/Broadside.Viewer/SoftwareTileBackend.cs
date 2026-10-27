@@ -6,7 +6,9 @@ namespace Broadside.Viewer;
 /// <summary>The default <see cref="ITileBackend"/>: the fully managed <see cref="SoftwareRasterizer"/>, sliced through <see cref="ProgressiveRender"/>.</summary>
 /// <remarks>
 /// ISO 32000-2 §10.7.1. Spec #33 story 54 (software by default) and viewer capability 2. A viewer's tiles are for display, so images
-/// are decoded at the resolution they are drawn at unless the constructor says otherwise (<see cref="RenderOptions.ScaledImageDecode"/>).
+/// are decoded at the resolution they are drawn at unless the constructor says otherwise (<see cref="RenderOptions.ScaledImageDecode"/>). The
+/// backends of a session's pool share the images they convert (<see cref="SoftwareRasterizer.ShareConvertedImages"/>): each image is
+/// converted once, within the document's image cache budget, whichever backend draws it.
 /// </remarks>
 public sealed class SoftwareTileBackend : ITileBackend
 {
@@ -26,6 +28,7 @@ public sealed class SoftwareTileBackend : ITileBackend
     {
         _rasterizer.ScaledImageDecode = scaledImageDecode;
         _rasterizer.ImageSamplesPerPixel = imageSamplesPerPixel;
+        _rasterizer.ShareConvertedImages = true;
     }
 
     /// <inheritdoc/>

@@ -135,4 +135,6 @@ Broadside.Rendering.SoftwareRasterizer.ImageSamplesPerPixel.get -> double
 Broadside.Rendering.SoftwareRasterizer.ImageSamplesPerPixel.set -> void
 Broadside.Rendering.SoftwareRasterizer.ScaledImageDecode.get -> bool
 Broadside.Rendering.SoftwareRasterizer.ScaledImageDecode.set -> void
+Broadside.Rendering.SoftwareRasterizer.ShareConvertedImages.get -> bool
+Broadside.Rendering.SoftwareRasterizer.ShareConvertedImages.set -> void
 Broadside.Rendering.SoftwareRasterizer.PrefetchImagesAsync(Broadside.Rendering.DisplayList! list, in Broadside.Graphics.Matrix deviceTransform, int width, int height, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask

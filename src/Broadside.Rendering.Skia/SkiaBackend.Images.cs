@@ -24,6 +24,8 @@ public sealed partial class SkiaBackend
 
         private ImageCache Images => (_owner ?? this)._imageCache!;
 
+        private SharedImageCache<ImageCache.Entry>? Shared => (_owner ?? this)._shared;
+
         /// <summary>
         /// Draws an image (ISO 32000-2 §8.9.4, §8.9.5): image space maps to the unit square through [1/w 0 0 −1/h 0 1], then the
         /// current transform. A mask of the image's size is folded into the pixels; a soft mask (§11.6.5.2) or explicit mask (§8.9.6.3)
@@ -53,6 +55,12 @@ public sealed partial class SkiaBackend
                 reduction = image.GetReduction(toPixels, samplesPerPixel, converter);
             }
 
+            if (Shared is { } shared)
+            {
+                DrawSharedImage(shared, image, defaultColorSpaces, rgb, converter, reduction);
+                return;
+            }
+
             ImageCache cache = Images;
             ImageCache.Entry entry = cache.Find(image);
             SKImage? pixels = entry.Matches(rgb, defaultColorSpaces, reduction) ? entry.Image : null;
@@ -77,22 +85,13 @@ public sealed partial class SkiaBackend
                     return;
                 }
 
-                PdfColorConverter? baseConverter = image.ColorSpace is PdfIndexedColorSpace indexed && !image.Matte.IsEmpty
-                    ? _document!.GetColorConverter(indexed.Base, rgb, defaultColorSpaces)
-                    : null;
-                bool foldSoft = ImageConverter.FoldsSoftMask(image, samples, out DisplayImageSamples? softSamples);
-                bool foldMask = !foldSoft && ImageConverter.FoldsMask(image, samples);
-                pixels = ImageConverter.Convert(image, samples, foldSoft, softSamples, foldMask, converter, baseConverter);
+                pixels = ConvertImage(image, samples, rgb, defaultColorSpaces, converter, out folded);
                 if (pixels is null)
                 {
-                    Report(128, ImageTooLarge);
                     return;
                 }
 
-                cache.Created++;
-                cache.PixelsConverted += (long)pixels.Width * pixels.Height;
                 delivered = samples.Reduction;
-                folded = foldSoft || foldMask;
                 owned = !cache.Keep(entry, pixels, (long)samples.Width * samples.Height * 4, rgb, defaultColorSpaces, delivered);
                 entry.Folded = folded;
             }
@@ -104,19 +103,7 @@ public sealed partial class SkiaBackend
 
             try
             {
-                object? maskKey = folded ? null : (object?)image.SoftMask ?? image.Mask;
-                var grid = new SampleGrid(pixels.Width, pixels.Height, image.Width, image.Height, delivered);
-                Prepare(_image, _compositing.FillAlpha, PaintBlend);
-                if (maskKey is null)
-                {
-                    DrawSamples(pixels, entry, grid, image.Interpolate, _image, clipEdges: true);
-                    return;
-                }
-
-                _canvas!.SaveLayer(_image);
-                DrawSamples(pixels, entry, grid, image.Interpolate, _plain, clipEdges: true);
-                DrawMask(maskKey, _maskIn, clipEdges: false);
-                _canvas.Restore();
+                DrawConverted(image, pixels, entry, delivered, folded);
             }
             finally
             {
@@ -125,6 +112,117 @@ public sealed partial class SkiaBackend
                     pixels.Dispose();
                 }
             }
+        }
+
+        /// <summary>Draws an image's converted pixels, with its mask when it is not folded into them.</summary>
+        private void DrawConverted(DisplayImage image, SKImage pixels, ImageCache.Entry entry, int delivered, bool folded)
+        {
+            object? maskKey = folded ? null : (object?)image.SoftMask ?? image.Mask;
+            var grid = new SampleGrid(pixels.Width, pixels.Height, image.Width, image.Height, delivered);
+            Prepare(_image, _compositing.FillAlpha, PaintBlend);
+            if (maskKey is null)
+            {
+                DrawSamples(pixels, entry, grid, image.Interpolate, _image, clipEdges: true);
+                return;
+            }
+
+            _canvas!.SaveLayer(_image);
+            DrawSamples(pixels, entry, grid, image.Interpolate, _plain, clipEdges: true);
+            DrawMask(maskKey, _maskIn, clipEdges: false);
+            _canvas.Restore();
+        }
+
+        /// <summary>
+        /// Draws an image from the cache the backends drawing its document share (issue #432): its conversion is leased while drawn,
+        /// and made by one backend at a time, under its key's lock, when no matching one is kept (a finer one serves, as in the
+        /// backend's own cache); the others wait and draw it.
+        /// </summary>
+        private void DrawSharedImage(SharedImageCache<ImageCache.Entry> shared, DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion rgb, PdfColorConverter? converter, int reduction)
+        {
+            SharedImageCache<ImageCache.Entry>.Slot slot = shared.SlotOf(image);
+            ImageCache.Entry? entry = LeaseMatching(shared, slot, rgb, defaultColorSpaces, reduction);
+            if (entry is null)
+            {
+                lock (slot.Converting)
+                {
+                    entry = LeaseMatching(shared, slot, rgb, defaultColorSpaces, reduction);
+                    if (entry is null)
+                    {
+                        if (image.GetSamplesAt(reduction) is not { } samples)
+                        {
+                            return;
+                        }
+
+                        converter ??= _document!.GetColorConverter(image.ColorSpace, rgb, defaultColorSpaces);
+                        if (converter.PaintsNothing || ConvertImage(image, samples, rgb, defaultColorSpaces, converter, out bool folded) is not { } pixels)
+                        {
+                            return;
+                        }
+
+                        entry = new ImageCache.Entry
+                        {
+                            Image = pixels,
+                            Bytes = (long)samples.Width * samples.Height * 4,
+                            Conversion = rgb,
+                            Defaults = defaultColorSpaces,
+                            Delivered = samples.Reduction,
+                            Folded = folded,
+                            Gate = new Lock(),
+                        };
+                        shared.Publish(slot, entry, entry.Bytes);
+                    }
+                }
+            }
+            else if (reduction == 0 && image.GetSamplesAt(0) is null)
+            {
+                // As with the backend's own cache: an image that cannot be decoded paints nothing (§8.9.5).
+                shared.Release(entry);
+                return;
+            }
+
+            try
+            {
+                DrawConverted(image, entry.Image!, entry, entry.Delivered, entry.Folded);
+            }
+            finally
+            {
+                shared.Release(entry);
+            }
+        }
+
+        /// <summary>Leases the slot's image when it was converted this way at <paramref name="reduction"/> or finer; else null.</summary>
+        private static ImageCache.Entry? LeaseMatching(SharedImageCache<ImageCache.Entry> shared, SharedImageCache<ImageCache.Entry>.Slot slot, ColorConversion rgb, PdfDefaultColorSpaces? defaults, int reduction)
+        {
+            ImageCache.Entry? entry = shared.Lease(slot);
+            if (entry is not null && !entry.Matches(rgb, defaults, reduction))
+            {
+                shared.Release(entry);
+                return null;
+            }
+
+            return entry;
+        }
+
+        /// <summary>Converts an image's samples to a Skia image, its mask folded in when it has their size; null (reported) when too large.</summary>
+        private SKImage? ConvertImage(DisplayImage image, DisplayImageSamples samples, ColorConversion rgb, PdfDefaultColorSpaces defaultColorSpaces, PdfColorConverter converter, out bool folded)
+        {
+            PdfColorConverter? baseConverter = image.ColorSpace is PdfIndexedColorSpace indexed && !image.Matte.IsEmpty
+                ? _document!.GetColorConverter(indexed.Base, rgb, defaultColorSpaces)
+                : null;
+            bool foldSoft = ImageConverter.FoldsSoftMask(image, samples, out DisplayImageSamples? softSamples);
+            bool foldMask = !foldSoft && ImageConverter.FoldsMask(image, samples);
+            folded = foldSoft || foldMask;
+            SKImage? pixels = ImageConverter.Convert(image, samples, foldSoft, softSamples, foldMask, converter, baseConverter);
+            if (pixels is null)
+            {
+                Report(128, ImageTooLarge);
+                return null;
+            }
+
+            ImageCache cache = Images;
+            cache.Created++;
+            cache.PixelsConverted += (long)pixels.Width * pixels.Height;
+            return pixels;
         }
 
         /// <summary>
@@ -203,19 +301,19 @@ public sealed partial class SkiaBackend
                 Matrix toCanvas = toDevice * Matrix.CreateTranslation(tx, ty);
                 if (ImageReducer.Applies(grid.Width, grid.Height, toCanvas, out SKRectI pixels, out bool upright))
                 {
-                    SKImage? reduced = null;
-                    bool owned = false;
-                    if (entry.Admit(toCanvas, pixels, out int slot))
+                    SKImage? reduced;
+                    bool owned;
+                    if (entry.Gate is { } gate)
                     {
-                        reduced = entry.ReductionAt(slot);
-                        // Made for the slot's own transform, even when this one is it moved by whole pixels, so that the pixels never depend
-                        // on whether the resampling was kept (the budget).
-                        if (reduced is null && ImageReducer.Reduce(samples, entry.TransformAt(slot), entry.PixelsAt(slot), interpolate) is { } made)
+                        // A shared conversion (issue #432): its resampling is made once, under its lock, for every backend that draws it.
+                        lock (gate)
                         {
-                            reduced = made;
-                            long bytes = (long)pixels.Width * pixels.Height * (samples.ColorType == SKColorType.Alpha8 ? 1 : 4);
-                            owned = !Images.KeepReduction(entry, slot, made, bytes);
+                            reduced = Resample(samples, entry, toCanvas, pixels, interpolate, out owned);
                         }
+                    }
+                    else
+                    {
+                        reduced = Resample(samples, entry, toCanvas, pixels, interpolate, out owned);
                     }
 
                     if (reduced is not null)
@@ -254,6 +352,43 @@ public sealed partial class SkiaBackend
             }
 
             canvas.DrawImage(samples, new SKRect(0, 0, grid.Width, grid.Height), sampling, paint);
+        }
+
+        /// <summary>
+        /// Returns the entry's resampling for <paramref name="toCanvas"/>, made and kept when it fits the budget beside the image
+        /// (<paramref name="owned"/> when not: the caller disposes it after drawing); null when the entry's slots are taken.
+        /// </summary>
+        private SKImage? Resample(SKImage samples, ImageCache.Entry entry, in Matrix toCanvas, SKRectI pixels, bool interpolate, out bool owned)
+        {
+            owned = false;
+            if (!entry.Admit(toCanvas, pixels, out int slot))
+            {
+                return null;
+            }
+
+            SKImage? reduced = entry.ReductionAt(slot);
+
+            // Made for the slot's own transform, even when this one is it moved by whole pixels, so that the pixels never depend on
+            // whether the resampling was kept (the budget).
+            if (reduced is null && ImageReducer.Reduce(samples, entry.TransformAt(slot), entry.PixelsAt(slot), interpolate) is { } made)
+            {
+                reduced = made;
+                long bytes = (long)pixels.Width * pixels.Height * (samples.ColorType == SKColorType.Alpha8 ? 1 : 4);
+                if (entry.Gate is null)
+                {
+                    owned = !Images.KeepReduction(entry, slot, made, bytes);
+                }
+                else if (Shared is { } shared && shared.Grow(entry, bytes))
+                {
+                    entry.SetReduction(slot, made, bytes);
+                }
+                else
+                {
+                    owned = true;
+                }
+            }
+
+            return reduced;
         }
 
         /// <summary>Intersects the clip with the outline of the image's unit square on the canvas, anti-aliased like a fill.</summary>
@@ -299,6 +434,12 @@ public sealed partial class SkiaBackend
                 reduction = soft is not null ? soft.GetReduction(toPixels, samplesPerPixel, null) : stencil!.GetReduction(toPixels, samplesPerPixel);
             }
 
+            if (Shared is { } shared)
+            {
+                DrawSharedMask(shared, mask, soft, stencil, reduction, width, height, interpolate, paint, clipEdges);
+                return;
+            }
+
             ImageCache cache = Images;
             ImageCache.Entry entry = cache.Find(mask);
             SKImage? alpha = entry.Delivered <= reduction ? entry.Image : null;
@@ -306,30 +447,12 @@ public sealed partial class SkiaBackend
             int delivered = entry.Delivered;
             if (alpha is null)
             {
-                if (soft is null)
-                {
-                    delivered = reduction;
-                    alpha = ImageConverter.ConvertStencil(stencil!, reduction);
-                }
-                else if (reduction > 0 && soft.GetSamplesAt(reduction) is { } samples)
-                {
-                    delivered = samples.Reduction;
-                    alpha = ImageConverter.ConvertSoftMask(soft, samples);
-                }
-                else
-                {
-                    delivered = 0;
-                    alpha = ImageConverter.ConvertSoftMask(soft);
-                }
-
+                alpha = ConvertMask(soft, stencil, reduction, out delivered);
                 if (alpha is null)
                 {
-                    Report(128, ImageTooLarge);
                     return;
                 }
 
-                cache.Created++;
-                cache.PixelsConverted += (long)alpha.Width * alpha.Height;
                 owned = !cache.Keep(entry, alpha, (long)alpha.Width * alpha.Height, default, null, delivered);
             }
 
@@ -345,6 +468,85 @@ public sealed partial class SkiaBackend
                     alpha.Dispose();
                 }
             }
+        }
+
+        /// <summary>Draws a mask from the cache the backends drawing its document share (issue #432), converted once (see <see cref="DrawSharedImage"/>).</summary>
+        private void DrawSharedMask(SharedImageCache<ImageCache.Entry> shared, object mask, DisplayImage? soft, DisplayImageMask? stencil, int reduction, int width, int height, bool interpolate, SKPaint paint, bool clipEdges)
+        {
+            SharedImageCache<ImageCache.Entry>.Slot slot = shared.SlotOf(mask);
+            ImageCache.Entry? entry = LeaseMask(shared, slot, reduction);
+            if (entry is null)
+            {
+                lock (slot.Converting)
+                {
+                    entry = LeaseMask(shared, slot, reduction);
+                    if (entry is null)
+                    {
+                        if (ConvertMask(soft, stencil, reduction, out int delivered) is not { } alpha)
+                        {
+                            return;
+                        }
+
+                        entry = new ImageCache.Entry { Image = alpha, Bytes = (long)alpha.Width * alpha.Height, Delivered = delivered, Gate = new Lock() };
+                        shared.Publish(slot, entry, entry.Bytes);
+                    }
+                }
+            }
+
+            try
+            {
+                SKImage alpha = entry.Image!;
+                DrawSamples(alpha, entry, new SampleGrid(alpha.Width, alpha.Height, width, height, entry.Delivered), interpolate, paint, clipEdges);
+            }
+            finally
+            {
+                shared.Release(entry);
+            }
+        }
+
+        /// <summary>Leases the slot's mask when it was converted at <paramref name="reduction"/> or finer; else null.</summary>
+        private static ImageCache.Entry? LeaseMask(SharedImageCache<ImageCache.Entry> shared, SharedImageCache<ImageCache.Entry>.Slot slot, int reduction)
+        {
+            ImageCache.Entry? entry = shared.Lease(slot);
+            if (entry is not null && entry.Delivered > reduction)
+            {
+                shared.Release(entry);
+                return null;
+            }
+
+            return entry;
+        }
+
+        /// <summary>Converts a mask to an alpha-only Skia image at <paramref name="reduction"/> (or what its samples deliver); null (reported) when too large.</summary>
+        private SKImage? ConvertMask(DisplayImage? soft, DisplayImageMask? stencil, int reduction, out int delivered)
+        {
+            SKImage? alpha;
+            if (soft is null)
+            {
+                delivered = reduction;
+                alpha = ImageConverter.ConvertStencil(stencil!, reduction);
+            }
+            else if (reduction > 0 && soft.GetSamplesAt(reduction) is { } samples)
+            {
+                delivered = samples.Reduction;
+                alpha = ImageConverter.ConvertSoftMask(soft, samples);
+            }
+            else
+            {
+                delivered = 0;
+                alpha = ImageConverter.ConvertSoftMask(soft);
+            }
+
+            if (alpha is null)
+            {
+                Report(128, ImageTooLarge);
+                return null;
+            }
+
+            ImageCache cache = Images;
+            cache.Created++;
+            cache.PixelsConverted += (long)alpha.Width * alpha.Height;
+            return alpha;
         }
 
         private void DisposeImages()

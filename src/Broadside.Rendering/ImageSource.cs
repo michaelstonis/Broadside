@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Broadside.Graphics;
 using Broadside.Images;
@@ -43,6 +44,64 @@ internal sealed class ImageSource : IDisposable
     // no larger than before reductions (every software render has one).
     private bool _folded;
 
+    // Whether the rasterizer shares converted images (issue #432). The cache joined is found in Joined, not in a field: every software
+    // render pays for each field of this source, and a bool fits the object's padding.
+    private bool _share;
+
+    /// <summary>The shared cache each sharing source joined, by source: only sources that drew an image while sharing are in it.</summary>
+    private static readonly ConditionalWeakTable<ImageSource, SharedImageCache<SharedPixels>> Joined = [];
+
+    /// <summary>
+    /// Gets or sets a value indicating whether images are converted into the cache the rasterizers drawing the same document share
+    /// (<see cref="SharedFor"/>); turning it off leaves that cache.
+    /// </summary>
+    public bool Share
+    {
+        get => _share;
+        set
+        {
+            _share = value;
+            if (!value)
+            {
+                LeaveShared();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Returns the shared cache of <paramref name="document"/>, joining it the first time (and leaving another document's); null when
+    /// the source does not share, or the document's image cache budget is zero (nothing would be kept to share).
+    /// </summary>
+    public SharedImageCache<SharedPixels>? SharedFor(PdfDocument document)
+    {
+        if (!_share)
+        {
+            return null;
+        }
+
+        if (!Joined.TryGetValue(this, out SharedImageCache<SharedPixels>? cache) || !cache.IsFor(document))
+        {
+            LeaveShared();
+            cache = SharedImageCache<SharedPixels>.Join(document, document.CacheStatistics.Images.Budget);
+            Joined.Add(this, cache);
+        }
+
+        return cache.Budget > 0 ? cache : null;
+    }
+
+    /// <summary>Gets the shared cache this source joined, if any.</summary>
+    internal SharedImageCache<SharedPixels>? SharedImages => Joined.TryGetValue(this, out SharedImageCache<SharedPixels>? cache) ? cache : null;
+
+    /// <summary>Leaves the shared cache this source joined, if any.</summary>
+    public void LeaveShared()
+    {
+        if (Joined.TryGetValue(this, out SharedImageCache<SharedPixels>? cache))
+        {
+            Joined.Remove(this);
+            cache.Leave();
+        }
+    }
+
     /// <summary>Gets the converted pixels, <see cref="Width"/> × <see cref="Height"/>, rows top to bottom.</summary>
     public ReadOnlySpan<uint> Pixels => _pixels.AsSpan(0, Width * Height);
 
@@ -83,13 +142,63 @@ internal sealed class ImageSource : IDisposable
             return;
         }
 
+        Pooled.Ensure(ref _pixels, samples.Width * samples.Height);
+        Convert(image, samples, soft, converter, baseConverter, model, _pixels);
+        _samples = samples;
+        _folded = soft is not null;
+        _converter = converter;
+        _model = model;
+    }
+
+    /// <summary>
+    /// Leases the converted pixels of <paramref name="samples"/> from <paramref name="shared"/>, the cache the rasterizers drawing the
+    /// same document share (issue #432), converting them into a new array when no rasterizer has: one at a time per image, the
+    /// others waiting for it. The arguments are those of <see cref="Prepare"/>; the caller releases the lease after painting.
+    /// </summary>
+    public SharedPixels Lease(SharedImageCache<SharedPixels> shared, DisplayImage image, DisplayImageSamples samples, DisplayImageSamples? soft, PdfColorConverter converter, PdfColorConverter? baseConverter, PixelModel model)
+    {
+        SharedImageCache<SharedPixels>.Slot slot = shared.SlotOf(image);
+        if (LeaseMatching(shared, slot, samples, soft is not null, converter, model) is { } kept)
+        {
+            return kept;
+        }
+
+        lock (slot.Converting)
+        {
+            if (LeaseMatching(shared, slot, samples, soft is not null, converter, model) is { } converted)
+            {
+                return converted;
+            }
+
+            uint[] pixels = GC.AllocateUninitializedArray<uint>(samples.Width * samples.Height);
+            Convert(image, samples, soft, converter, baseConverter, model, pixels);
+            var made = new SharedPixels(pixels, samples, soft is not null, converter, model);
+            shared.Publish(slot, made, (long)pixels.Length * sizeof(uint));
+            return made;
+        }
+    }
+
+    private static SharedPixels? LeaseMatching(SharedImageCache<SharedPixels> shared, SharedImageCache<SharedPixels>.Slot slot, DisplayImageSamples samples, bool folded, PdfColorConverter converter, PixelModel model)
+    {
+        SharedPixels? pixels = shared.Lease(slot);
+        if (pixels is not null && !pixels.Matches(samples, folded, converter, model))
+        {
+            shared.Release(pixels);
+            return null;
+        }
+
+        return pixels;
+    }
+
+    /// <summary>Converts <paramref name="samples"/> into <paramref name="destination"/> (see <see cref="Prepare"/>), with this source's scratch buffers.</summary>
+    private void Convert(DisplayImage image, DisplayImageSamples samples, DisplayImageSamples? soft, PdfColorConverter converter, PdfColorConverter? baseConverter, PixelModel model, uint[] destination)
+    {
         int outputs = model.Components;
 
         int width = samples.Width;
         int height = samples.Height;
         int components = samples.Components;
         int values = width * components;
-        Pooled.Ensure(ref _pixels, width * height);
         Pooled.Ensure(ref _rgb, width * outputs);
 
         PdfColorSpace space = image.ColorSpace;
@@ -189,7 +298,7 @@ internal sealed class ImageSource : IDisposable
                     break;
             }
 
-            Span<uint> pixels = _pixels.AsSpan(y * width, width);
+            Span<uint> pixels = destination.AsSpan(y * width, width);
             for (int x = 0; x < width; x++)
             {
                 // BGRA in memory order, little-endian uint: B | G << 8 | R << 16 | A << 24, premultiplied by the folded opacity.
@@ -211,17 +320,12 @@ internal sealed class ImageSource : IDisposable
 
         if (!BitConverter.IsLittleEndian)
         {
-            Span<byte> pixelBytes = MemoryMarshal.AsBytes(_pixels.AsSpan(0, width * height));
+            Span<byte> pixelBytes = MemoryMarshal.AsBytes(destination.AsSpan(0, width * height));
             for (int i = 0; i < pixelBytes.Length; i += 4)
             {
                 pixelBytes.Slice(i, 4).Reverse();
             }
         }
-
-        _samples = samples;
-        _folded = soft is not null;
-        _converter = converter;
-        _model = model;
     }
 
     /// <summary>Forgets the image converted last, so that nothing it belongs to is kept alive; the buffers stay.</summary>
@@ -234,6 +338,7 @@ internal sealed class ImageSource : IDisposable
     /// <summary>Returns the pooled buffers.</summary>
     public void Dispose()
     {
+        LeaveShared();
         Forget();
         Pooled.Return(ref _pixels);
         Pooled.Return(ref _raw);

@@ -15,7 +15,7 @@ namespace Broadside.Rendering.Skia;
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §8.9.4 (image space to the unit square to device space), §8.9.5.3 (Interpolate). Works on premultiplied BGRA or
-/// alpha-only pixels, so masks resample the same way. Runs once per image, transform and backend; the result is kept with the image.
+/// alpha-only pixels, so masks resample the same way. Runs once per image and transform (once for all the backends that share converted images); the result is kept with the image.
 /// </remarks>
 internal static class ImageReducer
 {
@@ -27,6 +27,9 @@ internal static class ImageReducer
 
     /// <summary>The device pixels an enlarged image may have per sample, else Skia samples it.</summary>
     private const long MaxEnlargement = 256;
+
+    /// <summary>The sample rows whose horizontal sums an upright resampling keeps at a time (unless one pixel row reads more).</summary>
+    private const int BandRows = 64;
 
     /// <summary>
     /// Whether <paramref name="imageToDevice"/> (samples, y down from the first row, to device pixels) maps the image onto few enough
@@ -134,63 +137,119 @@ internal static class ImageReducer
             rows[j] = grid.Down(v);
         }
 
-        // Horizontal pass: per sample row, each column's weighted sums and its total weight (the last of channels + 1 values).
+        // Horizontal pass: per sample row, each column's weighted sums and its total weight (the last of channels + 1 values), for the
+        // sample rows of a band of output rows at a time (issue #432): one buffer for every sample row of the image was 150 MB for a
+        // 2550 x 3150 photograph on a phone, per backend converting it. A row's sums do not depend on the band, so the pixels are the same.
         int stride = outWidth * (channels + 1);
-        double[] across = ArrayPool<double>.Shared.Rent(stride * grid.Height);
+        int span = 0;
+        for (int y = 0; y < outHeight;)
+        {
+            y = NextBand(rows, y, out int low, out int high);
+            span = Math.Max(span, high - low + 1);
+        }
+
+        double[] across = ArrayPool<double>.Shared.Rent(stride * span);
         try
         {
-            for (int y = 0; y < grid.Height; y++)
-            {
-                ReadOnlySpan<byte> row = grid.Row(y);
-                for (int x = 0; x < outWidth; x++)
-                {
-                    Axis axis = columns[x];
-                    Span<double> sums = across.AsSpan((y * stride) + (x * (channels + 1)), channels + 1);
-                    sums.Clear();
-                    for (int k = 0; k < axis.Count; k++)
-                    {
-                        double w = axis.Weight(k);
-                        if (w > 0)
-                        {
-                            int index = axis.Index(k) * channels;
-                            for (int c = 0; c < channels; c++)
-                            {
-                                sums[c] += w * row[index + c];
-                            }
-
-                            sums[channels] += w;
-                        }
-                    }
-                }
-            }
-
             Span<double> total = stackalloc double[5];
-            for (int y = 0; y < outHeight; y++)
+            for (int start = 0; start < outHeight;)
             {
-                Axis axis = rows[y];
-                for (int x = 0; x < outWidth; x++)
+                int stop = NextBand(rows, start, out int low, out int high);
+                for (int y = low; y <= high; y++)
                 {
-                    total.Clear();
-                    for (int k = 0; k < axis.Count; k++)
+                    ReadOnlySpan<byte> row = grid.Row(y);
+                    int offset = (y - low) * stride;
+                    for (int x = 0; x < outWidth; x++)
                     {
-                        double w = axis.Weight(k);
-                        if (w > 0)
+                        Axis axis = columns[x];
+                        Span<double> sums = across.AsSpan(offset + (x * (channels + 1)), channels + 1);
+                        sums.Clear();
+                        for (int k = 0; k < axis.Count; k++)
                         {
-                            int from = (axis.Index(k) * stride) + (x * (channels + 1));
-                            for (int c = 0; c <= channels; c++)
+                            double w = axis.Weight(k);
+                            if (w > 0)
                             {
-                                total[c] += w * across[from + c];
+                                int index = axis.Index(k) * channels;
+                                for (int c = 0; c < channels; c++)
+                                {
+                                    sums[c] += w * row[index + c];
+                                }
+
+                                sums[channels] += w;
                             }
                         }
                     }
-
-                    Store(total, channels, output.AsSpan(((y * outWidth) + x) * channels, channels));
                 }
+
+                for (int y = start; y < stop; y++)
+                {
+                    Axis axis = rows[y];
+                    for (int x = 0; x < outWidth; x++)
+                    {
+                        total.Clear();
+                        for (int k = 0; k < axis.Count; k++)
+                        {
+                            double w = axis.Weight(k);
+                            if (w > 0)
+                            {
+                                int from = ((axis.Index(k) - low) * stride) + (x * (channels + 1));
+                                for (int c = 0; c <= channels; c++)
+                                {
+                                    total[c] += w * across[from + c];
+                                }
+                            }
+                        }
+
+                        Store(total, channels, output.AsSpan(((y * outWidth) + x) * channels, channels));
+                    }
+                }
+
+                start = stop;
             }
         }
         finally
         {
             ArrayPool<double>.Shared.Return(across);
+        }
+    }
+
+    /// <summary>
+    /// Returns the end of the band of output rows that starts at <paramref name="start"/>: rows are added while the sample rows they
+    /// read (<paramref name="low"/> to <paramref name="high"/>) stay within <see cref="BandRows"/>, or within the first row's own when
+    /// it reads more.
+    /// </summary>
+    private static int NextBand(Axis[] rows, int start, out int low, out int high)
+    {
+        RowsOf(rows[start], out low, out high);
+        int limit = Math.Max(BandRows, high - low + 1);
+        int end = start + 1;
+        while (end < rows.Length)
+        {
+            RowsOf(rows[end], out int first, out int last);
+            int bandLow = Math.Min(low, first);
+            int bandHigh = Math.Max(high, last);
+            if (bandHigh - bandLow + 1 > limit)
+            {
+                break;
+            }
+
+            (low, high) = (bandLow, bandHigh);
+            end++;
+        }
+
+        return end;
+    }
+
+    /// <summary>Gets the first and last sample rows <paramref name="axis"/> reads.</summary>
+    private static void RowsOf(in Axis axis, out int low, out int high)
+    {
+        low = int.MaxValue;
+        high = int.MinValue;
+        for (int k = 0; k < axis.Count; k++)
+        {
+            int index = axis.Index(k);
+            low = Math.Min(low, index);
+            high = Math.Max(high, index);
         }
     }
 

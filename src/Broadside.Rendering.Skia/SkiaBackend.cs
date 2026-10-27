@@ -229,6 +229,37 @@ public sealed partial class SkiaBackend : IDisposable
             : throw new ArgumentOutOfRangeException(nameof(value), value, "The samples per pixel must be a finite number of at least 1.");
     }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether this backend keeps the images it converts in a cache shared by every
+    /// <see cref="SkiaBackend"/> that draws the same document with this set, instead of in its own; <see langword="false"/> by default.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// For backends that draw one document in parallel, such as a viewer's pool of tile backends (one per tile rendered at once): each
+    /// image (and mask) is converted, and resampled to a transform, once for all of them rather than once per backend, by the first
+    /// backend that draws it while the others wait for it, and the converted pixels kept for all of them stay within the document's
+    /// <see cref="PdfOptions.ImageCacheBudget"/> once, not once per backend. A finer conversion still serves a coarser request. A
+    /// converted image is released once no backend draws it and the budget has evicted it, or when the last backend sharing the cache
+    /// is disposed or stops sharing. The output is the same either way.
+    /// </para>
+    /// <para>ISO 32000-2 §8.9.5. Set it between renders; it takes effect on the next.</para>
+    /// </remarks>
+    public bool ShareConvertedImages
+    {
+        get => _replayer.ShareImages;
+        set
+        {
+            _replayer.ShareImages = value;
+            if (!value)
+            {
+                _replayer.LeaveShared();
+            }
+        }
+    }
+
+    /// <summary>Gets the shared cache this backend draws images from, when it shares them and has drawn a document.</summary>
+    internal SharedImageCache<ImageCache.Entry>? SharedImages => _replayer.SharedImages;
+
     /// <summary>Gets the samples per pixel a list render reduces images to, or 0 for the images' own resolution.</summary>
     private double ListImageSamples => ScaledImageDecode ? _imageSamplesPerPixel : 0;
 
