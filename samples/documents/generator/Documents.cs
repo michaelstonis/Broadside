@@ -21,6 +21,9 @@ internal static class Documents
     private static readonly Dictionary<string, Action<GeneratorContext>> All = new(StringComparer.Ordinal)
     {
         ["invoice-conservative"] = InvoiceConservative.Write,
+        ["novel-large-print"] = NovelLargePrint.Write,
+        ["brochure"] = Brochure.Write,
+        ["showcase"] = ShowcaseLayers.Write,
     };
 
     public static IEnumerable<string> Names => All.Keys;

@@ -33,6 +33,15 @@ PLANS = {
         ('earth-apollo17.jpg', 'earth-cutout.png', 'disc', {'size': 720, 'radius': 0.462, 'centre': (0.5, 0.505)}),
         ('mccandless-eva.jpg', 'mccandless-cutout.png', 'vignette', {'size': 760}),
     ],
+    'newsletter': [
+        ('teton.jpg', 'teton.jpg', 'rgb', {}),
+        ('curlew.jpg', 'curlew.jpg', 'rgb', {}),
+        ('swans.jpg', 'swans.jpg', 'rgb', {}),
+        ('birders.jpg', 'birders.jpg', 'rgb', {}),
+        ('sandpiper.jpg', 'sandpiper.jpg', 'rgb', {}),
+        ('albatross.jpg', 'albatross.jpg', 'rgb', {}),
+        ('curlew.jpg', 'curlew-badge.png', 'disc', {'size': 360, 'radius': 0.36, 'centre': (0.5, 0.5)}),
+    ],
 }
 
 

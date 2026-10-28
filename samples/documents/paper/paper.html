@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>How fast does tea cool? A two-term model of a cup on a desk</title>
+<meta name="author" content="Broadside sample documents">
+<meta name="description" content="A two-column scientific paper with MathML equations and SVG plots, written for the Broadside project and printed by headless Chrome.">
+<style>
+@font-face { font-family: "IBM Plex Serif"; src: url("../fonts/ibmplexserif/IBMPlexSerif-Regular.ttf"); }
+@font-face { font-family: "IBM Plex Serif"; font-weight: 700; src: url("../fonts/ibmplexserif/IBMPlexSerif-Bold.ttf"); }
+@font-face { font-family: "IBM Plex Serif"; font-style: italic; src: url("../fonts/ibmplexserif/IBMPlexSerif-Italic.ttf"); }
+@font-face { font-family: "Fira Sans"; src: url("../fonts/firasans/FiraSans-Regular.ttf"); }
+@font-face { font-family: "Fira Sans"; font-weight: 700; src: url("../fonts/firasans/FiraSans-Bold.ttf"); }
+@font-face { font-family: "STIX Two Math"; src: url("../fonts/stixtwomath/STIXTwoMath-Regular.ttf"); }
+@font-face { font-family: "IBM Plex Mono"; src: url("../fonts/ibmplexmono/IBMPlexMono-Regular.ttf"); }
+
+@page { size: A4; margin: 18mm 16mm 20mm 16mm; }
+html { font: 8.9pt/1.38 "IBM Plex Serif"; color: #111; }
+body { margin: 0; counter-reset: eq fig tab; }
+math { font-family: "STIX Two Math"; font-size: 108%; }
+math[display="block"] { margin: 1.6mm 0; }
+.title { text-align: center; margin-bottom: 5mm; }
+.title .venue { font: 7.5pt "Fira Sans"; letter-spacing: 0.1em; text-transform: uppercase; color: #555; border-bottom: 0.5pt solid #999; padding-bottom: 1.5mm; margin-bottom: 4mm; display: flex; justify-content: space-between; }
+.title h1 { font: 700 17pt/1.2 "Fira Sans"; margin: 0 0 3mm; }
+.authors { font-size: 10pt; }
+.authors sup { font-size: 6.5pt; }
+.affil { font: italic 7.8pt "IBM Plex Serif"; color: #444; margin-top: 1mm; }
+.abstract { margin: 4mm 8mm 5mm; padding: 3mm 4mm; border-top: 0.6pt solid #333; border-bottom: 0.6pt solid #333; font-size: 8.4pt; }
+.abstract b { font-family: "Fira Sans"; }
+.columns { column-count: 2; column-gap: 6mm; text-align: justify; hyphens: auto; }
+h2 { font: 700 9.6pt "Fira Sans"; margin: 4mm 0 1.5mm; break-after: avoid; }
+h3 { font: italic 8.9pt "IBM Plex Serif"; margin: 2.5mm 0 1mm; break-after: avoid; }
+p { margin: 0 0 1.6mm; text-indent: 0; }
+p + p { text-indent: 3mm; margin-top: -0.6mm; }
+.eq { display: flex; align-items: center; break-inside: avoid; }
+.eq math { flex: 1; }
+.eq .no { font-size: 8.5pt; }
+figure { margin: 2mm 0 3mm; break-inside: avoid; }
+figure.top { margin: 0 0 4mm; }
+figure svg { width: 100%; height: auto; display: block; }
+figcaption { font: 7.6pt/1.35 "Fira Sans"; color: #333; margin-top: 1.2mm; text-align: left; }
+figcaption b { font-weight: 700; }
+table { border-collapse: collapse; width: 100%; font: 7.8pt "Fira Sans"; margin: 1mm 0 3mm; break-inside: avoid; }
+caption { caption-side: top; text-align: left; font: 7.6pt "Fira Sans"; margin-bottom: 1mm; }
+th { border-top: 0.8pt solid #000; border-bottom: 0.5pt solid #000; padding: 0.8mm 1mm; text-align: right; }
+th:first-child, td:first-child { text-align: left; }
+td { padding: 0.6mm 1mm; text-align: right; }
+tr:last-child td { border-bottom: 0.8pt solid #000; }
+.refs { font-size: 7.6pt; padding-left: 5mm; }
+.refs li { margin-bottom: 1mm; text-align: left; }
+code { font: 7.8pt "IBM Plex Mono"; }
+.note { font: 7.2pt "Fira Sans"; color: #555; border-top: 0.4pt solid #999; padding-top: 1.5mm; margin-top: 3mm; }
+</style>
+</head>
+<body>
+<!-- Written for the Broadside project. The authors, institution and measurements are invented; the physics is standard. -->
+
+<div class="title">
+  <div class="venue"><span>Journal of Kitchen-Table Physics · Vol. 7 · 2027</span><span>Sample document</span></div>
+  <h1>How fast does tea cool? A two-term model of a cup on a desk</h1>
+  <div class="authors">A. Okafor<sup>1</sup>, L. Brandt<sup>1,2</sup> and S. Nakamura<sup>2</sup></div>
+  <div class="affil"><sup>1</sup>Department of Everyday Measurement, an invented university · <sup>2</sup>The Breakroom Laboratory</div>
+</div>
+
+<div class="abstract"><b>Abstract.</b> Newton's law of cooling predicts that a cup of tea approaches room temperature exponentially, with a single
+  rate constant. We measured the temperature of 300 ml of water in three kinds of cup, open, lidded and insulated, for one hour each,
+  and found that the simple law fits the lidded and insulated cups well but underestimates the early cooling of the open cup by up to
+  4 °C. Adding a second term for evaporation, which is strong while the water is hot and fades as it cools, brings the model within
+  0.6 °C of every measurement. We give closed-form estimates of when a cup reaches drinking temperature, and a rule of thumb: a lid is
+  worth about thirteen minutes.</div>
+
+
+<figure class="top" id="f1">
+<svg viewBox="0 0 640 230" xmlns="http://www.w3.org/2000/svg" font-family="Fira Sans" font-size="9">
+  <g transform="translate(0,0)">
+    <rect x="40" y="20" width="260" height="180" fill="none" stroke="#000" stroke-width="0.6"/>
+    <g stroke="#e3e3e3" stroke-width="0.5">
+      <line x1="40" y1="56" x2="300" y2="56"/><line x1="40" y1="92" x2="300" y2="92"/><line x1="40" y1="128" x2="300" y2="128"/><line x1="40" y1="164" x2="300" y2="164"/>
+      <line x1="83.3" y1="20" x2="83.3" y2="200"/><line x1="126.7" y1="20" x2="126.7" y2="200"/><line x1="170" y1="20" x2="170" y2="200"/><line x1="213.3" y1="20" x2="213.3" y2="200"/><line x1="256.7" y1="20" x2="256.7" y2="200"/>
+    </g>
+    <rect x="40" y="104" width="260" height="24" fill="#f5c542" opacity="0.25"/>
+    <text x="296" y="118" text-anchor="end" fill="#8a6a00" font-size="8">drinking range</text>
+    <polyline fill="none" stroke="#c0392b" stroke-width="1.6" points="40.0,32.0 53.0,52.9 66.0,71.2 79.0,87.1 92.0,101.1 105.0,113.3 118.0,123.9 131.0,133.2 144.0,141.4 157.0,148.5 170.0,154.7 183.0,160.1 196.0,164.8 209.0,169.0 222.0,172.6 235.0,175.7 248.0,178.5 261.0,180.9 274.0,183.0 287.0,184.9 300.0,186.5"/>
+    <polyline fill="none" stroke="#2c6fbb" stroke-width="1.6" points="40.0,32.0 53.0,44.4 66.0,55.9 79.0,66.6 92.0,76.4 105.0,85.5 118.0,93.9 131.0,101.7 144.0,108.9 157.0,115.5 170.0,121.7 183.0,127.4 196.0,132.7 209.0,137.5 222.0,142.0 235.0,146.2 248.0,150.1 261.0,153.6 274.0,156.9 287.0,160.0 300.0,162.8"/>
+    <polyline fill="none" stroke="#27885b" stroke-width="1.6" points="40.0,32.0 53.0,37.4 66.0,42.6 79.0,47.6 92.0,52.5 105.0,57.2 118.0,61.7 131.0,66.2 144.0,70.4 157.0,74.6 170.0,78.5 183.0,82.4 196.0,86.2 209.0,89.8 222.0,93.3 235.0,96.7 248.0,99.9 261.0,103.1 274.0,106.2 287.0,109.1 300.0,112.0"/>
+    <g fill="#c0392b"><circle cx="40" cy="33.5" r="2"/><circle cx="61.7" cy="62.4" r="2"/><circle cx="83.3" cy="86.1" r="2"/><circle cx="105" cy="109.3" r="2"/><circle cx="126.7" cy="128.8" r="2"/><circle cx="148.3" cy="142.4" r="2"/><circle cx="170" cy="152.3" r="2"/><circle cx="191.7" cy="161.6" r="2"/><circle cx="213.3" cy="168.7" r="2"/><circle cx="235" cy="177.3" r="2"/><circle cx="256.7" cy="179.9" r="2"/><circle cx="278.3" cy="184.9" r="2"/><circle cx="300" cy="188.4" r="2"/></g>
+    <g fill="#333" text-anchor="end"><text x="35" y="203">20</text><text x="35" y="167">35</text><text x="35" y="131">50</text><text x="35" y="95">65</text><text x="35" y="59">80</text><text x="35" y="23">95</text></g>
+    <g fill="#333" text-anchor="middle"><text x="40" y="212">0</text><text x="83.3" y="212">10</text><text x="126.7" y="212">20</text><text x="170" y="212">30</text><text x="213.3" y="212">40</text><text x="256.7" y="212">50</text><text x="300" y="212">60</text>
+      <text x="170" y="226">Time (min)</text><text x="12" y="110" transform="rotate(-90 12 110)">Temperature (°C)</text></g>
+    <text x="48" y="14" font-weight="700">(a) Temperature</text>
+  </g>
+  <g transform="translate(320,0)">
+    <rect x="40" y="20" width="260" height="180" fill="none" stroke="#000" stroke-width="0.6"/>
+    <g stroke="#e3e3e3" stroke-width="0.5"><line x1="40" y1="80" x2="300" y2="80"/><line x1="40" y1="140" x2="300" y2="140"/></g>
+    <line x1="40" y1="20" x2="300" y2="182" stroke="#c0392b" stroke-width="1.6"/>
+    <path d="M40 20 C 70 45, 110 80, 300 182" fill="none" stroke="#c0392b" stroke-width="1.2" stroke-dasharray="4 2"/>
+    <line x1="40" y1="20" x2="300" y2="113.6" stroke="#2c6fbb" stroke-width="1.6"/>
+    <line x1="40" y1="20" x2="300" y2="59.6" stroke="#27885b" stroke-width="1.6"/>
+    <g fill="#333" text-anchor="end"><text x="35" y="23">0</text><text x="35" y="83">−1</text><text x="35" y="143">−2</text><text x="35" y="203">−3</text></g>
+    <g fill="#333" text-anchor="middle"><text x="40" y="212">0</text><text x="170" y="212">30</text><text x="300" y="212">60</text><text x="170" y="226">Time (min)</text>
+      <text x="12" y="110" transform="rotate(-90 12 110)">ln θ</text></g>
+    <text x="48" y="14" font-weight="700">(b) Logarithm of the excess temperature</text>
+    <g font-size="8.5"><rect x="190" y="30" width="104" height="54" fill="#fff" stroke="#999" stroke-width="0.5"/>
+      <line x1="196" y1="42" x2="214" y2="42" stroke="#c0392b" stroke-width="1.6"/><text x="218" y="45">Open mug</text>
+      <line x1="196" y1="56" x2="214" y2="56" stroke="#2c6fbb" stroke-width="1.6"/><text x="218" y="59">With lid</text>
+      <line x1="196" y1="70" x2="214" y2="70" stroke="#27885b" stroke-width="1.6"/><text x="218" y="73">Insulated</text></g>
+  </g>
+</svg>
+<figcaption><b>Figure 1.</b> (a) Fits of Equation (2) to the three cups, with one run of the open mug shown as points. The open mug
+  falls below its fit for the first fifteen minutes. (b) The same data as <math><mi>ln</mi><mi>θ</mi></math>, where
+  <math><mi>θ</mi><mo>=</mo><mo>(</mo><mi>T</mi><mo>−</mo><msub><mi>T</mi><mi mathvariant="normal">a</mi></msub><mo>)</mo><mo>/</mo><mo>(</mo><msub><mi>T</mi><mn>0</mn></msub><mo>−</mo><msub><mi>T</mi><mi mathvariant="normal">a</mi></msub><mo>)</mo></math>.
+  Equation (2) predicts straight lines; the dashed curve is the open mug's measured mean, which bends.</figcaption>
+</figure>
+
+<div class="columns">
+<h2 id="intro">1&#8195;Introduction</h2>
+<p>The question of how quickly a hot drink cools is older than thermodynamics. In 1701 Newton published, anonymously, a table of
+  temperatures and an observation that a hot body loses heat at a rate proportional to its excess temperature over its surroundings
+  [1]. Written as a differential equation, the observation becomes</p>
+<div class="eq">
+<math display="block"><mfrac><mrow><mi>d</mi><mi>T</mi></mrow><mrow><mi>d</mi><mi>t</mi></mrow></mfrac><mo>=</mo><mo>−</mo><mi>k</mi><mo>(</mo><mi>T</mi><mo>−</mo><msub><mi>T</mi><mi mathvariant="normal">a</mi></msub><mo>)</mo><mo>,</mo></math>
+<span class="no">(1)</span></div>
+<p>where <math><mi>T</mi></math> is the temperature of the drink, <math><msub><mi>T</mi><mi mathvariant="normal">a</mi></msub></math> the
+  temperature of the room and <math><mi>k</mi></math> a rate constant that depends on the cup, the liquid and the air around it. Its
+  solution is the familiar exponential decay,</p>
+<div class="eq">
+<math display="block"><mi>T</mi><mo>(</mo><mi>t</mi><mo>)</mo><mo>=</mo><msub><mi>T</mi><mi mathvariant="normal">a</mi></msub><mo>+</mo><mo>(</mo><msub><mi>T</mi><mn>0</mn></msub><mo>−</mo><msub><mi>T</mi><mi mathvariant="normal">a</mi></msub><mo>)</mo><msup><mi>e</mi><mrow><mo>−</mo><mi>k</mi><mi>t</mi></mrow></msup><mo>.</mo></math>
+<span class="no">(2)</span></div>
+<p>Equation (2) is a staple of introductory courses [2], and it is often quoted as if it described any cooling object. It does not.
+  It assumes that heat leaves at a rate proportional to the temperature difference, which is a good approximation for conduction and
+  for gentle convection, but not for radiation, which goes as the fourth power of absolute temperature, nor for evaporation, which
+  depends steeply on the vapour pressure at the surface.</p>
+<p>A cup of tea loses heat by all of these routes at once. Our aim is modest: to find out, with kitchen equipment, how far
+  Equation (2) is from the truth for an ordinary cup, and whether one extra term is enough to close the gap.</p>
+
+<h2 id="method">2&#8195;Method</h2>
+<p>We boiled tap water, let it stand for one minute, and poured 300 ml into each of three cups at an initial temperature of
+  90 ± 0.5 °C: an open ceramic mug, the same mug with a loose plastic lid, and a double-walled steel cup with its lid closed. A
+  thermocouple fixed at the centre of the liquid recorded the temperature every ten seconds for sixty minutes. The room was held at
+  21 ± 0.3 °C with the windows closed and no draught we could detect with a candle flame.</p>
+<p>Each run was repeated five times on different days. <a href="#t1">Table 1</a> lists the cups and the fitted constants. Fits used
+  ordinary least squares on all 361 samples of a run; the uncertainties quoted are the standard deviations of the five runs.</p>
+
+<table id="t1">
+  <caption><b>Table 1.</b> The three cups and the rate constants fitted with Equation (2).</caption>
+  <tr><th>Cup</th><th>Mass (g)</th><th><math><mi>k</mi></math> (min<sup>−1</sup>)</th><th>RMS error (°C)</th></tr>
+  <tr><td>Open ceramic mug</td><td>342</td><td>0.045 ± 0.002</td><td>2.31</td></tr>
+  <tr><td>Mug with lid</td><td>358</td><td>0.026 ± 0.001</td><td>0.48</td></tr>
+  <tr><td>Insulated steel cup</td><td>296</td><td>0.011 ± 0.001</td><td>0.31</td></tr>
+</table>
+
+
+<h2 id="results">3&#8195;Results</h2>
+<p>For the lidded and insulated cups, Equation (2) fits every run with a root-mean-square error below half a degree
+  (<a href="#f1">Figure 1a</a>). The open mug is different. It cools faster than its fitted exponential for the first fifteen minutes and
+  then more slowly, and on a logarithmic scale its curve visibly bends (<a href="#f1">Figure 1b</a>). The residuals are systematic, not
+  noise: they have the same shape in all five runs.</p>
+<p>The obvious suspect is evaporation. An open cup of water at 90 °C loses mass at a measurable rate (we found 3.1 g in the first ten
+  minutes, against 0.4 g with the lid on), and each gram that evaporates carries away about 2.3 kJ of latent heat, enough to cool the
+  remaining water by almost two degrees.</p>
+
+<h3>3.1&#8195;A second term</h3>
+<p>The rate of evaporation depends on the difference between the saturation vapour pressure at the surface, which rises steeply with
+  temperature, and the partial pressure of water in the room. Over the range we care about, the saturation pressure is close to an
+  exponential in <math><mi>T</mi></math>, so we add a term of that form:</p>
+<div class="eq">
+<math display="block"><mfrac><mrow><mi>d</mi><mi>T</mi></mrow><mrow><mi>d</mi><mi>t</mi></mrow></mfrac><mo>=</mo><mo>−</mo><mi>k</mi><mo>(</mo><mi>T</mi><mo>−</mo><msub><mi>T</mi><mi mathvariant="normal">a</mi></msub><mo>)</mo><mo>−</mo><mi>β</mi><mrow><mo>(</mo><msup><mi>e</mi><mrow><mi>γ</mi><mo>(</mo><mi>T</mi><mo>−</mo><msub><mi>T</mi><mi mathvariant="normal">a</mi></msub><mo>)</mo></mrow></msup><mo>−</mo><mn>1</mn><mo>)</mo></mrow><mo>.</mo></math>
+<span class="no">(3)</span></div>
+<p>The second term vanishes at room temperature, as it must, and grows quickly as the cup gets hotter. With
+  <math><mi>γ</mi><mo>=</mo><mn>0.045</mn></math> K<sup>−1</sup>, which matches the slope of the saturation curve between 20 and 90 °C,
+  a fit of <math><mi>k</mi></math> and <math><mi>β</mi></math> to the open mug gives <math><mi>k</mi><mo>=</mo><mn>0.031</mn></math>
+  min<sup>−1</sup> and <math><mi>β</mi><mo>=</mo><mn>0.044</mn></math> K min<sup>−1</sup>, with an RMS error of 0.42 °C and no
+  remaining pattern in the residuals.</p>
+<p>The fitted <math><mi>k</mi></math> is now close to that of the lidded mug, as it should be if the lid mainly suppresses evaporation
+  and leaves conduction through the walls alone. The total heat lost in the first ten minutes splits roughly 55 : 45 between the two
+  terms; after forty minutes, evaporation accounts for less than a fifth.</p>
+
+<table id="t2">
+  <caption><b>Table 2.</b> Minutes until the tea reaches 60 °C, from the models and from the measurements (mean of five runs).</caption>
+  <tr><th>Cup</th><th>Eq. (2)</th><th>Eq. (3)</th><th>Measured</th></tr>
+  <tr><td>Open ceramic mug</td><td>12.7</td><td>11.6</td><td>11.4</td></tr>
+  <tr><td>Mug with lid</td><td>21.9</td><td>21.8</td><td>21.7</td></tr>
+  <tr><td>Insulated steel cup</td><td>51.9</td><td>51.4</td><td>51.6</td></tr>
+</table>
+
+<h3>3.2&#8195;When can I drink it?</h3>
+<p>Most people find tea comfortable to drink between about 55 and 65 °C. Solving Equation (2) for the time to reach a temperature
+  <math><msub><mi>T</mi><mi mathvariant="normal">d</mi></msub></math> gives</p>
+<div class="eq">
+<math display="block"><msub><mi>t</mi><mi mathvariant="normal">d</mi></msub><mo>=</mo><mfrac><mn>1</mn><mi>k</mi></mfrac><mi>ln</mi><mfrac><mrow><msub><mi>T</mi><mn>0</mn></msub><mo>−</mo><msub><mi>T</mi><mi mathvariant="normal">a</mi></msub></mrow><mrow><msub><mi>T</mi><mi mathvariant="normal">d</mi></msub><mo>−</mo><msub><mi>T</mi><mi mathvariant="normal">a</mi></msub></mrow></mfrac><mo>,</mo></math>
+<span class="no">(4)</span></div>
+<p>which is accurate for covered cups (<a href="#t2">Table 2</a>). For an open mug, Equation (3) has no closed-form solution, but a
+  first-order correction works well. Treating the evaporation term as a perturbation and integrating it along the exponential
+  solution gives</p>
+<div class="eq">
+<math display="block"><msub><mi>t</mi><mi mathvariant="normal">d</mi></msub><mo>≈</mo><mfrac><mn>1</mn><mi>k</mi></mfrac><mi>ln</mi><mfrac><msub><mi>θ</mi><mn>0</mn></msub><msub><mi>θ</mi><mi mathvariant="normal">d</mi></msub></mfrac><mo>−</mo><mfrac><mi>β</mi><mrow><mi>k</mi><msub><mi>θ</mi><mi mathvariant="normal">d</mi></msub></mrow></mfrac><munderover><mo>∫</mo><mn>0</mn><msub><mi>t</mi><mn>0</mn></msub></munderover><mrow><mo>(</mo><msup><mi>e</mi><mrow><mi>γ</mi><msub><mi>θ</mi><mn>0</mn></msub><msup><mi>e</mi><mrow><mo>−</mo><mi>k</mi><mi>s</mi></mrow></msup></mrow></msup><mo>−</mo><mn>1</mn><mo>)</mo></mrow><mspace width="0.17em"/><mi>d</mi><mi>s</mi><mo>,</mo></math>
+<span class="no">(5)</span></div>
+<p>with <math><mi>θ</mi><mo>=</mo><mi>T</mi><mo>−</mo><msub><mi>T</mi><mi mathvariant="normal">a</mi></msub></math> and
+  <math><msub><mi>t</mi><mn>0</mn></msub></math> the uncorrected time. For our open mug it predicts 11.7 minutes against 11.4 measured.</p>
+
+<h2 id="discussion">4&#8195;Discussion</h2>
+<p>Two simplifications deserve comment. First, we assumed the liquid is well mixed, so that one temperature describes it. A Biot
+  number estimate,</p>
+<div class="eq">
+<math display="block"><mi>Bi</mi><mo>=</mo><mfrac><mrow><mi>h</mi><mi>L</mi></mrow><mi>λ</mi></mfrac><mo>≈</mo><mfrac><mrow><mn>10</mn><mo>×</mo><mn>0.04</mn></mrow><mn>0.6</mn></mfrac><mo>≈</mo><mn>0.7</mn><mo>,</mo></math>
+<span class="no">(6)</span></div>
+<p>is not small, so internal gradients exist; but natural convection inside the cup stirs the liquid far more effectively than
+  conduction alone, and a second thermocouple near the wall never read more than 0.8 °C below the centre. Second, we ignored
+  radiation as a separate term. Between 20 and 90 °C the radiative loss from a mug is nearly linear in the temperature difference, so
+  it is absorbed into <math><mi>k</mi></math>.</p>
+<p>The practical conclusions are simple. A lid roughly doubles the time a mug of tea stays above drinking temperature, from about 14 to
+  about 27 minutes at 55 °C, and most of what it saves is evaporation, not conduction. An insulated cup is better still, but it
+  takes so long to cool that the first sip, for most of us, comes later than we would like.</p>
+
+<h2 id="conclusion">5&#8195;Conclusion</h2>
+<p>Newton's law of cooling describes covered cups of hot water well. For an open cup, a single extra term for evaporation, of a form
+  set by the vapour pressure curve and with one fitted coefficient, reduces the error by a factor of five. The model and data are
+  small enough to reproduce in an afternoon with a thermometer and a kitchen timer, and we encourage readers to do so.</p>
+
+<h2 id="refs">References</h2>
+<ol class="refs">
+  <li>Newton, I. (1701). Scala graduum caloris. <i>Philosophical Transactions of the Royal Society</i> 22, 824–829.</li>
+  <li>Any introductory physics or heat-transfer textbook; the treatment of lumped-capacitance cooling is standard.</li>
+  <li>Okafor, A. and Brandt, L. (2026). An invented reference for a sample document. <i>Journal of Kitchen-Table Physics</i> 6, 1–4.</li>
+</ol>
+<p class="note">This paper was written for the Broadside project as a sample document. Its authors, institution and measurements are
+  invented, although the physics it uses is standard. The figures are drawn in SVG and the equations are MathML.</p>
+</div>
+</body>
+</html>
