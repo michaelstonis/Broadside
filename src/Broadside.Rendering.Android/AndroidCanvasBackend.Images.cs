@@ -20,6 +20,9 @@ public sealed partial class AndroidCanvasBackend
     /// <summary>Gets the bytes of converted pixels the backend keeps.</summary>
     internal long CachedImageBytes => _backend.CachedImageBytes;
 
+    /// <summary>Gets how many pixels the bitmaps the backend made from images and masks had in all (fewer for reduced images, issue #428).</summary>
+    internal long ImagePixelsConverted => _backend.ImagePixelsConverted;
+
     /// <summary>Gets how many tiling pattern cells the backend rendered into tiles.</summary>
     internal int CellsRecorded => _backend.CellsRecorded;
 
@@ -85,37 +88,69 @@ public sealed partial class AndroidCanvasBackend
 
         public long CachedImageBytes => _images.Bytes;
 
+        public long ImagePixelsConverted => _images.PixelsConverted;
+
+        /// <summary>Gets or sets the fewest samples per device pixel a reduced image keeps in this render, or 0 to draw images at their own resolution (issue #362).</summary>
+        public double ImageSamplesPerPixel { get; set; }
+
         /// <summary>
         /// Draws an image (ISO 32000-2 §8.9.4, §8.9.5): image space maps to the unit square through [1/w 0 0 −1/h 0 1], then the
         /// current transform. A mask of the image's size is folded into the pixels; a soft mask (§11.6.5.2) or explicit mask (§8.9.6.3)
-        /// of another size is drawn at its own resolution onto the image in a layer, so each is resampled from its own grid.
+        /// of another size is drawn at its own resolution onto the image in a layer, so each is resampled from its own grid. With scaled
+        /// image decode (issue #362) the image is converted at the reduction <see cref="DisplayImage.GetReduction"/> gives for the
+        /// canvas, and a mask not folded at the reduction of its own rule.
         /// </summary>
         private void DrawImageCore(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
         {
-            // An image kept encoded that cannot be decoded paints nothing (ISO 32000-2 §8.9.5; its reason is a diagnostic).
-            if (_compositing.FillAlpha == 0 || image.GetSamplesAt(0) is null)
+            if (_compositing.FillAlpha == 0)
             {
                 return;
             }
 
+            ColorConversion rgb = conversion with { Target = DeviceColorModel.Rgb };
+            PdfColorConverter? converter = null;
+            int reduction = 0;
+            if (image.MaxReduction > 0 && TryGetImageSamplesPerPixel(out double samplesPerPixel, out Matrix toPixels))
+            {
+                // A codec averages before colour conversion, which the converter caps where the two orders differ.
+                converter = _document!.GetColorConverter(image.ColorSpace, rgb, defaultColorSpaces);
+                if (converter.PaintsNothing)
+                {
+                    return;
+                }
+
+                reduction = image.GetReduction(toPixels, samplesPerPixel, converter);
+            }
+
             ImageCache cache = _images;
             ImageCache.Entry entry = cache.Find(image);
-            ColorConversion rgb = conversion with { Target = DeviceColorModel.Rgb };
-            PixelImage? pixels = entry.Matches(rgb, defaultColorSpaces) ? entry.Image : null;
+            PixelImage? pixels = entry.Matches(rgb, defaultColorSpaces, reduction) ? entry.Image : null;
+
+            // An image kept encoded that cannot be decoded paints nothing (ISO 32000-2 §8.9.5; its reason is a diagnostic). Pixels kept
+            // at a finer reduction than asked need no samples (issue #362: zooming out decodes nothing again).
+            DisplayImageSamples? decoded = pixels is null || reduction == 0 ? image.GetSamplesAt(reduction) : null;
+            if (decoded is null && (pixels is null || reduction == 0))
+            {
+                return;
+            }
+
             bool owned = false;
             if (pixels is null)
             {
-                PdfColorConverter converter = _document!.GetColorConverter(image.ColorSpace, rgb, defaultColorSpaces);
+                DisplayImageSamples samples = decoded!.Value;
+                converter ??= _document!.GetColorConverter(image.ColorSpace, rgb, defaultColorSpaces);
                 if (converter.PaintsNothing)
                 {
                     return;
                 }
 
                 PdfColorConverter? baseConverter = image.ColorSpace is PdfIndexedColorSpace indexed && !image.Matte.IsEmpty
-                    ? _document.GetColorConverter(indexed.Base, rgb, defaultColorSpaces)
+                    ? _document!.GetColorConverter(indexed.Base, rgb, defaultColorSpaces)
                     : null;
+                bool foldSoft = ImageConverter.FoldsSoftMask(image, samples, out DisplayImageSamples? softSamples);
+                bool foldMask = !foldSoft && ImageConverter.FoldsMask(image, samples);
 #pragma warning disable CA2000 // Kept by the cache, or disposed in the finally block below.
-                pixels = ImageConverter.Convert(image, converter, baseConverter);
+                pixels = ImageConverter.Convert(image, samples, foldSoft, softSamples, foldMask, converter, baseConverter);
 #pragma warning restore CA2000
                 if (pixels is null)
                 {
@@ -124,24 +159,28 @@ public sealed partial class AndroidCanvasBackend
                 }
 
                 cache.Created++;
-                owned = !cache.Keep(entry, pixels, (long)image.Width * image.Height * 4, rgb, defaultColorSpaces);
+                cache.PixelsConverted += (long)samples.Width * samples.Height;
+                owned = !cache.Keep(entry, pixels, (long)samples.Width * samples.Height * 4, rgb, defaultColorSpaces, samples.Reduction);
+                entry.Folded = foldSoft || foldMask;
             }
 
             AndroidCanvas canvas = _canvas!;
             try
             {
+                var grid = new SampleGrid(pixels.Width, pixels.Height, image.Width, image.Height, entry.Delivered);
                 _imagePaint.Alpha = _compositing.FillAlpha;
                 SetBlendMode(_imagePaint, ref _imageBlendMode);
-                if (SeparateMask(image) is not { } mask)
+                object? mask = entry.Folded ? null : (object?)image.SoftMask ?? image.Mask;
+                if (mask is null)
                 {
-                    PaintSamples(pixels, entry, image.Width, image.Height, image.Interpolate, _imagePaint, clipEdges: true);
+                    PaintSamples(pixels, entry, grid, image.Interpolate, _imagePaint, clipEdges: true);
                     return;
                 }
 
                 // The canvas draws an alpha bitmap as coverage of the paint's colour, so the mask is drawn plainly into a layer of its
                 // own, which keeps the image where the mask is opaque (destination-in) when it is composited.
                 int count = canvas.SaveLayer(null, _imagePaint);
-                PaintSamples(pixels, entry, image.Width, image.Height, image.Interpolate, _plainPaint, clipEdges: true);
+                PaintSamples(pixels, entry, grid, image.Interpolate, _plainPaint, clipEdges: true);
                 canvas.SaveLayer(null, _maskInPaint);
                 PaintMask(mask, _plainPaint, clipEdges: false);
                 canvas.RestoreToCount(count);
@@ -242,23 +281,22 @@ public sealed partial class AndroidCanvasBackend
             }
         }
 
-        /// <summary>The image's soft mask, else its explicit mask, when it is not folded into the pixels (another size); otherwise null.</summary>
-        private static object? SeparateMask(DisplayImage image)
+        /// <summary>
+        /// Gets the fewest samples per device pixel a reduced image keeps (issue #362), and the transform from user space to the
+        /// canvas's pixels; false when images are drawn at their own resolution (scaled image decode off).
+        /// </summary>
+        private bool TryGetImageSamplesPerPixel(out double samplesPerPixel, out Matrix toPixels)
         {
-            if (image.SoftMask is { } soft)
+            samplesPerPixel = (_owner ?? this).ImageSamplesPerPixel;
+            toPixels = default;
+            if (samplesPerPixel <= 0)
             {
-                return ImageConverter.FoldsSoftMask(image) ? null : soft;
+                return false;
             }
 
-            if (image.Mask is { } mask)
-            {
-                return ImageConverter.FoldsMask(image) ? null : mask;
-            }
-
-            return null;
+            toPixels = _toDevice * _pixels;
+            return true;
         }
-
-        private static Matrix UnitSquare(int width, int height) => new(1.0 / width, 0, 0, -1.0 / height, 0, 1);
 
         /// <summary>
         /// Whether the canvas filters an image it samples itself: reduced on either axis (rotated, or enlarged on the other axis),
@@ -272,22 +310,23 @@ public sealed partial class AndroidCanvasBackend
         }
 
         /// <summary>
-        /// Draws an image or mask of <paramref name="width"/> × <paramref name="height"/> samples into the unit square under the
-        /// current transform. Mapped onto few enough device pixels, it is resampled to those pixels (<see cref="ImageReducer"/>, kept
-        /// with the image) and placed on them one to one, its outline clipped with anti-aliasing unless <paramref name="clipEdges"/> is
-        /// off (a mask applied in a layer whose image already has its edges); otherwise the canvas samples it under the transform.
+        /// Draws the samples of an image or mask into the unit square under the current transform. Mapped onto few enough device
+        /// pixels, they are resampled to those pixels (<see cref="ImageReducer"/>, kept with the image) and placed on them one to one,
+        /// the outline clipped with anti-aliasing unless <paramref name="clipEdges"/> is off (a mask applied in a layer whose image
+        /// already has its edges); otherwise the canvas samples them under the transform. Reduced samples (issue #362) overhang the
+        /// unit square when the reduction does not divide the image's size, and are clipped to it.
         /// </summary>
-        private void PaintSamples(PixelImage samples, ImageCache.Entry entry, int width, int height, bool interpolate, Paint paint, bool clipEdges)
+        private void PaintSamples(PixelImage samples, ImageCache.Entry entry, in SampleGrid grid, bool interpolate, Paint paint, bool clipEdges)
         {
             AndroidCanvas canvas = _canvas!;
-            Matrix toTarget = UnitSquare(width, height) * _toDevice;
+            Matrix toTarget = grid.ToUnitSquare * _toDevice;
             if (!toTarget.TryInvert(out _))
             {
                 return;
             }
 
             Matrix toPixels = toTarget * _pixels;
-            if (_baseInvertible && ImageReducer.Applies(width, height, toPixels, out PixelRect pixels, out bool upright))
+            if (_baseInvertible && ImageReducer.Applies(grid.Width, grid.Height, toPixels, out PixelRect pixels, out bool upright))
             {
                 PixelImage? reduced = null;
                 bool owned = false;
@@ -308,9 +347,9 @@ public sealed partial class AndroidCanvasBackend
                 {
                     int count = canvas.Save();
                     ConcatFromPixels();
-                    if (clipEdges)
+                    if (clipEdges || grid.Overhangs)
                     {
-                        ClipToOutline(toPixels, width, height, upright);
+                        ClipToOutline(toPixels, grid.OutlineWidth, grid.OutlineHeight, upright);
                     }
 
                     paint.FilterBitmap = false;
@@ -328,6 +367,12 @@ public sealed partial class AndroidCanvasBackend
             int saved = canvas.Save();
             if (Concat(toTarget))
             {
+                if (grid.Overhangs)
+                {
+                    // The reduced grid's last column and row reach past the unit square (§8.9.4): clip at its edge.
+                    canvas.ClipRect(0f, 0f, (float)grid.OutlineWidth, (float)grid.OutlineHeight);
+                }
+
                 paint.FilterBitmap = Filters(toPixels, interpolate);
                 canvas.DrawBitmap(samples.Bitmap, 0, 0, paint);
             }
@@ -335,8 +380,12 @@ public sealed partial class AndroidCanvasBackend
             canvas.RestoreToCount(saved);
         }
 
-        /// <summary>Intersects the clip with the outline of the samples in pixel space (the canvas's current space), anti-aliased like a fill.</summary>
-        private void ClipToOutline(in Matrix toPixels, int width, int height, bool upright)
+        /// <summary>Intersects the clip with the outline of the image's unit square in pixel space (the canvas's current space), anti-aliased like a fill.</summary>
+        /// <param name="toPixels">The transform from the sample grid to pixel space.</param>
+        /// <param name="width">The unit square's width on the grid: the image's width in samples over the reduction.</param>
+        /// <param name="height">The unit square's height on the grid.</param>
+        /// <param name="upright">Whether the transform has neither rotation nor skew.</param>
+        private void ClipToOutline(in Matrix toPixels, double width, double height, bool upright)
         {
             AndroidCanvas canvas = _canvas!;
             PathPoint p0 = toPixels.Transform(0, 0);
@@ -365,30 +414,30 @@ public sealed partial class AndroidCanvasBackend
             _canvas!.ClipPath(_path);
         }
 
-        /// <summary>Draws a mask (a soft mask image or a stencil) as an alpha bitmap over the unit square.</summary>
+        /// <summary>
+        /// Draws a mask (a soft mask image or a stencil) as an alpha bitmap over the unit square: at its own resolution, or with scaled
+        /// image decode at the reduction of its own rule (issue #362; a stencil as 8-bit coverage).
+        /// </summary>
         private void PaintMask(object mask, Paint paint, bool clipEdges)
         {
-            ImageCache cache = _images;
-            ImageCache.Entry entry = cache.Find(mask);
-            PixelImage? alpha = entry.Image;
-            bool owned = false;
-            int width;
-            int height;
-            bool interpolate;
-            if (mask is DisplayImage soft)
+            var soft = mask as DisplayImage;
+            var stencil = mask as DisplayImageMask;
+            (int width, int height, bool interpolate) = soft is not null ? (soft.Width, soft.Height, soft.Interpolate) : (stencil!.Width, stencil.Height, stencil.Interpolate);
+            int reduction = 0;
+            if (TryGetImageSamplesPerPixel(out double samplesPerPixel, out Matrix toPixels))
             {
-                (width, height, interpolate) = (soft.Width, soft.Height, soft.Interpolate);
-            }
-            else
-            {
-                var stencil = (DisplayImageMask)mask;
-                (width, height, interpolate) = (stencil.Width, stencil.Height, stencil.Interpolate);
+                reduction = soft is not null ? soft.GetReduction(toPixels, samplesPerPixel, null) : stencil!.GetReduction(toPixels, samplesPerPixel);
             }
 
+            ImageCache cache = _images;
+            ImageCache.Entry entry = cache.Find(mask);
+            PixelImage? alpha = entry.Delivered <= reduction ? entry.Image : null;
+            bool owned = false;
+            int delivered = entry.Delivered;
             if (alpha is null)
             {
 #pragma warning disable CA2000 // Kept by the cache, or disposed in the finally block below.
-                alpha = mask is DisplayImage image ? ImageConverter.ConvertSoftMask(image) : ImageConverter.ConvertStencil((DisplayImageMask)mask);
+                alpha = ConvertMask(soft, stencil, reduction, out delivered);
 #pragma warning restore CA2000
                 if (alpha is null)
                 {
@@ -397,13 +446,14 @@ public sealed partial class AndroidCanvasBackend
                 }
 
                 cache.Created++;
-                owned = !cache.Keep(entry, alpha, (long)width * height, default, null);
+                cache.PixelsConverted += (long)alpha.Width * alpha.Height;
+                owned = !cache.Keep(entry, alpha, (long)alpha.Width * alpha.Height, default, null, delivered);
             }
 
             try
             {
                 // The mask's samples map onto the unit square at their own resolution (§8.9.6.2, §8.9.6.3, §11.6.5.2).
-                PaintSamples(alpha, entry, width, height, interpolate, paint, clipEdges);
+                PaintSamples(alpha, entry, new SampleGrid(alpha.Width, alpha.Height, width, height, delivered), interpolate, paint, clipEdges);
             }
             finally
             {
@@ -412,6 +462,25 @@ public sealed partial class AndroidCanvasBackend
                     alpha.Dispose();
                 }
             }
+        }
+
+        /// <summary>Converts a mask to an alpha bitmap at <paramref name="reduction"/> (or what its samples deliver); null when too large.</summary>
+        private static PixelImage? ConvertMask(DisplayImage? soft, DisplayImageMask? stencil, int reduction, out int delivered)
+        {
+            if (soft is null)
+            {
+                delivered = reduction;
+                return ImageConverter.ConvertStencil(stencil!, reduction);
+            }
+
+            if (reduction > 0 && soft.GetSamplesAt(reduction) is { } samples)
+            {
+                delivered = samples.Reduction;
+                return ImageConverter.ConvertSoftMask(soft, samples);
+            }
+
+            delivered = 0;
+            return ImageConverter.ConvertSoftMask(soft);
         }
 
         /// <summary>Releases the paints, the kept bitmaps and shaders, and the pattern tiles (the caches only when this backend owns them).</summary>
@@ -437,6 +506,29 @@ public sealed partial class AndroidCanvasBackend
                 _images.Dispose();
                 _shadings.Dispose();
             }
+        }
+
+        /// <summary>
+        /// The grid of samples drawn: <see cref="Width"/> × <see cref="Height"/> samples of an image of <see cref="SourceWidth"/> ×
+        /// <see cref="SourceHeight"/>, reduced by 2^<see cref="Reduction"/> (issue #362). Reduced sample i covers source samples i·s to
+        /// (i + 1)·s (ISO 32000-2 §8.9.4), so the grid maps to the unit square through s, then [1/W 0 0 −1/H 0 1], and overhangs it
+        /// when s does not divide the size.
+        /// </summary>
+        private readonly record struct SampleGrid(int Width, int Height, int SourceWidth, int SourceHeight, int Reduction)
+        {
+            /// <summary>Gets the transform from the grid (y down from the first row) to the unit square.</summary>
+            public Matrix ToUnitSquare => Reduction == 0
+                ? new Matrix(1.0 / Width, 0, 0, -1.0 / Height, 0, 1)
+                : new Matrix((double)(1 << Reduction) / SourceWidth, 0, 0, -(double)(1 << Reduction) / SourceHeight, 0, 1);
+
+            /// <summary>Gets the unit square's width on the grid.</summary>
+            public double OutlineWidth => Reduction == 0 ? Width : (double)SourceWidth / (1 << Reduction);
+
+            /// <summary>Gets the unit square's height on the grid.</summary>
+            public double OutlineHeight => Reduction == 0 ? Height : (double)SourceHeight / (1 << Reduction);
+
+            /// <summary>Gets a value indicating whether the grid reaches past the unit square.</summary>
+            public bool Overhangs => Reduction > 0 && (OutlineWidth != Width || OutlineHeight != Height);
         }
     }
 }

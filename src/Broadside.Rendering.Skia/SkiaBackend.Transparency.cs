@@ -57,6 +57,19 @@ public sealed partial class SkiaBackend
         private SKBlender?[]? _lerps;
         private GroupInspector? _inspector;
         private SoftwareRasterizer? _rasterizer;
+
+        /// <summary>Returns the software rasterizer groups and soft masks fall back to, decoding images as this backend does (issue #362).</summary>
+        private SoftwareRasterizer FallbackRasterizer()
+        {
+            SoftwareRasterizer rasterizer = _rasterizer ??= new SoftwareRasterizer();
+            rasterizer.ScaledImageDecode = ImageSamplesPerPixel > 0;
+            if (ImageSamplesPerPixel > 0)
+            {
+                rasterizer.ImageSamplesPerPixel = ImageSamplesPerPixel;
+            }
+
+            return rasterizer;
+        }
         private MaskImage?[]? _masks;
         private byte[]? _transfer;
         private long _maskClock;
@@ -526,7 +539,7 @@ public sealed partial class SkiaBackend
             }
 
             Replayer root = Root;
-            SoftwareRasterizer rasterizer = root._rasterizer ??= new SoftwareRasterizer();
+            SoftwareRasterizer rasterizer = root.FallbackRasterizer();
             using var bitmap = new Bitmap(area.Width, area.Height);
             rasterizer.Render(
                 group,
@@ -616,7 +629,7 @@ public sealed partial class SkiaBackend
                 MemoryMarshal.Cast<byte, uint>(bitmap.Pixels).Fill(backdrop);
             }
 
-            SoftwareRasterizer rasterizer = Root._rasterizer ??= new SoftwareRasterizer();
+            SoftwareRasterizer rasterizer = Root.FallbackRasterizer();
             rasterizer.Render(mask.Content, bitmap, toDevice * Matrix.CreateTranslation(-area.Left, -area.Top));
             byte[] values = ArrayPool<byte>.Shared.Rent(width * height);
             try

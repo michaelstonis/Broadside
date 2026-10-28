@@ -126,8 +126,9 @@ public sealed class ViewerOptions
     /// </summary>
     /// <remarks>
     /// See <see cref="RenderOptions.ScaledImageDecode"/>: a large photograph shown small is decoded at a power-of-two reduction that
-    /// keeps <see cref="ImageSamplesPerPixel"/> samples per device pixel. Applies to the default <see cref="SoftwareTileBackend"/>;
-    /// a backend from <see cref="BackendFactory"/> makes its own choice. Printing and export never use reduced images.
+    /// keeps <see cref="ImageSamplesPerPixel"/> samples per device pixel. Applies to the default <see cref="SoftwareTileBackend"/> and
+    /// to the default Skia backend of the MAUI view; a backend from <see cref="BackendFactory"/> makes its own choice. Printing and
+    /// export never use reduced images.
     /// </remarks>
     public bool ScaledImageDecode { get; set; } = true;
 

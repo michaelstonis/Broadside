@@ -28,8 +28,9 @@ build time), for four seconds each while a probe thread measures how long the UI
 
 ## Documents
 
-- `tracemonkey.pdf`: "Trace-based Just-in-Time Type Specialization for Dynamic Languages" (Gal et al., PLDI 2009), the default document
-  of pdf.js, taken from [mozilla/pdf.js](https://github.com/mozilla/pdf.js/tree/master/test/pdfs) `test/pdfs` at commit
-  `c53f395e`, distributed in that repository under its Apache-2.0 licence (linked from the Blazor sample).
+- TraceMonkey: "Trace-based Just-in-Time Type Specialization for Dynamic Languages" (Gal et al., PLDI 2009), the default document
+  of pdf.js. Its first page carries the ACM's copyright notice, which does not allow redistribution, so the app does not bundle it:
+  it downloads pdf.js's copy (<https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf>) when the gallery opens it,
+  which needs a network connection (the smoke run and the frame bench included).
 - `signed.pdf`: the Blazor sample's self-signed demo document.
 - Every other document is linked from `tests/Corpus` (Broadside's own hand-written files, MIT).

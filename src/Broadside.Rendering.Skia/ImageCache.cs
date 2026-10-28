@@ -42,6 +42,9 @@ internal sealed class ImageCache : IDisposable
     /// <summary>Gets or sets how many Skia images were made from display-list images and masks.</summary>
     public int Created { get; set; }
 
+    /// <summary>Gets or sets how many pixels the images and masks made had in all (issue #428: a reduced image converts fewer).</summary>
+    public long PixelsConverted { get; set; }
+
     /// <summary>Returns the entry of <paramref name="key"/>, whose image is <see langword="null"/> when none is kept.</summary>
     public Entry Find(object key)
     {
@@ -69,9 +72,16 @@ internal sealed class ImageCache : IDisposable
     /// larger than a non-zero budget replaces the older of the two kept outside it.
     /// </summary>
     /// <returns>Whether the image is kept; when not, the caller disposes it after drawing.</returns>
-    public bool Keep(Entry entry, SKImage image, long bytes, ColorConversion conversion, PdfDefaultColorSpaces? defaults)
+    public bool Keep(Entry entry, SKImage image, long bytes, ColorConversion conversion, PdfDefaultColorSpaces? defaults, int delivered = 0)
     {
         Release(entry);
+        if (entry.Delivered != delivered)
+        {
+            // Another reduction of the image (issue #362): its resamplings were for another grid.
+            entry.ForgetTransforms();
+            entry.Delivered = delivered;
+        }
+
         if (bytes > Budget)
         {
             if (Budget <= 0)
@@ -182,8 +192,12 @@ internal sealed class ImageCache : IDisposable
         }
     }
 
-    /// <summary>A kept image, the conversion it was made with, and the transforms it is resampled for.</summary>
-    internal sealed class Entry
+    /// <summary>
+    /// A kept image, the conversion it was made with, and the transforms it is resampled for: a backend's own, reused for its key, or
+    /// one conversion in a cache the backends of a viewer share (<see cref="SharedImageCache{T}"/>, issue #432), never changed once
+    /// published but for its resamplings, made under <see cref="Gate"/>.
+    /// </summary>
+    internal sealed class Entry : SharedImage
     {
         /// <summary>
         /// The most transforms an image is resampled for (an image drawn at several sizes on one page). They are the first ones it
@@ -197,6 +211,9 @@ internal sealed class ImageCache : IDisposable
 
         public Entry() => Node = new LinkedListNode<Entry>(this);
 
+        /// <summary>Gets or sets the lock its resamplings are made under when the entry is shared; null for a backend's own.</summary>
+        public Lock? Gate { get; set; }
+
         public LinkedListNode<Entry> Node { get; }
 
         public SKImage? Image { get; set; }
@@ -206,6 +223,12 @@ internal sealed class ImageCache : IDisposable
         public ColorConversion Conversion { get; set; }
 
         public PdfDefaultColorSpaces? Defaults { get; set; }
+
+        /// <summary>Gets or sets the reduction the kept image's samples have (issue #362): 0 for the image's own resolution.</summary>
+        public int Delivered { get; set; }
+
+        /// <summary>Gets or sets whether the image's mask is folded into the kept image.</summary>
+        public bool Folded { get; set; }
 
         /// <summary>Whether the image is the one kept outside the budget.</summary>
         public bool Oversize { get; set; }
@@ -253,6 +276,9 @@ internal sealed class ImageCache : IDisposable
             Bytes += bytes;
         }
 
+        /// <summary>Frees every slot, for a new grid; the resamplings were released with the image.</summary>
+        public void ForgetTransforms() => Array.Clear(_reductions);
+
         /// <summary>Releases the kept resamplings; the slots keep their transforms.</summary>
         public void ReleaseReductions()
         {
@@ -263,9 +289,21 @@ internal sealed class ImageCache : IDisposable
             }
         }
 
-        /// <summary>Whether the kept image was converted with this conversion and these default colour spaces.</summary>
-        public bool Matches(ColorConversion conversion, PdfDefaultColorSpaces? defaults) =>
-            Image is not null && ReferenceEquals(Defaults, defaults) && Conversion == conversion;
+        /// <summary>
+        /// Whether the kept image was converted with this conversion and these default colour spaces, at <paramref name="reduction"/>
+        /// or a finer one: a finer conversion serves a coarser request, as the document's decoded samples do (issue #362), so zooming
+        /// out converts nothing again.
+        /// </summary>
+        public bool Matches(ColorConversion conversion, PdfDefaultColorSpaces? defaults, int reduction = 0) =>
+            Image is not null && Delivered <= reduction && ReferenceEquals(Defaults, defaults) && Conversion == conversion;
+
+        /// <summary>Releases a shared entry's image and resamplings once it has left the cache and no draw holds it.</summary>
+        protected override void Free()
+        {
+            ReleaseReductions();
+            Image?.Dispose();
+            Image = null;
+        }
 
         private readonly record struct Reduction(bool Used, Matrix Transform, SKRectI Pixels, SKImage? Image, long Bytes)
         {

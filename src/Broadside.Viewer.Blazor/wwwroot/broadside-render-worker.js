@@ -45,7 +45,7 @@ async function pump() {
       }
       let error = null;
       try {
-        await exports.Render(r.job, r.doc, r.page, r.scale, r.rotation, r.x, r.y, r.width, r.height, r.layers);
+        await exports.Render(r.job, r.doc, r.page, r.scale, r.rotation, r.x, r.y, r.width, r.height, r.layers, r.samples ?? 2);
       } catch (e) {
         error = String(e && e.message ? e.message : e);
       }

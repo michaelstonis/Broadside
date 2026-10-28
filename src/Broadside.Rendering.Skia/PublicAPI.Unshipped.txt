@@ -8,3 +8,9 @@ Broadside.Rendering.Skia.SkiaBackend.Render(Broadside.PdfPage! page, SkiaSharp.S
 Broadside.Rendering.Skia.SkiaBackend.Render(Broadside.Rendering.DisplayList! list, SkiaSharp.SKCanvas! canvas, in Broadside.Graphics.Matrix deviceTransform) -> void
 Broadside.Rendering.Skia.SkiaBackend.Render(Broadside.Rendering.DisplayList! list, SkiaSharp.SKCanvas! canvas, in Broadside.Graphics.Matrix deviceTransform, bool forceOutlines) -> void
 Broadside.Rendering.Skia.SkiaBackend.SkiaBackend() -> void
+Broadside.Rendering.Skia.SkiaBackend.ImageSamplesPerPixel.get -> double
+Broadside.Rendering.Skia.SkiaBackend.ImageSamplesPerPixel.set -> void
+Broadside.Rendering.Skia.SkiaBackend.ScaledImageDecode.get -> bool
+Broadside.Rendering.Skia.SkiaBackend.ScaledImageDecode.set -> void
+Broadside.Rendering.Skia.SkiaBackend.ShareConvertedImages.get -> bool
+Broadside.Rendering.Skia.SkiaBackend.ShareConvertedImages.set -> void

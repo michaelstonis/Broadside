@@ -546,6 +546,9 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
 
     private static ViewerOptions WithSkia(ViewerOptions? options)
     {
+        // Issue #428: the Skia tiles decode images as the options say (at the resolution they are drawn at, by default).
+        bool scaled = options?.ScaledImageDecode ?? true;
+        double samplesPerPixel = options?.ImageSamplesPerPixel ?? Broadside.Rendering.RenderOptions.DefaultImageSamplesPerPixel;
         var copy = new ViewerOptions
         {
             Engine = options?.Engine,
@@ -553,7 +556,9 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
             Credentials = options?.Credentials,
             Threading = options?.Threading ?? ViewerThreading.Automatic,
             Intent = options?.Intent ?? default,
-            BackendFactory = options?.BackendFactory ?? (() => new SkiaTileBackend()),
+            BackendFactory = options?.BackendFactory ?? (() => new SkiaTileBackend(scaled, samplesPerPixel)),
+            ScaledImageDecode = scaled,
+            ImageSamplesPerPixel = samplesPerPixel,
             Yield = options?.Yield,
         };
         if (options is not null)

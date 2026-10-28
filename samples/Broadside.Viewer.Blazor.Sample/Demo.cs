@@ -1,21 +1,19 @@
-using System.Net;
 using Broadside.Viewer.Blazor;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
 namespace Broadside.Viewer.Blazor.Sample;
 
-/// <summary>A gallery document, bundled with the app: pdf.js's TraceMonkey paper (real world), hand-written test corpus files and the sample's signed file.</summary>
-/// <param name="File">The address relative to the app.</param>
+/// <summary>
+/// A gallery document: hand-written test corpus files and the sample's signed file, bundled with the app, and pdf.js's TraceMonkey paper
+/// (real world), read from pdf.js's own copy because its licence does not cover redistribution (see README.md, "Documents and licences").
+/// </summary>
+/// <param name="File">The address relative to the app, or an absolute address for a document the app does not bundle.</param>
 /// <param name="Title">What the gallery shows.</param>
 /// <param name="Remote">Whether to open it through HTTP range requests (first page first) instead of downloading it whole.</param>
 /// <param name="Note">What to tell the user when it opens: single-feature test files can look blank or clipped on purpose.</param>
 /// <param name="Panel">The panel that shows its feature (its name in lower case), opened with it.</param>
-/// <param name="Mirror">
-/// Where to download it when the site does not bundle it (the server answers 404): the documentation site leaves out TraceMonkey, whose
-/// licence does not cover redistribution, and reads it from pdf.js's own copy instead (see README.md, "Documents and licences").
-/// </param>
-public sealed record GalleryEntry(string File, string Title, bool Remote = false, string? Note = null, string? Panel = null, string? Mirror = null);
+public sealed record GalleryEntry(string File, string Title, bool Remote = false, string? Note = null, string? Panel = null);
 
 /// <summary>
 /// The demo's state, shared by the shell and every panel: the open document (a <see cref="DocumentSession"/> the app owns and hands to
@@ -24,10 +22,13 @@ public sealed record GalleryEntry(string File, string Title, bool Remote = false
 /// </summary>
 public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRuntime js) : IAsyncDisposable
 {
+    /// <summary>pdf.js's copy of the TraceMonkey paper, which Mozilla serves to any origin (the app does not bundle it).</summary>
+    public const string TraceMonkey = "https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf";
+
     /// <summary>The gallery, in the order the menu shows it; the first entry opens at start.</summary>
     public static readonly GalleryEntry[] Gallery =
     [
-        new("documents/tracemonkey.pdf", "TraceMonkey paper (real world)", Mirror: "https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf"),
+        new(TraceMonkey, "TraceMonkey paper (real world)"),
         new("documents/layout-two-column-tagged.pdf", "Two columns (tagged)"),
         new("documents/outline-full.pdf", "Outline", Note: "This file has an outline and no page content, so its page is blank (as in every viewer): its bookmarks are in the Outline panel.", Panel: "outline"),
         new("documents/acroform-fields.pdf", "Form fields"),
@@ -57,7 +58,13 @@ public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRunti
     private static ViewerOptions OptionsFor(Func<IRemoteTileRenderer?> worker) =>
         Renderers.UseWebGL || worker() is not { } renderer
             ? Options
-            : new ViewerOptions().UseEngine(Options.Engine!).UseBackend(Options.BackendFactory!).WithIntent(Options.Intent).UseRemoteRenderer(renderer);
+            : new ViewerOptions()
+                .UseEngine(Options.Engine!)
+                .UseBackend(Options.BackendFactory!)
+                .WithIntent(Options.Intent)
+                .WithScaledImageDecode(Options.ScaledImageDecode)
+                .WithImageSamplesPerPixel(Options.ImageSamplesPerPixel)
+                .UseRemoteRenderer(renderer);
 
     /// <summary>
     /// Applies the renderer the View panel selected: the software rasterizer draws content tiles in the render worker, WebGL draws them
@@ -162,17 +169,8 @@ public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRunti
         ArgumentNullException.ThrowIfNull(entry);
         await (entry.Remote ? OpenUrlAsync(entry.File) : RunOpenAsync(entry.File, async token =>
         {
-            byte[] bytes;
-            try
-            {
-                bytes = await http.GetByteArrayAsync(Resolve(entry.File), token).ConfigureAwait(true);
-            }
-            catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.NotFound && entry.Mirror is not null)
-            {
-                bytes = await http.GetByteArrayAsync(new Uri(entry.Mirror), token).ConfigureAwait(true);
-            }
-
-            return (DocumentSession.Open(bytes, OptionsFor(() => RenderWorker.Open(bytes, Options.Intent))), FileName(entry.File), null);
+            byte[] bytes = await http.GetByteArrayAsync(Resolve(entry.File), token).ConfigureAwait(true);
+            return (DocumentSession.Open(bytes, OptionsFor(() => RenderWorker.Open(bytes, Options))), FileName(entry.File), null);
         })).ConfigureAwait(true);
 
         if (Address == entry.File && Message is null)
@@ -196,14 +194,14 @@ public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRunti
     public Task OpenUrlAsync(string address) => RunOpenAsync(address, async token =>
     {
         Uri uri = Resolve(address);
-        DocumentSession session = await DocumentSession.OpenAsync(http, uri, OptionsFor(() => RenderWorker.Open(uri, Options.Intent)), token).ConfigureAwait(true);
+        DocumentSession session = await DocumentSession.OpenAsync(http, uri, OptionsFor(() => RenderWorker.Open(uri, Options)), token).ConfigureAwait(true);
         return (session, FileName(uri.AbsolutePath), uri);
     });
 
     /// <summary>Opens a document from bytes (a local file, a created document, or a remote one downloaded whole).</summary>
     public async Task OpenBytesAsync(string name, byte[] bytes, string? address = null, int page = 0)
     {
-        await RunOpenAsync(address, _ => Task.FromResult<(DocumentSession, string, Uri?)>((DocumentSession.Open(bytes, OptionsFor(() => RenderWorker.Open(bytes, Options.Intent))), name, null)))
+        await RunOpenAsync(address, _ => Task.FromResult<(DocumentSession, string, Uri?)>((DocumentSession.Open(bytes, OptionsFor(() => RenderWorker.Open(bytes, Options))), name, null)))
             .ConfigureAwait(true);
         if (page > 0)
         {

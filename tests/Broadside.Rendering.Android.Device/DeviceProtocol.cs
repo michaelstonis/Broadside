@@ -154,5 +154,68 @@ internal static class DeviceProtocol
             "/H gs 1 1 0 rg 0 0 200 200 re f /N Do",
             "/Type /XObject /Subtype /Form /BBox [0 0 200 200] /Resources << /ExtGState << /H << /ca 0.5 >> >> /XObject << /N 5 0 R >> >> /Group << /S /Transparency /I true >>"));
 
+    /// <summary>
+    /// The argument that, set to <c>1</c>, runs the scaled image decode cases of issue #428 (the device generates their pages) and
+    /// reports their figures (<see cref="ScaledKey"/>).
+    /// </summary>
+    public const string ScaledArgument = "scaled";
+
+    /// <summary>The corpus DCT pages the scaled decode cases compare at a quarter scale (each is its own case).</summary>
+    public static readonly string[] ScaledDctFiles = ["dct-baseline.pdf", "dct-progressive.pdf", "dct-cmyk.pdf"];
+
+    /// <summary>The scaled decode case of the catalogue cover drawn <paramref name="width"/> pixels wide.</summary>
+    public static string CoverCase(int width) => FormattableString.Invariant($"cover-{width}");
+
+    /// <summary>The scaled decode case of a curved colour conversion, whose codec reduction is capped at a half.</summary>
+    public const string CurvedCase = "curved";
+
+    /// <summary>The scaled decode case of a page render at one device pixel per sample.</summary>
+    public const string OneToOneCase = "one-to-one";
+
+    /// <summary>The scaled decode case of page renders with the options' default and with scaled decode asked for.</summary>
+    public const string PageCase = "page";
+
+    /// <summary>The scaled decode case of one sample per device pixel against two.</summary>
+    public const string OneSampleCase = "one-sample";
+
+    /// <summary>The scaled decode case of a zoom in and out over four tiles.</summary>
+    public const string ZoomCase = "zoom";
+
+    /// <summary>The scaled decode case of a warm replay's allocations.</summary>
+    public const string AllocationCase = "allocation";
+
+    /// <summary>The figure of a reduced render's PSNR against the full one, in dB.</summary>
+    public const string Psnr = "psnr";
+
+    /// <summary>The figure of the share of pixels more than 8 levels off.</summary>
+    public const string Over8 = "over8";
+
+    /// <summary>The figure of the largest difference on any channel.</summary>
+    public const string MaxDifference = "max";
+
+    /// <summary>The figure of the pixels the backend converted with scaled decode (or the first of two renders).</summary>
+    public const string ReducedPixels = "reduced-pixels";
+
+    /// <summary>The figure of the pixels the backend converted without it (or the second of two renders).</summary>
+    public const string FullPixels = "full-pixels";
+
+    /// <summary>The figure of the bytes of converted pixels the backend kept after the reduced render.</summary>
+    public const string KeptBytes = "kept-bytes";
+
+    /// <summary>The figure, <c>yes</c> or <c>no</c>, of whether two renders were identical (or a value was rejected).</summary>
+    public const string Identical = "identical";
+
+    /// <summary>The figure of the defaults: the options' scaled decode, the backend's, and the backend's samples per pixel.</summary>
+    public const string Defaults = "defaults";
+
+    /// <summary>The figure of how many bitmaps the backend made.</summary>
+    public const string Images = "images";
+
+    /// <summary>The figure of the bytes a warm replay allocated.</summary>
+    public const string Allocated = "allocated";
+
+    /// <summary>Returns the result key of a figure of a scaled decode case.</summary>
+    public static string ScaledKey(string name, string figure) => $"scaled:{name}:{figure}";
+
     private static string Suffix(string variant) => variant.Length == 0 ? string.Empty : "-" + variant;
 }

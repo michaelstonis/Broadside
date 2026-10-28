@@ -14,11 +14,31 @@ namespace Broadside.Viewer.Blazor;
 /// rasterizer (<see cref="SoftwareTileBackend"/>) stays the default. Pages or regions the GPU path does not draw fall back to the
 /// software rasterizer per tile, with a diagnostic (<see cref="Diagnostics"/>).
 /// </summary>
-/// <remarks>ISO 32000-2 §10.7.1 through the display list. The WebGL backend is opt-in and falls back to the software rasterizer.</remarks>
+/// <remarks>
+/// ISO 32000-2 §10.7.1 through the display list. The WebGL backend is opt-in and falls back to the software rasterizer. A viewer's
+/// tiles are for display, so images are uploaded at the resolution they are drawn at unless the constructor says otherwise
+/// (<see cref="RenderOptions.ScaledImageDecode"/>; never for printing or export).
+/// </remarks>
 [SupportedOSPlatform("browser")]
 public sealed class WebGLTileBackend : ITileBackend
 {
     private readonly WebGLRenderer _renderer = new();
+
+    /// <summary>Initializes a new instance of the <see cref="WebGLTileBackend"/> class that decodes images at the resolution they are drawn at, keeping 2 samples per device pixel.</summary>
+    public WebGLTileBackend()
+        : this(scaledImageDecode: true, RenderOptions.DefaultImageSamplesPerPixel)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="WebGLTileBackend"/> class.</summary>
+    /// <param name="scaledImageDecode">Whether images are decoded at the resolution they are drawn at (<see cref="RenderOptions.ScaledImageDecode"/>).</param>
+    /// <param name="imageSamplesPerPixel">The fewest decoded samples per device pixel a reduced image keeps, at least 1 (<see cref="RenderOptions.ImageSamplesPerPixel"/>).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="imageSamplesPerPixel"/> is not a finite number of at least 1.</exception>
+    public WebGLTileBackend(bool scaledImageDecode, double imageSamplesPerPixel)
+    {
+        _renderer.ScaledImageDecode = scaledImageDecode;
+        _renderer.ImageSamplesPerPixel = imageSamplesPerPixel;
+    }
 
     /// <summary>Gets a value indicating whether WebGL 2 is available (after <see cref="InitializeAsync"/>); without it tiles are drawn by the software rasterizer.</summary>
     public static bool IsAvailable => WebGLRenderer.IsAvailable;
@@ -36,8 +56,8 @@ public sealed class WebGLTileBackend : ITileBackend
 
     /// <inheritdoc />
     /// <remarks>
-    /// ISO 32000-2 §7.4.8 and §8.9.4. The WebGL backend draws images at their own resolution, so the platform decodes them at full size
-    /// (in Chrome and Edge, the YCbCr planes: bit-identical to the managed decoder). In a browser without WebCodecs <c>ImageDecoder</c>
+    /// ISO 32000-2 §7.4.8 and §8.9.4. The platform decodes images at the reduction this backend draws them at (at full size in Chrome
+    /// and Edge, the YCbCr planes: bit-identical to the managed decoder). In a browser without WebCodecs <c>ImageDecoder</c>
     /// (Safari), simple JPEG paints go to <c>createImageBitmap</c> and are uploaded straight to a texture, never read back
     /// (<see cref="WebGLRenderer.PrefetchImageBitmapsAsync"/>); the rest decode with the managed codec.
     /// </remarks>
@@ -47,16 +67,19 @@ public sealed class WebGLTileBackend : ITileBackend
         PdfRectangle? region = TileRegion.Of(deviceTransform, width, height);
         if (BrowserImageDecoder.ImageBitmapOnly && list.Document.UsesPlatformImageDecoder(BrowserImageDecoder.DecoderName))
         {
-            return new ValueTask(BothAsync(list, deviceTransform, region, cancellationToken));
+            return new ValueTask(BothAsync(list, deviceTransform, region, SamplesPerPixel, cancellationToken));
         }
 
-        return list.PrefetchImagesAsync(deviceTransform, region, 0, cancellationToken);
+        return list.PrefetchImagesAsync(deviceTransform, region, SamplesPerPixel, cancellationToken);
     }
 
-    private static async Task BothAsync(DisplayList list, Matrix deviceTransform, PdfRectangle? region, CancellationToken cancellationToken)
+    /// <summary>Gets the samples per pixel this backend reduces images to, or 0 for their own resolution.</summary>
+    private double SamplesPerPixel => _renderer.ScaledImageDecode ? _renderer.ImageSamplesPerPixel : 0;
+
+    private static async Task BothAsync(DisplayList list, Matrix deviceTransform, PdfRectangle? region, double samplesPerPixel, CancellationToken cancellationToken)
     {
         await WebGLRenderer.PrefetchImageBitmapsAsync(list, deviceTransform, region, cancellationToken).ConfigureAwait(true);
-        await list.PrefetchImagesAsync(deviceTransform, region, 0, cancellationToken).ConfigureAwait(true);
+        await list.PrefetchImagesAsync(deviceTransform, region, samplesPerPixel, cancellationToken).ConfigureAwait(true);
     }
 
     /// <inheritdoc />

@@ -48,7 +48,9 @@ namespace Broadside.Rendering.Android;
 /// <para>
 /// Images (§8.9.4, §8.9.5) become Android bitmaps once per backend, kept within the document's image cache budget
 /// (<see cref="PdfOptions.ImageCacheBudget"/>); reduced to few enough device pixels they are resampled as the software rasterizer
-/// resamples them, otherwise the canvas samples them. Stencil masks (§8.9.6.2) are alpha bitmaps painted in the fill colour; soft and
+/// resamples them, otherwise the canvas samples them. A viewer's renders (<see cref="ScaledImageDecode"/>,
+/// <see cref="RenderOptions.ScaledImageDecode"/>) convert a large image drawn small at a power-of-two reduction of its samples instead
+/// of all of them, each mask at its own. Stencil masks (§8.9.6.2) are alpha bitmaps painted in the fill colour; soft and
 /// explicit masks of another size (§8.9.6.3, §11.6.5.2) mask the image in a layer. Axial and radial shadings (§8.7.4.5.3,
 /// §8.7.4.5.4) are linear and two-point conical gradient shaders (a radial shading other than growing concentric circles needs
 /// Android 12, API level 31); function-based shadings (§8.7.4.5.2) a texture; meshes (§8.7.4.5.5 to §8.7.4.5.8) are rasterized by
@@ -70,6 +72,7 @@ public sealed partial class AndroidCanvasBackend : IDisposable
     private static readonly Content.ContentOptions DefaultContentOptions = new();
 
     private readonly Backend _backend = new();
+    private double _imageSamplesPerPixel = RenderOptions.DefaultImageSamplesPerPixel;
     private bool _disposed;
 
     /// <summary>Renders <paramref name="page"/> at 72 DPI into a new ARGB_8888 bitmap, on white.</summary>
@@ -127,7 +130,8 @@ public sealed partial class AndroidCanvasBackend : IDisposable
         {
             canvas.ClipRect(0, 0, size.Width, size.Height);
             canvas.DrawColor(AndroidColor.White);
-            Render(list, canvas, device, options.ForceOutlines);
+            double samplesPerPixel = options.ScaledImageDecode && !options.OverprintPreview ? options.ImageSamplesPerPixel : 0;
+            Draw(list, canvas, device, options.ForceOutlines, samplesPerPixel);
         }
         finally
         {
@@ -161,7 +165,41 @@ public sealed partial class AndroidCanvasBackend : IDisposable
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(canvas);
         ObjectDisposedException.ThrowIf(_disposed, this);
+        Draw(list, canvas, deviceTransform, forceOutlines, ScaledImageDecode ? _imageSamplesPerPixel : 0);
+    }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the renders of a display list given to this backend decode images at the resolution
+    /// they are drawn at rather than their own; <see langword="false"/> by default. Page renders take
+    /// <see cref="RenderOptions.ScaledImageDecode"/> instead.
+    /// </summary>
+    /// <remarks>
+    /// For viewers only, never for printing or export (see <see cref="RenderOptions.ScaledImageDecode"/>): an image whose codec decodes
+    /// reduced resolutions, or a large one decoded when its list was built, is converted at the largest power-of-two reduction that
+    /// keeps <see cref="ImageSamplesPerPixel"/> samples per device pixel (<see cref="DisplayImage.GetReduction"/>, capped for a curved
+    /// colour conversion), and its masks at their own; the reduced samples are then resampled to the device as before. ISO 32000-2
+    /// §8.9.4 (the image unit square), §8.9.5.3 (Interpolate only affects enlargement).
+    /// </remarks>
+    public bool ScaledImageDecode { get; set; }
+
+    /// <summary>
+    /// Gets or sets the fewest decoded samples per device pixel a reduced image keeps when <see cref="ScaledImageDecode"/> is on:
+    /// <see cref="RenderOptions.DefaultImageSamplesPerPixel"/> (2) by default; 1 is faster and coarser.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a finite number of at least 1.</exception>
+    /// <remarks>See <see cref="RenderOptions.ImageSamplesPerPixel"/>; ISO 32000-2 §8.9.4.</remarks>
+    public double ImageSamplesPerPixel
+    {
+        get => _imageSamplesPerPixel;
+        set => _imageSamplesPerPixel = double.IsFinite(value) && value >= 1
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "The samples per pixel must be a finite number of at least 1.");
+    }
+
+    private void Draw(DisplayList list, AndroidCanvas canvas, in Matrix deviceTransform, bool forceOutlines, double imageSamplesPerPixel)
+    {
         _backend.ForceOutlines = forceOutlines;
+        _backend.ImageSamplesPerPixel = imageSamplesPerPixel;
         _backend.Begin(list.Document, canvas, deviceTransform);
         try
         {

@@ -294,8 +294,8 @@ export function workerClose(doc) {
   worker?.postMessage({ type: "close", doc });
 }
 
-export function workerRender(job, doc, page, scale, rotation, x, y, width, height, layers) {
-  worker?.postMessage({ type: "render", job, doc, page, scale, rotation, x, y, width, height, layers });
+export function workerRender(job, doc, page, scale, rotation, x, y, width, height, layers, samples) {
+  worker?.postMessage({ type: "render", job, doc, page, scale, rotation, x, y, width, height, layers, samples });
 }
 
 export function workerCancel(job) {

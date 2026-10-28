@@ -43,6 +43,11 @@ namespace Broadside.Rendering.Direct2D;
 /// drawn whole by the software rasterizer (<c>BackendPageRasterized</c>, information).
 /// </para>
 /// <para>
+/// Images (ISO 32000-2 §8.9): a viewer's renders (<see cref="ScaledImageDecode"/>, <see cref="RenderOptions.ScaledImageDecode"/>)
+/// convert a large image drawn small at a power-of-two reduction of its samples instead of all of them (issue #362), each mask at
+/// its own; other renders convert every sample.
+/// </para>
+/// <para>
 /// Reuse one instance for many renders: its device, device context and target bitmaps are created once (the targets again when the
 /// size changes) and released on <see cref="Dispose"/>, and a warm render allocates nothing managed per operation. An instance renders
 /// one page at a time; use one per thread to render in parallel (a document is safe for concurrent renders while nobody changes it).
@@ -58,6 +63,7 @@ public sealed class Direct2DRenderer : IDisposable
     private readonly DirectWriteFonts _fonts = new();
     private Direct2DSurface _surface;
     private SoftwareRasterizer? _rasterizer;
+    private double _imageSamplesPerPixel = RenderOptions.DefaultImageSamplesPerPixel;
     private bool _disposed;
 
     /// <summary>Initializes a new instance of the <see cref="Direct2DRenderer"/> class on the graphics hardware, or WARP when there is none.</summary>
@@ -116,7 +122,7 @@ public sealed class Direct2DRenderer : IDisposable
         var bitmap = new Bitmap(size.Width, size.Height);
         try
         {
-            Draw(list, bitmap, device, size.Width, size.Height, white: true, options.ForceOutlines);
+            Draw(list, bitmap, device, size.Width, size.Height, white: true, options.ForceOutlines, PageImageSamples(options));
         }
         catch
         {
@@ -147,7 +153,7 @@ public sealed class Direct2DRenderer : IDisposable
             throw new ArgumentException($"The page needs {size.Width} x {size.Height} pixels; the bitmap has {target.Width} x {target.Height}.", nameof(target));
         }
 
-        Draw(page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions), target, options.GetDeviceTransform(page), size.Width, size.Height, white: true, options.ForceOutlines);
+        Draw(page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions), target, options.GetDeviceTransform(page), size.Width, size.Height, white: true, options.ForceOutlines, PageImageSamples(options));
     }
 
     /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, without a background.</summary>
@@ -179,7 +185,35 @@ public sealed class Direct2DRenderer : IDisposable
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
         ObjectDisposedException.ThrowIf(_disposed, this);
-        Draw(list, target, deviceTransform, target.Width, target.Height, white: false, forceOutlines);
+        Draw(list, target, deviceTransform, target.Width, target.Height, white: false, forceOutlines, ScaledImageDecode ? _imageSamplesPerPixel : 0);
+    }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the renders of a display list given to this renderer decode images at the resolution
+    /// they are drawn at rather than their own; <see langword="false"/> by default. Page renders take
+    /// <see cref="RenderOptions.ScaledImageDecode"/> instead.
+    /// </summary>
+    /// <remarks>
+    /// For viewers only, never for printing or export (see <see cref="RenderOptions.ScaledImageDecode"/>): an image whose codec decodes
+    /// reduced resolutions, or a large one decoded when its list was built, is converted at the largest power-of-two reduction that
+    /// keeps <see cref="ImageSamplesPerPixel"/> samples per device pixel (<see cref="DisplayImage.GetReduction"/>, capped for a curved
+    /// colour conversion), and its masks at their own; the reduced samples are then resampled to the device as before. ISO 32000-2
+    /// §8.9.4 (the image unit square), §8.9.5.3 (Interpolate only affects enlargement).
+    /// </remarks>
+    public bool ScaledImageDecode { get; set; }
+
+    /// <summary>
+    /// Gets or sets the fewest decoded samples per device pixel a reduced image keeps when <see cref="ScaledImageDecode"/> is on:
+    /// <see cref="RenderOptions.DefaultImageSamplesPerPixel"/> (2) by default; 1 is faster and coarser.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a finite number of at least 1.</exception>
+    /// <remarks>See <see cref="RenderOptions.ImageSamplesPerPixel"/>; ISO 32000-2 §8.9.4.</remarks>
+    public double ImageSamplesPerPixel
+    {
+        get => _imageSamplesPerPixel;
+        set => _imageSamplesPerPixel = double.IsFinite(value) && value >= 1
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "The samples per pixel must be a finite number of at least 1.");
     }
 
     /// <summary>Releases the Direct2D device, its device context and bitmaps, and the DirectWrite font faces; the renderer renders no more after this.</summary>
@@ -201,13 +235,20 @@ public sealed class Direct2DRenderer : IDisposable
     /// <summary>Gets how many Direct2D bitmaps were made from display-list images and masks (each once per renderer while cached).</summary>
     internal int ImagesCreated => _backend.ImagesCreated;
 
+    /// <summary>Gets how many pixels the Direct2D bitmaps made from display-list images and masks had in all (fewer for reduced images, issue #428).</summary>
+    internal long ImagePixelsConverted => _backend.ImagePixelsConverted;
+
     /// <summary>Gets the bytes of converted image pixels the renderer keeps.</summary>
     internal long CachedImageBytes => _backend.CachedImageBytes;
 
     /// <summary>Gets how many tiling-pattern cells were drawn into tiles.</summary>
     internal int CellsRecorded => _backend.CellsRecorded;
 
-    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white, bool forceOutlines)
+    /// <summary>Gets the samples per pixel a page render reduces images to, or 0 for the images' own resolution.</summary>
+    private static double PageImageSamples(RenderOptions options) =>
+        options.ScaledImageDecode && !options.OverprintPreview ? options.ImageSamplesPerPixel : 0;
+
+    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white, bool forceOutlines, double imageSamplesPerPixel)
     {
         if (width > _surface.MaximumSize || height > _surface.MaximumSize)
         {
@@ -223,6 +264,7 @@ public sealed class Direct2DRenderer : IDisposable
             try
             {
                 _backend.ForceOutlines = forceOutlines;
+                _backend.ImageSamplesPerPixel = imageSamplesPerPixel;
                 _backend.Begin(_surface, _fonts, list.Document, device);
                 try
                 {
@@ -250,7 +292,7 @@ public sealed class Direct2DRenderer : IDisposable
             result.ThrowOnFailure();
             if (_backend.RasterizesPage)
             {
-                RasterizePage(list, target, device, width, height, white);
+                RasterizePage(list, target, device, width, height, white, imageSamplesPerPixel);
                 return;
             }
 
@@ -263,7 +305,7 @@ public sealed class Direct2DRenderer : IDisposable
     /// Draws the list with the software rasterizer into the top-left <paramref name="width"/> × <paramref name="height"/> pixels of
     /// <paramref name="target"/>, on white or over its pixels: the page blends with its backdrop in a mode Direct2D cannot composite.
     /// </summary>
-    private void RasterizePage(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white)
+    private void RasterizePage(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white, double imageSamplesPerPixel)
     {
         int rowBytes = width * 4;
         using var bitmap = new Bitmap(width, height);
@@ -280,7 +322,9 @@ public sealed class Direct2DRenderer : IDisposable
             }
         }
 
-        (_rasterizer ??= new SoftwareRasterizer()).Render(list, bitmap, device);
+        SoftwareRasterizer rasterizer = _rasterizer ??= new SoftwareRasterizer();
+        Direct2DBackend.ConfigureScaledImageDecode(rasterizer, imageSamplesPerPixel);
+        rasterizer.Render(list, bitmap, device);
         for (int y = 0; y < height; y++)
         {
             bitmap.GetRow(y)[..rowBytes].CopyTo(target.GetRow(y));

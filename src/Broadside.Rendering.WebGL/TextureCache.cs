@@ -42,6 +42,11 @@ internal static class TextureCache
     /// <summary>Gets a value indicating whether the image has a texture or a bitmap waiting for one.</summary>
     public static bool HasTextureOrBitmap(DisplayImage image) => Bitmaps.TryGetValue(image, out _) || Table.TryGetValue(image, out _);
 
+    /// <summary>Gets a value indicating whether the image has a converted texture for this conversion at <paramref name="reduction"/> or a finer one.</summary>
+    public static bool HasConverted(DisplayImage image, PdfDefaultColorSpaces defaults, ColorConversion conversion, int reduction) =>
+        Table.TryGetValue(image, out Entry? entry) && !entry.Native && ReferenceEquals(entry.Defaults, defaults) && entry.Conversion == conversion
+        && entry.Grid.Reduction <= reduction;
+
     /// <summary>Remembers the browser's <c>ImageBitmap</c> of an image, uploaded by its next <see cref="GetImage"/> instead of converted samples.</summary>
     public static void AttachBitmap(DisplayImage image, int key) => Bitmaps.AddOrUpdate(image, new BitmapKey(key));
 
@@ -51,13 +56,22 @@ internal static class TextureCache
     /// <param name="defaults">The default colour spaces.</param>
     /// <param name="conversion">The conversion.</param>
     /// <param name="native">Whether the browser's own decode may stand for the converted samples (<see cref="WebGLRenderer.IsNativeImagePaint"/>).</param>
-    public static int GetImage(DisplayImage image, PdfDocument document, PdfDefaultColorSpaces defaults, ColorConversion conversion, bool native)
+    /// <param name="samples">The samples to convert, at the reduction drawn (issue #362); null to take the image's own when it must be converted.</param>
+    /// <param name="foldSoft">Whether the soft mask folds into the samples (<see cref="ImageConverter.FoldsSoftMask(DisplayImage, DisplayImageSamples, out DisplayImageSamples?)"/>).</param>
+    /// <param name="softSamples">The soft mask's samples that fold, or null.</param>
+    /// <param name="reduction">The reduction asked for: a texture at it or a finer one serves.</param>
+    /// <param name="grid">The texture's samples: their size and reduction, for the texture coordinates of the unit square.</param>
+    public static int GetImage(DisplayImage image, PdfDocument document, PdfDefaultColorSpaces defaults, ColorConversion conversion, bool native, DisplayImageSamples? samples, bool foldSoft, DisplayImageSamples? softSamples, int reduction, out TextureGrid grid)
     {
-        if (Table.TryGetValue(image, out Entry? entry) && (entry.Native ? native : ReferenceEquals(entry.Defaults, defaults) && entry.Conversion == conversion))
+        if (Table.TryGetValue(image, out Entry? entry)
+            && (entry.Native ? native : ReferenceEquals(entry.Defaults, defaults) && entry.Conversion == conversion && entry.Grid.Reduction <= reduction))
         {
             entry.LastUse = _clock;
+            grid = entry.Grid;
             return entry.Id;
         }
+
+        grid = new TextureGrid(image.Width, image.Height, 0);
 
         if (native && Bitmaps.TryGetValue(image, out BitmapKey? bitmap))
         {
@@ -74,7 +88,7 @@ internal static class TextureCache
                     }
                 }
 
-                var uploaded = new Entry(id, (long)image.Width * image.Height * 4 * 4 / 3, new WeakReference<object>(image), defaults, conversion) { LastUse = _clock, Native = true };
+                var uploaded = new Entry(id, (long)image.Width * image.Height * 4 * 4 / 3, new WeakReference<object>(image), defaults, conversion) { LastUse = _clock, Native = true, Grid = grid };
                 Table.AddOrUpdate(image, uploaded);
                 Entries.Add(uploaded);
                 Bytes += uploaded.Bytes;
@@ -82,7 +96,15 @@ internal static class TextureCache
             }
         }
 
-        if (image.Width > MaxSize || image.Height > MaxSize)
+        if (samples is null)
+        {
+            // A bitmap that would not upload: the image's own samples (an image that cannot be decoded converts to nothing).
+            samples = image.GetSamplesAt(0);
+            foldSoft = ImageConverter.FoldsSoftMask(image);
+            softSamples = foldSoft ? image.SoftMask!.GetSamplesAt(0) : null;
+        }
+
+        if (samples is not { } decoded || decoded.Width > MaxSize || decoded.Height > MaxSize)
         {
             return 0;
         }
@@ -90,7 +112,7 @@ internal static class TextureCache
         ColorConversion rgb = conversion with { Target = DeviceColorModel.Rgb };
         PdfColorConverter converter = document.GetColorConverter(image.ColorSpace, rgb, defaults);
         PdfColorConverter? baseConverter = image.ColorSpace is PdfIndexedColorSpace indexed ? document.GetColorConverter(indexed.Base, rgb, defaults) : null;
-        byte[]? pixels = ImageConverter.Convert(image, converter, baseConverter);
+        byte[]? pixels = ImageConverter.Convert(image, decoded, foldSoft, softSamples, converter, baseConverter);
         if (pixels is null)
         {
             return 0;
@@ -98,7 +120,8 @@ internal static class TextureCache
 
         try
         {
-            return Add(image, entry, image.Width, image.Height, 0, pixels, image.Interpolate, defaults, conversion);
+            grid = new TextureGrid(decoded.Width, decoded.Height, decoded.Reduction);
+            return Add(image, entry, grid, 0, pixels, image.Interpolate, defaults, conversion);
         }
         finally
         {
@@ -106,21 +129,27 @@ internal static class TextureCache
         }
     }
 
-    /// <summary>Gets the texture of a stencil mask (one channel, 255 where it paints); 0 when too large.</summary>
-    public static int GetMask(DisplayImageMask mask)
+    /// <summary>
+    /// Gets the texture of a stencil mask (one channel, 255 where it paints), at <paramref name="reduction"/> or a finer one (8-bit
+    /// coverage when reduced, issue #362); 0 when too large.
+    /// </summary>
+    public static int GetMask(DisplayImageMask mask, int reduction, out TextureGrid grid)
     {
-        if (Table.TryGetValue(mask, out Entry? entry))
+        if (Table.TryGetValue(mask, out Entry? entry) && entry.Grid.Reduction <= reduction)
         {
             entry.LastUse = _clock;
+            grid = entry.Grid;
             return entry.Id;
         }
 
-        if (mask.Width > MaxSize || mask.Height > MaxSize)
+        int scale = 1 << reduction;
+        grid = new TextureGrid((int)(((long)mask.Width + scale - 1) >> reduction), (int)(((long)mask.Height + scale - 1) >> reduction), reduction);
+        if (grid.Width > MaxSize || grid.Height > MaxSize)
         {
             return 0;
         }
 
-        byte[]? pixels = ImageConverter.ConvertStencil(mask);
+        byte[]? pixels = ImageConverter.ConvertStencil(mask, reduction);
         if (pixels is null)
         {
             return 0;
@@ -128,7 +157,7 @@ internal static class TextureCache
 
         try
         {
-            return Add(mask, null, mask.Width, mask.Height, 1, pixels, mask.Interpolate, null, default);
+            return Add(mask, entry, grid, 1, pixels, mask.Interpolate, null, default);
         }
         finally
         {
@@ -183,8 +212,10 @@ internal static class TextureCache
         }
     }
 
-    private static int Add(object owner, Entry? stale, int width, int height, int format, byte[] pixels, bool interpolate, PdfDefaultColorSpaces? defaults, ColorConversion conversion)
+    private static int Add(object owner, Entry? stale, TextureGrid grid, int format, byte[] pixels, bool interpolate, PdfDefaultColorSpaces? defaults, ColorConversion conversion)
     {
+        int width = grid.Width;
+        int height = grid.Height;
         if (stale is not null)
         {
             Table.Remove(owner);
@@ -198,7 +229,7 @@ internal static class TextureCache
         int id = ++_next;
         int length = width * height * (format == 0 ? 4 : 1);
         WebGLInterop.Upload(id, width, height, format, pixels.AsSpan(0, length), interpolate);
-        var entry = new Entry(id, length * 4L / 3, new WeakReference<object>(owner), defaults, conversion) { LastUse = _clock };
+        var entry = new Entry(id, length * 4L / 3, new WeakReference<object>(owner), defaults, conversion) { LastUse = _clock, Grid = grid };
         Table.AddOrUpdate(owner, entry);
         Entries.Add(entry);
         Bytes += entry.Bytes;
@@ -228,7 +259,24 @@ internal static class TextureCache
         public long LastUse { get; set; }
 
         public bool Native { get; init; }
+
+        /// <summary>Gets the texture's samples: their size and reduction (issue #362).</summary>
+        public TextureGrid Grid { get; init; }
     }
 
     private sealed record BitmapKey(int Key);
+}
+
+/// <summary>
+/// The samples a texture holds: <see cref="Width"/> × <see cref="Height"/>, reduced by 2^<see cref="Reduction"/> from the image's own
+/// (issue #362). Reduced sample i covers source samples i·s to (i + 1)·s, so the unit square takes the first (W / s) / Width of the
+/// texture across and (H / s) / Height down (ISO 32000-2 §8.9.4).
+/// </summary>
+internal readonly record struct TextureGrid(int Width, int Height, int Reduction)
+{
+    /// <summary>Returns the share of the texture's width the unit square covers for an image <paramref name="sourceWidth"/> samples wide.</summary>
+    public float ExtentU(int sourceWidth) => Reduction == 0 ? 1f : (float)((double)sourceWidth / (1 << Reduction) / Width);
+
+    /// <summary>Returns the share of the texture's height the unit square covers for an image <paramref name="sourceHeight"/> samples high.</summary>
+    public float ExtentV(int sourceHeight) => Reduction == 0 ? 1f : (float)((double)sourceHeight / (1 << Reduction) / Height);
 }
