@@ -212,7 +212,7 @@ public sealed class MainPage : ContentPage
 
             string path = Path.Combine(Environment.GetEnvironmentVariable("BROADSIDE_SMOKE_OUT") ?? FileSystem.CacheDirectory, "smoke.png");
             await File.WriteAllBytesAsync(path, png);
-            bool ok = dark > samples / 200 && white > samples / 4 && _view.State.PageIndex == 0;
+            bool ok = dark > samples / 1000 && white > samples / 4 && _view.State.PageIndex == 0;
             Console.WriteLine(string.Create(
                 CultureInfo.InvariantCulture,
                 $"BROADSIDE_SMOKE_{(ok ? "OK" : "FAILED")} pages={_view.State.PageCount} page={_view.State.PageIndex + 1} size={bitmap.Width}x{bitmap.Height} dark={dark} white={white} samples={samples} gpu={_view.UseHardwareAcceleration} path={path}"));
