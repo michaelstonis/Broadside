@@ -137,7 +137,17 @@ public sealed class BrowserImageDecoderTests(BrowserHost host)
         await page.GotoAsync(new Uri(host.AppAddress, "?worker=0&renderer=webgl&file=../files/mode-b.pdf").ToString());
         await page.WaitForFunctionAsync("() => Number(document.querySelector('.bs-viewer')?.dataset.tilesPresented) > 0", null, Slow);
         Assert.SkipUnless(await page.EvaluateAsync<bool>("() => typeof ImageDecoder !== 'function'"), "This WebKit has ImageDecoder: mode B is not used.");
-        Assert.SkipWhen(await page.EvaluateAsync<string>("() => document.querySelector('[data-renderer=webgl]')?.getAttribute('aria-pressed') ?? 'true'") == "false", "WebGL 2 is not available in this WebKit.");
+        // Whether the demo draws with WebGL (the View panel's buttons are not in the page until it opens).
+        string stats = await page.EvaluateAsync<string>("""
+            async () => {
+              const exports = await getDotnetRuntime(0).getAssemblyExports('Broadside.Viewer.Blazor.Sample.dll');
+              return exports.Broadside.Viewer.Blazor.Sample.RenderStats.Snapshot();
+            }
+            """);
+        Assert.SkipWhen(
+            stats.Contains("\"renderer\":\"software\"", StringComparison.Ordinal) && !await page.EvaluateAsync<bool>("() => !!document.createElement('canvas').getContext('webgl2')"),
+            "WebGL 2 is not available in this WebKit.");
+        Assert.Contains("\"renderer\":\"webgl\"", stats, StringComparison.Ordinal);
         await page.WaitForTimeoutAsync(1000);
 
         // Mode B: the photograph went to the GPU as the browser's own bitmap, never read back nor decoded by the managed codec.
