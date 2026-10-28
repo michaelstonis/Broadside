@@ -56,7 +56,7 @@ The screenshots come from the browser tests (`BROADSIDE_BROWSER_SCREENSHOTS=<fol
 
 | | Files | Size | Largest file |
 |---|---|---|---|
-| default (trimmed, AOT) | 92 | about 53 MB | `dotnet.native.wasm`, 24.5 MB |
+| default (trimmed, AOT) | 92 | 54.1 MB | `dotnet.native.wasm`, 24.5 MB |
 | `--no-aot` | 92 | 31.3 MB | `catalogue.pdf`, 8.1 MB (then `Broadside.Fonts.Standard14.wasm`, 4.4 MB) |
 
 Sizes include the 17 MB of gallery documents, which a browser downloads only when one is picked. A host that compresses responses
