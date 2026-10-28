@@ -13,7 +13,9 @@ namespace Broadside.Viewer.Maui;
 /// ISO 32000-2 §10.7.1 (rendering), §8.3.2.2 (device space). A tile is drawn in one slice: Skia's replay is not resumable, so this
 /// backend suits <see cref="ViewerThreading.Background"/> sessions, where a tile renders off the UI thread. A viewer's tiles are for
 /// display, so images are decoded at the resolution they are drawn at unless the constructor says otherwise
-/// (<see cref="RenderOptions.ScaledImageDecode"/>; never for printing or export).
+/// (<see cref="RenderOptions.ScaledImageDecode"/>; never for printing or export). The backends of a session's pool draw tiles at
+/// the same time and share the images they convert (<see cref="SkiaBackend.ShareConvertedImages"/>): each image is converted once,
+/// within the document's image cache budget, whichever backend draws it.
 /// </remarks>
 public sealed class SkiaTileBackend : ITileBackend
 {
@@ -33,6 +35,7 @@ public sealed class SkiaTileBackend : ITileBackend
     {
         _backend.ScaledImageDecode = scaledImageDecode;
         _backend.ImageSamplesPerPixel = imageSamplesPerPixel;
+        _backend.ShareConvertedImages = true;
     }
 
     /// <inheritdoc/>

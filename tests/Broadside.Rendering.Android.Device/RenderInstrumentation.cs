@@ -19,7 +19,8 @@ namespace Broadside.Rendering.Android.Device;
 /// <see cref="AndroidCanvasBackend"/> at the golden images' 72 DPI, with native glyphs and with forced outlines, and through the
 /// <see cref="AndroidPathReference"/> where it can draw the page; writes each render's pixels to the app's external files directory,
 /// reports the backend's diagnostics, and measures what a warm replay of each page's display list onto a canvas allocates and how long
-/// it takes, in both glyph modes.
+/// it takes, in both glyph modes. With <see cref="DeviceProtocol.ScaledArgument"/> it first runs the scaled image decode cases
+/// (<see cref="ScaledImageDecodeRun"/>).
 /// </summary>
 [Instrumentation(Name = DeviceProtocol.Instrumentation, TargetPackage = DeviceProtocol.Package, Label = "Broadside rendering")]
 public sealed class RenderInstrumentation : Instrumentation
@@ -27,6 +28,7 @@ public sealed class RenderInstrumentation : Instrumentation
     private string _files = string.Empty;
     private HashSet<string> _uncached = [];
     private int _replays = 20;
+    private bool _scaled;
 
     public RenderInstrumentation(IntPtr handle, JniHandleOwnership transfer)
         : base(handle, transfer)
@@ -38,6 +40,7 @@ public sealed class RenderInstrumentation : Instrumentation
         base.OnCreate(arguments);
         _files = arguments?.GetString(DeviceProtocol.FilesArgument) ?? string.Empty;
         _uncached = [.. (arguments?.GetString(DeviceProtocol.UncachedArgument) ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+        _scaled = arguments?.GetString(DeviceProtocol.ScaledArgument) == "1";
         if (int.TryParse(arguments?.GetString(DeviceProtocol.ReplaysArgument), NumberStyles.Integer, CultureInfo.InvariantCulture, out int replays) && replays > 0)
         {
             _replays = replays;
@@ -80,6 +83,11 @@ public sealed class RenderInstrumentation : Instrumentation
 #else
         results.PutString(DeviceProtocol.BuildKey, DeviceProtocol.Optimized);
 #endif
+
+        if (_scaled)
+        {
+            ScaledImageDecodeRun.Run(context, results);
+        }
 
         foreach (string fileName in _files.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {

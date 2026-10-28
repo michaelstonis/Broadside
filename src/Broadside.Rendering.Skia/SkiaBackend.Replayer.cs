@@ -35,6 +35,10 @@ public sealed partial class SkiaBackend
         private readonly ShadingCache? _shadingCache;
         private readonly WeakReference<PdfDocument?> _budgetDocument = new(null);
 
+        // The converted images shared with the other backends drawing the same document (issue #432), when the backend shares them.
+        private SharedImageCache<ImageCache.Entry>? _shared;
+        private WeakReference<PdfDocument?>? _sharedDocument;
+
         public Replayer()
         {
             _stroke = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke };
@@ -53,6 +57,23 @@ public sealed partial class SkiaBackend
         /// <summary>Gets or sets the fewest samples per device pixel a reduced image keeps (issue #362), or 0 to draw images at their own resolution; read from the backend's own replayer.</summary>
         public double ImageSamplesPerPixel { get; set; }
 
+        /// <summary>
+        /// Gets or sets a value indicating whether the backend's own replayer keeps its converted images in the cache shared by every
+        /// backend drawing the same document with this set (issue #432); joined on the next render.
+        /// </summary>
+        public bool ShareImages { get; set; }
+
+        /// <summary>Gets the shared cache the backend draws from, when it has joined one.</summary>
+        public SharedImageCache<ImageCache.Entry>? SharedImages => _shared;
+
+        /// <summary>Leaves the shared cache, if any; the backend keeps its own images from the next render.</summary>
+        public void LeaveShared()
+        {
+            _shared?.Leave();
+            _shared = null;
+            _sharedDocument?.SetTarget(null);
+        }
+
         /// <summary>Gets how many Skia images the backend made from display-list images and masks.</summary>
         public int ImagesCreated => _imageCache?.Created ?? 0;
 
@@ -69,6 +90,13 @@ public sealed partial class SkiaBackend
                 // The document's image budget (spec D10) bounds the converted pixels kept; read once per document, as reading allocates.
                 _imageCache.Budget = document.CacheStatistics.Images.Budget;
                 _budgetDocument.SetTarget(document);
+            }
+
+            if (ShareImages && (_shared is null || !_sharedDocument!.TryGetTarget(out PdfDocument? joined) || !ReferenceEquals(joined, document)))
+            {
+                LeaveShared();
+                _shared = SharedImageCache<ImageCache.Entry>.Join(document, _imageCache!.Budget);
+                (_sharedDocument ??= new WeakReference<PdfDocument?>(null)).SetTarget(document);
             }
 
             _document = document;
@@ -161,6 +189,7 @@ public sealed partial class SkiaBackend
             DisposeTiling();
             DisposeTransparency();
             _imageCache?.Dispose();
+            LeaveShared();
             _shadingCache?.Dispose();
             ReleaseFaces();
         }

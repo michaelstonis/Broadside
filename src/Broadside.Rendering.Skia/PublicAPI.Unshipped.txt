@@ -12,3 +12,5 @@ Broadside.Rendering.Skia.SkiaBackend.ImageSamplesPerPixel.get -> double
 Broadside.Rendering.Skia.SkiaBackend.ImageSamplesPerPixel.set -> void
 Broadside.Rendering.Skia.SkiaBackend.ScaledImageDecode.get -> bool
 Broadside.Rendering.Skia.SkiaBackend.ScaledImageDecode.set -> void
+Broadside.Rendering.Skia.SkiaBackend.ShareConvertedImages.get -> bool
+Broadside.Rendering.Skia.SkiaBackend.ShareConvertedImages.set -> void

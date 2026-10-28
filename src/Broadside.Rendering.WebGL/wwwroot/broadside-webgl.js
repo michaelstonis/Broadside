@@ -57,16 +57,30 @@ function compile(type, source) {
   return shader;
 }
 
+/** The WebGL 2 context of `target`, or null. */
+function context(target) {
+  try {
+    return target.getContext('webgl2', { alpha: true, antialias: false, depth: false, stencil: false, premultipliedAlpha: true, preserveDrawingBuffer: true });
+  } catch {
+    return null;
+  }
+}
+
 /** Creates the context; returns "" when WebGL 2 is unavailable, else a description of the renderer. */
 export function initialize() {
   if (gl) {
     return describe();
   }
-  try {
-    canvas = typeof OffscreenCanvas === 'function' ? new OffscreenCanvas(256, 256) : document.createElement('canvas');
-    gl = canvas.getContext('webgl2', { alpha: true, antialias: false, depth: false, stencil: false, premultipliedAlpha: true, preserveDrawingBuffer: true });
-  } catch {
-    gl = null;
+  // An OffscreenCanvas where there is one (a worker has nothing else); a document's canvas when it gives no WebGL 2 context, as
+  // WebKitGTK's and WPE's OffscreenCanvas do not (#441: the page then drew everything with the software rasterizer).
+  gl = null;
+  if (typeof OffscreenCanvas === 'function') {
+    canvas = new OffscreenCanvas(256, 256);
+    gl = context(canvas);
+  }
+  if (!gl && typeof document !== 'undefined') {
+    canvas = document.createElement('canvas');
+    gl = context(canvas);
   }
   if (!gl) {
     return '';

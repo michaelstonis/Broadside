@@ -25,6 +25,90 @@ With k = 1, which the owner may choose (`ViewerOptions.WithImageSamplesPerPixel(
 Reading the numbers:
 - **When a reduction applies, each tile costs 2.7x (1/2) to 5.5x (1/4) less, and the page is idle 2x to 3x sooner.** Peak memory falls by 0.65 GB and 0.35 GB, and the decoded samples kept fall by 3x and 9x.
 - **Without a reduction nothing changes.** The full-width rows differ only by noise between launches (the two "before" launches differ by 1.4 s).
-- The full-resolution rows peak at 3.7 GB. Each pooled tile backend converts the photograph itself (one Skia image cache per backend), so several 32 MB conversions and their scratch arrays are alive at once. Scaled decode shrinks each of them, but the duplication is separate work (#432).
+- The full-resolution rows peak at 3.7 GB. Each pooled tile backend converts the photograph itself (one Skia image cache per backend), so several 32 MB conversions and their scratch arrays are alive at once. Scaled decode shrinks each of them, but the duplication is separate work (#432, measured below).
 
 Reproduce: build the sample (`dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-ios -c Release -p:RuntimeIdentifier=iossimulator-arm64`; add `-p:ValidateXcodeVersion=false` when Xcode is newer than the workload), install it on a simulator, and launch it with `SIMCTL_CHILD_BROADSIDE_PHOTO=1`. Optional: `SIMCTL_CHILD_BROADSIDE_PHOTO_WIDTH=0.5` (share of the window's width), `SIMCTL_CHILD_BROADSIDE_PHOTO_K=1`, `SIMCTL_CHILD_BROADSIDE_PHOTO_FULL=1` (scaled decode off). Run it with `xcrun simctl launch --console-pty`; it prints `BROADSIDE_PHOTO ready …`, then `BROADSIDE_PHOTO fit …`, and quits.
+
+## One conversion per session: the pooled tile backends share converted images (#432)
+
+Measured 2026-10-27, same page, sample, simulator (iPhone, 402 x 874 points at 3 pixels per point) and method as above, Release builds of the integration branch at efa152c3 ("before") and of #432's branch ("after"), both with the default `SkiaTileBackend()` (scaled decode). One launch per row; two launches each, both shown. "Managed" is the managed heap after a full collection once the view was idle.
+
+| View width | k | Tiles | Tile total (ms), before | after | Longest tile (ms), before | after | Idle (ms), before | after | Peak RSS (MB), before | after | Managed (MB), before | after |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 402 pt (full) | 2 | 31 | 14829, 11529 | 5561, 5754 | 1052, 874 | 401, 401 | 1115, 926 | 482, 480 | 3562, 3712 | 826, 819 | 4096, 4061 | 112, 111 |
+| 402 pt (full) | 1 | 31 | 4467, 3223 | 2406, 2059 | 327, 251 | 180, 155 | 397, 321 | 258, 223 | 2117, 2124 | 748, 753 | 2084, 2086 | 53, 57 |
+| 201 pt (half) | 2 | 10 | 1364, 1465 | 1283, 1289 | 147, 164 | 134, 132 | 195, 196 | 162, 163 | 1234, 1180 | 768, 772 | 653, 645 | 60, 62 |
+
+What changed:
+- **Every pooled backend converted the photograph itself.** The session draws up to one tile per core but one at once (15 on this host), each with its own `SkiaBackend` and its own image cache, so each made its own 32 MB BGRA conversion and its own resampling to the device. Now the backends of a session share one cache per document (`SkiaBackend.ShareConvertedImages`, on in `SkiaTileBackend`; `SoftwareRasterizer.ShareConvertedImages`, on in `SoftwareTileBackend`): the first backend to miss an image converts it under that image's lock while the others wait, then all draw the same conversion, leased while drawn. The kept pixels stay within one `ImageCacheBudget` for the whole pool, the two largest over it outside it, as before; a finer conversion still serves a coarser request.
+- **The resampling's scratch held a row of sums per sample row of the image.** Resampling the 2550 x 3150 photograph to 1180 pixels kept 5 doubles per output column for every one of its 3150 rows: 150 MB, rented from the shared array pool, which rounds it to 256 MB and keeps it per thread afterwards. The 2 to 4 GB managed heap left once the view was idle is consistent with one such array kept per worker thread (both changes landed together, so the split is inferred, not measured). The resampling now works in bands of at most 64 sample rows (about 3 MB here), with the same pixels.
+- **The peak is now about the process before the viewer opened plus what one page needs** (encoding the photograph before the viewer opens leaves the process at about 780 MB). The idle time halves at full width; tile total falls further because the tiles no longer convert the same image at once (time waiting for the one conversion still counts in each tile).
+
+The Blazor viewer draws on the page's thread one tile at a time (a cooperative session), so its software rasterizers rarely converted the same image twice; its memory does not change. Interpreter build, Playwright Chromium, render worker off, `ScrollFrameTests` with the same page: page WebAssembly plus JS heap 304 MiB before, 293 MiB after (desktop 1280 x 900 at 2x); 294 and 293 MiB (phone 390 x 844 at 3x, CPU/4). With the worker on, the page holds 178 to 184 MiB and the worker 139 to 140 MiB, before and after.
+
+Reproduce the browser figures: write the page with `CatalogueSamples.Cover()`, publish the sample with `publish-static.sh --no-aot`, then run `ScrollFrameTests` as described in `browser-image-decoder.md` with `BROADSIDE_FRAME_BENCH_DOCUMENTS` set to the page.
+
+## CoreGraphics (macOS)
+
+The CoreGraphics backend has no tile backend or viewer shell yet, so it was measured on macOS directly: `CoreGraphicsRenderer` list renders of the same page into a `CGBitmapContext` of the page's pixel size, Release build of the CoreGraphics test app, macOS 27.0.1 on an Apple M4 Max, 2026-10-27. "Before" is `ScaledImageDecode` off, which draws exactly what the integration branch drew (the hashes of 116 page renders of the scaled-image pages, the cover and 20 corpus image files at four scales are identical before and after); "after" is `ScaledImageDecode = true` with the default k = 2 unless shown. Median of 7 runs, each with a fresh document and renderer.
+
+- **First render**: the first render of the page's list, which decodes the photograph (at the reduction asked for) and converts it to a CGImage.
+- **Allocated**: managed bytes allocated by that first render (the decoded samples and the converted pixels).
+- **Kept**: the converted pixels the renderer keeps afterwards (the CGImage's pixels and its resampling to the device).
+
+| Page width (px) | Reduction | First render (ms), before | after | Allocated (MB), before | after | Kept (MB), before | after | Pixels converted, before | after |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1180 | none (k = 2) | 299 | 282 | 69.7 | 69.7 | 37.5 | 37.5 | 8,032,500 | 8,032,500 |
+| 1180 | 1/2 (k = 1) | 299 | 122 | 69.7 | 22.7 | 37.5 | 14.5 | 8,032,500 | 2,008,125 |
+| 590 | 1/2 | 249 | 97 | 64.4 | 17.4 | 32.4 | 9.4 | 8,032,500 | 2,008,125 |
+| 390 | 1/2 | 236 | 95 | 63.4 | 16.5 | 31.4 | 8.4 | 8,032,500 | 2,008,125 |
+| 294 | 1/4 | 229 | 52 | 63.1 | 4.4 | 31.1 | 2.3 | 8,032,500 | 502,744 |
+| 150 | 1/8 | 221 | 36 | 62.8 | 1.1 | 30.8 | 0.6 | 8,032,500 | 125,686 |
+
+Reading the numbers:
+- **When a reduction applies, the first render is 2.4x (1/2) to 6x (1/8) faster, and the renderer allocates and keeps 4x to 50x less.** A warm render (the conversion kept) takes under 1 ms either way, so the gain is in opening and zooming.
+- **Without a reduction nothing changes** (the first row; the difference is noise).
+- The CoreGraphics backend has no pooled tile backends, so #432's shared cache does not apply; the converted image is kept per `CoreGraphicsRenderer`, keyed by the reduction delivered (a finer conversion serves a coarser request, so zooming out converts nothing again).
+
+Reproduce: a throwaway xUnit fact in `tests/Broadside.Rendering.CoreGraphics.Tests` that opens `CatalogueSamples.Cover()`, builds the page's display list and renders it with `new CoreGraphicsRenderer { ScaledImageDecode = …, ImageSamplesPerPixel = … }` into a flipped `CGBitmapContext`, timing the first `Render` and reading `GC.GetTotalAllocatedBytes(true)` around it; run with `dotnet test --project tests/Broadside.Rendering.CoreGraphics.Tests -c Release`.
+
+## Direct2D (Windows)
+
+Not measured: Direct2D needs Windows, and no Windows machine was available for this part (#428 part 5). The MAUI sample on Windows draws with Skia, not Direct2D, and Direct2D has no tile backend, so there is no viewer to measure it in yet. The only figures available come from CI.
+
+The Windows CI job (GitHub-hosted `windows-latest` runner, WARP software device, Release build) prints the time of one list render of the catalogue cover with a new `Direct2DRenderer` (`Direct2DScaledImageDecodeTests`). Each render decodes the DCT photograph, converts it and draws the page once. The reduced render runs first, so the full one does not benefit from a warm decode. These are single runs on a shared runner: they show the size of the effect, not a benchmark.
+
+| Page width (px) | Reduction (k = 2) | Render (ms), full | reduced | Converted pixels kept (MB), full | reduced |
+|---:|---|---:|---:|---:|---:|
+| 390 | 1/2 | 583 | 205 | 31.4 | 8.4 |
+| 300 | 1/4 | 607 | 97 | 31.1 | 2.4 |
+| 150 | 1/8 | 578 | 63 | 30.8 | 0.6 |
+
+"Kept" is the renderer's image cache: the converted BGRA pixels plus their resampling to the device.
+
+## Android Canvas (emulator)
+
+Measured 2026-10-27 on a scratch Android 15 (API 35, google_apis, arm64) emulator with 4 cores, 4 GB RAM and a 576 MB heap on an Apple M4 Max host, with the Release device app (`tests/Broadside.Rendering.Android.Device`, no AOT). Each row is one `am instrument` run, so a fresh process: it opens the page, builds its display list, and draws the page at the given width as 256 x 256 tiles through one `AndroidCanvasBackend` (list renders, as a viewer's tiles), twice. The Android Canvas backend has no tile backend or pool, so one backend draws every tile.
+
+- **Off**: `ScaledImageDecode` off, which converts every sample (the same pixels as before this change).
+- **On**: `ScaledImageDecode` on at k = 2; **k = 1**: on with `ImageSamplesPerPixel = 1`.
+- **First pass**: every tile once, from a cold document (decode, conversion, resampling); the second pass draws from the backend's cache in 0 to 4 ms in every row.
+- **Peak RSS**: the process's `VmHWM`; **managed**: `GC.GetTotalMemory(false)` after the two passes.
+
+| Page width (px) | Tiles | Mode | Reduction | First pass (ms) | Per tile (ms) | Pixels converted | Kept (MiB) | Peak RSS (MiB) | Managed (MiB) |
+|---:|---:|---|---|---:|---:|---:|---:|---:|---:|
+| 1080 | 30 | off | none | 2561 | 85 | 8032500 | 54 | 350 | 184 |
+| 1080 | 30 | on | none (k = 2) | 2450 | 82 | 8032500 | 54 | 350 | 184 |
+| 1080 | 30 | k = 1 | 1/2 | 1305 | 44 | 2008125 | 31 | 246 | 93 |
+| 540 | 9 | off | none | 1584 | 176 | 8032500 | 36 | 301 | 137 |
+| 540 | 9 | on | 1/2 | 701 | 78 | 2008125 | 13 | 204 | 69 |
+| 540 | 9 | k = 1 | 1/4 | 406 | 45 | 502744 | 8 | 184 | 44 |
+| 270 | 4 | off | none | 1286 | 322 | 8032500 | 32 | 301 | 130 |
+| 270 | 4 | on | 1/4 | 254 | 63 | 502744 | 3 | 184 | 41 |
+| 270 | 4 | k = 1 | 1/8 | 171 | 43 | 125686 | 2 | 184 | 37 |
+
+Reading the numbers:
+- **When a reduction applies, the first pass is 2.3x (1/2) to 5x (1/4) faster**, the converted pixels kept fall about 3x to 10x, and peak memory falls by about 100 MiB. A 1080-pixel page (a phone's full width) keeps 2.4 samples per pixel, so k = 2 does not reduce it and nothing changes; k = 1 halves its first pass.
+- **The banded resampling of #432 also landed here.** The Android backend's resampling kept a row of sums for every sample row of the image, like Skia's before #432: 136 MB for the photograph drawn 1080 pixels wide. With the same bands of at most 64 sample rows, and the same pixels, the full-resolution 1080 row went from a peak RSS of 477 MiB and 436 MiB managed to 350 MiB and 184 MiB, at the same time.
+
+Reproduce: boot an emulator, build the device app in Release (`dotnet build tests/Broadside.Rendering.Android.Device -c Release`), and time `AndroidCanvasBackend.Render(list, canvas, device)` over the page's tiles with `ScaledImageDecode` and `ImageSamplesPerPixel` set, reading `VmHWM` from `/proc/self/status`. The tile loop used for this table was a temporary addition to the instrumentation and is not kept.
