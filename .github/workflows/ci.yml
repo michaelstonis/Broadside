@@ -468,6 +468,10 @@ jobs:
       - name: Dry run every benchmark
         run: dotnet run -c Release --project bench/Broadside.Benchmarks --no-build -- --filter '*' --job dry
 
+      # The realistic tier (#363): the sample documents, not gated, dry-run so it keeps working.
+      - name: Dry run the realistic tier
+        run: dotnet run -c Release --project bench/Broadside.Benchmarks.Realistic -- --filter '*' --job dry
+
   # The Blazor WebAssembly viewer sample published as a static site and driven in headless browsers (issues #221, #338); the job is in
   # blazor-wasm.yml. Pull requests into the integration branch run the image's Chrome and Playwright's Firefox; pull requests into
   # main and pushes to main add WebKit, whose system packages are too slow and flaky to install on every pull request (#389).

@@ -134,7 +134,7 @@ jobs:
           BROADSIDE_BROWSER_SCREENSHOTS: ${{ runner.temp }}/screenshots
         run: |
           mkdir -p "${RUNNER_TEMP}/screenshots"
-          dotnet test --project tests/Broadside.Viewer.Blazor.BrowserTests -c Release --no-build --minimum-expected-tests 14
+          dotnet test --project tests/Broadside.Viewer.Blazor.BrowserTests -c Release --no-build --minimum-expected-tests 15
 
       - name: Upload screenshots
         if: always()

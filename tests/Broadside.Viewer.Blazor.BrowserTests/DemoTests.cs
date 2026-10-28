@@ -33,12 +33,12 @@ public sealed class DemoTests(BrowserHost host)
         IPage page = await context.NewPageAsync();
         bool screenshots = browserName == "chromium";
         await page.GotoAsync(host.AppAddress.ToString());
-        await WaitForDocumentAsync(page, "compressed.tracemonkey-pldi-09.pdf", Slow); // pdf.js's copy: the repository does not carry it
+        await WaitForDocumentAsync(page, "textbook.pdf", Slow); // the opening document: the sample textbook chapter (#363)
         Assert.False(await page.EvaluateAsync<bool>("() => document.documentElement.scrollWidth > window.innerWidth"), "nothing scrolls sideways at 390 px");
 
         // Search selects the first match in the viewer and lists the rest.
         await OpenPanelAsync(page, "search");
-        await page.Locator("[data-input=search]").FillAsync("trace");
+        await page.Locator("[data-input=search]").FillAsync("orbit");
         await page.Locator("[data-input=search]").PressAsync("Enter");
         await page.WaitForFunctionAsync("() => Number(document.querySelector('[data-search-count]')?.dataset.searchCount) >= 3", null, Normal);
         await ScreenshotAsync(page, screenshots, "search");

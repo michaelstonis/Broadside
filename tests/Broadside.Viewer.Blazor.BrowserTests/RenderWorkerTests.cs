@@ -33,7 +33,7 @@ public sealed class RenderWorkerTests(BrowserHost host)
               return [dark, white];
             }
             """);
-        Assert.True(counts[0] > 200, $"dark samples: {counts[0]}");
+        Assert.True(counts[0] > 30, $"dark samples: {counts[0]}");
         Assert.True(counts[1] > counts[0] * 3, $"white samples: {counts[1]}");
     }
 

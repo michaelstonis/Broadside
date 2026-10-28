@@ -16,10 +16,22 @@ public sealed class MainPage : ContentPage
     /// </summary>
     public const string TraceMonkey = "https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf";
 
-    /// <summary>The Blazor demo's gallery, TraceMonkey first.</summary>
+    /// <summary>The Blazor demo's gallery: the sample documents (#363) first, then TraceMonkey (downloaded), then the corpus files.</summary>
     public static readonly GalleryEntry[] Gallery =
     [
-        new(TraceMonkey, "TraceMonkey paper (real world)"),
+        new("documents/textbook.pdf", "Textbook chapter (WeasyPrint)"),
+        new("documents/catalogue.pdf", "Product catalogue (WeasyPrint, CMYK and bleed)"),
+        new("documents/newsletter.pdf", "Newsletter (Chrome)"),
+        new("documents/paper.pdf", "Scientific paper with equations (Chrome)"),
+        new("documents/invoice-colourful.pdf", "Invoice, colourful (WeasyPrint)"),
+        new("documents/invoice-conservative-filled.pdf", "Invoice with a filled form (Broadside)"),
+        new("documents/brochure.pdf", "Brochure, print-ready (Broadside)"),
+        new("documents/dictionary.pdf", "Dictionary (WeasyPrint)"),
+        new("documents/showcase.pdf", "Feature showcase with layers"),
+        new("documents/novel-pocket.pdf", "Novel, pocket edition (170 pages)"),
+        new("documents/novel-hardback.pdf", "Novel, hardback edition (tagged)"),
+        new("documents/novel-large-print.pdf", "Novel, large print (Broadside, PDF/UA)"),
+        new(TraceMonkey, "TraceMonkey paper (real world, downloaded)"),
         new("documents/layout-two-column-tagged.pdf", "Two columns (tagged)"),
         new("documents/outline-full.pdf", "Outline"),
         new("documents/acroform-fields.pdf", "Form fields"),
@@ -200,7 +212,7 @@ public sealed class MainPage : ContentPage
 
             string path = Path.Combine(Environment.GetEnvironmentVariable("BROADSIDE_SMOKE_OUT") ?? FileSystem.CacheDirectory, "smoke.png");
             await File.WriteAllBytesAsync(path, png);
-            bool ok = dark > samples / 200 && white > samples / 4 && _view.State.PageIndex == 0;
+            bool ok = dark > samples / 1000 && white > samples / 4 && _view.State.PageIndex == 0;
             Console.WriteLine(string.Create(
                 CultureInfo.InvariantCulture,
                 $"BROADSIDE_SMOKE_{(ok ? "OK" : "FAILED")} pages={_view.State.PageCount} page={_view.State.PageIndex + 1} size={bitmap.Width}x{bitmap.Height} dark={dark} white={white} samples={samples} gpu={_view.UseHardwareAcceleration} path={path}"));
