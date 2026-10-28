@@ -118,6 +118,33 @@ public sealed class WebGLBackendTests(BrowserHost host)
         Assert.True(await page.EvaluateAsync<int>(Viewer.CountDarkPixels) > 0, "the redrawn page has ink");
     }
 
+    [Fact]
+    public async Task An_OffscreenCanvas_without_WebGL_2_falls_back_to_a_document_canvas()
+    {
+        // #441: WebKitGTK and WPE (Playwright's WebKit on Linux) have OffscreenCanvas but no WebGL 2 context on it, only on a document's
+        // canvas; the backend took the OffscreenCanvas's null context for "no WebGL 2" and the software rasterizer drew everything.
+        BrowserHost.RequireApp();
+        await using IBrowserContext context = await host.Browser.NewContextAsync(new BrowserNewContextOptions { ViewportSize = new ViewportSize { Width = 800, Height = 900 } });
+        IPage page = await context.NewPageAsync();
+        await page.AddInitScriptAsync("""
+            if (typeof OffscreenCanvas === 'function') {
+              const getContext = OffscreenCanvas.prototype.getContext;
+              OffscreenCanvas.prototype.getContext = function (type, ...rest) { return type === 'webgl2' ? null : getContext.call(this, type, ...rest); };
+            }
+            """);
+        await page.GotoAsync(new Uri(host.AppAddress, "?worker=0&renderer=webgl").ToString());
+        await page.WaitForFunctionAsync(
+            "() => Number(document.querySelector('.bs-viewer')?.dataset.tilesPresented) > 0",
+            null,
+            new PageWaitForFunctionOptions { Timeout = 120_000 });
+        Assert.SkipUnless(await page.EvaluateAsync<bool>("() => !!document.createElement('canvas').getContext('webgl2')"), "WebGL 2 is not available in this Chromium.");
+
+        string json = await WaitForTilesAsync(page);
+        Viewer.Log($"offscreen without webgl2: {json}");
+        Assert.Contains("\"renderer\":\"webgl\"", json, StringComparison.Ordinal);
+        Assert.True(await page.EvaluateAsync<int>(Viewer.CountDarkPixels) > 0, "the page has ink");
+    }
+
     private static async Task<string> WaitForTilesAsync(IPage page)
     {
         string json = "";
