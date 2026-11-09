@@ -5,7 +5,7 @@
 #   samples/documents/build.sh [document...]     (no argument: all of them)
 #
 # Producers are development tools only; nothing here is a package dependency. Override their paths with WEASYPRINT, CHROME, QPDF,
-# GS and DOTNET. The versions the committed files were made with are listed in MANIFEST.md.
+# GS, TESSERACT, JBIG2, PYTHON (with fontTools and Pillow) and DOTNET. The versions the committed files were made with are listed in MANIFEST.md.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -13,6 +13,8 @@ out="$here/pdf"
 weasyprint="${WEASYPRINT:-weasyprint}"
 qpdf="${QPDF:-qpdf}"
 gs="${GS:-gs}"
+tesseract="${TESSERACT:-tesseract}"
+jbig2="${JBIG2:-jbig2}"
 if [ -z "${CHROME:-}" ]; then
   for candidate in "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" google-chrome google-chrome-stable chromium chromium-browser; do
     if command -v "$candidate" >/dev/null 2>&1 || [ -x "$candidate" ]; then CHROME="$candidate"; break; fi
@@ -109,6 +111,31 @@ want paper-reviewed && broadside paper-reviewed
 want leaflet && weasy leaflet leaflet.html leaflet-multilingual.pdf
 want notice && broadside notice
 want rashomon && broadside rashomon
+
+# A PDF 1.2-era technical memo written byte by byte (Type 1 and Type 3 fonts, non-embedded standard 14 fonts, LZW, ASCII85,
+# RunLength and ASCIIHex), and Broadside's color reference card.
+if want report-1996; then
+  echo "python      tools/report_1996.py -> pdf/report-1996.pdf"
+  "${PYTHON:-python3}" "$here/tools/report_1996.py" "$here" "$out/report-1996.pdf" >/dev/null
+fi
+want color-guide && broadside color-guide
+
+# Scans with an invisible OCR text layer: tesseract keeps the page images as they are (CCITT G4 TIFF pages become CCITTFaxDecode,
+# JPEG 2000 pages JPXDecode); the JBIG2 copy swaps jbig2enc's symbol-mode pages into the G4 file. scans/ holds the prepared page
+# images (tools/prepare_scans.py).
+if want scans; then
+  echo "tesseract   scans/memo-*.tif -> pdf/scan-memo-g4.pdf"
+  ls "$here"/scans/memo-*.tif > "$out/.memo.txt"
+  "$tesseract" "$out/.memo.txt" "$out/scan-memo-g4" -l eng --dpi 300 -c document_title="Memorandum on the Phillips report" pdf 2>/dev/null
+  echo "jbig2       scans/memo-*.tif -> pdf/scan-memo-jbig2.pdf"
+  rm -rf "$out/.jbig2" && mkdir "$out/.jbig2"
+  (cd "$out/.jbig2" && "$jbig2" -s -p -b output "$here"/scans/memo-*.tif 2>/dev/null)
+  broadside scan-jbig2
+  echo "tesseract   scans/moon-*.jp2 -> pdf/scan-moon-memo-jpx.pdf"
+  ls "$here"/scans/moon-*.jp2 > "$out/.moon.txt"
+  "$tesseract" "$out/.moon.txt" "$out/scan-moon-memo-jpx" -l eng --dpi 300 -c document_title="In event of moon disaster" pdf 2>/dev/null
+  rm -rf "$out/.jbig2" "$out/.memo.txt" "$out/.moon.txt"
+fi
 
 echo
 echo "Sizes:"

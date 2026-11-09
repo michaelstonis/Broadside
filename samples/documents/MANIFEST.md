@@ -52,6 +52,11 @@ browser within a time budget, and `docs/benchmarks/sample-documents-baseline.md`
 | `leaflet-multilingual.pdf` | Library visitor leaflet | WeasyPrint | 3 | 131 KB | Twelve languages in one file, shaped by HarfBuzz: Arabic and Hebrew (right to left, `dir="rtl"`, Latin digits inside), Devanagari, Thai, Simplified Chinese, Japanese and Korean (CID-keyed CFF from Noto Sans CJK), Greek, Cyrillic, Vietnamese; seventeen embedded subset fonts, a CSS grid, a table mixing scripts |
 | `notice-trilingual.pdf` | Utility notice | Broadside (flow layout, `TextShaping`) | 1 | 41 KB | PDF 2.0, tagged: English, Arabic and Hebrew paragraphs shaped by Broadside itself, right-to-left paragraphs with Latin digits |
 | `rashomon-vertical.pdf` | Japanese novella, paperback | Broadside, then a COS pass | 14 | 177 KB | Vertical writing: Noto Serif CJK JP (CID-keyed CFF) with `Identity-V` and `W2`/`DW2`, glyphs shaped with `vert`, ruby beside the kanji, a Latin word turned sideways, right-to-left binding (`Direction R2L`, `TwoPageRight`); the colophon is horizontal in Ryumin-Light, not embedded, with the predefined `UniJIS-UTF16-H` CMap |
+| `report-1996.pdf` | Technical memorandum | `tools/report_1996.py` (writes the PDF directly) | 3 | 51 KB | A PDF 1.2-era file: classic xref, Info only; content streams LZW then ASCII85; EB Garamond converted to an embedded Type 1 font (`FontFile`, eexec); a Type 3 font of 300 dpi bitmap glyphs (inline image masks in ASCIIHex) for a logger printout; Helvetica-Bold, Courier, Times-Roman (MacRoman with Differences), Symbol and ZapfDingbats not embedded; a RunLength-encoded gray image |
+| `scan-memo-g4.pdf` | Scanned memo, 1967 | tesseract 5.5 (OCR) | 9 | 427 KB | Bilevel 300 ppi page images in CCITT Group 4 under an invisible text layer (render mode 3, GlyphLessFont) |
+| `scan-memo-jbig2.pdf` | Scanned memo, 1967 | jbig2enc, then Broadside | 9 | 357 KB | The same pages in JBIG2 symbol mode, sharing one symbol dictionary (`JBIG2Globals`), under the same text layer |
+| `scan-moon-memo-jpx.pdf` | Scanned memo in color, 1969 | tesseract 5.5 (OCR) | 2 | 842 KB | Color 300 ppi page images in JPEG 2000 (JPXDecode) under an invisible text layer |
+| `color-guide.pdf` | Ink maker's color card | Broadside (PdfCanvas, COS) | 2 | 69 KB | Lab swatches, CalRGB and CalGray ramps next to DeviceRGB and DeviceGray, an Indexed image and Indexed fills, a two-ink DeviceN duotone, a five-ink DeviceN (process and a spot) tint chart with a PostScript calculator tint transform, and overprint (an ExtGState with OP, op and OPM 1) |
 | `showcase.pdf` | Feature showcase | WeasyPrint, then a Broadside incremental update | 5 | 113 KB | Inline SVG (joins and caps, linear and radial gradients, a pattern, clipping, curves), nine kinds of CSS border and background, five counter styles, footnotes, bookmarks, internal and external links; Broadside adds two optional content groups (one hidden by default) and page labels in a second revision |
 
 ## Passwords and test keys
@@ -94,12 +99,24 @@ The newsletter images were downloaded at Wikimedia's 1920-pixel (swans: 1280-pix
 `catalogue/images/earthrise.jpg`, and the brochure reuses `catalogue/images/earth.jpg`, `aldrin.jpg` and `mccandless-cutout.png`. Every other illustration (the logos, the diagrams, the plot, the QR-like pattern)
 is drawn in SVG or with PdfCanvas for this project.
 
+## Scans
+
+The scanned samples are real documents from the U.S. National Archives, works of the U.S. government and in the public domain in
+the United States ("No Copyright - United States", as the National Archives catalog and the Wikimedia Commons file pages state).
+`tools/prepare_scans.py` makes `scans/` from the originals, which are not stored in the repository.
+
+| Files | Original | Source | Author | License |
+|---|---|---|---|---|
+| `scans/memo-01.tif` to `memo-09.tif` | Memorandum from James J. Gehrig to all committee members including a summary of the Phillips report, April 26, 1967 (NARA 25496804) | <https://catalog.archives.gov/id/25496804>, via <https://commons.wikimedia.org/wiki/File:Memorandum_from_James_J._Gehrig_to_All_Committee_Members_Including_a_Summary_of_the_Phillips_Report_-_DPLA_-_c08d09d3b8aecb92883a32fa3d28ded1.pdf> | U.S. Senate, Committee on Aeronautical and Space Sciences | Public domain (U.S. government) |
+| `scans/moon-01.jp2`, `moon-02.jp2` | Memorandum from speechwriter William Safire to President Nixon ("In event of moon disaster"), July 18, 1969 (NARA 6922351) | <https://catalog.archives.gov/id/6922351>, via <https://commons.wikimedia.org/wiki/File:Memorandum_from_Speechwriter_William_Safire_to_President_Nixon_-_DPLA_-_59737d7b7830ac53d6541b2e61abd477.pdf> | The White House (William Safire) | Public domain (U.S. government) |
+
 ## Text
 
 | Document | Text |
 |---|---|
 | Catalogue, invoices, textbook, newsletter, paper, brochure, showcase, agreement, application form, referee's report | Written for the Broadside project. The textbook's physical data (orbital heights, periods, planetary semi-major axes) are standard published values. The newsletter's club, members and counts and the paper's authors and measurements are invented; the facts about Wisdom the albatross are as published by the U.S. Fish and Wildlife Service. |
 | Novel (three editions) | *The Wind in the Willows* by Kenneth Grahame (1908), public domain in the United States. Text from Project Gutenberg eBook #289 (<https://www.gutenberg.org/ebooks/289>) without its header, footer, licence or illustration markers, converted by `tools/willows_extract.py` into `novel/willows.html` and `novel/willows.json`. |
+| Technical memo, color card | Written for the Broadside project; the authority, the weir, the ink maker and every measurement are invented. |
 | Leaflet, notice | Written for the Broadside project, in twelve languages; the library, the water utility and the phone number are invented. |
 | Rashōmon | 「羅生門」 by Akutagawa Ryūnosuke (first published 1915), public domain in Japan and the United States. Text from Aozora Bunko (<https://www.aozora.gr.jp/cards/000879/card127.html>, file `127_ruby_150.zip`, input by 平山誠 and 野口英司, proofread by もりみつじゅんじ), converted by `tools/rashomon_extract.py` into `rashomon/rashomon.json`. The colophon keeps Aozora Bunko's credits for the source edition and its volunteers. |
 | Dictionary | 508 entries, *Qua* to *Quinizarin*, from *Webster's Unabridged Dictionary* (G. & C. Merriam, 1913 edition), public domain in the United States. Text from Project Gutenberg eBook #29765 (<https://www.gutenberg.org/ebooks/29765>) without its header, footer or licence, converted by `tools/webster_extract.py`, which leaves out eight entries whose definitions are offensive today. |
@@ -139,3 +156,6 @@ The committed files were made with:
 | pdftotext (poppler, used by build.sh to check the novel's front matter) | 26.10.0 |
 | Broadside | this repository (`generator/`, .NET 10 SDK) |
 | Pillow (image preparation) | 12.1.0 |
+| fontTools (font subsets, the Type 1 conversion) | 4.62.1 |
+| tesseract | 5.5.3 (leptonica 1.87.0, the `eng` model) |
+| jbig2enc | 0.32 |

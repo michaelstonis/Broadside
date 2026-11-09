@@ -23,9 +23,10 @@ public sealed class SampleDocumentTests(BrowserHost host)
     /// </summary>
     private static readonly string[] Samples =
     [
-        "application-form-xfa.pdf", "application-form.pdf", "brochure.pdf", "catalogue.pdf", "contract-signed.pdf", "dictionary-aes256-gcm.pdf", "dictionary.pdf", "invoice-colourful.pdf",
+        "application-form-xfa.pdf", "application-form.pdf", "brochure.pdf", "catalogue.pdf", "color-guide.pdf", "contract-signed.pdf", "dictionary-aes256-gcm.pdf", "dictionary.pdf", "invoice-colourful.pdf",
         "invoice-conservative-filled.pdf", "invoice-conservative.pdf", "leaflet-multilingual.pdf", "newsletter.pdf", "notice-trilingual.pdf", "novel-hardback.pdf", "novel-large-print.pdf",
-        "novel-pocket.pdf", "paper-ghostscript.pdf", "paper-rc4.pdf", "paper-reviewed.pdf", "paper.pdf", "rashomon-vertical.pdf", "showcase.pdf", "textbook-aes128.pdf",
+        "novel-pocket.pdf", "paper-ghostscript.pdf", "paper-rc4.pdf", "paper-reviewed.pdf", "paper.pdf", "rashomon-vertical.pdf", "report-1996.pdf", "scan-memo-g4.pdf", "scan-memo-jbig2.pdf",
+        "scan-moon-memo-jpx.pdf", "showcase.pdf", "textbook-aes128.pdf",
         "textbook-linearized.pdf", "textbook.pdf",
     ];
 
@@ -97,6 +98,18 @@ public sealed class SampleDocumentTests(BrowserHost host)
         await page.WaitForFunctionAsync("name => document.querySelector('.topbar .name')?.textContent === name", name, OpenBudget);
         await page.WaitForFunctionAsync(
             "() => { const v = document.querySelector('.bs-viewer'); return v && Number(v.dataset.pageCount) > 0 && Number(v.dataset.tilesPresented) > 0; }", null, OpenBudget);
-        await page.WaitForFunctionAsync(Viewer.CountDarkPixels.Replace("return n;", "return n > 0;", StringComparison.Ordinal), null, OpenBudget);
+        await page.WaitForFunctionAsync(HasInk, null, OpenBudget);
     }
+
+    // Page ink: a pixel darker than 128 in every channel. Viewer.CountDarkPixels counts below 100, which the faded typewriting of
+    // scan-moon-memo-jpx.pdf never reaches at 1x and 107 % (its darkest pixel is about 100/96/88 on a sepia page): that check only
+    // passed while the canvas still held the previous document, and timed out on slower runners.
+    private const string HasInk = """
+        () => {
+          const c = document.querySelector('.bs-viewer canvas');
+          const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+          for (let i = 0; i < d.length; i += 4) if (d[i] < 128 && d[i + 1] < 128 && d[i + 2] < 128) return true;
+          return false;
+        }
+        """;
 }

@@ -30,6 +30,8 @@ internal static class Documents
         ["paper-reviewed"] = PaperReviewed.Write,
         ["rashomon"] = Rashomon.Write,
         ["notice"] = Notice.Write,
+        ["scan-jbig2"] = ScanJbig2.Write,
+        ["color-guide"] = ColorGuide.Write,
     };
 
     public static IEnumerable<string> Names => All.Keys;
