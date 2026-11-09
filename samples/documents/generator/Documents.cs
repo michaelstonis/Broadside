@@ -32,6 +32,10 @@ internal static class Documents
         ["notice"] = Notice.Write,
         ["scan-jbig2"] = ScanJbig2.Write,
         ["color-guide"] = ColorGuide.Write,
+        ["board-pack"] = BoardPack.Write,
+        ["archival"] = Archival.Write,
+        ["shakespeare"] = Shakespeare.Write,
+        ["contour-map"] = ContourMap.Write,
     };
 
     public static IEnumerable<string> Names => All.Keys;

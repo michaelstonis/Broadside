@@ -5,7 +5,7 @@ samples are whole documents for the demos, the realistic benchmark tier and the 
 `tests/Corpus/` and the fetched real-world corpora (`corpus/`, see `tools/CorpusFetcher`) cover the same ground minimally and for
 conformance. They are named in the last column only where they are the only coverage.
 
-Sample names are file names without `.pdf`. While #451 is open, a name that is not yet in `pdf/` is a planned sample.
+Sample names are file names without `.pdf`.
 
 Every row names at least one sample, or says why none is needed. Features that Broadside keeps without interpreting
 (parse-and-preserve: JavaScript, XFA, 3D, rich media, multimedia) are covered only so that a viewer shows the file and a save keeps
@@ -15,12 +15,12 @@ them.
 
 | Use case | Samples | Notes |
 |---|---|---|
-| Classic xref table, single revision | `invoice-colourful`, `catalogue`, `dictionary`, `report-1996` | |
+| Classic xref table, single revision | `invoice-colourful`, `catalogue`, `dictionary`, `paper-ghostscript`, `report-1996` | |
 | Cross-reference streams and object streams | `novel-pocket`, `novel-hardback`, `textbook-linearized` | |
 | Incremental updates (several revisions) | `invoice-conservative-filled`, `showcase`, `contract-signed`, `paper-reviewed`, `application-form-xfa` | |
 | Linearized file, first page first over range requests | `textbook-linearized` | |
 | Damaged file: broken offsets, wrong `startxref` (reconstruction) | `showcase-broken-xref` | Repairs are reported as diagnostics |
-| Damaged file: truncated download (no trailer) | `textbook-truncated` | |
+| Damaged file: truncated download (no trailer) | `novel-large-print-truncated` | |
 | PDF 1.2 era file (no compression of objects, LZW, ASCII85, RunLength, ASCIIHex) | `report-1996` | |
 | PDF 2.0 file | `invoice-conservative`, `brochure`, `novel-large-print`, `dictionary-aes256-gcm` | |
 | Very large document (1000+ pages) | `shakespeare` | Not rendered page by page in the browser smoke test (time budget) |
@@ -130,7 +130,7 @@ them.
 | Signatures panel | `contract-signed` | |
 | Attachments panel | `portfolio`, `invoice-pdfa3` | |
 | Layers panel | `showcase`, `contour-map` | |
-| Diagnostics for a repaired file | `showcase-broken-xref`, `textbook-truncated` | |
+| Diagnostics for a repaired file | `showcase-broken-xref`, `novel-large-print-truncated` | |
 
 ## Out of scope
 

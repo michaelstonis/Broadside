@@ -10,7 +10,9 @@ images, fonts or designs comes from another product's samples.
   the producers embed subsets.
 - **Names, addresses, prices and bank details** in the catalogue and the invoices are invented.
 
-`build.sh` regenerates every PDF into `pdf/`, which is committed while the whole set stays under about 40 MB. Pass names to rebuild
+`build.sh` regenerates every PDF into `pdf/`, which is committed while the whole set stays under about 40 MB (about 29 MB with
+the additions of #451, the 1,168-page complete works 5 MB of it; it is committed, not built on demand, so that the galleries and the
+benchmarks have it). Pass names to rebuild
 only some of them, for example `samples/documents/build.sh textbook`. The producers are development tools only and never package
 dependencies. WeasyPrint and qpdf output is byte-for-byte reproducible. Broadside's own output differs between builds only in its
 random file identifier, except that encryption and signatures also draw random salts, keys and padding. Chrome and Ghostscript write
@@ -57,6 +59,14 @@ browser within a time budget, and `docs/benchmarks/sample-documents-baseline.md`
 | `scan-memo-jbig2.pdf` | Scanned memo, 1967 | jbig2enc, then Broadside | 9 | 357 KB | The same pages in JBIG2 symbol mode, sharing one symbol dictionary (`JBIG2Globals`), under the same text layer |
 | `scan-moon-memo-jpx.pdf` | Scanned memo in color, 1969 | tesseract 5.5 (OCR) | 2 | 842 KB | Color 300 ppi page images in JPEG 2000 (JPXDecode) under an invisible text layer |
 | `color-guide.pdf` | Ink maker's color card | Broadside (PdfCanvas, COS) | 2 | 69 KB | Lab swatches, CalRGB and CalGray ramps next to DeviceRGB and DeviceGray, an Indexed image and Indexed fills, a two-ink DeviceN duotone, a five-ink DeviceN (process and a spot) tint chart with a PostScript calculator tint transform, and overprint (an ExtGState with OP, op and OPM 1) |
+| `board-pack.pdf` | Board meeting pack | Broadside (PdfCanvas, page assembly) | 11 | 133 KB | US Letter, A4, A3 landscape, US Legal, an 80 mm receipt and a 36 × 24 in poster (`UserUnit` 2) in one file; two pages taken from the invoice; `/Rotate` 90, 180 and 270 with content drawn to read upright; a MediaBox away from the origin with a smaller CropBox; page labels and an outline per item |
+| `portfolio.pdf` | Project portfolio | Broadside (embedded files, COS) | 1 | 159 KB | A collection (portfolio) with a schema (name, description, category, due date, size), three folders, a sort order and an initial document; six embedded files (three PDFs from this set, CSV and text) with collection items; a cover sheet; `PageMode UseAttachments`; the Adobe extension level 3 declaration |
+| `invoice-pdfa3.pdf` | Invoice, archival | Broadside (`ConvertToPdfA`) | 3 | 142 KB | The conservative invoice as PDF/A-3b, with the invoice data as an embedded XML associated file (`AF`, relationship Alternative), as electronic invoices carry it |
+| `paper-pdfa2b.pdf` | Two-column scientific paper, archival | Broadside (`ConvertToPdfA`) | 2 | 165 KB | Chrome's paper converted to PDF/A-2b: output intent, XMP metadata, and whatever else the converter had to change |
+| `shakespeare.pdf` | Complete works | Broadside (PdfCanvas) | 1,168 | 5.0 MB | The large document: 44 works in two columns of 7.6 pt EB Garamond (CFF), each from a new page, with running heads, folios, page labels and an outline |
+| `contour-map.pdf` | Topographic map | Broadside (PdfCanvas) | 1 | 2.9 MB | The huge vector page: an A1 sheet with about 400,000 contour segments (marching squares over generated terrain), a kilometer grid, spot heights, and three optional content groups |
+| `showcase-broken-xref.pdf` | Feature showcase, damaged | `tools/damage.py` | 5 | 113 KB | `showcase.pdf` after a line was inserted after the header: every cross-reference offset in both revisions is 54 bytes short and the last `startxref` is wrong, so a reader must rebuild the table by scanning |
+| `novel-large-print-truncated.pdf` | Novel, damaged | `tools/damage.py` | 157 of 219 | 446 KB | `novel-large-print.pdf` cut at 60 percent, as an interrupted download leaves it: no trailer or cross-reference stream, an unterminated stream, the last objects missing. Broadside recovers 157 pages; poppler and qpdf give up |
 | `showcase.pdf` | Feature showcase | WeasyPrint, then a Broadside incremental update | 5 | 113 KB | Inline SVG (joins and caps, linear and radial gradients, a pattern, clipping, curves), nine kinds of CSS border and background, five counter styles, footnotes, bookmarks, internal and external links; Broadside adds two optional content groups (one hidden by default) and page labels in a second revision |
 
 ## Passwords and test keys
@@ -119,6 +129,8 @@ the United States ("No Copyright - United States", as the National Archives cata
 | Technical memo, color card | Written for the Broadside project; the authority, the weir, the ink maker and every measurement are invented. |
 | Leaflet, notice | Written for the Broadside project, in twelve languages; the library, the water utility and the phone number are invented. |
 | Rashōmon | 「羅生門」 by Akutagawa Ryūnosuke (first published 1915), public domain in Japan and the United States. Text from Aozora Bunko (<https://www.aozora.gr.jp/cards/000879/card127.html>, file `127_ruby_150.zip`, input by 平山誠 and 野口英司, proofread by もりみつじゅんじ), converted by `tools/rashomon_extract.py` into `rashomon/rashomon.json`. The colophon keeps Aozora Bunko's credits for the source edition and its volunteers. |
+| Complete works | *The Complete Works of William Shakespeare*, public domain in the United States. Text from Project Gutenberg eBook #100 (<https://www.gutenberg.org/ebooks/100>) without its header, footer or license; `build.sh` downloads it for the build and does not store it. The committed file was made from the text as of November 9, 2026. |
+| Board pack, portfolio, invoice XML, map | Written or generated for the Broadside project; the authority, its projects and the terrain are invented. |
 | Dictionary | 508 entries, *Qua* to *Quinizarin*, from *Webster's Unabridged Dictionary* (G. & C. Merriam, 1913 edition), public domain in the United States. Text from Project Gutenberg eBook #29765 (<https://www.gutenberg.org/ebooks/29765>) without its header, footer or licence, converted by `tools/webster_extract.py`, which leaves out eight entries whose definitions are offensive today. |
 
 ## Fonts
