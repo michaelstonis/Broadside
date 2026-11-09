@@ -58,11 +58,12 @@ internal static class JpxDecoder
     /// The most resolution levels a reduced decode may drop (issue #362; ITU-T T.800 B.5): the fewest decomposition levels of any
     /// tile-component, and no more than keep the image origin on the reduced grid, so a reduction by 2^d is exactly ⌈W / 2^d⌉ x
     /// ⌈H / 2^d⌉ samples. The header offers the main header's levels (<see cref="JpxCodestreamReader.ReadMainHeaderLevels"/>); a
-    /// tile-part header that lowers them makes the decode deliver less than asked, which the samples' reduction says.
+    /// tile-part header that lowers them makes the decode deliver less than asked, which the samples' reduction says. The decode
+    /// never drops more than the header offers (issue #424): tile-part headers that all raise the levels do not lift that limit.
     /// </summary>
-    private static int MaxReduction(JpxCodestream stream)
+    private static int MaxReduction(JpxCodestream stream, ReadOnlySpan<byte> codestream)
     {
-        int levels = ImageGeometry.MaxReduction;
+        int levels = JpxCodestreamReader.ReadMainHeaderLevels(codestream, stream.Size.Components.Length);
         foreach (JpxTile tile in stream.Tiles)
         {
             foreach (JpxComponentStyle style in JpxTileParameters.Resolve(stream.Main, tile.Markers).Components)
@@ -135,7 +136,7 @@ internal static class JpxDecoder
         }
 
         JpxImageSize size = stream.Size;
-        int reduction = context.Reduction > 0 ? Math.Min(context.Reduction, MaxReduction(stream)) : 0;
+        int reduction = context.Reduction > 0 ? Math.Min(context.Reduction, MaxReduction(stream, codestream)) : 0;
         JpxImageSize output = Reduce(size, reduction);
         long width = output.Width - output.OriginX;
         long height = output.Height - output.OriginY;
