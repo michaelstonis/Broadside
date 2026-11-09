@@ -152,8 +152,7 @@ internal static class SavePlan
         var trailer = new CosDictionary();
         foreach (KeyValuePair<CosName, CosObject> entry in sourceTrailer)
         {
-            if (!entry.Key.Equals(KnownNames.Size) && !entry.Key.Equals(KnownNames.Prev) && !entry.Key.Equals(KnownNames.XRefStm) && !entry.Key.Equals(KnownNames.ID)
-                && encryption.KeepsTrailerEntry(entry.Key))
+            if (!FileWriter.SectionKeys.Contains(entry.Key) && encryption.KeepsTrailerEntry(entry.Key))
             {
                 trailer[entry.Key] = entry.Value;
             }
@@ -410,8 +409,7 @@ internal static class SavePlan
         var trailer = new CosDictionary();
         foreach (KeyValuePair<CosName, CosObject> entry in sourceTrailer)
         {
-            if (!entry.Key.Equals(KnownNames.Size) && !entry.Key.Equals(KnownNames.Prev) && !entry.Key.Equals(KnownNames.XRefStm) && !entry.Key.Equals(KnownNames.ID)
-                && encryption.KeepsTrailerEntry(entry.Key))
+            if (!FileWriter.SectionKeys.Contains(entry.Key) && encryption.KeepsTrailerEntry(entry.Key))
             {
                 trailer[entry.Key] = entry.Value;
             }
