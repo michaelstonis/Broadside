@@ -9,10 +9,13 @@ namespace Broadside.Graphics.Colors;
 /// blue for RGB, gray (the fourth) for a gray device, all four for CMYK. A subtractive (CMYK) component c goes through as 1 − c and
 /// the result is converted back. A DeviceGray colour converted to CMYK passes only its black through the gray function; its cyan,
 /// magenta and yellow are rendered directly. The 8-bit path applies 256-entry tables built once, after the inner pipeline's own
-/// 8-bit conversion. Nothing is allocated per colour.
+/// 8-bit conversion, run by run. Nothing is allocated per color.
 /// </remarks>
 internal sealed class TransferPipeline : ColorPipeline
 {
+    /// <summary>How many colors the 8-bit path converts and then transfers per run, so that a run's colors are still in cache.</summary>
+    private const int ByteChunk = 2048;
+
     private readonly ColorPipeline _inner;
     private readonly PdfFunction?[] _functions;
     private readonly bool _subtractive;
@@ -77,27 +80,78 @@ internal sealed class TransferPipeline : ColorPipeline
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// The inner pipeline converts a run of <see cref="ByteChunk"/> colors, and the run is transferred while it is still in cache,
+    /// color after color through every component's table: the colors cross memory once, not once more per component.
+    /// </remarks>
     public override void Convert(ReadOnlySpan<byte> source, Span<byte> destination, int count)
     {
-        _inner.Convert(source, destination, count);
         ReadOnlySpan<byte> tables = Tables();
+        int inputs = InputCount;
         int outputs = OutputCount;
-        for (int component = 0; component < outputs; component++)
+        for (int start = 0; start < count; start += ByteChunk)
         {
-            if (_functions[component] is null)
+            int n = Math.Min(ByteChunk, count - start);
+            Span<byte> colors = destination.Slice(start * outputs, n * outputs);
+            _inner.Convert(source.Slice(start * inputs, n * inputs), colors, n);
+            switch (outputs)
             {
-                continue;
-            }
-
-            ReadOnlySpan<byte> table = tables.Slice(component * 256, 256);
-            for (int i = component; i < count * outputs; i += outputs)
-            {
-                destination[i] = table[destination[i]];
+                case 3:
+                    Transfer3(tables, colors);
+                    break;
+                case 4:
+                    Transfer4(tables, colors);
+                    break;
+                default:
+                    TransferAny(tables, colors, outputs);
+                    break;
             }
         }
     }
 
-    /// <summary>Returns a table of 256 bytes per component, built on first use: the transferred value of each 8-bit value.</summary>
+    private static void Transfer3(ReadOnlySpan<byte> tables, Span<byte> colors)
+    {
+        ReadOnlySpan<byte> first = tables[..256];
+        ReadOnlySpan<byte> second = tables.Slice(256, 256);
+        ReadOnlySpan<byte> third = tables.Slice(512, 256);
+        for (int i = 0; i + 2 < colors.Length; i += 3)
+        {
+            colors[i] = first[colors[i]];
+            colors[i + 1] = second[colors[i + 1]];
+            colors[i + 2] = third[colors[i + 2]];
+        }
+    }
+
+    private static void Transfer4(ReadOnlySpan<byte> tables, Span<byte> colors)
+    {
+        ReadOnlySpan<byte> first = tables[..256];
+        ReadOnlySpan<byte> second = tables.Slice(256, 256);
+        ReadOnlySpan<byte> third = tables.Slice(512, 256);
+        ReadOnlySpan<byte> fourth = tables.Slice(768, 256);
+        for (int i = 0; i + 3 < colors.Length; i += 4)
+        {
+            colors[i] = first[colors[i]];
+            colors[i + 1] = second[colors[i + 1]];
+            colors[i + 2] = third[colors[i + 2]];
+            colors[i + 3] = fourth[colors[i + 3]];
+        }
+    }
+
+    private static void TransferAny(ReadOnlySpan<byte> tables, Span<byte> colors, int outputs)
+    {
+        for (int start = 0; start < colors.Length; start += outputs)
+        {
+            for (int component = 0; component < outputs; component++)
+            {
+                colors[start + component] = tables[(component * 256) + colors[start + component]];
+            }
+        }
+    }
+
+    /// <summary>
+    /// Returns a table of 256 bytes per component, built on first use: the transferred value of each 8-bit value, or the value
+    /// itself for a component that is not transferred.
+    /// </summary>
     private byte[] Tables()
     {
         byte[]? tables = Volatile.Read(ref _tables);
@@ -114,6 +168,11 @@ internal sealed class TransferPipeline : ColorPipeline
         {
             if (_functions[component] is not { } function)
             {
+                for (int b = 0; b < 256; b++)
+                {
+                    tables[(component * 256) + b] = (byte)b;
+                }
+
                 continue;
             }
 
