@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using Broadside.Annotations;
 using Broadside.Forms;
@@ -37,6 +38,10 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
 
     private readonly TileScheduler? _scheduler;
     private readonly AnnotationPage?[] _pages;
+
+    // A remote document's named destinations, resolved off the UI thread when a page's links load (issue #420): the Dests tree of a
+    // linearized file lies after its pages (Annex F, F.3.10), so resolving a name at activation would need a synchronous fetch.
+    private readonly ConcurrentDictionary<CosObject, PdfExplicitDestination?> _namedDestinations = new();
     private AnnotationTarget? _pressed;
     private PagePoint _pressPoint;
     private bool _dragging;
@@ -154,7 +159,18 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
             async () =>
             {
                 PdfPage page = await Session.LoadPageAsync(pageIndex, CancellationToken.None).ConfigureAwait(false);
-                return await Session.ReadAsync(_ => AnnotationPage.Create(Session.Document, page), CancellationToken.None).ConfigureAwait(false);
+                return await Session.ReadAsync(
+                    _ =>
+                    {
+                        AnnotationPage model = AnnotationPage.Create(Session.Document, page);
+                        if (Session.IsRemote)
+                        {
+                            ResolveNamedDestinations(model.Entries);
+                        }
+
+                        return model;
+                    },
+                    CancellationToken.None).ConfigureAwait(false);
             },
             cancellationToken).ConfigureAwait(true);
         _pages[pageIndex] ??= created;
@@ -451,7 +467,9 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
     /// <summary>
     /// Activates an annotation (a click, or Enter on the focused one): a link raises <see cref="ActionRequested"/> for its destination
     /// or each action of its action tree; a widget gets focus, a check box toggles and a radio button turns on (unless read-only), and
-    /// its own action, if any, is raised; any other annotation is selected.
+    /// its own action, if any, is raised; any other annotation is selected. A remote document's named destinations are resolved when
+    /// the page's annotations load; one that was not (an edit named another) is looked up asynchronously, and the actions are raised,
+    /// in order, once it is known, on the caller's synchronization context.
     /// </summary>
     /// <param name="target">The annotation.</param>
     /// <exception cref="ArgumentOutOfRangeException">The target is not on a loaded page.</exception>
@@ -469,7 +487,7 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
                 }
                 else if (link.Destination is { } destination)
                 {
-                    ActionRequested?.Invoke(this, new ViewerActionEventArgs(link, null, Resolve(destination)));
+                    RaiseActions(link, [(null, destination)]);
                 }
 
                 break;
@@ -778,19 +796,98 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
     private static PdfRectangle Union(PdfRectangle a, PdfRectangle b) =>
         new(Math.Min(a.Left, b.Left), Math.Min(a.Bottom, b.Bottom), Math.Max(a.Right, b.Right), Math.Max(a.Top, b.Top));
 
-    private static PdfExplicitDestination? Resolve(PdfDestination? destination) => destination switch
+    private void RaiseActions(PdfAnnotation annotation, PdfAction action) =>
+        RaiseActions(annotation, [.. action.EnumerateActionTree().Select(step => (step, step is PdfGoToAction goTo ? goTo.Destination : null))]);
+
+    /// <summary>
+    /// Raises <see cref="ActionRequested"/> for each step with its destination resolved. A remote document's named destination that no
+    /// page load resolved (the page was modeled by a synchronous path, or an edit named another destination) is looked up through the
+    /// session's asynchronous read first, and the steps are raised, in order, once it is known (issue #420).
+    /// </summary>
+    private void RaiseActions(PdfAnnotation annotation, (PdfAction? Action, PdfDestination? Destination)[] steps)
+    {
+        if (Session.IsRemote && steps.Any(step => step.Destination is PdfNamedDestination { IsRemote: false } named && !_namedDestinations.ContainsKey(named.Name)))
+        {
+            _ = RaiseActionsLaterAsync(annotation, steps);
+            return;
+        }
+
+        foreach ((PdfAction? action, PdfDestination? destination) in steps)
+        {
+            ActionRequested?.Invoke(this, new ViewerActionEventArgs(annotation, action, Resolve(destination)));
+        }
+    }
+
+    private async Task RaiseActionsLaterAsync(PdfAnnotation annotation, (PdfAction? Action, PdfDestination? Destination)[] steps)
+    {
+        try
+        {
+            await Session.ReadAsync(
+                _ =>
+                {
+                    foreach ((PdfAction? Action, PdfDestination? Destination) step in steps)
+                    {
+                        ResolveNamedDestination(step.Destination);
+                    }
+
+                    return true;
+                },
+                CancellationToken.None).ConfigureAwait(true);
+        }
+        catch (Exception exception) when (exception is OperationCanceledException or ObjectDisposedException)
+        {
+            // The session closed before the name was found: there is nothing left to navigate.
+            return;
+        }
+
+        foreach ((PdfAction? action, PdfDestination? destination) in steps)
+        {
+            ActionRequested?.Invoke(this, new ViewerActionEventArgs(annotation, action, Resolve(destination)));
+        }
+    }
+
+    private PdfExplicitDestination? Resolve(PdfDestination? destination) => destination switch
     {
         PdfExplicitDestination { IsRemote: false } explicitDestination => explicitDestination,
+        PdfNamedDestination { IsRemote: false } named when _namedDestinations.TryGetValue(named.Name, out PdfExplicitDestination? resolved) => resolved,
         PdfNamedDestination named => named.Resolve(),
         _ => null,
     };
 
-    private void RaiseActions(PdfAnnotation annotation, PdfAction action)
+    /// <summary>Resolves the named destinations of a page's links and go-to actions into the layer's cache (inside a read).</summary>
+    private void ResolveNamedDestinations(Entry[] entries)
     {
-        foreach (PdfAction step in action.EnumerateActionTree())
+        foreach (Entry entry in entries)
         {
-            PdfExplicitDestination? destination = step is PdfGoToAction goTo ? Resolve(goTo.Destination) : null;
-            ActionRequested?.Invoke(this, new ViewerActionEventArgs(annotation, step, destination));
+            PdfAction? action = entry.Annotation switch
+            {
+                PdfLinkAnnotation link => link.Action,
+                PdfWidgetAnnotation widget => widget.Action,
+                _ => null,
+            };
+            if (action is not null)
+            {
+                foreach (PdfAction step in action.EnumerateActionTree())
+                {
+                    ResolveNamedDestination((step as PdfGoToAction)?.Destination);
+                }
+            }
+            else if (entry.Annotation is PdfLinkAnnotation link)
+            {
+                ResolveNamedDestination(link.Destination);
+            }
+        }
+    }
+
+    private void ResolveNamedDestination(PdfDestination? destination)
+    {
+        if (destination is PdfNamedDestination { IsRemote: false } named && !_namedDestinations.ContainsKey(named.Name))
+        {
+            PdfExplicitDestination? resolved = named.Resolve();
+
+            // The page index comes from the hints without I/O (issue #417); asking for it here keeps any read off the UI thread.
+            _ = resolved?.PageIndex;
+            _namedDestinations.TryAdd(named.Name, resolved);
         }
     }
 
