@@ -105,6 +105,11 @@ want encrypted && broadside encrypted
 want application-form && broadside application-form
 want paper-reviewed && broadside paper-reviewed
 
+# International text: the subset Noto fonts in fonts/ come from tools/subset_fonts.py (see MANIFEST.md), not from this script.
+want leaflet && weasy leaflet leaflet.html leaflet-multilingual.pdf
+want notice && broadside notice
+want rashomon && broadside rashomon
+
 echo
 echo "Sizes:"
 ( cd "$out" && ls -l *.pdf | awk '{ printf "  %-40s %10s bytes\n", $9, $5; total += $5 } END { printf "  %-40s %10s bytes (%.1f MB)\n", "total", total, total / 1048576 }' )

@@ -28,9 +28,14 @@ internal static class Documents
         ["encrypted"] = Encrypted.Write,
         ["application-form"] = ApplicationForm.Write,
         ["paper-reviewed"] = PaperReviewed.Write,
+        ["rashomon"] = Rashomon.Write,
+        ["notice"] = Notice.Write,
     };
 
     public static IEnumerable<string> Names => All.Keys;
+
+    /// <summary>The options the generators read their JSON sources with.</summary>
+    public static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     public static bool TryRun(string name, GeneratorContext context)
     {
