@@ -39,7 +39,7 @@ them.
 | Type 1 fonts (embedded `FontFile`) | `report-1996` | |
 | Type 3 fonts (bitmap glyphs, as from dvips) | `report-1996` | |
 | Standard 14 fonts, not embedded (WinAnsi, MacRoman, Differences, Symbol, ZapfDingbats) | `report-1996`, `showcase` (stamp) | |
-| Complex-script shaping: Arabic, Hebrew (right to left), Devanagari, Thai | `leaflet-multilingual`, `notice-bilingual` | |
+| Complex-script shaping: Arabic, Hebrew (right to left), Devanagari, Thai | `leaflet-multilingual`, `notice-trilingual` | |
 | CJK horizontal text (Chinese, Japanese, Korean) | `leaflet-multilingual` | |
 | Math fonts and equations | `paper`, `textbook` | |
 | DCT (JPEG) images, CMYK JPEGs, ICC-tagged JPEGs | `catalogue`, `newsletter`, `brochure` | |
@@ -66,7 +66,7 @@ them.
 | Tagged PDF, structure tree, reading order from tags | `textbook`, `newsletter`, `paper`, `novel-hardback`, `invoice-conservative` | |
 | PDF/UA-1 | `novel-large-print` | |
 | Invisible OCR text over scanned images (render mode 3) | `scan-memo-g4`, `scan-memo-jbig2`, `scan-moon-memo-jpx` | |
-| Right-to-left extraction and search | `leaflet-multilingual`, `notice-bilingual` | |
+| Right-to-left extraction and search | `leaflet-multilingual`, `notice-trilingual` | |
 | Vertical text extraction | `rashomon-vertical` | |
 | Ligatures, small caps, ToUnicode | `novel-*` | |
 
@@ -76,7 +76,7 @@ them.
 |---|---|---|
 | Flow layout, tables that repeat their header | `invoice-conservative`, `novel-large-print` | |
 | PdfCanvas drawing, print production | `brochure`, `contour-map`, `color-guide` | |
-| Shaped text (Arabic, Hebrew) | `notice-bilingual` | |
+| Shaped text (Arabic, Hebrew) | `notice-trilingual` | |
 | Incremental update of another producer's file | `showcase`, `paper-reviewed`, `application-form-xfa` | |
 | Adding annotations | `paper-reviewed`, `contract-signed` | |
 | Merging, page assembly, rotating pages | `board-pack` | |

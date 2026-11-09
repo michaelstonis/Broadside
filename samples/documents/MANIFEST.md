@@ -49,6 +49,9 @@ browser within a time budget, and `docs/benchmarks/sample-documents-baseline.md`
 | `application-form.pdf` | Application form | Broadside (PdfCanvas, `PdfAcroForm`, COS) | 2 | 60 KB | Every AcroForm field type: text (comb, read-only, required, multi-line), check boxes, radio buttons, an editable combo box, a multi-select list box, push buttons (reset, JavaScript print, submit to a URL) and an unsigned signature field; Acrobat-style keystroke, format and calculate scripts (`AFNumber_Format`, `AFSimple_Calculate`, `AFDate_FormatEx`) with a calculation order (`/CO`), and a document-level script. Broadside keeps the scripts and does not run them |
 | `application-form-xfa.pdf` | Application form, hybrid | Broadside (incremental update) | 2 | 61 KB | The same form with an XFA form (preamble, config, template, datasets, postamble packets) added to the AcroForm in a second revision |
 | `paper-reviewed.pdf` | Scientific paper, reviewed | Chrome, then a Broadside incremental update | 3 | 179 KB | A referee's markup placed with Broadside's text extraction: highlight with a popup and two threaded replies (one a review state), underline, squiggly, strike-out, caret, ink, square, circle, free text, a line with an arrowhead, polygon, polyline, a stamp, a file attachment (CSV), an unapplied redaction, and a new report page whose links are URI, GoTo, a named destination, GoToR, Launch and JavaScript actions |
+| `leaflet-multilingual.pdf` | Library visitor leaflet | WeasyPrint | 3 | 131 KB | Twelve languages in one file, shaped by HarfBuzz: Arabic and Hebrew (right to left, `dir="rtl"`, Latin digits inside), Devanagari, Thai, Simplified Chinese, Japanese and Korean (CID-keyed CFF from Noto Sans CJK), Greek, Cyrillic, Vietnamese; seventeen embedded subset fonts, a CSS grid, a table mixing scripts |
+| `notice-trilingual.pdf` | Utility notice | Broadside (flow layout, `TextShaping`) | 1 | 41 KB | PDF 2.0, tagged: English, Arabic and Hebrew paragraphs shaped by Broadside itself, right-to-left paragraphs with Latin digits |
+| `rashomon-vertical.pdf` | Japanese novella, paperback | Broadside, then a COS pass | 14 | 177 KB | Vertical writing: Noto Serif CJK JP (CID-keyed CFF) with `Identity-V` and `W2`/`DW2`, glyphs shaped with `vert`, ruby beside the kanji, a Latin word turned sideways, right-to-left binding (`Direction R2L`, `TwoPageRight`); the colophon is horizontal in Ryumin-Light, not embedded, with the predefined `UniJIS-UTF16-H` CMap |
 | `showcase.pdf` | Feature showcase | WeasyPrint, then a Broadside incremental update | 5 | 113 KB | Inline SVG (joins and caps, linear and radial gradients, a pattern, clipping, curves), nine kinds of CSS border and background, five counter styles, footnotes, bookmarks, internal and external links; Broadside adds two optional content groups (one hidden by default) and page labels in a second revision |
 
 ## Passwords and test keys
@@ -97,6 +100,8 @@ is drawn in SVG or with PdfCanvas for this project.
 |---|---|
 | Catalogue, invoices, textbook, newsletter, paper, brochure, showcase, agreement, application form, referee's report | Written for the Broadside project. The textbook's physical data (orbital heights, periods, planetary semi-major axes) are standard published values. The newsletter's club, members and counts and the paper's authors and measurements are invented; the facts about Wisdom the albatross are as published by the U.S. Fish and Wildlife Service. |
 | Novel (three editions) | *The Wind in the Willows* by Kenneth Grahame (1908), public domain in the United States. Text from Project Gutenberg eBook #289 (<https://www.gutenberg.org/ebooks/289>) without its header, footer, licence or illustration markers, converted by `tools/willows_extract.py` into `novel/willows.html` and `novel/willows.json`. |
+| Leaflet, notice | Written for the Broadside project, in twelve languages; the library, the water utility and the phone number are invented. |
+| Rashōmon | 「羅生門」 by Akutagawa Ryūnosuke (first published 1915), public domain in Japan and the United States. Text from Aozora Bunko (<https://www.aozora.gr.jp/cards/000879/card127.html>, file `127_ruby_150.zip`, input by 平山誠 and 野口英司, proofread by もりみつじゅんじ), converted by `tools/rashomon_extract.py` into `rashomon/rashomon.json`. The colophon keeps Aozora Bunko's credits for the source edition and its volunteers. |
 | Dictionary | 508 entries, *Qua* to *Quinizarin*, from *Webster's Unabridged Dictionary* (G. & C. Merriam, 1913 edition), public domain in the United States. Text from Project Gutenberg eBook #29765 (<https://www.gutenberg.org/ebooks/29765>) without its header, footer or licence, converted by `tools/webster_extract.py`, which leaves out eight entries whose definitions are offensive today. |
 
 ## Fonts
@@ -114,6 +119,12 @@ is drawn in SVG or with PdfCanvas for this project.
 | STIX Two Math | `fonts/stixtwomath/` | <https://github.com/google/fonts/tree/main/ofl/stixtwomath> | SIL OFL 1.1 |
 | Atkinson Hyperlegible | `fonts/atkinsonhyperlegible/` | <https://github.com/google/fonts/tree/main/ofl/atkinsonhyperlegible> | SIL OFL 1.1 |
 | EB Garamond (OpenType CFF) | `fonts/ebgaramond/` | <https://github.com/octaviopardo/EBGaramond12/tree/master/fonts/otf> | SIL OFL 1.1 |
+| Noto Sans, Noto Naskh Arabic, Noto Sans Hebrew, Noto Sans Devanagari, Noto Sans Thai (subsets) | `fonts/notosans/`, `fonts/notonaskharabic/`, `fonts/notosanshebrew/`, `fonts/notosansdevanagari/`, `fonts/notosansthai/` | <https://github.com/google/fonts/tree/main/ofl> (the variable fonts, instanced at 400 and 700) | SIL OFL 1.1 |
+| Noto Sans CJK SC, JP and KR, Noto Serif CJK JP (subsets, CID-keyed CFF) | `fonts/notosanscjk/`, `fonts/notoserifcjk/` | <https://github.com/notofonts/noto-cjk> (`Sans/OTF/*/NotoSansCJK??-Regular.otf`, `Serif/OTF/Japanese/NotoSerifCJKjp-Regular.otf`) | SIL OFL 1.1 |
+
+The Noto fonts are committed as subsets that hold only the characters the leaflet, the notice and Rashōmon use (the upstream CJK
+fonts are 16 to 25 MB each): `tools/subset_fonts.py <folder of upstream fonts>` makes them, and the vertical metrics the vertical
+sample needs (`fonts/notoserifcjk/vertical-metrics.json`), with fontTools 4.62. Run it again after changing those documents' text.
 
 ## Producers
 

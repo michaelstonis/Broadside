@@ -1,0 +1,31 @@
+{
+ "sections": [
+  {
+   "lang": "en-US",
+   "rtl": false,
+   "title": "Notice of water main replacement",
+   "paragraphs": [
+    "Riverside Water will replace the water main on Elm Street between 3rd and 6th Avenue from May 3 to May 21, 2027. Water will be turned off for up to four hours on the day your connection is changed. We will leave a card at your door two days before.",
+    "Please keep the curb in front of your home clear of cars on work days. Questions: call 555-0142 or visit the site office at 410 Elm Street."
+   ]
+  },
+  {
+   "lang": "ar",
+   "rtl": true,
+   "title": "إشعار باستبدال خط المياه الرئيسي",
+   "paragraphs": [
+    "ستستبدل شركة مياه ريفرسايد خط المياه الرئيسي في شارع إلم بين الجادة الثالثة والجادة السادسة من ٣ إلى ٢١ مايو ٢٠٢٧. سينقطع الماء لمدة تصل إلى أربع ساعات في يوم تغيير وصلتكم. سنترك بطاقة على بابكم قبل يومين.",
+    "يُرجى إبقاء الرصيف أمام منزلكم خاليًا من السيارات في أيام العمل. للاستفسار: اتصلوا بالرقم 555-0142 أو زوروا مكتب الموقع في 410 شارع إلم."
+   ]
+  },
+  {
+   "lang": "he",
+   "rtl": true,
+   "title": "הודעה על החלפת צינור המים הראשי",
+   "paragraphs": [
+    "תאגיד המים של ריברסייד יחליף את צינור המים הראשי ברחוב אלם, בין השדרה השלישית לשדרה השישית, מ־3 עד 21 במאי 2027. המים ינותקו לעד ארבע שעות ביום שבו יוחלף החיבור שלכם. נשאיר כרטיס על הדלת יומיים מראש.",
+    "נא להשאיר את שפת המדרכה מול ביתכם פנויה ממכוניות בימי העבודה. לשאלות: התקשרו ל־555-0142 או בקרו במשרד האתר ברחוב אלם 410."
+   ]
+  }
+ ]
+}
