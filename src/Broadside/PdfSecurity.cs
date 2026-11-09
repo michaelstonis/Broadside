@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Broadside.Objects;
 
 namespace Broadside;
@@ -9,6 +10,8 @@ namespace Broadside;
 /// </remarks>
 public sealed class PdfSecurity
 {
+    private static readonly ConditionalWeakTable<PdfSecurity, IReadOnlyDictionary<CosReference, CosObject>> EarlyReads = new();
+
     internal PdfSecurity(
         CosDictionary encryptionDictionary,
         CosName handler,
@@ -45,7 +48,18 @@ public sealed class PdfSecurity
     /// object loads again, decrypted, for everything else that refers to it (issue #398); a save that keeps the encryption
     /// writes the dictionary from these values.
     /// </summary>
-    internal IReadOnlyDictionary<CosReference, CosObject>? ReadBeforeDecryption { get; init; }
+    /// <remarks>Kept beside the instance, not in a field, so a document whose dictionary reaches nothing pays nothing for it.</remarks>
+    internal IReadOnlyDictionary<CosReference, CosObject>? ReadBeforeDecryption
+    {
+        get => EarlyReads.TryGetValue(this, out IReadOnlyDictionary<CosReference, CosObject>? read) ? read : null;
+        init
+        {
+            if (value is not null)
+            {
+                EarlyReads.AddOrUpdate(this, value);
+            }
+        }
+    }
 
     /// <summary>Gets the name of the security handler that opened the document, such as <c>Standard</c>.</summary>
     /// <remarks>ISO 32000-2 §7.6.2, Table 20, <c>Filter</c>; a handler may also be chosen by <c>SubFilter</c>.</remarks>
