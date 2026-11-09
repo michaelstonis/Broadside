@@ -20,8 +20,13 @@ internal sealed partial class FileWriter
     private static readonly CosName SharedObjectTable = new("S");
     private static readonly CosName OutlineTable = new("O");
 
-    /// <summary>The keys of a cross-reference stream's dictionary that describe the stream or the section rather than the document (§7.3.8.2, §7.5.8.2).</summary>
-    private static readonly HashSet<CosName> SectionKeys =
+    /// <summary>
+    /// The keys of a trailer or cross-reference stream dictionary that describe the stream or the section rather than the document
+    /// (§7.3.8.2, §7.5.4, §7.5.8.2). A save writes its own; the source's are never repeated: a source read from a cross-reference
+    /// stream has them in its trailer, and a damaged one may have any of them (a <c>Type</c> other than <c>XRef</c> made the written
+    /// cross-reference stream unreadable, issue #445).
+    /// </summary>
+    internal static readonly HashSet<CosName> SectionKeys =
     [
         KnownNames.Type, KnownNames.Length, KnownNames.W, KnownNames.Index, KnownNames.Size, KnownNames.Prev, KnownNames.XRefStm, KnownNames.ID,
         FilterNames.Filter, FilterNames.DecodeParms, FilterNames.F, new CosName("FFilter"), new CosName("FDecodeParms"), new CosName("DL"),
