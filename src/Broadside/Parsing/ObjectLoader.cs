@@ -55,9 +55,7 @@ internal sealed class ObjectLoader
     private Dictionary<int, CosObject>? _added;
     private Dictionary<int, int>? _removed;
     private HashSet<int>? _referencedAbove;
-    private HashSet<int>? _referencedAll;
-    private int _nextNumber;
-    private int _lowestUnused;
+    private int _nextNumber; // Negative once no number is left above: minus the lowest number LowestUnusedNumber may take next.
 
     /// <summary>Initializes a new instance of the <see cref="ObjectLoader"/> class.</summary>
     /// <param name="source">The file.</param>
@@ -180,7 +178,7 @@ internal sealed class ObjectLoader
     /// <remarks>ISO 32000-2 §7.3.10.</remarks>
     public int NextNumberFrom(int lowest)
     {
-        int next = Math.Max(lowest, _nextNumber != 0 ? _nextNumber : FirstUnusedNumber());
+        int next = Math.Max(lowest, _nextNumber > 0 ? _nextNumber : FirstUnusedNumber());
         HashSet<int> referenced = Volatile.Read(ref _referencedAbove) ?? FindReferencedNumbers();
         while (next < int.MaxValue && referenced.Contains(next))
         {
@@ -326,7 +324,6 @@ internal sealed class ObjectLoader
         _added = null;
         _removed = null;
         _nextNumber = 0;
-        _lowestUnused = 0;
     }
 
     /// <summary>
@@ -365,8 +362,9 @@ internal sealed class ObjectLoader
     /// lowest number, from 1, that no section lists (in use, compressed or free, so a freed number keeps its generation), no object
     /// was added under and no reference anywhere in the document names, so a dangling reference never comes to reach the object
     /// (§7.3.10). Records <c>ObjectNumberOutOfRange</c> first, a Warning that strict mode throws before anything changes. The numbers
-    /// references name are found once, the first time; a full save renumbers the file anyway (ISO 32000-2 Annex C, Table C.1), and
-    /// an incremental update of such a file is refused.
+    /// references name are found once, the first time, and replace the set <see cref="NextNumberFrom"/> reads (a superset of it);
+    /// the search goes on from <c>-_nextNumber</c>, so no field is added for this rare case. A full save renumbers the file anyway
+    /// (ISO 32000-2 Annex C, Table C.1), and an incremental update of such a file is refused.
     /// </summary>
     /// <exception cref="InvalidOperationException">Every object number is used.</exception>
     private int LowestUnusedNumber()
@@ -375,8 +373,17 @@ internal sealed class ObjectLoader
             DiagnosticCodes.ObjectNumberOutOfRange,
             DiagnosticSeverity.Warning,
             "The file holds object number 2147483647, so no number is left above it for a new object (ISO 32000-2 §7.3.10; Annex C, Table C.1); new objects take the lowest numbers the file neither lists nor refers to, and a save renumbers the file.");
-        HashSet<int> referenced = _referencedAll ??= CollectReferencedNumbers(1);
-        int number = Math.Max(_lowestUnused, 1);
+        int number = 1;
+        if (_nextNumber < 0)
+        {
+            number = -_nextNumber;
+        }
+        else
+        {
+            Volatile.Write(ref _referencedAbove, CollectReferencedNumbers(1));
+        }
+
+        HashSet<int> referenced = _referencedAbove!;
         while (number < int.MaxValue
             && (CrossReference.TryGetEntry(number, out _) || (_added is { } added && added.ContainsKey(number)) || referenced.Contains(number)))
         {
@@ -388,7 +395,7 @@ internal sealed class ObjectLoader
             throw new InvalidOperationException("The document has no object number left for a new object.");
         }
 
-        _lowestUnused = number + 1;
+        _nextNumber = -(number + 1);
         return number;
     }
 
