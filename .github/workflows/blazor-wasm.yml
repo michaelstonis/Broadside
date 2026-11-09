@@ -41,7 +41,8 @@ env:
 jobs:
   blazor-wasm:
     name: blazor-wasm (chrome ${{ inputs.browsers || 'firefox webkit' }})
-    runs-on: ubuntu-latest
+    # Pinned: Playwright 1.58 cannot install Firefox on the ubuntu-26.04 image that ubuntu-latest now points at (#459).
+    runs-on: ubuntu-24.04
     timeout-minutes: 50
     steps:
       - name: Check out
