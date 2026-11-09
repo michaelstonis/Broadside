@@ -211,7 +211,8 @@ internal sealed class EncryptionPlan
             : new CosString([], hexadecimal: true);
         // §7.6.2: a complete file whose kept encryption dictionary holds a reference writes a new, direct one that reads the same
         // (issue #390); an incremental update leaves the document's as it is.
-        CosDictionary? rebuilt = incremental ? null : KeptEncryptionDictionary.Rebuild(security, loader.Resolve, keepsIntegrity: integrity is not null);
+        // Its entries resolve as the handler read them, before decryption was installed (issue #398).
+        CosDictionary? rebuilt = incremental ? null : RebuildKept(security, loader, keepsIntegrity: integrity is not null);
         return new EncryptionPlan(
             ObjectEncryptor.Keep(decryptor, rebuilt ?? security.EncryptionDictionary, loader.Resolve),
             replacesDictionary: false,
@@ -221,6 +222,19 @@ internal sealed class EncryptionPlan
             integrity,
             decryptor,
             keepsSourceEncryption: true);
+    }
+
+    /// <summary>
+    /// <see cref="KeptEncryptionDictionary.Rebuild"/> with the entries resolved as the handler read them, before decryption was
+    /// installed. A method of its own so its closure is allocated only here, not by every save.
+    /// </summary>
+    private static CosDictionary? RebuildKept(PdfSecurity security, ObjectLoader loader, bool keepsIntegrity)
+    {
+        IReadOnlyDictionary<CosReference, CosObject>? read = security.ReadBeforeDecryption;
+        return KeptEncryptionDictionary.Rebuild(
+            security,
+            value => value is CosReference reference && read is not null && read.TryGetValue(reference, out CosObject? found) ? found : loader.Resolve(value),
+            keepsIntegrity);
     }
 
     /// <summary>The MAC composer for a document that keeps its encryption and has, or needs, a PDF MAC token (ISO/TS 32004).</summary>

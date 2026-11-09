@@ -55,7 +55,7 @@ internal sealed class ObjectLoader
     private Dictionary<int, CosObject>? _added;
     private Dictionary<int, int>? _removed;
     private HashSet<int>? _referencedAbove;
-    private int _nextNumber;
+    private int _nextNumber; // Negative once no number is left above: minus the lowest number LowestUnusedNumber may take next.
 
     /// <summary>Initializes a new instance of the <see cref="ObjectLoader"/> class.</summary>
     /// <param name="source">The file.</param>
@@ -178,7 +178,7 @@ internal sealed class ObjectLoader
     /// <remarks>ISO 32000-2 §7.3.10.</remarks>
     public int NextNumberFrom(int lowest)
     {
-        int next = Math.Max(lowest, _nextNumber != 0 ? _nextNumber : FirstUnusedNumber());
+        int next = Math.Max(lowest, _nextNumber > 0 ? _nextNumber : FirstUnusedNumber());
         HashSet<int> referenced = Volatile.Read(ref _referencedAbove) ?? FindReferencedNumbers();
         while (next < int.MaxValue && referenced.Contains(next))
         {
@@ -190,11 +190,14 @@ internal sealed class ObjectLoader
 
     /// <summary>
     /// Makes <paramref name="value"/> a new indirect object under <see cref="NextNumber"/>, generation 0 (§7.3.10), resolvable at
-    /// once. A mutation: single-threaded, like every change to a document.
+    /// once; when no number is left above (a file that holds object 2147483647), under the lowest number no section lists, no object
+    /// was added under and no reference names, recording <c>ObjectNumberOutOfRange</c> (issue #387). A mutation: single-threaded,
+    /// like every change to a document.
     /// </summary>
     /// <param name="value">The object.</param>
     /// <returns>The reference to the new object.</returns>
     /// <exception cref="ArgumentException"><paramref name="value"/> is a reference, which an indirect object cannot be.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, when no number is left above; nothing is added.</exception>
     /// <exception cref="InvalidOperationException">Every object number is used.</exception>
     public CosReference Add(CosObject value)
     {
@@ -207,10 +210,13 @@ internal sealed class ObjectLoader
         int number = NextNumber;
         if (number == int.MaxValue)
         {
-            throw new InvalidOperationException("The document has no object number left for a new object.");
+            number = LowestUnusedNumber();
+        }
+        else
+        {
+            _nextNumber = number + 1;
         }
 
-        _nextNumber = number + 1;
         var reference = new CosReference(number, 0);
         (_added ??= [])[number] = value;
         Hooks.Cache.Publish(reference, value);
@@ -275,6 +281,36 @@ internal sealed class ObjectLoader
     {
         ObjectsVersion++;
         CosMutation.Advance();
+    }
+
+    /// <summary>
+    /// Takes every object loaded so far, and every object stream decoded, out of the caches, so each loads again when next asked
+    /// for; <paramref name="keep"/> stays. Called once, when decryption is installed while the document opens: what loaded before
+    /// it (the encryption dictionary and whatever its entries reach) was read undecrypted, which is right only for the encryption
+    /// dictionary itself (§7.6.2; issue #398). Open is single-threaded.
+    /// </summary>
+    /// <param name="keep">The object that stays loaded as it was read (the encryption dictionary), or <see langword="null"/>.</param>
+    /// <returns>The objects taken out, as they were read, or <see langword="null"/> when there were none.</returns>
+    public Dictionary<CosReference, CosObject>? ForgetLoaded(CosReference? keep)
+    {
+        _objectStreams = null;
+        if (Hooks.Cache.Count <= (keep is null ? 0 : 1))
+        {
+            return null;
+        }
+
+        Dictionary<CosReference, CosObject>? forgotten = null;
+        foreach ((CosReference reference, CosObject value) in Hooks.Cache.Loaded().ToList())
+        {
+            if (!reference.Equals(keep))
+            {
+                (forgotten ??= [])[reference] = value;
+                Hooks.Cache.Remove(reference);
+                _sourceBytes?.TryRemove(reference, out _);
+            }
+        }
+
+        return forgotten;
     }
 
     /// <summary>Finds an object that has been loaded (or added) without loading it.</summary>
@@ -347,7 +383,58 @@ internal sealed class ObjectLoader
     /// </summary>
     private HashSet<int> FindReferencedNumbers()
     {
-        int floor = FirstUnusedNumber();
+        HashSet<int> numbers = CollectReferencedNumbers(FirstUnusedNumber());
+        return Interlocked.CompareExchange(ref _referencedAbove, numbers, null) ?? numbers;
+    }
+
+    /// <summary>
+    /// The object number <see cref="Add"/> gives a new object when <see cref="NextNumber"/> has none left above (issue #387): the
+    /// lowest number, from 1, that no section lists (in use, compressed or free, so a freed number keeps its generation), no object
+    /// was added under and no reference anywhere in the document names, so a dangling reference never comes to reach the object
+    /// (§7.3.10). Records <c>ObjectNumberOutOfRange</c> first, a Warning that strict mode throws before anything changes. The numbers
+    /// references name are found once, the first time, and replace the set <see cref="NextNumberFrom"/> reads (a superset of it);
+    /// the search goes on from <c>-_nextNumber</c>, so no field is added for this rare case. A full save renumbers the file anyway
+    /// (ISO 32000-2 Annex C, Table C.1), and an incremental update of such a file is refused.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Every object number is used.</exception>
+    private int LowestUnusedNumber()
+    {
+        _diagnostics.Report(
+            DiagnosticCodes.ObjectNumberOutOfRange,
+            DiagnosticSeverity.Warning,
+            "The file holds object number 2147483647, so no number is left above it for a new object (ISO 32000-2 §7.3.10; Annex C, Table C.1); new objects take the lowest numbers the file neither lists nor refers to, and a save renumbers the file.");
+        int number = 1;
+        if (_nextNumber < 0)
+        {
+            number = -_nextNumber;
+        }
+        else
+        {
+            Volatile.Write(ref _referencedAbove, CollectReferencedNumbers(1));
+        }
+
+        HashSet<int> referenced = _referencedAbove!;
+        while (number < int.MaxValue
+            && (CrossReference.TryGetEntry(number, out _) || (_added is { } added && added.ContainsKey(number)) || referenced.Contains(number)))
+        {
+            number++;
+        }
+
+        if (number == int.MaxValue)
+        {
+            throw new InvalidOperationException("The document has no object number left for a new object.");
+        }
+
+        _nextNumber = -(number + 1);
+        return number;
+    }
+
+    /// <summary>
+    /// Reads the trailer and every object the file lists (and every added one) and returns the object numbers their references name
+    /// at or above <paramref name="floor"/>.
+    /// </summary>
+    private HashSet<int> CollectReferencedNumbers(int floor)
+    {
         var numbers = new HashSet<int>();
         var pending = new Stack<CosObject>();
         pending.Push(CrossReference.Trailer);
@@ -393,7 +480,7 @@ internal sealed class ObjectLoader
             }
         }
 
-        return Interlocked.CompareExchange(ref _referencedAbove, numbers, null) ?? numbers;
+        return numbers;
     }
 
     /// <summary>

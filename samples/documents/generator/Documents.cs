@@ -26,9 +26,22 @@ internal static class Documents
         ["showcase"] = ShowcaseLayers.Write,
         ["contract"] = Contract.Write,
         ["encrypted"] = Encrypted.Write,
+        ["application-form"] = ApplicationForm.Write,
+        ["paper-reviewed"] = PaperReviewed.Write,
+        ["rashomon"] = Rashomon.Write,
+        ["notice"] = Notice.Write,
+        ["scan-jbig2"] = ScanJbig2.Write,
+        ["color-guide"] = ColorGuide.Write,
+        ["board-pack"] = BoardPack.Write,
+        ["archival"] = Archival.Write,
+        ["shakespeare"] = Shakespeare.Write,
+        ["contour-map"] = ContourMap.Write,
     };
 
     public static IEnumerable<string> Names => All.Keys;
+
+    /// <summary>The options the generators read their JSON sources with.</summary>
+    public static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     public static bool TryRun(string name, GeneratorContext context)
     {
