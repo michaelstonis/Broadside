@@ -608,11 +608,18 @@ public sealed partial class PdfDocument : IDisposable
     /// <param name="value">The object; a stream must be indirect, so this is how a new stream joins the document.</param>
     /// <returns>The reference, which <see cref="Resolve"/> resolves to <paramref name="value"/> at once.</returns>
     /// <exception cref="ArgumentException"><paramref name="value"/> is a <see cref="CosReference"/>, which an indirect object cannot be.</exception>
+    /// <exception cref="DiagnosticException">
+    /// In strict mode, when the file holds object 2147483647, so no number is left above the ones it uses; nothing is added.
+    /// </exception>
     /// <exception cref="InvalidOperationException">The document has used every object number.</exception>
     /// <remarks>
     /// ISO 32000-2 §7.3.10 and §7.5.4. Place the reference in the document (a dictionary entry, an array element) for the object to be reached.
     /// A reference to an object the file does not hold is a reference to null, and stays one: the new object never takes its number.
     /// The first call reads every object of the file once to find such references.
+    /// A file that holds object 2147483647 (the largest a 32-bit integer states, ISO 32000-2 Annex C, Table C.1; only a damaged or
+    /// hostile file does) leaves no number above it: the new object then takes the lowest number the file neither lists (in use or
+    /// free) nor names in any reference, and the document records <c>ObjectNumberOutOfRange</c> (Warning; in strict mode the call
+    /// throws instead). Such a file saves whole, renumbered; an incremental update of it is refused.
     /// The next save writes the object whether or not anything refers to it, unless it drops unreachable objects
     /// (<see cref="PdfSaveOptions.RemoveUnreachableObjects"/>). A mutation: no read may run concurrently with it.
     /// </remarks>
