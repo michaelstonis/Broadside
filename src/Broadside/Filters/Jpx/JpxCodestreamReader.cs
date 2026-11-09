@@ -121,7 +121,10 @@ internal static class JpxCodestreamReader
 
     /// <summary>
     /// Reads the fewest decomposition levels the main header's COD and COC marker segments give any component, without parsing
-    /// them or allocating; 0 when the header is unreadable, has no COD, or signals high-throughput coding.
+    /// them or allocating; 0 when the header is unreadable, has no COD, or signals high-throughput coding. It counts only the
+    /// segments <see cref="Read"/> accepts (a COD or COC the parse refuses, and so ignores, is skipped here too; a later COD replaces
+    /// an earlier one) and steps over the bare markers 0xFF30 to 0xFF3F, so a segment the parse does not use never changes the
+    /// levels offered (issue #424).
     /// </summary>
     /// <param name="codestream">The codestream, from its SOC marker.</param>
     /// <param name="components">The number of components SIZ declares.</param>
@@ -135,11 +138,23 @@ internal static class JpxCodestreamReader
         }
 
         int used = components < 257 ? 1 : 2;
-        int levels = -1;
+        int codLevels = -1;
+        int cocLevels = int.MaxValue;
         int position = 4 + BinaryPrimitives.ReadUInt16BigEndian(codestream[4..]);
-        while (position + 4 <= codestream.Length)
+        while (position + 2 <= codestream.Length)
         {
             ushort marker = BinaryPrimitives.ReadUInt16BigEndian(codestream[position..]);
+            if (marker is >= 0xFF30 and <= 0xFF3F)
+            {
+                position += 2;
+                continue;
+            }
+
+            if (position + 4 > codestream.Length)
+            {
+                break;
+            }
+
             int length = BinaryPrimitives.ReadUInt16BigEndian(codestream[(position + 2)..]);
             if (marker is Sot or Eoc || marker < 0xFF00 || length < 2 || position + 2 + length > codestream.Length)
             {
@@ -147,33 +162,34 @@ internal static class JpxCodestreamReader
             }
 
             ReadOnlySpan<byte> body = codestream.Slice(position + 4, length - 2);
-            int style = -1;
             switch (marker)
             {
                 case Cap when body.Length >= 4 && (BinaryPrimitives.ReadUInt32BigEndian(body) & HighThroughputCapability) != 0:
                     return 0;
-                case Cod when body.Length >= 10:
-                    style = 5;
-                    break;
-                case Coc when body.Length >= used + 5:
-                    style = used + 1;
-                    break;
-            }
+                case Cod when IsUsableCodingStyle(body):
+                    if ((body[8] & HighThroughputBlockStyle) != 0)
+                    {
+                        return 0;
+                    }
 
-            if (style >= 0)
-            {
-                if ((body[style + 3] & HighThroughputBlockStyle) != 0)
-                {
-                    return 0;
-                }
+                    // A later COD replaces an earlier one, as the parse keeps the last.
+                    codLevels = body[5];
+                    break;
+                case Coc when body.Length > used && (used == 1 ? body[0] : BinaryPrimitives.ReadUInt16BigEndian(body)) < components
+                    && IsUsableComponentStyle(body[(used + 1)..], (body[used] & 1) != 0):
+                    if ((body[used + 4] & HighThroughputBlockStyle) != 0)
+                    {
+                        return 0;
+                    }
 
-                levels = levels < 0 ? body[style] : Math.Min(levels, body[style]);
+                    cocLevels = Math.Min(cocLevels, body[used + 1]);
+                    break;
             }
 
             position += 2 + length;
         }
 
-        return Math.Clamp(levels, 0, 32);
+        return codLevels < 0 ? 0 : Math.Min(codLevels, cocLevels);
     }
 
     /// <summary>Parses the main header and every tile-part header of <paramref name="codestream"/>.</summary>
@@ -663,7 +679,7 @@ internal static class JpxCodestreamReader
         }
 
         int layers = BinaryPrimitives.ReadUInt16BigEndian(body[2..]);
-        if (layers == 0 || body[1] > 4 || ParseComponentStyle(body[5..], (body[0] & 1) != 0, reporter) is not { } component)
+        if (!IsUsableCodingStyle(body) || ParseComponentStyle(body[5..], (body[0] & 1) != 0, reporter) is not { } component)
         {
             Invalid(reporter, "COD");
             return null;
@@ -691,7 +707,7 @@ internal static class JpxCodestreamReader
         int levels = body[0];
         int width = (body[1] & 0x0F) + 2;
         int height = (body[2] & 0x0F) + 2;
-        if (levels > 32 || width > 10 || height > 10 || width + height > 12 || (precinctsDefined && body.Length < 5 + levels + 1))
+        if (!IsUsableComponentStyle(body, precinctsDefined))
         {
             Invalid(reporter, "COD or COC");
             return null;
@@ -718,6 +734,28 @@ internal static class JpxCodestreamReader
             Reversible = body[4] == 1,
             Precincts = precincts,
         };
+    }
+
+    /// <summary>Whether a COD body (Scod, SGcod, SPcod) is one <see cref="ParseCodingStyle"/> accepts (ITU-T T.800 A.6.1, Tables A.12 to A.14).</summary>
+    private static bool IsUsableCodingStyle(ReadOnlySpan<byte> body) =>
+        body.Length >= 5 && BinaryPrimitives.ReadUInt16BigEndian(body[2..]) != 0 && body[1] <= 4
+        && IsUsableComponentStyle(body[5..], (body[0] & 1) != 0);
+
+    /// <summary>
+    /// Whether an SPcod or SPcoc body is one <see cref="ParseComponentStyle"/> accepts: at most 32 levels, code-block exponents within
+    /// Table A.18's limits, and a precinct size for every resolution level when Scod or Scoc signals them (ITU-T T.800 A.6.1, A.6.2).
+    /// </summary>
+    private static bool IsUsableComponentStyle(ReadOnlySpan<byte> body, bool precinctsDefined)
+    {
+        if (body.Length < 5)
+        {
+            return false;
+        }
+
+        int levels = body[0];
+        int width = (body[1] & 0x0F) + 2;
+        int height = (body[2] & 0x0F) + 2;
+        return levels <= 32 && width <= 10 && height <= 10 && width + height <= 12 && (!precinctsDefined || body.Length >= 5 + levels + 1);
     }
 
     private static bool ParseComponentIndex(ReadOnlySpan<byte> body, JpxImageSize size, CodecReporter reporter, out int component, out int used)
