@@ -60,33 +60,6 @@ internal static class DocumentSecurity
             return null;
         }
 
-        // §7.6.2: what loads before decryption is installed is read undecrypted, which is right only for the encryption dictionary.
-        // Anything else its entries reach (an object in an encrypted object stream, a dictionary the document also uses) is taken
-        // out of the caches when decryption is installed, so it loads again decrypted (issue #398).
-        loader.RecordLoads(entry as CosReference);
-        try
-        {
-            return Open(source, loader, streams, handlers, credentials, diagnostics, reportUnusable, trailer, entry, out unusable);
-        }
-        finally
-        {
-            loader.StopRecordingLoads();
-        }
-    }
-
-    private static PdfSecurity? Open(
-        PdfSource source,
-        ObjectLoader loader,
-        StreamDecoder streams,
-        SecurityHandlerRegistry handlers,
-        PdfCredentials? credentials,
-        DiagnosticSink diagnostics,
-        bool reportUnusable,
-        CosDictionary trailer,
-        CosObject entry,
-        out bool unusable)
-    {
-        unusable = false;
         if (loader.Resolve(entry) is not CosDictionary encryption)
         {
             if (!reportUnusable)
@@ -129,7 +102,7 @@ internal static class DocumentSecurity
         }
         catch (PdfPasswordException) when (version >= 4 && OnlyEmbeddedFilesNeedThePassword(encryption, loader.Resolve))
         {
-            return OpenWithoutAuthentication(source, loader, streams, encryption, handler.Filter, subFilter, version, diagnostics);
+            return OpenWithoutAuthentication(source, loader, streams, encryption, entry, handler.Filter, subFilter, version, diagnostics);
         }
 
         if (version == 0)
@@ -147,7 +120,7 @@ internal static class DocumentSecurity
         }
 
         DocumentDecryptor decryptor = DocumentDecryptor.Create(encryption, version, result, diagnostics, loader.Resolve);
-        IReadOnlyDictionary<CosReference, CosObject>? readBeforeDecryption = loader.ForgetRecordedLoads();
+        IReadOnlyDictionary<CosReference, CosObject>? readBeforeDecryption = loader.ForgetLoaded(entry as CosReference);
         loader.Hooks.Decryptor = decryptor;
         streams.CryptFilter = decryptor;
 
@@ -196,6 +169,7 @@ internal static class DocumentSecurity
         ObjectLoader loader,
         StreamDecoder streams,
         CosDictionary encryption,
+        CosObject entry,
         CosName handler,
         CosName? subFilter,
         int version,
@@ -209,7 +183,7 @@ internal static class DocumentSecurity
         int keyLength = loader.Resolve(encryption.TryGetValue(KnownNames.Length, out CosObject? length) ? length : null) is CosInteger { Value: > 0 and <= 4096 } bits
             ? (int)bits.Value
             : 0;
-        IReadOnlyDictionary<CosReference, CosObject>? readBeforeDecryption = loader.ForgetRecordedLoads();
+        IReadOnlyDictionary<CosReference, CosObject>? readBeforeDecryption = loader.ForgetLoaded(entry as CosReference);
         loader.Hooks.Decryptor = decryptor;
         streams.CryptFilter = decryptor;
 

@@ -88,6 +88,22 @@ internal sealed class OnceCache<TKey, TValue>
     /// <param name="key">The key.</param>
     public void Remove(TKey key) => _entries.TryRemove(key, out _);
 
+    /// <summary>Gets how many keys the cache holds, computed or being computed.</summary>
+    public int Count => _entries.Count;
+
+    /// <summary>The computed values, a moment's view of a cache nobody else is changing.</summary>
+    /// <returns>Each key with its value.</returns>
+    public IEnumerable<KeyValuePair<TKey, TValue>> Completed()
+    {
+        foreach (KeyValuePair<TKey, Entry> entry in _entries)
+        {
+            if (entry.Value.IsCompleted)
+            {
+                yield return new(entry.Key, entry.Value.Result);
+            }
+        }
+    }
+
     /// <summary>Returns the value for <paramref name="key"/>, computing it with <paramref name="create"/> when nobody has.</summary>
     /// <typeparam name="TState">What the factories need, passed through so they can be static.</typeparam>
     /// <param name="key">The key.</param>

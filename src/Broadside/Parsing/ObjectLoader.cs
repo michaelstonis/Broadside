@@ -56,10 +56,6 @@ internal sealed class ObjectLoader
     private Dictionary<int, int>? _removed;
     private HashSet<int>? _referencedAbove;
     private int _nextNumber; // Negative once no number is left above: minus the lowest number LowestUnusedNumber may take next.
-    private bool _recording;
-    private CosReference? _recordingKeeps;
-    private List<CosReference>? _recordedLoads;
-    private List<int>? _recordedObjectStreams;
 
     /// <summary>Initializes a new instance of the <see cref="ObjectLoader"/> class.</summary>
     /// <param name="source">The file.</param>
@@ -288,56 +284,29 @@ internal sealed class ObjectLoader
     }
 
     /// <summary>
-    /// Starts recording the objects and object streams loaded from now on, so <see cref="ForgetRecordedLoads"/> can take them out of
-    /// the caches. Used while the encryption dictionary is read, before decryption is installed (§7.6.2): what loads then is read
-    /// undecrypted, which is right only for the encryption dictionary itself (issue #398). Open is single-threaded.
+    /// Takes every object loaded so far, and every object stream decoded, out of the caches, so each loads again when next asked
+    /// for; <paramref name="keep"/> stays. Called once, when decryption is installed while the document opens: what loaded before
+    /// it (the encryption dictionary and whatever its entries reach) was read undecrypted, which is right only for the encryption
+    /// dictionary itself (§7.6.2; issue #398). Open is single-threaded.
     /// </summary>
-    /// <param name="keep">The object that is not recorded and stays loaded as it was read (the encryption dictionary), or <see langword="null"/>.</param>
-    public void RecordLoads(CosReference? keep)
-    {
-        _recording = true;
-        _recordingKeeps = keep;
-    }
-
-    /// <summary>Stops recording loads (<see cref="RecordLoads"/>) and leaves what loaded in the caches.</summary>
-    public void StopRecordingLoads()
-    {
-        _recording = false;
-        _recordingKeeps = null;
-        _recordedLoads = null;
-        _recordedObjectStreams = null;
-    }
-
-    /// <summary>
-    /// Stops recording loads (<see cref="RecordLoads"/>) and takes every object and object stream recorded since out of the caches,
-    /// so each loads again, decrypted, when next asked for.
-    /// </summary>
+    /// <param name="keep">The object that stays loaded as it was read (the encryption dictionary), or <see langword="null"/>.</param>
     /// <returns>The objects taken out, as they were read, or <see langword="null"/> when there were none.</returns>
-    public Dictionary<CosReference, CosObject>? ForgetRecordedLoads()
+    public Dictionary<CosReference, CosObject>? ForgetLoaded(CosReference? keep)
     {
-        List<CosReference>? loads = _recordedLoads;
-        List<int>? objectStreams = _recordedObjectStreams;
-        StopRecordingLoads();
-        Dictionary<CosReference, CosObject>? forgotten = null;
-        if (loads is not null)
+        _objectStreams = null;
+        if (Hooks.Cache.Count <= (keep is null ? 0 : 1))
         {
-            foreach (CosReference reference in loads)
-            {
-                if (Hooks.Cache.TryGet(reference, out CosObject? value))
-                {
-                    (forgotten ??= [])[reference] = value;
-                    Hooks.Cache.Remove(reference);
-                }
-
-                _sourceBytes?.TryRemove(reference, out _);
-            }
+            return null;
         }
 
-        if (objectStreams is not null)
+        Dictionary<CosReference, CosObject>? forgotten = null;
+        foreach ((CosReference reference, CosObject value) in Hooks.Cache.Loaded().ToList())
         {
-            foreach (int number in objectStreams)
+            if (!reference.Equals(keep))
             {
-                _objectStreams?.Remove(number);
+                (forgotten ??= [])[reference] = value;
+                Hooks.Cache.Remove(reference);
+                _sourceBytes?.TryRemove(reference, out _);
             }
         }
 
@@ -591,10 +560,6 @@ internal sealed class ObjectLoader
     /// <summary>Locates and parses an object nobody has loaded yet, then runs hook 2.</summary>
     private Created<CosObject> LoadUncached(CosReference reference, XrefEntry entry, int depth)
     {
-        if (_recording && !reference.Equals(_recordingKeeps))
-        {
-            (_recordedLoads ??= []).Add(reference);
-        }
         if (entry.Kind == XrefEntryKind.Compressed)
         {
             return LoadCompressed(reference, entry, depth);
@@ -669,10 +634,6 @@ internal sealed class ObjectLoader
     /// <summary>Loads and decodes object stream <paramref name="number"/> and reads its header (§7.5.7, Table 16).</summary>
     private ObjectStream ReadObjectStream(int number, CosReference member, int depth)
     {
-        if (_recording)
-        {
-            (_recordedObjectStreams ??= []).Add(number);
-        }
         var reference = new CosReference(number, 0);
         if (CrossReference.TryGetEntry(number, out XrefEntry entry) && entry.Kind == XrefEntryKind.Compressed)
         {
