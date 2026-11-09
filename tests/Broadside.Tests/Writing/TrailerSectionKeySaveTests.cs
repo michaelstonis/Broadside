@@ -56,6 +56,45 @@ public sealed class TrailerSectionKeySaveTests
         CosGraph.AssertIsomorphic(source, source.Trailer[new CosName("Root")], reopened, reopened.Trailer[new CosName("Root")]);
     }
 
+    [Fact]
+    public void The_integrity_protected_fuzz_finding_saves_a_file_whose_mac_verifies()
+    {
+        // Issue #466, 971 bytes: the save target writes new AES-GCM encryption with an integrity MAC, a cross-reference stream with
+        // object streams, compact numbering and unreachable objects removed. The damaged trailer reads as /Type /Pxref; repeated in
+        // the written cross-reference stream, it made the stream an ordinary one, which was encrypted with its AuthCode placeholders.
+        byte[] file = File.ReadAllBytes(Path.Combine(Corpus.Directory, "..", "Broadside.Fuzz", "Seeds", "save", "trailer-type-encrypts-cross-reference-stream.pdf"));
+        using PdfDocument source = PdfDocument.Open(file);
+        Assert.Equal(new CosName("Pxref"), source.Trailer[new CosName("Type")]);
+
+        byte[] saved = Save(source, IntegrityProtected(PdfCrossReferenceLayout.StreamWithObjectStreams)
+            .WithObjectNumbering(PdfObjectNumbering.Compact)
+            .WithRemoveUnreachableObjects(true));
+
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.Single(reopened.Pages);
+        Assert.Equal(PdfIntegrityStatus.Verified, reopened.Security!.Integrity);
+        CosGraph.AssertIsomorphic(source, source.Trailer[new CosName("Root")], reopened, reopened.Trailer[new CosName("Root")]);
+    }
+
+    [Theory]
+    [InlineData(PdfCrossReferenceLayout.Table)]
+    [InlineData(PdfCrossReferenceLayout.Stream)]
+    [InlineData(PdfCrossReferenceLayout.StreamWithObjectStreams)]
+    public void A_trailer_type_does_not_keep_an_integrity_mac_from_being_written(PdfCrossReferenceLayout layout)
+    {
+        byte[] file = new TestPdf { TrailerEntries = "/Type /Page" }.Build(
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>");
+        using PdfDocument source = PdfDocument.Open(file);
+
+        byte[] saved = Save(source, IntegrityProtected(layout));
+
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.Single(reopened.Pages);
+        Assert.Equal(PdfIntegrityStatus.Verified, reopened.Security!.Integrity);
+    }
+
     [Theory]
     [MemberData(nameof(EntriesAndLayouts))]
     public void Section_entries_of_the_source_trailer_are_not_repeated(string entries, PdfCrossReferenceLayout layout, bool incremental)
@@ -79,6 +118,11 @@ public sealed class TrailerSectionKeySaveTests
             Assert.All(reopened.Trailer, entry => Assert.Contains(entry.Key.Value, (string[])["Size", "Root", "Info", "ID"]));
         }
     }
+
+    /// <summary>New AES-GCM encryption with an integrity MAC (ISO/TS 32003, ISO/TS 32004) and an empty user password.</summary>
+    private static PdfSaveOptions IntegrityProtected(PdfCrossReferenceLayout layout) =>
+        new PdfSaveOptions().WithCrossReferenceLayout(layout).WithEncryption(
+            new PdfEncryptionOptions(null, "owner").WithAlgorithm(PdfEncryptionAlgorithm.Aes256Gcm).WithIntegrityProtection(true));
 
     private static byte[] Save(PdfDocument document, PdfSaveOptions options)
     {
