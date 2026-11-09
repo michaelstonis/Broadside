@@ -87,10 +87,14 @@ public sealed class WebGLBackendTests(BrowserHost host)
     [Fact]
     public async Task The_view_panel_switches_the_viewer_to_WebGL()
     {
+        // A gallery document the GPU draws whole (dense text on every page, no pattern, shading, soft mask or blend mode), so every
+        // tile counts. The demo's first document (the textbook, since #363) fills a figure on page 2 with a tiling pattern, which the
+        // backend hands to the software rasterizer by design: whether its tiles were drawn when the statistics were read depended on
+        // how fast the machine drew the tiles ahead of the viewport.
         BrowserHost.RequireApp();
         await using IBrowserContext context = await host.Browser.NewContextAsync(new BrowserNewContextOptions { ViewportSize = new ViewportSize { Width = 1200, Height = 900 } });
         IPage page = await context.NewPageAsync();
-        await page.GotoAsync(host.AppAddress.ToString());
+        await page.GotoAsync(new Uri(host.AppAddress, "?file=documents/dictionary.pdf").ToString());
         await page.WaitForFunctionAsync(
             "() => { const v = document.querySelector('.bs-viewer'); return v && Number(v.dataset.tilesPresented) > 0; }",
             null,

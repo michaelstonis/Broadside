@@ -5,8 +5,12 @@
 const viewers = new Map();
 let interop = null;
 
+// Every child of .bs-viewer is absolutely positioned, so it has no content height of its own (#393). Size containment gives it an
+// intrinsic height instead: a bare viewer in normal flow is min(80vh, 600px) tall, while anything the host sets (a height, flex or grid
+// sizing, insets) still decides, as it would for any content. The rule has no specificity (:where), so a host's own rule always wins.
 const STYLE = `
 .bs-viewer{position:relative;overflow:hidden;touch-action:none;outline:none;background:#e6e6e6;user-select:none;-webkit-user-select:none}
+:where(.bs-viewer){contain:size;contain-intrinsic-block-size:min(80vh,600px)}
 .bs-viewer:focus-visible{box-shadow:inset 0 0 0 2px #1a73e8}
 .bs-viewer>canvas{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
 .bs-viewer>.bs-status{position:absolute;left:12px;top:12px;font:14px system-ui,sans-serif;color:#333}

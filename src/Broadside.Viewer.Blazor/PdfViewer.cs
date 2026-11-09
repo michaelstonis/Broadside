@@ -25,6 +25,11 @@ namespace Broadside.Viewer.Blazor;
 /// N, H, T, L, G, K, F, D and P move the reading focus to the next element, heading, table, list, figure, link, form field, landmark or
 /// page (Shift goes back); Escape clears the selection and the reading focus.
 /// </para>
+/// <para>
+/// Size: the host element (<c>.bs-viewer</c>) is as wide as its container and, with nothing else to size it, min(80vh, 600px) tall
+/// (an intrinsic height through CSS size containment, in a rule with no specificity). A height, flex or grid sizing, or insets the app
+/// sets through <see cref="Class"/> win; as for any flex item, set <c>min-height: 0</c> to let <c>flex: 1</c> shrink it below that.
+/// </para>
 /// <para>Runs in the browser only (it imports a small JavaScript module from <c>_content/Broadside.Viewer.Blazor</c>).</para>
 /// </remarks>
 [SupportedOSPlatform("browser")]
@@ -84,7 +89,7 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
     [Parameter]
     public string? Label { get; set; }
 
-    /// <summary>Gets or sets extra CSS classes for the viewer's host element (give it a size).</summary>
+    /// <summary>Gets or sets extra CSS classes for the viewer's host element, such as one that sizes it (see the remarks on size).</summary>
     [Parameter]
     public string? Class { get; set; }
 
