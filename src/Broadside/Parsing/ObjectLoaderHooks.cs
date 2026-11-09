@@ -86,6 +86,13 @@ internal interface IObjectCache
     /// </summary>
     /// <param name="reference">The object's number and generation.</param>
     void Remove(CosReference reference);
+
+    /// <summary>Gets how many objects the cache holds or is loading.</summary>
+    int Count { get; }
+
+    /// <summary>The objects loaded so far: a moment's view, for the single-threaded open.</summary>
+    /// <returns>Each loaded object by reference.</returns>
+    IEnumerable<KeyValuePair<CosReference, CosObject>> Loaded();
 }
 
 /// <summary>
@@ -163,6 +170,10 @@ internal sealed class ObjectCache : IObjectCache
 
     /// <inheritdoc/>
     public void Remove(CosReference reference) => _objects.Remove(reference);
+
+    public int Count => _objects.Count;
+
+    public IEnumerable<KeyValuePair<CosReference, CosObject>> Loaded() => _objects.Completed();
 }
 
 /// <summary>

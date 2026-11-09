@@ -283,6 +283,36 @@ internal sealed class ObjectLoader
         CosMutation.Advance();
     }
 
+    /// <summary>
+    /// Takes every object loaded so far, and every object stream decoded, out of the caches, so each loads again when next asked
+    /// for; <paramref name="keep"/> stays. Called once, when decryption is installed while the document opens: what loaded before
+    /// it (the encryption dictionary and whatever its entries reach) was read undecrypted, which is right only for the encryption
+    /// dictionary itself (§7.6.2; issue #398). Open is single-threaded.
+    /// </summary>
+    /// <param name="keep">The object that stays loaded as it was read (the encryption dictionary), or <see langword="null"/>.</param>
+    /// <returns>The objects taken out, as they were read, or <see langword="null"/> when there were none.</returns>
+    public Dictionary<CosReference, CosObject>? ForgetLoaded(CosReference? keep)
+    {
+        _objectStreams = null;
+        if (Hooks.Cache.Count <= (keep is null ? 0 : 1))
+        {
+            return null;
+        }
+
+        Dictionary<CosReference, CosObject>? forgotten = null;
+        foreach ((CosReference reference, CosObject value) in Hooks.Cache.Loaded().ToList())
+        {
+            if (!reference.Equals(keep))
+            {
+                (forgotten ??= [])[reference] = value;
+                Hooks.Cache.Remove(reference);
+                _sourceBytes?.TryRemove(reference, out _);
+            }
+        }
+
+        return forgotten;
+    }
+
     /// <summary>Finds an object that has been loaded (or added) without loading it.</summary>
     /// <param name="reference">The object's number and generation.</param>
     /// <param name="value">The object, when loaded.</param>
