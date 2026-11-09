@@ -95,6 +95,43 @@ public sealed class JpxScaledDecodeTests
         Assert.Equal((5, 4, 2), (image.Width, image.Height, image.Reduction));
     }
 
+    [Fact]
+    public void A_refused_coding_style_segment_neither_lowers_the_header_levels_nor_lets_the_decode_exceed_them()
+    {
+        // Issue #424 (fuzz filter-jpx): a second COD the parse refuses (53 levels) whose code-block style byte has the
+        // high-throughput bit once made the header offer 0 levels, while the decode kept the valid COD before it and reduced.
+        byte[] data = InsertBeforeFirstTilePart(JpxSamples.Vector("Medium").Data, [0xFF, 0x52, 0x00, 0x0C, 0x00, 0x00, 0x00, 0x01, 0x01, 0x35, 0x00, 0x01, 0xFF, 0x00]);
+        Assert.True(new JpxDecodeFilter().TryReadHeader(data, new ImageFilterContext(new FilterContext()), out ImageHeader header));
+
+        using DecodedImage image = Decode(data, 3, out _);
+
+        Assert.Equal(3, header.MaxReduction);
+        Assert.Equal((3, ImageGeometry.Reduce(header.Width, 3), ImageGeometry.Reduce(header.Height, 3)), (image.Reduction, image.Width, image.Height));
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void The_fuzz_input_of_issue_424_decodes_at_no_more_than_the_header_offers(int asked)
+    {
+        byte[] file = File.ReadAllBytes(Path.Combine(Corpus.Directory, "..", "Broadside.Fuzz", "Seeds", "filter-jpx", "reduction-above-header-maximum.pdf"));
+        byte[] data = file[file.AsSpan().IndexOf((ReadOnlySpan<byte>)[0x00, 0x00, 0x00, 0x0C, 0x6A, 0x50, 0x20, 0x20])..];
+        Assert.True(new JpxDecodeFilter().TryReadHeader(data, new ImageFilterContext(new FilterContext()), out ImageHeader header));
+
+        using DecodedImage image = Decode(data, asked, out _);
+
+        Assert.InRange(image.Reduction, 0, Math.Min(asked, header.MaxReduction));
+        Assert.Equal((ImageGeometry.Reduce(header.Width, image.Reduction), ImageGeometry.Reduce(header.Height, image.Reduction)), (image.Width, image.Height));
+    }
+
+    private static byte[] InsertBeforeFirstTilePart(byte[] data, byte[] segment)
+    {
+        int sot = data.AsSpan().IndexOf((ReadOnlySpan<byte>)[0xFF, 0x90]);
+        Assert.True(sot > 0);
+        return [.. data.AsSpan(0, sot), .. segment, .. data.AsSpan(sot)];
+    }
+
     private static DecodedImage Decode(byte[] data, int reduction, out string[] codes)
     {
         var context = new FilterContext();
