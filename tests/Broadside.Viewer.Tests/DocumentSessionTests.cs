@@ -1,4 +1,5 @@
 using Broadside.GoldenImages;
+using Broadside.Objects;
 using Broadside.Rendering;
 using Broadside.Tests.Document;
 using Broadside.TestSupport;
@@ -290,6 +291,52 @@ public sealed class DocumentSessionTests
         var link = (Annotations.PdfLinkAnnotation)session.Document.Pages[0].Annotations[0];
         Assert.Equal(TaggedLinearizedFile.LinkedPage, Assert.IsType<PdfExplicitDestination>(link.Destination).PageIndex);
         Assert.Empty(session.Document.Diagnostics);
+    }
+
+    [Theory]
+    [InlineData(ViewerThreading.Cooperative)]
+    [InlineData(ViewerThreading.Background)]
+    public async Task Activating_a_named_destination_link_of_a_remote_linearized_file_raises_its_resolved_page(ViewerThreading threading)
+    {
+        // Issue #420: the Dests name tree of a linearized file lies after its pages (Annex F, F.3.10). Activation resolved the name
+        // synchronously, inside the UI event, which needed the end of the file and threw in the browser.
+        using var server = new RangeServer(TaggedLinearizedFile.Create());
+        using HttpClient client = server.CreateClient();
+        var options = new ViewerOptions().WithThreading(threading).UseEngine(new PdfEngine(new PdfOptions().WithSynchronousRangeFetch(false)));
+        await using DocumentSession session = await DocumentSession.OpenAsync(client, new Uri("https://example.test/tagged.pdf"), options, Token);
+        var layer = new AnnotationLayer(session);
+        var raised = new List<ViewerActionEventArgs>();
+        layer.ActionRequested += (_, e) => raised.Add(e);
+
+        await layer.LoadPageAsync(0, Token);
+        layer.Activate(new AnnotationTarget(0, 1));
+
+        ViewerActionEventArgs request = Assert.Single(raised);
+        Assert.IsType<PdfNamedDestination>(Assert.IsType<Annotations.PdfLinkAnnotation>(request.Annotation).Destination);
+        Assert.Equal(TaggedLinearizedFile.NamedPage, request.Destination?.PageIndex);
+        Assert.Empty(session.Document.Diagnostics);
+    }
+
+    [Fact]
+    public async Task A_named_destination_no_page_load_resolved_is_looked_up_asynchronously_on_activation()
+    {
+        // Issue #420: an edit can name a destination the page's load did not resolve; activation then reads it through the session.
+        using var server = new RangeServer(TaggedLinearizedFile.Create());
+        using HttpClient client = server.CreateClient();
+        var options = new ViewerOptions().UseEngine(new PdfEngine(new PdfOptions().WithSynchronousRangeFetch(false)));
+        await using DocumentSession session = await DocumentSession.OpenAsync(client, new Uri("https://example.test/tagged.pdf"), options, Token);
+        var layer = new AnnotationLayer(session);
+        var raised = new TaskCompletionSource<ViewerActionEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
+        layer.ActionRequested += (_, e) => raised.TrySetResult(e);
+        await layer.LoadPageAsync(0, Token);
+        var target = new AnnotationTarget(0, 1);
+
+        // The name object /ten (PDF 1.1) is looked up in the Dests tree by its bytes too (Annex J.3.4).
+        Assert.True(layer.Edit(target, a => a.Dictionary[new CosName("Dest")] = new CosName("ten"), regenerateAppearance: false));
+        layer.Activate(target);
+
+        ViewerActionEventArgs request = await raised.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+        Assert.Equal(TaggedLinearizedFile.NamedPage, request.Destination?.PageIndex);
     }
 
     [Fact]
