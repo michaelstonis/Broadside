@@ -21,9 +21,9 @@ public sealed class PublishedAppTests
     /// The most files the site may have (a static host and a phone fetch each one): #221's 80, plus the demo's allowance (#338) of 10
     /// for the gallery documents (13 PDFs then, which a browser fetches only when picked) and its start script, the layout package and
     /// the panels, plus 14 for the representative sample documents (#363: 15 PDFs added, TraceMonkey removed), plus one for each sample
-    /// document #451 adds (6 encrypted and signed ones, 3 with forms and annotations, 3 international).
+    /// document #451 adds (6 encrypted and signed ones, 3 with forms and annotations, 3 international, 5 legacy, scanned and color).
     /// </summary>
-    public const int FileBudget = 116;
+    public const int FileBudget = 121;
 
     private static readonly string[] WebTypes = [".html", ".js", ".css", ".wasm", ".json", ".png", ".ico", ".svg", ".pdf"];
 

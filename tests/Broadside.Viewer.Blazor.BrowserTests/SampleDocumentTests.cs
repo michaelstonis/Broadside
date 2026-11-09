@@ -23,9 +23,10 @@ public sealed class SampleDocumentTests(BrowserHost host)
     /// </summary>
     private static readonly string[] Samples =
     [
-        "application-form-xfa.pdf", "application-form.pdf", "brochure.pdf", "catalogue.pdf", "contract-signed.pdf", "dictionary-aes256-gcm.pdf", "dictionary.pdf", "invoice-colourful.pdf",
+        "application-form-xfa.pdf", "application-form.pdf", "brochure.pdf", "catalogue.pdf", "color-guide.pdf", "contract-signed.pdf", "dictionary-aes256-gcm.pdf", "dictionary.pdf", "invoice-colourful.pdf",
         "invoice-conservative-filled.pdf", "invoice-conservative.pdf", "leaflet-multilingual.pdf", "newsletter.pdf", "notice-trilingual.pdf", "novel-hardback.pdf", "novel-large-print.pdf",
-        "novel-pocket.pdf", "paper-ghostscript.pdf", "paper-rc4.pdf", "paper-reviewed.pdf", "paper.pdf", "rashomon-vertical.pdf", "showcase.pdf", "textbook-aes128.pdf",
+        "novel-pocket.pdf", "paper-ghostscript.pdf", "paper-rc4.pdf", "paper-reviewed.pdf", "paper.pdf", "rashomon-vertical.pdf", "report-1996.pdf", "scan-memo-g4.pdf", "scan-memo-jbig2.pdf",
+        "scan-moon-memo-jpx.pdf", "showcase.pdf", "textbook-aes128.pdf",
         "textbook-linearized.pdf", "textbook.pdf",
     ];
 
