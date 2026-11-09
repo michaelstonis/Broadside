@@ -94,7 +94,7 @@ now defer to it and add repository-specific notes. The points that matter here:
 
 ## What each target actually gets
 
-The table covers .NET 10, the only target framework (ADR 0002). "Accelerated" means the runtime maps the API to vector instructions
+The table covers .NET 10, the only target framework. "Accelerated" means the runtime maps the API to vector instructions
 instead of the software fallback.
 
 | Target | Runtime and code generation (default) | `Vector128` | `Vector256` / `Vector512` | Platform intrinsics |
