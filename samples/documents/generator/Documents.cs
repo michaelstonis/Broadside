@@ -26,6 +26,8 @@ internal static class Documents
         ["showcase"] = ShowcaseLayers.Write,
         ["contract"] = Contract.Write,
         ["encrypted"] = Encrypted.Write,
+        ["application-form"] = ApplicationForm.Write,
+        ["paper-reviewed"] = PaperReviewed.Write,
     };
 
     public static IEnumerable<string> Names => All.Keys;
