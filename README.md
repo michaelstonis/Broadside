@@ -161,15 +161,15 @@ Both viewer controls are shells over `Broadside.Viewer`, which owns the document
 ```razor
 @using Broadside.Viewer.Blazor
 
-<PdfViewer Source="@(new Uri("sample.pdf", UriKind.Relative))" Label="Sample document" Class="pdf-host" />
+<PdfViewer Source="@(new Uri("sample.pdf", UriKind.Relative))" Label="Sample document" />
 ```
+
+With nothing to size it, the viewer is as wide as its container and min(80vh, 600px) tall. To size it yourself, pass a class (`Class="pdf-host"`). A height, flex or grid sizing, or insets in your own stylesheet take precedence over that default:
 
 ```css
-/* wwwroot/css/app.css */
-.pdf-host { height: 80vh; }
+/* wwwroot/css/app.css: fill the rest of a flex column */
+.pdf-host { flex: 1; min-height: 0; }
 ```
-
-Give the viewer a size: its canvas and layers are absolutely positioned and its own stylesheet sets no height, so without one it collapses to zero height ([#393](https://github.com/michaelstonis/Broadside/issues/393) proposes a default).
 
 **.NET MAUI** (`Broadside.Viewer.Maui`). The `PdfView` control draws with SkiaSharp. Tiles render off the UI thread ([#357](https://github.com/michaelstonis/Broadside/issues/357)) and are composed on the GPU: Metal on iOS and Mac Catalyst, OpenGL ES on Android, and Direct3D on Windows. Set `UseHardwareAcceleration` to false to compose on the CPU instead. Register it with `builder.UseBroadsideViewer()` in `MauiProgram`, then set `Source` to a file path or an http(s) address.
 
