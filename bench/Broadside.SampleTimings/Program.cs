@@ -38,7 +38,7 @@ using var rasterizer = new SoftwareRasterizer();
 var options = new RenderOptions().WithDpi(dpi);
 foreach (string file in SampleDocuments.Files().Where(f => only.Count == 0 || only.Contains(f)))
 {
-    using PdfDocument document = SampleDocuments.Engine.Open(File.ReadAllBytes(Path.Combine(SampleDocuments.Directory, file)));
+    using PdfDocument document = SampleDocuments.Open(file, File.ReadAllBytes(Path.Combine(SampleDocuments.Directory, file)));
     int count = document.Pages.Count;
     for (int page = 0; page < count; page++)
     {

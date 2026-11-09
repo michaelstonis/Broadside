@@ -97,6 +97,14 @@ if want showcase; then
   rm -f "$out/.showcase-weasyprint.pdf"
 fi
 
+# Broadside: the signed agreement (its test PKI is in contract/test-pki/), then the encrypted copies of the documents above.
+want contract && broadside contract
+want encrypted && broadside encrypted
+
+# Broadside: forms (and an XFA hybrid in an update), and the paper with a referee's annotations in an update.
+want application-form && broadside application-form
+want paper-reviewed && broadside paper-reviewed
+
 echo
 echo "Sizes:"
 ( cd "$out" && ls -l *.pdf | awk '{ printf "  %-40s %10s bytes\n", $9, $5; total += $5 } END { printf "  %-40s %10s bytes (%.1f MB)\n", "total", total, total / 1048576 }' )

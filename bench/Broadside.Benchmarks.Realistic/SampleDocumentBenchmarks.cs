@@ -18,6 +18,7 @@ public class SampleDocumentBenchmarks
 {
     private SoftwareRasterizer? _rasterizer;
     private readonly RenderOptions _options = new();
+    private string _file = string.Empty;
     private byte[] _bytes = [];
     private int _index;
     private PdfDocument? _document;
@@ -37,10 +38,10 @@ public class SampleDocumentBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        (_bytes, _index) = SampleDocuments.Read(Page);
+        (_file, _bytes, _index) = SampleDocuments.Read(Page);
         _options.Dpi = Dpi;
         _rasterizer = new SoftwareRasterizer();
-        _document = SampleDocuments.Engine.Open(_bytes);
+        _document = SampleDocuments.Open(_file, _bytes);
         Render();
     }
 
@@ -61,7 +62,7 @@ public class SampleDocumentBenchmarks
     [Benchmark]
     public int OpenAndRender()
     {
-        using PdfDocument document = SampleDocuments.Engine.Open(_bytes);
+        using PdfDocument document = SampleDocuments.Open(_file, _bytes);
         using Bitmap bitmap = _rasterizer!.Render(document.Pages[_index], _options);
         return bitmap.Width + bitmap.Height;
     }

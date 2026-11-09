@@ -13,7 +13,10 @@ images, fonts or designs comes from another product's samples.
 `build.sh` regenerates every PDF into `pdf/`, which is committed while the whole set stays under about 40 MB. Pass names to rebuild
 only some of them, for example `samples/documents/build.sh textbook`. The producers are development tools only and never package
 dependencies. WeasyPrint and qpdf output is byte-for-byte reproducible. Broadside's own output differs between builds only in its
-random file identifier. Chrome and Ghostscript write the time they ran.
+random file identifier, except that encryption and signatures also draw random salts, keys and padding. Chrome and Ghostscript write
+the time they ran.
+
+`COVERAGE.md` lists which document exercises each use case Broadside supports (#451).
 
 The Blazor and MAUI demo galleries open with them (the textbook first), `bench/Broadside.Benchmarks.Realistic` is their benchmark
 tier (outside the regression gate), `tests/Broadside.Viewer.Blazor.BrowserTests/SampleDocumentTests.cs` renders every page in the
@@ -37,7 +40,27 @@ browser within a time budget, and `docs/benchmarks/sample-documents-baseline.md`
 | `novel-pocket.pdf` | Novel, pocket edition | WeasyPrint, then qpdf | 170 | 593 KB | 110 × 178 mm; the whole of The Wind in the Willows in EB Garamond (CFF) with ligatures, small caps, a contents page with leaders and page numbers, bookmarks, page labels (roman front matter), object streams |
 | `novel-hardback.pdf` | Novel, hardback edition | WeasyPrint (`--pdf-tags`), then qpdf | 180 | 743 KB | 152 × 229 mm, tagged, mirrored margins, running heads that differ on left and right pages, chapters opening on right-hand pages, blank pages, page labels, object streams |
 | `novel-large-print.pdf` | Novel, large-print edition | Broadside (flow layout) | 219 | 743 KB | PDF 2.0 and PDF/UA-1: Atkinson Hyperlegible at 16 pt, tagged as it is laid out, a contents page whose page numbers come from a first layout pass (found by Broadside's own text extraction), an outline, page labels that match the printed folios |
+| `contract-signed.pdf` | Services agreement, signed | Broadside (flow layout, `Sign`, incremental updates) | 3 | 118 KB | Four revisions: the unsigned agreement with two signature fields; a certification signature (DocMDP, form filling and annotations allowed) with a visible appearance; the client's name and date filled in and an approval signature; a sticky note added after signing (an allowed change). Signed with the test PKI below |
+| `paper-rc4.pdf` | Two-column scientific paper, encrypted | Broadside | 2 | 163 KB | RC4 128-bit (V 2, R 3), owner password only: opens without a prompt; printing and changes not allowed |
+| `textbook-aes128.pdf` | Textbook chapter, encrypted | Broadside | 8 | 442 KB | AES-128 (V 4, R 4, crypt filters), owner password only; copying and changes not allowed |
+| `invoice-conservative-aes256.pdf` | Invoice, encrypted | Broadside | 3 | 113 KB | AES-256 (V 5, R 6) with a user password: opening needs `broadside-user` (or the owner password); printing and form filling allowed |
+| `dictionary-aes256-gcm.pdf` | Dictionary, encrypted | Broadside | 17 | 293 KB | PDF 2.0 AES-256-GCM (ISO/TS 32003) with integrity protection (ISO/TS 32004), owner password only. Most other readers cannot open it yet |
+| `invoice-colourful-certificate.pdf` | Invoice, encrypted to a certificate | Broadside | 2 | 54 KB | Public-key security handler (`Adobe.PubSec`): opening needs the client's test certificate and key (`contract/test-pki/client.p12`); printing allowed |
+| `application-form.pdf` | Application form | Broadside (PdfCanvas, `PdfAcroForm`, COS) | 2 | 60 KB | Every AcroForm field type: text (comb, read-only, required, multi-line), check boxes, radio buttons, an editable combo box, a multi-select list box, push buttons (reset, JavaScript print, submit to a URL) and an unsigned signature field; Acrobat-style keystroke, format and calculate scripts (`AFNumber_Format`, `AFSimple_Calculate`, `AFDate_FormatEx`) with a calculation order (`/CO`), and a document-level script. Broadside keeps the scripts and does not run them |
+| `application-form-xfa.pdf` | Application form, hybrid | Broadside (incremental update) | 2 | 61 KB | The same form with an XFA form (preamble, config, template, datasets, postamble packets) added to the AcroForm in a second revision |
+| `paper-reviewed.pdf` | Scientific paper, reviewed | Chrome, then a Broadside incremental update | 3 | 179 KB | A referee's markup placed with Broadside's text extraction: highlight with a popup and two threaded replies (one a review state), underline, squiggly, strike-out, caret, ink, square, circle, free text, a line with an arrowhead, polygon, polyline, a stamp, a file attachment (CSV), an unapplied redaction, and a new report page whose links are URI, GoTo, a named destination, GoToR, Launch and JavaScript actions |
 | `showcase.pdf` | Feature showcase | WeasyPrint, then a Broadside incremental update | 5 | 113 KB | Inline SVG (joins and caps, linear and radial gradients, a pattern, clipping, curves), nine kinds of CSS border and background, five counter styles, footnotes, bookmarks, internal and external links; Broadside adds two optional content groups (one hidden by default) and page labels in a second revision |
+
+## Passwords and test keys
+
+Everything here is **test only** and protects nothing; it is published so that tests, benchmarks and anyone else can open the files.
+
+- The password-encrypted samples share the owner password `broadside-owner`. `invoice-conservative-aes256.pdf` also has the user
+  password `broadside-user`.
+- `contract/test-pki/` is a throwaway public-key infrastructure that `generator/TestPki.cs` made: `root-ca.cer`, a self-signed root
+  ("Broadside Sample Documents Test Root (TEST ONLY)"), and `provider.p12` and `client.p12`, two end-entity certificates with their
+  RSA keys, issued by it and valid from 2026 to 2036. The PKCS #12 password is `broadside-test`. They are committed so that rebuilding
+  keeps the same certificates. Delete the folder and the next build makes new ones.
 
 ## Images
 
@@ -72,7 +95,7 @@ is drawn in SVG or with PdfCanvas for this project.
 
 | Document | Text |
 |---|---|
-| Catalogue, invoices, textbook, newsletter, paper, brochure, showcase | Written for the Broadside project. The textbook's physical data (orbital heights, periods, planetary semi-major axes) are standard published values. The newsletter's club, members and counts and the paper's authors and measurements are invented; the facts about Wisdom the albatross are as published by the U.S. Fish and Wildlife Service. |
+| Catalogue, invoices, textbook, newsletter, paper, brochure, showcase, agreement, application form, referee's report | Written for the Broadside project. The textbook's physical data (orbital heights, periods, planetary semi-major axes) are standard published values. The newsletter's club, members and counts and the paper's authors and measurements are invented; the facts about Wisdom the albatross are as published by the U.S. Fish and Wildlife Service. |
 | Novel (three editions) | *The Wind in the Willows* by Kenneth Grahame (1908), public domain in the United States. Text from Project Gutenberg eBook #289 (<https://www.gutenberg.org/ebooks/289>) without its header, footer, licence or illustration markers, converted by `tools/willows_extract.py` into `novel/willows.html` and `novel/willows.json`. |
 | Dictionary | 508 entries, *Qua* to *Quinizarin*, from *Webster's Unabridged Dictionary* (G. & C. Merriam, 1913 edition), public domain in the United States. Text from Project Gutenberg eBook #29765 (<https://www.gutenberg.org/ebooks/29765>) without its header, footer or licence, converted by `tools/webster_extract.py`, which leaves out eight entries whose definitions are offensive today. |
 
