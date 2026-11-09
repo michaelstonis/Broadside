@@ -24,6 +24,8 @@ internal static class Documents
         ["novel-large-print"] = NovelLargePrint.Write,
         ["brochure"] = Brochure.Write,
         ["showcase"] = ShowcaseLayers.Write,
+        ["contract"] = Contract.Write,
+        ["encrypted"] = Encrypted.Write,
     };
 
     public static IEnumerable<string> Names => All.Keys;

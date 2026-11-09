@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Security.Cryptography.X509Certificates;
+using Broadside.Security;
 using Broadside.TestSupport;
 
 namespace Broadside.Benchmarks;
@@ -35,6 +37,24 @@ internal static class SampleDocuments
         .UseSystemFontResolver(null)
         .WithDisplayListCacheBudget(0));
 
+    /// <summary>
+    /// Opens a sample with <see cref="Engine"/>, with the test-only credentials the encrypted samples need (samples/documents/MANIFEST.md):
+    /// the user password of the AES-256 invoice and the client's test certificate for the certificate-encrypted one.
+    /// </summary>
+    /// <param name="file">The sample's file name.</param>
+    /// <param name="bytes">The file's bytes.</param>
+    /// <returns>The open document.</returns>
+    public static PdfDocument Open(string file, byte[] bytes) =>
+        Credentials(file) is { } credentials ? Engine.Open(bytes, credentials) : Engine.Open(bytes);
+
+    private static PdfCredentials? Credentials(string file) => file switch
+    {
+        "invoice-conservative-aes256.pdf" => new PdfPassword("broadside-user"),
+        "invoice-colourful-certificate.pdf" => new PdfCertificateCredentials(X509CertificateLoader.LoadPkcs12FromFile(
+            Path.Combine(CorpusLocator.RepositoryRoot, "samples", "documents", "contract", "test-pki", "client.p12"), "broadside-test")),
+        _ => null,
+    };
+
     /// <summary>Gets the folder of the sample PDFs.</summary>
     public static string Directory => Path.Combine(CorpusLocator.RepositoryRoot, "samples", "documents", "pdf");
 
@@ -59,10 +79,10 @@ internal static class SampleDocuments
 
     /// <summary>Reads the file of a parameter value and returns its bytes and zero-based page.</summary>
     /// <param name="value">A value from <see cref="BenchmarkPages"/>.</param>
-    /// <returns>The file's bytes and the page index.</returns>
-    public static (byte[] Bytes, int Page) Read(string value)
+    /// <returns>The file's name and bytes and the page index.</returns>
+    public static (string File, byte[] Bytes, int Page) Read(string value)
     {
         int hash = value.LastIndexOf('#');
-        return (File.ReadAllBytes(Path.Combine(Directory, value[..hash])), int.Parse(value[(hash + 1)..], NumberStyles.None, CultureInfo.InvariantCulture));
+        return (value[..hash], File.ReadAllBytes(Path.Combine(Directory, value[..hash])), int.Parse(value[(hash + 1)..], NumberStyles.None, CultureInfo.InvariantCulture));
     }
 }

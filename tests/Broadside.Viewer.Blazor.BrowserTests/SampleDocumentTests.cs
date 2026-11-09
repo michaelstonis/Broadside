@@ -17,11 +17,15 @@ public sealed class SampleDocumentTests(BrowserHost host)
     /// <summary>The longest a gallery document may take to open and present its first page.</summary>
     private static readonly PageWaitForFunctionOptions OpenBudget = new() { Timeout = 90_000 };
 
-    /// <summary>Every sample PDF the demo serves (samples/documents/pdf), in the order of the baseline table.</summary>
+    /// <summary>
+    /// Every sample PDF the demo serves (samples/documents/pdf) that opens without a password, in the order of the baseline table. The
+    /// two that need one (a user password, a certificate) are served but not listed: the demo has no password prompt.
+    /// </summary>
     private static readonly string[] Samples =
     [
-        "brochure.pdf", "catalogue.pdf", "dictionary.pdf", "invoice-colourful.pdf", "invoice-conservative-filled.pdf", "invoice-conservative.pdf",
-        "newsletter.pdf", "novel-hardback.pdf", "novel-large-print.pdf", "novel-pocket.pdf", "paper-ghostscript.pdf", "paper.pdf", "showcase.pdf",
+        "brochure.pdf", "catalogue.pdf", "contract-signed.pdf", "dictionary-aes256-gcm.pdf", "dictionary.pdf", "invoice-colourful.pdf",
+        "invoice-conservative-filled.pdf", "invoice-conservative.pdf", "newsletter.pdf", "novel-hardback.pdf", "novel-large-print.pdf",
+        "novel-pocket.pdf", "paper-ghostscript.pdf", "paper-rc4.pdf", "paper.pdf", "showcase.pdf", "textbook-aes128.pdf",
         "textbook-linearized.pdf", "textbook.pdf",
     ];
 
