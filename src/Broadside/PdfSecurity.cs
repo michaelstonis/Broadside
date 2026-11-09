@@ -39,6 +39,14 @@ public sealed class PdfSecurity
     /// <remarks>ISO 32000-2 §7.6.2, Table 20.</remarks>
     public CosDictionary EncryptionDictionary { get; }
 
+    /// <summary>
+    /// Gets the objects the encryption dictionary's entries reached while the document opened, as the security handler read them
+    /// (undecrypted, before decryption was installed; §7.6.2), or <see langword="null"/> when its entries reached none. Such an
+    /// object loads again, decrypted, for everything else that refers to it (issue #398); a save that keeps the encryption
+    /// writes the dictionary from these values.
+    /// </summary>
+    internal IReadOnlyDictionary<CosReference, CosObject>? ReadBeforeDecryption { get; init; }
+
     /// <summary>Gets the name of the security handler that opened the document, such as <c>Standard</c>.</summary>
     /// <remarks>ISO 32000-2 §7.6.2, Table 20, <c>Filter</c>; a handler may also be chosen by <c>SubFilter</c>.</remarks>
     public CosName Handler { get; }

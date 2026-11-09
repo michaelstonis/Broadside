@@ -211,7 +211,13 @@ internal sealed class EncryptionPlan
             : new CosString([], hexadecimal: true);
         // §7.6.2: a complete file whose kept encryption dictionary holds a reference writes a new, direct one that reads the same
         // (issue #390); an incremental update leaves the document's as it is.
-        CosDictionary? rebuilt = incremental ? null : KeptEncryptionDictionary.Rebuild(security, loader.Resolve, keepsIntegrity: integrity is not null);
+        // Its entries resolve as the handler read them, before decryption was installed (issue #398).
+        CosDictionary? rebuilt = incremental
+            ? null
+            : KeptEncryptionDictionary.Rebuild(
+                security,
+                value => value is CosReference reference && security.ReadBeforeDecryption is { } read && read.TryGetValue(reference, out CosObject? found) ? found : loader.Resolve(value),
+                keepsIntegrity: integrity is not null);
         return new EncryptionPlan(
             ObjectEncryptor.Keep(decryptor, rebuilt ?? security.EncryptionDictionary, loader.Resolve),
             replacesDictionary: false,

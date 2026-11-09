@@ -56,6 +56,10 @@ internal sealed class ObjectLoader
     private Dictionary<int, int>? _removed;
     private HashSet<int>? _referencedAbove;
     private int _nextNumber;
+    private bool _recording;
+    private CosReference? _recordingKeeps;
+    private List<CosReference>? _recordedLoads;
+    private List<int>? _recordedObjectStreams;
 
     /// <summary>Initializes a new instance of the <see cref="ObjectLoader"/> class.</summary>
     /// <param name="source">The file.</param>
@@ -277,6 +281,63 @@ internal sealed class ObjectLoader
         CosMutation.Advance();
     }
 
+    /// <summary>
+    /// Starts recording the objects and object streams loaded from now on, so <see cref="ForgetRecordedLoads"/> can take them out of
+    /// the caches. Used while the encryption dictionary is read, before decryption is installed (§7.6.2): what loads then is read
+    /// undecrypted, which is right only for the encryption dictionary itself (issue #398). Open is single-threaded.
+    /// </summary>
+    /// <param name="keep">The object that is not recorded and stays loaded as it was read (the encryption dictionary), or <see langword="null"/>.</param>
+    public void RecordLoads(CosReference? keep)
+    {
+        _recording = true;
+        _recordingKeeps = keep;
+    }
+
+    /// <summary>Stops recording loads (<see cref="RecordLoads"/>) and leaves what loaded in the caches.</summary>
+    public void StopRecordingLoads()
+    {
+        _recording = false;
+        _recordingKeeps = null;
+        _recordedLoads = null;
+        _recordedObjectStreams = null;
+    }
+
+    /// <summary>
+    /// Stops recording loads (<see cref="RecordLoads"/>) and takes every object and object stream recorded since out of the caches,
+    /// so each loads again, decrypted, when next asked for.
+    /// </summary>
+    /// <returns>The objects taken out, as they were read, or <see langword="null"/> when there were none.</returns>
+    public Dictionary<CosReference, CosObject>? ForgetRecordedLoads()
+    {
+        List<CosReference>? loads = _recordedLoads;
+        List<int>? objectStreams = _recordedObjectStreams;
+        StopRecordingLoads();
+        Dictionary<CosReference, CosObject>? forgotten = null;
+        if (loads is not null)
+        {
+            foreach (CosReference reference in loads)
+            {
+                if (Hooks.Cache.TryGet(reference, out CosObject? value))
+                {
+                    (forgotten ??= [])[reference] = value;
+                    Hooks.Cache.Remove(reference);
+                }
+
+                _sourceBytes?.TryRemove(reference, out _);
+            }
+        }
+
+        if (objectStreams is not null)
+        {
+            foreach (int number in objectStreams)
+            {
+                _objectStreams?.Remove(number);
+            }
+        }
+
+        return forgotten;
+    }
+
     /// <summary>Finds an object that has been loaded (or added) without loading it.</summary>
     /// <param name="reference">The object's number and generation.</param>
     /// <param name="value">The object, when loaded.</param>
@@ -473,6 +534,10 @@ internal sealed class ObjectLoader
     /// <summary>Locates and parses an object nobody has loaded yet, then runs hook 2.</summary>
     private Created<CosObject> LoadUncached(CosReference reference, XrefEntry entry, int depth)
     {
+        if (_recording && !reference.Equals(_recordingKeeps))
+        {
+            (_recordedLoads ??= []).Add(reference);
+        }
         if (entry.Kind == XrefEntryKind.Compressed)
         {
             return LoadCompressed(reference, entry, depth);
@@ -547,6 +612,10 @@ internal sealed class ObjectLoader
     /// <summary>Loads and decodes object stream <paramref name="number"/> and reads its header (§7.5.7, Table 16).</summary>
     private ObjectStream ReadObjectStream(int number, CosReference member, int depth)
     {
+        if (_recording)
+        {
+            (_recordedObjectStreams ??= []).Add(number);
+        }
         var reference = new CosReference(number, 0);
         if (CrossReference.TryGetEntry(number, out XrefEntry entry) && entry.Kind == XrefEntryKind.Compressed)
         {

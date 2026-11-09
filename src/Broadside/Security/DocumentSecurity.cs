@@ -11,7 +11,9 @@ namespace Broadside.Security;
 /// <remarks>
 /// ISO 32000-2 §7.6.2: a document is encrypted when its trailer has an <c>Encrypt</c> entry. Runs after the cross-reference
 /// information is read and before the catalog loads, so the encryption dictionary (and anything it refers to) loads undecrypted and
-/// every object loaded afterwards is decrypted. The newest trailer's <c>Encrypt</c> and <c>ID</c> apply (§7.6.2: the entry "should be
+/// every object loaded afterwards is decrypted. Only the encryption dictionary stays loaded as it was read: anything else loaded
+/// before decryption is installed is taken out of the caches then, and loads again decrypted (<see cref="PdfSecurity.ReadBeforeDecryption"/>
+/// keeps it as the handler read it). The newest trailer's <c>Encrypt</c> and <c>ID</c> apply (§7.6.2: the entry "should be
 /// identical in all copies of the trailer").
 /// <para>
 /// A document whose strings and streams are not encrypted (<c>StmF</c> and <c>StrF</c> <c>Identity</c>) and whose embedded files
@@ -58,6 +60,33 @@ internal static class DocumentSecurity
             return null;
         }
 
+        // §7.6.2: what loads before decryption is installed is read undecrypted, which is right only for the encryption dictionary.
+        // Anything else its entries reach (an object in an encrypted object stream, a dictionary the document also uses) is taken
+        // out of the caches when decryption is installed, so it loads again decrypted (issue #398).
+        loader.RecordLoads(entry as CosReference);
+        try
+        {
+            return Open(source, loader, streams, handlers, credentials, diagnostics, reportUnusable, trailer, entry, out unusable);
+        }
+        finally
+        {
+            loader.StopRecordingLoads();
+        }
+    }
+
+    private static PdfSecurity? Open(
+        PdfSource source,
+        ObjectLoader loader,
+        StreamDecoder streams,
+        SecurityHandlerRegistry handlers,
+        PdfCredentials? credentials,
+        DiagnosticSink diagnostics,
+        bool reportUnusable,
+        CosDictionary trailer,
+        CosObject entry,
+        out bool unusable)
+    {
+        unusable = false;
         if (loader.Resolve(entry) is not CosDictionary encryption)
         {
             if (!reportUnusable)
@@ -118,6 +147,7 @@ internal static class DocumentSecurity
         }
 
         DocumentDecryptor decryptor = DocumentDecryptor.Create(encryption, version, result, diagnostics, loader.Resolve);
+        IReadOnlyDictionary<CosReference, CosObject>? readBeforeDecryption = loader.ForgetRecordedLoads();
         loader.Hooks.Decryptor = decryptor;
         streams.CryptFilter = decryptor;
 
@@ -133,7 +163,10 @@ internal static class DocumentSecurity
             result.Permissions,
             result.RawPermissions,
             decryptor.EncryptMetadata,
-            integrity);
+            integrity)
+        {
+            ReadBeforeDecryption = readBeforeDecryption,
+        };
     }
 
     /// <summary>
@@ -169,9 +202,6 @@ internal static class DocumentSecurity
         DiagnosticSink diagnostics)
     {
         DocumentDecryptor decryptor = DocumentDecryptor.Create(encryption, version, result: null, diagnostics, loader.Resolve);
-        loader.Hooks.Decryptor = decryptor;
-        streams.CryptFilter = decryptor;
-
         int? revision = loader.Resolve(encryption.TryGetValue(KnownNames.R, out CosObject? r) ? r : null) is CosInteger { Value: >= 0 and <= int.MaxValue } rValue
             ? (int)rValue.Value
             : null;
@@ -179,6 +209,10 @@ internal static class DocumentSecurity
         int keyLength = loader.Resolve(encryption.TryGetValue(KnownNames.Length, out CosObject? length) ? length : null) is CosInteger { Value: > 0 and <= 4096 } bits
             ? (int)bits.Value
             : 0;
+        IReadOnlyDictionary<CosReference, CosObject>? readBeforeDecryption = loader.ForgetRecordedLoads();
+        loader.Hooks.Decryptor = decryptor;
+        streams.CryptFilter = decryptor;
+
         PdfIntegrityStatus integrity = IntegrityVerifier.Verify(source, loader, version, rawPermissions, ReadOnlySpan<byte>.Empty, diagnostics);
         return new PdfSecurity(
             encryption,
@@ -191,7 +225,10 @@ internal static class DocumentSecurity
             StandardSecurityHandler.UserPermissions(rawPermissions, revision ?? 0),
             rawPermissions,
             decryptor.EncryptMetadata,
-            integrity);
+            integrity)
+        {
+            ReadBeforeDecryption = readBeforeDecryption,
+        };
     }
 
     /// <summary>
