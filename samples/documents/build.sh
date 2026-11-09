@@ -137,6 +137,24 @@ if want scans; then
   rm -rf "$out/.jbig2" "$out/.memo.txt" "$out/.moon.txt"
 fi
 
+# Structure and scale (Broadside): mixed page geometry, a portfolio and PDF/A copies of other samples, the complete works of
+# Shakespeare (the text is downloaded from Project Gutenberg for this step only), and an A1 contour map.
+want board-pack && broadside board-pack
+want archival && broadside archival
+if want shakespeare; then
+  echo "curl        gutenberg.org eBook #100 -> pdf/.pg100.txt"
+  curl -sSfL -o "$out/.pg100.txt" https://www.gutenberg.org/cache/epub/100/pg100.txt
+  broadside shakespeare
+  rm -f "$out/.pg100.txt"
+fi
+want contour-map && broadside contour-map
+
+# Damaged copies of showcase.pdf and novel-large-print.pdf (after both are built).
+if want damaged; then
+  echo "python      tools/damage.py -> pdf/showcase-broken-xref.pdf, pdf/novel-large-print-truncated.pdf"
+  "${PYTHON:-python3}" "$here/tools/damage.py" "$out" >/dev/null
+fi
+
 echo
 echo "Sizes:"
 ( cd "$out" && ls -l *.pdf | awk '{ printf "  %-40s %10s bytes\n", $9, $5; total += $5 } END { printf "  %-40s %10s bytes (%.1f MB)\n", "total", total, total / 1048576 }' )
