@@ -65,9 +65,17 @@ internal static class IntegrityVerifier
     /// <param name="version">The encryption dictionary's <c>V</c>.</param>
     /// <param name="rawPermissions">The permissions word (<c>P</c>); bit 13 clear requires a token.</param>
     /// <param name="fileKey">The file encryption key; empty when the document opened without authentication (not checkable).</param>
+    /// <param name="readBeforeDecryption">The objects the encryption dictionary's entries reached, as read before decryption was installed; <c>KDFSalt</c> is read from these (ISO 32000-2 §7.6.2).</param>
     /// <param name="diagnostics">Where to report the outcome.</param>
     /// <returns>The outcome.</returns>
-    public static PdfIntegrityStatus Verify(PdfSource source, ObjectLoader loader, int version, int rawPermissions, ReadOnlySpan<byte> fileKey, DiagnosticSink diagnostics)
+    public static PdfIntegrityStatus Verify(
+        PdfSource source,
+        ObjectLoader loader,
+        int version,
+        int rawPermissions,
+        ReadOnlySpan<byte> fileKey,
+        IReadOnlyDictionary<CosReference, CosObject>? readBeforeDecryption,
+        DiagnosticSink diagnostics)
     {
         CosDictionary trailer = loader.CrossReference.Sections[0].Trailer;
         bool required = version >= 5 && (rawPermissions & (1 << 12)) == 0;
@@ -95,8 +103,19 @@ internal static class IntegrityVerifier
         }
 
         var verifier = new Verification(source, loader, diagnostics);
-        return verifier.Run(entry, version, fileKey);
+        return verifier.Run(entry, version, fileKey, readBeforeDecryption);
     }
+
+    /// <summary>
+    /// Resolves an encryption dictionary entry as it is stored: an object the handler read before decryption was installed is the
+    /// value it read, undecrypted (ISO 32000-2 §7.6.2: the encryption dictionary's strings are not encrypted).
+    /// </summary>
+    /// <param name="value">The entry.</param>
+    /// <param name="readBeforeDecryption">The objects read before decryption was installed, or <see langword="null"/>.</param>
+    /// <param name="loader">Resolves references.</param>
+    /// <returns>The entry's value.</returns>
+    internal static CosObject ResolveAsStored(CosObject? value, IReadOnlyDictionary<CosReference, CosObject>? readBeforeDecryption, ObjectLoader loader) =>
+        value is CosReference reference && readBeforeDecryption is not null && readBeforeDecryption.TryGetValue(reference, out CosObject? found) ? found : loader.Resolve(value);
 
     /// <summary>Parses a PDF MAC token and checks its structure (§6.3) without any key: the parser the fuzz target drives.</summary>
     /// <param name="der">The DER-encoded token.</param>
@@ -123,7 +142,7 @@ internal static class IntegrityVerifier
     /// <summary>The checks of one document, with its diagnostics.</summary>
     private sealed class Verification(PdfSource source, ObjectLoader loader, DiagnosticSink diagnostics)
     {
-        public PdfIntegrityStatus Run(CosObject entry, int version, ReadOnlySpan<byte> fileKey)
+        public PdfIntegrityStatus Run(CosObject entry, int version, ReadOnlySpan<byte> fileKey, IReadOnlyDictionary<CosReference, CosObject>? readBeforeDecryption)
         {
             if (loader.Resolve(entry) is not CosDictionary authCode)
             {
@@ -136,7 +155,7 @@ internal static class IntegrityVerifier
             }
 
             if (Encryption() is not { } encryption
-                || loader.Resolve(encryption.TryGetValue(KdfSalt, out CosObject? salt) ? salt : null) is not CosString { Bytes.Length: 32 } kdfSalt)
+                || ResolveAsStored(encryption.TryGetValue(KdfSalt, out CosObject? salt) ? salt : null, readBeforeDecryption, loader) is not CosString { Bytes.Length: 32 } kdfSalt)
             {
                 return Invalid("The encryption dictionary shall have a 32-byte KDFSalt string when the document has a PDF MAC token (ISO/TS 32004 Table 2).");
             }
