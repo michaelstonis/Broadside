@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Broadside.Graphics;
 
 namespace Broadside.Rendering;
@@ -112,19 +111,7 @@ internal readonly struct Compositor
         }
 
         // Premultiplied source-over of an opaque colour with source alpha = coverage: d = s × c + d × (1 − c), per channel, rounded.
-        int inverse = 255 - scaled;
-        Span<byte> bytes = MemoryMarshal.AsBytes(span);
-        int s0 = (int)(color & 0xFF) * scaled;
-        int s1 = (int)((color >> 8) & 0xFF) * scaled;
-        int s2 = (int)((color >> 16) & 0xFF) * scaled;
-        int s3 = (int)(color >> 24) * scaled;
-        for (int i = 0; i < bytes.Length; i += 4)
-        {
-            bytes[i] = (byte)Divide255(s0 + (bytes[i] * inverse));
-            bytes[i + 1] = (byte)Divide255(s1 + (bytes[i + 1] * inverse));
-            bytes[i + 2] = (byte)Divide255(s2 + (bytes[i + 2] * inverse));
-            bytes[i + 3] = (byte)Divide255(s3 + (bytes[i + 3] * inverse));
-        }
+        CompositingRows.FillRow(span, color, scaled);
     }
 
     /// <summary>
@@ -164,30 +151,7 @@ internal readonly struct Compositor
     }
 
     /// <summary>Premultiplied source-over with the source scaled by <paramref name="coverage"/>: d = s·c + d·(1 − a·c).</summary>
-    public static uint Over(uint source, uint destination, int coverage)
-    {
-        uint alpha = source >> 24;
-        if (coverage == 255 && alpha == 255)
-        {
-            return source;
-        }
-
-        if (coverage <= 0)
-        {
-            return destination;
-        }
-
-        int keep = 255 - Divide255((int)alpha * coverage);
-        uint result = 0;
-        for (int shift = 0; shift < 32; shift += 8)
-        {
-            int s = (int)((source >> shift) & 0xFF);
-            int d = (int)((destination >> shift) & 0xFF);
-            result |= (uint)Math.Min(Divide255((s * coverage) + (d * keep)), 255) << shift;
-        }
-
-        return result;
-    }
+    public static uint Over(uint source, uint destination, int coverage) => CompositingRows.Over(source, destination, coverage);
 
     /// <summary>The union of two shapes or alphas, 0 to 255: b + s − b × s (ISO 32000-2 §11.3.7.3).</summary>
     public static int Union(int backdrop, int source) => backdrop + source - Divide255(backdrop * source);
@@ -285,11 +249,7 @@ internal readonly struct Compositor
         difference >= 0 ? Divide255(difference * amount) : -Divide255(-difference * amount);
 
     /// <summary>Rounds <paramref name="value"/> / 255 for 0 ≤ value ≤ 2 × 255 × 255.</summary>
-    public static int Divide255(int value)
-    {
-        value += 128;
-        return (value + (value >> 8)) >> 8;
-    }
+    public static int Divide255(int value) => CompositingRows.Divide255(value);
 
     /// <summary>The general compositing formula of §11.3.6 with a blend function other than Normal.</summary>
     private static uint Blend(uint source, uint destination, int coverage, BlendMode mode)
