@@ -683,6 +683,9 @@ internal sealed partial class FileWriter
             dictionary[entry.Key] = entry.Value;
         }
 
+        // The type is what keeps the section, and the AuthCode placeholders in its dictionary, from being encrypted (§7.6.2); no
+        // trailer entry may change it (issue #466).
+        dictionary[KnownNames.Type] = KnownNames.XRef;
         dictionary[KnownNames.W] = new CosArray([new CosInteger(1), new CosInteger(middle), new CosInteger(2)]);
 
         // Index defaults to [0 Size] (§7.5.8.2, Table 17), which a complete file's one subsection is.
