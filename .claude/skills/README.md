@@ -7,7 +7,7 @@ Each directory holds a `SKILL.md`: YAML frontmatter (`name`, `description`) foll
 | [`picking-up-an-issue`](picking-up-an-issue/SKILL.md) | Starting any unit of work: find an unblocked issue, claim it, worktree and branch, verify, commit, PR, merge policy, clean up. |
 | [`updating-the-conformance-map`](updating-the-conformance-map/SKILL.md) | A PR touches a spec clause: find the row, cell formats, third-level splits, XML doc citations, the checker. |
 | [`writing-a-corpus-file`](writing-a-corpus-file/SKILL.md) | A test needs a minimal PDF that `tests/Corpus/` does not have: `generate.py`, verification, README, `Corpus.cs`, snapshot. |
-| [`adding-a-benchmark`](adding-a-benchmark/SKILL.md) | A PR touches a hot path: `[MemoryDiagnoser]` class, zero-allocation proof, dry/short/full runs, the regression gate. |
+| [`adding-a-benchmark`](adding-a-benchmark/SKILL.md) | A PR touches a hot path: `[MemoryDiagnoser]` class, zero-allocation proof, dry/short/full runs, the regression gate; SIMD kernels: bit-exactness, the intrinsics-off run, both browser builds. |
 | [`adding-a-fuzz-target`](adding-a-fuzz-target/SKILL.md) | A PR adds or changes a parser or codec: register a SharpFuzz target, seeds, smoke mode. |
 | [`adding-a-filter`](adding-a-filter/SKILL.md) | Implementing a stream filter or image codec behind the filter extension point (design brief until #38 lands). |
 | [`adding-a-font-program-parser`](adding-a-font-program-parser/SKILL.md) | Implementing a TrueType, CFF, Type 1 or OpenType parser behind the font program extension point (design brief until #50 lands). |

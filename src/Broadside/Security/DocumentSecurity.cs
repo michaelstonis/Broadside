@@ -26,6 +26,7 @@ internal static class DocumentSecurity
 {
     private static readonly CosName AuthEvent = new("AuthEvent");
     private static readonly CosName EFOpen = new("EFOpen");
+    private static readonly CosName KdfSaltKey = new("KDFSalt");
 
     /// <summary>Reads the trailer's <c>Encrypt</c> entry and, for an encrypted document, installs decryption on the loader and pipeline.</summary>
     /// <param name="source">The file.</param>
@@ -120,11 +121,12 @@ internal static class DocumentSecurity
         }
 
         DocumentDecryptor decryptor = DocumentDecryptor.Create(encryption, version, result, diagnostics, loader.Resolve);
+        ReadKdfSalt(encryption, loader);
         IReadOnlyDictionary<CosReference, CosObject>? readBeforeDecryption = loader.ForgetLoaded(entry as CosReference);
         loader.Hooks.Decryptor = decryptor;
         streams.CryptFilter = decryptor;
 
-        PdfIntegrityStatus integrity = IntegrityVerifier.Verify(source, loader, version, result.RawPermissions, result.FileEncryptionKey.Span, diagnostics);
+        PdfIntegrityStatus integrity = IntegrityVerifier.Verify(source, loader, version, result.RawPermissions, result.FileEncryptionKey.Span, readBeforeDecryption, diagnostics);
         return new PdfSecurity(
             encryption,
             handler.Filter,
@@ -140,6 +142,18 @@ internal static class DocumentSecurity
         {
             ReadBeforeDecryption = readBeforeDecryption,
         };
+    }
+
+    /// <summary>
+    /// Loads the <c>KDFSalt</c> entry while the loader still reads undecrypted, so an indirect salt is among the objects
+    /// <see cref="ObjectLoader.ForgetLoaded"/> keeps as stored (ISO 32000-2 §7.6.2).
+    /// </summary>
+    private static void ReadKdfSalt(CosDictionary encryption, ObjectLoader loader)
+    {
+        if (encryption.TryGetValue(KdfSaltKey, out CosObject? salt) && salt is CosReference)
+        {
+            loader.Resolve(salt);
+        }
     }
 
     /// <summary>
@@ -183,11 +197,12 @@ internal static class DocumentSecurity
         int keyLength = loader.Resolve(encryption.TryGetValue(KnownNames.Length, out CosObject? length) ? length : null) is CosInteger { Value: > 0 and <= 4096 } bits
             ? (int)bits.Value
             : 0;
+        ReadKdfSalt(encryption, loader);
         IReadOnlyDictionary<CosReference, CosObject>? readBeforeDecryption = loader.ForgetLoaded(entry as CosReference);
         loader.Hooks.Decryptor = decryptor;
         streams.CryptFilter = decryptor;
 
-        PdfIntegrityStatus integrity = IntegrityVerifier.Verify(source, loader, version, rawPermissions, ReadOnlySpan<byte>.Empty, diagnostics);
+        PdfIntegrityStatus integrity = IntegrityVerifier.Verify(source, loader, version, rawPermissions, ReadOnlySpan<byte>.Empty, readBeforeDecryption, diagnostics);
         return new PdfSecurity(
             encryption,
             handler,

@@ -22,7 +22,9 @@ each phase.
   `SampleDocumentTests` (`tests/Broadside.Viewer.Blazor.BrowserTests`) calls it for every sample, fails if any page takes longer
   than 20 s, and writes the table to the measurement log. The local column is headless Chromium on the `--no-aot` build, so the IL
   runs in the WebAssembly interpreter. The AOT column comes from CI's `blazor-wasm` job, an `ubuntu-latest` runner with the image's
-  Chrome, which runs the test on the AOT build of every pull request.
+  Chrome, which runs the test on the AOT build of every pull request. The AOT column is from the `blazor-browser-measurements`
+  artifact of CI run 42861231464 (pull request #485's branch, commit ead4ac8, 2026-11-10); the runner is a shared one, so repeat
+  runs differ by a few tens of percent on the image-heavy documents.
 - **Machine.** 2026-10-25, MacBook Pro, Apple M4 Max (16 cores), macOS 27.0.1, .NET 10.0.13 (Arm64), Playwright's Chromium.
 - **Benchmarks.** `bench/Broadside.Benchmarks.Realistic` is the realistic tier. It is a BenchmarkDotNet project outside the regression
   gate, and CI dry-runs it in `bench-dry`. For page 0 and the slowest page of each document it measures `Render` (warm) and
@@ -33,23 +35,23 @@ each phase.
 
 Milliseconds per page: mean / 95th percentile / slowest page.
 
-| Document | Pages | JIT mean / p95 / max | Native AOT mean / p95 / max | Browser, interpreter: mean / p95 / max |
-|---|---:|---|---|---|
-| `brochure.pdf` | 4 | 71.1 / 130.5 / 130.5 | 52.5 / 106.0 / 106.0 | 1425.2 / 2912.0 / 2912.0 |
-| `catalogue.pdf` | 11 | 108.8 / 481.8 / 481.8 | 111.2 / 456.7 / 456.7 | 3089.1 / 14222.3 / 14222.3 |
-| `dictionary.pdf` | 17 | 12.0 / 13.1 / 13.1 | 15.1 / 16.7 / 16.7 | 232.2 / 262.8 / 262.8 |
-| `invoice-colourful.pdf` | 2 | 18.9 / 25.7 / 25.7 | 23.2 / 31.0 / 31.0 | 549.7 / 702.5 / 702.5 |
-| `invoice-conservative-filled.pdf` | 3 | 3.9 / 5.6 / 5.6 | 3.7 / 6.3 / 6.3 | 57.0 / 99.7 / 99.7 |
-| `invoice-conservative.pdf` | 3 | 3.1 / 5.6 / 5.6 | 3.7 / 6.5 / 6.5 | 55.7 / 99.1 / 99.1 |
-| `newsletter.pdf` | 4 | 72.7 / 95.7 / 95.7 | 81.9 / 109.5 / 109.5 | 2240.9 / 2950.4 / 2950.4 |
-| `novel-hardback.pdf` | 180 | 4.7 / 5.9 / 8.0 | 5.8 / 7.1 / 7.5 | 80.9 / 99.6 / 102.0 |
-| `novel-large-print.pdf` | 219 | 3.0 / 3.4 / 3.7 | 3.8 / 4.4 / 4.6 | 55.2 / 63.8 / 66.0 |
-| `novel-pocket.pdf` | 170 | 4.5 / 5.1 / 5.4 | 5.6 / 6.4 / 6.6 | 80.4 / 91.8 / 94.4 |
-| `paper-ghostscript.pdf` | 2 | 6.8 / 7.5 / 7.5 | 9.2 / 10.2 / 10.2 | 146.7 / 163.8 / 163.8 |
-| `paper.pdf` | 2 | 7.1 / 7.8 / 7.8 | 9.4 / 10.5 / 10.5 | 157.5 / 177.1 / 177.1 |
-| `showcase.pdf` | 5 | 6.9 / 18.8 / 18.8 | 7.9 / 22.1 / 22.1 | 153.0 / 486.4 / 486.4 |
-| `textbook-linearized.pdf` | 8 | 6.7 / 22.1 / 22.1 | 7.0 / 19.3 / 19.3 | 114.8 / 423.7 / 423.7 |
-| `textbook.pdf` | 8 | 6.7 / 22.0 / 22.0 | 7.0 / 19.3 / 19.3 | 117.8 / 436.3 / 436.3 |
+| Document | Pages | JIT mean / p95 / max | Native AOT mean / p95 / max | Browser, interpreter: mean / p95 / max | Browser, AOT (CI): mean / p95 / max |
+|---|---:|---|---|---|---|
+| `brochure.pdf` | 4 | 71.1 / 130.5 / 130.5 | 52.5 / 106.0 / 106.0 | 1425.2 / 2912.0 / 2912.0 | 345.3 / 714.3 / 714.3 |
+| `catalogue.pdf` | 11 | 108.8 / 481.8 / 481.8 | 111.2 / 456.7 / 456.7 | 3089.1 / 14222.3 / 14222.3 | 520.4 / 1910.0 / 1910.0 |
+| `dictionary.pdf` | 17 | 12.0 / 13.1 / 13.1 | 15.1 / 16.7 / 16.7 | 232.2 / 262.8 / 262.8 | 48.0 / 54.2 / 54.2 |
+| `invoice-colourful.pdf` | 2 | 18.9 / 25.7 / 25.7 | 23.2 / 31.0 / 31.0 | 549.7 / 702.5 / 702.5 | 53.0 / 66.4 / 66.4 |
+| `invoice-conservative-filled.pdf` | 3 | 3.9 / 5.6 / 5.6 | 3.7 / 6.3 / 6.3 | 57.0 / 99.7 / 99.7 | 12.5 / 22.0 / 22.0 |
+| `invoice-conservative.pdf` | 3 | 3.1 / 5.6 / 5.6 | 3.7 / 6.5 / 6.5 | 55.7 / 99.1 / 99.1 | 11.9 / 21.5 / 21.5 |
+| `newsletter.pdf` | 4 | 72.7 / 95.7 / 95.7 | 81.9 / 109.5 / 109.5 | 2240.9 / 2950.4 / 2950.4 | 259.7 / 337.8 / 337.8 |
+| `novel-hardback.pdf` | 180 | 4.7 / 5.9 / 8.0 | 5.8 / 7.1 / 7.5 | 80.9 / 99.6 / 102.0 | 17.9 / 22.3 / 28.5 |
+| `novel-large-print.pdf` | 219 | 3.0 / 3.4 / 3.7 | 3.8 / 4.4 / 4.6 | 55.2 / 63.8 / 66.0 | 12.9 / 15.0 / 15.7 |
+| `novel-pocket.pdf` | 170 | 4.5 / 5.1 / 5.4 | 5.6 / 6.4 / 6.6 | 80.4 / 91.8 / 94.4 | 17.7 / 20.2 / 24.1 |
+| `paper-ghostscript.pdf` | 2 | 6.8 / 7.5 / 7.5 | 9.2 / 10.2 / 10.2 | 146.7 / 163.8 / 163.8 | 30.3 / 34.2 / 34.2 |
+| `paper.pdf` | 2 | 7.1 / 7.8 / 7.8 | 9.4 / 10.5 / 10.5 | 157.5 / 177.1 / 177.1 | 31.4 / 35.6 / 35.6 |
+| `showcase.pdf` | 5 | 6.9 / 18.8 / 18.8 | 7.9 / 22.1 / 22.1 | 153.0 / 486.4 / 486.4 | 18.7 / 44.5 / 44.5 |
+| `textbook-linearized.pdf` | 8 | 6.7 / 22.1 / 22.1 | 7.0 / 19.3 / 19.3 | 114.8 / 423.7 / 423.7 | 18.6 / 32.4 / 32.4 |
+| `textbook.pdf` | 8 | 6.7 / 22.0 / 22.0 | 7.0 / 19.3 / 19.3 | 117.8 / 436.3 / 436.3 | 18.5 / 32.1 / 32.1 |
 
 ## What stands out
 
@@ -130,3 +132,23 @@ Milliseconds per page: mean / 95th percentile / slowest page.
 | `showcase.pdf` | 5 | 765 | 153.0 | 55.1 | 486.4 | 486.4 (page 1) |
 | `textbook-linearized.pdf` | 8 | 919 | 114.8 | 65.3 | 423.7 | 423.7 (page 7) |
 | `textbook.pdf` | 8 | 943 | 117.8 | 68.3 | 436.3 | 436.3 (page 7) |
+
+### Browser, WebAssembly AOT (CI, `ubuntu-24.04`, Chrome)
+
+| Document | Pages | Total (ms) | Mean (ms) | Median (ms) | p95 (ms) | Slowest page (ms) |
+|---|---:|---:|---:|---:|---:|---|
+| `brochure.pdf` | 4 | 1381 | 345.3 | 47.0 | 714.3 | 714.3 (page 3) |
+| `catalogue.pdf` | 11 | 5725 | 520.4 | 387.9 | 1910.0 | 1910.0 (page 10) |
+| `dictionary.pdf` | 17 | 817 | 48.0 | 48.6 | 54.2 | 54.2 (page 11) |
+| `invoice-colourful.pdf` | 2 | 106 | 53.0 | 39.5 | 66.4 | 66.4 (page 1) |
+| `invoice-conservative-filled.pdf` | 3 | 38 | 12.5 | 11.1 | 22.0 | 22.0 (page 1) |
+| `invoice-conservative.pdf` | 3 | 36 | 11.9 | 10.8 | 21.5 | 21.5 (page 1) |
+| `newsletter.pdf` | 4 | 1039 | 259.7 | 191.8 | 337.8 | 337.8 (page 4) |
+| `novel-hardback.pdf` | 180 | 3218 | 17.9 | 20.0 | 22.3 | 28.5 (page 174) |
+| `novel-large-print.pdf` | 219 | 2833 | 12.9 | 13.3 | 15.0 | 15.7 (page 207) |
+| `novel-pocket.pdf` | 170 | 3003 | 17.7 | 18.5 | 20.2 | 24.1 (page 119) |
+| `paper-ghostscript.pdf` | 2 | 61 | 30.3 | 26.3 | 34.2 | 34.2 (page 2) |
+| `paper.pdf` | 2 | 63 | 31.4 | 27.2 | 35.6 | 35.6 (page 2) |
+| `showcase.pdf` | 5 | 94 | 18.7 | 10.4 | 44.5 | 44.5 (page 1) |
+| `textbook-linearized.pdf` | 8 | 149 | 18.6 | 14.9 | 32.4 | 32.4 (page 7) |
+| `textbook.pdf` | 8 | 148 | 18.5 | 14.8 | 32.1 | 32.1 (page 7) |

@@ -1,6 +1,6 @@
 ---
 name: adding-a-benchmark
-description: "Use when a PR touches a hot path (lexer, content interpreter, rasterizer, codecs) or adds any performance-sensitive code: add a BenchmarkDotNet class with MemoryDiagnoser, prove zero allocations, and run it in dry, short and full modes."
+description: "Use when a PR touches a hot path (lexer, content interpreter, rasterizer, codecs) or adds any performance-sensitive code, including a SIMD (Vector128) kernel: add a BenchmarkDotNet class with MemoryDiagnoser, prove zero allocations, run it in dry, short and full modes, and for a kernel prove bit-exactness, the hardware-intrinsics-off run and both browser builds."
 ---
 
 # Adding a benchmark
@@ -94,6 +94,47 @@ What that means for you:
 
 `Allocated` is non-zero because `File.ReadAllBytes` allocates; that is fine for a placeholder and would be a failure for a lexer. A lexer benchmark that replaces it keeps the same shape: `[Params("text-standard14.pdf", "xref-stream.pdf")] public string File`, `[GlobalSetup]` reads the bytes once, and `[Benchmark] public int Tokenize()` walks every token and returns the count, with `Allocated` expected to read `-`.
 
+## SIMD kernels
+
+A PR that adds a `Vector128<T>` kernel (background: `docs/research/simd.md`) proves three things besides the benchmark above. The test-only `tests/Broadside.TestSupport/SimdExampleKernel.cs` and its tests in `tests/Broadside.Tests/Simd/SimdKernelAssertTests.cs` are the worked example.
+
+**Shape.** An internal static class with a scalar method, a vector method (the `Vector128` loop, then the scalar method for the tail, run whether or not hardware acceleration is on, so tests can reach it), and a dispatcher that calls the vector method only when `Vector128.IsHardwareAccelerated`. Cross-platform `Vector128` APIs only, from the subset the WebAssembly interpreter maps (operators, `Create`/`CopyTo`, `WidenLower`/`WidenUpper`, `Narrow` from 16-bit lanes, constant `Shuffle`, `Min`/`Max`, shifts, `ConditionalSelect`), inlined by hand. Keep the kernel's source file self-contained (BCL only) so the browser benchmark can link it.
+
+**1. Bit-exactness.** A test next to the feature compares the vector method and the dispatcher with the scalar method through `Broadside.TestSupport.SimdKernelAssert`:
+
+```csharp
+[Trait("Category", SimdKernelAssert.Category)]
+public sealed class YccKernelTests
+{
+    [Fact]
+    public void The_vector_kernel_matches_the_scalar_kernel_on_every_pixel()
+    {
+        // All 2^24 (Y, Cb, Cr) triples, 3 output bytes each; the first chunk also at every length 0..70 and offset 0..15.
+        SimdKernelAssert.ExhaustiveBytes<byte>(3, YccKernel.ToRgbScalar, YccKernel.ToRgbVector, outputsPerItem: 3);
+        SimdKernelAssert.ExhaustiveBytes<byte>(3, YccKernel.ToRgbScalar, YccKernel.ToRgb, outputsPerItem: 3);
+    }
+}
+```
+
+- `ExhaustiveBytes(width, ...)` enumerates every item of 1 to 3 input bytes. For larger domains (16-bit samples, two planes), call `Equal(scalar, vector, source, inputsPerItem, outputsPerItem)` with structured input (every value of one channel against a sweep of the other) or `SimdKernelAssert.RandomBytes(n)`; it also runs every short length and misalignment. Kernels with two input spans adapt with a lambda over an interleaved source.
+- Either fails on the first differing element with the item's input, and on any store past the destination.
+- Floating-point kernels are bit-exact only with each lane doing the scalar operation sequence (no fused multiply-add, no `Estimate` methods, no reordered sums); prove it with the goldens and the corpus pixel hashes as well.
+
+**2. Hardware intrinsics off.** The `SimdKernel` category is what CI's `build-test (ubuntu-latest)` job runs a second time with `DOTNET_EnableHWIntrinsic=0` ("Test the SIMD kernels without hardware intrinsics"): the dispatcher must then take the scalar path and the vector method still has to match on the software fallback. A test without the trait is not rerun. Locally:
+
+```sh
+DOTNET_EnableHWIntrinsic=0 dotnet test --project tests/Broadside.Tests -c Release -- --filter-trait "Category=SimdKernel"
+```
+
+**3. Both browser builds.** Add a case to `Cases` in `samples/Broadside.Viewer.Blazor.Sample/KernelBenchmarks.cs` and link the kernel's source file in the sample's project file (next to `SimdExampleKernel.cs`; the sample sees no internals). The `blazor-wasm` job publishes the demo with AOT and without (`--no-aot`, the interpreter) on every run, and `KernelBenchmarkTests` runs every case in both in Chrome: it fails if the vector bytes differ from the scalar bytes and logs a line per build and case to the measurement log (the job summary and the `blazor-browser-measurements` artifact):
+
+```
+kernel aot example-multiply: scalar 4.327 ns/item, vector 1.574 ns/item, speed-up 2.75x, equal yes, accelerated true
+kernel interpreter example-multiply: ...
+```
+
+Quote both lines in the PR. A kernel whose interpreter `speed-up` is below 1 does not ship as it is: replace the operations the interpreter does not map, or keep the scalar path.
+
 ## Checklist
 
 - [ ] Class in `bench/Broadside.Benchmarks/`, `[MemoryDiagnoser]`, no job attributes
@@ -101,3 +142,4 @@ What that means for you:
 - [ ] `--job dry` exits 0; `--job short` numbers quoted in the PR
 - [ ] `Allocated` reads `-` on hot paths; an `Allocations.Measure` test in the `Heavy` collection added next to the feature
 - [ ] Names stable; any rename called out in the PR body
+- [ ] SIMD kernel: `SimdKernelAssert` test with the `SimdKernel` trait, a `KernelBenchmarks` case, both browser lines quoted in the PR
