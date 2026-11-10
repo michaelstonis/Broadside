@@ -92,6 +92,15 @@ jobs:
       - name: Test
         run: dotnet test Broadside.Core.slnf -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
 
+      - name: Test the SIMD kernels without hardware intrinsics (Linux)
+        # The SimdKernel category again with Vector128.IsHardwareAccelerated false (issue #470): each kernel's dispatcher takes its
+        # scalar path and the vector method runs on the software fallback. Seconds: the build above is reused. A test project with
+        # no kernel tests exits 8 (zero tests ran), which is ignored.
+        if: runner.os == 'Linux'
+        env:
+          DOTNET_EnableHWIntrinsic: '0'
+        run: dotnet test Broadside.Core.slnf -c Release --no-build -- --filter-trait "Category=SimdKernel" --ignore-exit-code 8
+
       - name: Test the CoreGraphics backend (macOS)
         # The backend's render tests run on macOS only; the build above already compiled it for macOS, iOS and Mac Catalyst (issue #125).
         if: runner.os == 'macOS'
