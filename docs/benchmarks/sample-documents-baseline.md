@@ -23,7 +23,7 @@ each phase.
   than 20 s, and writes the table to the measurement log. The local column is headless Chromium on the `--no-aot` build, so the IL
   runs in the WebAssembly interpreter. The AOT column comes from CI's `blazor-wasm` job, an `ubuntu-latest` runner with the image's
   Chrome, which runs the test on the AOT build of every pull request. The AOT column is from the `blazor-browser-measurements`
-  artifact of CI run 42861231464 (pull request #482's branch, commit ead4ac8, 2026-11-10); the runner is a shared one, so repeat
+  artifact of CI run 42861231464 (pull request #485's branch, commit ead4ac8, 2026-11-10); the runner is a shared one, so repeat
   runs differ by a few tens of percent on the image-heavy documents.
 - **Machine.** 2026-10-25, MacBook Pro, Apple M4 Max (16 cores), macOS 27.0.1, .NET 10.0.13 (Arm64), Playwright's Chromium.
 - **Benchmarks.** `bench/Broadside.Benchmarks.Realistic` is the realistic tier. It is a BenchmarkDotNet project outside the regression
