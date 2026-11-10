@@ -113,7 +113,10 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ matrix.os }}
-          path: artifacts/test-results/**/*.trx
+          # The .md files are measurement tables some tests write beside their results (the WIC JPEG measurement, issue #377).
+          path: |
+            artifacts/test-results/**/*.trx
+            artifacts/test-results/**/*.md
           if-no-files-found: warn
 
       - name: Upload golden-image differences

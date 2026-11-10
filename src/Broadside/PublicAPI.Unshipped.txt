@@ -5030,3 +5030,5 @@ Broadside.Images.PlatformImageRequest.ChromaSubsampled.get -> bool
 Broadside.Images.PlatformImageRequest.ChromaSubsampled.init -> void
 Broadside.Rendering.DisplayImage.TryGetPlatformData(Broadside.Images.PlatformImageFeatures features, out Broadside.Images.PlatformImageRequest request, out System.ReadOnlyMemory<byte> data) -> bool
 Broadside.PdfDocument.UsesPlatformImageDecoder(string! name) -> bool
+Broadside.Images.YCbCrConversion
+static Broadside.Images.YCbCrConversion.ToRgb(System.ReadOnlySpan<byte> y, System.ReadOnlySpan<byte> cb, System.ReadOnlySpan<byte> cr, System.Span<byte> rgb) -> void
