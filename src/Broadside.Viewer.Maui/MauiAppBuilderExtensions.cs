@@ -11,6 +11,12 @@ public static class MauiAppBuilderExtensions
     /// Registers SkiaSharp's views and the <see cref="PdfView"/> handler, which adds keyboard input on desktops and hardware keyboards,
     /// trackpad scrolling and pinch on Mac Catalyst, and keeps the platform's focus ring off the canvas.
     /// </summary>
+    /// <remarks>
+    /// Documents a <see cref="PdfView"/> opens from its <see cref="PdfView.Source"/> decode JPEG images with SkiaSharp's own decoder
+    /// (<c>Broadside.Rendering.Skia.SkiaImageDecoder</c>, ISO 32000-2 §7.4.8), scaled to the resolution they are drawn at and
+    /// bit-identical to the managed codec; see <see cref="PdfView.Options"/> to turn it off. A session the app opens itself gets it
+    /// with <c>PdfOptions.UseSkiaImageDecoder()</c>.
+    /// </remarks>
     /// <param name="builder">The app builder.</param>
     /// <returns>The same builder.</returns>
     public static MauiAppBuilder UseBroadsideViewer(this MauiAppBuilder builder)

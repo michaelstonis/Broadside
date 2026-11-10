@@ -9,4 +9,9 @@
     <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Synthesized ICC profiles: the ICC-tagged JPEG of SkiaImageDecoderTests (#374). -->
+    <Compile Include="../Broadside.Rendering.Tests/Icc/IccProfiles.cs" Link="Icc/IccProfiles.cs" />
+  </ItemGroup>
+
 </Project>
