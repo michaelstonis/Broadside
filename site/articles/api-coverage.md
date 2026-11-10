@@ -40,5 +40,21 @@ Reuse one instance for many renders: a warm replay allocates nothing per path, s
 | `void Render(PdfPage page, CGBitmapContext target, RenderOptions options)` | Renders the page into the top-left `RenderOptions.GetPixelSize` pixels of a bitmap context, on white. The context must be at least the page's pixel size (`ArgumentException` otherwise), with its user space still in pixels and the origin at the bottom left, as a new `CGBitmapContext` has it. Its graphics state is restored when the call returns. |
 | `void Render(DisplayList list, CGContext context, in Matrix deviceTransform)` | Draws the list over what the context already holds, without a background, clipped to the context's current clip. `deviceTransform` maps the list's default user space to the context's current user space, for example `RenderOptions.GetDeviceTransform` for a flipped view whose user space is pixels with the origin at the top left. |
 | `void Render(DisplayList list, CGContext context, in Matrix deviceTransform, bool forceOutlines)` | As above, and fills every glyph from its outline when `forceOutlines` is set. |
+| `ValueTask PrefetchImagesAsync(DisplayList list, in Matrix deviceTransform, int width, int height, CancellationToken cancellationToken)` | Has the document's platform image decoders (such as `ImageIODecoder`) decode the images a list render of a `width` x `height` pixel area will draw, at the reductions this renderer will ask for. Await it before `Render(DisplayList, …)`; the render draws the same images without it, decoded by the managed codec. Completes at once without a registered decoder. |
 | `IReadOnlyList<Diagnostic> Diagnostics { get; }` | What the last render could not draw exactly as the file asks, one diagnostic per kind. |
 | `void Dispose()` | Ends the renderer's use. It renders no more after this. |
+
+### ImageIODecoder
+
+`public sealed class ImageIODecoder : IPlatformImageDecoder`
+
+Apple's ImageIO JPEG decoder as a platform image decoder, for documents drawn with `CoreGraphicsRenderer`. It is not registered by default, because its samples are close to the managed decoder's but not identical: register it with `new PdfOptions().UsePlatformImageDecoder(ImageIODecoder.Shared)` and await `CoreGraphicsRenderer.PrefetchImagesAsync` before a list render. It decodes only what it decodes within the platform decoders' tolerance (measured on macOS 27.2): DCT images of gray or 4:4:4 samples, at their full resolution, whose quantizer is fine (about quality 90 and finer). Subsampled chroma, reduced requests, twelve-bit and CMYK data decode with the managed codec. See `docs/benchmarks/imageio-image-decoder.md` for the measurements.
+
+| Member | Description |
+| --- | --- |
+| `static ImageIODecoder Shared { get; }` | The decoder to register. It keeps no state between decodes and serves every document and thread. |
+| `const string DecoderName = "imageio"` | Its `Name`, for diagnostics and `PdfOptions.WithPlatformImageDecoder(name, false)`. |
+| `PlatformImageFidelity Fidelity { get; }` | `Tolerance`. |
+| `PlatformImageFeatures Features { get; }` | `ArithmeticCoding`. ImageIO applies no Exif orientation and converts no embedded profile, so neither segment is zero-filled. |
+| `bool CanDecode(in PlatformImageRequest request)` | DCTDecode, 8-bit, 1 or 3 components that share one sampling, at reduction 0. |
+| `ValueTask<DecodedImage?> DecodeAsync(ReadOnlyMemory<byte> encoded, PlatformImageRequest request, CancellationToken cancellationToken)` | Decodes synchronously on the calling thread. Throws `NotSupportedException` for a coarse quantizer, which the core records as `ImageDecodedManaged` before decoding the image with the managed codec. |
