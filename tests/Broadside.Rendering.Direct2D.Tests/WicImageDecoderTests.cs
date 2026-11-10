@@ -206,26 +206,53 @@ public sealed class WicImageDecoderTests
         return bitmap;
     }
 
-    /// <summary>A page of the JPEG's size, the JPEG placed byte for byte over it.</summary>
+    /// <summary>
+    /// A page of the JPEG's size with the JPEG as its one image, written by hand so that frames the canvas does not place (12-bit,
+    /// arithmetic-coded) are kept as they are.
+    /// </summary>
     private static byte[] JpegPage(byte[] jpeg)
     {
-        using PdfDocument document = PdfDocument.Create();
-        PdfImage image = document.CreateImageFromJpeg(jpeg);
-        PdfPage page = document.Pages.Count > 0 ? document.Pages[0] : document.Pages.Add(new PdfRectangle(0, 0, image.Width, image.Height));
-        page.MediaBox = new PdfRectangle(0, 0, image.Width, image.Height);
-        using (PdfCanvas canvas = page.CreateCanvas())
+        int at = FindFrame(jpeg);
+        int height = (jpeg[at + 5] << 8) | jpeg[at + 6];
+        int width = (jpeg[at + 7] << 8) | jpeg[at + 8];
+        string space = jpeg[at + 9] switch { 1 => "/DeviceGray", 4 => "/DeviceCMYK", _ => "/DeviceRGB" };
+        string content = FormattableString.Invariant($"q {width} 0 0 {height} 0 0 cm /Im0 Do Q");
+        string[] objects =
+        [
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            FormattableString.Invariant($"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {width} {height}] /Resources << /XObject << /Im0 5 0 R >> >> /Contents 4 0 R >>"),
+            FormattableString.Invariant($"<< /Length {content.Length} >>\nstream\n{content}\nendstream"),
+        ];
+        using var output = new MemoryStream();
+        var offsets = new List<long>();
+        Write("%PDF-1.7\n");
+        for (int i = 0; i < objects.Length; i++)
         {
-            canvas.DrawImage(image, 0, 0, image.Width, image.Height);
+            offsets.Add(output.Position);
+            Write(FormattableString.Invariant($"{i + 1} 0 obj\n{objects[i]}\nendobj\n"));
         }
 
-        using var output = new MemoryStream();
-        document.Save(output);
+        offsets.Add(output.Position);
+        Write(FormattableString.Invariant($"5 0 obj\n<< /Type /XObject /Subtype /Image /Width {width} /Height {height} /ColorSpace {space} /BitsPerComponent 8 /Filter /DCTDecode /Length {jpeg.Length} >>\nstream\n"));
+        output.Write(jpeg);
+        Write("\nendstream\nendobj\n");
+        long xref = output.Position;
+        Write("xref\n0 6\n0000000000 65535 f \n");
+        foreach (long offset in offsets)
+        {
+            Write(FormattableString.Invariant($"{offset:D10} 00000 n \n"));
+        }
+
+        Write(FormattableString.Invariant($"trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n"));
         return output.ToArray();
+
+        void Write(string text) => output.Write(System.Text.Encoding.ASCII.GetBytes(text));
     }
 
     private static bool TryHeader(byte[] jpeg, out ImageHeader header) =>
         new DctDecodeFilter().TryReadHeader(jpeg, new ImageFilterContext(new FilterContext()), out header)
-        && header.BitsPerComponent == 8 && header.Components is 1 or 3 && header.Height > 0;
+        && header.Components is 1 or 3 && header.Height > 0 && FindFrame(jpeg) is int at and >= 0 && jpeg[at + 4] == 8;
 
     private static PlatformImageRequest Request(byte[] jpeg, ImageHeader header, int reduction) => new()
     {
