@@ -45,7 +45,9 @@ namespace Broadside.Rendering.Direct2D;
 /// <para>
 /// Images (ISO 32000-2 §8.9): a viewer's renders (<see cref="ScaledImageDecode"/>, <see cref="RenderOptions.ScaledImageDecode"/>)
 /// convert a large image drawn small at a power-of-two reduction of its samples instead of all of them (issue #362), each mask at
-/// its own; other renders convert every sample.
+/// its own; other renders convert every sample. An engine with <see cref="WicImageDecoderExtensions.UseWicImageDecoder"/> decodes JPEG
+/// images through Windows Imaging Component when the render's images are prefetched first (<see cref="PrefetchImagesAsync"/>, issue
+/// #377).
 /// </para>
 /// <para>
 /// Reuse one instance for many renders: its device, device context and target bitmaps are created once (the targets again when the
@@ -189,6 +191,26 @@ public sealed class Direct2DRenderer : IDisposable
     }
 
     /// <summary>
+    /// Has the engine's platform image decoders (<see cref="WicImageDecoder"/>, registered with
+    /// <see cref="WicImageDecoderExtensions.UseWicImageDecoder"/>) decode the images that a render of <paramref name="list"/> into a
+    /// <paramref name="width"/> × <paramref name="height"/> bitmap under <paramref name="deviceTransform"/> will draw, at the
+    /// reductions this renderer will ask for (<see cref="ScaledImageDecode"/>, <see cref="ImageSamplesPerPixel"/>): the asynchronous
+    /// step to await before <see cref="Render(DisplayList, Bitmap, in Matrix)"/>.
+    /// </summary>
+    /// <param name="list">The display list to be rendered.</param>
+    /// <param name="deviceTransform">The transform the render will use.</param>
+    /// <param name="width">The bitmap's width in pixels.</param>
+    /// <param name="height">The bitmap's height in pixels.</param>
+    /// <param name="cancellationToken">Cancels the decodes only this call waits for.</param>
+    /// <returns>A task that completes when the images are decoded or left to the managed codec; at once when there is nothing to do.</returns>
+    /// <remarks>ISO 32000-2 §7.4.8 and §8.9.4. See <see cref="DisplayList.PrefetchImagesAsync"/>; the render works the same without it.</remarks>
+    public ValueTask PrefetchImagesAsync(DisplayList list, in Matrix deviceTransform, int width, int height, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(list);
+        return list.PrefetchImagesAsync(deviceTransform, TryGetRegion(deviceTransform, width, height, out PdfRectangle region) ? region : null, ScaledImageDecode ? _imageSamplesPerPixel : 0, cancellationToken);
+    }
+
+    /// <summary>
     /// Gets or sets a value indicating whether the renders of a display list given to this renderer decode images at the resolution
     /// they are drawn at rather than their own; <see langword="false"/> by default. Page renders take
     /// <see cref="RenderOptions.ScaledImageDecode"/> instead.
@@ -243,6 +265,35 @@ public sealed class Direct2DRenderer : IDisposable
 
     /// <summary>Gets how many tiling-pattern cells were drawn into tiles.</summary>
     internal int CellsRecorded => _backend.CellsRecorded;
+
+    /// <summary>
+    /// Returns the part of the list's default user space a <paramref name="width"/> × <paramref name="height"/> bitmap under
+    /// <paramref name="device"/> shows, widened by 2 pixels; false when the transform cannot be inverted.
+    /// </summary>
+    private static bool TryGetRegion(in Matrix device, int width, int height, out PdfRectangle region)
+    {
+        region = default;
+        if (!device.TryInvert(out Matrix inverse))
+        {
+            return false;
+        }
+
+        PathPoint a = inverse.Transform(-2, -2);
+        PathPoint b = inverse.Transform(width + 2, -2);
+        PathPoint c = inverse.Transform(width + 2, height + 2);
+        PathPoint d = inverse.Transform(-2, height + 2);
+        double left = Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X));
+        double bottom = Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y));
+        double right = Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X));
+        double top = Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y));
+        if (!(double.IsFinite(left) && double.IsFinite(bottom) && double.IsFinite(right) && double.IsFinite(top)))
+        {
+            return false;
+        }
+
+        region = new PdfRectangle(left, bottom, right, top);
+        return true;
+    }
 
     /// <summary>Gets the samples per pixel a page render reduces images to, or 0 for the images' own resolution.</summary>
     private static double PageImageSamples(RenderOptions options) =>
