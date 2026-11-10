@@ -141,6 +141,11 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
     }
 
     /// <summary>Gets or sets the options for documents opened from <see cref="Source"/>; without a backend factory, tiles draw with <see cref="SkiaTileBackend"/>.</summary>
+    /// <remarks>
+    /// Without an <see cref="ViewerOptions.Engine"/>, the engine built from <see cref="ViewerOptions.DocumentOptions"/> (created when
+    /// absent) decodes JPEG images with SkiaSharp's decoder (<c>Broadside.Rendering.Skia.SkiaImageDecoder</c>, bit-identical to the
+    /// managed codec); <c>DocumentOptions.WithPlatformImageDecoder("skia", false)</c> turns it off.
+    /// </remarks>
     public ViewerOptions? Options { get; set; }
 
     /// <summary>Gets what the view shows.</summary>
@@ -518,7 +523,7 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
             }
             else if (!string.IsNullOrEmpty(source))
             {
-                ViewerOptions options = WithSkia(Options);
+                ViewerOptions options = SkiaViewerOptions.For(Options);
                 await _controller.OpenAsync(token => OpenSourceAsync(source, options, token), ownsSession: true, LayoutOptions).ConfigureAwait(true);
             }
             else
@@ -542,32 +547,6 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
         }
 
         return await Task.Run(() => DocumentSession.Open(source, options), cancellationToken).ConfigureAwait(true);
-    }
-
-    private static ViewerOptions WithSkia(ViewerOptions? options)
-    {
-        // Issue #428: the Skia tiles decode images as the options say (at the resolution they are drawn at, by default).
-        bool scaled = options?.ScaledImageDecode ?? true;
-        double samplesPerPixel = options?.ImageSamplesPerPixel ?? Broadside.Rendering.RenderOptions.DefaultImageSamplesPerPixel;
-        var copy = new ViewerOptions
-        {
-            Engine = options?.Engine,
-            DocumentOptions = options?.DocumentOptions,
-            Credentials = options?.Credentials,
-            Threading = options?.Threading ?? ViewerThreading.Automatic,
-            Intent = options?.Intent ?? default,
-            BackendFactory = options?.BackendFactory ?? (() => new SkiaTileBackend(scaled, samplesPerPixel)),
-            ScaledImageDecode = scaled,
-            ImageSamplesPerPixel = samplesPerPixel,
-            Yield = options?.Yield,
-        };
-        if (options is not null)
-        {
-            copy.SliceBudget = options.SliceBudget;
-            copy.MaxConcurrency = options.MaxConcurrency;
-        }
-
-        return copy;
     }
 
     // ---- Form-field editors ----

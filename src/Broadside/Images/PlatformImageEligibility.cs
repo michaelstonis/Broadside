@@ -46,6 +46,8 @@ internal static class PlatformImageEligibility
         bool arithmetic = false;
         bool rgbIdentifiers = false;
         bool subsampled = false;
+        int chromaX = 1;
+        int chromaY = 1;
         int width = 0;
         int height = 0;
         int components = 0;
@@ -150,6 +152,8 @@ internal static class PlatformImageEligibility
                         subsampled |= segment[7 + (3 * c)] != segment[7];
                     }
 
+                    (chromaX, chromaY) = components == 3 ? ChromaRatios(segment[7], segment[10], segment[13]) : (1, 1);
+
                     progressive = marker is 0xC2 or 0xCA;
                     arithmetic = marker is 0xC9 or 0xCA;
                     frame = true;
@@ -211,10 +215,25 @@ internal static class PlatformImageEligibility
                 HasExif = exif,
                 HasIccProfile = icc,
                 ChromaSubsampled = subsampled,
+                ChromaHorizontalSubsampling = chromaX,
+                ChromaVerticalSubsampling = chromaY,
             };
             reason = null;
             return true;
         }
+    }
+
+    /// <summary>
+    /// The luma samples per chroma sample across and down (Hmax / Hc, Vmax / Vc) of a three-component frame from its components'
+    /// sampling factor bytes (ITU-T T.81 B.2.2: Hi in the high nibble, Vi in the low): (1, 1) unsubsampled, (2, 2) for 4:2:0, (2, 1)
+    /// for 4:2:2; 0 in a direction whose pattern is another (the first component not sampled at the highest rate, the two chroma
+    /// components unlike each other, or a factor that does not divide the first's).
+    /// </summary>
+    private static (int X, int Y) ChromaRatios(byte luma, byte blue, byte red)
+    {
+        return (Ratio(luma >> 4, blue >> 4, red >> 4), Ratio(luma & 0xF, blue & 0xF, red & 0xF));
+
+        static int Ratio(int y, int cb, int cr) => cb != cr || cb == 0 || cb > y || y % cb != 0 ? 0 : y / cb;
     }
 
     /// <summary>Zero-fills, in a copy of the data, the payloads of the APP1 Exif and APP2 ICC profile segments a platform would act on.</summary>
