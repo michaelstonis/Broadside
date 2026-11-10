@@ -272,12 +272,9 @@ public sealed class DisplayImage
         }
 
         int wanted = Math.Min(reduction, reductions.MaxReduction);
-        for (int finer = wanted; finer >= 0; finer--)
+        if (Holds(reductions, wanted))
         {
-            if (Find(reductions, finer) is not null)
-            {
-                return null;
-            }
+            return null;
         }
 
         if (!encoded.TryCreatePlatformRequest(out PlatformImageRequest request))
@@ -298,8 +295,29 @@ public sealed class DisplayImage
     private Task Start(Reductions reductions, EncodedImage encoded, IPlatformImageDecoder decoder, PlatformImageRequest request, PlatformImageDecoding platform, CancellationToken cancellationToken) =>
         platform.Join(this, request.Reduction, () => DecodeOnPlatformAsync(reductions, encoded, decoder, request, platform, cancellationToken));
 
+    // Whether the cache holds the image at reduction or a finer one.
+    private bool Holds(Reductions reductions, int reduction)
+    {
+        for (int finer = reduction; finer >= 0; finer--)
+        {
+            if (Find(reductions, finer) is not null)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private async Task DecodeOnPlatformAsync(Reductions reductions, EncodedImage encoded, IPlatformImageDecoder decoder, PlatformImageRequest request, PlatformImageDecoding platform, CancellationToken cancellationToken)
     {
+        // A prefetch that checked the cache just before another one's decode finished joins nothing: it finds the result, or the
+        // failure, here and decodes nothing again.
+        if (reductions.PlatformFailed || Holds(reductions, request.Reduction))
+        {
+            return;
+        }
+
 #pragma warning disable CA2000 // The cache and the slots own the samples from here on.
         DecodedImage? decoded = await platform.DecodeAsync(encoded, decoder, request, cancellationToken).ConfigureAwait(false);
 #pragma warning restore CA2000
