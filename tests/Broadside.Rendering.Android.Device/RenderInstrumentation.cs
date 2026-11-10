@@ -87,6 +87,7 @@ public sealed class RenderInstrumentation : Instrumentation
         if (_scaled)
         {
             ScaledImageDecodeRun.Run(context, results);
+            PlatformImageDecodeRun.Run(context, results);
         }
 
         foreach (string fileName in _files.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))

@@ -137,6 +137,13 @@ internal sealed class AndroidDevice
     /// <summary>Returns a numeric figure of a scaled image decode case.</summary>
     public double ScaledNumber(string name, string figure) => double.Parse(Scaled(name, figure), CultureInfo.InvariantCulture);
 
+    /// <summary>Returns a figure of a platform image decoder case (<see cref="DeviceProtocol.PlatformKey"/>) as the device reported it.</summary>
+    public string Platform(string name, string figure) => Result(DeviceProtocol.PlatformKey(name, figure));
+
+    /// <summary>Returns the results whose key starts with <paramref name="prefix"/>, for a test's output.</summary>
+    public IEnumerable<KeyValuePair<string, string>> ResultsStartingWith(string prefix) =>
+        _results.Where(pair => pair.Key.StartsWith(prefix, StringComparison.Ordinal)).OrderBy(pair => pair.Key, StringComparer.Ordinal);
+
     private string Result(string key) =>
         _results.TryGetValue(key, out string? value) ? value : throw new InvalidOperationException($"The instrumentation reported no '{key}'.");
 
