@@ -9,6 +9,8 @@
     "Broadside.Benchmarks.Ascii85Benchmarks.Decode": 0,
     "Broadside.Benchmarks.AsciiHexBenchmarks.Decode": 0,
     "Broadside.Benchmarks.BidiBenchmarks.Resolve": 0,
+    "Broadside.Benchmarks.BoxFilterBenchmarks.Average": 0,
+    "Broadside.Benchmarks.BoxFilterBenchmarks.AverageScalar": 0,
     "Broadside.Benchmarks.CMapBenchmarks.ReadCodes(Encoding: \"Identity-H\")": 0,
     "Broadside.Benchmarks.CMapBenchmarks.ReadCodes(Encoding: \"mixed\")": 0,
     "Broadside.Benchmarks.CMapBenchmarks.ReadGlyphs(Encoding: \"Identity-H\")": 0,
