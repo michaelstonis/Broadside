@@ -17,7 +17,7 @@ namespace Broadside.Rendering.Skia;
 /// <para>
 /// ISO 32000-2 §7.4.8 (DCTDecode) and §8.9.3. <see cref="SKCodec.GetScaledDimensions"/> picks libjpeg-turbo's 1/2, 1/4 or 1/8 DCT
 /// scaling, and the samples are read as 8-bit gray or RGBA (Skia's JPEG decoder has no RGBX output; the alpha byte is always
-/// opaque) with no destination colour space, so no embedded ICC profile is applied, then
+/// opaque) with no destination color space, so no embedded ICC profile is applied, then
 /// packed into 1 or 3 components. The Exif orientation is reported by Skia but not applied, so the samples keep the image's own
 /// orientation. Arithmetic-coded frames decode; 12-bit frames do not, and with every other image the core's rule leaves out
 /// (CMYK and YCCK, which Skia converts to RGB, a <c>ColorTransform</c> that disagrees with the data, a frame of another size) they
@@ -67,7 +67,7 @@ public sealed class SkiaImageDecoder : IPlatformImageDecoder
     /// <inheritdoc/>
     /// <remarks>
     /// ITU-T T.81 Annex D: libjpeg-turbo in SkiaSharp decodes arithmetic-coded frames. It neither applies the Exif orientation nor,
-    /// with no destination colour space, an embedded ICC profile, so the core hands the data over unchanged.
+    /// with no destination color space, an embedded ICC profile, so the core hands the data over unchanged.
     /// </remarks>
     public PlatformImageFeatures Features => PlatformImageFeatures.ArithmeticCoding;
 
@@ -94,7 +94,7 @@ public sealed class SkiaImageDecoder : IPlatformImageDecoder
         fixed (byte* data = encoded)
         {
             // Wraps the caller's memory without copying it: valid until this call returns, which is before the data is.
-            // SkiaSharp returns null for data it does not recognise, though its annotations say otherwise.
+            // SkiaSharp returns null for data it does not recognize, though its annotations say otherwise.
 #pragma warning disable CA1508
             using SKData? skData = SKData.Create((IntPtr)data, encoded.Length, null);
             using SKCodec? codec = skData is null ? null : SKCodec.Create(skData);

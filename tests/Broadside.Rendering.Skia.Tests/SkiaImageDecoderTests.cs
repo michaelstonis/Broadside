@@ -52,7 +52,7 @@ public sealed class SkiaImageDecoderTests
         Diagnostic? verified = await VerifyAsync(jpeg, reduction);
 
         // libjpeg-turbo interpolates 2:1 chroma (4:2:0 at full size; 4:2:2 and 4:4:0 down to 1/4), which the managed decoder
-        // replicates: those are left to it. Everything else is libjpeg-turbo's integer IDCT and colour transform, the managed ones.
+        // replicates: those are left to it. Everything else is libjpeg-turbo's integer IDCT and color transform, the managed ones.
         bool interpolated = name switch
         {
             "sampling-422" or "sampling-440" or "encoded-rgb-q90-422" => reduction < 3,

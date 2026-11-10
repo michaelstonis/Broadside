@@ -86,7 +86,7 @@ Reading is lenient by default: a damaged file is repaired and every repair is re
 ## Viewers
 
 - **Blazor WebAssembly** (`Broadside.Viewer.Blazor`): the `PdfViewer` component. The software rasterizer draws the tiles by default. WebGL 2 is opt-in, and so is a render worker that draws content tiles in a JS Web Worker. The app has to start the worker explicitly; it uses no .NET WebAssembly threads.
-- **.NET MAUI** (`Broadside.Viewer.Maui`): the `PdfView` control, drawn with SkiaSharp, for iOS, Android, Mac Catalyst and Windows. Tiles render off the UI thread and are composed on the GPU (Metal on iOS and Mac Catalyst). Register it with `builder.UseBroadsideViewer()`. The package's Windows target ships from the next release.
+- **.NET MAUI** (`Broadside.Viewer.Maui`): the `PdfView` control, drawn with SkiaSharp, for iOS, Android, Mac Catalyst and Windows. Tiles render off the UI thread and are composed on the GPU (Metal on iOS and Mac Catalyst). Register it with `builder.UseBroadsideViewer()`. JPEG images decode with SkiaSharp's own decoder (libjpeg-turbo, scaled to the size they are drawn at, bit-identical to the managed decoder); `PdfOptions.WithPlatformImageDecoder("skia", false)` in the view's `Options.DocumentOptions` turns it off, and `PdfOptions.UseSkiaImageDecoder()` turns it on for a session the app opens itself. The package's Windows target ships from the next release.
 
 ## Samples
 
