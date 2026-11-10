@@ -50,7 +50,9 @@ namespace Broadside.Rendering.Android;
 /// (<see cref="PdfOptions.ImageCacheBudget"/>); reduced to few enough device pixels they are resampled as the software rasterizer
 /// resamples them, otherwise the canvas samples them. A viewer's renders (<see cref="ScaledImageDecode"/>,
 /// <see cref="RenderOptions.ScaledImageDecode"/>) convert a large image drawn small at a power-of-two reduction of its samples instead
-/// of all of them, each mask at its own. Stencil masks (§8.9.6.2) are alpha bitmaps painted in the fill colour; soft and
+/// of all of them, each mask at its own. With <see cref="AndroidImageDecoder"/> registered
+/// (<see cref="AndroidImageDecoderExtensions.UseAndroidImageDecoder"/>), awaiting <see cref="PrefetchImagesAsync"/> before a render
+/// decodes its JPEG images with Android's <c>BitmapFactory</c> (§7.4.8) rather than the managed codec. Stencil masks (§8.9.6.2) are alpha bitmaps painted in the fill colour; soft and
 /// explicit masks of another size (§8.9.6.3, §11.6.5.2) mask the image in a layer. Axial and radial shadings (§8.7.4.5.3,
 /// §8.7.4.5.4) are linear and two-point conical gradient shaders (a radial shading other than growing concentric circles needs
 /// Android 12, API level 31); function-based shadings (§8.7.4.5.2) a texture; meshes (§8.7.4.5.5 to §8.7.4.5.8) are rasterized by
@@ -166,6 +168,56 @@ public sealed partial class AndroidCanvasBackend : IDisposable
         ArgumentNullException.ThrowIfNull(canvas);
         ObjectDisposedException.ThrowIf(_disposed, this);
         Draw(list, canvas, deviceTransform, forceOutlines, ScaledImageDecode ? _imageSamplesPerPixel : 0);
+    }
+
+    /// <summary>
+    /// Has the engine's platform image decoders (such as <see cref="AndroidImageDecoder"/>) decode the images that a render of
+    /// <paramref name="list"/> into a <paramref name="width"/> × <paramref name="height"/> area under <paramref name="deviceTransform"/>
+    /// will draw, at the reductions this backend will ask for (<see cref="ScaledImageDecode"/>, <see cref="ImageSamplesPerPixel"/>): the
+    /// asynchronous step to await before <see cref="Render(DisplayList, AndroidCanvas, in Matrix)"/>.
+    /// </summary>
+    /// <param name="list">The display list to be rendered.</param>
+    /// <param name="deviceTransform">The transform the render will use, onto a canvas whose own matrix is the identity.</param>
+    /// <param name="width">The width of the area drawn, in pixels.</param>
+    /// <param name="height">The height of the area drawn, in pixels.</param>
+    /// <param name="cancellationToken">Cancels the decodes only this call waits for.</param>
+    /// <returns>A task that completes when the images are decoded or left to the managed codec; at once when there is nothing to do.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.4.8 and §8.9.4. See <see cref="DisplayList.PrefetchImagesAsync"/>: what the decoders return goes into the
+    /// document's image cache, where the render finds it; the render works the same without it, decoding with the managed codec.
+    /// </remarks>
+    public ValueTask PrefetchImagesAsync(DisplayList list, in Matrix deviceTransform, int width, int height, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(list);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        double samplesPerPixel = ScaledImageDecode ? _imageSamplesPerPixel : 0;
+        return list.PrefetchImagesAsync(deviceTransform, TryGetRegion(deviceTransform, width, height, out PdfRectangle region) ? region : null, samplesPerPixel, cancellationToken);
+    }
+
+    /// <summary>The part of default user space a <paramref name="width"/> × <paramref name="height"/> area shows, two pixels wider; false without an inverse.</summary>
+    private static bool TryGetRegion(in Matrix device, int width, int height, out PdfRectangle region)
+    {
+        region = default;
+        if (!device.TryInvert(out Matrix toPage))
+        {
+            return false;
+        }
+
+        PathPoint a = toPage.Transform(-2, -2);
+        PathPoint b = toPage.Transform(width + 2, -2);
+        PathPoint c = toPage.Transform(width + 2, height + 2);
+        PathPoint d = toPage.Transform(-2, height + 2);
+        double left = Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X));
+        double bottom = Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y));
+        double right = Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X));
+        double top = Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y));
+        if (!(double.IsFinite(left) && double.IsFinite(bottom) && double.IsFinite(right) && double.IsFinite(top)))
+        {
+            return false;
+        }
+
+        region = new PdfRectangle(left, bottom, right, top);
+        return true;
     }
 
     /// <summary>
