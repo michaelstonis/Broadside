@@ -9,12 +9,12 @@ using Broadside.TestSupport;
 namespace Broadside.Rendering.Direct2D.Tests;
 
 /// <summary>
-/// Issue #377, step 1: the measurement behind the WIC image decoder's fidelity. Every eligible JPEG of the DCT vectors and
+/// Issue #377, step 1: the measurement behind <see cref="WicImageDecoder"/>'s fidelity. Every eligible JPEG of the DCT vectors and
 /// the generated catalogue photographs decodes through both WIC paths (the YCbCr planes put through the managed transform, and WIC's
 /// own BGR or gray pixels) at full size and at each reduction, against the managed decoder at the reduction WIC delivered. The table
 /// (largest difference, PSNR, share of pixels over 2 levels, times) goes to the job summary on CI and to
-/// <c>artifacts/test-results/wic-jpeg-measurement.md</c>. It asserts only that the planes path decodes; the bars are asserted by
-/// the decoder's own tests.
+/// <c>artifacts/test-results/wic-jpeg-measurement.md</c>. It asserts only that the planes path decodes; the decoder's exactness is asserted by
+/// <see cref="WicImageDecoderTests"/>. Results: <c>docs/benchmarks/wic-image-decoder.md</c>.
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
 public sealed class WicMeasurementTests

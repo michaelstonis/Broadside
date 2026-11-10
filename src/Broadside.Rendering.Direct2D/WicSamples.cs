@@ -3,7 +3,7 @@ using Broadside.Images;
 namespace Broadside.Rendering.Direct2D;
 
 /// <summary>
-/// The platform-neutral half of the WIC image decoder: which reduction a size Windows Imaging Component offers delivers, the
+/// The platform-neutral half of <see cref="WicImageDecoder"/>: which reduction a size Windows Imaging Component offers delivers, the
 /// YCbCr planes put back together as the managed decoder does (chroma replicated, the managed integer transform), and WIC's BGR rows
 /// repacked as RGB. A plane or a row WIC delivers one sample short (a size rounded down) is completed by repeating its last sample.
 /// </summary>
@@ -94,11 +94,17 @@ internal static class WicSamples
             int cy = Math.Min(ly >> shiftY, chroma.Height - 1);
             ReadOnlySpan<byte> cbSource = cb.Slice(cy * chroma.Stride, chroma.Width);
             ReadOnlySpan<byte> crSource = cr.Slice(cy * chroma.Stride, chroma.Width);
-            for (int x = 0; x < width; x++)
+            if (chroma.Width != width)
             {
-                int cx = Math.Min(Math.Min(x, luma.Width - 1) >> shiftX, chroma.Width - 1);
-                cbRow[x] = cbSource[cx];
-                crRow[x] = crSource[cx];
+                for (int x = 0; x < width; x++)
+                {
+                    int cx = Math.Min(Math.Min(x, luma.Width - 1) >> shiftX, chroma.Width - 1);
+                    cbRow[x] = cbSource[cx];
+                    crRow[x] = crSource[cx];
+                }
+
+                cbSource = cbRow;
+                crSource = crRow;
             }
 
             ReadOnlySpan<byte> lumaSource = y.Slice(ly * luma.Stride, luma.Width);
@@ -109,7 +115,7 @@ internal static class WicSamples
                 lumaSource = lumaRow;
             }
 
-            YCbCrConversion.ToRgb(lumaSource, cbRow, crRow, image.GetRow(row)[..(width * 3)]);
+            YCbCrConversion.ToRgb(lumaSource, cbSource, crSource, image.GetRow(row)[..(width * 3)]);
         }
 
         return true;
