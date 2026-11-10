@@ -117,27 +117,17 @@ public static class PhotoBench
 
         public double MaxMs => TimeSpan.FromTicks(Interlocked.Read(ref _max)).TotalMilliseconds;
 
-        /// <summary>Gets the time from the first prefetch's start to the last one's end: the platform decode, off the tiles' own time.</summary>
-        public double PrefetchMs
-        {
-            get
-            {
-                lock (_gate)
-                {
-                    return _prefetchEnd > _prefetchStart ? Stopwatch.GetElapsedTime(_prefetchStart, _prefetchEnd).TotalMilliseconds : 0;
-                }
-            }
-        }
+        /// <summary>Gets the longest prefetch: the one that decoded the photograph with the platform decoder, off the tiles' own time.</summary>
+        public double PrefetchMs => TimeSpan.FromTicks(Interlocked.Read(ref _prefetchMax)).TotalMilliseconds;
 
-        private long _prefetchStart;
-        private long _prefetchEnd;
+        private long _prefetchMax;
 
         public void AddPrefetch(long start, long end)
         {
+            long ticks = Stopwatch.GetElapsedTime(start, end).Ticks;
             lock (_gate)
             {
-                _prefetchStart = _prefetchStart == 0 ? start : Math.Min(_prefetchStart, start);
-                _prefetchEnd = Math.Max(_prefetchEnd, end);
+                _prefetchMax = Math.Max(_prefetchMax, ticks);
             }
         }
 
@@ -172,7 +162,14 @@ public static class PhotoBench
         {
             long start = Stopwatch.GetTimestamp();
             ValueTask prefetch = inner.PrefetchImagesAsync(list, deviceTransform, width, height, cancellationToken);
-            return prefetch.IsCompletedSuccessfully ? prefetch : TimedAsync(prefetch, start);
+            if (prefetch.IsCompletedSuccessfully)
+            {
+                // A synchronous platform decoder (Skia's) has decoded already.
+                timings.AddPrefetch(start, Stopwatch.GetTimestamp());
+                return prefetch;
+            }
+
+            return TimedAsync(prefetch, start);
         }
 
         private async ValueTask TimedAsync(ValueTask prefetch, long start)
