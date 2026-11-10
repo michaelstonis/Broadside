@@ -45,6 +45,13 @@
   </ItemGroup>
 
   <!--
+    The browser kernel benchmark (KernelBenchmarks.cs, #470): SIMD kernels are linked as source, so the sample sees no internals.
+  -->
+  <ItemGroup>
+    <Compile Include="../../tests/Broadside.TestSupport/SpanKernel.cs;../../tests/Broadside.TestSupport/SimdExampleKernel.cs" LinkBase="Kernels" />
+  </ItemGroup>
+
+  <!--
     The gallery: the representative sample documents (samples/documents/pdf, #363) and hand-written files from the test corpus, served
     from wwwroot/documents (linked, so they never drift).
   -->
