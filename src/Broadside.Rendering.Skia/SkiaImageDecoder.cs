@@ -34,7 +34,7 @@ namespace Broadside.Rendering.Skia;
 /// read as planes and replicated here; it decodes with the managed codec.
 /// </para>
 /// <para>
-/// The decode runs synchronously on the calling thread; the viewer's tile scheduler calls it from the thread pool. Rows are read in
+/// The decode runs on the thread pool, one per image and reduction however many tiles reach it at once. Rows are read in
 /// bands into a pooled buffer, so the decode allocates no image-sized scratch memory beyond the samples it returns. The instance keeps
 /// no state and serves every document and thread.
 /// </para>
@@ -82,10 +82,15 @@ public sealed class SkiaImageDecoder : IPlatformImageDecoder
         && (!request.ChromaSubsampled || !Interpolates(request.ChromaHorizontalSubsampling, request.ChromaVerticalSubsampling, request.Reduction));
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// Runs the decode on the thread pool, so the call returns a pending task at once: the core then shares that one decode with every
+    /// other tile that reaches the image meanwhile, instead of each decoding it (a decode that completed before the call returned
+    /// would not be in flight for them to join).
+    /// </remarks>
     public ValueTask<DecodedImage?> DecodeAsync(ReadOnlyMemory<byte> encoded, PlatformImageRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return ValueTask.FromResult(Decode(encoded.Span, request, cancellationToken));
+        return new ValueTask<DecodedImage?>(Task.Run(() => Decode(encoded.Span, request, cancellationToken), cancellationToken));
     }
 
     /// <summary>Decodes <paramref name="encoded"/> at the request's reduction or the finest one Skia delivers above it; <see langword="null"/> when Skia cannot.</summary>

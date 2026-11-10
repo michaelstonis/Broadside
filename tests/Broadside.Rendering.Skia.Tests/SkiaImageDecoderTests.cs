@@ -250,6 +250,51 @@ public sealed class SkiaImageDecoderTests
     }
 
     [Fact]
+    public async Task Tiles_that_reach_the_image_at_once_share_one_decode()
+    {
+        byte[] jpeg = CatalogueSamples.Jpeg(1320, 948, DctChromaSubsampling.None);
+        var counting = new CountingDecoder();
+        using PdfDocument document = PdfDocument.Open(Page(jpeg, 1320, 948, "/DeviceRGB"), new PdfOptions().UsePlatformImageDecoder(counting));
+        DisplayList list = document.Pages[0].CreateDisplayList();
+        using var start = new ManualResetEventSlim();
+
+        // Eight tiles prefetch at once, as the viewer's pooled tiles do: Skia's decode is in flight for the others to join.
+        Task[] tiles = [.. Enumerable.Range(0, 8).Select(_ => Task.Run(
+            async () =>
+            {
+                start.Wait(Token);
+                await list.PrefetchImagesAsync(Device(1), null, 1, Token);
+            },
+            Token))];
+        start.Set();
+        await Task.WhenAll(tiles);
+
+        Assert.Equal(1, counting.Calls);
+    }
+
+    /// <summary>Skia's decoder, counting its decodes.</summary>
+    private sealed class CountingDecoder : IPlatformImageDecoder
+    {
+        private int _calls;
+
+        public int Calls => Volatile.Read(ref _calls);
+
+        public string Name => "counting";
+
+        public PlatformImageFidelity Fidelity => SkiaImageDecoder.Shared.Fidelity;
+
+        public PlatformImageFeatures Features => SkiaImageDecoder.Shared.Features;
+
+        public bool CanDecode(in PlatformImageRequest request) => SkiaImageDecoder.Shared.CanDecode(request);
+
+        public ValueTask<DecodedImage?> DecodeAsync(ReadOnlyMemory<byte> encoded, PlatformImageRequest request, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _calls);
+            return SkiaImageDecoder.Shared.DecodeAsync(encoded, request, cancellationToken);
+        }
+    }
+
+    [Fact]
     public void Packing_RGBA_rows_keeps_every_pixel()
     {
         for (int width = 1; width <= 40; width++)
