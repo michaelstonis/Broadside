@@ -205,6 +205,46 @@ public sealed class PlatformImageDecoderTests
         Assert.Equal(FakeDecoder.Fill, Image(list).GetSamplesAt(0, TestContext.Current.CancellationToken)!.Value.Samples[0]);
     }
 
+    // Issue #484: a decoder that decodes on the calling thread and returns a completed task is shared like one that completes later.
+    [Theory]
+    [InlineData(false, FakeBehavior.Fills)]
+    [InlineData(true, FakeBehavior.Fills)]
+    [InlineData(false, FakeBehavior.Throws)]
+    [InlineData(true, FakeBehavior.Throws)]
+    public async Task Concurrent_prefetches_from_many_threads_decode_once_whether_the_decoder_completes_synchronously_or_not(bool asynchronous, FakeBehavior behavior)
+    {
+        const int count = 8;
+        var decoder = new FakeDecoder { Behavior = behavior, Hold = TimeSpan.FromMilliseconds(100), HoldAsynchronously = asynchronous };
+        using PdfDocument document = Open(DctVectors.Jpeg("encoded-rgb-q90-420"), decoder);
+        DisplayList list = document.Pages[0].CreateDisplayList();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        using var start = new Barrier(count);
+
+        Task[] prefetches = [.. Enumerable.Range(0, count).Select(_ => Task.Factory.StartNew(
+            () =>
+            {
+                start.SignalAndWait(cancellationToken);
+                return list.PrefetchImagesAsync(Device, null, 0, cancellationToken).AsTask();
+            },
+            cancellationToken,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default).Unwrap())];
+        await Task.WhenAll(prefetches);
+
+        Assert.Equal(1, decoder.Calls);
+        byte[] samples = Image(list).GetSamplesAt(0, cancellationToken)!.Value.Samples.ToArray();
+        if (behavior == FakeBehavior.Throws)
+        {
+            Assert.Equal("ImageDecodedManaged", Assert.Single(document.Diagnostics).Code);
+            Assert.Contains(samples, b => b != FakeDecoder.Fill);
+        }
+        else
+        {
+            Assert.Empty(document.Diagnostics);
+            Assert.All(samples, b => Assert.Equal(FakeDecoder.Fill, b));
+        }
+    }
+
     [Fact]
     public async Task The_verification_mode_records_the_mismatch_of_shifted_samples_with_its_PSNR()
     {
@@ -333,6 +373,10 @@ public sealed class PlatformImageDecoderTests
 
         public TaskCompletionSource? Gate { get; set; }
 
+        public TimeSpan Hold { get; init; }
+
+        public bool HoldAsynchronously { get; init; }
+
         public TaskCompletionSource Finished { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public int Calls => Volatile.Read(ref _calls);
@@ -353,6 +397,19 @@ public sealed class PlatformImageDecoderTests
                 if (Gate is { } gate)
                 {
                     await gate.Task.ConfigureAwait(false);
+                }
+
+                if (Hold > TimeSpan.Zero)
+                {
+                    if (HoldAsynchronously)
+                    {
+                        await Task.Delay(Hold, cancellationToken).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        // Decodes on the calling thread and returns a completed task, as ImageIO and Android do.
+                        Thread.Sleep(Hold);
+                    }
                 }
 
                 int reduction = Deliver ?? request.Reduction;

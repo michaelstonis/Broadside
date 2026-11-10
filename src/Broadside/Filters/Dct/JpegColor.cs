@@ -1,3 +1,5 @@
+using System.Runtime.Intrinsics;
+
 namespace Broadside.Filters.Dct;
 
 /// <summary>
@@ -10,9 +12,9 @@ namespace Broadside.Filters.Dct;
 /// The tables are those of libjpeg-turbo <c>src/jdcolor.c</c> (<c>build_ycc_rgb_table</c>, <c>ycc_rgb_convert</c>,
 /// <c>ycck_cmyk_convert</c>; commit 43ea8097), the Independent JPEG Group's software (THIRD-PARTY-NOTICES.txt). ISO 32000-2
 /// §8.9.5.1 Table 87: DCTDecode delivers 8-bit samples, so a 12-bit sample v becomes (255 v + 2047) / 4095, the nearest 8-bit
-/// value.
+/// value. The 8-bit row transforms have a <c>Vector128</c> path (<c>JpegColor.Vector128.cs</c>), bit-exact with the scalar one.
 /// </remarks>
-internal static class JpegColor
+internal static partial class JpegColor
 {
     private const int ScaleBits = 16;
     private const int ClampOffset = 384;
@@ -53,12 +55,29 @@ internal static class JpegColor
         }
     }
 
-    /// <summary>Converts one row of YCbCr samples to interleaved RGB.</summary>
+    /// <summary>Converts one row of YCbCr samples to interleaved RGB: the vector path where <see cref="Vector128"/> is accelerated, else the scalar one.</summary>
     /// <param name="y">The luminance samples.</param>
     /// <param name="cb">The blue-difference samples.</param>
     /// <param name="cr">The red-difference samples.</param>
     /// <param name="rgb">Three bytes per sample.</param>
     public static void YccToRgb(ReadOnlySpan<byte> y, ReadOnlySpan<byte> cb, ReadOnlySpan<byte> cr, Span<byte> rgb)
+    {
+        if (Vector128.IsHardwareAccelerated)
+        {
+            YccToRgbVector(y, cb, cr, rgb);
+        }
+        else
+        {
+            YccToRgbScalar(y, cb, cr, rgb);
+        }
+    }
+
+    /// <summary>Converts one row of YCbCr samples to interleaved RGB, one sample at a time: the reference the vector path matches.</summary>
+    /// <param name="y">The luminance samples.</param>
+    /// <param name="cb">The blue-difference samples.</param>
+    /// <param name="cr">The red-difference samples.</param>
+    /// <param name="rgb">Three bytes per sample.</param>
+    public static void YccToRgbScalar(ReadOnlySpan<byte> y, ReadOnlySpan<byte> cb, ReadOnlySpan<byte> cr, Span<byte> rgb)
     {
         int width = rgb.Length / 3;
         y = y[..width];
@@ -82,8 +101,27 @@ internal static class JpegColor
     /// <param name="cr">The red-difference samples.</param>
     /// <param name="k">The black samples.</param>
     /// <param name="cmyk">Four bytes per sample.</param>
-    /// <remarks>Adobe Technical Note #5116 §13.2.</remarks>
+    /// <remarks>Adobe Technical Note #5116 §13.2. The vector path where <see cref="Vector128"/> is accelerated, else the scalar one.</remarks>
     public static void YcckToCmyk(ReadOnlySpan<byte> y, ReadOnlySpan<byte> cb, ReadOnlySpan<byte> cr, ReadOnlySpan<byte> k, Span<byte> cmyk)
+    {
+        if (Vector128.IsHardwareAccelerated)
+        {
+            YcckToCmykVector(y, cb, cr, k, cmyk);
+        }
+        else
+        {
+            YcckToCmykScalar(y, cb, cr, k, cmyk);
+        }
+    }
+
+    /// <summary>Converts one row of YCCK samples to interleaved CMYK, one sample at a time: the reference the vector path matches.</summary>
+    /// <param name="y">The luminance samples.</param>
+    /// <param name="cb">The blue-difference samples.</param>
+    /// <param name="cr">The red-difference samples.</param>
+    /// <param name="k">The black samples.</param>
+    /// <param name="cmyk">Four bytes per sample.</param>
+    /// <remarks>Adobe Technical Note #5116 §13.2.</remarks>
+    public static void YcckToCmykScalar(ReadOnlySpan<byte> y, ReadOnlySpan<byte> cb, ReadOnlySpan<byte> cr, ReadOnlySpan<byte> k, Span<byte> cmyk)
     {
         int width = cmyk.Length / 4;
         y = y[..width];

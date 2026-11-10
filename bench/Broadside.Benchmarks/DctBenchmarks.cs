@@ -1,6 +1,7 @@
 using System.Buffers;
 using BenchmarkDotNet.Attributes;
 using Broadside.Filters;
+using Broadside.Filters.Dct;
 using Broadside.Images;
 using Broadside.Objects;
 using Broadside.TestSupport;
@@ -99,5 +100,62 @@ public class DctEncoderBenchmarks
         _output.ResetWrittenCount();
         _encoder.Encode(_samples, _output, _context);
         return _output.WrittenCount;
+    }
+}
+
+/// <summary>
+/// The DCT colour transforms on one row (ISO 32000-2 §7.4.8, Table 13; issue #471): YCbCr to RGB and YCCK to CMYK, one sample at a
+/// time (<c>Scalar</c>, the code before #471) and through the dispatcher (the <c>Vector128</c> path where it is accelerated), over a
+/// 2,550-sample row (the width of the catalogue cover's photograph). <c>Allocated</c> must read <c>-</c>; the vector path's
+/// bit-exactness is <c>Broadside.Tests.Filters.Dct.JpegColorKernelTests</c>.
+/// </summary>
+[MemoryDiagnoser]
+public class JpegColorBenchmarks
+{
+    private const int Width = 2550;
+    private readonly byte[] _y = new byte[Width];
+    private readonly byte[] _cb = new byte[Width];
+    private readonly byte[] _cr = new byte[Width];
+    private readonly byte[] _k = new byte[Width];
+    private readonly byte[] _output = new byte[4 * Width];
+
+    [GlobalSetup]
+    public void Setup()
+    {
+#pragma warning disable CA5394 // benchmark input, not security
+        var random = new Random(471);
+        random.NextBytes(_y);
+        random.NextBytes(_cb);
+        random.NextBytes(_cr);
+        random.NextBytes(_k);
+#pragma warning restore CA5394
+    }
+
+    [Benchmark]
+    public byte YccToRgbScalar()
+    {
+        JpegColor.YccToRgbScalar(_y, _cb, _cr, _output.AsSpan(0, 3 * Width));
+        return _output[0];
+    }
+
+    [Benchmark]
+    public byte YccToRgb()
+    {
+        JpegColor.YccToRgb(_y, _cb, _cr, _output.AsSpan(0, 3 * Width));
+        return _output[0];
+    }
+
+    [Benchmark]
+    public byte YcckToCmykScalar()
+    {
+        JpegColor.YcckToCmykScalar(_y, _cb, _cr, _k, _output);
+        return _output[0];
+    }
+
+    [Benchmark]
+    public byte YcckToCmyk()
+    {
+        JpegColor.YcckToCmyk(_y, _cb, _cr, _k, _output);
+        return _output[0];
     }
 }

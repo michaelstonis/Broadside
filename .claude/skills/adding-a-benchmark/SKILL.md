@@ -98,7 +98,14 @@ What that means for you:
 
 A PR that adds a `Vector128<T>` kernel (background: `docs/research/simd.md`) proves three things besides the benchmark above. The test-only `tests/Broadside.TestSupport/SimdExampleKernel.cs` and its tests in `tests/Broadside.Tests/Simd/SimdKernelAssertTests.cs` are the worked example.
 
-**Shape.** An internal static class with a scalar method, a vector method (the `Vector128` loop, then the scalar method for the tail, run whether or not hardware acceleration is on, so tests can reach it), and a dispatcher that calls the vector method only when `Vector128.IsHardwareAccelerated`. Cross-platform `Vector128` APIs only, from the subset the WebAssembly interpreter maps (operators, `Create`/`CopyTo`, `WidenLower`/`WidenUpper`, `Narrow` from 16-bit lanes, constant `Shuffle`, `Min`/`Max`, shifts, `ConditionalSelect`), inlined by hand. Keep the kernel's source file self-contained (BCL only) so the browser benchmark can link it.
+**Shape.** An internal static class with a scalar method, a vector method (the `Vector128` loop, then the scalar method for the tail, run whether or not hardware acceleration is on, so tests can reach it), and a dispatcher that calls the vector method only when `Vector128.IsHardwareAccelerated`. Cross-platform `Vector128` APIs only, inlined by hand, and only operations that are fast in **every** build: the JIT and Native AOT (x64 and Arm64) and both browser builds (the interpreter and AOT). Kernels are written in a self-contained (BCL-only) source file so the browser benchmark can link it (`src/Broadside/Filters/Dct/JpegColor.Vector128.cs` is a production example).
+
+**The operation subset** (measured per vector, #471; `docs/benchmarks/simd-kernels.md`):
+
+- Loads and stores: `Vector128.LoadUnsafe(ref r, (nuint)i)` / `StoreUnsafe`, with `ref r = ref MemoryMarshal.GetReference(span)` and the bounds proved by slicing the spans to the row length before the loop and a loop condition that keeps every access inside it (say so in a comment). Not `Vector128.Create(span)` / `CopyTo(span)`: the interpreter runs them at about 3.4x the cost of `LoadUnsafe`, enough to halve a kernel's gain there.
+- Shifts: the operators `>>>`, `>>` and `<<`. **Never the methods** `Vector128.ShiftRightLogical`, `ShiftRightArithmetic` or `ShiftLeft`: in the browser AOT build each costs about 8x the operator (they do not become a single WebAssembly SIMD shift there). That alone made #470's first example kernel 0.6x of scalar there.
+- Fine everywhere: the arithmetic and bitwise operators (`+`, `-`, `*` in 16- and 32-bit lanes, `&`, `|`, `^`), `WidenLower`/`WidenUpper`, `Narrow` from 16-bit lanes, `Shuffle` with a constant mask (index 255 selects zero; `Vector128.Create` of byte literals in the loop), `Min`/`Max`, `ConditionalSelect`.
+- Avoid: the tuple-returning `Widen`, `Narrow` from 32-bit lanes (12.7 ns in the interpreter; repack with the `& 0xFFFF` / `>>> 16` even-odd split or byte shuffles instead), `*Estimate`, `Sum`, `Dot`, anything on `Vector256`/`Vector512`, and helper methods inside the loop.
 
 **1. Bit-exactness.** A test next to the feature compares the vector method and the dispatcher with the scalar method through `Broadside.TestSupport.SimdKernelAssert`:
 
@@ -116,6 +123,7 @@ public sealed class YccKernelTests
 }
 ```
 
+- `tests/Broadside.Tests/Filters/Dct/JpegColorKernelTests.cs` is the real one for three input rows (an adapter splits the interleaved items into planes).
 - `ExhaustiveBytes(width, ...)` enumerates every item of 1 to 3 input bytes. For larger domains (16-bit samples, two planes), call `Equal(scalar, vector, source, inputsPerItem, outputsPerItem)` with structured input (every value of one channel against a sweep of the other) or `SimdKernelAssert.RandomBytes(n)`; it also runs every short length and misalignment. Kernels with two input spans adapt with a lambda over an interleaved source.
 - Either fails on the first differing element with the item's input, and on any store past the destination.
 - Floating-point kernels are bit-exact only with each lane doing the scalar operation sequence (no fused multiply-add, no `Estimate` methods, no reordered sums); prove it with the goldens and the corpus pixel hashes as well.
@@ -133,7 +141,7 @@ kernel aot example-multiply: scalar 4.327 ns/item, vector 1.574 ns/item, speed-u
 kernel interpreter example-multiply: ...
 ```
 
-Quote both lines in the PR. A kernel whose interpreter `speed-up` is below 1 does not ship as it is: replace the operations the interpreter does not map, or keep the scalar path.
+Quote both lines in the PR. **A kernel must not be slower than scalar in either browser build** (owner rule, #471): a `speed-up` below 1 on the `aot` or the `interpreter` line does not ship as it is. Replace the slow operations (the subset above; time a suspect with a loop of that one operation in a `browser-wasm` console app run under Node, which needs only the `wasm-tools` workload), and if one build still loses, gate the vector path per platform (for example keep scalar under `OperatingSystem.IsBrowser()` in the losing build) and say why in the PR. Never ship a regression in one build for a gain in another. Record the JIT, Native AOT and both browser figures in the PR and in `docs/benchmarks/simd-kernels.md`.
 
 ## Checklist
 
@@ -142,4 +150,4 @@ Quote both lines in the PR. A kernel whose interpreter `speed-up` is below 1 doe
 - [ ] `--job dry` exits 0; `--job short` numbers quoted in the PR
 - [ ] `Allocated` reads `-` on hot paths; an `Allocations.Measure` test in the `Heavy` collection added next to the feature
 - [ ] Names stable; any rename called out in the PR body
-- [ ] SIMD kernel: `SimdKernelAssert` test with the `SimdKernel` trait, a `KernelBenchmarks` case, both browser lines quoted in the PR
+- [ ] SIMD kernel: `SimdKernelAssert` test with the `SimdKernel` trait, a `KernelBenchmarks` case, both browser lines quoted in the PR with speed-up of at least 1 in each, JIT, Native AOT and browser figures in `docs/benchmarks/simd-kernels.md`

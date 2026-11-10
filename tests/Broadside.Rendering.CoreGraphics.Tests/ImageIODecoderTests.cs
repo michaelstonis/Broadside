@@ -103,6 +103,32 @@ public sealed class ImageIODecoderTests
         Assert.Equal(Samples(managed.Pages[0].CreateDisplayList()), Samples(list));
     }
 
+    // Issue #484: ImageIO decodes on the calling thread and returns a completed task; pooled tiles reaching the image at once share it.
+    [Fact]
+    public async Task Concurrent_prefetches_from_many_threads_decode_the_image_once()
+    {
+        const int count = 8;
+        var decoder = new CountingDecoder(ImageIODecoder.Shared);
+        using PdfDocument document = PdfDocument.Open(CatalogueSamples.Cover(), new PdfOptions().UsePlatformImageDecoder(decoder).WithDisplayListCacheBudget(0));
+        DisplayList list = document.Pages[0].CreateDisplayList();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        using var start = new Barrier(count);
+
+        Task[] prefetches = [.. Enumerable.Range(0, count).Select(_ => Task.Factory.StartNew(
+            () =>
+            {
+                start.SignalAndWait(cancellationToken);
+                return list.PrefetchImagesAsync(Device, null, 0, cancellationToken).AsTask();
+            },
+            cancellationToken,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default).Unwrap())];
+        await Task.WhenAll(prefetches);
+
+        Assert.Equal(1, decoder.Calls);
+        Assert.Empty(document.Diagnostics);
+    }
+
     [Fact]
     public async Task A_coarse_quantizer_falls_back_to_the_managed_codec_with_one_diagnostic()
     {
@@ -339,6 +365,28 @@ public sealed class ImageIODecoderTests
     }
 
     /// <summary>Records the one image a replay draws.</summary>
+    /// <summary>Counts the decodes it passes on to <paramref name="inner"/>.</summary>
+    private sealed class CountingDecoder(IPlatformImageDecoder inner) : IPlatformImageDecoder
+    {
+        private int _calls;
+
+        public int Calls => Volatile.Read(ref _calls);
+
+        public string Name => inner.Name;
+
+        public PlatformImageFidelity Fidelity => inner.Fidelity;
+
+        public PlatformImageFeatures Features => inner.Features;
+
+        public bool CanDecode(in PlatformImageRequest request) => inner.CanDecode(request);
+
+        public ValueTask<DecodedImage?> DecodeAsync(ReadOnlyMemory<byte> encoded, PlatformImageRequest request, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _calls);
+            return inner.DecodeAsync(encoded, request, cancellationToken);
+        }
+    }
+
     private sealed class ImageRecorder : IRenderingBackend
     {
         public DisplayImage? Image { get; private set; }

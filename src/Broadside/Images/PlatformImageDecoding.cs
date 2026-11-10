@@ -81,9 +81,13 @@ internal sealed class PlatformImageDecoding
     }
 
     /// <summary>Returns the decode of (<paramref name="image"/>, <paramref name="reduction"/>) in flight, or starts one with <paramref name="start"/>.</summary>
+    /// <remarks>
+    /// The decode is registered before <paramref name="start"/> runs and outside the lock, so it is shared whether the platform
+    /// decoder completes later or decodes on the calling thread and returns a completed task (issue #484).
+    /// </remarks>
     public Task Join(object image, int reduction, Func<Task> start)
     {
-        Task task;
+        TaskCompletionSource placeholder;
         lock (_gate)
         {
             if (_inFlight.TryGetValue((image, reduction), out Task? running))
@@ -91,29 +95,36 @@ internal sealed class PlatformImageDecoding
                 return running;
             }
 
-            task = Run(image, reduction, start);
-            if (!task.IsCompleted)
-            {
-                _inFlight[(image, reduction)] = task;
-            }
+            placeholder = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _inFlight[(image, reduction)] = placeholder.Task;
         }
 
-        return task;
+        _ = Run(image, reduction, start, placeholder);
+        return placeholder.Task;
     }
 
-    private async Task Run(object image, int reduction, Func<Task> start)
+    // Never throws: the outcome of the decode, failed or cancelled included, goes to the placeholder every requester awaits.
+    private async Task Run(object image, int reduction, Func<Task> start, TaskCompletionSource placeholder)
     {
+        Task decode;
         try
         {
-            await start().ConfigureAwait(false);
+            decode = start();
         }
-        finally
+#pragma warning disable CA1031 // handed to every requester through the placeholder
+        catch (Exception exception)
+#pragma warning restore CA1031
         {
-            lock (_gate)
-            {
-                _inFlight.Remove((image, reduction));
-            }
+            decode = Task.FromException(exception);
         }
+
+        await decode.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+        lock (_gate)
+        {
+            _inFlight.Remove((image, reduction));
+        }
+
+        placeholder.SetFromTask(decode);
     }
 
     /// <summary>

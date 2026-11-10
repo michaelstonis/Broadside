@@ -12,8 +12,10 @@ namespace Broadside.TestSupport;
 /// </summary>
 /// <remarks>
 /// The kernel multiplies interleaved (value, alpha) byte pairs and rounds to the nearest byte, as premultiplication does:
-/// <c>t = v * a + 128; (t + (t &gt;&gt; 8)) &gt;&gt; 8</c>. It uses only operations the WebAssembly interpreter maps to SIMD opcodes:
-/// <c>Create</c>/<c>CopyTo</c>, <c>&amp;</c>, <c>*</c>, <c>+</c>, logical shifts and <c>Narrow</c> from 16-bit lanes, inlined by hand.
+/// <c>t = v * a + 128; (t + (t &gt;&gt; 8)) &gt;&gt; 8</c>. It uses only operations that are fast in both browser builds as well as
+/// under the JIT and Native AOT (issue #471): <c>LoadUnsafe</c>/<c>StoreUnsafe</c>, <c>&amp;</c>, <c>*</c>, <c>+</c>, the <c>&gt;&gt;&gt;</c>
+/// operator (not the <c>ShiftRightLogical</c> method, which the browser AOT build does not compile to a SIMD shift) and
+/// <c>Narrow</c> from 16-bit lanes, inlined by hand.
 /// </remarks>
 public static class SimdExampleKernel
 {
@@ -54,20 +56,22 @@ public static class SimdExampleKernel
         int count = pairs.Length / 2;
         ArgumentOutOfRangeException.ThrowIfLessThan(products.Length, count);
 
-        // Little-endian on every target: each 16-bit word is value | alpha << 8.
-        ReadOnlySpan<ushort> words = MemoryMarshal.Cast<byte, ushort>(pairs[..(2 * count)]);
+        // The loop reads pairs[2i .. 2i + 32) and writes products[i .. i + 16), both inside the lengths checked above.
+        ref byte source = ref MemoryMarshal.GetReference(pairs);
+        ref byte destination = ref MemoryMarshal.GetReference(products);
         Vector128<ushort> low = Vector128.Create((ushort)0xFF);
         Vector128<ushort> half = Vector128.Create((ushort)128);
         int i = 0;
         for (; i + 16 <= count; i += 16)
         {
-            Vector128<ushort> first = Vector128.Create(words.Slice(i, 8));
-            Vector128<ushort> second = Vector128.Create(words.Slice(i + 8, 8));
-            Vector128<ushort> t1 = ((first & low) * Vector128.ShiftRightLogical(first, 8)) + half;
-            Vector128<ushort> t2 = ((second & low) * Vector128.ShiftRightLogical(second, 8)) + half;
-            t1 = Vector128.ShiftRightLogical(t1 + Vector128.ShiftRightLogical(t1, 8), 8);
-            t2 = Vector128.ShiftRightLogical(t2 + Vector128.ShiftRightLogical(t2, 8), 8);
-            Vector128.Narrow(t1, t2).CopyTo(products.Slice(i, 16));
+            // Little-endian on every target: each 16-bit word is value | alpha << 8.
+            Vector128<ushort> first = Vector128.LoadUnsafe(ref source, (nuint)(2 * i)).AsUInt16();
+            Vector128<ushort> second = Vector128.LoadUnsafe(ref source, (nuint)((2 * i) + 16)).AsUInt16();
+            Vector128<ushort> t1 = ((first & low) * (first >>> 8)) + half;
+            Vector128<ushort> t2 = ((second & low) * (second >>> 8)) + half;
+            t1 = (t1 + (t1 >>> 8)) >>> 8;
+            t2 = (t2 + (t2 >>> 8)) >>> 8;
+            Vector128.Narrow(t1, t2).StoreUnsafe(ref destination, (nuint)i);
         }
 
         MultiplyScalar(pairs[(2 * i)..(2 * count)], products[i..]);
