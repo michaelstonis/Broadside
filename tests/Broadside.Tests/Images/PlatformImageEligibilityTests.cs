@@ -39,6 +39,35 @@ public sealed class PlatformImageEligibilityTests
         Assert.Equal(subsampled, request.ChromaSubsampled);
     }
 
+    [Theory]
+    [InlineData("sampling-420", 2, 2)]
+    [InlineData("sampling-422", 2, 1)]
+    [InlineData("sampling-440", 1, 2)]
+    [InlineData("sampling-411", 4, 1)]
+    [InlineData("sampling-444", 1, 1)]
+    [InlineData("encoded-gray-q90", 1, 1)]
+    public void The_chroma_subsampling_ratios_are_reported(string name, int across, int down)
+    {
+        byte[] jpeg = DctVectors.Jpeg(name);
+        bool gray = name.Contains("gray", StringComparison.Ordinal);
+
+        Assert.True(PlatformImageEligibility.TryCreateRequest(jpeg, -1, gray ? 37 : 75, gray ? 21 : 43, out PlatformImageRequest request, out _));
+        Assert.Equal((across, down), (request.ChromaHorizontalSubsampling, request.ChromaVerticalSubsampling));
+    }
+
+    [Fact]
+    public void Chroma_sampled_in_another_pattern_has_no_ratio()
+    {
+        // Cb sampled 2x2 like the luma and Cr 1x1: not one chroma pattern.
+        byte[] jpeg = (byte[])DctVectors.Jpeg("sampling-420").Clone();
+        int sof = jpeg.AsSpan().IndexOf([(byte)0xFF, (byte)0xC0]);
+        jpeg[sof + 4 + 6 + 3 + 1] = 0x22;
+
+        Assert.True(PlatformImageEligibility.TryCreateRequest(jpeg, -1, 75, 43, out PlatformImageRequest request, out _));
+        Assert.True(request.ChromaSubsampled);
+        Assert.Equal((0, 0), (request.ChromaHorizontalSubsampling, request.ChromaVerticalSubsampling));
+    }
+
     [Fact]
     public void Arithmetic_coding_is_eligible_and_flagged_so_only_a_decoder_that_declares_it_is_offered_it()
     {

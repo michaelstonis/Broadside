@@ -15,6 +15,10 @@ namespace Broadside.Images;
 /// </remarks>
 public readonly record struct PlatformImageRequest
 {
+    // Bytes, so the request grows by no more than its padding: ratios are 1 to 15 (T.81 sampling factors are 1 to 4).
+    private readonly byte _chromaX;
+    private readonly byte _chromaY;
+
     /// <summary>Gets the image codec: <c>DCTDecode</c>.</summary>
     /// <remarks>ISO 32000-2 §7.4.8. JPEG 2000 (§7.4.9) is never offered yet.</remarks>
     public CosName Filter { get; init; }
@@ -53,6 +57,30 @@ public readonly record struct PlatformImageRequest
     /// </summary>
     /// <remarks>ITU-T T.81 A.1.1 and B.2.2 (Hi, Vi); always false for one component.</remarks>
     public bool ChromaSubsampled { get; init; }
+
+    /// <summary>
+    /// Gets how many luma samples one chroma sample spans across the image: 1 when chroma is not subsampled horizontally, 2 for 4:2:0
+    /// and 4:2:2, 4 for 4:1:1; 0 when the components are sampled in another pattern (the first component not at the highest rate,
+    /// the two chroma components sampled unlike each other).
+    /// </summary>
+    /// <remarks>
+    /// ITU-T T.81 A.1.1 and B.2.2: Hmax / Hi of the second and third components. With <see cref="ChromaVerticalSubsampling"/> it
+    /// tells a decoder whether its chroma upsampling at a reduction would interpolate (libjpeg's "fancy" upsampling of 2:1 ratios)
+    /// where the managed decoder replicates. Always 1 for one component.
+    /// </remarks>
+    public int ChromaHorizontalSubsampling
+    {
+        get => _chromaX;
+        init => _chromaX = (byte)Math.Clamp(value, 0, byte.MaxValue);
+    }
+
+    /// <summary>Gets how many luma samples one chroma sample spans down the image: 1 when chroma is not subsampled vertically, 2 for 4:2:0; 0 for another pattern.</summary>
+    /// <remarks>ITU-T T.81 A.1.1 and B.2.2: Vmax / Vi of the second and third components; see <see cref="ChromaHorizontalSubsampling"/>. Always 1 for one component.</remarks>
+    public int ChromaVerticalSubsampling
+    {
+        get => _chromaY;
+        init => _chromaY = (byte)Math.Clamp(value, 0, byte.MaxValue);
+    }
 
     /// <summary>Gets a value indicating whether the data has an APP1 Exif segment (zero-filled for a decoder that applies orientation).</summary>
     public bool HasExif { get; init; }
