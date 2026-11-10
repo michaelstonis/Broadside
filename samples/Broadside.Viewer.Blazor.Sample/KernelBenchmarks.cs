@@ -1,9 +1,11 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Intrinsics;
 using System.Runtime.Versioning;
 using System.Text;
+using Broadside.Rendering;
 using Broadside.TestSupport;
 
 namespace Broadside.Viewer.Blazor.Sample;
@@ -13,7 +15,8 @@ namespace Broadside.Viewer.Blazor.Sample;
 /// (the AOT build compiles <see cref="Vector128{T}"/> to native WebAssembly SIMD; the interpreter build maps only part of the API to
 /// SIMD opcodes and can be slower than scalar), and checks that both give the same bytes there. The browser tests run it in both builds
 /// and write the figures to the measurement log. A kernel PR adds its case to <see cref="Cases"/>, linking the kernel's source file
-/// into this project (as <c>SimdExampleKernel</c> is linked from tests/Broadside.TestSupport).
+/// into this project (as <c>SimdExampleKernel</c> is linked from tests/Broadside.TestSupport and <c>CompositingRows</c> from
+/// src/Broadside.Rendering).
 /// </summary>
 [SupportedOSPlatform("browser")]
 public static partial class KernelBenchmarks
@@ -29,6 +32,8 @@ public static partial class KernelBenchmarks
     private static readonly Case[] Cases =
     [
         new("example-multiply", 2, 1, SimdExampleKernel.MultiplyScalar, SimdExampleKernel.MultiplyVector),
+        new("over-row", 8, 4, OverRowScalar, OverRowVector),
+        new("fill-row", 4, 4, FillRowScalar, FillRowVector),
     ];
 
     /// <summary>
@@ -74,6 +79,35 @@ public static partial class KernelBenchmarks
         }
 
         return report.ToString();
+    }
+
+    // The compositing rows (#473), one pixel per item. Over: the source holds the source pixels, then the backdrop, which is copied
+    // into the destination first (both methods pay the copy); full coverage, as a transparency group composites onto its parent.
+    private static void OverRowScalar(ReadOnlySpan<byte> pixels, Span<byte> target)
+    {
+        int n = pixels.Length / 2;
+        pixels[n..].CopyTo(target);
+        CompositingRows.OverRowScalar(MemoryMarshal.Cast<byte, uint>(pixels[..n]), MemoryMarshal.Cast<byte, uint>(target), 255);
+    }
+
+    private static void OverRowVector(ReadOnlySpan<byte> pixels, Span<byte> target)
+    {
+        int n = pixels.Length / 2;
+        pixels[n..].CopyTo(target);
+        CompositingRows.OverRowVector(MemoryMarshal.Cast<byte, uint>(pixels[..n]), MemoryMarshal.Cast<byte, uint>(target), 255);
+    }
+
+    // Fill: an opaque colour over the backdrop (the source, copied into the destination first) at a partial coverage.
+    private static void FillRowScalar(ReadOnlySpan<byte> backdrop, Span<byte> target)
+    {
+        backdrop.CopyTo(target);
+        CompositingRows.FillRowScalar(MemoryMarshal.Cast<byte, uint>(target), 0xFF3366CCu, 100);
+    }
+
+    private static void FillRowVector(ReadOnlySpan<byte> backdrop, Span<byte> target)
+    {
+        backdrop.CopyTo(target);
+        CompositingRows.FillRowVector(MemoryMarshal.Cast<byte, uint>(target), 0xFF3366CCu, 100);
     }
 
     private static double Time(SpanKernel<byte, byte> kernel, byte[] source, byte[] destination, int rounds)

@@ -678,12 +678,20 @@ public sealed partial class SoftwareRasterizer
                 Span<byte> parentShape = tracksShape ? _parent!.ShapeRow(row, x, count) : default;
                 Span<byte> shape = layer.TracksShape ? layer.ShapeRow(_row, start, count) : default;
                 Span<byte> alpha = layer.TracksAlpha ? layer.AlphaRow(_row, start, count) : default;
-                Span<uint> initial = !layer.Isolated && layer.TracksAlpha ? layer.BackdropRow(layer.Pass, _row, start, count) : default;
+                bool removesBackdrop = !layer.Isolated && layer.TracksAlpha;
+                if (backdrop.IsEmpty && !tracksAlpha && !tracksShape && _isolatedSource && !removesBackdrop && compositor.IsNormal)
+                {
+                    // The common case, an isolated group (or one already converted) in Normal: source-over of the row at one coverage.
+                    CompositingRows.OverRow(_source.Slice(start, count), target, compositor.Scale(coverage));
+                    return;
+                }
+
+                Span<uint> initial = removesBackdrop ? layer.BackdropRow(layer.Pass, _row, start, count) : default;
                 for (int i = 0; i < count; i++)
                 {
                     uint complete = _source[start + i];
                     uint source = complete;
-                    if (!layer.Isolated && layer.TracksAlpha)
+                    if (removesBackdrop)
                     {
                         // §11.4.4: the group's own colour and alpha, without the backdrop it was composited over.
                         source = Compositor.RemoveBackdrop(complete, initial[i], alpha[i]);
