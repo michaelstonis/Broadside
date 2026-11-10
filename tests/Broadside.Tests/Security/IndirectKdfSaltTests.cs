@@ -40,15 +40,15 @@ public sealed partial class IndirectKdfSaltTests
         var writer = new IntegrityCodeWriter(fileKey, kdfSalt);
 
         string placeholder = "<" + new string('0', 2 * writer.TokenLength) + ">";
-        const string RangePlaceholder = "[0 0000000000 0000000000 0000000000]";
-        byte[] data = new TestPdf { Header = "%PDF-2.0", TrailerEntries = $"/Encrypt 6 0 R {Id} /AuthCode << /MACLocation /Standalone /ByteRange {RangePlaceholder} /MAC {placeholder} >>" }
+        const string rangePlaceholder = "[0 0000000000 0000000000 0000000000]";
+        byte[] data = new TestPdf { Header = "%PDF-2.0", TrailerEntries = $"/Encrypt 6 0 R {Id} /AuthCode << /MACLocation /Standalone /ByteRange {rangePlaceholder} /MAC {placeholder} >>" }
             .Build([.. objects, $"<{salt.Groups[1].Value}>"]);
 
         string file = Encoding.Latin1.GetString(data);
         int first = file.IndexOf(placeholder, StringComparison.Ordinal);
         int start = first + placeholder.Length;
         string range = $"[0 {first:D10} {start:D10} {data.Length - start:D10}]";
-        file = file.Replace(RangePlaceholder, range, StringComparison.Ordinal);
+        file = file.Replace(rangePlaceholder, range, StringComparison.Ordinal);
         data = Encoding.Latin1.GetBytes(file);
         byte[] digest = SHA256.HashData([.. data[..first], .. data[start..]]);
         string token = "<" + Convert.ToHexString(writer.CreateToken(digest)) + ">";
