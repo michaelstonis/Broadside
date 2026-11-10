@@ -58,7 +58,7 @@ public class CompositingBenchmarks
 /// The compositing rows (ISO 32000-2 §11.3.6; issue #473), one row at a time (<c>Scalar</c>, the code before #473) and through the
 /// dispatcher (the <c>Vector128</c> path where it is accelerated): source-over of a 794-pixel row (a page width at 96 DPI, as a
 /// transparency group composites onto its parent) of premultiplied pixels, a third of them transparent, at full coverage; and an
-/// opaque colour over a 256-pixel span at partial coverage. <c>Allocated</c> must read <c>-</c>; the vector paths' bit-exactness is
+/// opaque color over a 256-pixel span at partial coverage. <c>Allocated</c> must read <c>-</c>; the vector paths' bit-exactness is
 /// <c>Broadside.Rendering.Tests.CompositingRowsKernelTests</c>.
 /// </summary>
 [MemoryDiagnoser]

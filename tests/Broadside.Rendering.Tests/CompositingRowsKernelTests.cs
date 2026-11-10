@@ -4,7 +4,7 @@ using Broadside.TestSupport;
 namespace Broadside.Rendering.Tests;
 
 /// <summary>
-/// The <c>Vector128</c> compositing rows (issue #473) against the scalar ones they replace: partial-coverage fill on every (colour
+/// The <c>Vector128</c> compositing rows (issue #473) against the scalar ones they replace: partial-coverage fill on every (color
 /// channel, coverage, backdrop channel) triple, and source-over on every (source channel, source alpha, backdrop channel) triple at
 /// the coverages the rasterizer uses most plus every (channel, alpha) pair at every coverage; every short row length and
 /// misalignment, the dispatchers included. In the <see cref="SimdKernelAssert.Category"/> category, which CI reruns with hardware
@@ -20,7 +20,7 @@ public sealed class CompositingRowsKernelTests
     [Fact]
     public void Partial_coverage_fill_matches_the_scalar_fill_on_every_channel_coverage_and_backdrop()
     {
-        // Items are (backdrop d, colour s) byte pairs; each coverage covers all 65,536, so every (s, c, d) triple is checked.
+        // Items are (backdrop d, color s) byte pairs; each coverage covers all 65,536, so every (s, c, d) triple is checked.
         for (int coverage = 0; coverage <= 255; coverage++)
         {
             SimdKernelAssert.ExhaustiveBytes<byte>(2, Fill(CompositingRows.FillRowScalar, coverage), Fill(CompositingRows.FillRowVector, coverage), outputsPerItem: 4);
@@ -67,7 +67,7 @@ public sealed class CompositingRowsKernelTests
     }
 
     /// <summary>
-    /// Adapts a fill to items of (backdrop, colour) bytes: each run of items with one colour is one call, the colour's channels and
+    /// Adapts a fill to items of (backdrop, color) bytes: each run of items with one color is one call, the color's channels and
     /// the backdrop's being different bijections of the two bytes so that a lane mix-up shows.
     /// </summary>
     private static SpanKernel<byte, byte> Fill(FillKernel kernel, int coverage) => (source, destination) =>
@@ -95,7 +95,7 @@ public sealed class CompositingRowsKernelTests
 
     /// <summary>
     /// Adapts source-over to items of (s, a, d) bytes (or of (s, a) pairs, the backdrop derived from both, or of eight bytes, two
-    /// whole pixels): the source pixel holds s in its colour channels (as different bijections) and a as its alpha.
+    /// whole pixels): the source pixel holds s in its color channels (as different bijections) and a as its alpha.
     /// </summary>
     private static SpanKernel<byte, byte> Over(OverKernel kernel, int coverage) => (source, destination) =>
     {

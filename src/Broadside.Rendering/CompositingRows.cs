@@ -5,7 +5,7 @@ namespace Broadside.Rendering;
 
 /// <summary>
 /// The compositing rows of the software rasterizer (issue #473): premultiplied source-over of a row of pixels at one coverage, and of
-/// one opaque colour over a run at partial coverage, each as a scalar method (the reference), a <see cref="Vector128{T}"/> method that
+/// one opaque color over a run at partial coverage, each as a scalar method (the reference), a <see cref="Vector128{T}"/> method that
 /// matches it bit for bit, and a dispatcher that takes the vector method where <see cref="Vector128.IsHardwareAccelerated"/>.
 /// </summary>
 /// <remarks>
@@ -175,7 +175,7 @@ internal static class CompositingRows
     /// <paramref name="coverage"/>: the vector path where <see cref="Vector128"/> is accelerated, else the scalar one.
     /// </summary>
     /// <param name="target">The backdrop pixels, premultiplied BGRA, replaced by the result.</param>
-    /// <param name="color">The colour, opaque premultiplied BGRA.</param>
+    /// <param name="color">The color, opaque premultiplied BGRA.</param>
     /// <param name="coverage">The coverage, 1 to 254 (0 leaves the row, 255 replaces it: callers handle both without compositing).</param>
     public static void FillRow(Span<uint> target, uint color, int coverage)
     {
@@ -191,7 +191,7 @@ internal static class CompositingRows
 
     /// <summary>The scalar path of <see cref="FillRow"/>: d = s × c + d × (1 − c), per channel, rounded; the reference.</summary>
     /// <param name="target">The backdrop pixels, replaced by the result.</param>
-    /// <param name="color">The colour.</param>
+    /// <param name="color">The color.</param>
     /// <param name="coverage">The coverage, 0 to 255.</param>
     public static void FillRowScalar(Span<uint> target, uint color, int coverage)
     {
@@ -212,7 +212,7 @@ internal static class CompositingRows
 
     /// <summary>The <see cref="Vector128{T}"/> path of <see cref="FillRow"/>, run whether or not it is accelerated (so tests reach it).</summary>
     /// <param name="target">The backdrop pixels, replaced by the result.</param>
-    /// <param name="color">The colour.</param>
+    /// <param name="color">The color.</param>
     /// <param name="coverage">The coverage, 0 to 255.</param>
     public static void FillRowVector(Span<uint> target, uint color, int coverage)
     {

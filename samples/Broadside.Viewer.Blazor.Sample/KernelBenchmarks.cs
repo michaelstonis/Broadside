@@ -97,7 +97,7 @@ public static partial class KernelBenchmarks
         CompositingRows.OverRowVector(MemoryMarshal.Cast<byte, uint>(pixels[..n]), MemoryMarshal.Cast<byte, uint>(target), 255);
     }
 
-    // Fill: an opaque colour over the backdrop (the source, copied into the destination first) at a partial coverage.
+    // Fill: an opaque color over the backdrop (the source, copied into the destination first) at a partial coverage.
     private static void FillRowScalar(ReadOnlySpan<byte> backdrop, Span<byte> target)
     {
         backdrop.CopyTo(target);
