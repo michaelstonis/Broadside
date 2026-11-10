@@ -36,6 +36,9 @@ Why #470's example kernel was 0.56x of scalar in the AOT build. One loop of 4,09
 |---|---:|---:|---:|
 | JIT | 0.535 | 0.066 | 8.08x |
 | Native AOT | 0.536 | 0.064 | 8.42x |
+| Browser interpreter, CI | 10.681 | 1.287 | 8.30x |
+| Browser AOT, CI | 1.836 | 0.513 | 3.58x |
+| Browser AOT, CI, #470's version | | | **0.56x** |
 | Browser interpreter, local | 4.268 | 0.627 | 6.81x |
 | Browser AOT, local | 0.795 | 0.270 | 2.94x |
 | Browser interpreter, local, #470's version | 4.194 | 1.511 | 2.78x |
@@ -47,6 +50,8 @@ Why #470's example kernel was 0.56x of scalar in the AOT build. One loop of 4,09
 |---|---:|---:|---:|---:|---:|---:|
 | JIT | 1.398 | 0.415 | 3.37x | 1.521 | 0.475 | 3.20x |
 | Native AOT | 1.732 | 0.416 | 4.17x | 1.885 | 0.483 | 3.91x |
+| Browser interpreter, CI | 22.221 | 5.054 | 4.40x | 26.512 | 6.104 | 4.34x |
+| Browser AOT, CI | 11.730 | 2.480 | 4.73x | 14.687 | 2.861 | 5.13x |
 | Browser interpreter, local | 8.974 | 4.012 | 2.24x | 10.758 | 4.595 | 2.34x |
 | Browser AOT, local | 3.309 | 0.715 | 4.63x | 3.758 | 0.785 | 4.79x |
 
@@ -58,3 +63,16 @@ BenchmarkDotNet, `JpegColorBenchmarks`, one 2,550-sample row, JIT, M4 Max (`Allo
 | `YccToRgb` (vector) | 1.089 µs |
 | `YcckToCmykScalar` | 3.835 µs |
 | `YcckToCmyk` (vector) | 1.252 µs |
+
+`DctBenchmarks.Decode`, the whole decode, before (integration branch) and after, `--job short --inProcess`, JIT, M4 Max (`Allocated` `-` on both sides):
+
+| Vector | Base | Head | Change |
+|---|---:|---:|---:|
+| testorig (4:2:0) | 178.3 µs | 143.8 µs | -19% |
+| sampling-444 | 25.5 µs | 22.1 µs | -13% |
+| restart-blocks | 179.8 µs | 143.8 µs | -20% |
+| multiscan | 20.0 µs | 16.2 µs | -19% |
+| progressive | 243.1 µs | 208.3 µs | -14% |
+| arithmetic-progressive | 462.0 µs | 421.9 µs | -9% |
+| ycck | 27.9 µs | 24.4 µs | -12% |
+| gray-2x2 (no transform) | 9.30 µs | 9.26 µs | 0% |
