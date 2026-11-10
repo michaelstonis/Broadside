@@ -14,3 +14,13 @@ Broadside.Rendering.Skia.SkiaBackend.ScaledImageDecode.get -> bool
 Broadside.Rendering.Skia.SkiaBackend.ScaledImageDecode.set -> void
 Broadside.Rendering.Skia.SkiaBackend.ShareConvertedImages.get -> bool
 Broadside.Rendering.Skia.SkiaBackend.ShareConvertedImages.set -> void
+Broadside.Rendering.Skia.SkiaImageDecoder
+Broadside.Rendering.Skia.SkiaImageDecoder.CanDecode(in Broadside.Images.PlatformImageRequest request) -> bool
+Broadside.Rendering.Skia.SkiaImageDecoder.DecodeAsync(System.ReadOnlyMemory<byte> encoded, Broadside.Images.PlatformImageRequest request, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Broadside.Images.DecodedImage?>
+Broadside.Rendering.Skia.SkiaImageDecoder.Features.get -> Broadside.Images.PlatformImageFeatures
+Broadside.Rendering.Skia.SkiaImageDecoder.Fidelity.get -> Broadside.Images.PlatformImageFidelity
+Broadside.Rendering.Skia.SkiaImageDecoder.Name.get -> string!
+Broadside.Rendering.Skia.SkiaImageDecoderExtensions
+const Broadside.Rendering.Skia.SkiaImageDecoder.DecoderName = "skia" -> string!
+static Broadside.Rendering.Skia.SkiaImageDecoder.Shared.get -> Broadside.Rendering.Skia.SkiaImageDecoder!
+static Broadside.Rendering.Skia.SkiaImageDecoderExtensions.UseSkiaImageDecoder(this Broadside.PdfOptions! options) -> Broadside.PdfOptions!

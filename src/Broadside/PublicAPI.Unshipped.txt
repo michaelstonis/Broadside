@@ -5030,6 +5030,10 @@ Broadside.Rendering.DisplayList.PrefetchImagesAsync(in Broadside.Graphics.Matrix
 Broadside.PdfDocument.ReadAsync<T>(System.Func<Broadside.PdfDocument!, T>! read, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
 Broadside.Images.PlatformImageRequest.ChromaSubsampled.get -> bool
 Broadside.Images.PlatformImageRequest.ChromaSubsampled.init -> void
+Broadside.Images.PlatformImageRequest.ChromaHorizontalSubsampling.get -> int
+Broadside.Images.PlatformImageRequest.ChromaHorizontalSubsampling.init -> void
+Broadside.Images.PlatformImageRequest.ChromaVerticalSubsampling.get -> int
+Broadside.Images.PlatformImageRequest.ChromaVerticalSubsampling.init -> void
 Broadside.Rendering.DisplayImage.TryGetPlatformData(Broadside.Images.PlatformImageFeatures features, out Broadside.Images.PlatformImageRequest request, out System.ReadOnlyMemory<byte> data) -> bool
 Broadside.PdfDocument.UsesPlatformImageDecoder(string! name) -> bool
 Broadside.Images.YCbCrConversion
