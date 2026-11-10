@@ -157,24 +157,7 @@ internal static class ImageConverter
                 }
 
                 Span<byte> target = pixels.AsSpan(y * width * 4, width * 4);
-                for (int x = 0; x < width; x++)
-                {
-                    int r = rgbRow[3 * x];
-                    int g = rgbRow[(3 * x) + 1];
-                    int b = rgbRow[(3 * x) + 2];
-                    int a = alpha ? opacityRow[x] : 255;
-                    if (a != 255)
-                    {
-                        r = Divide255(r * a);
-                        g = Divide255(g * a);
-                        b = Divide255(b * a);
-                    }
-
-                    target[4 * x] = (byte)r;
-                    target[(4 * x) + 1] = (byte)g;
-                    target[(4 * x) + 2] = (byte)b;
-                    target[(4 * x) + 3] = (byte)a;
-                }
+                ImageRows.PackRgba(rgbRow, alpha ? opacityRow : default, width, target);
             }
 
             return pixels;
@@ -314,11 +297,6 @@ internal static class ImageConverter
         }
     }
 
-    private static int Divide255(int value)
-    {
-        value += 128;
-        return (value + (value >> 8)) >> 8;
-    }
 
     private static void ToBytes(PdfColorConverter converter, ReadOnlySpan<float> values, Span<byte> rgb, Span<float> rgbValues, int width)
     {

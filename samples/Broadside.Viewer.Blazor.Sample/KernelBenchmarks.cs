@@ -4,6 +4,8 @@ using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Intrinsics;
 using System.Runtime.Versioning;
 using System.Text;
+using Broadside.Graphics.Colors;
+using Broadside.Images;
 using Broadside.TestSupport;
 
 namespace Broadside.Viewer.Blazor.Sample;
@@ -29,6 +31,10 @@ public static partial class KernelBenchmarks
     private static readonly Case[] Cases =
     [
         new("example-multiply", 2, 1, SimdExampleKernel.MultiplyScalar, SimdExampleKernel.MultiplyVector),
+        new("pack-bgra-opaque", 3, 4, PackBgraOpaqueScalar, PackBgraOpaqueVector),
+        new("pack-bgra-premultiplied", 4, 4, PackBgraScalar, PackBgraVector),
+        new("pack-rgba-premultiplied", 4, 4, PackRgbaScalar, PackRgbaVector),
+        new("gray-to-rgb", 1, 3, GrayExpansion.ToRgbScalar, GrayExpansion.ToRgbVector),
     ];
 
     /// <summary>
@@ -75,6 +81,19 @@ public static partial class KernelBenchmarks
 
         return report.ToString();
     }
+
+    // The image row packing (#472): RGB bytes alone (opaque), or the RGB row followed by the opacity row.
+    private static void PackBgraOpaqueScalar(ReadOnlySpan<byte> rgb, Span<byte> pixels) => PixelPacking.PackBgraScalar(rgb, default, pixels);
+
+    private static void PackBgraOpaqueVector(ReadOnlySpan<byte> rgb, Span<byte> pixels) => PixelPacking.PackBgraVector(rgb, default, pixels);
+
+    private static void PackBgraScalar(ReadOnlySpan<byte> rows, Span<byte> pixels) => PixelPacking.PackBgraScalar(rows[..(3 * (rows.Length / 4))], rows[(3 * (rows.Length / 4))..], pixels);
+
+    private static void PackBgraVector(ReadOnlySpan<byte> rows, Span<byte> pixels) => PixelPacking.PackBgraVector(rows[..(3 * (rows.Length / 4))], rows[(3 * (rows.Length / 4))..], pixels);
+
+    private static void PackRgbaScalar(ReadOnlySpan<byte> rows, Span<byte> pixels) => PixelPacking.PackRgbaScalar(rows[..(3 * (rows.Length / 4))], rows[(3 * (rows.Length / 4))..], pixels);
+
+    private static void PackRgbaVector(ReadOnlySpan<byte> rows, Span<byte> pixels) => PixelPacking.PackRgbaVector(rows[..(3 * (rows.Length / 4))], rows[(3 * (rows.Length / 4))..], pixels);
 
     private static double Time(SpanKernel<byte, byte> kernel, byte[] source, byte[] destination, int rounds)
     {

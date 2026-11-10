@@ -49,6 +49,7 @@
   -->
   <ItemGroup>
     <Compile Include="../../tests/Broadside.TestSupport/SpanKernel.cs;../../tests/Broadside.TestSupport/SimdExampleKernel.cs" LinkBase="Kernels" />
+    <Compile Include="../../src/Broadside/Images/PixelPacking.cs;../../src/Broadside/Graphics/Colors/GrayExpansion.cs" LinkBase="Kernels" />
   </ItemGroup>
 
   <!--
