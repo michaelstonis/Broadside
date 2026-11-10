@@ -22,8 +22,8 @@ the browser benchmark's cases: random bytes, the backdrop copied into the destin
 | JIT | 5.582 | 0.397 | 14.05x | 8.426 | 0.610 | 13.82x | 1.579 | 0.277 | 5.70x |
 | JIT, premultiplied pixels | 2.682 | 0.374 | 7.17x | | | | | | |
 | Native AOT | 3.287 | 0.383 | 8.59x | 3.195 | 0.604 | 5.29x | 1.507 | 0.279 | 5.40x |
-| Browser interpreter, CI | CI_INTERP_OVER | | | | | | CI_INTERP_FILL | | |
-| Browser AOT, CI | CI_AOT_OVER | | | | | | CI_AOT_FILL | | |
+| Browser interpreter, CI | 162.506 | 8.392 | 19.36x | | | | 61.226 | 6.866 | 8.92x |
+| Browser AOT, CI | 7.582 | 2.050 | 3.70x | | | | 4.768 | 1.526 | 3.13x |
 | Browser interpreter, local | 55.241 | 3.506 | 15.76x | 63.257 | 6.941 | 9.11x | 14.323 | 2.295 | 6.24x |
 | Browser AOT, local | 3.000 | 0.857 | 3.50x | 2.883 | 2.062 | 1.40x | 1.696 | 0.783 | 2.17x |
 
@@ -62,6 +62,15 @@ each), M4 Max:
 | `brochure.pdf` | 183.4 | 183.2 | 0% | 209.7 | 207.1 | -1% |
 | `newsletter.pdf` | 282.6 | 278.8 | -1% | 331.1 | 322.5 | -3% |
 | `catalogue.pdf` | 1182.0 | 1191.6 | +1% (noise) | 1245.4 | 1214.3 | -2% |
+
+In the browser, the showcase rendered in a `browser-wasm` console app under Node 22 (every page six times, the best of the last
+five; base and head twice each, M4 Max). The CI sample-document table cannot show it: its runners differ by tens of percent between
+runs.
+
+| Build | Base, all pages | Head, all pages | Change | Base, page 1 | Head, page 1 | Change |
+|---|---:|---:|---:|---:|---:|---:|
+| Browser interpreter | 952.2 | 566.7 | **-40%** | 573.9 | 257.3 | **-55%** |
+| Browser AOT | 90.6 | 79.4 | **-12%** | 37.0 | 27.8 | **-25%** |
 
 Pixels each path composited per render of the samples (counted with a temporary probe, two passes): the showcase's first page sends
 about 3.6 million pixels a pass through group source-over at full coverage and 0.25 million through partial-coverage fills; the
