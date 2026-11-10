@@ -131,11 +131,14 @@ public static partial class KernelBenchmarks
         for (int i = 0; i < averages.Length; i++)
         {
             ReadOnlySpan<uint> footprint = samples.Slice(16 * i, 16);
-            uint result;
-            _ = vector
-                ? BoxFilter.AverageVector(footprint, rows, rowWeights, columns, columnWeights, out result)
-                : BoxFilter.AverageScalar(footprint, rows, rowWeights, columns, columnWeights, out result);
-            averages[i] = result;
+            if (vector)
+            {
+                _ = BoxFilter.AverageVector(footprint, rows, rowWeights, columns, columnWeights, out averages[i]);
+            }
+            else
+            {
+                _ = BoxFilter.AverageScalar(footprint, rows, rowWeights, columns, columnWeights, out averages[i]);
+            }
         }
     }
 
