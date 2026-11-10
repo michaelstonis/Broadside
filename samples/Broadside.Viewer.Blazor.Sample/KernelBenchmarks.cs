@@ -5,6 +5,7 @@ using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Intrinsics;
 using System.Runtime.Versioning;
 using System.Text;
+using Broadside.Filters.Dct;
 using Broadside.Rendering;
 using Broadside.TestSupport;
 
@@ -15,8 +16,8 @@ namespace Broadside.Viewer.Blazor.Sample;
 /// (the AOT build compiles <see cref="Vector128{T}"/> to native WebAssembly SIMD; the interpreter build maps only part of the API to
 /// SIMD opcodes and can be slower than scalar), and checks that both give the same bytes there. The browser tests run it in both builds
 /// and write the figures to the measurement log. A kernel PR adds its case to <see cref="Cases"/>, linking the kernel's source file
-/// into this project (as <c>SimdExampleKernel</c> is linked from tests/Broadside.TestSupport and <c>CompositingRows</c> from
-/// src/Broadside.Rendering).
+/// into this project (as <c>SimdExampleKernel</c> is linked from tests/Broadside.TestSupport, <c>JpegColor</c> from src/Broadside and
+/// <c>CompositingRows</c> from src/Broadside.Rendering).
 /// </summary>
 [SupportedOSPlatform("browser")]
 public static partial class KernelBenchmarks
@@ -32,6 +33,8 @@ public static partial class KernelBenchmarks
     private static readonly Case[] Cases =
     [
         new("example-multiply", 2, 1, SimdExampleKernel.MultiplyScalar, SimdExampleKernel.MultiplyVector),
+        new("ycc-to-rgb", 3, 3, YccToRgbScalar, YccToRgbVector),
+        new("ycck-to-cmyk", 4, 4, YcckToCmykScalar, YcckToCmykVector),
         new("over-row", 8, 4, OverRowScalar, OverRowVector),
         new("fill-row", 4, 4, FillRowScalar, FillRowVector),
     ];
@@ -108,6 +111,31 @@ public static partial class KernelBenchmarks
     {
         backdrop.CopyTo(target);
         CompositingRows.FillRowVector(MemoryMarshal.Cast<byte, uint>(target), 0xFF3366CCu, 100);
+    }
+
+    // The DCT colour transforms (#471) over a source holding the Y, Cb, Cr (and K) rows one after another.
+    private static void YccToRgbScalar(ReadOnlySpan<byte> rows, Span<byte> rgb)
+    {
+        int n = rows.Length / 3;
+        JpegColor.YccToRgbScalar(rows[..n], rows[n..(2 * n)], rows[(2 * n)..], rgb);
+    }
+
+    private static void YccToRgbVector(ReadOnlySpan<byte> rows, Span<byte> rgb)
+    {
+        int n = rows.Length / 3;
+        JpegColor.YccToRgbVector(rows[..n], rows[n..(2 * n)], rows[(2 * n)..], rgb);
+    }
+
+    private static void YcckToCmykScalar(ReadOnlySpan<byte> rows, Span<byte> cmyk)
+    {
+        int n = rows.Length / 4;
+        JpegColor.YcckToCmykScalar(rows[..n], rows[n..(2 * n)], rows[(2 * n)..(3 * n)], rows[(3 * n)..], cmyk);
+    }
+
+    private static void YcckToCmykVector(ReadOnlySpan<byte> rows, Span<byte> cmyk)
+    {
+        int n = rows.Length / 4;
+        JpegColor.YcckToCmykVector(rows[..n], rows[n..(2 * n)], rows[(2 * n)..(3 * n)], rows[(3 * n)..], cmyk);
     }
 
     private static double Time(SpanKernel<byte, byte> kernel, byte[] source, byte[] destination, int rounds)

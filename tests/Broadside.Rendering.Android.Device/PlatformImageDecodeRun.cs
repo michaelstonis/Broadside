@@ -45,6 +45,7 @@ internal static class PlatformImageDecodeRun
             Verify(results, DeviceProtocol.PlatformCase(file, 2), bytes, 0.25);
         }
 
+        Concurrent(results);
         Fidelity(results);
         Verify(results, DeviceProtocol.PlatformCase(DeviceProtocol.ExifIccPhoto, 0), Page(WithExifAndIcc(CatalogueSamples.Jpeg(640, 400, DctChromaSubsampling.None), SwappedPrimaries())), 1);
         Profiles(results);
@@ -86,6 +87,31 @@ internal static class PlatformImageDecodeRun
 
         results.PutString(DeviceProtocol.PlatformKey(name, DeviceProtocol.Diagnostics), report.ToString());
         Put(results, DeviceProtocol.PlatformKey(name, DeviceProtocol.Milliseconds), milliseconds);
+    }
+
+    /// <summary>
+    /// Prefetches one photograph from eight pool threads at once, where the decoder decodes on the calling thread and returns a
+    /// completed task, and reports how many times it was called (issue #484: once).
+    /// </summary>
+    private static void Concurrent(Bundle results)
+    {
+        const int count = 8;
+        var decoder = new CountingDecoder(AndroidImageDecoder.Shared);
+        using PdfDocument document = new PdfEngine(new PdfOptions().UsePlatformImageDecoder(decoder).WithDisplayListCacheBudget(0)).Open(Page(CatalogueSamples.Jpeg(1320, 948, DctChromaSubsampling.None)));
+        PdfPage page = document.Pages[0];
+        DisplayList list = page.CreateDisplayList();
+        RenderOptions options = new RenderOptions().WithScale(1);
+        PixelSize size = options.GetPixelSize(page);
+        Matrix device = options.GetDeviceTransform(page);
+        using var start = new Barrier(count);
+        Task[] prefetches = [.. Enumerable.Range(0, count).Select(_ => Task.Run(() =>
+        {
+            start.SignalAndWait();
+            using var backend = new AndroidCanvasBackend { ScaledImageDecode = true };
+            return backend.PrefetchImagesAsync(list, device, size.Width, size.Height, CancellationToken.None).AsTask();
+        }))];
+        Task.WaitAll(prefetches);
+        results.PutString(DeviceProtocol.PlatformKey(DeviceProtocol.ConcurrentPhoto, DeviceProtocol.Decodes), decoder.Calls.ToString(CultureInfo.InvariantCulture));
     }
 
     /// <summary>
@@ -424,5 +450,27 @@ internal static class PlatformImageDecodeRun
         using var memory = new MemoryStream();
         asset.CopyTo(memory);
         return memory.ToArray();
+    }
+
+    /// <summary>Counts the decodes it passes on to <paramref name="inner"/>.</summary>
+    private sealed class CountingDecoder(IPlatformImageDecoder inner) : IPlatformImageDecoder
+    {
+        private int _calls;
+
+        public int Calls => Volatile.Read(ref _calls);
+
+        public string Name => inner.Name;
+
+        public PlatformImageFidelity Fidelity => inner.Fidelity;
+
+        public PlatformImageFeatures Features => inner.Features;
+
+        public bool CanDecode(in PlatformImageRequest request) => inner.CanDecode(request);
+
+        public ValueTask<DecodedImage?> DecodeAsync(ReadOnlyMemory<byte> encoded, PlatformImageRequest request, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _calls);
+            return inner.DecodeAsync(encoded, request, cancellationToken);
+        }
     }
 }

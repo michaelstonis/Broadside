@@ -232,6 +232,12 @@ internal static class DeviceProtocol
     /// <summary>The ICC probe variant decoded with the profile's payload zero-filled, as the core hands it over.</summary>
     public const string ProfileCleared = "icc-cleared";
 
+    /// <summary>The platform image decoder case of eight prefetches of one photograph at once from pool threads (issue #484).</summary>
+    public const string ConcurrentPhoto = "photo-444-concurrent";
+
+    /// <summary>The figure of how many times the platform decoder was called.</summary>
+    public const string Decodes = "decodes";
+
     /// <summary>What separates the lines of a figure: <c>am instrument</c> reports one result per line.</summary>
     public const string LineSeparator = " || ";
 

@@ -120,6 +120,11 @@ public sealed class AndroidImageDecoderTests(ITestOutputHelper output)
         }
     }
 
+    // Issue #484: the decoder decodes on a pool thread and returns a completed task; pooled tiles reaching the image at once share it.
+    [Fact]
+    public void Concurrent_prefetches_from_pool_threads_decode_the_image_once() =>
+        Assert.Equal("1", AndroidDevice.Run().Platform(DeviceProtocol.ConcurrentPhoto, DeviceProtocol.Decodes));
+
     [Fact]
     public void Decode_and_first_paint_times_against_the_managed_decoder()
     {

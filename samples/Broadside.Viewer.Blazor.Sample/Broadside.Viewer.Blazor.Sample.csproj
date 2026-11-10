@@ -49,6 +49,7 @@
   -->
   <ItemGroup>
     <Compile Include="../../tests/Broadside.TestSupport/SpanKernel.cs;../../tests/Broadside.TestSupport/SimdExampleKernel.cs" LinkBase="Kernels" />
+    <Compile Include="../../src/Broadside/Filters/Dct/JpegColor.cs;../../src/Broadside/Filters/Dct/JpegColor.Vector128.cs" LinkBase="Kernels" />
     <Compile Include="../../src/Broadside.Rendering/CompositingRows.cs" LinkBase="Kernels" />
   </ItemGroup>
 
