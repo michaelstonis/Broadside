@@ -21,6 +21,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../Broadside.Rendering/Broadside.Rendering.csproj" />
+    <!-- ImageIODecodeBenchmarks measures ImageIO's own reductions, which the decoder never uses. -->
+    <InternalsVisibleTo Include="Broadside.Rendering.CoreGraphics.Benchmarks" />
   </ItemGroup>
 
   <!-- No-op targets for a host that cannot build this project. The SDK, when imported below, replaces every one of them. -->
