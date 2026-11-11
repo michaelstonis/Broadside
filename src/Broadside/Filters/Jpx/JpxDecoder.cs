@@ -324,13 +324,14 @@ internal static class JpxDecoder
         }
     }
 
-    /// <summary>
-    /// The inverse component transformation of components 0 to 2 (G.2.2, G.3.2): the RCT when they use the 5/3 filter, the ICT when
-    /// they use the 9/7 one; skipped with a diagnostic when they differ in size or filter.
-    /// </summary>
     /// <summary>How many samples a whole-component loop handles between cancellation checks, less one (a mask: 64 Ki samples).</summary>
     private const int CancellationStride = (1 << 16) - 1;
 
+    /// <summary>
+    /// The inverse component transformation of components 0 to 2 (G.2.2, G.3.2): the RCT when they use the 5/3 filter, the ICT when
+    /// they use the 9/7 one (<see cref="JpxLifting"/>, 64 Ki samples between cancellation checks); skipped with a diagnostic when they
+    /// differ in size or filter.
+    /// </summary>
     private static void ApplyComponentTransform(JpxTileParameters parameters, JpxTileComponent[] components, int[][] buffers, CodecReporter reporter)
     {
         if (parameters.Coding.Transform != 1 || components.Length < 3)
@@ -351,45 +352,21 @@ internal static class JpxDecoder
         }
 
         int count = components[0].Width * components[0].Height;
-        if (reversible)
+        for (int start = 0; start < count; start += CancellationStride + 1)
         {
-            // G-6 to G-8.
-            Span<int> y0 = buffers[0].AsSpan(0, count);
-            Span<int> y1 = buffers[1].AsSpan(0, count);
-            Span<int> y2 = buffers[2].AsSpan(0, count);
-            for (int i = 0; i < y0.Length; i++)
+            reporter.ThrowIfCancellationRequested();
+            int length = Math.Min(CancellationStride + 1, count - start);
+            Span<int> y0 = buffers[0].AsSpan(start, length);
+            Span<int> y1 = buffers[1].AsSpan(start, length);
+            Span<int> y2 = buffers[2].AsSpan(start, length);
+            if (reversible)
             {
-                if ((i & CancellationStride) == 0)
-                {
-                    reporter.ThrowIfCancellationRequested();
-                }
-
-                int g = y0[i] - ((y1[i] + y2[i]) >> 2);
-                y0[i] = y2[i] + g;
-                y2[i] = y1[i] + g;
-                y1[i] = g;
+                JpxLifting.InverseRct(y0, y1, y2);
             }
-
-            return;
-        }
-
-        // G-12 to G-14.
-        Span<float> f0 = MemoryMarshal.Cast<int, float>(buffers[0].AsSpan(0, count));
-        Span<float> f1 = MemoryMarshal.Cast<int, float>(buffers[1].AsSpan(0, count));
-        Span<float> f2 = MemoryMarshal.Cast<int, float>(buffers[2].AsSpan(0, count));
-        for (int i = 0; i < f0.Length; i++)
-        {
-            if ((i & CancellationStride) == 0)
+            else
             {
-                reporter.ThrowIfCancellationRequested();
+                JpxLifting.InverseIct(MemoryMarshal.Cast<int, float>(y0), MemoryMarshal.Cast<int, float>(y1), MemoryMarshal.Cast<int, float>(y2));
             }
-
-            float y = f0[i];
-            float cb = f1[i];
-            float cr = f2[i];
-            f0[i] = y + (1.402f * cr);
-            f1[i] = y - (0.34413f * cb) - (0.71414f * cr);
-            f2[i] = y + (1.772f * cb);
         }
     }
 
