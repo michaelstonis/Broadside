@@ -164,7 +164,7 @@ browser benchmark's case).
 | Browser interpreter, local | 254.890 | 258.315 | **0.99x** | 115.582 | 130.976 | **0.88x** | 603.177 | 586.424 | 1.03x |
 | Browser AOT, local | 25.837 | 30.260 | **0.85x** | 11.294 | 12.458 | **0.91x** | 64.403 | 77.965 | **0.83x** |
 
-- **Gated off in the browser.** The vector path is slower than scalar in the browser AOT build and no faster in the interpreter, so
+- **Gated off in the browser.** The vector path is slower than scalar in both browser builds (on CI; locally the interpreter is even), so
   `BoxFilter.Average` takes it only where `Vector128` is accelerated and `!OperatingSystem.IsBrowser()`. The `box-filter-4x4` case
   of the browser benchmark times `AverageVector` itself, so its CI lines show the speed-up below 1 that the gate is for.
 - **Why so little.** Each sum depends on the one before it, and the scalar loop's `int`-to-`double` conversions are single

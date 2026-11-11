@@ -39,7 +39,7 @@ internal static class BoxFilter
     /// <summary>
     /// The weighted average of <paramref name="pixels"/> at every row of <paramref name="rows"/> and column of
     /// <paramref name="columns"/>: the vector path where <see cref="Vector128"/> is accelerated outside the browser, else the scalar
-    /// one. In the browser the vector path is slower than scalar in the AOT build (WebAssembly SIMD) and no faster in the interpreter
+    /// one. In the browser the vector path is slower than scalar in both the AOT build and the interpreter
     /// (docs/benchmarks/simd-kernels.md), so both keep the scalar path.
     /// </summary>
     /// <param name="pixels">The image's samples, premultiplied BGRA, row after row.</param>
