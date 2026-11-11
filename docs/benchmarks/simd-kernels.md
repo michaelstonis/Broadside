@@ -346,5 +346,21 @@ interpreter: one run each), M4 Max:
 | Browser AOT | 1,777.2 | 1,738.3 | -2% |
 | Browser interpreter | 28,667.3 | 28,160.6 | -2% |
 
+### The managed decoder against WIC
+
+`WicImageDecoderTests` times the 2550 × 3150 photograph at full size, managed against WIC, on the `windows-latest` runner (best of
+three, ms). Before #474 WIC's pixels were about twice as fast at 4:4:4; with the vector IDCT the managed decoder matches or beats
+them, while WIC's planes keep a lead at 4:2:0:
+
+| Runs | 4:4:4 managed | WIC | ratio | 4:2:0 managed | WIC | ratio |
+|---|---:|---:|---:|---:|---:|---:|
+| Before #474 (8 runs of #472, #475, #476) | 85.0–108.6 | 44.9–55.4 | 1.86–2.00x | 71.5–92.2 | 39.9–60.7 | 1.49–1.79x |
+| #474, run 1 | 66.7 | 54.8 | 1.22x | 65.5 | 58.6 | 1.12x |
+| #474, run 2 | 77.2 | 94.2 | **0.82x** | 77.4 | 52.7 | 1.47x |
+| #474, run 2 again | 63.2 | 77.2 | **0.82x** | 63.2 | 43.1 | 1.47x |
+
+The test now asserts WIC is faster only with subsampled chroma and logs the 4:4:4 ratio. `WicImageDecoder` is still used for 4:4:4
+by default; whether it should be is an owner decision (the runner's WIC times vary more than the managed ones, 54.8 to 94.2 ms).
+
 Pixels: page 0 of every pdf.js corpus file (989 files, 970 render) at 72 DPI hashes (SHA-256 of the pixels) the same before and
 after, Native AOT.

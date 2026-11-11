@@ -156,9 +156,12 @@ public sealed class WicImageDecoderTests
     [Theory]
     [InlineData(DctChromaSubsampling.None)]
     [InlineData(DctChromaSubsampling.HorizontalAndVertical)]
-    public async Task WIC_decodes_the_8_megapixel_photograph_faster_than_the_managed_decoder(DctChromaSubsampling subsampling)
+    public async Task WIC_decodes_the_8_megapixel_photograph_with_subsampled_chroma_faster_than_the_managed_decoder(DctChromaSubsampling subsampling)
     {
-        // The issue's gate: the managed-to-WIC ratio on the cover-class photograph, full size (measured 1.5x to 2.2x on the runner).
+        // The issue's gate: the managed-to-WIC ratio on the cover-class photograph, full size. With subsampled chroma WIC is still
+        // faster (1.1x to 1.5x on the runner since the vector IDCT of #474). At 4:4:4 the managed decoder now matches or beats WIC's
+        // pixels (0.82x in two of three runs, 1.22x in the third; 1.9x to 2.0x before #474), so that case is measured and logged,
+        // not asserted. Whether 4:4:4 should still go to WIC by default is the owner's decision (docs/benchmarks/simd-kernels.md).
         Assert.SkipUnless(OperatingSystem.IsWindows(), "WIC is Windows-only.");
         byte[] jpeg = CatalogueSamples.Jpeg(2550, 3150, subsampling);
         Assert.True(TryHeader(jpeg, out ImageHeader header));
@@ -180,7 +183,10 @@ public sealed class WicImageDecoderTests
         }
 
         TestContext.Current.TestOutputHelper?.WriteLine($"{subsampling}: managed {managed:0.0} ms, WIC {wic:0.0} ms ({managed / wic:0.00}x)");
-        Assert.True(wic < managed, $"WIC took {wic:0.0} ms, the managed decoder {managed:0.0} ms.");
+        if (subsampling != DctChromaSubsampling.None)
+        {
+            Assert.True(wic < managed, $"WIC took {wic:0.0} ms, the managed decoder {managed:0.0} ms.");
+        }
     }
 
     private static bool Platform(Diagnostic d) => d.Code.StartsWith("Platform", StringComparison.Ordinal) || d.Code == "ImageDecodedManaged";
