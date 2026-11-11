@@ -146,3 +146,88 @@ catalogue sends 7.4 million through image source-over (`ImagePainter`), where sa
 (`ImagePainter` composites while it samples, so it needs a sampled row first), `Mix` (non-isolated groups in Normal), `KnockOut`,
 `RemoveBackdrop` and `Union` (knockout and alpha-tracking groups, absent from the samples), and soft-mask and clip-mask multiplication
 (`RasterClip`, `SoftMaskPlane`, under 0.3%).
+
+## Box filter (`BoxFilter`, #475)
+
+The weighted average of the samples under a device pixel's footprint when an image is drawn smaller than its resolution
+(`ImagePainter`): four `double` sums, one per channel. The vector path keeps a lane per channel (blue and green in one
+`Vector128<double>`, red and alpha in another), each lane doing the scalar operations in their order, so it is bit-exact. Items are
+device pixels; the footprint is n × n random samples with fractional weights on its edge rows and columns (`box-filter-4x4` is the
+browser benchmark's case).
+
+| Build | 4 × 4: scalar | vector | speed-up | 2 × 2: scalar | vector | speed-up | 7 × 7: scalar | vector | speed-up |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| JIT | 17.067 | 14.566 | 1.17x | 6.454 | 5.904 | 1.09x | 47.715 | 41.885 | 1.14x |
+| Native AOT | 18.137 | 15.727 | 1.15x | 7.442 | 7.209 | 1.03x | 47.582 | 42.244 | 1.13x |
+| Browser interpreter, CI | 552.367 | 666.809 | **0.83x** | | | | | | |
+| Browser AOT, CI | 96.893 | 105.286 | **0.92x** | | | | | | |
+| Browser interpreter, local | 254.890 | 258.315 | **0.99x** | 115.582 | 130.976 | **0.88x** | 603.177 | 586.424 | 1.03x |
+| Browser AOT, local | 25.837 | 30.260 | **0.85x** | 11.294 | 12.458 | **0.91x** | 64.403 | 77.965 | **0.83x** |
+
+- **Gated off in the browser.** The vector path is slower than scalar in both browser builds (on CI; locally the interpreter is even), so
+  `BoxFilter.Average` takes it only where `Vector128` is accelerated and `!OperatingSystem.IsBrowser()`. The `box-filter-4x4` case
+  of the browser benchmark times `AverageVector` itself, so its CI lines show the speed-up below 1 that the gate is for.
+- **Why so little.** Each sum depends on the one before it, and the scalar loop's `int`-to-`double` conversions are single
+  instructions, so spreading one pixel's four channels over two vectors saves operations (about 13 vector operations a sample against
+  15 scalar floating-point ones on Arm64) but not latency. Interleaving two pixels' footprints (four sums in flight) measured no
+  faster on the JIT, and was dropped. The research report's estimate of 1.5–2x for this kernel does not hold.
+- Getting the vector path to 1.15x took two fixes on the JIT: building the sample with `Vector128.Create(ulong)` (a broadcast)
+  instead of `CreateScalarUnsafe` (an insert into one lane of the register's previous value, which chained every sample to the one
+  before it: 2.1x slower), and writing the shuffle masks as literals at the call (hoisted, 1.3x slower). The exact conversion takes
+  no instruction of its own: the sample is OR'd under the top bytes of 2^52, and one shuffle puts each channel under those bytes,
+  so one subtraction of 2^52 leaves it as a `double`.
+
+Most of the gain is the scalar restructuring around the kernel: the footprint's columns, rows and weights are now worked out once per
+pixel (rows once per span when the image is upright) instead of once per sample, through `Axis.Index` and `Axis.Weight`, and
+switched on the axis's kind once. The same values, so the same bits. The sampler per device pixel, before (`ImagePainter.Average`
+as it was) and after (the footprint, then `BoxFilter`), 4 × 4 footprint, ns per pixel:
+
+| Build | Before | After, scalar | After, vector |
+|---|---:|---:|---:|
+| JIT | 42.4 | 29.8 (1.42x) | 27.0 (1.61x) |
+| Native AOT | 49.1 | 29.2 (1.69x) | 28.1 (1.72x) |
+| Browser interpreter, local | 1,495 | 692 (2.16x) | |
+| Browser AOT, local | 45.5 | 46.6 (0.98x) | |
+
+In the browser AOT build the old loop was already about as fast (the compiler inlined `Index` and `Weight`); working the rows out once
+per span is what takes it below the old time on whole pages. 7 × 7: 1.25x there, 2.2x on the JIT.
+
+BenchmarkDotNet, `BoxFilterBenchmarks` (794 device pixels, 4 × 4 footprints), JIT, M4 Max, `--job short` (`Allocated` is `-` for
+both):
+
+| Method | Mean |
+|---|---:|
+| `AverageScalar` | 13.34 µs |
+| `Average` (vector) | 12.31 µs (1.08x) |
+
+On Linux x64 (the bench gate's runner, JIT, base and head side by side), the image replays: `ScaledImageBenchmarks.Replay` 65.7 →
+27.3 ms at 390 pixels wide and 158.3 → 93.5 ms at 1,206 (full decode), `ScaledScanBenchmarks.Replay` (scan) 214.4 → 81.5 ms,
+`PhoneTileBenchmarks.Tiles` (image-photo, software) 160.8 → 94.8 ms.
+
+### Whole-page effect
+
+Where the time went before #475, sampled (macOS `sample`, 1 kHz, Native AOT, 96 DPI, every page rendered in a loop): the box filter
+(`ImagePainter.Average`, `Axis.Weight`, `Axis.Index`, `Axis.Create`, `Channel`) was 24% of the catalogue's render time, 20% of the
+newsletter's and 19% of the brochure's. After it (`BoxFilter.AverageVector`, `Axis.Fill`, `Axis.Create`, `Channel` and the rest of
+`ImagePainter`'s share), 15%, 10% and 10% of the shorter times. The rest is color conversion and JPEG decoding.
+
+Per document, ms per pass of every page at 96 DPI, best of the passes in 5 s, base and head interleaved twice (the better run of
+each), M4 Max:
+
+| Document | JIT base | JIT head | Change | Native AOT base | Native AOT head | Change |
+|---|---:|---:|---:|---:|---:|---:|
+| `brochure.pdf` | 181.9 | 156.2 | **-14%** | 198.9 | 179.4 | **-10%** |
+| `newsletter.pdf` | 279.1 | 240.2 | **-14%** | 313.4 | 278.8 | **-11%** |
+| `catalogue.pdf` | 1095.4 | 975.2 | **-11%** | 1122.2 | 994.0 | **-11%** |
+
+In the browser: the same documents in a `browser-wasm` console app under Node 22 (every page, 3 or 4 passes, the best after the
+first; the best of three runs of the base and the run of the final head, interleaved, M4 Max). Both builds take the scalar kernel, so this is the restructured sampler alone.
+
+| Document | Interpreter base | head | Change | AOT base | head | Change |
+|---|---:|---:|---:|---:|---:|---:|
+| `brochure.pdf` | 10,085.9 | 8,592.3 | **-15%** | 652.2 | 641.7 | -2% |
+| `newsletter.pdf` | 15,928.1 | 13,418.6 | **-16%** | 1046.8 | 1032.3 | -1% |
+| `catalogue.pdf` | 60,486.7 | 49,941.8 | **-17%** | 3506.2 | 3470.1 | -1% |
+
+Pixels: the goldens and snapshots (`Broadside.Rendering.Tests`, 1,442 tests) pass, and page 0 of every pdf.js corpus file (989
+files, 976 render) at 72 DPI hashes (SHA-256 of the pixels) the same before and after.
