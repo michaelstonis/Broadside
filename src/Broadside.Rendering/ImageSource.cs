@@ -299,13 +299,20 @@ internal sealed class ImageSource : IDisposable
             }
 
             Span<uint> pixels = destination.AsSpan(y * width, width);
+            if (model == default)
+            {
+                // BGRA in memory order, premultiplied by the folded opacity (issue #472: 16 pixels per vector).
+                ImageRows.PackBgra(rgb, opacity, width, MemoryMarshal.AsBytes(pixels));
+                continue;
+            }
+
             for (int x = 0; x < width; x++)
             {
                 // BGRA in memory order, little-endian uint: B | G << 8 | R << 16 | A << 24, premultiplied by the folded opacity.
-                uint packed = model == default ? 0 : model.Pack(rgb.Slice(outputs * x, outputs));
-                uint r = model == default ? rgb[3 * x] : (packed >> 16) & 0xFF;
-                uint g = model == default ? rgb[(3 * x) + 1] : (packed >> 8) & 0xFF;
-                uint b = model == default ? rgb[(3 * x) + 2] : packed & 0xFF;
+                uint packed = model.Pack(rgb.Slice(outputs * x, outputs));
+                uint r = (packed >> 16) & 0xFF;
+                uint g = (packed >> 8) & 0xFF;
+                uint b = packed & 0xFF;
                 uint a = alpha ? opacity[x] : 255u;
                 if (a != 255)
                 {
@@ -318,7 +325,8 @@ internal sealed class ImageSource : IDisposable
             }
         }
 
-        if (!BitConverter.IsLittleEndian)
+        // The packed rows are bytes in BGRA order already; the uints of a group plane are reordered to it.
+        if (!BitConverter.IsLittleEndian && model != default)
         {
             Span<byte> pixelBytes = MemoryMarshal.AsBytes(destination.AsSpan(0, width * height));
             for (int i = 0; i < pixelBytes.Length; i += 4)

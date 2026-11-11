@@ -213,6 +213,50 @@ public static class ImageRows
     }
 
     /// <summary>
+    /// Packs a row of RGB bytes and its opacity into premultiplied BGRA pixels, four bytes each in memory order blue, green, red,
+    /// alpha: each color byte becomes round(c × α / 255), the alpha byte α.
+    /// </summary>
+    /// <param name="rgb">Three bytes per pixel: red, green, blue.</param>
+    /// <param name="opacity">One byte per pixel (a folded soft mask, explicit mask or color key), or empty for opaque pixels.</param>
+    /// <param name="width">The number of pixels.</param>
+    /// <param name="pixels">Four bytes per pixel.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="width"/> is negative, or a span does not fit it.</exception>
+    /// <remarks>ISO 32000-2 §11.6.5.2 and §8.9.6 (the mask's opacity folded into the image's alpha). Vectorized where the hardware allows.</remarks>
+    public static void PackBgra(ReadOnlySpan<byte> rgb, ReadOnlySpan<byte> opacity, int width, Span<byte> pixels)
+    {
+        CheckPack(rgb.Length, opacity.Length, width, pixels.Length);
+        PixelPacking.PackBgra(rgb[..(3 * width)], opacity.IsEmpty ? opacity : opacity[..width], pixels[..(4 * width)]);
+    }
+
+    /// <summary>
+    /// Packs a row of RGB bytes and its opacity into premultiplied RGBA pixels, four bytes each in memory order red, green, blue,
+    /// alpha: each color byte becomes round(c × α / 255), the alpha byte α.
+    /// </summary>
+    /// <param name="rgb">Three bytes per pixel: red, green, blue.</param>
+    /// <param name="opacity">One byte per pixel (a folded soft mask, explicit mask or color key), or empty for opaque pixels.</param>
+    /// <param name="width">The number of pixels.</param>
+    /// <param name="pixels">Four bytes per pixel.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="width"/> is negative, or a span does not fit it.</exception>
+    /// <remarks>ISO 32000-2 §11.6.5.2 and §8.9.6 (the mask's opacity folded into the image's alpha). Vectorized where the hardware allows.</remarks>
+    public static void PackRgba(ReadOnlySpan<byte> rgb, ReadOnlySpan<byte> opacity, int width, Span<byte> pixels)
+    {
+        CheckPack(rgb.Length, opacity.Length, width, pixels.Length);
+        PixelPacking.PackRgba(rgb[..(3 * width)], opacity.IsEmpty ? opacity : opacity[..width], pixels[..(4 * width)]);
+    }
+
+    private static void CheckPack(int rgb, int opacity, int width, int pixels)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(width);
+        ArgumentOutOfRangeException.ThrowIfLessThan(rgb, 3L * width, nameof(rgb));
+        if (opacity != 0)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(opacity, width, nameof(opacity));
+        }
+
+        ArgumentOutOfRangeException.ThrowIfLessThan(pixels, 4L * width, nameof(pixels));
+    }
+
+    /// <summary>
     /// Undoes the pre-blending of colour against a matte colour (<c>Matte</c>): c = m + (c′ − m) / α, clamped to each component's range;
     /// a sample with α = 0 becomes the matte colour.
     /// </summary>

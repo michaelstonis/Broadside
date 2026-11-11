@@ -2425,6 +2425,8 @@ static Broadside.Graphics.Quad.FromRectangle(Broadside.Graphics.Matrix matrix, d
 static Broadside.Images.ImageDecodeMap.Create(System.ReadOnlySpan<double> decode, int components, int bitsPerComponent) -> Broadside.Images.ImageDecodeMap!
 static Broadside.Images.ImageRows.ColorKey(System.ReadOnlySpan<ushort> raw, int components, System.ReadOnlySpan<double> ranges, System.Span<byte> coverage) -> void
 static Broadside.Images.ImageRows.MaskIndex(int index, int size, int maskSize) -> int
+static Broadside.Images.ImageRows.PackBgra(System.ReadOnlySpan<byte> rgb, System.ReadOnlySpan<byte> opacity, int width, System.Span<byte> pixels) -> void
+static Broadside.Images.ImageRows.PackRgba(System.ReadOnlySpan<byte> rgb, System.ReadOnlySpan<byte> opacity, int width, System.Span<byte> pixels) -> void
 static Broadside.Images.ImageRows.Stencil(System.ReadOnlySpan<byte> row, int width, bool inverted, System.Span<byte> coverage) -> void
 static Broadside.Images.ImageRows.Unpack(System.ReadOnlySpan<byte> row, int storageBits, int count, System.Span<byte> destination) -> void
 static Broadside.Images.ImageRows.Unpack(System.ReadOnlySpan<byte> row, int storageBits, int count, System.Span<ushort> destination) -> void
