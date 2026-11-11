@@ -83,14 +83,13 @@ public sealed class SkiaImageDecoder : IPlatformImageDecoder
 
     /// <inheritdoc/>
     /// <remarks>
-    /// Runs the decode on the thread pool, so the call returns a pending task at once: the core then shares that one decode with every
-    /// other tile that reaches the image meanwhile, instead of each decoding it (a decode that completed before the call returned
-    /// would not be in flight for them to join).
+    /// Decodes on the calling thread and completes synchronously. The core registers a decode as in flight before it calls the
+    /// decoder, so every other tile that reaches the image meanwhile still shares this one decode.
     /// </remarks>
     public ValueTask<DecodedImage?> DecodeAsync(ReadOnlyMemory<byte> encoded, PlatformImageRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return new ValueTask<DecodedImage?>(Task.Run(() => Decode(encoded.Span, request, cancellationToken), cancellationToken));
+        return new ValueTask<DecodedImage?>(Decode(encoded.Span, request, cancellationToken));
     }
 
     /// <summary>Decodes <paramref name="encoded"/> at the request's reduction or the finest one Skia delivers above it; <see langword="null"/> when Skia cannot.</summary>
