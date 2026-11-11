@@ -6,6 +6,7 @@ using System.Runtime.Intrinsics;
 using System.Runtime.Versioning;
 using System.Text;
 using Broadside.Filters.Dct;
+using Broadside.Filters.Jpx;
 using Broadside.Graphics.Colors;
 using Broadside.Images;
 using Broadside.Rendering;
@@ -18,7 +19,7 @@ namespace Broadside.Viewer.Blazor.Sample;
 /// (the AOT build compiles <see cref="Vector128{T}"/> to native WebAssembly SIMD; the interpreter build maps only part of the API to
 /// SIMD opcodes and can be slower than scalar), and checks that both give the same bytes there. The browser tests run it in both builds
 /// and write the figures to the measurement log. A kernel PR adds its case to <see cref="Cases"/>, linking the kernel's source file
-/// into this project (as <c>SimdExampleKernel</c> is linked from tests/Broadside.TestSupport, <c>JpegColor</c>, <c>InverseDct</c> and
+/// into this project (as <c>SimdExampleKernel</c> is linked from tests/Broadside.TestSupport, <c>JpegColor</c>, <c>InverseDct</c>, <c>JpxLifting</c> and
 /// <c>CmykCharacterization</c> from src/Broadside and <c>CompositingRows</c> and <c>BoxFilter</c> from src/Broadside.Rendering).
 /// </summary>
 [SupportedOSPlatform("browser")]
@@ -26,6 +27,9 @@ public static partial class KernelBenchmarks
 {
     /// <summary>Items per kernel call: a long row, as an image or a page-wide span.</summary>
     private const int Items = 1 << 16;
+
+    /// <summary>The run of a JPEG 2000 lifting step: a row of the vertical pass's 64-column strip.</summary>
+    private const int LiftRun = 64;
 
     /// <summary>The shortest timed sample: well above the browser's coarsened timer.</summary>
     private const double SampleMilliseconds = 20;
@@ -46,6 +50,11 @@ public static partial class KernelBenchmarks
         new("box-filter-4x4", 64, 4, BoxFilterScalar, BoxFilterVector),
         new("idct-8x8", 128, 64, IdctScalar, IdctVector),
         new("cmyk-to-rgb", 4, 12, CmykToRgbScalar, CmykToRgbVector),
+        new("jpx-lift-53", 12, 4, Lift53Scalar, Lift53Vector),
+        new("jpx-lift-97", 12, 4, Lift97Scalar, Lift97Vector),
+        new("jpx-interleave", 8, 8, InterleaveScalar, InterleaveVector),
+        new("jpx-rct", 12, 12, RctScalar, RctVector),
+        new("jpx-ict", 12, 12, IctScalar, IctVector),
     ];
 
     /// <summary>The CMYK components of <c>cmyk-to-rgb</c>'s items, filled from the bytes by both methods alike.</summary>
@@ -245,6 +254,110 @@ public static partial class KernelBenchmarks
         }
     }
 
+    // The JPEG 2000 lifting steps and component transforms (#477). The source holds three planes one after another (a step's targets,
+    // left and right neighbours; or the three components), copied into the destination first (both methods pay the copy). The steps
+    // run in 64-sample runs, as the vertical pass gives them a strip row at a time. The 5/3 and RCT planes are the source's 32-bit
+    // integers; the 9/7 and ICT planes floats made from the source's 16-bit integers over 16, once per source (FloatPlanes).
+
+    private static void Lift53Scalar(ReadOnlySpan<byte> planes, Span<byte> target) => Lift53(planes, target, vector: false);
+
+    private static void Lift53Vector(ReadOnlySpan<byte> planes, Span<byte> target) => Lift53(planes, target, vector: true);
+
+    private static void Lift53(ReadOnlySpan<byte> planes, Span<byte> target, bool vector)
+    {
+        ReadOnlySpan<int> values = MemoryMarshal.Cast<byte, int>(planes);
+        int n = values.Length / 3;
+        Span<int> samples = MemoryMarshal.Cast<byte, int>(target);
+        values[..n].CopyTo(samples);
+        for (int i = 0; i < n; i += LiftRun)
+        {
+            int length = Math.Min(LiftRun, n - i);
+            if (vector)
+            {
+                JpxLifting.Lift53LowVector(samples.Slice(i, length), values.Slice(n + i, length), values.Slice((2 * n) + i, length));
+            }
+            else
+            {
+                JpxLifting.Lift53LowScalar(samples.Slice(i, length), values.Slice(n + i, length), values.Slice((2 * n) + i, length));
+            }
+        }
+    }
+
+    private static void Lift97Scalar(ReadOnlySpan<byte> planes, Span<byte> target) => Lift97(planes, target, vector: false);
+
+    private static void Lift97Vector(ReadOnlySpan<byte> planes, Span<byte> target) => Lift97(planes, target, vector: true);
+
+    private static void Lift97(ReadOnlySpan<byte> planes, Span<byte> target, bool vector)
+    {
+        float[] values = FloatPlanes.For(planes);
+        int n = values.Length / 3;
+        Span<float> samples = MemoryMarshal.Cast<byte, float>(target);
+        values.AsSpan(0, n).CopyTo(samples);
+        for (int i = 0; i < n; i += LiftRun)
+        {
+            int length = Math.Min(LiftRun, n - i);
+            if (vector)
+            {
+                JpxLifting.Lift97Vector(samples.Slice(i, length), values.AsSpan(n + i, length), values.AsSpan((2 * n) + i, length), 0.882911075530934f);
+            }
+            else
+            {
+                JpxLifting.Lift97Scalar(samples.Slice(i, length), values.AsSpan(n + i, length), values.AsSpan((2 * n) + i, length), 0.882911075530934f);
+            }
+        }
+    }
+
+    // The interleave of a row's low-pass and high-pass halves (the source's two planes of 32-bit samples) into the signal.
+    private static void InterleaveScalar(ReadOnlySpan<byte> planes, Span<byte> target)
+    {
+        ReadOnlySpan<int> values = MemoryMarshal.Cast<byte, int>(planes);
+        JpxLifting.InterleaveScalar(values[..(values.Length / 2)], values[(values.Length / 2)..], MemoryMarshal.Cast<byte, int>(target));
+    }
+
+    private static void InterleaveVector(ReadOnlySpan<byte> planes, Span<byte> target)
+    {
+        ReadOnlySpan<int> values = MemoryMarshal.Cast<byte, int>(planes);
+        JpxLifting.InterleaveVector(values[..(values.Length / 2)], values[(values.Length / 2)..], MemoryMarshal.Cast<byte, int>(target));
+    }
+
+    private static void RctScalar(ReadOnlySpan<byte> planes, Span<byte> target) => Rct(planes, target, vector: false);
+
+    private static void RctVector(ReadOnlySpan<byte> planes, Span<byte> target) => Rct(planes, target, vector: true);
+
+    private static void Rct(ReadOnlySpan<byte> planes, Span<byte> target, bool vector)
+    {
+        planes.CopyTo(target);
+        Span<int> samples = MemoryMarshal.Cast<byte, int>(target);
+        int n = samples.Length / 3;
+        if (vector)
+        {
+            JpxLifting.InverseRctVector(samples[..n], samples[n..(2 * n)], samples[(2 * n)..]);
+        }
+        else
+        {
+            JpxLifting.InverseRctScalar(samples[..n], samples[n..(2 * n)], samples[(2 * n)..]);
+        }
+    }
+
+    private static void IctScalar(ReadOnlySpan<byte> planes, Span<byte> target) => Ict(planes, target, vector: false);
+
+    private static void IctVector(ReadOnlySpan<byte> planes, Span<byte> target) => Ict(planes, target, vector: true);
+
+    private static void Ict(ReadOnlySpan<byte> planes, Span<byte> target, bool vector)
+    {
+        Span<float> samples = MemoryMarshal.Cast<byte, float>(target);
+        FloatPlanes.For(planes).CopyTo(samples);
+        int n = samples.Length / 3;
+        if (vector)
+        {
+            JpxLifting.InverseIctVector(samples[..n], samples[n..(2 * n)], samples[(2 * n)..]);
+        }
+        else
+        {
+            JpxLifting.InverseIctScalar(samples[..n], samples[n..(2 * n)], samples[(2 * n)..]);
+        }
+    }
+
     private static double Time(SpanKernel<byte, byte> kernel, byte[] source, byte[] destination, int rounds)
     {
         long start = Stopwatch.GetTimestamp();
@@ -276,6 +389,27 @@ public static partial class KernelBenchmarks
             }
 
             return s_blocks;
+        }
+    }
+
+    private static class FloatPlanes
+    {
+        private static byte[] s_source = [];
+        private static float[] s_values = [];
+
+        public static float[] For(ReadOnlySpan<byte> source)
+        {
+            if (s_values.Length != source.Length / 4 || !source[..Math.Min(64, source.Length)].SequenceEqual(s_source))
+            {
+                s_source = source[..Math.Min(64, source.Length)].ToArray();
+                s_values = new float[source.Length / 4];
+                for (int i = 0; i < s_values.Length; i++)
+                {
+                    s_values[i] = BitConverter.ToInt16(source.Slice(4 * i, 2)) / 16f;
+                }
+            }
+
+            return s_values;
         }
     }
 
