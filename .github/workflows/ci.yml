@@ -69,7 +69,16 @@ jobs:
           QPDF_VERSION: 12.4.2
           QPDF_SHA256: db367d897829f22c4198ce1094143c9d467bd6ee7dfabc44ba6f02056b24f8b1
         run: |
-          sudo apt-get update && sudo apt-get install -y poppler-utils
+          # Ubuntu's archive is sometimes unreachable from the runners. Retry, then carry on without poppler-utils: the tests
+          # that need pdfinfo skip, and the warning says so on the run's summary.
+          installed=false
+          for attempt in 1 2 3; do
+            if sudo apt-get update && sudo apt-get install -y -o Acquire::Retries=3 poppler-utils; then installed=true; break; fi
+            sleep $((attempt * 30))
+          done
+          if [ "$installed" != true ]; then
+            echo "::warning title=poppler-utils::poppler-utils could not be installed; the pdfinfo checks are skipped on this run."
+          fi
           curl -fsSL -o "$RUNNER_TEMP/qpdf.zip" "https://github.com/qpdf/qpdf/releases/download/v${QPDF_VERSION}/qpdf-${QPDF_VERSION}-bin-linux-x86_64.zip"
           echo "${QPDF_SHA256}  $RUNNER_TEMP/qpdf.zip" | sha256sum -c -
           unzip -q "$RUNNER_TEMP/qpdf.zip" -d "$RUNNER_TEMP/qpdf"
