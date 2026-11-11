@@ -7,8 +7,8 @@ internal sealed class ManagedPipeline : ColorPipeline
     private readonly IColorConverter _converter;
     private readonly ComponentRange[] _clip;
 
-    // Whether 8-bit samples convert to themselves (DeviceRGB to RGB, DeviceCMYK to CMYK): every byte maps to b / 255, which the
-    // converter only clips, and back to the same byte, so they are copied.
+    // Whether 8-bit samples convert to themselves (DeviceRGB to RGB, DeviceCMYK to CMYK, and an ICCBased space whose alternate is
+    // one of those): every byte maps to b / 255, which the converter only clips, and back to the same byte, so they are copied.
     private readonly bool _copiesBytes;
 
     public ManagedPipeline(PdfColorSpace space, IColorConverter converter, int outputs)
@@ -22,7 +22,7 @@ internal sealed class ManagedPipeline : ColorPipeline
 
         _converter = converter;
         _clip = Ranges(space);
-        _copiesBytes = converter is DeviceConverter { IsIdentity: true } && Array.TrueForAll(_clip, static range => range == new ComponentRange(0, 1));
+        _copiesBytes = IsIdentity(converter) && Array.TrueForAll(_clip, static range => range == new ComponentRange(0, 1));
     }
 
     /// <inheritdoc/>
@@ -39,6 +39,19 @@ internal sealed class ManagedPipeline : ColorPipeline
 
         base.Convert(source, destination, count);
     }
+
+    /// <summary>
+    /// Whether a converter only clips each component to 0..1: an identity device conversion, directly or as the alternate of an
+    /// ICCBased space (which clips to the intersection of the ICC and alternate ranges first, 0..1 when the space's ranges are).
+    /// </summary>
+    /// <param name="converter">The converter.</param>
+    /// <returns><see langword="true"/> if 0..1 components convert to themselves.</returns>
+    private static bool IsIdentity(IColorConverter converter) => converter switch
+    {
+        DeviceConverter device => device.IsIdentity,
+        IccAlternateConverter alternate => alternate.ClipsToUnit && IsIdentity(alternate.Alternate),
+        _ => false,
+    };
 
     /// <summary>The component ranges of a space.</summary>
     public static ComponentRange[] Ranges(PdfColorSpace space)
@@ -61,9 +74,13 @@ internal sealed class ManagedPipeline : ColorPipeline
         {
             int n = Math.Min(Chunk, count - start);
             ReadOnlySpan<float> batch = source.Slice(start * inputs, n * inputs);
-            for (int i = 0; i < batch.Length; i++)
+            for (int c = 0; c < inputs; c++)
             {
-                clipped[i] = (float)_clip[i % inputs].Clamp(batch[i]);
+                ComponentRange range = _clip[c];
+                for (int i = c; i < batch.Length; i += inputs)
+                {
+                    clipped[i] = (float)range.Clamp(batch[i]);
+                }
             }
 
             _converter.Convert(clipped[..batch.Length], destination[(start * OutputCount)..], n);
