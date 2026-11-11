@@ -231,3 +231,81 @@ first; the best of three runs of the base and the run of the final head, interle
 
 Pixels: the goldens and snapshots (`Broadside.Rendering.Tests`, 1,442 tests) pass, and page 0 of every pdf.js corpus file (989
 files, 976 render) at 72 DPI hashes (SHA-256 of the pixels) the same before and after.
+
+## CMYK characterization (`CmykCharacterization`, #476)
+
+DeviceCMYK to RGB through the SWOP polynomial (1 plus 34 monomials per channel, `double`), the default CMYK conversion. The vector
+path takes four colors per iteration in two pairs of `Vector128<double>` lanes, each lane doing the scalar operations in their
+order (the same clip, the monomials multiplied left to right, each sum started at 0 and added term after term), so it is bit-exact.
+Items are colors: four random 8-bit components as `b / 255`, out three `float` channels (`cmyk-to-rgb` is the browser benchmark's
+case).
+
+| Build | Scalar | Vector | Speed-up |
+|---|---:|---:|---:|
+| JIT | 20.246 | 12.835 | 1.58x |
+| Native AOT | 20.157 | 9.885 | 2.04x |
+| Browser interpreter, local | 400.816 | 278.801 | 1.44x |
+| Browser AOT, local | 47.814 | 17.687 | 2.70x |
+
+- **Not gated.** The vector path is faster in every build, so `CmykCharacterization.ToRgbRow` takes it wherever `Vector128` is
+  accelerated.
+- **Two pairs in flight.** Each channel's sum is a chain of 34 dependent adds that must keep its order. One pair of colors per
+  iteration with every monomial held at once measured 1.08x on the JIT; computing each monomial where it is used and running two
+  pairs side by side (six chains) took it to 1.32x, and reading the coefficients as prebuilt broadcast vectors
+  (`Weights`, one load each) instead of `Vector128.Create(Red[j])` to 1.58x.
+- **Run detection kept.** `DeviceConverter` still copies a color equal to the one before it (flat areas, a group's backdrop); each
+  stretch of colors that differ from their predecessor converts as one row.
+
+BenchmarkDotNet, `CmykCharacterizationBenchmarks` (794 colors), JIT, M4 Max, `--job short` (`Allocated` is `-` for both):
+
+| Method | Mean |
+|---|---:|
+| `ToRgbRowScalar` | 14.66 µs |
+| `ToRgbRow` (vector) | 7.34 µs (2.00x) |
+
+### Scalar changes in the same pipeline
+
+Profiling first (macOS `sample`, 1 kHz, Native AOT, 96 DPI, every page in a loop) showed where color conversion time went before
+#476: in the catalogue (CMYK JPEGs) the characterization and its callers (`ToRgb`, `Clamp01`, `ManagedPipeline`,
+`DeviceConverter`, `FromRgb`) were 33% of the samples; in the brochure and the newsletter, 73% went to RGB images in an ICCBased
+space converting through their DeviceRGB alternate (`IccAlternateConverter`, `ManagedPipeline`, `ColorPipeline.Convert`,
+`Clamp01`, `DeviceConverter`, `FromRgb`, `ToBytes`): every byte through `float`, two clips and back, to come out as the same byte.
+The showcase spent under 1% in color conversion. The ICC engine's matrix/TRC (`Broadside.Rendering`'s `IccTransform`) is not on
+these paths: it runs only with `UseIccColorManagement`, so it is not vectorized here.
+
+- **ICCBased with a device alternate copies its samples.** `ManagedPipeline` already copied 8-bit DeviceRGB and DeviceCMYK samples
+  when the target is the same model; it now does the same for an ICCBased space whose alternate is such a device space and whose
+  ranges (and the alternate's) are 0..1. The bytes are the ones the conversion gave (each byte maps to `b / 255`, which the clips
+  leave alone, and back); a narrower `/Range` still converts.
+- **`Clamp01` inlines.** Two comparisons instead of `Math.Min` (the same bits once the value is positive and not NaN); it was not
+  inlined in Native AOT and ran as a call several times per pixel.
+- **No modulo per sample.** The range lookups in `ColorPipeline.Convert`, `ManagedPipeline.Convert` and
+  `IccAlternateConverter.Convert` walk each component's samples with a stride instead of indexing `_ranges[i % inputs]`.
+
+After #476 the characterization (`ToRgbRowVector`, `ConvertCharacterizedRows`) is 15% of the catalogue's shorter time, and color
+conversion is 1% of the brochure's.
+
+### Whole-page effect
+
+Per document, ms per pass of every page at 96 DPI, best of the passes in 6 to 8 s, base (integration branch) and head, M4 Max:
+
+| Document | JIT base | JIT head | Change | Native AOT base | Native AOT head | Change |
+|---|---:|---:|---:|---:|---:|---:|
+| `brochure.pdf` | 155.3 | 51.8 | **-67%** | 184.0 | 51.3 | **-72%** |
+| `newsletter.pdf` | 233.0 | 77.0 | **-67%** | 290.2 | 76.3 | **-74%** |
+| `catalogue.pdf` | 979.2 | 861.4 | **-12%** | 994.5 | 805.6 | **-19%** |
+| `color-guide.pdf` | 8.9 | 8.6 | -3% | 12.5 | 11.0 | **-12%** |
+
+In the browser: the same documents in a `browser-wasm` console app under Node 22 (every page, 3 or 4 passes, the best after the
+first; base and head, M4 Max). Both builds take the vector kernel.
+
+| Document | Interpreter base | head | Change | AOT base | head | Change |
+|---|---:|---:|---:|---:|---:|---:|
+| `brochure.pdf` | 8,921.6 | 4,954.1 | **-44%** | 645.6 | 361.8 | **-44%** |
+| `newsletter.pdf` | 13,962.2 | 7,481.2 | **-46%** | 1,043.6 | 583.4 | **-44%** |
+| `catalogue.pdf` | 52,120.4 | 39,712.0 | **-24%** | 3,497.3 | 2,901.4 | **-17%** |
+
+Pixels: the goldens and snapshots (`Broadside.Rendering.Tests`, 1,442 tests) pass, and page 0 of 1,228 files (the pdf.js corpus,
+the GWG output suite, the PDF 2.0 examples and the sample documents; 1,113 render) at 72 DPI hashes (SHA-256 of the pixels) the
+same before and after. The kernel tests compare 20 million 8-bit colors and the clip's special values (NaN, ±0, denormals, values
+outside 0..1, infinities) bit for bit, with hardware intrinsics on and off.
