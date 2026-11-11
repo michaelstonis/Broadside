@@ -218,13 +218,15 @@ internal static partial class CmykCharacterization
     /// <summary>
     /// Converts a row of CMYK colors to RGB as <c>DeviceConverter</c> does for an RGB target: each component clipped to 0..1,
     /// <see cref="ToRgb"/>, then each channel narrowed to <see langword="float"/>. Takes <see cref="ToRgbRowVector"/> where
-    /// <see cref="Vector128"/> is accelerated.
+    /// <see cref="Vector128"/> is accelerated, outside the browser: the WebAssembly interpreter runs the vector path slower than the
+    /// scalar one (0.89x on CI), and the AOT build cannot be told apart from it at run time (see
+    /// <c>docs/benchmarks/simd-kernels.md</c>).
     /// </summary>
     /// <param name="cmyk">Four components per color.</param>
     /// <param name="rgb">Three channels per color; its length sets the number of colors.</param>
     public static void ToRgbRow(ReadOnlySpan<float> cmyk, Span<float> rgb)
     {
-        if (Vector128.IsHardwareAccelerated)
+        if (Vector128.IsHardwareAccelerated && !OperatingSystem.IsBrowser())
         {
             ToRgbRowVector(cmyk, rgb);
         }

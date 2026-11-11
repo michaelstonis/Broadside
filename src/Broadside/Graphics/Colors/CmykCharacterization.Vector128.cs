@@ -18,8 +18,9 @@ namespace Broadside.Graphics.Colors;
 /// vectors in the cross-platform API.
 /// </para>
 /// <para>
-/// Faster than the scalar path on the JIT, Native AOT and both browser builds (<c>docs/benchmarks/simd-kernels.md</c>). The source
-/// is BCL-only, so the Blazor sample's kernel benchmark links it.
+/// The dispatcher takes this path on the JIT and Native AOT only: the browser's interpreter build runs it slower than the scalar path
+/// on CI, though the browser AOT build runs it 2.8x faster (<c>docs/benchmarks/simd-kernels.md</c>). The source is BCL-only, so the
+/// Blazor sample's kernel benchmark links it.
 /// </para>
 /// </remarks>
 internal static partial class CmykCharacterization

@@ -283,11 +283,15 @@ case).
 |---|---:|---:|---:|
 | JIT | 20.246 | 12.835 | 1.58x |
 | Native AOT | 20.157 | 9.885 | 2.04x |
+| Browser interpreter, CI | 617.981 | 694.275 | **0.89x** |
+| Browser AOT, CI | 146.484 | 52.643 | 2.78x |
 | Browser interpreter, local | 400.816 | 278.801 | 1.44x |
 | Browser AOT, local | 47.814 | 17.687 | 2.70x |
 
-- **Not gated.** The vector path is faster in every build, so `CmykCharacterization.ToRgbRow` takes it wherever `Vector128` is
-  accelerated.
+- **Gated off in the browser.** The interpreter build runs the vector path slower than scalar on CI (Chrome on Linux x64), though
+  faster under Node on the M4 Max; the AOT build runs it 2.7–2.8x faster, but nothing at run time tells the two builds apart. So
+  `CmykCharacterization.ToRgbRow` takes it only where `Vector128` is accelerated and `!OperatingSystem.IsBrowser()`, as the box
+  filter does. The `cmyk-to-rgb` case of the browser benchmark times `ToRgbRowVector` itself.
 - **Two pairs in flight.** Each channel's sum is a chain of 34 dependent adds that must keep its order. One pair of colors per
   iteration with every monomial held at once measured 1.08x on the JIT; computing each monomial where it is used and running two
   pairs side by side (six chains) took it to 1.32x, and reading the coefficients as prebuilt broadcast vectors
@@ -326,7 +330,7 @@ conversion is 1% of the brochure's.
 
 ### Whole-page effect
 
-Per document, ms per pass of every page at 96 DPI, best of the passes in 6 to 8 s, base (integration branch) and head, M4 Max:
+Per document, ms per pass of every page at 96 DPI, best of the passes in 6 to 8 s, base (the integration branch before #472) and head (before merging it), M4 Max:
 
 | Document | JIT base | JIT head | Change | Native AOT base | Native AOT head | Change |
 |---|---:|---:|---:|---:|---:|---:|
@@ -336,13 +340,14 @@ Per document, ms per pass of every page at 96 DPI, best of the passes in 6 to 8 
 | `color-guide.pdf` | 8.9 | 8.6 | -3% | 12.5 | 11.0 | **-12%** |
 
 In the browser: the same documents in a `browser-wasm` console app under Node 22 (every page, 3 or 4 passes, the best after the
-first; base and head, M4 Max). Both builds take the vector kernel.
+first; M4 Max), base the integration branch after #472 and head this change merged onto it. Both builds take the scalar kernel (the
+gate above), so the change is the scalar work alone.
 
 | Document | Interpreter base | head | Change | AOT base | head | Change |
 |---|---:|---:|---:|---:|---:|---:|
-| `brochure.pdf` | 8,921.6 | 4,954.1 | **-44%** | 645.6 | 361.8 | **-44%** |
-| `newsletter.pdf` | 13,962.2 | 7,481.2 | **-46%** | 1,043.6 | 583.4 | **-44%** |
-| `catalogue.pdf` | 52,120.4 | 39,712.0 | **-24%** | 3,497.3 | 2,901.4 | **-17%** |
+| `brochure.pdf` | 5,161.0 | 1,284.8 | **-75%** | 372.1 | 94.6 | **-75%** |
+| `newsletter.pdf` | 7,868.0 | 1,569.5 | **-80%** | 597.2 | 143.0 | **-76%** |
+| `catalogue.pdf` | 29,320.6 | 16,507.4 | **-44%** | 1,800.3 | 1,578.5 | **-12%** |
 
 Pixels: the goldens and snapshots (`Broadside.Rendering.Tests`, 1,442 tests) pass, and page 0 of 1,228 files (the pdf.js corpus,
 the GWG output suite, the PDF 2.0 examples and the sample documents; 1,113 render) at 72 DPI hashes (SHA-256 of the pixels) the
