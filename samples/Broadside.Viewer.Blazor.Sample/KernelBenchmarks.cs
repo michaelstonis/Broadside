@@ -19,7 +19,7 @@ namespace Broadside.Viewer.Blazor.Sample;
 /// SIMD opcodes and can be slower than scalar), and checks that both give the same bytes there. The browser tests run it in both builds
 /// and write the figures to the measurement log. A kernel PR adds its case to <see cref="Cases"/>, linking the kernel's source file
 /// into this project (as <c>SimdExampleKernel</c> is linked from tests/Broadside.TestSupport, <c>JpegColor</c> from src/Broadside and
-/// <c>CompositingRows</c> from src/Broadside.Rendering).
+/// <c>CompositingRows</c> and <c>BoxFilter</c> from src/Broadside.Rendering).
 /// </summary>
 [SupportedOSPlatform("browser")]
 public static partial class KernelBenchmarks
@@ -43,6 +43,7 @@ public static partial class KernelBenchmarks
         new("ycck-to-cmyk", 4, 4, YcckToCmykScalar, YcckToCmykVector),
         new("over-row", 8, 4, OverRowScalar, OverRowVector),
         new("fill-row", 4, 4, FillRowScalar, FillRowVector),
+        new("box-filter-4x4", 64, 4, BoxFilterScalar, BoxFilterVector),
     ];
 
     /// <summary>
@@ -130,6 +131,34 @@ public static partial class KernelBenchmarks
     {
         backdrop.CopyTo(target);
         CompositingRows.FillRowVector(MemoryMarshal.Cast<byte, uint>(target), 0xFF3366CCu, 100);
+    }
+
+    // The box filter (#475): each item is one device pixel averaging a 4 × 4 footprint (the item's 16 pixels, four rows of four) with
+    // fractional weights at its edges, as an image drawn at a quarter of its size; the output is the averaged pixel.
+    private static void BoxFilterScalar(ReadOnlySpan<byte> footprints, Span<byte> pixels) => BoxFilterRow(footprints, pixels, vector: false);
+
+    private static void BoxFilterVector(ReadOnlySpan<byte> footprints, Span<byte> pixels) => BoxFilterRow(footprints, pixels, vector: true);
+
+    private static void BoxFilterRow(ReadOnlySpan<byte> footprints, Span<byte> pixels, bool vector)
+    {
+        ReadOnlySpan<uint> samples = MemoryMarshal.Cast<byte, uint>(footprints);
+        Span<uint> averages = MemoryMarshal.Cast<byte, uint>(pixels);
+        ReadOnlySpan<int> rows = [0, 4, 8, 12];
+        ReadOnlySpan<int> columns = [0, 1, 2, 3];
+        ReadOnlySpan<double> rowWeights = [0.4, 1, 1, 0.6];
+        ReadOnlySpan<double> columnWeights = [0.7, 1, 1, 0.3];
+        for (int i = 0; i < averages.Length; i++)
+        {
+            ReadOnlySpan<uint> footprint = samples.Slice(16 * i, 16);
+            if (vector)
+            {
+                _ = BoxFilter.AverageVector(footprint, rows, rowWeights, columns, columnWeights, out averages[i]);
+            }
+            else
+            {
+                _ = BoxFilter.AverageScalar(footprint, rows, rowWeights, columns, columnWeights, out averages[i]);
+            }
+        }
     }
 
     // The DCT colour transforms (#471) over a source holding the Y, Cb, Cr (and K) rows one after another.

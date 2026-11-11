@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Broadside.Graphics;
 
@@ -21,7 +22,8 @@ namespace Broadside.Rendering;
 /// </para>
 /// <para>
 /// Hot path: allocates nothing; the per-pixel work is a few multiply-adds for enlargement and proportional to the samples averaged
-/// for reduction. Compositing goes through a <see cref="Compositor"/> (§11.3: constant alpha and blend mode), the coverage of the image's outline scaling the sample.
+/// for reduction, where each pixel's footprint (columns, rows and their weights) is worked out once and averaged by
+/// <see cref="BoxFilter"/>. Compositing goes through a <see cref="Compositor"/> (§11.3: constant alpha and blend mode), the coverage of the image's outline scaling the sample.
 /// It is a coverage sink of <see cref="ScanlineRasterizer.Paint"/>, so the runs it receives are already cut by the clipping path
 /// (§8.5.4), like those of fills and strokes.
 /// </para>
@@ -131,9 +133,49 @@ internal readonly ref struct ImagePainter : ICoverageSink
         double py = row + 0.5;
         double u = (m.A * px) + (m.C * py) + m.E;
         double v = (m.B * px) + (m.D * py) + m.F;
+        if (_pixels is { } reduced && _grid.Boxed)
+        {
+            SpanBoxed(reduced, line, x, count, coverage, u, v);
+            return;
+        }
+
         for (int i = 0; i < count; i++, u += m.A, v += m.B)
         {
             uint sample = _pixels is { } pixels ? SampleColor(pixels, _grid, u, v) : _solid;
+            if (_mask is { } mask)
+            {
+                int alpha = SampleMask(mask, _maskGrid, u * _maskGrid.ScaleU, v * _maskGrid.ScaleV);
+                if (alpha == 0)
+                {
+                    continue;
+                }
+
+                sample = Scale(sample, alpha);
+            }
+
+            ref uint target = ref line[x + i];
+            target = _compositor.Composite(sample, target, coverage);
+        }
+    }
+
+    /// <summary><see cref="Span"/> for image pixels reduced on some axis: each pixel's footprint averaged by <see cref="BoxFilter"/>.</summary>
+    [SkipLocalsInit] // The footprint scratch is written (Axis.Fill) before it is read, over the lengths read.
+    private void SpanBoxed(uint[] pixels, Span<uint> line, int x, int count, int coverage, double u, double v)
+    {
+        Matrix m = _inverse;
+        Taps taps = new(stackalloc int[BoxFilter.MaxTaps], stackalloc double[BoxFilter.MaxTaps], stackalloc int[BoxFilter.MaxTaps], stackalloc double[BoxFilter.MaxTaps]);
+
+        // Where v does not change along the span (an upright image), every pixel of it takes the same rows: work them out once.
+        bool level = m.B == 0;
+        int rows = level ? Rows(_grid, v, taps) : 0;
+        for (int i = 0; i < count; i++, u += m.A, v += m.B)
+        {
+            if (!level)
+            {
+                rows = Rows(_grid, v, taps);
+            }
+
+            uint sample = Average(pixels, _grid, u, v, taps, rows);
             if (_mask is { } mask)
             {
                 int alpha = SampleMask(mask, _maskGrid, u * _maskGrid.ScaleU, v * _maskGrid.ScaleV);
@@ -177,14 +219,9 @@ internal readonly ref struct ImagePainter : ICoverageSink
     private static int Clamp(double value, int size) =>
         value >= size ? size - 1 : value > 0 ? (int)value : 0;
 
-    /// <summary>The colour of the image at (u, v): the samples under the pixel's footprint, by the grid's filter.</summary>
+    /// <summary>The colour of the image at (u, v) of a grid enlarged on both axes: the nearest sample, or a bilinear blend.</summary>
     private static uint SampleColor(uint[] pixels, in Grid grid, double u, double v)
     {
-        if (grid.Boxed)
-        {
-            return Average(pixels, grid, u, v);
-        }
-
         return grid.Interpolate ? Bilinear(pixels, grid, u, v) : pixels[(Clamp(Math.Floor(v), grid.Height) * grid.Width) + Clamp(Math.Floor(u), grid.Width)];
     }
 
@@ -261,52 +298,35 @@ internal readonly ref struct ImagePainter : ICoverageSink
         return result;
     }
 
-    /// <summary>Averages the samples under the footprint of the pixel centred at (u, v); an enlarged axis takes one or two samples.</summary>
-    private static uint Average(uint[] pixels, in Grid grid, double u, double v)
+    /// <summary>Writes the rows of the footprint of a pixel centred at v (the index of each row's first sample) and their weights; returns how many.</summary>
+    private static int Rows(in Grid grid, double v, in Taps taps) =>
+        Axis.Create(v, grid.HalfV, grid.Height, grid.Interpolate).Fill(taps.Rows, taps.RowWeights, grid.Width);
+
+    /// <summary>
+    /// Averages the samples under the footprint of the pixel centred at (u, v), whose <paramref name="rows"/> rows are in
+    /// <paramref name="taps"/> already; an enlarged axis takes one or two samples.
+    /// </summary>
+    private static uint Average(uint[] pixels, in Grid grid, double u, double v, in Taps taps, int rows)
     {
-        Axis across = Axis.Create(u, grid.HalfU, grid.Width, grid.Interpolate);
-        Axis down = Axis.Create(v, grid.HalfV, grid.Height, grid.Interpolate);
-        double b = 0;
-        double g = 0;
-        double r = 0;
-        double a = 0;
-        double total = 0;
-        for (int j = 0; j < down.Count; j++)
-        {
-            double wy = down.Weight(j);
-            if (wy <= 0)
-            {
-                continue;
-            }
-
-            int offset = down.Index(j) * grid.Width;
-            for (int i = 0; i < across.Count; i++)
-            {
-                double w = across.Weight(i) * wy;
-                if (w <= 0)
-                {
-                    continue;
-                }
-
-                uint pixel = pixels[offset + across.Index(i)];
-                b += w * (pixel & 0xFF);
-                g += w * ((pixel >> 8) & 0xFF);
-                r += w * ((pixel >> 16) & 0xFF);
-                a += w * (pixel >> 24);
-                total += w;
-            }
-        }
-
-        if (total <= 0)
-        {
-            return pixels[(Clamp(Math.Floor(v), grid.Height) * grid.Width) + Clamp(Math.Floor(u), grid.Width)];
-        }
-
-        double scale = 1 / total;
-        return Channel(b * scale) | (Channel(g * scale) << 8) | (Channel(r * scale) << 16) | (Channel(a * scale) << 24);
+        int columns = Axis.Create(u, grid.HalfU, grid.Width, grid.Interpolate).Fill(taps.Columns, taps.ColumnWeights, 1);
+        return BoxFilter.Average(pixels, taps.Rows[..rows], taps.RowWeights, taps.Columns[..columns], taps.ColumnWeights, out uint result)
+            ? result
+            : pixels[(Clamp(Math.Floor(v), grid.Height) * grid.Width) + Clamp(Math.Floor(u), grid.Width)];
     }
 
     private static uint Channel(double value) => (uint)Math.Clamp((int)(value + 0.5), 0, 255);
+
+    /// <summary>Scratch for one footprint of the box filter: its columns and rows and their weights, <see cref="BoxFilter.MaxTaps"/> each.</summary>
+    private readonly ref struct Taps(Span<int> columns, Span<double> columnWeights, Span<int> rows, Span<double> rowWeights)
+    {
+        public Span<int> Columns { get; } = columns;
+
+        public Span<double> ColumnWeights { get; } = columnWeights;
+
+        public Span<int> Rows { get; } = rows;
+
+        public Span<double> RowWeights { get; } = rowWeights;
+    }
 
     /// <summary>A grid of samples that maps onto the unit square: its size, the half-extents of a pixel's footprint on it, its filter.</summary>
     private readonly struct Grid
@@ -411,6 +431,44 @@ internal readonly ref struct ImagePainter : ICoverageSink
             }
 
             return new Axis(Kind.Nearest, 1, Clamp(Math.Floor(center), size), 0, 0, 0, 0, size);
+        }
+
+        /// <summary>Writes the axis's samples, each times <paramref name="stride"/>, and their weights (<see cref="Index"/> and <see cref="Weight"/> of every tap); returns how many.</summary>
+        public int Fill(Span<int> indices, Span<double> weights, int stride)
+        {
+            // The kind is switched on once rather than per tap, as Index and Weight do; the values are the same expressions.
+            indices = indices[..Count];
+            weights = weights[..indices.Length];
+            switch (_kind)
+            {
+                case Kind.Box:
+                    for (int k = 0; k < indices.Length; k++)
+                    {
+                        int index = _first + k;
+                        indices[k] = index * stride;
+                        weights[k] = Math.Min(_high, index + 1) - Math.Max(_low, index);
+                    }
+
+                    break;
+                case Kind.Points:
+                    for (int k = 0; k < indices.Length; k++)
+                    {
+                        indices[k] = Clamp(Math.Floor(_low + ((k + 0.5) * _step)), _size) * stride;
+                        weights[k] = 1;
+                    }
+
+                    break;
+                default:
+                    for (int k = 0; k < indices.Length; k++)
+                    {
+                        indices[k] = Index(k) * stride;
+                        weights[k] = Weight(k);
+                    }
+
+                    break;
+            }
+
+            return Count;
         }
 
         public int Index(int k) => _kind switch
