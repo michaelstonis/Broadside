@@ -447,3 +447,78 @@ by default; whether it should be is an owner decision (the runner's WIC times va
 
 Pixels: page 0 of every pdf.js corpus file (989 files, 970 render) at 72 DPI hashes (SHA-256 of the pixels) the same before and
 after, Native AOT.
+
+## JPEG 2000 wavelet and component transforms (`JpxLifting`, #477)
+
+The inverse DWT of ITU-T T.800 F.3 (5/3 reversible, 9/7 irreversible) and the inverse RCT and ICT (G.2.2, G.3.2). Tier-1 is
+untouched (#255).
+
+**Restructure first.** The transform used to interleave the sub-bands (F.3.3) and then run 1D_SR on each interleaved row and column,
+the 5/3 columns one at a time (a strided gather per column), the 9/7 columns eight at a time. It now lifts on the sub-bands as they
+lie: a lifting step updates the low-pass (or high-pass) run from the other run shifted by at most one place, the same arithmetic on
+the same values sample for sample, with the PSEO mirror at the ends. Rows lift their two halves in place, then interleave; columns go
+through strips of up to 64 columns copied out row by row (256 bytes a row), so every step is a whole row of targets and two rows of
+neighbours, then copied back in interleaved order. Each step is one call over a run, which is what the kernels take.
+
+**Kernels.** `Lift53Low` (F-5), `Lift53High` (F-6), `Lift97` (F-7), `Scale97` (K, 1/K), `Interleave` (F.3.3; constant shuffles and a
+select), `InverseRct`, `InverseIct`: four 32-bit lanes, the scalar operation order (the 9/7 and ICT a multiply then an add or
+subtract, never fused), `LoadUnsafe`/`StoreUnsafe`, `+`, `-`, `*`, the `>>` operator, `Shuffle`, `ConditionalSelect`. The scalar tail
+is skipped when a run is a multiple of four (it cost the browser builds on short runs).
+
+**Bit-exact.** `JpxLiftingKernelTests` (`SimdKernel` trait; also passes locally with `DOTNET_EnableHWIntrinsic=0`): every kernel and
+dispatcher against the scalar method on every pair of neighbours from -128 to 127, the 32-bit extremes against each other and a
+million random triples (wrapping sums); the float kernels on a million dequantization-like values, a million arbitrary bit patterns
+and the extremes (infinities, denormals, NaNs), compared bit for bit with every NaN made one NaN (which input's payload a sum of two
+NaNs carries depends on the operand order the JIT picks for a commutative add, and every NaN rounds to 0 in `RoundToIntegers`); and
+the new transform against the interleave-first one (`JpxWaveletReference`, the code it replaced) on every size up to 21 x 21 at five
+origins of both parities, one to three levels, reduced decodes, and wider and taller components across several strips. All 147 JPX
+tests pass, among them every JPX image of the fetched corpora (38) against its SHA-256 reference and every OpenJPEG vector at every
+reduction. Every page (up to 12) of the 25 JPX corpus files at 72 and 150 DPI hashes the same before and after, Native AOT.
+
+Items are samples (a pair for `jpx-interleave`); the lifting cases run in 64-sample runs, a strip row. ns per item:
+
+| Build | Lift 5/3 | Lift 9/7 | Interleave | RCT | ICT |
+|---|---:|---:|---:|---:|---:|
+| JIT | 0.423 / 0.189, 2.24x | 0.368 / 0.197, 1.87x | 0.511 / 0.128, 3.97x | 0.692 / 0.431, 1.60x | 0.749 / 0.440, 1.70x |
+| Native AOT | 0.427 / 0.190, 2.24x | 0.365 / 0.200, 1.82x | 0.509 / 0.132, 3.86x | 0.695 / 0.428, 1.63x | 0.714 / 0.403, 1.77x |
+| Browser interpreter, CI | 13.542 / 5.817, 2.33x | 13.685 / 5.770, 2.37x | 14.162 / 4.530, 3.13x | 26.798 / 7.534, 3.56x | 23.937 / 7.534, 3.18x |
+| Browser AOT, CI | 2.432 / 1.323, 1.84x | 2.074 / 0.715, 2.90x | 2.599 / 0.691, 3.76x | 3.600 / 1.597, 2.25x | 3.195 / 1.073, 2.98x |
+| Browser interpreter, local | 4.662 / 2.393, 1.95x | 4.704 / 2.296, 2.05x | 3.155 / 1.751, 1.80x | 6.716 / 2.807, 2.39x | 7.924 / 2.945, 2.69x |
+| Browser AOT, local | 0.729 / 0.363, 2.01x | 0.729 / 0.292, 2.50x | 0.793 / 0.360, 2.20x | 1.009 / 0.513, 1.97x | 1.249 / 0.493, 2.53x |
+
+Runs of eight samples (the lowest resolutions) still win: 9/7 1.56x Native AOT, 1.70x browser AOT, 1.35x interpreter (local). No
+build is gated.
+
+BenchmarkDotNet, `JpxWaveletBenchmarks` (1,024 x 768, five levels, coefficients copied in each call), JIT, M4 Max, `--job short
+--inProcess` (`Allocated` `-`); "head, scalar kernels" is the new structure with `DOTNET_EnableHWIntrinsic=0`:
+
+| Method | Base | Head, scalar kernels | Head |
+|---|---:|---:|---:|
+| `Inverse53` | 6.684 ms | 1.429 ms | 0.688 ms (9.7x) |
+| `Inverse97` | 4.885 ms | 2.482 ms | 1.038 ms (4.7x) |
+| `InverseRct` (64 Ki samples) | 46.98 µs (scalar) | | 30.35 µs |
+| `InverseIct` (64 Ki samples) | 49.24 µs (scalar) | | 24.36 µs |
+
+### Whole-page effect
+
+Sampled before (macOS `sample`, 1 kHz, Native AOT, 96 DPI, each pass opening the document afresh so its images decode): the inverse
+DWT is 45% of `pdfium-tests/fx/action/123.pdf`'s render (1269 x 1643 RGB, 9/7; 56% of its JPX decode) and 30% of `pdfjs/S2.pdf`'s
+(42% of the decode); 7% of `issue5567.pdf` and 6% of `issue5481.pdf` (#352's slow pages, 86-89% tier-1). The RCT/ICT is 1-2%. After:
+15% of 123.pdf's render, 9% of S2.pdf's, 1% of issue5567.pdf's; the float rounding before the DC shift (`RoundToIntegers`, 10% of
+123.pdf) is now larger than the wavelet.
+
+ms per pass of every page at 96 DPI, documents opened afresh each pass; native: best of 6 s, base and head interleaved twice;
+browser: a `browser-wasm` console app under Node 22, best pass after the first (AOT two runs each), M4 Max:
+
+| Document | Build | Base | Head | Change |
+|---|---|---:|---:|---:|
+| 123.pdf | Native AOT | 89.4 | 55.0 | **-38%** |
+| | Browser AOT | 165.6 | 103.3 | **-38%** |
+| | Browser interpreter | 1,193.2 | 898.9 | **-25%** |
+| S2.pdf | Native AOT | 73.1 | 55.0 | **-25%** |
+| | Browser AOT | 133.5 | 104.1 | **-22%** |
+| | Browser interpreter | 877.0 | 695.3 | **-21%** |
+| issue5567.pdf | Native AOT | 503.8 | 470.0 | -7% |
+| | Browser AOT | 574.8 | 547.2 | -5% |
+| | Browser interpreter | 3,839.7 | 2,815.3 | -27% |
+| issue5481.pdf | Native AOT | 391.3 | 372.5 | -5% |
