@@ -102,10 +102,13 @@ internal abstract class ColorPipeline
         {
             int n = Math.Min(chunk, count - start);
             ReadOnlySpan<byte> samples = source.Slice(start * inputs, n * inputs);
-            for (int i = 0; i < samples.Length; i++)
+            for (int c = 0; c < inputs; c++)
             {
-                ComponentRange range = _ranges[i % inputs];
-                components[i] = (float)(range.Minimum + (samples[i] * (range.Maximum - range.Minimum) / 255));
+                ComponentRange range = _ranges[c];
+                for (int i = c; i < samples.Length; i += inputs)
+                {
+                    components[i] = (float)(range.Minimum + (samples[i] * (range.Maximum - range.Minimum) / 255));
+                }
             }
 
             Convert(components[..(n * inputs)], colors, n);

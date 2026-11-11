@@ -18,8 +18,8 @@ namespace Broadside.Viewer.Blazor.Sample;
 /// (the AOT build compiles <see cref="Vector128{T}"/> to native WebAssembly SIMD; the interpreter build maps only part of the API to
 /// SIMD opcodes and can be slower than scalar), and checks that both give the same bytes there. The browser tests run it in both builds
 /// and write the figures to the measurement log. A kernel PR adds its case to <see cref="Cases"/>, linking the kernel's source file
-/// into this project (as <c>SimdExampleKernel</c> is linked from tests/Broadside.TestSupport, <c>JpegColor</c> and <c>InverseDct</c> from src/Broadside and
-/// <c>CompositingRows</c> and <c>BoxFilter</c> from src/Broadside.Rendering).
+/// into this project (as <c>SimdExampleKernel</c> is linked from tests/Broadside.TestSupport, <c>JpegColor</c>, <c>InverseDct</c> and
+/// <c>CmykCharacterization</c> from src/Broadside and <c>CompositingRows</c> and <c>BoxFilter</c> from src/Broadside.Rendering).
 /// </summary>
 [SupportedOSPlatform("browser")]
 public static partial class KernelBenchmarks
@@ -45,7 +45,11 @@ public static partial class KernelBenchmarks
         new("fill-row", 4, 4, FillRowScalar, FillRowVector),
         new("box-filter-4x4", 64, 4, BoxFilterScalar, BoxFilterVector),
         new("idct-8x8", 128, 64, IdctScalar, IdctVector),
+        new("cmyk-to-rgb", 4, 12, CmykToRgbScalar, CmykToRgbVector),
     ];
+
+    /// <summary>The CMYK components of <c>cmyk-to-rgb</c>'s items, filled from the bytes by both methods alike.</summary>
+    private static readonly float[] CmykComponents = new float[4 * Items];
 
     /// <summary>
     /// Runs every case and returns one line each:
@@ -159,6 +163,31 @@ public static partial class KernelBenchmarks
             {
                 _ = BoxFilter.AverageScalar(footprint, rows, rowWeights, columns, columnWeights, out averages[i]);
             }
+        }
+    }
+
+    // The CMYK characterization (#476): each item is one 8-bit CMYK color (b / 255 per component, as an image's samples reach it), the
+    // output its three RGB floats.
+    private static void CmykToRgbScalar(ReadOnlySpan<byte> samples, Span<byte> rgb) => CmykToRgb(samples, rgb, vector: false);
+
+    private static void CmykToRgbVector(ReadOnlySpan<byte> samples, Span<byte> rgb) => CmykToRgb(samples, rgb, vector: true);
+
+    private static void CmykToRgb(ReadOnlySpan<byte> samples, Span<byte> rgb, bool vector)
+    {
+        Span<float> cmyk = CmykComponents.AsSpan(0, samples.Length);
+        for (int i = 0; i < samples.Length; i++)
+        {
+            cmyk[i] = (float)(samples[i] / 255.0);
+        }
+
+        Span<float> colors = MemoryMarshal.Cast<byte, float>(rgb);
+        if (vector)
+        {
+            CmykCharacterization.ToRgbRowVector(cmyk, colors);
+        }
+        else
+        {
+            CmykCharacterization.ToRgbRowScalar(cmyk, colors);
         }
     }
 

@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Broadside.Graphics.Colors;
 
 /// <summary>The colorimetry the managed colour management is built from: chromatic adaptation, XYZ to sRGB and the device formulas.</summary>
@@ -138,7 +140,12 @@ internal static class ColorMath
     /// <summary>Clips to 0..1; NaN becomes 0.</summary>
     /// <param name="value">The value.</param>
     /// <returns>The clipped value.</returns>
-    public static double Clamp01(double value) => value > 0 ? Math.Min(value, 1) : 0;
+    /// <remarks>
+    /// Two comparisons rather than <see cref="Math.Min(double, double)"/>: past the first test the value is positive and not NaN, where
+    /// both give the same bits, and this form inlines (it runs several times per pixel of every converted image).
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static double Clamp01(double value) => value > 0 ? (value < 1 ? value : 1) : 0;
 
     /// <summary>Multiplies a row-major 3 × 3 matrix by a vector.</summary>
     public static void Apply(ReadOnlySpan<double> matrix, double x, double y, double z, Span<double> result)
