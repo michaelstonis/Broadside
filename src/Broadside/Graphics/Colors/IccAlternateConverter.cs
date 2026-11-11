@@ -37,6 +37,9 @@ internal sealed class IccAlternateConverter : IColorConverter
     /// <inheritdoc/>
     public int OutputCount { get; }
 
+    /// <summary>Gets a value indicating whether every component is clipped to 0..1 (the ICC and alternate ranges both 0..1).</summary>
+    public bool ClipsToUnit => Array.TrueForAll(_ranges, static range => range == new ComponentRange(0, 1));
+
     /// <inheritdoc/>
     public void Convert(ReadOnlySpan<float> source, Span<float> destination, int count)
     {
@@ -45,9 +48,14 @@ internal sealed class IccAlternateConverter : IColorConverter
         for (int start = 0; start < count; start += Chunk)
         {
             int n = Math.Min(Chunk, count - start);
-            for (int i = 0; i < n * inputs; i++)
+            ReadOnlySpan<float> batch = source.Slice(start * inputs, n * inputs);
+            for (int c = 0; c < inputs; c++)
             {
-                clipped[i] = (float)_ranges[i % inputs].Clamp(source[(start * inputs) + i]);
+                ComponentRange range = _ranges[c];
+                for (int i = c; i < batch.Length; i += inputs)
+                {
+                    clipped[i] = (float)range.Clamp(batch[i]);
+                }
             }
 
             _alternate.Convert(clipped[..(n * inputs)], destination[(start * OutputCount)..], n);

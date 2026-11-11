@@ -34,6 +34,8 @@
     "Broadside.Benchmarks.ClipBenchmarks.Replay(Clips: Paths, Dpi: 72)": 0,
     "Broadside.Benchmarks.ClipBenchmarks.Replay(Clips: Rectangles, Dpi: 300)": 0,
     "Broadside.Benchmarks.ClipBenchmarks.Replay(Clips: Rectangles, Dpi: 72)": 0,
+    "Broadside.Benchmarks.CmykCharacterizationBenchmarks.ToRgbRow": 0,
+    "Broadside.Benchmarks.CmykCharacterizationBenchmarks.ToRgbRowScalar": 0,
     "Broadside.Benchmarks.ColorConversionBenchmarks.ConvertBytes(Space: \"Cmyk\")": 0,
     "Broadside.Benchmarks.ColorConversionBenchmarks.ConvertBytes(Space: \"Indexed\")": 0,
     "Broadside.Benchmarks.ColorConversionBenchmarks.ConvertBytes(Space: \"Lab\")": 0,

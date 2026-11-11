@@ -72,6 +72,12 @@ internal sealed class DeviceConverter(PdfColorSpaceFamily source, ColorConversio
     private void ConvertCharacterized(ReadOnlySpan<float> source, Span<float> destination, int count)
     {
         int outputs = OutputCount;
+        if (outputs == 3)
+        {
+            ConvertCharacterizedRows(source, destination, count);
+            return;
+        }
+
         ReadOnlySpan<uint> bits = MemoryMarshal.Cast<float, uint>(source[..(count * 4)]);
         (uint c0, uint m0, uint y0, uint k0) = (0, 0, 0, 0);
         (float r0, float g0, float b0) = (0, 0, 0);
@@ -95,6 +101,34 @@ internal sealed class DeviceConverter(PdfColorSpaceFamily source, ColorConversio
                 output[1] = g0;
                 output[2] = b0;
             }
+        }
+    }
+
+    /// <summary>
+    /// <see cref="ConvertCharacterized"/> to RGB: each stretch of colors that differ from the color before them converts as one row
+    /// (<see cref="CmykCharacterization.ToRgbRow"/>, vectorized), and a color equal to the one before it copies that one's result.
+    /// </summary>
+    private static void ConvertCharacterizedRows(ReadOnlySpan<float> source, Span<float> destination, int count)
+    {
+        ReadOnlySpan<ulong> pairs = MemoryMarshal.Cast<float, ulong>(source[..(count * 4)]);
+        int i = 0;
+        while (i < count)
+        {
+            if (i > 0 && pairs[2 * i] == pairs[(2 * i) - 2] && pairs[(2 * i) + 1] == pairs[(2 * i) - 1])
+            {
+                destination.Slice((3 * i) - 3, 3).CopyTo(destination.Slice(3 * i, 3));
+                i++;
+                continue;
+            }
+
+            int end = i + 1;
+            while (end < count && (pairs[2 * end] != pairs[(2 * end) - 2] || pairs[(2 * end) + 1] != pairs[(2 * end) - 1]))
+            {
+                end++;
+            }
+
+            CmykCharacterization.ToRgbRow(source.Slice(4 * i, 4 * (end - i)), destination.Slice(3 * i, 3 * (end - i)));
+            i = end;
         }
     }
 
