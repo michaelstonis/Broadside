@@ -6,7 +6,7 @@ namespace Broadside.Filters;
 
 /// <summary>
 /// One engine's filters by name: the managed defaults, with the replacements and additions its options registered. Immutable; built
-/// once when the engine is constructed and shared by every document it opens. There is no static or global registry.
+/// once when the engine is constructed (or shared, when the options register none: <see cref="Default"/>) and shared by every document it opens. There is no mutable global registry.
 /// </summary>
 /// <remarks>ISO 32000-2 §7.4.1, Table 6: every standard filter is a default here, including the image codecs of §7.4.6 to §7.4.9, except <c>Crypt</c> (§7.4.10), which the stream decoder applies through its crypt filter handler.</remarks>
 internal sealed class FilterRegistry
@@ -28,6 +28,12 @@ internal sealed class FilterRegistry
         new JpxDecodeFilter(),
         new Jbig2DecodeFilter(),
     ];
+
+    /// <summary>
+    /// Gets the registry of the defaults alone, built once: an engine whose options register no filter shares it, so constructing
+    /// one does not build a frozen dictionary, whose bucket layout (and so its allocations) depends on the process's hash seed.
+    /// </summary>
+    public static FilterRegistry Default { get; } = Create([]);
 
     /// <summary>Builds a registry of the defaults with <paramref name="registrations"/> applied in order; a later one replaces an earlier one of the same name.</summary>
     /// <param name="registrations">The filters registered through the options.</param>
