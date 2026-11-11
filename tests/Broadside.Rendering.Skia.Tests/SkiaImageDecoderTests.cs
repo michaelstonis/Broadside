@@ -258,7 +258,7 @@ public sealed class SkiaImageDecoderTests
         DisplayList list = document.Pages[0].CreateDisplayList();
         using var start = new ManualResetEventSlim();
 
-        // Eight tiles prefetch at once, as the viewer's pooled tiles do: Skia's decode is in flight for the others to join.
+        // Eight tiles prefetch at once, as the viewer's pooled tiles do: Skia decodes synchronously, and the others join that decode.
         Task[] tiles = [.. Enumerable.Range(0, 8).Select(_ => Task.Run(
             async () =>
             {
