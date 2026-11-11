@@ -77,6 +77,45 @@ BenchmarkDotNet, `JpegColorBenchmarks`, one 2,550-sample row, JIT, M4 Max (`Allo
 | ycck | 27.9 µs | 24.4 µs | -12% |
 | gray-2x2 (no transform) | 9.30 µs | 9.26 µs | 0% |
 
+## Pixel packing and gray expansion (`PixelPacking`, `GrayExpansion`, #472)
+
+Packing a converted RGB row into BGRA (or RGBA, WebGL), opaque or premultiplied by its folded opacity, as the software rasterizer's
+`ImageSource` and every backend's `ImageConverter` do (`ImageRows.PackBgra`/`PackRgba`); and expanding 8-bit gray to RGB, the byte
+path of a one-component space whose table holds the grays. ns per pixel (gray: per sample):
+
+| Build | BGRA opaque scalar | vector | speed-up | BGRA premultiplied scalar | vector | speed-up | RGBA premultiplied scalar | vector | speed-up | Gray → RGB scalar | vector | speed-up |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| JIT | 0.771 | 0.056 | 13.69x | 1.557 | 0.302 | 5.15x | 1.295 | 0.310 | 4.18x | 0.524 | 0.040 | 13.12x |
+| Native AOT | 1.032 | 0.062 | 16.60x | 1.576 | 0.311 | 5.08x | 1.326 | 0.311 | 4.26x | 0.528 | 0.038 | 13.74x |
+| Browser interpreter, CI | 13.447 | 0.954 | 14.10x | 18.406 | 3.338 | 5.51x | 22.602 | 5.054 | 4.47x | 8.178 | 0.358 | 22.87x |
+| Browser AOT, CI | 4.053 | 0.215 | 18.89x | 7.844 | 1.907 | 4.11x | 7.534 | 1.812 | 4.16x | 1.758 | 0.060 | 29.50x |
+| Browser interpreter, local | 7.636 | 0.621 | 12.29x | 12.101 | 3.819 | 3.17x | 12.118 | 3.748 | 3.23x | 3.232 | 0.320 | 10.11x |
+| Browser AOT, local | 1.604 | 0.107 | 14.94x | 2.154 | 0.754 | 2.86x | 2.162 | 0.755 | 2.86x | 0.962 | 0.088 | 10.89x |
+
+The gray scalar column is the replicating loop; the code before #472 copied three bytes per sample from the table with
+`Slice`/`CopyTo`, slower still (`GrayToRgbTable` below).
+
+BenchmarkDotNet, `PixelPackingBenchmarks`, one 2,550-pixel row, `--job short`, JIT, M4 Max (`Allocated` is `-` for all seven):
+
+| Method | Mean |
+|---|---:|
+| `PackOpaqueScalar` | 2.372 µs |
+| `PackOpaque` (vector) | 0.179 µs |
+| `PackPremultipliedScalar` | 3.516 µs |
+| `PackPremultiplied` (vector) | 0.814 µs |
+| `GrayToRgbTable` (before #472) | 1.886 µs |
+| `GrayToRgbScalar` | 1.024 µs |
+| `GrayToRgb` (vector) | 0.128 µs |
+
+Whole page, base (integration branch) and head alternated twice in-process, means of the two runs, M4 Max:
+
+- `ScaledImageBenchmarks.Page` (the catalogue cover built, decoded, converted and rendered cold):
+  - 390 pixels, full decode: 209.4 → 192.5 ms (-8%).
+  - 390 pixels, scaled decode: 81.7 → 78.1 ms (-4%).
+  - 1206 pixels, full decode: 231.2 → 210.8 ms (-9%).
+  - 1206 pixels, scaled decode: 229.0 → 211.0 ms (-8%).
+- The tile and first-tile benchmarks replay a list whose image is already converted, so they do not change: `ScaledImageBenchmarks.Replay`, `PhoneTileBenchmarks`, `FirstPaintBenchmarks`.
+
 ## Compositing rows (`CompositingRows`, #473)
 
 Source-over of a row at one coverage (`OverRow`: a transparency group compositing onto its parent) and an opaque color over a run at

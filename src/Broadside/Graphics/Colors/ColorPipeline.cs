@@ -20,6 +20,10 @@ internal abstract class ColorPipeline
     private readonly ComponentRange[] _ranges;
     private byte[]? _byteTable;
 
+    // Whether the RGB byte table maps every sample b to (b, b, b), so the lookup is a replication (GrayExpansion). Written before the
+    // table is published (Volatile.Write) and read after it is seen (Volatile.Read), so a reader that has the table has the flag.
+    private bool _tableHoldsGrays;
+
     /// <summary>Initializes the shared part of a pipeline.</summary>
     /// <param name="ranges">The range of each input component: what 8-bit samples 0 to 255 map onto.</param>
     /// <param name="outputs">The number of device components.</param>
@@ -64,9 +68,27 @@ internal abstract class ColorPipeline
         if (inputs == 1)
         {
             ReadOnlySpan<byte> table = ByteTable();
-            for (int i = 0; i < count; i++)
+            if (outputs == 3 && _tableHoldsGrays)
             {
-                table.Slice(source[i] * outputs, outputs).CopyTo(destination.Slice(i * outputs, outputs));
+                // r = g = b = the sample: the lookup is a replication (issue #472).
+                GrayExpansion.ToRgb(source[..count], destination[..(3 * count)]);
+            }
+            else if (outputs == 3)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    int entry = source[i] * 3;
+                    destination[3 * i] = table[entry];
+                    destination[(3 * i) + 1] = table[entry + 1];
+                    destination[(3 * i) + 2] = table[entry + 2];
+                }
+            }
+            else
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    table.Slice(source[i] * outputs, outputs).CopyTo(destination.Slice(i * outputs, outputs));
+                }
             }
 
             return;
@@ -126,7 +148,22 @@ internal abstract class ColorPipeline
         Convert(components, colors, 256);
         table = new byte[colors.Length];
         ToBytes(colors, table);
+        _tableHoldsGrays = OutputCount == 3 && HoldsGrays(table);
         Volatile.Write(ref _byteTable, table);
         return table;
+    }
+
+    /// <summary>Whether an RGB byte table holds the grays: entry b is (b, b, b) for every b (§10.4.2.2, DeviceGray on an RGB device).</summary>
+    private static bool HoldsGrays(ReadOnlySpan<byte> table)
+    {
+        for (int b = 0; b < 256; b++)
+        {
+            if (table[3 * b] != b || table[(3 * b) + 1] != b || table[(3 * b) + 2] != b)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
