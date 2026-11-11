@@ -34,6 +34,9 @@ after**. Whole decode through `JpxDecodeFilter.DecodeImage`, best of runs over a
 | `pdfjs/issue5475.pdf` | 262,144 | 30.5 ms (116.5) | 16.1 ms (61.4) | | |
 | `pdfjs/issue19326.pdf` (16-bit) | 185,687 | 12.5 ms (67.5) | 6.4 ms (34.3) | | |
 
+With the vectorized wavelet and component transforms of #477 merged in, the whole decode of issue5567 is 215.0 ms (42.5 ns/sample,
+JIT) and of issue5481 90.7 ms (38.3), with the same 217 sample hashes.
+
 For comparison, `opj_decompress -threads 1` (OpenJPEG 2.5.4, Homebrew) reports 235 ms of decode time for issue5567.
 
 `JpxTier1Benchmarks` (BenchmarkDotNet, `--job short`, JIT) times tier-1 alone on 64 x 64 code-blocks of pseudo-random bytes, 28
