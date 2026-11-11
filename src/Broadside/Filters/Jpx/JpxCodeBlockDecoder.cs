@@ -36,13 +36,13 @@ internal readonly record struct JpxBlockCoding(int Width, int Height, int Orient
 /// </para>
 /// <para>
 /// State is one 32-bit word per stripe column (four samples of a column in one stripe, D.1 and Figure D.1), with a border of words
-/// around the code-block so neighbours need no bounds tests. Each word carries the significance of the 3 x 6 neighbourhood the
+/// around the code-block so neighbors need no bounds tests. Each word carries the significance of the 3 x 6 neighborhood the
 /// column's four samples see (rows -1 to 4, columns -1 to +1: bit 3 * (row + 1) + column + 1), the signs of rows -1 to 4 of its own
 /// column, and whether each of its four samples was refined or coded in this plane's significance pass. A sample that becomes
-/// significant sets its bit in its own word and in the up to five neighbouring words that see it, so the context of any sample is a
+/// significant sets its bit in its own word and in the up to five neighboring words that see it, so the context of any sample is a
 /// table lookup on nine bits of one word (Tables D.1 to D.4) and a column with nothing to code is skipped on one test. Under vertically
 /// causal contexts (D.7) a sample of a stripe's first row does not tell the stripe above, which is the same as treating it as
-/// insignificant there. The MQ registers stay in locals across a pass (<see cref="MqDecoder.Decode(ref uint, ReadOnlySpan{byte}, ref uint, ref uint, ref int, ref int)"/>).
+/// insignificant there. The MQ registers stay in locals across a pass (<see cref="MqDecoder.Decode(ref byte, ReadOnlySpan{byte}, ref uint, ref uint, ref int, ref int)"/>).
 /// </para>
 /// <para>Allocation-free per code-block: one instance per decode call reuses its pooled arrays until <see cref="Dispose"/>.</para>
 /// </remarks>
@@ -59,12 +59,12 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
     // Magnitudes by stripe column, four per column: width * 4 * stripes.
     private const int MaxMagnitudes = MaxBlockSamples;
 
-    // The significance of the 3 x 6 neighbourhood (rows -1 to 4 of columns -1, 0 and +1), and of the column's own four samples.
+    // The significance of the 3 x 6 neighborhood (rows -1 to 4 of columns -1, 0 and +1), and of the column's own four samples.
     private const uint SigmaAll = 0x3FFFF;
     private const uint SelfAll = (1u << 4) | (1u << 7) | (1u << 10) | (1u << 13);
 
-    // The 3 x 3 neighbourhood of row r after shifting the word right by 3r, without the sample itself.
-    private const uint Neighbours = 0x1EF;
+    // The 3 x 3 neighborhood of row r after shifting the word right by 3r, without the sample itself.
+    private const uint Neighbors = 0x1EF;
 
     // Sign (negative) of rows -1 to 4 of the word's own column: bit ChiShift + row + 1.
     private const int ChiShift = 18;
@@ -82,13 +82,13 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
     private const int UniformContext = 18;
     private const int ContextCount = 19;
 
-    // Table D.1: zero-coding context by orientation (LL, HL, LH, HH) and the nine neighbourhood bits of a sample (NW, N, NE, W, self,
+    // Table D.1: zero-coding context by orientation (LL, HL, LH, HH) and the nine neighborhood bits of a sample (NW, N, NE, W, self,
     // E, SW, S, SE from bit 0).
     private static readonly byte[] ZeroCoding = BuildZeroCoding();
 
     private int[] _magnitudes = ArrayPool<int>.Shared.Rent(MaxMagnitudes);
     private uint[] _state = ArrayPool<uint>.Shared.Rent(MaxStateWords);
-    private readonly uint[] _contexts = new uint[ContextCount];
+    private readonly byte[] _contexts = new byte[ContextCount];
     private int _width;
     private int _height;
     private int _stride;
@@ -105,7 +105,7 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
         int width = coding.Width;
         int height = coding.Height;
         int style = coding.Style;
-        if ((uint)(width - 1) >= MaxBlockSide || (uint)(height - 1) >= MaxBlockSide || width * height > MaxBlockSamples
+        if ((uint)width > MaxBlockSide || (uint)height > MaxBlockSide || width * height > MaxBlockSamples
             || (uint)coding.Orientation > 3)
         {
             // The codestream reader never makes such a block (Table A.18).
@@ -303,10 +303,10 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
     /// <summary>Table D.7: every context starts at state 0, MPS 0, except zero-coding label 0, run-length and uniform.</summary>
     private void ResetContexts()
     {
-        _contexts.AsSpan().Fill(MqDecoder.ContextWord(0));
-        _contexts[0] = MqDecoder.ContextWord(4);
-        _contexts[RunLengthContext] = MqDecoder.ContextWord(3);
-        _contexts[UniformContext] = MqDecoder.ContextWord(46);
+        _contexts.AsSpan().Clear();
+        _contexts[0] = MqDecoder.Context(4);
+        _contexts[RunLengthContext] = MqDecoder.Context(3);
+        _contexts[UniformContext] = MqDecoder.Context(46);
     }
 
     /// <summary>
@@ -327,7 +327,7 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
 
     /// <summary>
     /// The sign context and XOR bit (Tables D.2 and D.3) of row <paramref name="r"/> of the column whose word is <paramref name="column"/>:
-    /// W and E from the significance bits of the word and the sign bits of the neighbouring columns' words, N and S from the word.
+    /// W and E from the significance bits of the word and the sign bits of the neighboring columns' words, N and S from the word.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int SignEntry(ref uint column, uint word, int r)
@@ -348,7 +348,7 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
 
     /// <summary>
     /// Makes row <paramref name="r"/> of a column significant: its own bits go into <paramref name="word"/> (the caller's copy of the
-    /// column's word), the neighbourhood bits into the words of the columns beside it and, for the first and last row, of the stripes
+    /// column's word), the neighborhood bits into the words of the columns beside it and, for the first and last row, of the stripes
     /// above and below (not above under vertically causal contexts, D.7).
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -378,12 +378,12 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
         }
     }
 
-    /// <summary>D.3.1: insignificant coefficients with a significant neighbour.</summary>
+    /// <summary>D.3.1: insignificant coefficients with a significant neighbor.</summary>
     private void SignificancePass(ref MqDecoder mq, int plane, int orientation)
     {
         ref uint column = ref MemoryMarshal.GetArrayDataReference(_state);
         ref int magnitude = ref MemoryMarshal.GetArrayDataReference(_magnitudes);
-        ref uint contexts = ref MemoryMarshal.GetArrayDataReference(_contexts);
+        ref byte contexts = ref MemoryMarshal.GetArrayDataReference(_contexts);
         ref byte zeroCoding = ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(ZeroCoding), orientation * 512);
         int half = 3 << plane;
         int stride = _stride;
@@ -397,8 +397,9 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
             for (; Unsafe.IsAddressLessThan(ref column, ref end); column = ref Unsafe.Add(ref column, 1), magnitude = ref Unsafe.Add(ref magnitude, 4))
             {
                 uint word = column;
-                if ((word & SigmaAll) == 0)
+                if ((word & SigmaAll) == 0 || (word & SelfAll) == SelfAll)
                 {
+                    // Nothing significant around, or all four samples significant already.
                     continue;
                 }
 
@@ -428,14 +429,14 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
 
     /// <summary>Row <paramref name="r"/> of a column in the significance pass (D.3.1).</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void SignificanceStep(ref Coder coder, ref uint contexts, ref byte zeroCoding, ref uint column, ref uint word, ref int magnitude, int half, int stride, bool causal, int r)
+    private static void SignificanceStep(ref Coder coder, ref byte contexts, ref byte zeroCoding, ref uint column, ref uint word, ref int magnitude, int half, int stride, bool causal, int r)
     {
-        // Insignificant with a significant neighbour (otherwise context 0, not coded), tested on one branch.
+        // Insignificant with a significant neighbor (otherwise context 0, not coded), tested on one branch.
         uint around = word >> (3 * r);
-        if (((around & (1u << 4)) == 0) & ((around & Neighbours) != 0))
+        if (((around & (1u << 4)) == 0) & ((around & Neighbors) != 0))
         {
             word |= 1u << (PiShift + r);
-            if (coder.Decode(ref Unsafe.Add(ref contexts, Unsafe.Add(ref zeroCoding, (int)(around & Neighbours)))) == 1)
+            if (coder.Decode(ref Unsafe.Add(ref contexts, Unsafe.Add(ref zeroCoding, (int)(around & Neighbors)))) == 1)
             {
                 DecodeSign(ref coder, ref contexts, ref column, ref word, stride, causal, r);
                 Unsafe.Add(ref magnitude, r) = half;
@@ -445,7 +446,7 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
 
     /// <summary>Decodes the sign of row <paramref name="r"/> (D.3.2) and makes it significant.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void DecodeSign(ref Coder coder, ref uint contexts, ref uint column, ref uint word, int stride, bool causal, int r)
+    private static void DecodeSign(ref Coder coder, ref byte contexts, ref uint column, ref uint word, int stride, bool causal, int r)
     {
         int entry = SignEntry(ref column, word, r);
         int sign = coder.Decode(ref Unsafe.Add(ref contexts, SignContexts + (entry >> 1))) ^ (entry & 1);
@@ -474,7 +475,7 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
                 for (int r = 0; r < rows; r++)
                 {
                     uint around = word >> (3 * r);
-                    if ((around & (1u << 4)) != 0 || (around & Neighbours) == 0)
+                    if ((around & (1u << 4)) != 0 || (around & Neighbors) == 0)
                     {
                         continue;
                     }
@@ -499,7 +500,7 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
     {
         ref uint column = ref MemoryMarshal.GetArrayDataReference(_state);
         ref int magnitude = ref MemoryMarshal.GetArrayDataReference(_magnitudes);
-        ref uint contexts = ref MemoryMarshal.GetArrayDataReference(_contexts);
+        ref byte contexts = ref MemoryMarshal.GetArrayDataReference(_contexts);
         int step = 1 << plane;
         var coder = new Coder(mq);
         column = ref Unsafe.Add(ref column, _stride + 1);
@@ -521,10 +522,10 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
                     int r = BitOperations.TrailingZeroCount(rows);
                     rows &= rows - 1;
 
-                    // Table D.4: 16 after the first refinement, else 15 with a significant neighbour and 14 without.
+                    // Table D.4: 16 after the first refinement, else 15 with a significant neighbor and 14 without.
                     uint refined = (word >> (MuShift + r)) & 1;
-                    uint neighbour = (((word >> (3 * r)) & Neighbours) + 0x1FF) >> 9;
-                    int context = RefinementContexts + (int)((refined << 1) | (neighbour & ~refined));
+                    uint neighbor = (((word >> (3 * r)) & Neighbors) + 0x1FF) >> 9;
+                    int context = RefinementContexts + (int)((refined << 1) | (neighbor & ~refined));
                     int negative = coder.Decode(ref Unsafe.Add(ref contexts, context)) - 1;
                     Unsafe.Add(ref magnitude, r) += (step ^ negative) - negative;
                     word |= 1u << (MuShift + r);
@@ -587,7 +588,7 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
     {
         ref uint column = ref MemoryMarshal.GetArrayDataReference(_state);
         ref int magnitude = ref MemoryMarshal.GetArrayDataReference(_magnitudes);
-        ref uint contexts = ref MemoryMarshal.GetArrayDataReference(_contexts);
+        ref byte contexts = ref MemoryMarshal.GetArrayDataReference(_contexts);
         ref byte zeroCoding = ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(ZeroCoding), orientation * 512);
         int half = 3 << plane;
         int stride = _stride;
@@ -605,7 +606,7 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
                 {
                     if ((word & (SigmaAll | PiAll)) == 0)
                     {
-                        // D.3.4: all four samples insignificant with insignificant neighbourhoods (so not coded in this plane's
+                        // D.3.4: all four samples insignificant with insignificant neighborhoods (so not coded in this plane's
                         // significance pass either): one run-length decision for the column.
                         if (coder.Decode(ref Unsafe.Add(ref contexts, RunLengthContext)) == 0)
                         {
@@ -648,7 +649,7 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
 
     /// <summary>Row <paramref name="r"/> of a column in the cleanup pass, outside a run (D.3.4).</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void CleanupStep(ref Coder coder, ref uint contexts, ref byte zeroCoding, ref uint column, ref uint word, ref int magnitude, int half, int stride, bool causal, int r)
+    private static void CleanupStep(ref Coder coder, ref byte contexts, ref byte zeroCoding, ref uint column, ref uint word, ref int magnitude, int half, int stride, bool causal, int r)
     {
         uint around = word >> (3 * r);
         if ((word & ((1u << ((3 * r) + 4)) | (1u << (PiShift + r)))) != 0)
@@ -657,7 +658,7 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
             return;
         }
 
-        if (coder.Decode(ref Unsafe.Add(ref contexts, Unsafe.Add(ref zeroCoding, (int)(around & Neighbours)))) == 1)
+        if (coder.Decode(ref Unsafe.Add(ref contexts, Unsafe.Add(ref zeroCoding, (int)(around & Neighbors)))) == 1)
         {
             DecodeSign(ref coder, ref contexts, ref column, ref word, stride, causal, r);
             Unsafe.Add(ref magnitude, r) = half;
@@ -681,7 +682,7 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
 
         /// <summary>DECODE in <paramref name="context"/> (C.3.2).</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int Decode(ref uint context) => MqDecoder.Decode(ref context, _data, ref _a, ref _c, ref _ct, ref _position);
+        public int Decode(ref byte context) => MqDecoder.Decode(ref context, _data, ref _a, ref _c, ref _ct, ref _position);
 
         /// <summary>Stores the registers back into the decoder.</summary>
         public readonly void Store(ref MqDecoder mq) => mq.SetRegisters(_a, _c, _ct, _position);

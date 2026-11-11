@@ -127,12 +127,12 @@ internal ref struct MqDecoder
         return decision;
     }
 
-    /// <summary>Gets the segment the decoder reads, for <see cref="Decode(ref uint, ReadOnlySpan{byte}, ref uint, ref uint, ref int, ref int)"/>.</summary>
+    /// <summary>Gets the segment the decoder reads, for <see cref="Decode(ref byte, ReadOnlySpan{byte}, ref uint, ref uint, ref int, ref int)"/>.</summary>
     public readonly ReadOnlySpan<byte> Data => _data;
 
     /// <summary>
     /// Gets the A, C and CT registers and the read position, for a caller that keeps them in locals across a loop
-    /// (<see cref="Decode(ref uint, ReadOnlySpan{byte}, ref uint, ref uint, ref int, ref int)"/>).
+    /// (<see cref="Decode(ref byte, ReadOnlySpan{byte}, ref uint, ref uint, ref int, ref int)"/>).
     /// </summary>
     /// <param name="a">The interval register A.</param>
     /// <param name="c">The code register C.</param>
@@ -162,24 +162,13 @@ internal ref struct MqDecoder
     }
 
     /// <summary>
-    /// Returns the word of a context in state <paramref name="state"/> with the given more probable symbol, for
-    /// <see cref="Decode(ref uint, ReadOnlySpan{byte}, ref uint, ref uint, ref int, ref int)"/>: Qe &lt;&lt; 16, the word index after an
-    /// MPS (bits 8 to 14) and after an LPS (bits 1 to 7, with the SWITCH of Table C.2 applied), and the MPS (bit 0). Holding Qe in the
-    /// context itself saves the decision a dependent load.
-    /// </summary>
-    /// <param name="state">The index I into Table C.2, 0 to 46.</param>
-    /// <param name="mps">The more probable symbol, 0 or 1.</param>
-    /// <returns>The context word.</returns>
-    public static uint ContextWord(int state, int mps = 0) => Words[(state << 1) | mps];
-
-    /// <summary>
     /// DECODE with the registers and read position in the caller's locals (from <see cref="GetRegisters"/>, stored back with
-    /// <see cref="SetRegisters"/>) and a context word from <see cref="ContextWord"/>: the same decisions, state transitions and bytes
-    /// read as <see cref="Decode(ref byte)"/>, but nothing touches memory except the context, so a coding pass keeps the decoder in
-    /// registers; RENORMD shifts by the leading zeros of A at once between byte inputs. It does not count
-    /// <see cref="MarkerBytes"/>.
+    /// <see cref="SetRegisters"/>): the same decisions, context updates and bytes read as <see cref="Decode(ref byte)"/>, but nothing
+    /// touches memory except the context, so a coding pass keeps the decoder in registers. The decision and the new state come from
+    /// one table word per context (Qe and both transitions resolved), mostly without branches, and RENORMD shifts by the leading zeros
+    /// of A at once between byte inputs. It does not count <see cref="MarkerBytes"/>.
     /// </summary>
-    /// <param name="context">The context word.</param>
+    /// <param name="context">The context byte, <c>(I &lt;&lt; 1) | MPS</c>.</param>
     /// <param name="data">The segment (<see cref="Data"/>).</param>
     /// <param name="a">The interval register A.</param>
     /// <param name="c">The code register C.</param>
@@ -188,13 +177,14 @@ internal ref struct MqDecoder
     /// <returns>The decision, 0 or 1.</returns>
     /// <remarks>ITU-T T.800 C.3.2 to C.3.4, Figures C.15 to C.19.</remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int Decode(ref uint context, ReadOnlySpan<byte> data, ref uint a, ref uint c, ref int ct, ref int position)
+    public static int Decode(ref byte context, ReadOnlySpan<byte> data, ref uint a, ref uint c, ref int ct, ref int position)
     {
         // Figures C.15 to C.17 without branches, since a pass's decisions are often close to even and mispredict: A and C stay below
         // 2^16 and 2^32, so the borrow of a 32-bit subtraction gives each comparison. lps: C lies in the LPS sub-interval;
         // exchange: the conditional exchange swaps the symbols; the decision is the MPS unless exactly one of them holds. Without
         // renormalization (A still at least 0x8000, only in the MPS sub-interval) neither holds and the context keeps its state.
-        uint word = context;
+        ref uint words = ref MemoryMarshal.GetReference(Words);
+        uint word = Unsafe.Add(ref words, context);
         uint qe = word >> 16;
         a -= qe;
         uint lps = ((c >> 16) - qe) >> 31;
@@ -211,8 +201,8 @@ internal ref struct MqDecoder
         a = (qe & lpsMask) | (a & ~lpsMask);
         uint flip = lps ^ exchange;
         uint renormalize = ((a >> 15) & 1) ^ 1;
-        uint next = Unsafe.Add(ref MemoryMarshal.GetReference(Words), (int)((word >> (int)(8 - (7 * flip))) & 0x7F));
-        context = word ^ ((word ^ next) & (0u - renormalize));
+        uint next = (word >> (int)(8 - (7 * flip))) & 0x7F;
+        context = (byte)(context ^ ((context ^ next) & (0u - renormalize)));
 
         // RENORMD: A has n leading zeros in its 16 bits, so it and C shift n times; BYTEIN comes in whenever CT runs out.
         int n = BitOperations.LeadingZeroCount(a) - 16;
@@ -258,8 +248,8 @@ internal ref struct MqDecoder
         }
     }
 
-    // The context words of ContextWord by (I << 1) | MPS, Table C.2 (T.800) / Table E.1 (T.88) with both transitions resolved;
-    // padded to 128 entries so that any 7-bit index stays inside the table.
+    // By context byte (I << 1) | MPS: Qe << 16, the context byte after an MPS << 8, after an LPS (SWITCH applied) << 1, and the MPS;
+    // Table C.2 (T.800) / Table E.1 (T.88) with both transitions resolved. Padded to 256 entries so that any byte indexes inside it.
     private static ReadOnlySpan<uint> Words =>
     [
         0x56010206, 0x56010305, 0x34010418, 0x3401051B, 0x18010624, 0x18010727, 0x0AC10830, 0x0AC10933,
@@ -273,8 +263,13 @@ internal ref struct MqDecoder
         0x08A14278, 0x08A1437B, 0x0521447C, 0x0521457F, 0x04414680, 0x04414783, 0x02A14884, 0x02A14987,
         0x02214A88, 0x02214B8B, 0x01414C8C, 0x01414D8F, 0x01114E90, 0x01114F93, 0x00855094, 0x00855197,
         0x00495298, 0x0049539B, 0x0025549C, 0x0025559F, 0x001556A0, 0x001557A3, 0x000958A4, 0x000959A7,
-        0x00055AA8, 0x00055BAB, 0x00015AAC, 0x00015BAF, 0x56015CB8, 0x56015DBB, 0x00000000, 0x00000000,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0x00055AA8, 0x00055BAB, 0x00015AAC, 0x00015BAF, 0x56015CB8, 0x56015DBB,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     ];
 
     private static uint[] Build(ReadOnlySpan<int> rows)
