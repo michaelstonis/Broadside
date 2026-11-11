@@ -18,8 +18,8 @@ namespace Broadside.Viewer.Blazor.Sample;
 /// (the AOT build compiles <see cref="Vector128{T}"/> to native WebAssembly SIMD; the interpreter build maps only part of the API to
 /// SIMD opcodes and can be slower than scalar), and checks that both give the same bytes there. The browser tests run it in both builds
 /// and write the figures to the measurement log. A kernel PR adds its case to <see cref="Cases"/>, linking the kernel's source file
-/// into this project (as <c>SimdExampleKernel</c> is linked from tests/Broadside.TestSupport, <c>JpegColor</c> from src/Broadside and
-/// <c>CompositingRows</c> and <c>BoxFilter</c> from src/Broadside.Rendering, <c>CmykCharacterization</c> from src/Broadside).
+/// into this project (as <c>SimdExampleKernel</c> is linked from tests/Broadside.TestSupport, <c>JpegColor</c>, <c>InverseDct</c> and
+/// <c>CmykCharacterization</c> from src/Broadside and <c>CompositingRows</c> and <c>BoxFilter</c> from src/Broadside.Rendering).
 /// </summary>
 [SupportedOSPlatform("browser")]
 public static partial class KernelBenchmarks
@@ -44,6 +44,7 @@ public static partial class KernelBenchmarks
         new("over-row", 8, 4, OverRowScalar, OverRowVector),
         new("fill-row", 4, 4, FillRowScalar, FillRowVector),
         new("box-filter-4x4", 64, 4, BoxFilterScalar, BoxFilterVector),
+        new("idct-8x8", 128, 64, IdctScalar, IdctVector),
         new("cmyk-to-rgb", 4, 12, CmykToRgbScalar, CmykToRgbVector),
     ];
 
@@ -215,6 +216,35 @@ public static partial class KernelBenchmarks
         JpegColor.YcckToCmykVector(rows[..n], rows[n..(2 * n)], rows[(2 * n)..(3 * n)], rows[(3 * n)..], cmyk);
     }
 
+    // The inverse DCT (#474): each item is one block, two source bytes per coefficient (the first deciding by frequency whether it is
+    // zero, as in a quantized photograph, the second its value), the T.81 Table K.1 luminance table; the output is the 8 x 8 samples.
+    private static ReadOnlySpan<int> Luminance =>
+    [
+        16, 11, 10, 16, 24, 40, 51, 61, 12, 12, 14, 19, 26, 58, 60, 55, 14, 13, 16, 24, 40, 57, 69, 56, 14, 17, 22, 29, 51, 87, 80, 62,
+        18, 22, 37, 56, 68, 109, 103, 77, 24, 35, 55, 64, 81, 104, 113, 92, 49, 64, 78, 87, 103, 121, 120, 101, 72, 92, 95, 98, 112, 100, 103, 99,
+    ];
+
+    private static void IdctScalar(ReadOnlySpan<byte> source, Span<byte> samples) => Idct(source, samples, vector: false);
+
+    private static void IdctVector(ReadOnlySpan<byte> source, Span<byte> samples) => Idct(source, samples, vector: true);
+
+    private static void Idct(ReadOnlySpan<byte> source, Span<byte> samples, bool vector)
+    {
+        // The blocks are shaped once per source (the benchmark passes the same array every round) so only the transform is timed.
+        short[] blocks = IdctBlocks.For(source);
+        for (int i = 0; i < blocks.Length / 64; i++)
+        {
+            if (vector)
+            {
+                InverseDct.TransformVector(blocks.AsSpan(64 * i, 64), Luminance, samples.Slice(64 * i, 64), 8);
+            }
+            else
+            {
+                InverseDct.TransformScalar(blocks.AsSpan(64 * i, 64), Luminance, samples.Slice(64 * i, 64), 8);
+            }
+        }
+    }
+
     private static double Time(SpanKernel<byte, byte> kernel, byte[] source, byte[] destination, int rounds)
     {
         long start = Stopwatch.GetTimestamp();
@@ -224,6 +254,29 @@ public static partial class KernelBenchmarks
         }
 
         return Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+    }
+
+    private static class IdctBlocks
+    {
+        private static byte[] s_source = [];
+        private static short[] s_blocks = [];
+
+        public static short[] For(ReadOnlySpan<byte> source)
+        {
+            if (s_blocks.Length != source.Length / 2 || !source[..Math.Min(64, source.Length)].SequenceEqual(s_source))
+            {
+                s_source = source[..Math.Min(64, source.Length)].ToArray();
+                s_blocks = new short[source.Length / 2];
+                for (int i = 0; i < s_blocks.Length; i++)
+                {
+                    int position = i % 64;
+                    int frequency = (position >> 3) + (position & 7);
+                    s_blocks[i] = source[2 * i] < 256 >> Math.Min(frequency, 8) ? (short)((sbyte)source[(2 * i) + 1] >> 2) : (short)0;
+                }
+            }
+
+            return s_blocks;
+        }
     }
 
     private sealed record Case(string Name, int InputsPerItem, int OutputsPerItem, SpanKernel<byte, byte> Scalar, SpanKernel<byte, byte> Vector);

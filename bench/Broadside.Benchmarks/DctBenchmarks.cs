@@ -159,3 +159,58 @@ public class JpegColorBenchmarks
         return _output[0];
     }
 }
+
+/// <summary>
+/// The 8 x 8 inverse DCT (ITU-T T.81 §A.3.3; issue #474) over 1,024 blocks shaped like a quantized photograph (low frequencies more
+/// often non-zero, so libjpeg's column and row shortcuts are taken), with the T.81 Table K.1 luminance table: one block at a time
+/// (<c>Scalar</c>, the code before #474) and through the dispatcher (the <c>Vector128</c> path where it is accelerated).
+/// <c>Allocated</c> must read <c>-</c>; the vector path's bit-exactness is <c>Broadside.Tests.Filters.Dct.InverseDctKernelTests</c>.
+/// </summary>
+[MemoryDiagnoser]
+public class InverseDctBenchmarks
+{
+    private const int Blocks = 1024;
+    private readonly short[] _coefficients = new short[64 * Blocks];
+    private readonly byte[] _samples = new byte[64 * Blocks];
+    private readonly int[] _quantization =
+    [
+        16, 11, 10, 16, 24, 40, 51, 61, 12, 12, 14, 19, 26, 58, 60, 55, 14, 13, 16, 24, 40, 57, 69, 56, 14, 17, 22, 29, 51, 87, 80, 62,
+        18, 22, 37, 56, 68, 109, 103, 77, 24, 35, 55, 64, 81, 104, 113, 92, 49, 64, 78, 87, 103, 121, 120, 101, 72, 92, 95, 98, 112, 100, 103, 99,
+    ];
+
+    [GlobalSetup]
+    public void Setup()
+    {
+#pragma warning disable CA5394 // benchmark input, not security
+        var random = new Random(474);
+        for (int i = 0; i < _coefficients.Length; i++)
+        {
+            int position = i % 64;
+            int frequency = (position >> 3) + (position & 7);
+            _coefficients[i] = random.Next(256) < 256 >> Math.Min(frequency, 8) ? (short)(random.Next(-128, 128) >> 2) : (short)0;
+        }
+#pragma warning restore CA5394
+    }
+
+    [Benchmark]
+    public byte TransformScalar()
+    {
+        for (int i = 0; i < Blocks; i++)
+        {
+            InverseDct.TransformScalar(_coefficients.AsSpan(64 * i, 64), _quantization, _samples.AsSpan(64 * i, 64), 8);
+        }
+
+        return _samples[0];
+    }
+
+    [Benchmark]
+    public byte Transform()
+    {
+        for (int i = 0; i < Blocks; i++)
+        {
+            InverseDct.Transform(_coefficients.AsSpan(64 * i, 64), _quantization, _samples.AsSpan(64 * i, 64), 8);
+        }
+
+        return _samples[0];
+    }
+}

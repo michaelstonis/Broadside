@@ -353,3 +353,97 @@ Pixels: the goldens and snapshots (`Broadside.Rendering.Tests`, 1,442 tests) pas
 the GWG output suite, the PDF 2.0 examples and the sample documents; 1,113 render) at 72 DPI hashes (SHA-256 of the pixels) the
 same before and after. The kernel tests compare 20 million 8-bit colors and the clip's special values (NaN, ±0, denormals, values
 outside 0..1, infinities) bit for bit, with hardware intrinsics on and off.
+
+## Inverse DCT (`InverseDct`, #474)
+
+The 8 × 8 islow IDCT of 8-bit frames (libjpeg's `jpeg_idct_islow`), the full-size transform of every JPEG block. Four columns, then
+four rows, at a time in 32-bit lanes: pass 1 works on the coefficient rows as loaded (a row holds the same coefficient of four
+columns), its results are transposed (four 4 × 4 transposes of constant byte shuffles and selects), and pass 2's outputs, one sample
+of four rows per vector, are packed four to a lane by multiplies, which transposes them back into rows. The range-limit table is a
+sign-extend and clamp. The reduced (4 × 4, 2 × 2, 1 × 1) and 12-bit transforms are unchanged: the profiles below never reach them.
+
+Items are blocks: random sparse blocks shaped like a quantized photograph (`idct-8x8`, the browser benchmark's case; a coefficient is
+non-zero with probability 2^-(row + column), so libjpeg's column and row shortcuts are taken) with the T.81 Table K.1 luminance table;
+`dense` has every coefficient non-zero. ns per block:
+
+| Build | Sparse: scalar | vector | speed-up | Dense: scalar | vector | speed-up |
+|---|---:|---:|---:|---:|---:|---:|
+| JIT | 71.480 | 33.597 | 2.13x | 68.175 | 33.478 | 2.04x |
+| Native AOT | 67.962 | 33.096 | 2.05x | 66.997 | 33.887 | 1.98x |
+| Browser interpreter, CI | 769.043 | 413.513 | 1.86x | | | |
+| Browser AOT, CI | 162.505 | 107.574 | 1.51x | | | |
+| Browser interpreter, local | 623.254 | 412.193 | 1.51x | 797.260 | 417.024 | 1.91x |
+| Browser AOT, local | 79.799 | 59.703 | 1.34x | 82.546 | 61.224 | 1.35x |
+| Browser AOT, local, with left shifts | 80.396 | 108.634 | **0.74x** | 83.168 | 110.611 | **0.75x** |
+
+- **Left shifts are multiplies.** The first version, with the shift operators throughout (86 a block), was 0.74x of scalar in the
+  browser AOT build. Timed alone there (a loop of one operation per vector, Node 22), a 32-bit `<<` or `>>` costs 0.87–1.05 ns
+  against 0.36–0.43 ns for a load and store with `*`, `ConditionalSelect`, `Equals`, `Shuffle`, `WidenLower` or `Min`/`Max`. Every
+  `<< n` became `* 2^n` (the same bits, wrapping included) and the range limit's `>> 18`, `<< 22`, `>> 22` became `* 16`, `>> 22`,
+  leaving 32 arithmetic right shifts a block: 1.34x.
+- **Shortcuts.** libjpeg takes a column whose AC coefficients are zero from its DC term alone (`dc << 2`); the full arithmetic differs
+  from it where `dc << 13` wraps (corrupt data), so pass 1 computes both and selects per lane. Its row shortcut,
+  `((w0 + 16) >> 5) & 1023`, is the same 10 bits as the full arithmetic's `(((w0 << 13) + 2^17) >> 18) & 1023` even when it wraps,
+  so pass 2 needs no select. A block with no AC coefficient is one fill, as in the scalar path.
+- Bit-exact: `InverseDctKernelTests` compares the vector path and the dispatcher with the scalar port on every block with one
+  non-zero coefficient (each of the 64 positions at every value from -2,048 to 2,047, alone and beside a DC term), 50,000 sparse
+  blocks under two tables, and 20,000 blocks of random 16-bit coefficients under random quantization up to 65,535 (a third of them
+  with seven DC-only columns whose arithmetic wraps). Dropping the pass-1 select fails the last.
+
+BenchmarkDotNet, `InverseDctBenchmarks` (1,024 sparse blocks), JIT, M4 Max, `--job short` (`Allocated` is `-` for both):
+
+| Method | Mean |
+|---|---:|
+| `TransformScalar` | 71.89 µs |
+| `Transform` (vector) | 36.48 µs |
+
+`DctBenchmarks.Decode`, the whole decode, with the scalar IDCT (the dispatcher pointed at it) and with the vector one,
+`--job short --inProcess`, JIT, M4 Max (`Allocated` `-` on both sides):
+
+| Vector | Scalar IDCT | Vector IDCT | Change |
+|---|---:|---:|---:|
+| testorig (4:2:0) | 137.3 µs | 105.7 µs | -23% |
+| sampling-444 | 21.6 µs | 15.7 µs | -27% |
+| restart-blocks | 139.0 µs | 107.4 µs | -23% |
+| multiscan | 15.7 µs | 12.8 µs | -18% |
+| progressive | 197.1 µs | 167.7 µs | -15% |
+| arithmetic-progressive | 330.8 µs | 296.5 µs | -10% |
+| ycck | 23.6 µs | 18.6 µs | -21% |
+| gray-2x2 | 8.93 µs | 7.30 µs | -18% |
+
+### Whole-page effect
+
+Sampled before (macOS `sample`, 1 kHz, Native AOT, 96 DPI, every page rendered in a loop): JPEG decoding was 28.5% of the
+catalogue's render time and the IDCT (`InverseDct.Transform`, all 8 × 8) 9.7%, a third of the decode (34%); the brochure and the
+newsletter decode no JPEG once their images are cached (no `Filters.Dct` sample). After: the IDCT is 4.5% of the catalogue's render
+and 18% of its decode.
+
+`catalogue.pdf`, ms per pass of every page at 96 DPI; native: best of the passes in 8 s, base and head interleaved twice (the better
+run of each); browser: a `browser-wasm` console app under Node 22, best pass after the first (AOT: two runs each, the better; the
+interpreter: one run each), M4 Max:
+
+| Build | Base | Head | Change |
+|---|---:|---:|---:|
+| JIT | 883.2 | 830.8 | **-6%** |
+| Native AOT | 911.0 | 859.8 | **-6%** |
+| Browser AOT | 1,777.2 | 1,738.3 | -2% |
+| Browser interpreter | 28,667.3 | 28,160.6 | -2% |
+
+### The managed decoder against WIC
+
+`WicImageDecoderTests` times the 2550 × 3150 photograph at full size, managed against WIC, on the `windows-latest` runner (best of
+three, ms). Before #474 WIC's pixels were about twice as fast at 4:4:4; with the vector IDCT the managed decoder matches or beats
+them, while WIC's planes keep a lead at 4:2:0:
+
+| Runs | 4:4:4 managed | WIC | ratio | 4:2:0 managed | WIC | ratio |
+|---|---:|---:|---:|---:|---:|---:|
+| Before #474 (8 runs of #472, #475, #476) | 85.0–108.6 | 44.9–55.4 | 1.86–2.00x | 71.5–92.2 | 39.9–60.7 | 1.49–1.79x |
+| #474, run 1 | 66.7 | 54.8 | 1.22x | 65.5 | 58.6 | 1.12x |
+| #474, run 2 | 77.2 | 94.2 | **0.82x** | 77.4 | 52.7 | 1.47x |
+| #474, run 2 again | 63.2 | 77.2 | **0.82x** | 63.2 | 43.1 | 1.47x |
+
+The test now asserts WIC is faster only with subsampled chroma and logs the 4:4:4 ratio. `WicImageDecoder` is still used for 4:4:4
+by default; whether it should be is an owner decision (the runner's WIC times vary more than the managed ones, 54.8 to 94.2 ms).
+
+Pixels: page 0 of every pdf.js corpus file (989 files, 970 render) at 72 DPI hashes (SHA-256 of the pixels) the same before and
+after, Native AOT.

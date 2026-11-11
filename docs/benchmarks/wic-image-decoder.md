@@ -42,7 +42,7 @@ Decision, per the issue's bars: **Exact, on by default** (`WicImageDecoder.Fidel
 The 1321 x 949 photographs: managed 17.0 to 18.6 ms at full size, WIC planes 11.4 to 12.9 ms.
 
 - The planes cost about 25 ms more than WIC's pixels at full size: copying three planes and the managed replication and colour transform. It is still 1.5x faster than the managed decode, and the only exact path for subsampled chroma.
-- `WicImageDecoderTests.WIC_decodes_the_8_megapixel_photograph_faster_than_the_managed_decoder` gates the managed-to-WIC ratio at full size (WIC must be faster, at 4:4:4 and 4:2:0). `WicImageDecodeBenchmarks.Managed` / `Wic` (`[MemoryDiagnoser]`, by sampling and scale) is dry-run in CI.
+- `WicImageDecoderTests.WIC_decodes_the_8_megapixel_photograph_with_subsampled_chroma_faster_than_the_managed_decoder` gates the managed-to-WIC ratio at full size: WIC must be faster at 4:2:0; 4:4:4 is measured and logged only, because since the vector IDCT (#474) the managed decoder matches or beats WIC's pixels there (`docs/benchmarks/simd-kernels.md`, "Inverse DCT"). The table above predates #474. `WicImageDecodeBenchmarks.Managed` / `Wic` (`[MemoryDiagnoser]`, by sampling and scale) is dry-run in CI.
 - The decode runs in the prefetch, before the replay: a `Direct2DRenderer` render awaits `PrefetchImagesAsync` first. Without a registered decoder the prefetch completes at once and allocates nothing (the existing `ImagePrefetchBenchmarks` gate is unchanged).
 
 ## Assembly size (#360)
