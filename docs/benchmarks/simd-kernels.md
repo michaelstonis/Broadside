@@ -287,8 +287,8 @@ non-zero with probability 2^-(row + column), so libjpeg's column and row shortcu
 |---|---:|---:|---:|---:|---:|---:|
 | JIT | 71.480 | 33.597 | 2.13x | 68.175 | 33.478 | 2.04x |
 | Native AOT | 67.962 | 33.096 | 2.05x | 66.997 | 33.887 | 1.98x |
-| Browser interpreter, CI | CI_INTERP | | | | | |
-| Browser AOT, CI | CI_AOT | | | | | |
+| Browser interpreter, CI | 769.043 | 413.513 | 1.86x | | | |
+| Browser AOT, CI | 162.505 | 107.574 | 1.51x | | | |
 | Browser interpreter, local | 623.254 | 412.193 | 1.51x | 797.260 | 417.024 | 1.91x |
 | Browser AOT, local | 79.799 | 59.703 | 1.34x | 82.546 | 61.224 | 1.35x |
 | Browser AOT, local, with left shifts | 80.396 | 108.634 | **0.74x** | 83.168 | 110.611 | **0.75x** |
