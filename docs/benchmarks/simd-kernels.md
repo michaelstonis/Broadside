@@ -200,6 +200,10 @@ both):
 | `AverageScalar` | 13.34 µs |
 | `Average` (vector) | 12.31 µs (1.08x) |
 
+On Linux x64 (the bench gate's runner, JIT, base and head side by side), the image replays: `ScaledImageBenchmarks.Replay` 65.7 →
+27.3 ms at 390 pixels wide and 158.3 → 93.5 ms at 1,206 (full decode), `ScaledScanBenchmarks.Replay` (scan) 214.4 → 81.5 ms,
+`PhoneTileBenchmarks.Tiles` (image-photo, software) 160.8 → 94.8 ms.
+
 ### Whole-page effect
 
 Where the time went before #475, sampled (macOS `sample`, 1 kHz, Native AOT, 96 DPI, every page rendered in a loop): the box filter
