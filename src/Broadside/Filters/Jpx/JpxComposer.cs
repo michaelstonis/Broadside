@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Runtime.InteropServices;
 using Broadside.Diagnostics;
 using Broadside.Filters.Codecs;
 using Broadside.Images;
@@ -62,13 +63,21 @@ internal sealed class JpxPlane : IDisposable
         return width * height;
     }
 
-    /// <summary>Writes a decoded tile-component (integers before the DC level shift) at its place.</summary>
-    public void Write(JpxTileComponent component, int[] buffer, CodecReporter reporter)
+    /// <summary>
+    /// Writes a decoded tile-component at its place: integers before the DC level shift, or the 9/7 path's floats (in the same
+    /// buffer) when <paramref name="irreversible"/>, rounded here (<see cref="JpxLevelShift"/>).
+    /// </summary>
+    public void Write(JpxTileComponent component, int[] buffer, bool irreversible, CodecReporter reporter)
     {
-        long shift = 1L << (SourceDepth - 1);
-        long max = (1L << SourceDepth) - 1;
         int left = (int)(component.X0 - X0);
         int top = (int)(component.Y0 - Y0);
+        int first = Math.Max(0, -left);
+        int last = Math.Min(component.Width, Width - left);
+        if (first >= last)
+        {
+            return;
+        }
+
         for (int y = 0; y < component.Height; y++)
         {
             reporter.ThrowIfCancellationRequested();
@@ -78,24 +87,42 @@ internal sealed class JpxPlane : IDisposable
                 continue;
             }
 
-            Span<ushort> target = _samples.AsSpan(row * Width, Width);
-            ReadOnlySpan<int> source = buffer.AsSpan(y * component.Width, component.Width);
-            for (int x = 0; x < source.Length; x++)
+            Span<ushort> target = _samples.AsSpan((row * Width) + left + first, last - first);
+            Span<int> source = buffer.AsSpan((y * component.Width) + first, last - first);
+            if (SourceDepth <= 16)
             {
-                int column = left + x;
-                if ((uint)column >= (uint)Width)
+                int shift = 1 << (SourceDepth - 1);
+                int max = (1 << SourceDepth) - 1;
+                if (irreversible)
                 {
-                    continue;
+                    JpxLevelShift.RoundShift(MemoryMarshal.Cast<int, float>(source), target, shift, max);
+                }
+                else
+                {
+                    JpxLevelShift.Shift(source, target, shift, max);
                 }
 
-                long value = Math.Clamp(source[x] + shift, 0, max);
-                if (SourceDepth > 16)
-                {
-                    value = ((value * 65535) + (max / 2)) / max;
-                }
-
-                target[column] = (ushort)value;
+                continue;
             }
+
+            if (irreversible)
+            {
+                JpxLevelShift.RoundToIntegers(source);
+            }
+
+            WriteDeep(source, target);
+        }
+    }
+
+    /// <summary>The DC level shift and clipping of a component deeper than 16 bits, scaled to 16.</summary>
+    private void WriteDeep(ReadOnlySpan<int> source, Span<ushort> target)
+    {
+        long shift = 1L << (SourceDepth - 1);
+        long max = (1L << SourceDepth) - 1;
+        for (int x = 0; x < source.Length; x++)
+        {
+            long value = Math.Clamp(source[x] + shift, 0, max);
+            target[x] = (ushort)(((value * 65535) + (max / 2)) / max);
         }
     }
 

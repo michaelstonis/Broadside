@@ -19,7 +19,7 @@ namespace Broadside.Viewer.Blazor.Sample;
 /// (the AOT build compiles <see cref="Vector128{T}"/> to native WebAssembly SIMD; the interpreter build maps only part of the API to
 /// SIMD opcodes and can be slower than scalar), and checks that both give the same bytes there. The browser tests run it in both builds
 /// and write the figures to the measurement log. A kernel PR adds its case to <see cref="Cases"/>, linking the kernel's source file
-/// into this project (as <c>SimdExampleKernel</c> is linked from tests/Broadside.TestSupport, <c>JpegColor</c>, <c>InverseDct</c>, <c>JpxLifting</c> and
+/// into this project (as <c>SimdExampleKernel</c> is linked from tests/Broadside.TestSupport, <c>JpegColor</c>, <c>InverseDct</c>, <c>JpxLifting</c>, <c>JpxLevelShift</c> and
 /// <c>CmykCharacterization</c> from src/Broadside and <c>CompositingRows</c> and <c>BoxFilter</c> from src/Broadside.Rendering).
 /// </summary>
 [SupportedOSPlatform("browser")]
@@ -55,6 +55,8 @@ public static partial class KernelBenchmarks
         new("jpx-interleave", 8, 8, InterleaveScalar, InterleaveVector),
         new("jpx-rct", 12, 12, RctScalar, RctVector),
         new("jpx-ict", 12, 12, IctScalar, IctVector),
+        new("jpx-shift", 4, 2, ShiftScalar, ShiftVector),
+        new("jpx-round-shift", 4, 2, RoundShiftScalar, RoundShiftVector),
     ];
 
     /// <summary>The CMYK components of <c>cmyk-to-rgb</c>'s items, filled from the bytes by both methods alike.</summary>
@@ -358,6 +360,19 @@ public static partial class KernelBenchmarks
         }
     }
 
+    // The JPEG 2000 DC level shift (#503) of a 12-bit component: the samples (5/3) or values (9/7) as for the ICT, in range.
+    private static void ShiftScalar(ReadOnlySpan<byte> values, Span<byte> target) =>
+        JpxLevelShift.ShiftScalar(FloatPlanes.IntsFor(values), MemoryMarshal.Cast<byte, ushort>(target), 2048, 4095);
+
+    private static void ShiftVector(ReadOnlySpan<byte> values, Span<byte> target) =>
+        JpxLevelShift.ShiftVector(FloatPlanes.IntsFor(values), MemoryMarshal.Cast<byte, ushort>(target), 2048, 4095);
+
+    private static void RoundShiftScalar(ReadOnlySpan<byte> values, Span<byte> target) =>
+        JpxLevelShift.RoundShiftScalar(FloatPlanes.For(values), MemoryMarshal.Cast<byte, ushort>(target), 2048, 4095);
+
+    private static void RoundShiftVector(ReadOnlySpan<byte> values, Span<byte> target) =>
+        JpxLevelShift.RoundShiftVector(FloatPlanes.For(values), MemoryMarshal.Cast<byte, ushort>(target), 2048, 4095);
+
     private static double Time(SpanKernel<byte, byte> kernel, byte[] source, byte[] destination, int rounds)
     {
         long start = Stopwatch.GetTimestamp();
@@ -396,6 +411,8 @@ public static partial class KernelBenchmarks
     {
         private static byte[] s_source = [];
         private static float[] s_values = [];
+        private static float[] s_intsOf = [];
+        private static int[] s_ints = [];
 
         public static float[] For(ReadOnlySpan<byte> source)
         {
@@ -410,6 +427,23 @@ public static partial class KernelBenchmarks
             }
 
             return s_values;
+        }
+
+        /// <summary>The same values truncated to integers.</summary>
+        public static int[] IntsFor(ReadOnlySpan<byte> source)
+        {
+            float[] values = For(source);
+            if (s_ints.Length != values.Length || s_intsOf != values)
+            {
+                s_intsOf = values;
+                s_ints = new int[values.Length];
+                for (int i = 0; i < values.Length; i++)
+                {
+                    s_ints[i] = (int)values[i];
+                }
+            }
+
+            return s_ints;
         }
     }
 
