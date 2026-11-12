@@ -13,6 +13,7 @@ public sealed partial class SoftwareRasterizer
     {
         private readonly ImageSource _imageSource = new();
         private readonly MaskSource _maskSource = new();
+        private ImageFootprints? _footprints;
         private PdfColorSpace? _imageSpace;
         private PdfDefaultColorSpaces? _imageDefaults;
         private ColorConversion _imageConversion;
@@ -120,7 +121,8 @@ public sealed partial class SoftwareRasterizer
                 _fillCompositor,
                 Averages,
                 mask.ScaleU,
-                mask.ScaleV);
+                mask.ScaleV,
+                _footprints ??= new ImageFootprints());
             PaintImage(ref painter);
         }
 
@@ -299,6 +301,7 @@ public sealed partial class SoftwareRasterizer
         {
             _imageSource.Dispose();
             _maskSource.Dispose();
+            _footprints?.Dispose();
         }
     }
 }
