@@ -793,8 +793,18 @@ internal sealed class JpxTileDecoder : IDisposable
     }
 
     /// <summary>Decodes every code-block of a tile-component into its buffer, with the reconstruction of E.1.1.</summary>
+    /// <remarks>
+    /// On native builds a tile-component with enough code-block samples is decoded on several threads (<see cref="JpxBlockJob"/>),
+    /// with the same samples and diagnostics.
+    /// </remarks>
     private void DecodeBlocks(JpxTileComponent component, ReadOnlySpan<byte> data, int[] buffer, int kept)
     {
+        if (JpxBlockJob.Enabled && Threads(component, kept, out int blocks) is > 1 and int threads)
+        {
+            DecodeBlocksInParallel(component, data, buffer, kept, blocks, threads);
+            return;
+        }
+
         int stride = component.Width;
         int roi = component.RoiShift;
         foreach (JpxResolution resolution in component.Resolutions.AsSpan(0, kept + 1))
@@ -831,7 +841,7 @@ internal sealed class JpxTileDecoder : IDisposable
                         continue;
                     }
 
-                    ReadOnlySpan<byte> joined = Join(block, data, out int segments);
+                    ReadOnlySpan<byte> joined = Join(_chunks, block.FirstChunk, block.DataLength, data, ref _joined, ref _segments, out int segments);
                     int width = block.X1 - block.X0;
                     int height = block.Y1 - block.Y0;
                     int origin = ((band.BufferY + block.Y0) * stride) + band.BufferX + block.X0;
@@ -854,49 +864,146 @@ internal sealed class JpxTileDecoder : IDisposable
     }
 
     /// <summary>
-    /// The code-block's compressed data as one contiguous span (a slice of the tile data, or its chunks copied together), with its
-    /// codeword segments in <see cref="_segments"/>.
+    /// The threads to decode a tile-component's code-blocks on: one per <see cref="JpxBlockJob.SamplesPerThread"/> samples of the
+    /// code-blocks with data, at most <see cref="JpxBlockJob.MaxThreads"/>.
     /// </summary>
-    private ReadOnlySpan<byte> Join(in JpxCodeBlock block, ReadOnlySpan<byte> data, out int segments)
+    private static int Threads(JpxTileComponent component, int kept, out int blocks)
     {
-        segments = 0;
-        int written = 0;
-        int index = block.FirstChunk;
-        JpxChunk first = _chunks[index];
-        bool single = first.Next < 0;
-        if (!single && _joined.Length < block.DataLength)
+        long samples = 0;
+        blocks = 0;
+        foreach (JpxResolution resolution in component.Resolutions.AsSpan(0, kept + 1))
         {
-            ArrayPool<byte>.Shared.Return(_joined);
-            _joined = ArrayPool<byte>.Shared.Rent(block.DataLength);
+            foreach (JpxPrecinctBand precinctBand in resolution.PrecinctBands)
+            {
+                foreach (ref JpxCodeBlock block in precinctBand.Blocks.AsSpan())
+                {
+                    if (block.Passes > 0)
+                    {
+                        samples += (long)(block.X1 - block.X0) * (block.Y1 - block.Y0);
+                        blocks++;
+                    }
+                }
+            }
         }
 
-        for (; index >= 0; index = _chunks[index].Next)
+        return (int)Math.Min(JpxBlockJob.MaxThreads, samples / JpxBlockJob.SamplesPerThread);
+    }
+
+    /// <summary>
+    /// <see cref="DecodeBlocks"/> on <paramref name="threads"/> threads: lists the code-blocks in the serial order, decodes them, then
+    /// reports what the serial decode would have, in the same order.
+    /// </summary>
+    private void DecodeBlocksInParallel(JpxTileComponent component, ReadOnlySpan<byte> data, int[] buffer, int kept, int blocks, int threads)
+    {
+        int stride = component.Width;
+        int roi = component.RoiShift;
+        JpxBlockJob job = JpxBlockJob.ForThread();
+        Span<JpxBlockWork> work = job.Work(blocks);
+        int count = 0;
+        foreach (JpxResolution resolution in component.Resolutions.AsSpan(0, kept + 1))
         {
-            JpxChunk chunk = _chunks[index];
-            if (chunk.StartsSegment || segments == 0)
+            int bandCount = resolution.Bands.Length;
+            for (int p = 0; p < resolution.PrecinctBands.Length; p++)
             {
-                if (segments == _segments.Length)
+                JpxBand band = resolution.Bands[p % bandCount];
+                foreach (ref JpxCodeBlock block in resolution.PrecinctBands[p].Blocks.AsSpan())
                 {
-                    JpxSegment[] grown = ArrayPool<JpxSegment>.Shared.Rent(_segments.Length * 2);
-                    _segments.AsSpan().CopyTo(grown);
-                    ArrayPool<JpxSegment>.Shared.Return(_segments);
-                    _segments = grown;
+                    if (block.Passes == 0)
+                    {
+                        continue;
+                    }
+
+                    int planes = band.MagnitudeBits + roi;
+                    int top = planes - 1 - block.ZeroPlanes;
+                    int width = block.X1 - block.X0;
+                    int height = block.Y1 - block.Y0;
+                    work[count++] = new JpxBlockWork
+                    {
+                        FirstChunk = block.FirstChunk,
+                        DataLength = block.DataLength,
+                        Origin = ((band.BufferY + block.Y0) * stride) + band.BufferX + block.X0,
+                        Planes = planes,
+                        Status = planes > 30 || roi >= 31 ? 1 : top < 0 ? 2 : 0,
+                        Symbols = true,
+                        Coding = new JpxBlockCoding(width, height, band.Orientation, component.Style.BlockStyle, top, roi, band.Scale),
+                    };
+                }
+            }
+        }
+
+        job.Run(count, threads, data, _chunks, buffer, stride, _blocks, ref _joined, ref _segments, _reporter.CancellationToken);
+        _reporter.ThrowIfCancellationRequested();
+        foreach (ref JpxBlockWork item in work[..count])
+        {
+            if (item.Status == 1)
+            {
+                _reporter.Report(
+                    DiagnosticCodes.JpxPrecisionUnsupported,
+                    DiagnosticSeverity.Information,
+                    $"A JPEG 2000 sub-band has {item.Planes} magnitude bit-planes (with the region-of-interest shift); more than 30 are not decoded and those code-blocks are left empty.");
+            }
+            else if (item.Status == 2)
+            {
+                _reporter.Report(
+                    DiagnosticCodes.JpxCodeBlockInvalid,
+                    DiagnosticSeverity.Warning,
+                    "A JPEG 2000 code-block claims more missing bit-planes than its sub-band has; it is left empty.");
+            }
+            else if (!item.Symbols)
+            {
+                _reporter.Report(
+                    DiagnosticCodes.JpxSegmentationSymbolMismatch,
+                    DiagnosticSeverity.Warning,
+                    "A JPEG 2000 code-block's segmentation symbol is not 1010 (D.5); the data is decoded anyway.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// The code-block's compressed data (its chunks from <paramref name="first"/>, <paramref name="length"/> bytes in all) as one
+    /// contiguous span: a slice of the tile data, or its chunks copied together into <paramref name="joined"/>, with its codeword
+    /// segments in <paramref name="segments"/>. Static so that each decoding thread joins into its own buffers.
+    /// </summary>
+    internal static ReadOnlySpan<byte> Join(JpxChunk[] chunks, int first, int length, ReadOnlySpan<byte> data, ref byte[] joined, ref JpxSegment[] segments, out int count)
+    {
+        count = 0;
+        int written = 0;
+        int index = first;
+        JpxChunk head = chunks[index];
+        bool single = head.Next < 0;
+        if (!single && joined.Length < length)
+        {
+            ArrayPool<byte>.Shared.Return(joined);
+            joined = ArrayPool<byte>.Shared.Rent(length);
+        }
+
+        for (; index >= 0; index = chunks[index].Next)
+        {
+            JpxChunk chunk = chunks[index];
+            if (chunk.StartsSegment || count == 0)
+            {
+                if (count == segments.Length)
+                {
+                    JpxSegment[] grown = ArrayPool<JpxSegment>.Shared.Rent(segments.Length * 2);
+                    segments.AsSpan().CopyTo(grown);
+                    ArrayPool<JpxSegment>.Shared.Return(segments);
+                    segments = grown;
                 }
 
-                _segments[segments++] = new JpxSegment(written, 0, 0);
+                segments[count++] = new JpxSegment(written, 0, 0);
             }
 
-            ref JpxSegment segment = ref _segments[segments - 1];
+            ref JpxSegment segment = ref segments[count - 1];
             segment = segment with { Length = segment.Length + chunk.Length, Passes = segment.Passes + chunk.Passes };
             if (!single)
             {
-                data.Slice(chunk.Offset, chunk.Length).CopyTo(_joined.AsSpan(written));
+                data.Slice(chunk.Offset, chunk.Length).CopyTo(joined.AsSpan(written));
             }
 
             written += chunk.Length;
         }
 
-        return single ? data.Slice(first.Offset, first.Length) : _joined.AsSpan(0, written);
+        return single ? data.Slice(head.Offset, head.Length) : joined.AsSpan(0, written);
     }
 
     private void Truncated() => _reporter.Report(
