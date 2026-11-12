@@ -1,5 +1,7 @@
 using System.Buffers;
+using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Broadside.Filters.Codecs;
 
 namespace Broadside.Filters.Jpx;
@@ -32,21 +34,47 @@ internal readonly record struct JpxBlockCoding(int Width, int Height, int Orient
 /// contexts (D.7), predictable termination (nothing to do in a decoder) and segmentation symbols (D.5, checked). Codeword segments
 /// restart the arithmetic or raw decoder on their own bytes; the contexts carry over (D.4.1).
 /// </para>
+/// <para>
+/// State is one 32-bit word per stripe column (four samples of a column in one stripe, D.1 and Figure D.1), with a border of words
+/// around the code-block so neighbors need no bounds tests. Each word carries the significance of the 3 x 6 neighborhood the
+/// column's four samples see (rows -1 to 4, columns -1 to +1: bit 3 * (row + 1) + column + 1), the signs of rows -1 to 4 of its own
+/// column, and whether each of its four samples was refined or coded in this plane's significance pass. A sample that becomes
+/// significant sets its bit in its own word and in the up to five neighboring words that see it, so the context of any sample is a
+/// table lookup on nine bits of one word (Tables D.1 to D.4) and a column with nothing to code is skipped on one test. Under vertically
+/// causal contexts (D.7) a sample of a stripe's first row does not tell the stripe above, which is the same as treating it as
+/// insignificant there. The MQ registers stay in locals across a pass (<see cref="MqDecoder.Decode(ref byte, ReadOnlySpan{byte}, ref uint, ref uint, ref int, ref int)"/>).
+/// </para>
 /// <para>Allocation-free per code-block: one instance per decode call reuses its pooled arrays until <see cref="Dispose"/>.</para>
 /// </remarks>
 internal sealed class JpxCodeBlockDecoder : IDisposable
 {
+    // Table A.18: code-block exponents 2 to 10 and their sum at most 12, so at most 4,096 samples and 1,024 on a side.
     private const int MaxBlockSamples = 4096;
-    private const int MaxPaddedSamples = (1024 + 2) * (4 + 2);
+    private const int MaxBlockSide = 1024;
 
-    private const byte Significant = 1;
-    private const byte Negative = 2;
-    private const byte Visited = 4;
-    private const byte Refined = 8;
+    // (stripes + 2) * (width + 2) words; the largest for exponents within Table A.18 is a 1,024 x 4 block: 3 * 1,026. Clipped
+    // blocks of other shapes grow the arrays in Decode.
+    private const int MaxStateWords = 3 * (MaxBlockSide + 2);
 
-    // At least one of the eight neighbours is significant: a sample without it has zero-coding context 0 (Table D.1), so the
-    // significance pass skips it without reading its neighbours. Set when a neighbour becomes significant, never cleared in a block.
-    private const byte Neighbour = 16;
+    // Magnitudes by stripe column, four per column: width * 4 * stripes.
+    private const int MaxMagnitudes = MaxBlockSamples;
+
+    // The significance of the 3 x 6 neighborhood (rows -1 to 4 of columns -1, 0 and +1), and of the column's own four samples.
+    private const uint SigmaAll = 0x3FFFF;
+    private const uint SelfAll = (1u << 4) | (1u << 7) | (1u << 10) | (1u << 13);
+
+    // The 3 x 3 neighborhood of row r after shifting the word right by 3r, without the sample itself.
+    private const uint Neighbors = 0x1EF;
+
+    // Sign (negative) of rows -1 to 4 of the word's own column: bit ChiShift + row + 1.
+    private const int ChiShift = 18;
+
+    // Refined at least once (Table D.4), rows 0 to 3.
+    private const int MuShift = 24;
+
+    // Coded in this bit-plane's significance pass, rows 0 to 3; cleared by the cleanup pass.
+    private const int PiShift = 28;
+    private const uint PiAll = 0xFu << PiShift;
 
     private const int SignContexts = 9;
     private const int RefinementContexts = 14;
@@ -54,14 +82,12 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
     private const int UniformContext = 18;
     private const int ContextCount = 19;
 
-    // Table D.1: zero-coding context by orientation (LL, HL, LH, HH), h (0-2), v (0-2), d (0-4).
+    // Table D.1: zero-coding context by orientation (LL, HL, LH, HH) and the nine neighborhood bits of a sample (NW, N, NE, W, self,
+    // E, SW, S, SE from bit 0).
     private static readonly byte[] ZeroCoding = BuildZeroCoding();
 
-    // Tables D.2 and D.3: (context label - 9) << 1 | XOR bit, by (H + 1) * 3 + (V + 1).
-    private static readonly byte[] SignCoding = [(4 << 1) | 1, (3 << 1) | 1, (2 << 1) | 1, (1 << 1) | 1, 0, 1 << 1, 2 << 1, 3 << 1, 4 << 1];
-
-    private int[] _magnitudes = ArrayPool<int>.Shared.Rent(MaxBlockSamples);
-    private byte[] _flags = ArrayPool<byte>.Shared.Rent(MaxPaddedSamples);
+    private int[] _magnitudes = ArrayPool<int>.Shared.Rent(MaxMagnitudes);
+    private uint[] _state = ArrayPool<uint>.Shared.Rent(MaxStateWords);
     private readonly byte[] _contexts = new byte[ContextCount];
     private int _width;
     private int _height;
@@ -79,12 +105,34 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
         int width = coding.Width;
         int height = coding.Height;
         int style = coding.Style;
+        if ((uint)width > MaxBlockSide || (uint)height > MaxBlockSide || width * height > MaxBlockSamples
+            || (uint)coding.Orientation > 3)
+        {
+            // The codestream reader never makes such a block (Table A.18).
+            throw new ArgumentOutOfRangeException(nameof(coding));
+        }
+
+        // The passes index the state and the magnitudes without bounds checks, so both always hold the whole block and its border.
+        int stripes = (height + 3) >> 2;
+        int words = (width + 2) * (stripes + 2);
+        if (_state.Length < words)
+        {
+            ArrayPool<uint>.Shared.Return(_state);
+            _state = ArrayPool<uint>.Shared.Rent(words);
+        }
+
+        if (_magnitudes.Length < stripes * 4 * width)
+        {
+            ArrayPool<int>.Shared.Return(_magnitudes);
+            _magnitudes = ArrayPool<int>.Shared.Rent(stripes * 4 * width);
+        }
+
         _width = width;
         _height = height;
         _stride = width + 2;
         _causal = (style & JpxComponentStyle.VerticallyCausal) != 0;
         // Magnitudes are written when a sample becomes significant and read only for significant ones, so they need no clearing.
-        _flags.AsSpan(0, _stride * (height + 2)).Clear();
+        _state.AsSpan(0, words).Clear();
         ResetContexts();
 
         int total = 0;
@@ -125,12 +173,14 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
                         CleanupPass(ref mq, plane, coding.Orientation);
                         if ((style & JpxComponentStyle.SegmentationSymbols) != 0)
                         {
+                            var coder = new Coder(mq);
                             int symbol = 0;
                             for (int b = 0; b < 4; b++)
                             {
-                                symbol = (symbol << 1) | mq.Decode(ref _contexts[UniformContext]);
+                                symbol = (symbol << 1) | coder.Decode(ref _contexts[UniformContext]);
                             }
 
+                            coder.Store(ref mq);
                             symbolsOk &= symbol == 0b1010;
                         }
 
@@ -162,30 +212,27 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
     public void Dispose()
     {
         ArrayPool<int>.Shared.Return(_magnitudes);
-        ArrayPool<byte>.Shared.Return(_flags);
+        ArrayPool<uint>.Shared.Return(_state);
         _magnitudes = [];
-        _flags = [];
+        _state = [];
     }
 
     private static byte[] BuildZeroCoding()
     {
-        byte[] table = new byte[4 * 3 * 3 * 5];
+        byte[] table = new byte[4 * 512];
         for (int orientation = 0; orientation < 4; orientation++)
         {
-            for (int h = 0; h < 3; h++)
+            for (int bits = 0; bits < 512; bits++)
             {
-                for (int v = 0; v < 3; v++)
+                int h = ((bits >> 3) & 1) + ((bits >> 5) & 1);
+                int v = ((bits >> 1) & 1) + ((bits >> 7) & 1);
+                int d = (bits & 1) + ((bits >> 2) & 1) + ((bits >> 6) & 1) + ((bits >> 8) & 1);
+                table[(orientation * 512) + bits] = (byte)(orientation switch
                 {
-                    for (int d = 0; d < 5; d++)
-                    {
-                        table[(((((orientation * 3) + h) * 3) + v) * 5) + d] = (byte)(orientation switch
-                        {
-                            1 => LowContext(v, h, d),
-                            3 => HighContext(h + v, d),
-                            _ => LowContext(h, v, d),
-                        });
-                    }
-                }
+                    1 => LowContext(v, h, d),
+                    3 => HighContext(h + v, d),
+                    _ => LowContext(h, v, d),
+                });
             }
         }
 
@@ -213,34 +260,43 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
     /// </summary>
     private void WriteOutput(in JpxBlockCoding coding, Span<int> output, int pitch)
     {
+        int width = _width;
+        int height = _height;
+        if ((uint)pitch < (uint)width || output.Length < ((height - 1) * pitch) + width)
+        {
+            throw new ArgumentOutOfRangeException(nameof(output));
+        }
+
         int roi = coding.RoiShift;
         int threshold = roi > 0 ? 1 << (roi + 1) : int.MaxValue;
         float scale = coding.Scale;
-        for (int y = 0; y < _height; y++)
+        ref uint column = ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_state), _stride + 1);
+        ref int magnitude = ref MemoryMarshal.GetArrayDataReference(_magnitudes);
+        ref int target = ref MemoryMarshal.GetReference(output);
+        for (int y0 = 0; y0 < height; y0 += 4)
         {
-            Span<int> row = output.Slice(y * pitch, _width);
-            int flagRow = ((y + 1) * _stride) + 1;
-            for (int x = 0; x < _width; x++)
+            int rows = Math.Min(4, height - y0);
+            ref int top = ref Unsafe.Add(ref target, y0 * pitch);
+            for (int x = 0; x < width; x++, magnitude = ref Unsafe.Add(ref magnitude, 4))
             {
-                byte flags = _flags[flagRow + x];
-                int doubled = (flags & Significant) != 0 ? _magnitudes[(y * _width) + x] : 0;
-                if (doubled >= threshold)
+                uint word = Unsafe.Add(ref column, x);
+                ref int sample = ref Unsafe.Add(ref top, x);
+                for (int r = 0; r < rows; r++, sample = ref Unsafe.Add(ref sample, pitch))
                 {
-                    doubled >>= roi;
-                }
+                    int doubled = (word & (1u << ((3 * r) + 4))) != 0 ? Unsafe.Add(ref magnitude, r) : 0;
+                    if (doubled >= threshold)
+                    {
+                        doubled >>= roi;
+                    }
 
-                bool negative = (flags & Negative) != 0;
-                if (scale == 0)
-                {
-                    int magnitude = doubled / 2;
-                    row[x] = negative ? -magnitude : magnitude;
-                }
-                else
-                {
-                    float value = doubled * scale;
-                    row[x] = BitConverter.SingleToInt32Bits(negative ? -value : value);
+                    int negative = -(int)((word >> (ChiShift + r + 1)) & 1);
+                    sample = scale == 0
+                        ? ((doubled >> 1) ^ negative) - negative
+                        : BitConverter.SingleToInt32Bits(doubled * scale) ^ (negative & int.MinValue);
                 }
             }
+
+            column = ref Unsafe.Add(ref column, _stride);
         }
     }
 
@@ -253,252 +309,383 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
         _contexts[UniformContext] = MqDecoder.Context(46);
     }
 
-    /// <summary>The zero-coding context (Table D.1); <paramref name="causal"/> ignores the row below (D.7).</summary>
+    /// <summary>
+    /// Tables D.2 and D.3: (context label - 9) &lt;&lt; 1 | XOR bit, by the significance and sign of W (bits 0 and 1), E (2 and 3),
+    /// N (4 and 5) and S (6 and 7).
+    /// </summary>
+    private static ReadOnlySpan<byte> SignCoding =>
+    [
+        0, 6, 0, 7, 6, 6, 6, 0, 0, 6, 0, 7, 7, 0, 7, 7, 2, 8, 2, 5, 8, 8, 8, 2, 2, 8, 2, 5, 5, 2, 5, 5,
+        0, 6, 0, 7, 6, 6, 6, 0, 0, 6, 0, 7, 7, 0, 7, 7, 3, 4, 3, 9, 4, 4, 4, 3, 3, 4, 3, 9, 9, 3, 9, 9,
+        2, 8, 2, 5, 8, 8, 8, 2, 2, 8, 2, 5, 5, 2, 5, 5, 2, 8, 2, 5, 8, 8, 8, 2, 2, 8, 2, 5, 5, 2, 5, 5,
+        2, 8, 2, 5, 8, 8, 8, 2, 2, 8, 2, 5, 5, 2, 5, 5, 0, 6, 0, 7, 6, 6, 6, 0, 0, 6, 0, 7, 7, 0, 7, 7,
+        0, 6, 0, 7, 6, 6, 6, 0, 0, 6, 0, 7, 7, 0, 7, 7, 2, 8, 2, 5, 8, 8, 8, 2, 2, 8, 2, 5, 5, 2, 5, 5,
+        0, 6, 0, 7, 6, 6, 6, 0, 0, 6, 0, 7, 7, 0, 7, 7, 3, 4, 3, 9, 4, 4, 4, 3, 3, 4, 3, 9, 9, 3, 9, 9,
+        3, 4, 3, 9, 4, 4, 4, 3, 3, 4, 3, 9, 9, 3, 9, 9, 0, 6, 0, 7, 6, 6, 6, 0, 0, 6, 0, 7, 7, 0, 7, 7,
+        3, 4, 3, 9, 4, 4, 4, 3, 3, 4, 3, 9, 9, 3, 9, 9, 3, 4, 3, 9, 4, 4, 4, 3, 3, 4, 3, 9, 9, 3, 9, 9,
+    ];
+
+    /// <summary>
+    /// The sign context and XOR bit (Tables D.2 and D.3) of row <paramref name="r"/> of the column whose word is <paramref name="column"/>:
+    /// W and E from the significance bits of the word and the sign bits of the neighboring columns' words, N and S from the word.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private int ZeroContext(int index, int orientation, bool causal)
+    private static int SignEntry(ref uint column, uint word, int r)
     {
-        byte[] f = _flags;
-        int s = _stride;
-        int h = (f[index - 1] & Significant) + (f[index + 1] & Significant);
-        int v = f[index - s] & Significant;
-        int d = (f[index - s - 1] & Significant) + (f[index - s + 1] & Significant);
-        if (!causal)
+        int shift = 3 * r;
+        uint west = Unsafe.Add(ref column, -1) >> (ChiShift + r + 1);
+        uint east = Unsafe.Add(ref column, 1) >> (ChiShift + r + 1);
+        uint bits = ((word >> (shift + 3)) & 1)
+            | ((west & 1) << 1)
+            | (((word >> (shift + 5)) & 1) << 2)
+            | ((east & 1) << 3)
+            | (((word >> (shift + 1)) & 1) << 4)
+            | (((word >> (ChiShift + r)) & 1) << 5)
+            | (((word >> (shift + 7)) & 1) << 6)
+            | (((word >> (ChiShift + r + 2)) & 1) << 7);
+        return Unsafe.Add(ref MemoryMarshal.GetReference(SignCoding), (int)bits);
+    }
+
+    /// <summary>
+    /// Makes row <paramref name="r"/> of a column significant: its own bits go into <paramref name="word"/> (the caller's copy of the
+    /// column's word), the neighborhood bits into the words of the columns beside it and, for the first and last row, of the stripes
+    /// above and below (not above under vertically causal contexts, D.7).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void MarkSignificant(ref uint column, ref uint word, int r, bool negative, int stride, bool causal)
+    {
+        int shift = 3 * r;
+        uint sign = negative ? 1u : 0u;
+        word |= (1u << (shift + 4)) | (sign << (ChiShift + r + 1));
+        Unsafe.Add(ref column, -1) |= 1u << (shift + 5);
+        Unsafe.Add(ref column, 1) |= 1u << (shift + 3);
+        if (r == 0)
         {
-            v += f[index + s] & Significant;
-            d += (f[index + s - 1] & Significant) + (f[index + s + 1] & Significant);
-        }
-
-        return ZeroCoding[(((((orientation * 3) + h) * 3) + v) * 5) + d];
-    }
-
-    /// <summary>Whether sample row <paramref name="y"/> is the last of its stripe under vertically causal contexts (D.7).</summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private bool Causal(int y) => _causal && (y & 3) == 3;
-
-    private int SignContext(int index, bool causal)
-    {
-        byte[] f = _flags;
-        int h = Math.Clamp(Contribution(f[index - 1]) + Contribution(f[index + 1]), -1, 1);
-        int v = Math.Clamp(Contribution(f[index - _stride]) + (causal ? 0 : Contribution(f[index + _stride])), -1, 1);
-        return SignCoding[((h + 1) * 3) + v + 1];
-
-        static int Contribution(byte flags) => (flags & Significant) == 0 ? 0 : (flags & Negative) == 0 ? 1 : -1;
-    }
-
-    private void BecomeSignificant(ref MqDecoder mq, int index, int sample, int plane, bool causal)
-    {
-        int entry = SignContext(index, causal);
-        int sign = mq.Decode(ref _contexts[SignContexts + (entry >> 1)]) ^ (entry & 1);
-        MarkSignificant(index, sign == 1);
-        _magnitudes[sample] = 3 << plane;
-    }
-
-    /// <summary>Makes the sample significant, with its sign, and tells its eight neighbours (in the padded grid) that they have one.</summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void MarkSignificant(int index, bool negative)
-    {
-        byte[] f = _flags;
-        int s = _stride;
-        f[index] |= negative ? (byte)(Significant | Negative) : Significant;
-        f[index - s - 1] |= Neighbour;
-        f[index - s] |= Neighbour;
-        f[index - s + 1] |= Neighbour;
-        f[index - 1] |= Neighbour;
-        f[index + 1] |= Neighbour;
-        f[index + s - 1] |= Neighbour;
-        f[index + s] |= Neighbour;
-        f[index + s + 1] |= Neighbour;
-    }
-
-    /// <summary>D.3.1: insignificant coefficients with a significant neighbour.</summary>
-    private void SignificancePass(ref MqDecoder mq, int plane, int orientation)
-    {
-        for (int y0 = 0; y0 < _height; y0 += 4)
-        {
-            int y1 = Math.Min(y0 + 4, _height);
-            for (int x = 0; x < _width; x++)
+            if (!causal)
             {
-                for (int y = y0; y < y1; y++)
-                {
-                    int index = ((y + 1) * _stride) + x + 1;
-                    if ((_flags[index] & (Significant | Neighbour)) != Neighbour)
-                    {
-                        // Significant already, or no significant neighbour (context 0).
-                        continue;
-                    }
-
-                    bool causal = Causal(y);
-                    int context = ZeroContext(index, orientation, causal);
-                    if (context == 0)
-                    {
-                        continue;
-                    }
-
-                    _flags[index] |= Visited;
-                    if (mq.Decode(ref _contexts[context]) == 1)
-                    {
-                        BecomeSignificant(ref mq, index, (y * _width) + x, plane, causal);
-                    }
-                }
+                ref uint above = ref Unsafe.Subtract(ref column, stride);
+                Unsafe.Add(ref above, -1) |= 1u << 17;
+                above |= (1u << 16) | (sign << (ChiShift + 5));
+                Unsafe.Add(ref above, 1) |= 1u << 15;
             }
         }
+        else if (r == 3)
+        {
+            ref uint below = ref Unsafe.Add(ref column, stride);
+            Unsafe.Add(ref below, -1) |= 1u << 2;
+            below |= (1u << 1) | (sign << ChiShift);
+            Unsafe.Add(ref below, 1) |= 1u;
+        }
+    }
+
+    /// <summary>D.3.1: insignificant coefficients with a significant neighbor.</summary>
+    private void SignificancePass(ref MqDecoder mq, int plane, int orientation)
+    {
+        ref uint column = ref MemoryMarshal.GetArrayDataReference(_state);
+        ref int magnitude = ref MemoryMarshal.GetArrayDataReference(_magnitudes);
+        ref byte contexts = ref MemoryMarshal.GetArrayDataReference(_contexts);
+        ref byte zeroCoding = ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(ZeroCoding), orientation * 512);
+        int half = 3 << plane;
+        int stride = _stride;
+        bool causal = _causal;
+        var coder = new Coder(mq);
+        column = ref Unsafe.Add(ref column, stride + 1);
+        for (int y0 = 0; y0 < _height; y0 += 4)
+        {
+            int rows = Math.Min(4, _height - y0);
+            ref uint end = ref Unsafe.Add(ref column, _width);
+            for (; Unsafe.IsAddressLessThan(ref column, ref end); column = ref Unsafe.Add(ref column, 1), magnitude = ref Unsafe.Add(ref magnitude, 4))
+            {
+                uint word = column;
+                if ((word & SigmaAll) == 0 || (word & SelfAll) == SelfAll)
+                {
+                    // Nothing significant around, or all four samples significant already.
+                    continue;
+                }
+
+                if (rows == 4)
+                {
+                    SignificanceStep(ref coder, ref contexts, ref zeroCoding, ref column, ref word, ref magnitude, half, stride, causal, 0);
+                    SignificanceStep(ref coder, ref contexts, ref zeroCoding, ref column, ref word, ref magnitude, half, stride, causal, 1);
+                    SignificanceStep(ref coder, ref contexts, ref zeroCoding, ref column, ref word, ref magnitude, half, stride, causal, 2);
+                    SignificanceStep(ref coder, ref contexts, ref zeroCoding, ref column, ref word, ref magnitude, half, stride, causal, 3);
+                }
+                else
+                {
+                    for (int r = 0; r < rows; r++)
+                    {
+                        SignificanceStep(ref coder, ref contexts, ref zeroCoding, ref column, ref word, ref magnitude, half, stride, causal, r);
+                    }
+                }
+
+                column = word;
+            }
+
+            column = ref Unsafe.Add(ref column, 2);
+        }
+
+        coder.Store(ref mq);
+    }
+
+    /// <summary>Row <paramref name="r"/> of a column in the significance pass (D.3.1).</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void SignificanceStep(ref Coder coder, ref byte contexts, ref byte zeroCoding, ref uint column, ref uint word, ref int magnitude, int half, int stride, bool causal, int r)
+    {
+        // Insignificant with a significant neighbor (otherwise context 0, not coded), tested on one branch.
+        uint around = word >> (3 * r);
+        if (((around & (1u << 4)) == 0) & ((around & Neighbors) != 0))
+        {
+            word |= 1u << (PiShift + r);
+            if (coder.Decode(ref Unsafe.Add(ref contexts, Unsafe.Add(ref zeroCoding, (int)(around & Neighbors)))) == 1)
+            {
+                DecodeSign(ref coder, ref contexts, ref column, ref word, stride, causal, r);
+                Unsafe.Add(ref magnitude, r) = half;
+            }
+        }
+    }
+
+    /// <summary>Decodes the sign of row <paramref name="r"/> (D.3.2) and makes it significant.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void DecodeSign(ref Coder coder, ref byte contexts, ref uint column, ref uint word, int stride, bool causal, int r)
+    {
+        int entry = SignEntry(ref column, word, r);
+        int sign = coder.Decode(ref Unsafe.Add(ref contexts, SignContexts + (entry >> 1))) ^ (entry & 1);
+        MarkSignificant(ref column, ref word, r, sign == 1, stride, causal);
     }
 
     /// <summary>D.3.1 and D.6: the significance pass in the bypass mode, its bits and signs read raw.</summary>
     private void SignificancePassRaw(ref JpxRawDecoder raw, int plane, int orientation)
     {
+        ref uint column = ref MemoryMarshal.GetArrayDataReference(_state);
+        ref int magnitude = ref MemoryMarshal.GetArrayDataReference(_magnitudes);
+        int half = 3 << plane;
+        column = ref Unsafe.Add(ref column, _stride + 1);
         for (int y0 = 0; y0 < _height; y0 += 4)
         {
-            int y1 = Math.Min(y0 + 4, _height);
-            for (int x = 0; x < _width; x++)
+            int rows = Math.Min(4, _height - y0);
+            ref uint end = ref Unsafe.Add(ref column, _width);
+            for (; Unsafe.IsAddressLessThan(ref column, ref end); column = ref Unsafe.Add(ref column, 1), magnitude = ref Unsafe.Add(ref magnitude, 4))
             {
-                for (int y = y0; y < y1; y++)
+                uint word = column;
+                if ((word & SigmaAll) == 0)
                 {
-                    int index = ((y + 1) * _stride) + x + 1;
-                    if ((_flags[index] & (Significant | Neighbour)) != Neighbour || ZeroContext(index, orientation, Causal(y)) == 0)
+                    continue;
+                }
+
+                for (int r = 0; r < rows; r++)
+                {
+                    uint around = word >> (3 * r);
+                    if ((around & (1u << 4)) != 0 || (around & Neighbors) == 0)
                     {
                         continue;
                     }
 
-                    _flags[index] |= Visited;
+                    word |= 1u << (PiShift + r);
                     if (raw.Decode() == 1)
                     {
-                        MarkSignificant(index, raw.Decode() == 1);
-                        _magnitudes[(y * _width) + x] = 3 << plane;
+                        MarkSignificant(ref column, ref word, r, raw.Decode() == 1, _stride, _causal);
+                        Unsafe.Add(ref magnitude, r) = half;
                     }
                 }
+
+                column = word;
             }
-        }
-    }
 
-    /// <summary>The magnitude refinement context (Table D.4); <paramref name="causal"/> ignores the row below (D.7).</summary>
-    private int RefinementContext(int index, byte flags, bool causal)
-    {
-        if ((flags & Refined) != 0)
-        {
-            return RefinementContexts + 2;
+            column = ref Unsafe.Add(ref column, 2);
         }
-
-        byte[] f = _flags;
-        int s = _stride;
-        int neighbours = f[index - 1] | f[index + 1] | f[index - s] | f[index - s - 1] | f[index - s + 1];
-        if (!causal)
-        {
-            neighbours |= f[index + s] | f[index + s - 1] | f[index + s + 1];
-        }
-
-        return RefinementContexts + (neighbours & Significant);
     }
 
     /// <summary>D.3.3: significant coefficients not just coded in the significance pass.</summary>
     private void RefinementPass(ref MqDecoder mq, int plane)
     {
-        byte[] f = _flags;
-        int s = _stride;
+        ref uint column = ref MemoryMarshal.GetArrayDataReference(_state);
+        ref int magnitude = ref MemoryMarshal.GetArrayDataReference(_magnitudes);
+        ref byte contexts = ref MemoryMarshal.GetArrayDataReference(_contexts);
+        int step = 1 << plane;
+        var coder = new Coder(mq);
+        column = ref Unsafe.Add(ref column, _stride + 1);
         for (int y0 = 0; y0 < _height; y0 += 4)
         {
-            int y1 = Math.Min(y0 + 4, _height);
-            for (int x = 0; x < _width; x++)
+            // Rows past the block's height are never significant, so a partial stripe needs no limit here.
+            ref uint end = ref Unsafe.Add(ref column, _width);
+            for (; Unsafe.IsAddressLessThan(ref column, ref end); column = ref Unsafe.Add(ref column, 1), magnitude = ref Unsafe.Add(ref magnitude, 4))
             {
-                for (int y = y0; y < y1; y++)
+                uint word = column;
+                uint rows = SelfRows(word) & ~(word >> PiShift);
+                if (rows == 0)
                 {
-                    int index = ((y + 1) * s) + x + 1;
-                    byte flags = f[index];
-                    if ((flags & (Significant | Visited)) != Significant)
-                    {
-                        continue;
-                    }
-
-                    int context = RefinementContext(index, flags, Causal(y));
-                    int sample = (y * _width) + x;
-                    _magnitudes[sample] += mq.Decode(ref _contexts[context]) == 1 ? 1 << plane : -(1 << plane);
-                    f[index] = (byte)(flags | Refined);
+                    continue;
                 }
+
+                do
+                {
+                    int r = BitOperations.TrailingZeroCount(rows);
+                    rows &= rows - 1;
+
+                    // Table D.4: 16 after the first refinement, else 15 with a significant neighbor and 14 without.
+                    uint refined = (word >> (MuShift + r)) & 1;
+                    uint neighbor = (((word >> (3 * r)) & Neighbors) + 0x1FF) >> 9;
+                    int context = RefinementContexts + (int)((refined << 1) | (neighbor & ~refined));
+                    int negative = coder.Decode(ref Unsafe.Add(ref contexts, context)) - 1;
+                    Unsafe.Add(ref magnitude, r) += (step ^ negative) - negative;
+                    word |= 1u << (MuShift + r);
+                }
+                while (rows != 0);
+
+                column = word;
             }
+
+            column = ref Unsafe.Add(ref column, 2);
         }
+
+        coder.Store(ref mq);
     }
+
+    /// <summary>The significance of a column's four samples as bits 0 to 3.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static uint SelfRows(uint word) =>
+        ((word >> 4) & 1) | ((word >> 6) & 2) | ((word >> 8) & 4) | ((word >> 10) & 8);
 
     /// <summary>D.3.3 and D.6: the refinement pass in the bypass mode, its bits read raw.</summary>
     private void RefinementPassRaw(ref JpxRawDecoder raw, int plane)
     {
-        byte[] f = _flags;
-        int s = _stride;
+        ref uint column = ref MemoryMarshal.GetArrayDataReference(_state);
+        ref int magnitude = ref MemoryMarshal.GetArrayDataReference(_magnitudes);
+        int step = 1 << plane;
+        column = ref Unsafe.Add(ref column, _stride + 1);
         for (int y0 = 0; y0 < _height; y0 += 4)
         {
-            int y1 = Math.Min(y0 + 4, _height);
-            for (int x = 0; x < _width; x++)
+            int rows = Math.Min(4, _height - y0);
+            ref uint end = ref Unsafe.Add(ref column, _width);
+            for (; Unsafe.IsAddressLessThan(ref column, ref end); column = ref Unsafe.Add(ref column, 1), magnitude = ref Unsafe.Add(ref magnitude, 4))
             {
-                for (int y = y0; y < y1; y++)
+                uint word = column;
+                if ((word & SelfAll) == 0)
                 {
-                    int index = ((y + 1) * s) + x + 1;
-                    byte flags = f[index];
-                    if ((flags & (Significant | Visited)) != Significant)
+                    continue;
+                }
+
+                for (int r = 0; r < rows; r++)
+                {
+                    if ((word & (1u << ((3 * r) + 4))) == 0 || (word & (1u << (PiShift + r))) != 0)
                     {
                         continue;
                     }
 
-                    int sample = (y * _width) + x;
-                    _magnitudes[sample] += raw.Decode() == 1 ? 1 << plane : -(1 << plane);
-                    f[index] = (byte)(flags | Refined);
+                    Unsafe.Add(ref magnitude, r) += raw.Decode() == 1 ? step : -step;
+                    word |= 1u << (MuShift + r);
                 }
+
+                column = word;
             }
+
+            column = ref Unsafe.Add(ref column, 2);
         }
     }
 
     /// <summary>D.3.4: the remaining coefficients, with run-length coding of all-insignificant stripe columns.</summary>
     private void CleanupPass(ref MqDecoder mq, int plane, int orientation)
     {
-        byte[] f = _flags;
-        int s = _stride;
+        ref uint column = ref MemoryMarshal.GetArrayDataReference(_state);
+        ref int magnitude = ref MemoryMarshal.GetArrayDataReference(_magnitudes);
+        ref byte contexts = ref MemoryMarshal.GetArrayDataReference(_contexts);
+        ref byte zeroCoding = ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(ZeroCoding), orientation * 512);
+        int half = 3 << plane;
+        int stride = _stride;
+        bool causal = _causal;
+        var coder = new Coder(mq);
+        column = ref Unsafe.Add(ref column, stride + 1);
         for (int y0 = 0; y0 < _height; y0 += 4)
         {
-            int y1 = Math.Min(y0 + 4, _height);
-            for (int x = 0; x < _width; x++)
+            int rows = Math.Min(4, _height - y0);
+            ref uint end = ref Unsafe.Add(ref column, _width);
+            for (; Unsafe.IsAddressLessThan(ref column, ref end); column = ref Unsafe.Add(ref column, 1), magnitude = ref Unsafe.Add(ref magnitude, 4))
             {
-                int y = y0;
-                int top = ((y0 + 1) * s) + x + 1;
-                // A column none of whose samples has a significant neighbour has all its contexts 0 without reading them.
-                int column = y1 - y0 == 4 ? f[top] | f[top + s] | f[top + (2 * s)] | f[top + (3 * s)] : 0;
-                if (y1 - y0 == 4
-                    && (column & ~Neighbour) == 0
-                    && ((column & Neighbour) == 0
-                        || (ZeroContext(top, orientation, false) == 0
-                            && ZeroContext(top + s, orientation, false) == 0
-                            && ZeroContext(top + (2 * s), orientation, false) == 0
-                            && ZeroContext(top + (3 * s), orientation, _causal) == 0)))
+                uint word = column;
+                if (rows == 4)
                 {
-                    if (mq.Decode(ref _contexts[RunLengthContext]) == 0)
+                    if ((word & (SigmaAll | PiAll)) == 0)
                     {
-                        continue;
+                        // D.3.4: all four samples insignificant with insignificant neighborhoods (so not coded in this plane's
+                        // significance pass either): one run-length decision for the column.
+                        if (coder.Decode(ref Unsafe.Add(ref contexts, RunLengthContext)) == 0)
+                        {
+                            continue;
+                        }
+
+                        int run = coder.Decode(ref Unsafe.Add(ref contexts, UniformContext)) << 1;
+                        run |= coder.Decode(ref Unsafe.Add(ref contexts, UniformContext));
+                        DecodeSign(ref coder, ref contexts, ref column, ref word, stride, causal, run);
+                        Unsafe.Add(ref magnitude, run) = half;
+                        for (int r = run + 1; r < 4; r++)
+                        {
+                            CleanupStep(ref coder, ref contexts, ref zeroCoding, ref column, ref word, ref magnitude, half, stride, causal, r);
+                        }
                     }
-
-                    int run = mq.Decode(ref _contexts[UniformContext]) << 1;
-                    run |= mq.Decode(ref _contexts[UniformContext]);
-                    y = y0 + run;
-                    BecomeSignificant(ref mq, top + (run * s), (y * _width) + x, plane, Causal(y));
-                    y++;
-                }
-
-                for (; y < y1; y++)
-                {
-                    int index = ((y + 1) * s) + x + 1;
-                    bool causal = Causal(y);
-                    if ((f[index] & (Significant | Visited)) == 0 && mq.Decode(ref _contexts[(f[index] & Neighbour) == 0 ? 0 : ZeroContext(index, orientation, causal)]) == 1)
+                    else
                     {
-                        BecomeSignificant(ref mq, index, (y * _width) + x, plane, causal);
+                        CleanupStep(ref coder, ref contexts, ref zeroCoding, ref column, ref word, ref magnitude, half, stride, causal, 0);
+                        CleanupStep(ref coder, ref contexts, ref zeroCoding, ref column, ref word, ref magnitude, half, stride, causal, 1);
+                        CleanupStep(ref coder, ref contexts, ref zeroCoding, ref column, ref word, ref magnitude, half, stride, causal, 2);
+                        CleanupStep(ref coder, ref contexts, ref zeroCoding, ref column, ref word, ref magnitude, half, stride, causal, 3);
                     }
                 }
+                else
+                {
+                    for (int r = 0; r < rows; r++)
+                    {
+                        CleanupStep(ref coder, ref contexts, ref zeroCoding, ref column, ref word, ref magnitude, half, stride, causal, r);
+                    }
+                }
+
+                column = word & ~PiAll;
             }
+
+            column = ref Unsafe.Add(ref column, 2);
         }
 
-        for (int y = 0; y < _height; y++)
+        coder.Store(ref mq);
+    }
+
+    /// <summary>Row <paramref name="r"/> of a column in the cleanup pass, outside a run (D.3.4).</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void CleanupStep(ref Coder coder, ref byte contexts, ref byte zeroCoding, ref uint column, ref uint word, ref int magnitude, int half, int stride, bool causal, int r)
+    {
+        uint around = word >> (3 * r);
+        if ((word & ((1u << ((3 * r) + 4)) | (1u << (PiShift + r)))) != 0)
         {
-            Span<byte> row = f.AsSpan(((y + 1) * s) + 1, _width);
-            for (int x = 0; x < row.Length; x++)
-            {
-                row[x] &= unchecked((byte)~Visited);
-            }
+            // Significant, or coded in this plane's significance pass.
+            return;
         }
+
+        if (coder.Decode(ref Unsafe.Add(ref contexts, Unsafe.Add(ref zeroCoding, (int)(around & Neighbors)))) == 1)
+        {
+            DecodeSign(ref coder, ref contexts, ref column, ref word, stride, causal, r);
+            Unsafe.Add(ref magnitude, r) = half;
+        }
+    }
+
+    /// <summary>The MQ decoder's registers and read position, held in locals for the length of a pass.</summary>
+    private ref struct Coder
+    {
+        private readonly ReadOnlySpan<byte> _data;
+        private uint _a;
+        private uint _c;
+        private int _ct;
+        private int _position;
+
+        public Coder(scoped in MqDecoder mq)
+        {
+            _data = mq.Data;
+            mq.GetRegisters(out _a, out _c, out _ct, out _position);
+        }
+
+        /// <summary>DECODE in <paramref name="context"/> (C.3.2).</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public int Decode(ref byte context) => MqDecoder.Decode(ref context, _data, ref _a, ref _c, ref _ct, ref _position);
+
+        /// <summary>Stores the registers back into the decoder.</summary>
+        public readonly void Store(ref MqDecoder mq) => mq.SetRegisters(_a, _c, _ct, _position);
     }
 }
 

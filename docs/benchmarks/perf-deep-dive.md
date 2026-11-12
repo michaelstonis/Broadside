@@ -93,6 +93,8 @@ two along tile seams, before and after this change.
    is one operation (#97). Stripe-column state words with pre-propagated neighbour significance (OpenJPEG's T1 layout), MQ state in
    locals per pass, and decoding only the resolution levels the display needs (a reduced-resolution decode for a page shown at phone
    size skips the top levels entirely, often 4x fewer samples). Expected 3–5x; exact, verifiable by the decoder's corpus hashes.
+   Tier-1 part done in #255 ([jpx-tier1.md](jpx-tier1.md)): 2.1x on tier-1 (87 to 41.5 ns per sample on issue5567, Native AOT),
+   first render of issue5567 487 to 257 ms (JIT), identical samples; reduced-resolution decode landed in #362.
 2. **Software glyph coverage cache** (H8). The largest remaining cost of software text (6 µs a glyph, 3x Skia): cache each glyph's
    coverage mask per (outline, 2x2 matrix, sub-pixel offset quantised to 1/4 pixel), as PDFium and pdf.js do. Needs an owner decision:
    quantising the offset changes text pixels slightly (golden images re-accepted), in exchange for roughly 5x on text pages and tiles.

@@ -245,6 +245,8 @@
     "Broadside.Benchmarks.JpxScaledBenchmarks.Decode(Vector: \"Medium\", Levels: 1)": 25088,
     "Broadside.Benchmarks.JpxScaledBenchmarks.Decode(Vector: \"Medium\", Levels: 2)": 25064,
     "Broadside.Benchmarks.JpxScaledBenchmarks.Decode(Vector: \"Medium\", Levels: 3)": 25040,
+    "Broadside.Benchmarks.JpxTier1Benchmarks.Decode(Style: \"BypassCausal\")": 0,
+    "Broadside.Benchmarks.JpxTier1Benchmarks.Decode(Style: \"Default\")": 0,
     "Broadside.Benchmarks.JpxWaveletBenchmarks.Inverse53": 0,
     "Broadside.Benchmarks.JpxWaveletBenchmarks.Inverse97": 0,
     "Broadside.Benchmarks.JpxWaveletBenchmarks.InverseIct": 0,
