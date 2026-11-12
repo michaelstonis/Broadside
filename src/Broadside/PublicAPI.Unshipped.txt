@@ -694,6 +694,8 @@ Broadside.Filters.ImageHeader.Components.get -> int
 Broadside.Filters.ImageHeader.Components.init -> void
 Broadside.Filters.ImageHeader.HasAlpha.get -> bool
 Broadside.Filters.ImageHeader.HasAlpha.init -> void
+Broadside.Filters.ImageHeader.IccProfile.get -> System.ReadOnlyMemory<byte>
+Broadside.Filters.ImageHeader.IccProfile.init -> void
 Broadside.Filters.ImageHeader.Height.get -> int
 Broadside.Filters.ImageHeader.Height.init -> void
 Broadside.Filters.ImageHeader.ImageHeader() -> void

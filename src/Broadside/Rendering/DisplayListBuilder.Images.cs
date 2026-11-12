@@ -187,8 +187,9 @@ internal sealed partial class DisplayListBuilder
         PdfImage.PreparedImage prepared = model.Prepare(cancellationToken);
         if (prepared.Encoded is { } encoded)
         {
-            // Prepare keeps an image encoded only when its dictionary's colour space has the codestream's component count.
-            PdfColorSpace space = model.ColorSpace!;
+            // Prepare keeps an image encoded only when its colour space, the dictionary's or the one its codestream's header gives
+            // (JPXDecode without a ColorSpace, issue #507), has the codestream's component count.
+            PdfColorSpace space = prepared.EncodedColorSpace!;
             if (space.Family == PdfColorSpaceFamily.Pattern)
             {
                 return null;

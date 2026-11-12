@@ -49,6 +49,7 @@ internal static class JpxDecoder
         {
             HasAlpha = plan.Alpha is not null,
             ColorModel = plan.Model,
+            IccProfile = plan.IccProfile,
             MaxReduction = maxReduction,
         };
         return true;
