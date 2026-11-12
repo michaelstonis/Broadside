@@ -160,3 +160,5 @@ interleaved runs (ms):
 123.pdf is the harness's first document, so its JIT figures carry the warm-up; its image is a light lossy one where tier-1 is a small
 share. Whole decode at full resolution through `JpxDecodeFilter.DecodeImage` (JIT, best of runs over 3 s): issue5567 209.0 to
 37.0 ms, issue5481 87.3 to 48.3 ms, 123.pdf's image 19.0 to 19.4 ms.
+
+Browser (`browser-wasm` interpreter build under Node, best of 3 passes) is unchanged and its pixel hashes are identical: issue5549 851.1 → 828.0 ms, issue5567 1,928.0 → 1,917.5 ms, both within noise.
