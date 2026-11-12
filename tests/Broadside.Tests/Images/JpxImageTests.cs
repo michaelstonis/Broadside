@@ -1,6 +1,8 @@
 using System.Text;
+using Broadside.Filters;
 using Broadside.Graphics;
 using Broadside.Images;
+using Broadside.Rendering;
 using Broadside.TestSupport;
 
 namespace Broadside.Tests.Images;
@@ -242,6 +244,70 @@ public sealed class JpxImageTests
             Assert.Same(PdfDeviceGrayColorSpace.Instance, image.ResolveColorSpace(decoded));
         }
     }
+
+    public static TheoryData<string, string> WithoutColorSpace() => new()
+    {
+        { "sYCC", "DeviceRgb" },
+        { "ICC", "IccBased" },
+        { "Codestream", "DeviceRgb" },
+    };
+
+    [Theory]
+    [MemberData(nameof(WithoutColorSpace))]
+    public void Without_a_colour_space_the_display_list_keeps_the_image_encoded_and_decodes_it_at_the_resolution_drawn(string kind, string family)
+    {
+        // Issue #507: the space comes from the codestream's header, the same one the decoded samples resolve to, and every reduction
+        // is decoded as the decode at build would have been (no colour components asked for, so sYCC is still converted).
+        JpxVector rgb = JpxSamples.Vector("Lrcp3LayersRct");
+        byte[] file = kind switch
+        {
+            "sYCC" => JpxEditing.Jp2(rgb.Data, JpxEditing.Color(18)),
+            "ICC" => JpxEditing.Jp2(rgb.Data, JpxEditing.Color(JpxEditing.IccHeader("RGB "))),
+            _ => rgb.Data,
+        };
+
+        (PdfImage image, DecodedImage decoded, PdfDocument document) = Decode(file, string.Empty);
+        using (document)
+        using (decoded)
+        {
+            var recorder = new RecordingBackend();
+            document.Pages[0].CreateDisplayList().Replay(recorder);
+            DisplayImage drawn = Assert.Single(recorder.Images).Image;
+
+            Assert.Equal(2, drawn.MaxReduction);
+            Assert.Equal(family, drawn.ColorSpace.Family.ToString());
+            Assert.Equal(image.ResolveColorSpace(decoded)!.Family, drawn.ColorSpace.Family);
+            for (int reduction = 2; reduction >= 1; reduction--)
+            {
+                // Coarsest first: a finer reduction already decoded would serve a coarser request.
+                using DecodedImage expected = new JpxDecodeFilter().DecodeImage(file, new ImageFilterContext(new FilterContext()) { Reduction = reduction })!;
+                DisplayImageSamples samples = drawn.GetSamplesAt(reduction, TestContext.Current.CancellationToken)!.Value;
+                Assert.Equal((reduction, expected.Width, expected.Height), (samples.Reduction, samples.Width, samples.Height));
+                Assert.Equal(ImageTesting.Raw(expected), Raw(samples));
+            }
+
+            Assert.Equal(ImageTesting.Raw(decoded), Raw(drawn.GetSamplesAt(0, TestContext.Current.CancellationToken)!.Value));
+        }
+    }
+
+    [Fact]
+    public void Without_a_colour_space_an_image_with_an_opacity_channel_is_still_decoded_when_the_list_is_built()
+    {
+        JpxVector rgba = JpxSamples.Vector("Lrcp3LayersRct");
+        byte[] file = JpxEditing.Jp2(rgba.Data, JpxEditing.Color(16));
+
+        (_, DecodedImage decoded, PdfDocument document) = Decode(file, "/SMaskInData 1");
+        using (document)
+        using (decoded)
+        {
+            var recorder = new RecordingBackend();
+            document.Pages[0].CreateDisplayList().Replay(recorder);
+            Assert.Equal(0, Assert.Single(recorder.Images).Image.MaxReduction);
+        }
+    }
+
+    private static ushort[] Raw(DisplayImageSamples samples) =>
+        [.. Enumerable.Range(0, samples.Height).SelectMany(y => samples.GetRow(y).Slice(0, samples.Width * samples.Components).ToArray().Select(b => (ushort)b))];
 
     private static (PdfImage Image, DecodedImage Decoded, PdfDocument Document) Decode(byte[] data, string entries)
     {
