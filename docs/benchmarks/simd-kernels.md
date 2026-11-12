@@ -522,3 +522,72 @@ browser: a `browser-wasm` console app under Node 22, best pass after the first (
 | | Browser AOT | 574.8 | 547.2 | -5% |
 | | Browser interpreter | 3,839.7 | 2,815.3 | -27% |
 | issue5481.pdf | Native AOT | 391.3 | 372.5 | -5% |
+
+## JPEG 2000 DC level shift and 9/7 rounding (`JpxLevelShift`, #503)
+
+The last step of a tile-component: G.1.2's inverse DC level shift (G-2), clipping to the component's range and the store into the
+16-bit plane, with the 9/7 path's rounding to integers before it. After #477 the rounding (`JpxDecoder.RoundToIntegers`, a scalar
+pass over the whole tile-component writing integers back in place) was 10% of 123.pdf's render, more than the wavelet, and
+`JpxPlane.Write` then read the buffer again with 64-bit arithmetic and a column check per sample.
+
+**Restructure first.** One pass per row: the column clipping is worked out once per tile-component, and for components of at most
+16 bits the rounding is fused into the shift (`RoundShift`): `round(clamp(v, -shift, max - shift)) + shift`, NaN as 0. Rounding is
+monotone and leaves integers unchanged, so clamping to the integer bounds first gives the old result, and the 32-bit sum cannot
+overflow (the 5/3 path, `Shift`, clamps first for the same reason). Components deeper than 16 bits keep the old rounding and 64-bit
+path.
+
+**Kernels.** Eight samples per iteration, two vectors of 32-bit lanes packed into one of 16-bit samples with two constant byte
+`Shuffle`s and an `|` (not `Narrow` from 32-bit lanes). The 9/7 path has no rounding instruction: NaN lanes are masked to +0 with
+`Equals(x, x)`, the values clamped with `Max`/`Min`, and adding 1.5 x 2^23 puts the sum in [2^23, 2^24), where the unit in the last
+place is 1, so the addition itself rounds to nearest with ties to even (as `MathF.Round`); the integer is the sum's bits less
+`0x4B400000`.
+
+**Bit-exact.** `JpxLevelShiftKernelTests` (`SimdKernel` trait; also passes locally with `DOTNET_EnableHWIntrinsic=0`), at every depth
+from 1 to 16: the vector method and the dispatcher against the scalar method, and the scalar method against the code it replaced
+(rounding to saturated integers, then the 64-bit shift and clip), over the special values (NaNs of several payloads and both signs,
+the infinities, signed zeros, denormals, the float and 32-bit extremes, 2^22 to 2^24 boundaries, every half-integer around and
+between the clipping bounds with its neighbors one unit in the last place away) and 4 million random floats (half arbitrary bit
+patterns, half in-range values, an eighth exact halves); the 5/3 path over every integer from -70,000 to 70,000, the 32-bit extremes
+and a million random integers. Every JPX image of the fetched corpora decodes to its `jpx-corpus-references.txt` hash, and the
+decoded samples of the 150 dumped JPX streams at reductions 0 to 2 (212 SHA-256) and every page (up to 12) of the 25 JPX corpus files
+at 72 and 150 DPI hash the same before and after.
+
+ns per sample, 64 Ki samples of an 8-bit component in range, input copied in each call (0.05 ns per sample on the JIT, 0.31 in the
+interpreter, included); "before" is the two passes it replaced. M4 Max, browser builds under Node 22, local:
+
+| Build | 9/7: before / scalar / vector | 5/3: before / scalar / vector |
+|---|---:|---:|
+| JIT | 1.248 / 0.710 / 0.171 (7.3x) | 0.651 / 0.575 / 0.128 (5.1x) |
+| Native AOT | 1.525 / 0.733 / 0.176 (8.7x) | 0.874 / 0.801 / 0.128 (6.8x) |
+| Browser interpreter | 20.986 / 19.446 / 1.559 (13.5x) | 4.223 / 3.376 / 1.136 (3.7x) |
+| Browser AOT | 3.223 / 2.917 / 0.542 (5.9x) | 0.671 / 0.752 / 0.211 (3.2x) |
+
+BenchmarkDotNet, `JpxLevelShiftBenchmarks`, JIT, `--job short --inProcess` (`Allocated` `-`): `RoundThenShift` 95.9 µs,
+`RoundShiftScalar` 51.8 µs, `RoundShift` 11.6 µs (0.12), `ShiftScalar` 38.5 µs, `Shift` 8.5 µs (0.09). No build is gated.
+
+### Whole-page effect
+
+ms per pass of every page at 96 DPI, documents opened afresh each pass, best pass; Native AOT 6 passes and browser AOT 5 passes,
+base and head interleaved twice (the better); interpreter 4 passes, M4 Max:
+
+| Document | Build | Base | Head | Change |
+|---|---|---:|---:|---:|
+| 123.pdf (9/7) | Native AOT | 51.7 | 41.4 | **-20%** |
+| | Browser AOT | 96.9 | 75.6 | **-22%** |
+| | Browser interpreter | 1,088.2 | 955.5 | **-12%** |
+| scan-moon-memo-jpx.pdf (9/7) | Native AOT | 411.2 | 308.4 | **-25%** |
+| | Browser AOT | 636.5 | 469.7 | **-26%** |
+| | Browser interpreter | 5,212.7 | 4,076.6 | **-22%** |
+| issue5567.pdf (5/3) | Native AOT | 233.2 | 229.5 | -2% |
+| | Browser AOT | 267.5 | 262.7 | -2% |
+| | Browser interpreter | 2,292.1 | 2,253.3 | -2% |
+| issue5481.pdf | Native AOT | 210.0 | 200.5 | -5% |
+| | Browser AOT | 255.6 | 241.1 | -6% |
+| | Browser interpreter | 2,374.0 | 2,259.7 | -5% |
+| issue5549.pdf | Native AOT | 97.4 | 95.8 | -2% |
+| | Browser AOT | 118.5 | 112.0 | -5% |
+| | Browser interpreter | 1,056.2 | 1,000.1 | -5% |
+
+Sampled after (macOS `sample`, Native AOT, 96 DPI, documents opened afresh): the level shift is 1.8% of 123.pdf's render (was 10%);
+there the image resampling (`BoxFilter`, `ImagePainter`) is 39%, the wavelet 19%, tier-1 14% and the composer 13%. #352's pages are
+87-91% tier-1 and at most 0.2% level shift.

@@ -54,7 +54,7 @@
     <Compile Include="../../src/Broadside/Filters/Dct/InverseDct.cs;../../src/Broadside/Filters/Dct/InverseDct.Vector128.cs" LinkBase="Kernels" />
     <Compile Include="../../src/Broadside.Rendering/CompositingRows.cs;../../src/Broadside.Rendering/BoxFilter.cs" LinkBase="Kernels" />
     <Compile Include="../../src/Broadside/Graphics/Colors/CmykCharacterization.cs;../../src/Broadside/Graphics/Colors/CmykCharacterization.Vector128.cs" LinkBase="Kernels" />
-    <Compile Include="../../src/Broadside/Filters/Jpx/JpxLifting.cs;../../src/Broadside/Filters/Jpx/JpxLifting.Vector128.cs" LinkBase="Kernels" />
+    <Compile Include="../../src/Broadside/Filters/Jpx/JpxLifting.cs;../../src/Broadside/Filters/Jpx/JpxLifting.Vector128.cs;../../src/Broadside/Filters/Jpx/JpxLevelShift.cs;../../src/Broadside/Filters/Jpx/JpxLevelShift.Vector128.cs" LinkBase="Kernels" />
   </ItemGroup>
 
   <!--

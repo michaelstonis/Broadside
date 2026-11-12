@@ -253,7 +253,7 @@ public sealed class JpxLiftingKernelTests
     /// <summary>
     /// The bits with every NaN made one NaN. Which input's payload a sum of two NaNs carries depends on the operand order the
     /// compiler picks for a commutative add (the JIT's scalar and vector code differ on Arm64), and IEEE 754 leaves it open;
-    /// the decoder never sees it, rounding every NaN to the integer 0 (<c>JpxDecoder.RoundToIntegers</c>). Every other bit is compared.
+    /// the decoder never sees it, rounding every NaN to the integer 0 (<c>JpxLevelShift</c>). Every other bit is compared.
     /// </summary>
     private static int[] Canonical(int[] bits)
     {

@@ -299,12 +299,7 @@ internal static class JpxDecoder
             ApplyComponentTransform(parameters, components, buffers, reporter);
             for (int c = 0; c < count; c++)
             {
-                if (!components[c].Style.Reversible)
-                {
-                    RoundToIntegers(buffers[c].AsSpan(0, components[c].Width * components[c].Height), reporter);
-                }
-
-                planes[c]?.Write(components[c], buffers[c], reporter);
+                planes[c]?.Write(components[c], buffers[c], !components[c].Style.Reversible, reporter);
             }
         }
         finally
@@ -367,22 +362,6 @@ internal static class JpxDecoder
             {
                 JpxLifting.InverseIct(MemoryMarshal.Cast<int, float>(y0), MemoryMarshal.Cast<int, float>(y1), MemoryMarshal.Cast<int, float>(y2));
             }
-        }
-    }
-
-    /// <summary>Rounds an irreversible tile-component's reconstructed values to integers in place (G.1.2, before the DC level shift).</summary>
-    private static void RoundToIntegers(Span<int> buffer, CodecReporter reporter)
-    {
-        Span<float> values = MemoryMarshal.Cast<int, float>(buffer);
-        for (int i = 0; i < buffer.Length; i++)
-        {
-            if ((i & CancellationStride) == 0)
-            {
-                reporter.ThrowIfCancellationRequested();
-            }
-
-            float value = values[i];
-            buffer[i] = value >= int.MaxValue ? int.MaxValue : value <= int.MinValue ? int.MinValue : float.IsNaN(value) ? 0 : (int)MathF.Round(value);
         }
     }
 }
