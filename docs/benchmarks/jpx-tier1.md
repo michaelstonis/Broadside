@@ -113,3 +113,50 @@ the other decode stages of two 8.5-megapixel scans).
 `JpxTier1Benchmarks` and `JpxBenchmarks` in `bench/Broadside.Benchmarks`. The decode and render harnesses were throwaway console
 apps over `JpxDecodeFilter.DecodeImage` and `SoftwareRasterizer.Render`, the same source built for JIT, Native AOT
 (`PublishAot`) and `browser-wasm` (with and without `RunAOTCompilation`), with the PDFs embedded as resources for the browser build.
+
+## Code-blocks in parallel (#505)
+
+After #255, #477 and #503, tier-1 was still 87-91% of the render of the #352 pages, on one thread. Code-blocks are coded
+independently (Annex D) and each writes only its own samples, so on native builds (JIT, Native AOT, the MAUI targets) the
+code-blocks of a tile-component are decoded on several threads (`JpxBlockJob`).
+
+- **Where.** `JpxTileDecoder.DecodeBlocks`, per tile-component, between tier-2 and the inverse wavelet. The caller lists the
+  code-blocks in the serial order, then it and thread-pool helpers take the next one from a shared counter until none is left.
+- **Bounds.** At most `min(ProcessorCount, 8)` threads, the caller included, and one per 65,536 code-block samples (about 3 ms of
+  tier-1), so an image under 131,072 samples per component stays serial. Helpers are thread-pool work items: a helper the pool has
+  not started when the caller runs out of code-blocks returns at once, so when several tiles render at once (a busy pool) the caller
+  simply decodes everything itself, waits only for helpers already decoding, and no threads are added.
+- **Browser builds** never take this path (`!OperatingSystem.IsBrowser() && !OperatingSystem.IsWasi()`, folded away when trimmed):
+  no WASM threads, the serial loop as before.
+- **Allocations.** Each helper borrows a `JpxCodeBlockDecoder` and its join buffers from a static pool (at most 16 kept); each
+  calling thread keeps its job and work list (pooled array). Nothing is allocated per code-block, and nothing per decode once warm.
+  `JpxTileDecoder` gains no field, and the `JpxBenchmarks` vectors are all under the threshold: the allocation gate is unchanged.
+- **Diagnostics** are reported by the caller after the decode, walking the work list in code-block order, so they are the serial
+  decode's, in the same order. A helper's exception is rethrown on the caller.
+- **Cancellation.** Every thread checks the decode's token before each code-block; the caller waits for the helpers already
+  decoding and throws. Cancelling `issue5567` 5, 15 or 30 ms into a decode throws at 19-33 ms (a whole decode is 37 ms).
+
+### Identical output
+
+- The 217 hashes of #502 (corpus streams and vectors at reductions 0-2, the `tests/Corpus` JPX files, the moon memo), five runs of
+  the head build: identical to the base and to each other.
+- `JpxParallelDecodeTests`: every OpenJPEG vector, intact and with corrupted code-block data, at reductions 0-2, decodes to the same
+  samples and the same diagnostics (codes and messages, in order) serially and with one thread per code-block sample, three runs each.
+- Every page's pixel hash of the render table below, every pass of every build: identical base and head.
+
+### Whole render and decode
+
+Machine: Apple M4 Max, 16 cores (12 performance, 4 efficiency), .NET 10. Base is `spec/33-broadside-v1` at 982bea2e. First render
+of every page at 96 DPI with the software rasterizer, each pass opening the document afresh, best of 6 passes, better of two
+interleaved runs (ms):
+
+| Document | JIT base | JIT head | Change | Native AOT base | Native AOT head | Change |
+|---|---:|---:|---:|---:|---:|---:|
+| `pdfjs/issue5567.pdf` | 232.0 | 52.7 | **-77%** | 226.7 | 48.8 | **-78%** |
+| `pdfjs/issue5481.pdf` | 197.8 | 116.7 | **-41%** | 201.2 | 112.0 | **-44%** |
+| `pdfjs/issue5549.pdf` | 93.8 | 52.8 | **-44%** | 93.1 | 52.1 | **-44%** |
+| `pdfium-tests/fx/action/123.pdf` | 141.6 | 125.1 | (JIT warm-up) | 41.5 | 39.8 | -4% |
+
+123.pdf is the harness's first document, so its JIT figures carry the warm-up; its image is a light lossy one where tier-1 is a small
+share. Whole decode at full resolution through `JpxDecodeFilter.DecodeImage` (JIT, best of runs over 3 s): issue5567 209.0 to
+37.0 ms, issue5481 87.3 to 48.3 ms, 123.pdf's image 19.0 to 19.4 ms.
