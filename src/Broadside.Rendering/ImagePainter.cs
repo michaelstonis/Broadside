@@ -23,7 +23,9 @@ namespace Broadside.Rendering;
 /// <para>
 /// Hot path: allocates nothing; the per-pixel work is a few multiply-adds for enlargement and proportional to the samples averaged
 /// for reduction, where each pixel's footprint (columns, rows and their weights) is worked out once and averaged by
-/// <see cref="BoxFilter"/>. Compositing goes through a <see cref="Compositor"/> (§11.3: constant alpha and blend mode), the coverage of the image's outline scaling the sample.
+/// <see cref="BoxFilter"/>. When the transform keeps u the same down the image (an upright image), the columns are worked out once
+/// per image rather than per pixel: <see cref="ImageFootprints"/> keeps them for every row whose span starts where an earlier one did
+/// (issue #509). Compositing goes through a <see cref="Compositor"/> (§11.3: constant alpha and blend mode), the coverage of the image's outline scaling the sample.
 /// It is a coverage sink of <see cref="ScanlineRasterizer.Paint"/>, so the runs it receives are already cut by the clipping path
 /// (§8.5.4), like those of fills and strokes.
 /// </para>
@@ -42,6 +44,7 @@ internal readonly ref struct ImagePainter : ICoverageSink
     private readonly Span<byte> _target;
     private readonly int _stride;
     private readonly Compositor _compositor;
+    private readonly ImageFootprints? _footprints;
 
     /// <summary>Creates a painter of image pixels.</summary>
     /// <param name="target">The device pixels painted into, premultiplied BGRA in memory order.</param>
@@ -62,6 +65,10 @@ internal readonly ref struct ImagePainter : ICoverageSink
     /// <paramref name="width"/>; given when the image's samples are a reduction whose grid overhangs the unit square.
     /// </param>
     /// <param name="maskScaleV">The factor down, or 0 for <paramref name="maskHeight"/> / <paramref name="height"/>.</param>
+    /// <param name="footprints">
+    /// Where the footprints' columns are kept from one row to the next when u does not change down the image, or
+    /// <see langword="null"/> to work them out for every pixel; emptied here, as they belong to this painter's grid.
+    /// </param>
     public ImagePainter(
         Span<byte> target,
         int stride,
@@ -77,9 +84,12 @@ internal readonly ref struct ImagePainter : ICoverageSink
         Compositor compositor = default,
         bool average = true,
         double maskScaleU = 0,
-        double maskScaleV = 0)
+        double maskScaleV = 0,
+        ImageFootprints? footprints = null)
     {
         _compositor = compositor;
+        _footprints = footprints;
+        footprints?.Clear();
         _target = target;
         _stride = stride;
         _pixels = pixels;
@@ -168,6 +178,17 @@ internal readonly ref struct ImagePainter : ICoverageSink
         // Where v does not change along the span (an upright image), every pixel of it takes the same rows: work them out once.
         bool level = m.B == 0;
         int rows = level ? Rows(_grid, v, taps) : 0;
+
+        // Where u does not change down the image (C = 0), a span that starts at the same pixel as the last one, at the same u, takes
+        // the same columns pixel for pixel: they are worked out for the first such span and read back for the others.
+        ImageFootprints? footprints = m.C == 0 ? _footprints : null;
+        int first = footprints is not null ? Columns(footprints, x, count, u) : 0;
+        if (level && footprints is not null && _mask is null)
+        {
+            SpanKept(pixels, line.Slice(x, count), coverage, u, v, taps, rows, footprints, first);
+            return;
+        }
+
         for (int i = 0; i < count; i++, u += m.A, v += m.B)
         {
             if (!level)
@@ -175,7 +196,9 @@ internal readonly ref struct ImagePainter : ICoverageSink
                 rows = Rows(_grid, v, taps);
             }
 
-            uint sample = Average(pixels, _grid, u, v, taps, rows);
+            uint sample = footprints is not null
+                ? Average(pixels, _grid, u, v, taps, rows, footprints.Columns(first + i), footprints.Weights(first + i))
+                : Average(pixels, _grid, u, v, taps, rows);
             if (_mask is { } mask)
             {
                 int alpha = SampleMask(mask, _maskGrid, u * _maskGrid.ScaleU, v * _maskGrid.ScaleV);
@@ -190,6 +213,55 @@ internal readonly ref struct ImagePainter : ICoverageSink
             ref uint target = ref line[x + i];
             target = _compositor.Composite(sample, target, coverage);
         }
+    }
+
+    /// <summary>
+    /// <see cref="SpanBoxed"/> for the common case: an upright image without a mask of its own, whose rows are worked out once for
+    /// the span and whose columns <paramref name="footprints"/> holds from pixel <paramref name="first"/>; the same averages in the
+    /// same order, with the per-pixel work reduced to reading them back.
+    /// </summary>
+    private void SpanKept(uint[] pixels, Span<uint> targets, int coverage, double u, double v, in Taps taps, int rows, ImageFootprints footprints, int first)
+    {
+        double step = _inverse.A;
+        ReadOnlySpan<int> rowIndices = taps.Rows[..rows];
+        ReadOnlySpan<double> rowWeights = taps.RowWeights[..rows];
+        ReadOnlySpan<int> starts = footprints.Starts[first..(first + targets.Length + 1)];
+        ReadOnlySpan<int> columns = footprints.AllColumns;
+        ReadOnlySpan<double> weights = footprints.AllWeights;
+        Compositor compositor = _compositor;
+        for (int i = 0; i < targets.Length; i++, u += step)
+        {
+            int start = starts[i];
+            int length = starts[i + 1] - start;
+            uint sample = BoxFilter.Average(pixels, rowIndices, rowWeights, columns.Slice(start, length), weights.Slice(start, length), out uint average)
+                ? average
+                : pixels[(Clamp(Math.Floor(v), _grid.Height) * _grid.Width) + Clamp(Math.Floor(u), _grid.Width)];
+            targets[i] = compositor.Composite(sample, targets[i], coverage);
+        }
+    }
+
+    /// <summary>
+    /// Returns where <paramref name="footprints"/> holds the columns of the <paramref name="count"/> pixels of a span from pixel
+    /// <paramref name="x"/>, the first centred at <paramref name="u"/>: a span kept from an earlier row that started there, else this
+    /// one, worked out with the u of each pixel stepped as <see cref="SpanBoxed"/> steps it, so they are the columns it would work out.
+    /// </summary>
+    private int Columns(ImageFootprints footprints, int x, int count, double u)
+    {
+        int first = footprints.Find(x, u, count);
+        if (first >= 0)
+        {
+            return first;
+        }
+
+        first = footprints.Start(x, u, count);
+        double step = _inverse.A;
+        for (int i = 0; i < count; i++, u += step)
+        {
+            Axis across = Axis.Create(u, _grid.HalfU, _grid.Width, _grid.Interpolate);
+            footprints.Add(across.Fill(footprints.NextColumns, footprints.NextWeights, 1));
+        }
+
+        return first;
     }
 
     /// <summary>Scales every channel of a premultiplied pixel by <paramref name="alpha"/> / 255.</summary>
@@ -309,7 +381,13 @@ internal readonly ref struct ImagePainter : ICoverageSink
     private static uint Average(uint[] pixels, in Grid grid, double u, double v, in Taps taps, int rows)
     {
         int columns = Axis.Create(u, grid.HalfU, grid.Width, grid.Interpolate).Fill(taps.Columns, taps.ColumnWeights, 1);
-        return BoxFilter.Average(pixels, taps.Rows[..rows], taps.RowWeights, taps.Columns[..columns], taps.ColumnWeights, out uint result)
+        return Average(pixels, grid, u, v, taps, rows, taps.Columns[..columns], taps.ColumnWeights);
+    }
+
+    /// <summary>Averages the samples under the footprint of the pixel centred at (u, v), its columns and their weights given.</summary>
+    private static uint Average(uint[] pixels, in Grid grid, double u, double v, in Taps taps, int rows, ReadOnlySpan<int> columns, ReadOnlySpan<double> columnWeights)
+    {
+        return BoxFilter.Average(pixels, taps.Rows[..rows], taps.RowWeights, columns, columnWeights, out uint result)
             ? result
             : pixels[(Clamp(Math.Floor(v), grid.Height) * grid.Width) + Clamp(Math.Floor(u), grid.Width)];
     }

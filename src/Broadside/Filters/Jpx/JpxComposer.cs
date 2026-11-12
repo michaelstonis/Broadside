@@ -164,10 +164,34 @@ internal static class JpxComposer
                 }
             }
 
+            // Every colour channel a component's own samples, one per image sample, at the output precision of 8 bits, with no
+            // conversion: each row is the components' rows interleaved, copied without the integer row in between.
+            bool direct = bits == 8 && builder.StorageBits == 8 && (plan.Conversion == JpxColorConversion.None || channels < 3);
+            for (int ch = 0; ch < channels && direct; ch++)
+            {
+                direct = ch < plan.Colors.Length && plan.Colors[ch] is { Column: < 0 } source
+                    && planes[source.Component] is { Depth: 8, Width: > 0, Height: > 0 } plane && plane.Width >= width
+                    && IsIdentity(columns[source.Component].AsSpan(0, width));
+            }
+
             bool clamped = false;
             for (int y = 0; y < height; y++)
             {
                 reporter.ThrowIfCancellationRequested();
+                if (direct)
+                {
+                    Span<byte> target = builder.GetRow(y)[..(width * channels)];
+                    for (int ch = 0; ch < channels; ch++)
+                    {
+                        JpxChannelSource source = plan.Colors[ch]!.Value;
+                        JpxPlane plane = planes[source.Component]!;
+                        Interleave(Row(plane, y, size.OriginY)[..width], target, ch, channels);
+                    }
+
+                    StoreAlpha(size, plan, planes, alpha, row, columns, y, ref clamped);
+                    continue;
+                }
+
                 Span<int> values = row.AsSpan(0, width * channels);
                 for (int ch = 0; ch < channels; ch++)
                 {
@@ -187,12 +211,7 @@ internal static class JpxComposer
 
                 Convert(plan, values, channels, bits);
                 Store(builder.GetRow(y), values, builder.StorageBits);
-                if (alpha is not null && plan.Alpha is { } opacity && planes[opacity.Component] is { } alphaPlane)
-                {
-                    Span<int> alphaValues = row.AsSpan(0, width);
-                    clamped |= ReadChannel(alphaPlane, opacity, plan.Palette, columns[opacity.Component], y, size.OriginY, alpha.BitsPerComponent, alphaValues, 0, 1);
-                    Store(alpha.GetRow(y), alphaValues, alpha.StorageBits);
-                }
+                StoreAlpha(size, plan, planes, alpha, row, columns, y, ref clamped);
             }
 
             if (clamped)
@@ -210,6 +229,50 @@ internal static class JpxComposer
                     ArrayPool<int>.Shared.Return(map);
                 }
             }
+        }
+    }
+
+    /// <summary>Writes the opacity channel of image row <paramref name="y"/> to the alpha plane, when there is one.</summary>
+    private static void StoreAlpha(JpxImageSize size, JpxOutputPlan plan, JpxPlane?[] planes, DecodedImageBuilder? alpha, int[] row, int[][] columns, int y, ref bool clamped)
+    {
+        if (alpha is not null && plan.Alpha is { } opacity && planes[opacity.Component] is { } alphaPlane)
+        {
+            Span<int> alphaValues = row.AsSpan(0, alpha.Width);
+            clamped |= ReadChannel(alphaPlane, opacity, plan.Palette, columns[opacity.Component], y, size.OriginY, alpha.BitsPerComponent, alphaValues, 0, 1);
+            Store(alpha.GetRow(y), alphaValues, alpha.StorageBits);
+        }
+    }
+
+    /// <summary>Whether a column map takes component sample i for image sample i (a component that is not sub-sampled).</summary>
+    private static bool IsIdentity(ReadOnlySpan<int> map)
+    {
+        for (int i = 0; i < map.Length; i++)
+        {
+            if (map[i] != i)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>The component row image row <paramref name="y"/> takes (G.4: the sample at or above it), as <see cref="ReadChannel"/> picks it.</summary>
+    private static ReadOnlySpan<ushort> Row(JpxPlane plane, int y, long originY)
+    {
+        long componentRow = Math.Max((originY + y) / plane.Dy, plane.Y0) - plane.Y0;
+        int rowIndex = (int)Math.Clamp(componentRow, 0, Math.Max(plane.Height - 1, 0));
+        return plane.Samples.Slice(rowIndex * plane.Width, plane.Width);
+    }
+
+    /// <summary>Writes 8-bit samples to every <paramref name="stride"/>-th byte of <paramref name="target"/> from <paramref name="offset"/>.</summary>
+    private static void Interleave(ReadOnlySpan<ushort> samples, Span<byte> target, int offset, int stride)
+    {
+        // target is sliced to samples.Length × stride, so offset + x × stride stays inside it for every x < samples.Length.
+        target = target[..(samples.Length * stride)];
+        for (int x = 0, i = offset; x < samples.Length; x++, i += stride)
+        {
+            target[i] = (byte)samples[x];
         }
     }
 
@@ -241,9 +304,7 @@ internal static class JpxComposer
             return false;
         }
 
-        long componentRow = Math.Max((originY + y) / plane.Dy, plane.Y0) - plane.Y0;
-        int rowIndex = (int)Math.Clamp(componentRow, 0, Math.Max(plane.Height - 1, 0));
-        ReadOnlySpan<ushort> samples = plane.Samples.Slice(rowIndex * plane.Width, plane.Width);
+        ReadOnlySpan<ushort> samples = Row(plane, y, originY);
         int width = values.Length / stride;
         bool clamped = false;
         if (channel.Column < 0 || palette is null)
