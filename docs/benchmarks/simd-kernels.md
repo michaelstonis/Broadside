@@ -553,7 +553,8 @@ decoded samples of the 150 dumped JPX streams at reductions 0 to 2 (212 SHA-256)
 at 72 and 150 DPI hash the same before and after.
 
 ns per sample, 64 Ki samples of an 8-bit component in range, input copied in each call (0.05 ns per sample on the JIT, 0.31 in the
-interpreter, included); "before" is the two passes it replaced. M4 Max, browser builds under Node 22, local:
+interpreter, included); "before" is the two passes it replaced. M4 Max, browser builds under Node 22, local; the CI rows are the `jpx-round-shift` and
+`jpx-shift` `KernelBenchmarks` lines of the blazor-wasm job (Chrome, 12-bit values, a different input):
 
 | Build | 9/7: before / scalar / vector | 5/3: before / scalar / vector |
 |---|---:|---:|
@@ -561,6 +562,8 @@ interpreter, included); "before" is the two passes it replaced. M4 Max, browser 
 | Native AOT | 1.525 / 0.733 / 0.176 (8.7x) | 0.874 / 0.801 / 0.128 (6.8x) |
 | Browser interpreter | 20.986 / 19.446 / 1.559 (13.5x) | 4.223 / 3.376 / 1.136 (3.7x) |
 | Browser AOT | 3.223 / 2.917 / 0.542 (5.9x) | 0.671 / 0.752 / 0.211 (3.2x) |
+| Browser interpreter, CI (scalar / vector) | 85.449 / 4.196 (20.36x) | 7.200 / 2.694 (2.67x) |
+| Browser AOT, CI (scalar / vector) | 10.681 / 1.144 (9.33x) | 2.801 / 0.262 (10.68x) |
 
 BenchmarkDotNet, `JpxLevelShiftBenchmarks`, JIT, `--job short --inProcess` (`Allocated` `-`): `RoundThenShift` 95.9 µs,
 `RoundShiftScalar` 51.8 µs, `RoundShift` 11.6 µs (0.12), `ShiftScalar` 38.5 µs, `Shift` 8.5 µs (0.09). No build is gated.
