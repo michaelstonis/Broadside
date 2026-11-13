@@ -28,9 +28,6 @@ namespace Broadside.Layout.Flow;
 /// </remarks>
 internal sealed class FlowStructure : IStructureSink
 {
-    /// <summary>The diagnostic code recorded for a figure without alternate text (§14.9.3).</summary>
-    public const string FigureWithoutAlternateText = nameof(FigureWithoutAlternateText);
-
     private static readonly CosName TableOwner = new("Table");
     private static readonly CosName ListOwner = new("List");
     private static readonly CosName ListNumberingKey = new("ListNumbering");
@@ -349,7 +346,7 @@ internal sealed class FlowStructure : IStructureSink
         }
 
         _diagnostics.Add(new Diagnostic(
-            FigureWithoutAlternateText,
+            StructureDiagnostics.FigureWithoutAlternateText.Name,
             DiagnosticSeverity.Warning,
             "A figure has no alternate text (ISO 32000-2 §14.9.3); assistive technology has nothing to read for it.",
             objectReference: element.Reference));

@@ -5741,4 +5741,5 @@ static Broadside.Diagnostics.StructureDiagnostics.StructureRoleConflict.get -> B
 static Broadside.Diagnostics.StructureDiagnostics.StructureClassConflict.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.StructureDiagnostics.StructureIdConflict.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.StructureDiagnostics.FigureAlternateTextPlaceholder.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.FigureWithoutAlternateText.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.SecurityDiagnostics.EncryptedPayloadNotEncrypted.get -> Broadside.Diagnostics.DiagnosticCode!

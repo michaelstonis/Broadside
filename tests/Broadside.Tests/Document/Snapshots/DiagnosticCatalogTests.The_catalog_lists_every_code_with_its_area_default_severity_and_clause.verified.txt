@@ -579,3 +579,4 @@ Structure	StructureRoleConflict	Information	ISO 32000-2 §14.7
 Structure	StructureClassConflict	Information	ISO 32000-2 §14.7
 Structure	StructureIdConflict	Information	ISO 32000-2 §14.7
 Structure	FigureAlternateTextPlaceholder	Warning	ISO 32000-2 §14.9.3
+Structure	FigureWithoutAlternateText	Warning	ISO 32000-2 §14.9.3
