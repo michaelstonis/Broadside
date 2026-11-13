@@ -41,6 +41,10 @@ public sealed class PdfFormXObject
     /// <summary>The document the form belongs to.</summary>
     internal PdfDocument Document => _document;
 
+    /// <summary>Gets the files associated with the form (its <c>AF</c>).</summary>
+    /// <remarks>ISO 32000-2 Table 93 (PDF 2.0), and §14.13.7. Read on every call, as <see cref="PdfDocument.AssociatedFiles"/> is.</remarks>
+    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => AssociatedFileReader.ReadOwner(_document, Dictionary, Reference);
+
     /// <summary>Gets a value indicating whether the stream's <c>Subtype</c> is <c>Form</c>, as Table 93 requires.</summary>
     /// <remarks>ISO 32000-2 §8.10.1, Table 93 (<c>Subtype</c>, required).</remarks>
     public bool IsForm => _document.Resolve(Get(AnnotationNames.Subtype)) is CosName { Value: "Form" };

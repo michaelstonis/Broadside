@@ -237,8 +237,8 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
     }
 
     /// <summary>Gets the files associated with the element (<c>AF</c>), in order.</summary>
-    /// <remarks>ISO 32000-2 Tables 354 and 355 (PDF 2.0), and §14.13.6. Read through <see cref="PdfDocument.ReadAssociatedFiles"/> on every call.</remarks>
-    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => _context.Document.ReadAssociatedFiles(Dictionary, Reference);
+    /// <remarks>ISO 32000-2 Tables 354 and 355 (PDF 2.0), and §14.13.6. Read on every call, as <see cref="PdfDocument.AssociatedFiles"/> is.</remarks>
+    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => AssociatedFileReader.ReadOwner(_context.Document, Dictionary, Reference);
 
     /// <summary>Gets the attribute objects of the <c>A</c> entry, in order, each with its revision number.</summary>
     /// <remarks>ISO 32000-2 Table 355 (<c>A</c>), §14.7.6.1, §14.7.6.3.</remarks>

@@ -127,7 +127,7 @@ public sealed class LazyLoadingTests
         // Thread A holds stream 4 and needs 5; thread B holds 5 and needs 4. One of them must give up instead of waiting.
         for (int attempt = 0; attempt < 200; attempt++)
         {
-            using PdfDocument document = PdfDocument.Open(MutualLengths());
+            using PdfDocument document = await PdfDocument.OpenAsync(MutualLengths(), TestContext.Current.CancellationToken);
             using var start = new Barrier(2);
             Task<CosObject>[] loads =
             [

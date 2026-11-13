@@ -17,7 +17,7 @@ public sealed class PdfTextAnnotation : PdfMarkupAnnotation
 
     /// <summary>Gets the name of the icon (<c>Name</c>): <c>Comment</c>, <c>Key</c>, <c>Note</c> (the default), <c>Help</c>, <c>NewParagraph</c>, <c>Paragraph</c>, <c>Insert</c> or another name.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.4, Table 175.</remarks>
-    public string IconName => ReadIconName("Note");
+    public string IconName => this.GetIconName("Note");
 
     /// <summary>
     /// Gets the state this annotation sets on the one it replies to (<c>State</c>, PDF 1.5), such as <c>Accepted</c>; when absent, the

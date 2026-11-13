@@ -133,7 +133,7 @@ public sealed class ByteRangeSigningTests
         using RSA key = withKey.GetRSAPrivateKey()!;
         using X509Certificate2 publicOnly = X509CertificateLoader.LoadCertificate(withKey.RawData);
         var signer = new DigestOnlySigner(publicOnly, key);
-        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("empty-page.pdf"));
+        using PdfDocument document = await PdfDocument.OpenAsync(Corpus.Bytes("empty-page.pdf"), TestContext.Current.CancellationToken);
 
         byte[] signed = asynchronous ? await SignThroughSignAsync(document, signer) : Sign(document, signer);
 
@@ -312,7 +312,7 @@ public sealed class ByteRangeSigningTests
         using X509Certificate2 certificate = ecdsa
             ? TestCertificates.SelfSignedEcdsa("CN=ECDSA signer", ECCurve.NamedCurves.nistP256)
             : TestCertificates.SelfSigned("CN=Broadside signer");
-        using PdfDocument document = PdfDocument.Open(Corpus.Bytes(file));
+        using PdfDocument document = await PdfDocument.OpenAsync(Corpus.Bytes(file), TestContext.Current.CancellationToken);
         string before = CosSnapshot.Of(document);
         using var output = new MemoryStream();
 
@@ -327,7 +327,7 @@ public sealed class ByteRangeSigningTests
         // Nothing the failed signatures changed comes back with a later save.
         using var update = new MemoryStream();
         await document.SaveAsync(update, new PdfSaveOptions().WithIncrementalUpdate(true), TestContext.Current.CancellationToken);
-        using PdfDocument reopened = PdfDocument.Open(update.ToArray());
+        using PdfDocument reopened = await PdfDocument.OpenAsync(update.ToArray(), TestContext.Current.CancellationToken);
         Assert.Null(reopened.AcroForm);
         Assert.Empty(reopened.Extensions);
         Assert.Equal(document.Version, reopened.Version);

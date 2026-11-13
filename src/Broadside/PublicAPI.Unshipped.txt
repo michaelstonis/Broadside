@@ -631,6 +631,7 @@ Broadside.Content.MarkedContentEvent.InlineProperties.get -> Broadside.Content.C
 Broadside.Content.MarkedContentEvent.IsHidden.get -> bool
 Broadside.Content.MarkedContentEvent.IsOptionalContent.get -> bool
 Broadside.Content.MarkedContentEvent.MarkedContentEvent() -> void
+Broadside.Content.MarkedContentEvent.AssociatedFiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfFileSpecification!>!
 Broadside.Content.MarkedContentEvent.Mcid.get -> int?
 Broadside.Content.MarkedContentEvent.Properties.get -> Broadside.Objects.CosDictionary?
 Broadside.Content.MarkedContentEvent.PropertiesObject.get -> Broadside.Objects.CosObject?
@@ -1202,6 +1203,7 @@ Broadside.Graphics.PdfAxialShading.TryGetParameter(double x, double y, out doubl
 Broadside.Graphics.PdfFormXObject
 Broadside.Graphics.PdfFormXObject.BoundingBox.get -> Broadside.PdfRectangle?
 Broadside.Graphics.PdfFormXObject.Decode() -> System.ReadOnlyMemory<byte>
+Broadside.Graphics.PdfFormXObject.AssociatedFiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfFileSpecification!>!
 Broadside.Graphics.PdfFormXObject.Dictionary.get -> Broadside.Objects.CosDictionary!
 Broadside.Graphics.PdfFormXObject.Group.get -> Broadside.Objects.CosDictionary?
 Broadside.Graphics.PdfFormXObject.IsForm.get -> bool
@@ -1522,6 +1524,7 @@ Broadside.Images.PdfImage.ColorSpace.get -> Broadside.Graphics.PdfColorSpace?
 Broadside.Images.PdfImage.CreateDecodeMap(Broadside.Images.DecodedImage! decoded) -> Broadside.Images.ImageDecodeMap!
 Broadside.Images.PdfImage.Decode() -> Broadside.Images.DecodedImage?
 Broadside.Images.PdfImage.DecodeArray.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Images.PdfImage.AssociatedFiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfFileSpecification!>!
 Broadside.Images.PdfImage.Dictionary.get -> Broadside.Objects.CosDictionary!
 Broadside.Images.PdfImage.Height.get -> int
 Broadside.Images.PdfImage.Intent.get -> Broadside.Graphics.RenderingIntent?
@@ -2073,8 +2076,6 @@ Broadside.PdfDocument.EnumerateAssociatedFiles(bool deep = false) -> System.Coll
 Broadside.PdfDocument.EnumerateObjectMetadata(bool deep = false) -> System.Collections.Generic.IEnumerable<Broadside.PdfObjectMetadata!>!
 Broadside.PdfDocument.GetFileSpecification(Broadside.Objects.CosObject? value) -> Broadside.PdfFileSpecification?
 Broadside.PdfDocument.OptionalContent.get -> Broadside.PdfOptionalContentProperties?
-Broadside.PdfDocument.ReadAssociatedFiles(Broadside.Objects.CosDictionary! owner, Broadside.Objects.CosReference? ownerReference = null) -> System.Collections.Generic.IReadOnlyList<Broadside.PdfFileSpecification!>!
-Broadside.PdfDocument.ReadMarkedContentAssociatedFiles(Broadside.Objects.CosObject? properties) -> System.Collections.Generic.IReadOnlyList<Broadside.PdfFileSpecification!>!
 Broadside.PdfEmbeddedFile
 Broadside.PdfEmbeddedFile.Decode() -> System.ReadOnlyMemory<byte>
 Broadside.PdfEmbeddedFile.Decode(System.Buffers.IBufferWriter<byte>! output) -> void
@@ -2110,6 +2111,7 @@ Broadside.PdfFileRelationship.Unspecified = 0 -> Broadside.PdfFileRelationship
 Broadside.PdfFileSpecification
 Broadside.PdfFileSpecification.CollectionItem.get -> Broadside.PdfCollectionItem?
 Broadside.PdfFileSpecification.Description.get -> string?
+Broadside.PdfFileSpecification.AssociatedFiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfFileSpecification!>!
 Broadside.PdfFileSpecification.Dictionary.get -> Broadside.Objects.CosDictionary?
 Broadside.PdfFileSpecification.EmbeddedFile.get -> Broadside.PdfEmbeddedFile?
 Broadside.PdfFileSpecification.EncryptedPayload.get -> Broadside.Objects.CosDictionary?
@@ -2753,16 +2755,10 @@ Broadside.Security.StandardSecurityHandler.StandardSecurityHandler() -> void
 Broadside.Security.StandardSecurityHandler.SubFilters.get -> System.Collections.Generic.IReadOnlyCollection<Broadside.Objects.CosName!>!
 override Broadside.Security.PdfPassword.ToString() -> string!
 static Broadside.Security.StandardSecurityHandler.UserPermissions(int rawPermissions, int revision) -> Broadside.PdfPermissions
-Broadside.PdfEngine.OpenAsync(System.IO.Stream! stream) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
-Broadside.PdfEngine.OpenAsync(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
 Broadside.PdfOptions.StreamBufferLimit.get -> long
 Broadside.PdfOptions.StreamBufferLimit.set -> void
 Broadside.PdfOptions.WithStreamBufferLimit(long limit) -> Broadside.PdfOptions!
 const Broadside.PdfOptions.DefaultStreamBufferLimit = 67108864 -> long
-static Broadside.PdfDocument.OpenAsync(System.IO.Stream! stream) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
-static Broadside.PdfDocument.OpenAsync(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
-static Broadside.PdfDocument.OpenAsync(System.IO.Stream! stream, Broadside.PdfOptions! options) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
-static Broadside.PdfDocument.OpenAsync(System.IO.Stream! stream, Broadside.PdfOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
 Broadside.PdfCrossReferenceLayout
 Broadside.PdfCrossReferenceLayout.Stream = 1 -> Broadside.PdfCrossReferenceLayout
 Broadside.PdfCrossReferenceLayout.StreamWithObjectStreams = 2 -> Broadside.PdfCrossReferenceLayout
@@ -2771,7 +2767,6 @@ Broadside.PdfDocument.Save(string! path) -> void
 Broadside.PdfDocument.Save(string! path, Broadside.PdfSaveOptions! options) -> void
 Broadside.PdfDocument.Save(System.IO.Stream! stream) -> void
 Broadside.PdfDocument.Save(System.IO.Stream! stream, Broadside.PdfSaveOptions! options) -> void
-Broadside.PdfDocument.SaveAsync(System.IO.Stream! stream, Broadside.PdfSaveOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Broadside.PdfDocument.Sign(System.IO.Stream! stream, Broadside.Signatures.IPdfSigner! signer, Broadside.Signatures.PdfSignatureOptions? options = null) -> void
 Broadside.PdfDocument.SignAsync(System.IO.Stream! stream, Broadside.Signatures.IPdfSigner! signer, Broadside.Signatures.PdfSignatureOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Broadside.PdfDocument.ValidateSignatures(Broadside.Signatures.PdfSignatureValidationOptions? options = null) -> System.Collections.Generic.IReadOnlyList<Broadside.Signatures.PdfSignatureValidation!>!
@@ -3769,12 +3764,6 @@ Broadside.Filters.DctEncoder.Encode(System.ReadOnlySpan<byte> data, System.Buffe
 Broadside.Filters.DctEncoder.Name.get -> Broadside.Objects.CosName!
 Broadside.Filters.DctEncoder.Quality.get -> int
 const Broadside.Filters.DctEncoder.DefaultQuality = 75 -> int
-Broadside.PdfEngine.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
-Broadside.PdfEngine.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
-static Broadside.PdfDocument.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
-static Broadside.PdfDocument.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
-static Broadside.PdfDocument.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri, Broadside.PdfOptions! options) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
-static Broadside.PdfDocument.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri, Broadside.PdfOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
 Broadside.PdfPage.PrefetchAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Broadside.PdfOptions.RangeBlockSize.get -> int
 Broadside.PdfOptions.RangeBlockSize.set -> void
@@ -5040,3 +5029,34 @@ Broadside.Rendering.DisplayImage.TryGetPlatformData(Broadside.Images.PlatformIma
 Broadside.PdfDocument.UsesPlatformImageDecoder(string! name) -> bool
 Broadside.Images.YCbCrConversion
 static Broadside.Images.YCbCrConversion.ToRgb(System.ReadOnlySpan<byte> y, System.ReadOnlySpan<byte> cb, System.ReadOnlySpan<byte> cr, System.Span<byte> rgb) -> void
+Broadside.PdfDocument.EncryptedPayload.get -> Broadside.PdfEncryptedPayload?
+Broadside.PdfDocument.IsUnencryptedWrapper.get -> bool
+Broadside.PdfEncryptedPayload
+Broadside.PdfEncryptedPayload.CryptographicFilter.get -> Broadside.Objects.CosName?
+Broadside.PdfEncryptedPayload.CryptographicFilterVersion.get -> string?
+Broadside.PdfEncryptedPayload.Dictionary.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfEncryptedPayload.File.get -> Broadside.PdfFileSpecification!
+Broadside.PdfEncryptedPayload.IsCryptographicFilterAvailable.get -> bool
+Broadside.PdfEncryptedPayload.Name.get -> string!
+Broadside.PdfEncryptedPayload.Open() -> Broadside.PdfDocument!
+Broadside.PdfEncryptedPayload.Open(Broadside.Security.PdfCredentials! credentials) -> Broadside.PdfDocument!
+override Broadside.PdfEncryptedPayload.ToString() -> string!
+Broadside.PdfEngine.OpenAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+Broadside.PdfEngine.OpenAsync(string! path, Broadside.Security.PdfCredentials! credentials, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+Broadside.PdfEngine.OpenAsync(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+Broadside.PdfEngine.OpenAsync(System.IO.Stream! stream, Broadside.Security.PdfCredentials! credentials, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+Broadside.PdfEngine.OpenAsync(System.ReadOnlyMemory<byte> bytes, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+Broadside.PdfEngine.OpenAsync(System.ReadOnlyMemory<byte> bytes, Broadside.Security.PdfCredentials! credentials, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+Broadside.PdfEngine.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(string! path, Broadside.PdfOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.IO.Stream! stream, Broadside.PdfOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.ReadOnlyMemory<byte> bytes, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.ReadOnlyMemory<byte> bytes, Broadside.PdfOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri, Broadside.PdfOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+Broadside.PdfDocument.SaveAsync(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Broadside.PdfDocument.SaveAsync(System.IO.Stream! stream, Broadside.PdfSaveOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Broadside.PdfDocument.SaveAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Broadside.PdfDocument.SaveAsync(string! path, Broadside.PdfSaveOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!

@@ -21,7 +21,7 @@ public sealed class PdfScreenAnnotation : PdfAnnotation
 
     /// <summary>Gets the action performed when the annotation is activated (<c>A</c>, PDF 1.1), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.18, Table 190, and §12.6.</remarks>
-    public PdfAction? Action => ReadAction(AnnotationNames.A);
+    public PdfAction? Action => this.GetAction(AnnotationNames.A);
 
     /// <summary>Gets the actions performed on the annotation's trigger events (<c>AA</c>, PDF 1.2), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.18, Table 190, and §12.6.3, Table 197; read through <see cref="PdfDocument.GetAnnotationAdditionalActions"/>.</remarks>

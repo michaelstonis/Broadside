@@ -232,10 +232,10 @@ public sealed class LinearizedSaveTests
     {
         const int pages = 20;
         byte[] file = PaddedPages(pages);
-        using PdfDocument local = PdfDocument.Open(file);
+        using PdfDocument local = await PdfDocument.OpenAsync(file, TestContext.Current.CancellationToken);
         byte[] linearized = Save(local, Linearized().WithStreamCompression(PdfStreamCompression.None));
         long firstPageEnd;
-        using (PdfDocument check = PdfDocument.Open(linearized))
+        using (PdfDocument check = await PdfDocument.OpenAsync(linearized, TestContext.Current.CancellationToken))
         {
             firstPageEnd = ((CosInteger)check.Linearization!.Dictionary[new CosName("E")]).Value;
         }

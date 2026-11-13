@@ -150,6 +150,7 @@ internal sealed partial class ContentInterpreter
         {
             var mc = new MarkedContentEvent
             {
+                Document = _context.Document,
                 Tag = tag,
                 InlineProperties = hasProperties && properties.Kind == ContentOperandKind.Dictionary ? properties : default,
                 Properties = named,
@@ -172,6 +173,7 @@ internal sealed partial class ContentInterpreter
         {
             var mc = new MarkedContentEvent
             {
+                Document = _context.Document,
                 Tag = _tagBytes.AsSpan(sequence.TagStart, sequence.TagLength),
                 Properties = sequence.Properties,
                 PropertiesObject = sequence.PropertiesObject,
@@ -202,6 +204,7 @@ internal sealed partial class ContentInterpreter
         {
             var mc = new MarkedContentEvent
             {
+                Document = _context.Document,
                 Tag = tag,
                 InlineProperties = hasProperties && properties.Kind == ContentOperandKind.Dictionary ? properties : default,
                 Properties = named,

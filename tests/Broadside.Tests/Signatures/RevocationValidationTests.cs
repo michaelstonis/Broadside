@@ -137,7 +137,7 @@ public sealed class RevocationValidationTests
         using var network = new TestRevocationAuthority(pki.Root);
         using var http = new HttpClient(network, disposeHandler: false);
         byte[] signed = Signed(pki.Signer, [pki.Root]);
-        using PdfDocument document = PdfDocument.Open(signed);
+        using PdfDocument document = await PdfDocument.OpenAsync(signed, TestContext.Current.CancellationToken);
 
         IReadOnlyList<PdfSignatureValidation> offline = asynchronous
             ? await document.ValidateSignaturesAsync(pki.Options(), TestContext.Current.CancellationToken)

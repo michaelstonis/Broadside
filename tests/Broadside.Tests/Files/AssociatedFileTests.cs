@@ -1,4 +1,7 @@
+using Broadside.Content;
 using Broadside.Diagnostics;
+using Broadside.Graphics;
+using Broadside.Images;
 using Broadside.Objects;
 using Broadside.Tests.Document;
 using Broadside.TestSupport;
@@ -74,18 +77,48 @@ public sealed class AssociatedFileTests
 
         Assert.Equal("source.txt", Assert.Single(document.AssociatedFiles).FileName);
         Assert.Equal("page-data.csv", Assert.Single(document.Pages[0].AssociatedFiles).FileName);
-        var annotation = (CosDictionary)document.Resolve(new CosReference(5, 0));
-        Assert.Equal("annotation.txt", Assert.Single(document.ReadAssociatedFiles(annotation)).FileName);
+        Assert.Equal("annotation.txt", Assert.Single(document.Pages[0].Annotations[0].AssociatedFiles).FileName);
     }
 
     [Fact]
-    public void A_marked_content_property_list_gives_its_files_from_MCAF_or_a_bare_array()
+    public void A_marked_content_sequence_gives_its_files_from_MCAF_or_a_bare_array()
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Path("associated-files.pdf"));
-        var properties = (CosDictionary)document.Resolve(document.Pages[0].Resources![new CosName("Properties")]);
+        var recorder = new AssociatedFileRecorder();
 
-        Assert.Equal("marked.csv", Assert.Single(document.ReadMarkedContentAssociatedFiles(properties[new CosName("MF1")])).FileName);
-        Assert.Equal("marked-legacy.txt", Assert.Single(document.ReadMarkedContentAssociatedFiles(properties[new CosName("MF2")])).FileName);
+        document.Pages[0].ProcessContent(recorder);
+
+        Assert.Equal(["marked.csv", "marked-legacy.txt"], recorder.Names);
+    }
+
+    [Fact]
+    public void A_form_XObject_and_an_image_XObject_report_their_files_as_live_views()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("associated-files.pdf"));
+        PdfAssociatedFile image = document.EnumerateAssociatedFiles().Single(file => file.Location == PdfAssociatedFileLocation.ImageXObject);
+
+        var recorder = new AssociatedFileRecorder();
+        document.Pages[0].ProcessContent(recorder);
+        Assert.Equal(["equation.mml"], recorder.FormFiles);
+
+        PdfImage imageView = document.GetImage(image.OwnerReference)!;
+        Assert.Equal("image-data.csv", Assert.Single(imageView.AssociatedFiles).FileName);
+    }
+
+    [Fact]
+    public void A_file_specification_reports_the_files_associated_with_it()
+    {
+        byte[] file = new TestPdf().Build(
+            "<< /Type /Catalog /Pages 2 0 R /AF [4 0 R] >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /Resources << >> /MediaBox [0 0 612 792] >>",
+            "<< /Type /Filespec /F (outer.txt) /AFRelationship /Source /AF [5 0 R] >>",
+            "<< /Type /Filespec /F (inner.txt) /AFRelationship /Data >>");
+        using PdfDocument document = PdfDocument.Open(file);
+
+        PdfFileSpecification outer = Assert.Single(document.AssociatedFiles);
+        Assert.Equal("inner.txt", Assert.Single(outer.AssociatedFiles).FileName);
+        Assert.Empty(Assert.Single(outer.AssociatedFiles).AssociatedFiles);
     }
 
     [Theory]
@@ -138,5 +171,23 @@ public sealed class AssociatedFileTests
         {
             Assert.False(document.Resolve(new CosReference(number, 0)).IsDirty);
         }
+    }
+
+    private sealed class AssociatedFileRecorder : ContentProcessor
+    {
+        public List<string?> Names { get; } = [];
+
+        public List<string?> FormFiles { get; } = [];
+
+        public override ContentEvents Events => ContentEvents.MarkedContent | ContentEvents.Forms;
+
+        public override ContentVisit BeginForm(in FormEvent form, ContentContext context)
+        {
+            FormFiles.AddRange(form.Form!.AssociatedFiles.Select(file => file.FileName));
+            return ContentVisit.Enter;
+        }
+
+        public override void BeginMarkedContent(in MarkedContentEvent mc, ContentContext context) =>
+            Names.AddRange(mc.AssociatedFiles.Select(file => file.FileName));
     }
 }

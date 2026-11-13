@@ -61,11 +61,11 @@ public abstract class PdfMarkupAnnotation : PdfAnnotation
 
     /// <summary>Gets the rich text shown in the pop-up window (<c>RC</c>, PDF 1.5), as stored (XHTML), or <see langword="null"/>. Not parsed.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.2, Table 172, and §12.7.4.4: a text string or a text stream.</remarks>
-    public string? RichText => ReadTextOrStream(AnnotationNames.RC);
+    public string? RichText => this.GetTextOrStream(AnnotationNames.RC);
 
     /// <summary>Gets the date and time the annotation was created (<c>CreationDate</c>, PDF 1.5), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.2, Table 172, and §7.9.4.</remarks>
-    public PdfDate? CreationDate => ReadDate(AnnotationNames.CreationDate);
+    public PdfDate? CreationDate => this.GetDate(AnnotationNames.CreationDate);
 
     /// <summary>Gets the annotation this one is a reply to or grouped with (<c>IRT</c>, PDF 1.5), or <see langword="null"/>.</summary>
     /// <remarks>
@@ -120,7 +120,7 @@ public abstract class PdfMarkupAnnotation : PdfAnnotation
                 Report(DiagnosticCodes.ReplyTypeWithoutInReplyTo, "The annotation has an RT entry but no IRT entry, which Table 172 requires with it.");
             }
 
-            return ReadChoice(AnnotationNames.RT, PdfReplyType.Reply, ("R", PdfReplyType.Reply), ("Group", PdfReplyType.Group));
+            return this.GetChoice(AnnotationNames.RT, PdfReplyType.Reply, ("R", PdfReplyType.Reply), ("Group", PdfReplyType.Group));
         }
     }
 
