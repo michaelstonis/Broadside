@@ -14,7 +14,7 @@ namespace Broadside.Parsing;
 /// </para>
 /// <para>
 /// A dictionary with a <c>Linearized</c> entry whose required entries are missing or of the wrong type is ignored with a
-/// <see cref="DiagnosticCodes.LinearizationDictionaryInvalid"/> diagnostic (pdf.js and qpdf ignore it too). The <c>L</c> check
+/// <see cref="FileStructureDiagnostics.LinearizationDictionaryInvalid"/> diagnostic (pdf.js and qpdf ignore it too). The <c>L</c> check
 /// against the file length is the caller's: a mismatch is not a deviation, it is what appending an update does (G.7).
 /// </para>
 /// </remarks>
@@ -58,7 +58,7 @@ internal static class LinearizationReader
         if (!TryValidate(dictionary, out long[] hintStreams))
         {
             diagnostics.Report(
-                DiagnosticCodes.LinearizationDictionaryInvalid,
+                FileStructureDiagnostics.LinearizationDictionaryInvalid,
                 DiagnosticSeverity.Warning,
                 "The linearization parameter dictionary lacks a required entry or has one of the wrong type (Linearized, L, H, O, E, N, T, P); the file is read as not linearized.",
                 objectReference: reference);

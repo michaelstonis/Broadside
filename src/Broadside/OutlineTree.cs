@@ -150,7 +150,7 @@ internal sealed class OutlineTree
                     {
                         if (resolved is not CosNull)
                         {
-                            Report(DiagnosticCodes.OutlineItemInvalid, DiagnosticSeverity.Warning, "An outline item is not a dictionary; its level ends there.", reference ?? level.Reference);
+                            Report(NavigationDiagnostics.OutlineItemInvalid, DiagnosticSeverity.Warning, "An outline item is not a dictionary; its level ends there.", reference ?? level.Reference);
                         }
 
                         break;
@@ -159,7 +159,7 @@ internal sealed class OutlineTree
                     if (ReferenceEquals(dictionary, root) || tree._nodes.ContainsKey(dictionary))
                     {
                         Report(
-                            DiagnosticCodes.OutlineCycle,
+                            NavigationDiagnostics.OutlineCycle,
                             DiagnosticSeverity.Error,
                             "An outline item is reached a second time (a cycle through Next or First); its level ends there.",
                             reference ?? level.Reference);
@@ -178,7 +178,7 @@ internal sealed class OutlineTree
                 if (last is not null && !(level.Node.TryGetValue(NavigationNames.Last, out CosObject? lastEntry) && SameObject(lastEntry, last)))
                 {
                     Report(
-                        DiagnosticCodes.OutlineLinkInconsistent,
+                        NavigationDiagnostics.OutlineLinkInconsistent,
                         DiagnosticSeverity.Warning,
                         "The Last entry does not name the item the First/Next chain ends with; the chain is used.",
                         level.Reference);
@@ -195,7 +195,7 @@ internal sealed class OutlineTree
                     if (level.Depth + 1 >= PdfOutline.MaxDepth)
                     {
                         Report(
-                            DiagnosticCodes.OutlineTooDeep,
+                            NavigationDiagnostics.OutlineTooDeep,
                             DiagnosticSeverity.Error,
                             string.Create(CultureInfo.InvariantCulture, $"The outline is deeper than {PdfOutline.MaxDepth} levels; the deeper items are skipped."),
                             item.Reference ?? level.Reference);
@@ -239,7 +239,7 @@ internal sealed class OutlineTree
             if (!parentMatches || !prevMatches)
             {
                 Report(
-                    DiagnosticCodes.OutlineLinkInconsistent,
+                    NavigationDiagnostics.OutlineLinkInconsistent,
                     DiagnosticSeverity.Warning,
                     "An outline item's Parent or Prev does not name the item the First/Next chain reached it from; the chain is used.",
                     reference);
@@ -247,7 +247,7 @@ internal sealed class OutlineTree
 
             if (document.Resolve(dictionary.TryGetValue(NavigationNames.Title, out CosObject? title) ? title : null) is not CosString)
             {
-                Report(DiagnosticCodes.OutlineItemInvalid, DiagnosticSeverity.Warning, "An outline item has no Title text string; it reads as empty.", reference);
+                Report(NavigationDiagnostics.OutlineItemInvalid, DiagnosticSeverity.Warning, "An outline item has no Title text string; it reads as empty.", reference);
             }
 
             _ = item.ReadColor(out bool colorValid);
@@ -255,7 +255,7 @@ internal sealed class OutlineTree
             if (!colorValid || !flagsValid)
             {
                 Report(
-                    DiagnosticCodes.OutlineItemInvalid,
+                    NavigationDiagnostics.OutlineItemInvalid,
                     DiagnosticSeverity.Warning,
                     "An outline item's C is not three numbers from 0 to 1, or its F is not an integer; black or no flags are used where they cannot be read.",
                     reference);
@@ -265,14 +265,14 @@ internal sealed class OutlineTree
             if (hasDest && dictionary.ContainsKey(NavigationNames.A))
             {
                 Report(
-                    DiagnosticCodes.OutlineDestAndAction,
+                    NavigationDiagnostics.OutlineDestAndAction,
                     DiagnosticSeverity.Warning,
                     "An outline item shall not have both Dest and A; both are read, and the action is the one to perform.",
                     reference);
             }
             else if (hasDest && PdfOutlineItem.IsActionDictionary(document.Resolve(dictionary[NavigationNames.Dest])))
             {
-                Report(DiagnosticCodes.DestinationInvalid, DiagnosticSeverity.Warning, "An outline item's Dest holds an action dictionary; it is read as the item's action.", reference);
+                Report(NavigationDiagnostics.DestinationInvalid, DiagnosticSeverity.Warning, "An outline item's Dest holds an action dictionary; it is read as the item's action.", reference);
             }
 
             // Read the destination and the action so that their own deviations are reported with the walk.
@@ -294,7 +294,7 @@ internal sealed class OutlineTree
             if (tree.Root.ContainsKey(KnownNames.Count) && PdfOutlineItem.ReadCount(document, tree.Root) is not >= 0)
             {
                 Report(
-                    DiagnosticCodes.OutlineCountInvalid,
+                    NavigationDiagnostics.OutlineCountInvalid,
                     DiagnosticSeverity.Warning,
                     "The outline's Count is negative or not an integer; it cannot be.",
                     tree.RootReference);
@@ -307,7 +307,7 @@ internal sealed class OutlineTree
                 if (children.Count > 0 && item.Count is null or 0)
                 {
                     Report(
-                        DiagnosticCodes.OutlineCountInvalid,
+                        NavigationDiagnostics.OutlineCountInvalid,
                         DiagnosticSeverity.Warning,
                         "An outline item with children has no non-zero Count to say whether it is open; it is read as closed.",
                         item.Reference);
@@ -323,7 +323,7 @@ internal sealed class OutlineTree
         private bool SameObject(CosObject entry, PdfOutlineItem item) =>
             item.Reference is { } reference ? reference.Equals(entry) : ReferenceEquals(document.Resolve(entry), item.Dictionary);
 
-        private void Report(string code, DiagnosticSeverity severity, string message, CosReference? reference) =>
+        private void Report(DiagnosticCode code, DiagnosticSeverity severity, string message, CosReference? reference) =>
             document.DiagnosticSink.Report(code, severity, message, objectReference: reference);
     }
 

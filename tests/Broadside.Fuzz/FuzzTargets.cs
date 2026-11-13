@@ -2034,7 +2034,7 @@ internal static class FuzzTargets
         {
             if (severity == DiagnosticSeverity.Error)
             {
-                errors.Add(code);
+                errors.Add(code.Name);
             }
         });
         if ((packet is null) != (errors.Count > 0))
@@ -2062,7 +2062,7 @@ internal static class FuzzTargets
     {
         byte[] written = XmpPacketWriter.Write(packet.Properties, packet.About ?? string.Empty);
         var reported = new List<string>();
-        XmpPacket? reread = XmpPacketReader.Read(written, (code, _, _) => reported.Add(code));
+        XmpPacket? reread = XmpPacketReader.Read(written, (code, _, _) => reported.Add(code.Name));
         if (reread is null || reported.Count > 0)
         {
             throw new InvalidOperationException($"A written XMP packet must read cleanly; reported: {string.Join(", ", reported)}.");

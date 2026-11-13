@@ -124,7 +124,7 @@ public sealed class PdfType3Font : PdfSimpleFont
             if (font.Get(FontMatrixKey) is { } matrix && AnnotationValues.ReadMatrix(font.Document, matrix) is null)
             {
                 font.Report(
-                    DiagnosticCodes.FontType3FontMatrixInvalid,
+                    Type3Diagnostics.FontType3FontMatrixInvalid,
                     DiagnosticSeverity.Warning,
                     "A Type 3 font's FontMatrix shall be an array of six numbers (ISO 32000-2 §9.6.4, Table 110); [0.001 0 0 0.001 0 0] is used.");
             }
@@ -132,7 +132,7 @@ public sealed class PdfType3Font : PdfSimpleFont
             if (source is not CosDictionary procedures)
             {
                 font.Report(
-                    DiagnosticCodes.FontType3CharProcsInvalid,
+                    Type3Diagnostics.FontType3CharProcsInvalid,
                     DiagnosticSeverity.Warning,
                     "A Type 3 font shall have a CharProcs dictionary (ISO 32000-2 §9.6.4, Table 110); its glyphs paint nothing.");
                 return table;
@@ -167,7 +167,7 @@ public sealed class PdfType3Font : PdfSimpleFont
             if (invalid)
             {
                 font.Report(
-                    DiagnosticCodes.FontType3CharProcsInvalid,
+                    Type3Diagnostics.FontType3CharProcsInvalid,
                     DiagnosticSeverity.Warning,
                     "A Type 3 font's CharProcs entry is not a content stream (ISO 32000-2 §9.6.4, Table 110); its glyph paints nothing.");
             }

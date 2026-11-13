@@ -45,7 +45,7 @@ public sealed partial class PdfDocument
             static (key, state) =>
             {
                 state.Document._diagnostics.Report(
-                    Parsing.DiagnosticCodes.CMapUseCMapCycle,
+                    CMapDiagnostics.CMapUseCMapCycle,
                     DiagnosticSeverity.Error,
                     "A CMap uses itself through its UseCMap chain (ISO 32000-2 §9.7.5.3, Table 118); the chain is cut there.",
                     objectReference: state.Reference);
@@ -158,7 +158,7 @@ public sealed partial class PdfDocument
             static (key, state) =>
             {
                 state.Document._diagnostics.Report(
-                    Parsing.DiagnosticCodes.CMapUseCMapCycle,
+                    CMapDiagnostics.CMapUseCMapCycle,
                     DiagnosticSeverity.Error,
                     $"The predefined CMap /{key} uses itself through its usecmap chain (Adobe TN 5014 §7.4); the chain is cut there.");
                 return null;

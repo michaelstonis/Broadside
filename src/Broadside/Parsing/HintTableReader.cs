@@ -19,7 +19,7 @@ namespace Broadside.Parsing;
 /// </para>
 /// <para>
 /// Hints are information only. A table that cannot be read yields <see langword="null"/> and a
-/// <see cref="DiagnosticCodes.LinearizationHintsInvalid"/> diagnostic; it never affects how the document reads. Filtered hint
+/// <see cref="FileStructureDiagnostics.LinearizationHintsInvalid"/> diagnostic; it never affects how the document reads. Filtered hint
 /// streams (qpdf writes FlateDecode by default) are decoded through the document's filter pipeline (§7.4) first.
 /// </para>
 /// </remarks>
@@ -258,7 +258,7 @@ internal static class HintTableReader
 
     private static PdfLinearizationHints? Invalid(DiagnosticSink diagnostics, string message)
     {
-        diagnostics.Report(DiagnosticCodes.LinearizationHintsInvalid, DiagnosticSeverity.Warning, message + " The hints are ignored.");
+        diagnostics.Report(FileStructureDiagnostics.LinearizationHintsInvalid, DiagnosticSeverity.Warning, message + " The hints are ignored.");
         return null;
     }
 

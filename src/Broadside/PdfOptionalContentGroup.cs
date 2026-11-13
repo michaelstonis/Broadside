@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -72,7 +73,7 @@ public sealed class PdfOptionalContentGroup
     internal int Ordinal { get; }
 
     /// <summary>Gets the report for a malformed entry of the group (<c>OptionalContentGroupInvalid</c>).</summary>
-    internal EntryReport Issue => new(_document, DiagnosticCodes.OptionalContentGroupInvalid, Reference, "The optional content group");
+    internal EntryReport Issue => new(_document, OptionalContentDiagnostics.OptionalContentGroupInvalid, Reference, "The optional content group");
 
     /// <inheritdoc/>
     public override string ToString() => Name;

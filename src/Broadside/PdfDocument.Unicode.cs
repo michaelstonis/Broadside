@@ -31,13 +31,13 @@ public sealed partial class PdfDocument
                 return GetToUnicode(stream, reference, depth: 0);
             case CosName { Value: "Identity-H" or "Identity-V" } name:
                 font.Report(
-                    DiagnosticCodes.ToUnicodeIdentityName,
+                    TextDiagnostics.ToUnicodeIdentityName,
                     DiagnosticSeverity.Warning,
                     $"ToUnicode shall be a CMap stream, not the name /{name.Value} (ISO 32000-2 §9.10.3); each code is read as its own UTF-16 value, as viewers do.");
                 return ToUnicodeMap.Identity;
             default:
                 font.Report(
-                    DiagnosticCodes.ToUnicodeInvalid,
+                    TextDiagnostics.ToUnicodeInvalid,
                     DiagnosticSeverity.Warning,
                     "ToUnicode shall be a CMap stream (ISO 32000-2 §9.10.3, Table 109); ignored.");
                 return null;
@@ -66,7 +66,7 @@ public sealed partial class PdfDocument
             static (_, state) =>
             {
                 state.Document._diagnostics.Report(
-                    DiagnosticCodes.CMapUseCMapCycle,
+                    CMapDiagnostics.CMapUseCMapCycle,
                     DiagnosticSeverity.Error,
                     "A ToUnicode CMap uses itself through its UseCMap chain (ISO 32000-2 §9.10.3); the chain is cut there.",
                     objectReference: state.Reference);
@@ -136,7 +136,7 @@ public sealed partial class PdfDocument
         if (context.Diagnostics.Count > 0)
         {
             _diagnostics.Report(
-                DiagnosticCodes.CidToUnicodeResourceInvalid,
+                TextDiagnostics.CidToUnicodeResourceInvalid,
                 DiagnosticSeverity.Information,
                 $"The font resolver's {name} table deviates from the CMap file format ({context.Diagnostics[0].Message}); what could be read is used.");
         }

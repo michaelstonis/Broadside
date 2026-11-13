@@ -317,7 +317,7 @@ internal static class CMapParser
                     }
                     else
                     {
-                        Report(DiagnosticCodes.CMapEntryInvalid, $"WMode shall be 0 or 1, not {mode.Value} (ISO 32000-2 §9.7.5.3, Table 118); read as 0.");
+                        Report(CMapDiagnostics.CMapEntryInvalid, $"WMode shall be 0 or 1, not {mode.Value} (ISO 32000-2 §9.7.5.3, Table 118); read as 0.");
                         File.WMode ??= 0;
                     }
                 }
@@ -393,14 +393,14 @@ internal static class CMapParser
         {
             if (previous.Kind != CosTokenKind.Integer || !data.Slice(previous.Start, previous.Length).SequenceEqual("0"u8))
             {
-                Report(DiagnosticCodes.CMapOperatorNotAllowed, "The operand of usefont shall be 0 (ISO 32000-2 §9.7.5.4 b); ignored.");
+                Report(CMapDiagnostics.CMapOperatorNotAllowed, "The operand of usefont shall be 0 (ISO 32000-2 §9.7.5.4 b); ignored.");
             }
         }
 
         public void SkipUnsupported(ref CosLexer lexer, Operator begin)
         {
             Report(
-                DiagnosticCodes.CMapOperatorNotAllowed,
+                CMapDiagnostics.CMapOperatorNotAllowed,
                 "beginrearrangedfont and beginusematrix shall not be used in a PDF CMap (ISO 32000-2 §9.7.5.4 e); the block is skipped.");
             Operator end = begin == Operator.BeginRearrangedFont ? Operator.EndRearrangedFont : Operator.EndUseMatrix;
             while (true)
@@ -421,7 +421,7 @@ internal static class CMapParser
             {
                 _bfReported = true;
                 Report(
-                    DiagnosticCodes.CMapOperatorNotAllowed,
+                    CMapDiagnostics.CMapOperatorNotAllowed,
                     "beginbfchar and beginbfrange shall not be used in a CMap used as an encoding (ISO 32000-2 §9.7.5.4 c); their destinations are read as CIDs.");
             }
 
@@ -540,9 +540,9 @@ internal static class CMapParser
         }
 
         public void Syntax(string message) =>
-            Report(DiagnosticCodes.CMapSyntaxInvalid, $"The CMap file has {message} (Adobe TN 5014 §7).");
+            Report(CMapDiagnostics.CMapSyntaxInvalid, $"The CMap file has {message} (Adobe TN 5014 §7).");
 
-        private void Report(string code, string message) => context.Report(DiagnosticCatalog.Get(code), DiagnosticSeverity.Warning, message);
+        private void Report(DiagnosticCode code, string message) => context.Report(code, DiagnosticSeverity.Warning, message);
 
         private static CosObject? ParseNext(ref CosLexer lexer, CosTokenKind kind)
         {
@@ -571,7 +571,7 @@ internal static class CMapParser
             }
             else
             {
-                Report(DiagnosticCodes.CidSystemInfoInvalid, "The CMap's CIDSystemInfo shall be a dictionary with Registry, Ordering and Supplement (ISO 32000-2 §9.7.3, Table 114); ignored.");
+                Report(FontDiagnostics.CidSystemInfoInvalid, "The CMap's CIDSystemInfo shall be a dictionary with Registry, Ordering and Supplement (ISO 32000-2 §9.7.3, Table 114); ignored.");
             }
         }
 
@@ -585,7 +585,7 @@ internal static class CMapParser
             {
                 if (!TryDecodeHex(text, out value, out length))
                 {
-                    Report(DiagnosticCodes.CMapEntryInvalid, "A code shall be a hexadecimal string (Adobe TN 5014 §7.1); the entry is dropped.");
+                    Report(CMapDiagnostics.CMapEntryInvalid, "A code shall be a hexadecimal string (Adobe TN 5014 §7.1); the entry is dropped.");
                     return false;
                 }
             }
@@ -610,7 +610,7 @@ internal static class CMapParser
 
             if (length is < 1 or > 4)
             {
-                Report(DiagnosticCodes.CMapEntryInvalid, $"A code shall be 1 to 4 bytes long, not {length} (ISO 32000-2 §9.7.6.2); the entry is dropped.");
+                Report(CMapDiagnostics.CMapEntryInvalid, $"A code shall be 1 to 4 bytes long, not {length} (ISO 32000-2 §9.7.6.2); the entry is dropped.");
                 return false;
             }
 
@@ -631,7 +631,7 @@ internal static class CMapParser
                 && double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out number))
             {
                 number = Math.Truncate(number);
-                Report(DiagnosticCodes.CMapEntryInvalid, "A CID shall be an integer (Adobe TN 5014 §7.4); a real is truncated.");
+                Report(CMapDiagnostics.CMapEntryInvalid, "A CID shall be an integer (Adobe TN 5014 §7.4); a real is truncated.");
             }
             else
             {
@@ -641,7 +641,7 @@ internal static class CMapParser
 
             if (number is < 0 or > 65535)
             {
-                Report(DiagnosticCodes.CMapEntryInvalid, $"A CID shall be 0 to 65,535, not {number} (Adobe TN 5014 §7.4); the entry is dropped.");
+                Report(CMapDiagnostics.CMapEntryInvalid, $"A CID shall be 0 to 65,535, not {number} (Adobe TN 5014 §7.4); the entry is dropped.");
                 return false;
             }
 
@@ -793,7 +793,7 @@ internal static class CMapParser
                 count = DecodeHexBytes(data.Slice(token.Start, token.Length), bytes, out bool valid);
                 if (!valid)
                 {
-                    Report(DiagnosticCodes.CMapEntryInvalid, "A destination shall be a hexadecimal string (Adobe TN 5014 §7.1); the entry is dropped.");
+                    Report(CMapDiagnostics.CMapEntryInvalid, "A destination shall be a hexadecimal string (Adobe TN 5014 §7.1); the entry is dropped.");
                     return false;
                 }
             }
@@ -907,7 +907,7 @@ internal static class CMapParser
             {
                 _cidReported = true;
                 Report(
-                    DiagnosticCodes.ToUnicodeCidMapping,
+                    TextDiagnostics.ToUnicodeCidMapping,
                     "A ToUnicode CMap shall map codes with beginbfchar and beginbfrange (ISO 32000-2 §9.10.3); its CID mappings map each code to the Unicode value of its CID, and notdef mappings are ignored.");
             }
 
@@ -931,7 +931,7 @@ internal static class CMapParser
             (low, high) = Align(low, high);
             if (low.Value > high.Value)
             {
-                Report(DiagnosticCodes.CMapEntryInvalid, "A range's lower code shall not exceed its upper code (Adobe TN 5014 §7.4); the range is dropped.");
+                Report(CMapDiagnostics.CMapEntryInvalid, "A range's lower code shall not exceed its upper code (Adobe TN 5014 §7.4); the range is dropped.");
                 return;
             }
 
@@ -939,7 +939,7 @@ internal static class CMapParser
             {
                 _overflowReported = true;
                 Report(
-                    DiagnosticCodes.ToUnicodeBfRangeOverflow,
+                    TextDiagnostics.ToUnicodeBfRangeOverflow,
                     "The last byte of a bfrange destination shall not exceed 255 - (srcCode2 - srcCode1) (ISO 32000-2 §9.10.3); the destination's last character is incremented as a whole.");
             }
 
@@ -949,7 +949,7 @@ internal static class CMapParser
         }
 
         private void Destination(string problem) =>
-            Report(DiagnosticCodes.ToUnicodeDestinationInvalid, $"A ToUnicode destination is {problem} (ISO 32000-2 §9.10.3).");
+            Report(TextDiagnostics.ToUnicodeDestinationInvalid, $"A ToUnicode destination is {problem} (ISO 32000-2 §9.10.3).");
 
         private void AddCodespace(Code low, Code high)
         {
@@ -965,7 +965,7 @@ internal static class CMapParser
                 int shift = 8 * index;
                 if (((low.Value >> shift) & 0xFF) > ((high.Value >> shift) & 0xFF))
                 {
-                    Report(DiagnosticCodes.CMapEntryInvalid, "A codespace range's lower code shall not exceed its upper code in any byte (Adobe TN 5014 §7.4); the range is dropped.");
+                    Report(CMapDiagnostics.CMapEntryInvalid, "A codespace range's lower code shall not exceed its upper code in any byte (Adobe TN 5014 §7.4); the range is dropped.");
                     return;
                 }
             }
@@ -983,13 +983,13 @@ internal static class CMapParser
             (low, high) = Align(low, high);
             if (low.Value > high.Value)
             {
-                Report(DiagnosticCodes.CMapEntryInvalid, "A range's lower code shall not exceed its upper code (Adobe TN 5014 §7.4); the range is dropped.");
+                Report(CMapDiagnostics.CMapEntryInvalid, "A range's lower code shall not exceed its upper code (Adobe TN 5014 §7.4); the range is dropped.");
                 return;
             }
 
             if (!notdef && cid + (long)(high.Value - low.Value) > 65535)
             {
-                Report(DiagnosticCodes.CMapEntryInvalid, "A range maps codes past CID 65,535 (Adobe TN 5014 §7.4); those codes select CID 0.");
+                Report(CMapDiagnostics.CMapEntryInvalid, "A range maps codes past CID 65,535 (Adobe TN 5014 §7.4); those codes select CID 0.");
             }
 
             (notdef ? File.Notdefs : File.Cids)[high.Length - 1].Add(new IntervalTable.Interval(low.Value, high.Value, cid));
@@ -1002,7 +1002,7 @@ internal static class CMapParser
                 return (low, high);
             }
 
-            Report(DiagnosticCodes.CMapEntryInvalid, "A range's two codes shall have the same length (Adobe TN 5014 §7.4); the upper code's length is used.");
+            Report(CMapDiagnostics.CMapEntryInvalid, "A range's two codes shall have the same length (Adobe TN 5014 §7.4); the upper code's length is used.");
             uint mask = high.Length == 4 ? uint.MaxValue : (1u << (8 * high.Length)) - 1;
             return (new Code(low.Value & mask, high.Length), high);
         }
@@ -1017,7 +1017,7 @@ internal static class CMapParser
             if (!_limitReported)
             {
                 _limitReported = true;
-                Report(DiagnosticCodes.CMapEntryLimitExceeded, $"The CMap has more than {context.MaxEntries} entries; the rest are dropped.");
+                Report(CMapDiagnostics.CMapEntryLimitExceeded, $"The CMap has more than {context.MaxEntries} entries; the rest are dropped.");
             }
 
             return false;

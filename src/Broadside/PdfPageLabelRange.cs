@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -72,7 +73,7 @@ public sealed class PdfPageLabelRange
                 case "a":
                     return PdfPageLabelStyle.LowercaseLetters;
                 default:
-                    _view.Report(DiagnosticCodes.PageLabelStyleInvalid, "A page label's S entry shall be D, R, r, A or a; the range is numbered in decimal.");
+                    _view.Report(DocumentDiagnostics.PageLabelStyleInvalid, "A page label's S entry shall be D, R, r, A or a; the range is numbered in decimal.");
                     return PdfPageLabelStyle.Arabic;
             }
         }
@@ -96,10 +97,10 @@ public sealed class PdfPageLabelRange
                         return prefix;
                     }
 
-                    _view.Report(DiagnosticCodes.PageLabelPrefixInvalid, "A page label prefix holds U+0000; it is cut there.");
+                    _view.Report(DocumentDiagnostics.PageLabelPrefixInvalid, "A page label prefix holds U+0000; it is cut there.");
                     return prefix[..nul];
                 default:
-                    _view.Report(DiagnosticCodes.PageLabelPrefixInvalid, "A page label's P entry shall be a text string; it is ignored.");
+                    _view.Report(DocumentDiagnostics.PageLabelPrefixInvalid, "A page label's P entry shall be a text string; it is ignored.");
                     return string.Empty;
             }
         }
@@ -118,10 +119,10 @@ public sealed class PdfPageLabelRange
                 case CosInteger { Value: >= 1 and <= int.MaxValue } start:
                     return (int)start.Value;
                 case CosReal { Value: >= 1 and <= int.MaxValue } real when double.IsInteger(real.Value):
-                    _view.Report(DiagnosticCodes.PageLabelStartInvalid, "A page label's St entry shall be an integer; it is a real holding an integral value, used as that integer.");
+                    _view.Report(DocumentDiagnostics.PageLabelStartInvalid, "A page label's St entry shall be an integer; it is a real holding an integral value, used as that integer.");
                     return (int)real.Value;
                 default:
-                    _view.Report(DiagnosticCodes.PageLabelStartInvalid, "A page label's St entry shall be an integer of 1 or more; the range starts at 1.");
+                    _view.Report(DocumentDiagnostics.PageLabelStartInvalid, "A page label's St entry shall be an integer of 1 or more; the range starts at 1.");
                     return 1;
             }
         }
@@ -169,7 +170,7 @@ public sealed class PdfPageLabelRange
     {
         if (_view.Get(KnownNames.Type) is { } type && !PageLabelType.Equals(type))
         {
-            _view.Report(DiagnosticCodes.PageLabelInvalid, "A page label dictionary's Type entry, if present, shall be PageLabel; it is ignored.");
+            _view.Report(DocumentDiagnostics.PageLabelInvalid, "A page label dictionary's Type entry, if present, shall be PageLabel; it is ignored.");
         }
     }
 
@@ -198,7 +199,7 @@ public sealed class PdfPageLabelRange
             };
             if (numeral is null)
             {
-                range._view.Report(DiagnosticCodes.PageLabelTooLong, "A page number is too large to write in letters or roman numerals; it is written in decimal.");
+                range._view.Report(DocumentDiagnostics.PageLabelTooLong, "A page number is too large to write in letters or roman numerals; it is written in decimal.");
                 numeral = Decimal(number);
             }
 

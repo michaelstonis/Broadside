@@ -102,9 +102,9 @@ internal static class ContentIssues
         ContentIssue.MarkedContentUnbalanced => DiagnosticCodes.ContentMarkedContentUnbalanced,
         ContentIssue.ShadingMissing => DiagnosticCodes.ContentShadingMissing,
         ContentIssue.PatternRecursion => DiagnosticCodes.ContentPatternRecursion,
-        ContentIssue.Type3GlyphMetricsMissing => DiagnosticCodes.ContentType3GlyphMetricsMissing,
-        ContentIssue.Type3GlyphMetricsMisplaced => DiagnosticCodes.ContentType3GlyphMetricsMisplaced,
-        ContentIssue.Type3GlyphRecursion => DiagnosticCodes.ContentType3GlyphRecursion,
+        ContentIssue.Type3GlyphMetricsMissing => Type3Diagnostics.ContentType3GlyphMetricsMissing.Name,
+        ContentIssue.Type3GlyphMetricsMisplaced => Type3Diagnostics.ContentType3GlyphMetricsMisplaced.Name,
+        ContentIssue.Type3GlyphRecursion => Type3Diagnostics.ContentType3GlyphRecursion.Name,
         ContentIssue.AppearanceResourcesMissing => DiagnosticCodes.AppearanceResourcesMissing,
         _ => DiagnosticCodes.ContentInlineImageInvalid,
     };

@@ -122,7 +122,7 @@ internal static class CrossReferenceReader
             if (!visited.Add(offset))
             {
                 diagnostics.Report(
-                    DiagnosticCodes.XrefPrevLoop,
+                    FileStructureDiagnostics.XrefPrevLoop,
                     DiagnosticSeverity.Error,
                     "The Prev chain of cross-reference sections loops back to a section already read; the chain ends here.",
                     offset);
@@ -172,7 +172,7 @@ internal static class CrossReferenceReader
             if (key.Equals(KnownNames.Root) || key.Equals(KnownNames.Info) || key.Equals(KnownNames.Encrypt) || key.Equals(KnownNames.ID))
             {
                 diagnostics.Report(
-                    DiagnosticCodes.TrailerEntryFromOlderRevision,
+                    FileStructureDiagnostics.TrailerEntryFromOlderRevision,
                     DiagnosticSeverity.Warning,
                     $"The newest trailer has no {key} entry, which every update's trailer shall repeat; the entry of an older revision's trailer is used.",
                     crossReference.Sections[0].Offset);
@@ -188,7 +188,7 @@ internal static class CrossReferenceReader
         if (keyword < 0)
         {
             diagnostics.Report(
-                DiagnosticCodes.StartxrefMissing,
+                FileStructureDiagnostics.StartxrefMissing,
                 DiagnosticSeverity.Warning,
                 "The file has no startxref keyword; the cross-reference information is rebuilt by scanning the file.");
             return false;
@@ -200,7 +200,7 @@ internal static class CrossReferenceReader
         if (!StructureTokens.TryReadUnsigned(ref lexer, out long stated) || stated > long.MaxValue - header.Offset)
         {
             diagnostics.Report(
-                DiagnosticCodes.StartxrefInvalid,
+                FileStructureDiagnostics.StartxrefInvalid,
                 DiagnosticSeverity.Warning,
                 "The startxref keyword is not followed by a byte offset; the cross-reference information is rebuilt by scanning the file.",
                 keyword);
@@ -211,7 +211,7 @@ internal static class CrossReferenceReader
         if (marker < 0)
         {
             diagnostics.Report(
-                DiagnosticCodes.EndOfFileMarkerMissing,
+                FileStructureDiagnostics.EndOfFileMarkerMissing,
                 DiagnosticSeverity.Warning,
                 "The startxref offset is not followed by the %%EOF marker.",
                 keyword + lexer.Position);
@@ -221,7 +221,7 @@ internal static class CrossReferenceReader
             // §7.5.5: "The last line of the file shall contain only the end-of-file marker, %%EOF." White-space after it (an
             // end-of-line marker, padding) is not data.
             diagnostics.Report(
-                DiagnosticCodes.EndOfFileMarkerNotLast,
+                FileStructureDiagnostics.EndOfFileMarkerNotLast,
                 DiagnosticSeverity.Warning,
                 "Data follows the %%EOF marker after the last startxref; the last line of the file shall contain only the marker. The data is ignored.",
                 data);
@@ -260,7 +260,7 @@ internal static class CrossReferenceReader
             {
                 // The offset points at white-space or a comment before the section: read from the section itself.
                 diagnostics.Report(
-                    isFirst ? DiagnosticCodes.StartxrefInvalid : DiagnosticCodes.TrailerPrevInvalid,
+                    isFirst ? FileStructureDiagnostics.StartxrefInvalid : FileStructureDiagnostics.TrailerPrevInvalid,
                     DiagnosticSeverity.Warning,
                     "The offset points before the cross-reference section rather than at it.",
                     offset);
@@ -275,7 +275,7 @@ internal static class CrossReferenceReader
         if (scan is not null && FindNearestSection(scan.Value, offset, visited) is { } nearest)
         {
             diagnostics.Report(
-                isFirst ? DiagnosticCodes.StartxrefInvalid : DiagnosticCodes.TrailerPrevInvalid,
+                isFirst ? FileStructureDiagnostics.StartxrefInvalid : FileStructureDiagnostics.TrailerPrevInvalid,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"The {stated} offset does not point at a cross-reference section; the section nearest to it, at offset {nearest}, is read instead."),
                 offset);
@@ -284,7 +284,7 @@ internal static class CrossReferenceReader
         }
 
         diagnostics.Report(
-            isFirst ? DiagnosticCodes.StartxrefInvalid : DiagnosticCodes.TrailerPrevInvalid,
+            isFirst ? FileStructureDiagnostics.StartxrefInvalid : FileStructureDiagnostics.TrailerPrevInvalid,
             isFirst ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
             isFirst
                 ? "The startxref offset does not point at a cross-reference section, and the file has none; the cross-reference information is rebuilt by scanning the file."
@@ -389,7 +389,7 @@ internal static class CrossReferenceReader
         if (entry is not CosInteger { Value: >= 0 } stated || stated.Value > long.MaxValue - header.Offset)
         {
             diagnostics.Report(
-                DiagnosticCodes.TrailerXRefStmInvalid,
+                FileStructureDiagnostics.TrailerXRefStmInvalid,
                 DiagnosticSeverity.Error,
                 "The trailer's XRefStm entry is not a direct, non-negative integer; the cross-reference stream it names is not read.",
                 table.Offset);
@@ -400,7 +400,7 @@ internal static class CrossReferenceReader
         if (!visited.Add(offset))
         {
             diagnostics.Report(
-                DiagnosticCodes.XrefPrevLoop,
+                FileStructureDiagnostics.XrefPrevLoop,
                 DiagnosticSeverity.Error,
                 "The trailer's XRefStm entry names a cross-reference section already read; it is not read again.",
                 offset);
@@ -412,7 +412,7 @@ internal static class CrossReferenceReader
         if (first.Kind != CosTokenKind.Integer)
         {
             diagnostics.Report(
-                DiagnosticCodes.TrailerXRefStmInvalid,
+                FileStructureDiagnostics.TrailerXRefStmInvalid,
                 DiagnosticSeverity.Error,
                 "The trailer's XRefStm offset does not point at a cross-reference stream; it is not read.",
                 offset);
@@ -422,7 +422,7 @@ internal static class CrossReferenceReader
         if (first.Start != 0)
         {
             diagnostics.Report(
-                DiagnosticCodes.TrailerXRefStmInvalid,
+                FileStructureDiagnostics.TrailerXRefStmInvalid,
                 DiagnosticSeverity.Warning,
                 "The XRefStm offset points before the cross-reference stream rather than at it.",
                 offset);
@@ -448,7 +448,7 @@ internal static class CrossReferenceReader
         }
 
         diagnostics.Report(
-            DiagnosticCodes.TrailerPrevInvalid,
+            FileStructureDiagnostics.TrailerPrevInvalid,
             DiagnosticSeverity.Error,
             "The trailer's Prev entry is not a direct, non-negative integer; older sections are not read.",
             section.Offset);

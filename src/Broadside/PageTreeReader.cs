@@ -30,7 +30,7 @@ internal static class PageTreeReader
         if (document.Resolve(rootEntry) is not CosDictionary root)
         {
             diagnostics.Report(
-                DiagnosticCodes.PagesMissing,
+                DocumentDiagnostics.PagesMissing,
                 DiagnosticSeverity.Error,
                 "The catalog has no Pages entry that resolves to the page tree root; the document has no pages.");
             return [];
@@ -62,7 +62,7 @@ internal static class PageTreeReader
             if (frame.Depth >= MaxDepth)
             {
                 diagnostics.Report(
-                    DiagnosticCodes.PageTreeTooDeep,
+                    PageDiagnostics.PageTreeTooDeep,
                     DiagnosticSeverity.Error,
                     string.Create(CultureInfo.InvariantCulture, $"The page tree is deeper than {MaxDepth} levels; the deeper nodes are skipped."),
                     objectReference: frame.Reference);
@@ -82,7 +82,7 @@ internal static class PageTreeReader
             && (document.Resolve(count) is not CosInteger { Value: var stated } || stated != pages.Count))
         {
             diagnostics.Report(
-                DiagnosticCodes.PageTreeCountMismatch,
+                PageDiagnostics.PageTreeCountMismatch,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"The page tree root's Count is not the number of pages found by walking the tree ({pages.Count})."),
                 objectReference: rootReference);
@@ -104,7 +104,7 @@ internal static class PageTreeReader
         if (document.Resolve(kidsEntry) is not CosArray array)
         {
             diagnostics.Report(
-                DiagnosticCodes.PageTreeKidsInvalid,
+                PageDiagnostics.PageTreeKidsInvalid,
                 DiagnosticSeverity.Error,
                 "A page tree node has no Kids array; it contributes no pages.",
                 objectReference: frame.Reference);
@@ -117,7 +117,7 @@ internal static class PageTreeReader
             if (reference is null && kid is CosDictionary)
             {
                 diagnostics.Report(
-                    DiagnosticCodes.PageTreeKidNotIndirect,
+                    PageDiagnostics.PageTreeKidNotIndirect,
                     DiagnosticSeverity.Warning,
                     "A Kids entry shall be an indirect reference; it is a direct dictionary, used as is.",
                     objectReference: frame.Reference);
@@ -126,7 +126,7 @@ internal static class PageTreeReader
             if (document.Resolve(kid) is not CosDictionary child)
             {
                 diagnostics.Report(
-                    DiagnosticCodes.PageTreeKidInvalid,
+                    PageDiagnostics.PageTreeKidInvalid,
                     DiagnosticSeverity.Error,
                     "A Kids entry does not resolve to a page tree node or page object; it is skipped.",
                     objectReference: reference ?? frame.Reference);
@@ -136,7 +136,7 @@ internal static class PageTreeReader
             if ((reference is not null && !visitedReferences.Add(reference)) || !visitedDictionaries.Add(child))
             {
                 diagnostics.Report(
-                    DiagnosticCodes.PageTreeCycle,
+                    PageDiagnostics.PageTreeCycle,
                     DiagnosticSeverity.Error,
                     "A page tree node or page is referenced more than once in the page tree; the repeat is skipped.",
                     objectReference: reference ?? frame.Reference);
@@ -170,7 +170,7 @@ internal static class PageTreeReader
 
         bool hasKids = frame.Node.TryGetValue(KnownNames.Kids, out CosObject? kids) && document.Resolve(kids) is not CosNull;
         diagnostics.Report(
-            DiagnosticCodes.PageTreeNodeTypeInvalid,
+            PageDiagnostics.PageTreeNodeTypeInvalid,
             DiagnosticSeverity.Warning,
             hasKids
                 ? "A page tree node's Type is not /Pages; it has Kids, so it is read as an intermediate node."
@@ -190,7 +190,7 @@ internal static class PageTreeReader
         if (!frame.Node.TryGetValue(KnownNames.Parent, out CosObject? parent) || !expected.Equals(parent))
         {
             diagnostics.Report(
-                DiagnosticCodes.PageTreeParentMismatch,
+                PageDiagnostics.PageTreeParentMismatch,
                 DiagnosticSeverity.Warning,
                 "The Parent entry does not refer to the page tree node whose Kids list this node; inheritance follows the tree.",
                 objectReference: frame.Reference);
@@ -205,7 +205,7 @@ internal static class PageTreeReader
         {
             case PageAttributeState.Absent:
                 diagnostics.Report(
-                    DiagnosticCodes.PageMediaBoxMissing,
+                    PageDiagnostics.PageMediaBoxMissing,
                     DiagnosticSeverity.Error,
                     "The page has no MediaBox, on itself or an ancestor; US Letter [0 0 612 792] is used.",
                     objectReference: reference);
@@ -224,14 +224,14 @@ internal static class PageTreeReader
         {
             case PageAttributeState.Repaired:
                 diagnostics.Report(
-                    DiagnosticCodes.PageRotateInvalid,
+                    PageDiagnostics.PageRotateInvalid,
                     DiagnosticSeverity.Warning,
                     "The page's Rotate shall be an integer; it is a real holding a multiple of 90, used as that integer.",
                     objectReference: reference);
                 break;
             case PageAttributeState.Invalid:
                 diagnostics.Report(
-                    DiagnosticCodes.PageRotateInvalid,
+                    PageDiagnostics.PageRotateInvalid,
                     DiagnosticSeverity.Warning,
                     "The page's Rotate is not a multiple of 90; 0 is used.",
                     objectReference: reference);
@@ -242,14 +242,14 @@ internal static class PageTreeReader
         {
             case PageAttributeState.Absent:
                 diagnostics.Report(
-                    DiagnosticCodes.PageResourcesMissing,
+                    PageDiagnostics.PageResourcesMissing,
                     DiagnosticSeverity.Warning,
                     "The page has no Resources, on itself or an ancestor; it is read as having none.",
                     objectReference: reference);
                 break;
             case PageAttributeState.Invalid:
                 diagnostics.Report(
-                    DiagnosticCodes.PageResourcesInvalid,
+                    PageDiagnostics.PageResourcesInvalid,
                     DiagnosticSeverity.Error,
                     "The page's Resources is not a dictionary; it is read as having none.",
                     objectReference: reference);
@@ -259,7 +259,7 @@ internal static class PageTreeReader
         if (page.ReadUserUnit(out _) == PageAttributeState.Invalid)
         {
             diagnostics.Report(
-                DiagnosticCodes.PageUserUnitInvalid,
+                PageDiagnostics.PageUserUnitInvalid,
                 DiagnosticSeverity.Warning,
                 "The page's UserUnit is not a positive number; 1.0 is used.",
                 objectReference: reference);
@@ -276,7 +276,7 @@ internal static class PageTreeReader
 
     private static void ReportInvalidBox(CosName key, string fallback, CosReference? reference, DiagnosticSink diagnostics) =>
         diagnostics.Report(
-            DiagnosticCodes.PageBoxInvalid,
+            PageDiagnostics.PageBoxInvalid,
             DiagnosticSeverity.Warning,
             string.Create(CultureInfo.InvariantCulture, $"The page's {key.Value} is not a rectangle of four numbers; {fallback}."),
             objectReference: reference);

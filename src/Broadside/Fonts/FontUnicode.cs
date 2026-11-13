@@ -108,7 +108,7 @@ internal sealed class SimpleFontUnicode : FontUnicode
         {
             font.ReportUnicode(
                 FontUnicodeReports.LengthMismatch,
-                DiagnosticCodes.ToUnicodeCodeLengthMismatch,
+                TextDiagnostics.ToUnicodeCodeLengthMismatch,
                 DiagnosticSeverity.Warning,
                 "A simple font's ToUnicode CMap shall write its codes as one byte (ISO 32000-2 §9.10.3); the codes are matched by value.");
         }
@@ -116,7 +116,7 @@ internal sealed class SimpleFontUnicode : FontUnicode
         {
             font.ReportUnicode(
                 FontUnicodeReports.NonStandardName,
-                DiagnosticCodes.GlyphNameNonStandard,
+                TextDiagnostics.GlyphNameNonStandard,
                 DiagnosticSeverity.Information,
                 $"The glyph name /{Metrics.Names[code]} uses lowercase hexadecimal digits, which the Adobe Glyph List specification does not (ISO 32000-2 §9.10.2); read as written.");
         }
@@ -202,7 +202,7 @@ internal sealed class Type0FontUnicode : FontUnicode
             {
                 font.ReportUnicode(
                     FontUnicodeReports.LengthMismatch,
-                    DiagnosticCodes.ToUnicodeCodeLengthMismatch,
+                    TextDiagnostics.ToUnicodeCodeLengthMismatch,
                     DiagnosticSeverity.Warning,
                     $"The font's ToUnicode CMap maps code 0x{code.Value:X} only under another code length than the {code.Length} byte(s) its CMap reads (ISO 32000-2 §9.10.3); matched by value.");
             }
@@ -231,7 +231,7 @@ internal sealed class Type0FontUnicode : FontUnicode
                 {
                     font.ReportUnicode(
                     FontUnicodeReports.Ucs2Missing,
-                    DiagnosticCodes.TextUcs2CmapMissing,
+                    TextDiagnostics.TextUcs2CmapMissing,
                     DiagnosticSeverity.Information,
                     $"The font's text maps through the {Ucs2Name} table (ISO 32000-2 §9.10.2), which is not available: add the Broadside.Fonts.Cmaps package and call options.UsePredefinedCMaps(), or register a font resolver that supplies it.");
                 }
