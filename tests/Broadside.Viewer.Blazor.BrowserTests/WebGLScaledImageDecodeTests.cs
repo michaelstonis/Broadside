@@ -65,6 +65,49 @@ public sealed class WebGLScaledImageDecodeTests(BrowserHost host)
         ScaledImagePages.AssertWithinTolerance(full, reduced, "WebGL small soft mask");
     }
 
+    public static TheoryData<string, double> UndecodableSoftMaskPages()
+    {
+        var data = new TheoryData<string, double>();
+        foreach (string name in TestSupport.UndecodableSoftMaskPages.Names)
+        {
+            data.Add(name, 0);
+            data.Add(name, 2);
+        }
+
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(UndecodableSoftMaskPages))]
+    public async Task An_image_whose_soft_mask_cannot_be_decoded_is_painted_unmasked(string name, double samplesPerPixel)
+    {
+        // Issue #515: a soft mask kept encoded whose data cannot be decoded masks nothing, at the image's resolution (k = 0) or at a
+        // half (k = 2: 256 samples over 64 pixels); one of the image's size stays on the GPU, one of another size falls back to the
+        // software rasterizer, and either way the image is drawn as it is without the soft mask.
+        string masked = $"undecodable-{name}.pdf";
+        string unmasked = $"undecodable-{name}-unmasked.pdf";
+        host.Serve(masked, TestSupport.UndecodableSoftMaskPages.Page(name));
+        host.Serve(unmasked, TestSupport.UndecodableSoftMaskPages.Page(name, masked: false));
+
+        (_, string codes, byte[] actual) = await RenderAsync(masked, 0.125, samplesPerPixel);
+        (_, _, byte[] expected) = await RenderAsync(unmasked, 0.125, samplesPerPixel);
+
+        Assert.Contains(expected, b => b != byte.MaxValue);
+        if (name.EndsWith("-same-size", StringComparison.Ordinal))
+        {
+            Assert.DoesNotContain("Rasterized", codes, StringComparison.Ordinal);
+            Assert.Equal(expected, actual);
+        }
+        else
+        {
+            // The software rasterizer draws the tile, against WebGL's own draw of the unmasked image: the same picture, resampled apart.
+            Assert.Contains("BackendImageMaskRasterized", codes, StringComparison.Ordinal);
+            (double psnr, double over8, int max) = ScaledImagePages.Compare(expected, actual);
+            TestContext.Current.TestOutputHelper?.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{name} k={samplesPerPixel}: PSNR {psnr:F1} dB, {over8:P2} over 8, max {max}"));
+            ScaledImagePages.AssertWithinTolerance(expected, actual, $"WebGL {name}");
+        }
+    }
+
     [Fact]
     public async Task The_render_worker_decodes_images_as_the_pages_options_say()
     {

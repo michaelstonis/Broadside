@@ -184,6 +184,19 @@ internal static class DeviceProtocol
     /// <summary>The scaled decode case of a warm replay's allocations.</summary>
     public const string AllocationCase = "allocation";
 
+    /// <summary>
+    /// The scaled decode case of an image whose soft mask cannot be decoded when drawn (issue #515; <c>UndecodableSoftMaskPages</c>),
+    /// rendered at an eighth with scaled decode or without: <see cref="Identical"/> to the image rendered without its soft mask,
+    /// <see cref="Painted"/>, and the document's diagnostic codes (<see cref="Diagnostics"/>).
+    /// </summary>
+    public static string UndecodableCase(string page, bool scaled) => $"undecodable-{page}{(scaled ? "-scaled" : string.Empty)}";
+
+    /// <summary>The scaled decode case of an image that cannot be decoded when drawn (issue #515): <see cref="Painted"/> must be <c>no</c>.</summary>
+    public static string UndecodableImageCase(bool scaled) => UndecodableCase("image", scaled);
+
+    /// <summary>The figure, <c>yes</c> or <c>no</c>, of whether a render on white painted any pixel (of the expected render, when two are compared).</summary>
+    public const string Painted = "painted";
+
     /// <summary>The figure of a reduced render's PSNR against the full one, in dB.</summary>
     public const string Psnr = "psnr";
 

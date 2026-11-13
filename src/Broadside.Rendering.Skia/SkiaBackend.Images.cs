@@ -517,10 +517,19 @@ public sealed partial class SkiaBackend
             return entry;
         }
 
-        /// <summary>Converts a mask to an alpha-only Skia image at <paramref name="reduction"/> (or what its samples deliver); null (reported) when too large.</summary>
+        /// <summary>
+        /// Converts a mask to an alpha-only Skia image at <paramref name="reduction"/> (or what its samples deliver); null when too large
+        /// (reported), or when a soft mask cannot be decoded, which then masks nothing (see <see cref="SoftMaskDecodes"/>).
+        /// </summary>
         private SKImage? ConvertMask(DisplayImage? soft, DisplayImageMask? stencil, int reduction, out int delivered)
         {
             SKImage? alpha;
+            if (soft is not null && !SoftMaskDecodes(soft, reduction))
+            {
+                delivered = 0;
+                return null;
+            }
+
             if (soft is null)
             {
                 delivered = reduction;
@@ -548,6 +557,13 @@ public sealed partial class SkiaBackend
             cache.PixelsConverted += (long)alpha.Width * alpha.Height;
             return alpha;
         }
+
+        /// <summary>
+        /// Whether a soft mask drawn on its own grid can be decoded at <paramref name="reduction"/>. One that cannot (ISO 32000-2
+        /// §11.6.5.2; its reason is a diagnostic of the document) masks nothing, so the image is painted unmasked, as when the soft mask
+        /// could not be decoded when the list was built (issue #515).
+        /// </summary>
+        private static bool SoftMaskDecodes(DisplayImage soft, int reduction) => soft.GetSamplesAt(reduction) is not null;
 
         private void DisposeImages()
         {

@@ -102,7 +102,9 @@ public interface IRenderingBackend
     /// device as the backend sees fit; honour <see cref="DisplayImage.Interpolate"/> when enlarging (§8.9.5.3). Masks travel with the
     /// image (§8.9.6, §11.6.5.2, §7.4.9): <see cref="DisplayImage.Mask"/>, <see cref="DisplayImage.ColorKey"/> and
     /// <see cref="DisplayImage.SoftMask"/> say where and how opaquely it is painted, each mask resampled from its own resolution;
-    /// <see cref="DisplayImage.Matte"/> is removed from the colours before conversion.
+    /// <see cref="DisplayImage.Matte"/> is removed from the colours before conversion. An image whose samples cannot be decoded
+    /// (<see cref="DisplayImage.GetSamplesAt(int)"/> returns <see langword="null"/>) paints nothing; a soft mask whose samples cannot
+    /// be decoded masks nothing, so the image is painted unmasked. Either reason is already a diagnostic of the document.
     /// </remarks>
     void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion);
 

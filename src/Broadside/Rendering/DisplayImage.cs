@@ -502,7 +502,9 @@ public sealed class DisplayImage
     /// differ from the image's; a backend resamples it to the device, never to the image's size. It overrides any soft mask in the
     /// graphics state for this image (§11.6.4.3). One of the image's size reduces whenever the image does, at the same reduction
     /// (<see cref="GetReduction"/> keeps the image within the soft mask's <see cref="MaxReduction"/>), so that the two fold on one
-    /// grid; one of another size reduces by its own rule.
+    /// grid; one of another size reduces by its own rule. A soft mask kept encoded whose samples cannot be decoded where it is drawn
+    /// (<see cref="GetSamplesAt(int)"/> returns <see langword="null"/>; the reason is a diagnostic of the document) masks nothing: the
+    /// image is painted unmasked, as when a soft mask cannot be decoded when the list is built.
     /// </remarks>
     public DisplayImage? SoftMask { get; internal init; }
 

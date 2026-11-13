@@ -50,6 +50,16 @@ internal static class ScaledImageDecodeRun
             Compare(results, DeviceProtocol.CurvedCase, curved, 0.0625);
         }
 
+        foreach (bool scaled in (bool[])[false, true])
+        {
+            foreach (string page in UndecodableSoftMaskPages.Names)
+            {
+                Undecodable(results, page, scaled);
+            }
+
+            UndecodableImage(results, scaled);
+        }
+
         // Each case opens the cover anew: the document keeps the samples it decoded, and a finer decode serves a coarser request.
         OneToOne(results);
         PageRenders(results);
@@ -80,6 +90,35 @@ internal static class ScaledImageDecodeRun
         Put(results, DeviceProtocol.ScaledKey(name, DeviceProtocol.FullPixels), fullPixels);
         Put(results, DeviceProtocol.ScaledKey(name, DeviceProtocol.KeptBytes), kept);
     }
+
+    /// <summary>
+    /// Issue #515: an image whose soft mask cannot be decoded when drawn, at an eighth (a viewer render reduces it by half), against the
+    /// same image without its soft mask; and the codes of the document's diagnostics.
+    /// </summary>
+    private static void Undecodable(Bundle results, string page, bool scaled)
+    {
+        string name = DeviceProtocol.UndecodableCase(page, scaled);
+        using PdfDocument masked = PdfDocument.Open(UndecodableSoftMaskPages.Page(page));
+        using PdfDocument unmasked = PdfDocument.Open(UndecodableSoftMaskPages.Page(page, masked: false));
+        (byte[] actual, _, _) = Render(masked, 0.125, scaled);
+        (byte[] expected, _, _) = Render(unmasked, 0.125, scaled);
+        results.PutString(DeviceProtocol.ScaledKey(name, DeviceProtocol.Identical), expected.AsSpan().SequenceEqual(actual) ? "yes" : "no");
+        results.PutString(DeviceProtocol.ScaledKey(name, DeviceProtocol.Painted), Painted(expected) ? "yes" : "no");
+        results.PutString(DeviceProtocol.ScaledKey(name, DeviceProtocol.Diagnostics), string.Join(' ', masked.Diagnostics.Select(static d => d.Code)));
+    }
+
+    /// <summary>Issue #515: an image that cannot be decoded when drawn paints nothing.</summary>
+    private static void UndecodableImage(Bundle results, bool scaled)
+    {
+        string name = DeviceProtocol.UndecodableImageCase(scaled);
+        using PdfDocument document = PdfDocument.Open(UndecodableSoftMaskPages.UndecodableImagePage());
+        (byte[] pixels, _, _) = Render(document, 0.125, scaled);
+        results.PutString(DeviceProtocol.ScaledKey(name, DeviceProtocol.Painted), Painted(pixels) ? "yes" : "no");
+        results.PutString(DeviceProtocol.ScaledKey(name, DeviceProtocol.Diagnostics), string.Join(' ', document.Diagnostics.Select(static d => d.Code)));
+    }
+
+    /// <summary>Whether a render on white has a pixel that is not opaque white.</summary>
+    private static bool Painted(byte[] pixels) => pixels.AsSpan().ContainsAnyExcept(byte.MaxValue);
 
     /// <summary>At one device pixel per sample nothing is reduced: the page renders are identical with and without scaled decode.</summary>
     private static void OneToOne(Bundle results)
