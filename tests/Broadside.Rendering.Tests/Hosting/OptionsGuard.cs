@@ -33,7 +33,7 @@ internal static class OptionsGuard
         [typeof(TimeProvider)] = [TimeProvider.System],
         [typeof(CancellationToken)] = [CancellationToken.None, new CancellationTokenSource().Token],
         [typeof(PdfCredentials)] = [new PdfPassword("secret")],
-        [typeof(string)] = ["sample", "text/plain", null],
+        [typeof(string)] = ["sample", "text/plain", "1.0", null],
     };
 
     /// <summary>
