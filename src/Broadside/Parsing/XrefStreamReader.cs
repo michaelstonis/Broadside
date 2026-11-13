@@ -73,9 +73,17 @@ internal static class XrefStreamReader
         int entryWidth = widths[0] + widths[1] + widths[2];
         long? size = ReadSize(dictionary, offset, reference, diagnostics);
         List<(long First, long Count)> subsections = ReadIndex(dictionary, size ?? (data.Length / entryWidth), offset, reference, diagnostics);
-        var entries = new Dictionary<int, XrefEntry>();
+        // Room for every entry at once, so a large stream's entries are stored without growing: one per row of the data (§7.5.8.3)
+        // the subsections number, and no more than the document's entry budget allows.
+        long rows = 0;
+        foreach ((long _, long count) in subsections)
+        {
+            rows += Math.Min(count, data.Length);
+        }
+
+        var entries = new XrefEntryMap.Builder((int)Math.Min(Math.Min(rows, data.Length / entryWidth), Math.Min(budget.Remaining, Array.MaxLength)));
         ReadEntries(data, widths, subsections, size, entries, offset, reference, budget, diagnostics);
-        return new XrefSection(offset, end, XrefSectionKind.Stream, entries, Trailer(dictionary)) { Stream = stream };
+        return new XrefSection(offset, end, XrefSectionKind.Stream, entries.Build(), Trailer(dictionary)) { Stream = stream };
     }
 
     /// <summary>Returns the trailer a cross-reference stream stands for: its dictionary without the stream-only entries.</summary>
@@ -276,7 +284,7 @@ internal static class XrefStreamReader
         int[] widths,
         List<(long First, long Count)> subsections,
         long? size,
-        Dictionary<int, XrefEntry> entries,
+        XrefEntryMap.Builder entries,
         long offset,
         CosReference? reference,
         XrefEntryBudget budget,
@@ -335,7 +343,7 @@ internal static class XrefStreamReader
                         reference);
                 }
 
-                entries.TryAdd((int)number, entry);
+                entries.Add((int)number, entry);
             }
         }
 

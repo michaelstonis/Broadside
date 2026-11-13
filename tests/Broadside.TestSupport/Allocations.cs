@@ -29,8 +29,9 @@ public static class Allocations
     /// <summary>Returns the fewest bytes one call of <paramref name="action"/> allocated on this thread, after a warm-up.</summary>
     /// <param name="action">The work to measure. Create the delegate (and anything it captures) before calling, not inside it.</param>
     /// <param name="warmUpCalls">Calls before measuring.</param>
+    /// <param name="attempts">The most measured calls; fewer for a call that takes seconds and allocates the same every time.</param>
     /// <returns>The bytes the cheapest measured call allocated.</returns>
-    public static long Measure(Action action, int warmUpCalls = WarmUpCalls)
+    public static long Measure(Action action, int warmUpCalls = WarmUpCalls, int attempts = Attempts)
     {
         ArgumentNullException.ThrowIfNull(action);
         for (int call = 0; call < warmUpCalls; call++)
@@ -39,7 +40,7 @@ public static class Allocations
         }
 
         long fewest = long.MaxValue;
-        for (int attempt = 0; attempt < Attempts; attempt++)
+        for (int attempt = 0; attempt < attempts; attempt++)
         {
             if (attempt > 0)
             {

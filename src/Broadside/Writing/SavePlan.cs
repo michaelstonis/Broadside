@@ -434,10 +434,7 @@ internal static class SavePlan
         long size = sourceTrailer.TryGetValue(KnownNames.Size, out CosObject? sizeEntry) && sizeEntry is CosInteger { Value: > 0 and <= MaxObjectNumber } count
             ? count.Value
             : 0;
-        foreach (int number in crossReference.Entries.Keys)
-        {
-            size = Math.Max(size, number + 1L);
-        }
+        size = Math.Max(size, crossReference.Entries.MaxNumber + 1L);
 
         CheckUpdateNumbers(loader, form, size, objects, freeGenerations, diagnostics);
         var target = new UpdateTarget(

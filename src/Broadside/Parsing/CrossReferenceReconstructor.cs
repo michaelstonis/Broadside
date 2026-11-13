@@ -123,7 +123,7 @@ internal static class CrossReferenceReconstructor
 
         chosen.Insert(0, KnownNames.Size, new CosInteger(entries.Count == 0 ? 1 : entries.Keys.Max() + 1L));
         CosDictionary trailer = CosDictionary.FromOwnedEntries(chosen);
-        var section = new XrefSection(source.Length, source.Length, XrefSectionKind.Table, entries, trailer) { IsReconstructed = true };
+        var section = new XrefSection(source.Length, source.Length, XrefSectionKind.Table, XrefEntryMap.From(entries), trailer) { IsReconstructed = true };
         return new CrossReference([section]);
     }
 
@@ -136,7 +136,7 @@ internal static class CrossReferenceReconstructor
         StreamDecoder streams,
         DiagnosticSink diagnostics)
     {
-        var section = new XrefSection(source.Length, source.Length, XrefSectionKind.Table, entries, trailer)
+        var section = new XrefSection(source.Length, source.Length, XrefSectionKind.Table, XrefEntryMap.From(entries), trailer)
         {
             IsReconstructed = true,
         };
