@@ -330,6 +330,7 @@
     "Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk(File: \"encrypted-rc4-length-missing.pdf\")": 32040,
     "Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk(File: \"encrypted-rc4-user-password.pdf\")": 31488,
     "Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk(File: \"encrypted-user-password.pdf\")": 54624,
+    "Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk(File: \"encrypted-wrapper.pdf\")": 34808,
     "Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk(File: \"extgstate-params.pdf\")": 42672,
     "Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk(File: \"filter-chain.pdf\")": 26168,
     "Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk(File: \"flate-stream.pdf\")": 25632,

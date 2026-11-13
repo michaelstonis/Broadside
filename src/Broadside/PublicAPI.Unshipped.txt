@@ -5040,3 +5040,15 @@ Broadside.Rendering.DisplayImage.TryGetPlatformData(Broadside.Images.PlatformIma
 Broadside.PdfDocument.UsesPlatformImageDecoder(string! name) -> bool
 Broadside.Images.YCbCrConversion
 static Broadside.Images.YCbCrConversion.ToRgb(System.ReadOnlySpan<byte> y, System.ReadOnlySpan<byte> cb, System.ReadOnlySpan<byte> cr, System.Span<byte> rgb) -> void
+Broadside.PdfDocument.EncryptedPayload.get -> Broadside.PdfEncryptedPayload?
+Broadside.PdfDocument.IsUnencryptedWrapper.get -> bool
+Broadside.PdfEncryptedPayload
+Broadside.PdfEncryptedPayload.CryptographicFilter.get -> Broadside.Objects.CosName?
+Broadside.PdfEncryptedPayload.CryptographicFilterVersion.get -> string?
+Broadside.PdfEncryptedPayload.Dictionary.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfEncryptedPayload.File.get -> Broadside.PdfFileSpecification!
+Broadside.PdfEncryptedPayload.IsCryptographicFilterAvailable.get -> bool
+Broadside.PdfEncryptedPayload.Name.get -> string!
+Broadside.PdfEncryptedPayload.Open() -> Broadside.PdfDocument!
+Broadside.PdfEncryptedPayload.Open(Broadside.Security.PdfCredentials! credentials) -> Broadside.PdfDocument!
+override Broadside.PdfEncryptedPayload.ToString() -> string!
