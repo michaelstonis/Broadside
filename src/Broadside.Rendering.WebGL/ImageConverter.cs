@@ -26,10 +26,9 @@ internal static class ImageConverter
         image.SoftMask is null && image.Mask is { } mask && mask.Width == image.Width && mask.Height == image.Height;
 
     /// <summary>
-    /// Returns whether the image's soft mask folds into its converted <paramref name="samples"/>, and its samples to fold: at the
-    /// image's own resolution a soft mask of its size always folds (<paramref name="softSamples"/> null when the mask cannot be
-    /// decoded: its rows read as zero); reduced (issue #362), only when the mask's samples have the same reduction, so that the grids
-    /// align (§11.6.5.2).
+    /// Returns whether the image's soft mask folds into its converted <paramref name="samples"/>, and its samples to fold: a soft mask
+    /// of its size whose samples have the same reduction, so that the grids align (§11.6.5.2; issue #362). One that cannot be decoded
+    /// does not fold and leaves the image unmasked, as when it could not be decoded when the list was built (issue #515).
     /// </summary>
     public static bool FoldsSoftMask(DisplayImage image, DisplayImageSamples samples, out DisplayImageSamples? softSamples)
     {
@@ -40,13 +39,13 @@ internal static class ImageConverter
         }
 
         softSamples = image.SoftMask!.GetSamplesAt(samples.Reduction);
-        return samples.Reduction == 0 || (softSamples is { } soft && soft.Reduction == samples.Reduction);
+        return softSamples is { } soft && soft.Reduction == samples.Reduction;
     }
 
     /// <summary>
     /// Converts a colour image's samples, at its own resolution or a reduction (issue #362), to premultiplied RGBA in a rented array
     /// (the caller returns it); null when they have more pixels than a managed array can hold. The soft mask folds when
-    /// <paramref name="foldSoft"/> is set, through <paramref name="softSamples"/> (null at the image's resolution: its rows are read),
+    /// <paramref name="foldSoft"/> is set, through <paramref name="softSamples"/> (as <see cref="FoldsSoftMask(DisplayImage, DisplayImageSamples, out DisplayImageSamples?)"/> gives them),
     /// an explicit mask of the image's size at its own resolution.
     /// </summary>
     public static byte[]? Convert(DisplayImage image, DisplayImageSamples samples, bool foldSoft, DisplayImageSamples? softSamples, PdfColorConverter converter, PdfColorConverter? baseConverter)

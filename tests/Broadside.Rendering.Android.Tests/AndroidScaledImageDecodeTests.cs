@@ -47,6 +47,44 @@ public sealed class AndroidScaledImageDecodeTests
     public void Corpus_DCT_pages_at_a_quarter_scale_stay_within_the_page_tolerance(string file) =>
         AssertWithinTolerance(AndroidDevice.Run(), file);
 
+    public static TheoryData<string, bool> UndecodablePages()
+    {
+        var data = new TheoryData<string, bool>();
+        foreach (string page in UndecodableSoftMaskPages.Names)
+        {
+            data.Add(page, false);
+            data.Add(page, true);
+        }
+
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(UndecodablePages))]
+    public void An_image_whose_soft_mask_cannot_be_decoded_is_painted_unmasked(string page, bool scaled)
+    {
+        // Issue #515: folded into the image or drawn on its own grid, at the image's resolution or a half, a soft mask that cannot be
+        // decoded masks nothing, as the software rasterizer draws it; the codec's reason is a diagnostic of the document.
+        AndroidDevice device = AndroidDevice.Run();
+        string name = DeviceProtocol.UndecodableCase(page, scaled);
+
+        Assert.Equal("yes", device.Scaled(name, DeviceProtocol.Painted));
+        Assert.Equal("yes", device.Scaled(name, DeviceProtocol.Identical));
+        Assert.Contains(UndecodableSoftMaskPages.DiagnosticCode(page), device.Scaled(name, DeviceProtocol.Diagnostics).Split(' '));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void An_image_that_cannot_be_decoded_paints_nothing(bool scaled)
+    {
+        AndroidDevice device = AndroidDevice.Run();
+        string name = DeviceProtocol.UndecodableImageCase(scaled);
+
+        Assert.Equal("no", device.Scaled(name, DeviceProtocol.Painted));
+        Assert.Contains("DctTableMissing", device.Scaled(name, DeviceProtocol.Diagnostics).Split(' '));
+    }
+
     public static TheoryData<string> Pages => [.. ScaledImagePages.Names];
 
     [Theory]

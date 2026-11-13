@@ -194,10 +194,11 @@ internal sealed class Recorder : IRenderingBackend
             }
 
             foldSoft = ImageConverter.FoldsSoftMask(image, samples.Value, out softSamples);
-            if (!foldSoft && reduction > 0 && ImageConverter.FoldsSoftMask(image))
+            if (!foldSoft && reduction > 0 && softSamples is not null)
             {
                 // A soft mask of the image's size reduces with it (issue #513), unless its codec delivered less than
-                // its header promised: the image's own resolution then keeps both on the GPU.
+                // its header promised: the image's own resolution then keeps both on the GPU. One that cannot be decoded
+                // (null samples) folds at no resolution: the image is painted unmasked at its reduction (issue #515).
                 reduction = 0;
                 samples = image.GetSamplesAt(0);
                 if (samples is null)

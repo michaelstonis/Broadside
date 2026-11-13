@@ -409,6 +409,13 @@ internal sealed unsafe partial class Direct2DBackend : IDisposable
         int delivered = entry.Delivered;
         if (alpha is null)
         {
+            if (soft is not null && soft.GetSamplesAt(reduction) is null)
+            {
+                // ISO 32000-2 §11.6.5.2: a soft mask that cannot be decoded (its reason is a diagnostic of the document) clips nothing,
+                // so the image is painted unmasked, as when the soft mask could not be decoded when the list was built (issue #515).
+                return;
+            }
+
 #pragma warning disable CA2000 // Kept by the cache, or disposed in the finally block below.
             alpha = ConvertMask(soft, stencil, reduction, out delivered);
 #pragma warning restore CA2000

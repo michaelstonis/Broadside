@@ -100,8 +100,8 @@ internal static class TextureCache
         {
             // A bitmap that would not upload: the image's own samples (an image that cannot be decoded converts to nothing).
             samples = image.GetSamplesAt(0);
-            foldSoft = ImageConverter.FoldsSoftMask(image);
-            softSamples = foldSoft ? image.SoftMask!.GetSamplesAt(0) : null;
+            softSamples = null;
+            foldSoft = samples is { } own && ImageConverter.FoldsSoftMask(image, own, out softSamples);
         }
 
         if (samples is not { } decoded || decoded.Width > MaxSize || decoded.Height > MaxSize)
