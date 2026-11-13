@@ -35,6 +35,9 @@ internal readonly ref struct ImagePainter : ICoverageSink
     /// <summary>The most samples one axis of a reduced pixel averages exactly; wider footprints are sampled at this many points.</summary>
     private const int MaxTaps = 16;
 
+    /// <summary>The most pixels of a span <see cref="SpanKept"/> averages before it composites them (1 KB of stack).</summary>
+    private const int RunPixels = 256;
+
     private readonly uint[]? _pixels;
     private readonly uint _solid;
     private readonly Grid _grid;
@@ -220,6 +223,7 @@ internal readonly ref struct ImagePainter : ICoverageSink
     /// the span and whose columns <paramref name="footprints"/> holds from pixel <paramref name="first"/>; the same averages in the
     /// same order, with the per-pixel work reduced to reading them back.
     /// </summary>
+    [SkipLocalsInit] // Only the averages AverageRun writes are read.
     private void SpanKept(uint[] pixels, Span<uint> targets, int coverage, double u, double v, in Taps taps, int rows, ImageFootprints footprints, int first)
     {
         double step = _inverse.A;
@@ -229,14 +233,28 @@ internal readonly ref struct ImagePainter : ICoverageSink
         ReadOnlySpan<int> columns = footprints.AllColumns;
         ReadOnlySpan<double> weights = footprints.AllWeights;
         Compositor compositor = _compositor;
-        for (int i = 0; i < targets.Length; i++, u += step)
+
+        // The averages of up to RunPixels pixels at a time, then composited. The weights (Axis.Fill) are finite and never negative,
+        // as BoxFilter.AverageRun requires. u is stepped pixel by pixel, as the per-pixel loop steps it, for the pixels it falls back on.
+        Span<uint> averages = stackalloc uint[RunPixels];
+        int i = 0;
+        while (i < targets.Length)
         {
-            int start = starts[i];
-            int length = starts[i + 1] - start;
-            uint sample = BoxFilter.Average(pixels, rowIndices, rowWeights, columns.Slice(start, length), weights.Slice(start, length), out uint average)
-                ? average
-                : pixels[(Clamp(Math.Floor(v), _grid.Height) * _grid.Width) + Clamp(Math.Floor(u), _grid.Width)];
-            targets[i] = compositor.Composite(sample, targets[i], coverage);
+            int count = Math.Min(targets.Length - i, RunPixels);
+            int averaged = BoxFilter.AverageRun(pixels, rowIndices, rowWeights, starts.Slice(i, count + 1), columns, weights, averages[..count]);
+            for (int k = 0; k < averaged; k++, i++, u += step)
+            {
+                targets[i] = compositor.Composite(averages[k], targets[i], coverage);
+            }
+
+            if (averaged < count)
+            {
+                // Weights that sum to 0: the sample under the pixel's centre.
+                uint sample = pixels[(Clamp(Math.Floor(v), _grid.Height) * _grid.Width) + Clamp(Math.Floor(u), _grid.Width)];
+                targets[i] = compositor.Composite(sample, targets[i], coverage);
+                i++;
+                u += step;
+            }
         }
     }
 
