@@ -134,14 +134,14 @@ public sealed class ImageRowTests
         using PdfDocument three = PdfDocument.Open(OneImage("/Width 3 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 3", Bytes(0b1010_1011, 0b1000_0000)));
         PdfImage image = three.Pages[0].GetImage("Im0")!;
         using DecodedImage decoded = image.Decode()!;
-        Assert.Equal((3, 8, 3), (decoded.BitsPerComponent, decoded.StorageBits, decoded.Stride));
+        Assert.Equal((3, 8, 3), (decoded.Geometry.BitsPerComponent, decoded.StorageBits, decoded.Stride));
         Assert.Equal(new byte[] { 5, 2, 7 }, decoded.Samples.ToArray());
         Assert.Equal(1f, image.CreateDecodeMap(decoded).Map(0, 7));
         Assert.Equal(["ImageBitsPerComponentInvalid"], Codes(three));
 
         using PdfDocument twelve = PdfDocument.Open(OneImage("/Width 2 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 12", Bytes(0xAB, 0xC1, 0x23)));
         using DecodedImage wide = twelve.Pages[0].GetImage("Im0")!.Decode()!;
-        Assert.Equal((12, 16, 4), (wide.BitsPerComponent, wide.StorageBits, wide.Stride));
+        Assert.Equal((12, 16, 4), (wide.Geometry.BitsPerComponent, wide.StorageBits, wide.Stride));
         Assert.Equal(new ushort[] { 0xABC, 0x123 }, Row(wide, 0));
     }
 }

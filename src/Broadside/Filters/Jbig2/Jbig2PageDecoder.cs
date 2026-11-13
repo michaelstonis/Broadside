@@ -152,7 +152,7 @@ internal sealed class Jbig2PageDecoder : IDisposable
         DecodedImageBuilder? image = null;
         try
         {
-            if (!context.TryCreateImage(width, height, 1, 1, out image))
+            if (!context.TryCreateImage(new ImageGeometry(width, height, 1, 1), out image))
             {
                 return null;
             }

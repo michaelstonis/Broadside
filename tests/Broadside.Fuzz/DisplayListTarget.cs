@@ -23,7 +23,7 @@ namespace Broadside.Fuzz;
 internal static class DisplayListTarget
 {
     // Inline images in the input are decoded into the list (issue #102); small limits keep a mutated /W /H from costing gigabytes.
-    private static readonly PdfEngine Engine = new(new PdfOptions().WithMaxImagePixels(1 << 16).WithMaxDecodedStreamLength(1 << 20));
+    private static readonly PdfEngine Engine = new(new PdfOptions().WithMaxImagePixels(1 << 16).WithMaxDecodedLength(1 << 20));
 
     public static void Target(ReadOnlySpan<byte> data)
     {
@@ -203,11 +203,11 @@ internal static class DisplayListTarget
         public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
         {
             Calls++;
-            Check(image.Width > 0 && image.Height > 0, "an image without samples");
-            Check(image.Samples.Length == (long)image.Stride * image.Height, "the samples are not Stride x Height bytes");
+            Check(image.Geometry.Width > 0 && image.Geometry.Height > 0, "an image without samples");
+            Check(image.Samples.Length == (long)image.Stride * image.Geometry.Height, "the samples are not Stride x Height bytes");
             Check(image.ColorSpace.Family != PdfColorSpaceFamily.Pattern, "an image in a Pattern colour space");
-            Check(image.ColorSpace.ComponentCount == image.Components && image.DecodeMap.Components == image.Components, "an image's colour space, samples and Decode disagree");
-            Checksum += image.Width + image.Height + image.Components + (int)conversion.Intent;
+            Check(image.ColorSpace.ComponentCount == image.Geometry.Components && image.DecodeMap.Components == image.Geometry.Components, "an image's colour space, samples and Decode disagree");
+            Checksum += image.Geometry.Width + image.Geometry.Height + image.Geometry.Components + (int)conversion.Intent;
             if (image.Mask is { } mask)
             {
                 CheckMask(mask);
@@ -215,15 +215,15 @@ internal static class DisplayListTarget
 
             if (image.SoftMask is { } soft)
             {
-                Check(soft.Components == 1 && soft.ColorSpace.ComponentCount == 1 && soft.DecodeMap.Components == 1, "a soft mask of more than one component");
-                Check(soft.Samples.Length == (long)soft.Stride * soft.Height && soft.Width > 0 && soft.Height > 0, "the soft mask's samples are not Stride x Height bytes");
+                Check(soft.Geometry.Components == 1 && soft.ColorSpace.ComponentCount == 1 && soft.DecodeMap.Components == 1, "a soft mask of more than one component");
+                Check(soft.Samples.Length == (long)soft.Stride * soft.Geometry.Height && soft.Geometry.Width > 0 && soft.Geometry.Height > 0, "the soft mask's samples are not Stride x Height bytes");
                 Check(soft.SoftMask is null && soft.Mask is null && soft.ColorKey.IsEmpty, "a soft mask with a mask of its own");
-                Checksum += soft.Width + soft.Height;
+                Checksum += soft.Geometry.Width + soft.Geometry.Height;
             }
 
-            int baseComponents = image.ColorSpace is PdfIndexedColorSpace indexed ? indexed.Base.ComponentCount : image.Components;
+            int baseComponents = image.ColorSpace is PdfIndexedColorSpace indexed ? indexed.Base.ComponentCount : image.Geometry.Components;
             Check(image.Matte.IsEmpty || (image.SoftMask is not null && image.Matte.Length == baseComponents), "a Matte without a soft mask or of the wrong length");
-            Check(image.ColorKey.Length is 0 || image.ColorKey.Length == 2 * image.Components, "colour key ranges of the wrong length");
+            Check(image.ColorKey.Length is 0 || image.ColorKey.Length == 2 * image.Geometry.Components, "colour key ranges of the wrong length");
             Check((image.Mask is null ? 0 : 1) + (image.SoftMask is null ? 0 : 1) + (image.ColorKey.IsEmpty ? 0 : 1) <= 1, "more than one mask on an image");
         }
 

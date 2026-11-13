@@ -33,8 +33,8 @@ public readonly ref struct ImageEvent
     /// <summary>Gets an inline image's data, still encoded; empty for an image XObject.</summary>
     public ReadOnlySpan<byte> InlineData { get; internal init; }
 
-    /// <summary>Gets a value indicating whether the image is a stencil mask painted with the fill colour (§8.9.6.2).</summary>
-    public bool IsStencil { get; internal init; }
+    /// <summary>Gets a value indicating whether the image is an image mask painted with the fill colour (§8.9.6.2).</summary>
+    public bool IsImageMask { get; internal init; }
 
     /// <summary>Gets the CTM: the unit square in user space maps through it.</summary>
     public Matrix Ctm { get; internal init; }

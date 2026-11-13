@@ -37,7 +37,7 @@ public sealed class ImageFactoryTests
         Assert.Equal(new CosName("DCTDecode"), placed.Dictionary[new CosName("Filter")]);
         Assert.Equal(components, placed.ColorSpace!.ComponentCount);
         using DecodedImage decoded = placed.Decode()!;
-        Assert.Equal((placed.Width, placed.Height, components), (decoded.Width, decoded.DecodedRows, decoded.Components));
+        Assert.Equal((placed.Width, placed.Height, components), (decoded.Geometry.Width, decoded.DecodedRows, decoded.Geometry.Components));
         Assert.Equal(progressive ? "%PDF-1.3" : "%PDF-1.2", Header(target => target.CreateImageFromJpeg(jpeg)));
         Assert.Empty(reopened.Diagnostics);
     }
@@ -323,9 +323,9 @@ public sealed class ImageFactoryTests
 
     private static byte[] Samples(DecodedImage decoded)
     {
-        int stride = ((decoded.Width * decoded.Components * decoded.StorageBits) + 7) / 8;
-        byte[] samples = new byte[stride * decoded.Height];
-        for (int y = 0; y < decoded.Height; y++)
+        int stride = ((decoded.Geometry.Width * decoded.Geometry.Components * decoded.StorageBits) + 7) / 8;
+        byte[] samples = new byte[stride * decoded.Geometry.Height];
+        for (int y = 0; y < decoded.Geometry.Height; y++)
         {
             decoded.GetRow(y)[..stride].CopyTo(samples.AsSpan(y * stride));
         }

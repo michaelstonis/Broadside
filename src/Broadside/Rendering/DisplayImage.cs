@@ -59,7 +59,7 @@ public sealed class DisplayImage
         // Issue #362: a large image decoded when the list was built is reduced from its full decode, by a box average, when drawn
         // small (Flate, LZW, raw samples, CCITT, JBIG2); a small one is converted whole, unless it is the soft mask of an image of
         // its size that reduces (issue #513), which must reduce alike.
-        _source = cache is not null && (reducible || (long)samples.Width * samples.Height >= MinimumReducedPixels)
+        _source = cache is not null && (reducible || (long)samples.Geometry.Width * samples.Geometry.Height >= MinimumReducedPixels)
             ? new DecodedReductions(samples, cache)
             : samples;
         ColorSpace = colorSpace;
@@ -78,36 +78,24 @@ public sealed class DisplayImage
     /// <summary>Gets the samples decoded at build, or <see langword="null"/> for an image kept encoded.</summary>
     private DecodedImage? Decoded => _source as DecodedImage ?? (_source as Reductions)?.Samples;
 
-    /// <summary>Gets the header of an image kept encoded, or the decoded samples' facts.</summary>
-    private ImageHeader Facts => Decoded is { } decoded
-        ? new ImageHeader(decoded.Width, decoded.Height, decoded.Components, decoded.BitsPerComponent)
-        : ((Reductions)_source).Encoded!.Header;
-
-    /// <summary>Gets the width in samples.</summary>
-    /// <remarks>ISO 32000-2 §8.9.5.1, Table 87 (Width), or what the codec reported (§7.4.9).</remarks>
-    public int Width => Facts.Width;
-
-    /// <summary>Gets the height in samples.</summary>
-    /// <remarks>ISO 32000-2 §8.9.5.1, Table 87 (Height), or what the codec reported (§7.4.9).</remarks>
-    public int Height => Facts.Height;
-
-    /// <summary>Gets the number of colour components per sample: the colour space's (1 for an Indexed image).</summary>
-    /// <remarks>ISO 32000-2 §8.9.3.</remarks>
-    public int Components => Facts.Components;
-
-    /// <summary>Gets the logical bits per component n: raw values run from 0 to 2^n − 1.</summary>
-    /// <remarks>ISO 32000-2 §8.9.5.1, Table 87 (BitsPerComponent).</remarks>
-    public int BitsPerComponent => Facts.BitsPerComponent;
+    /// <summary>
+    /// Gets the image's geometry: its width and height in samples, the number of color components per sample (the color space's, 1
+    /// for an Indexed image) and the logical bits per component n, so that raw values run from 0 to 2^n − 1.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §8.9.3 and §8.9.5.1, Table 87 (Width, Height, BitsPerComponent), or what the codec reported (§7.4.9).</remarks>
+    public ImageGeometry Geometry => Decoded is { } decoded
+        ? decoded.Geometry
+        : ((Reductions)_source).Encoded!.Header.Geometry;
 
     /// <summary>Gets the bits each component occupies in <see cref="Samples"/>: 1, 2, 4, 8 or 16.</summary>
-    /// <remarks>Equal to <see cref="BitsPerComponent"/> except for depths other than those five, stored at the next wider one, values unchanged.</remarks>
-    public int StorageBits => Decoded?.StorageBits ?? ImageGeometry.StorageBits(BitsPerComponent);
+    /// <remarks>Equal to <see cref="ImageGeometry.BitsPerComponent"/> except for depths other than those five, stored at the next wider one, values unchanged.</remarks>
+    public int StorageBits => Decoded?.StorageBits ?? ImageGeometry.StorageBits(Geometry.BitsPerComponent);
 
     /// <summary>Gets the number of bytes per row of <see cref="Samples"/>.</summary>
     /// <remarks>ISO 32000-2 §8.9.3: each row starts on a byte boundary.</remarks>
-    public int Stride => Decoded?.Stride ?? (int)ImageGeometry.Stride(Width, Components, StorageBits);
+    public int Stride => Decoded?.Stride ?? (int)ImageGeometry.Stride(Geometry.Width, Geometry.Components, StorageBits);
 
-    /// <summary>Gets the raw samples at the image's own resolution, <see cref="Stride"/> × <see cref="Height"/> bytes in the §8.9.3 layout.</summary>
+    /// <summary>Gets the raw samples at the image's own resolution, <see cref="Stride"/> × <see cref="ImageGeometry.Height"/> bytes in the §8.9.3 layout.</summary>
     /// <remarks>
     /// ISO 32000-2 §8.9.3. Rows the data did not reach are zero. For an image kept encoded this decodes it at its full resolution
     /// (<see cref="GetSamplesAt(int)"/> with 0); empty when it cannot be decoded.
@@ -159,14 +147,14 @@ public sealed class DisplayImage
         ArgumentOutOfRangeException.ThrowIfNegative(reduction);
         if (_source is DecodedImage decodedAtBuild)
         {
-            return new DisplayImageSamples(decodedAtBuild, decodedAtBuild.Width, decodedAtBuild.Height);
+            return new DisplayImageSamples(decodedAtBuild, decodedAtBuild.Geometry.Width, decodedAtBuild.Geometry.Height);
         }
 
         var reductions = (Reductions)_source;
         int wanted = Math.Min(reduction, reductions.MaxReduction);
         if (reductions.Samples is { } whole && wanted == 0)
         {
-            return new DisplayImageSamples(whole, whole.Width, whole.Height);
+            return new DisplayImageSamples(whole, whole.Geometry.Width, whole.Geometry.Height);
         }
 
         if (reductions.Failed)
@@ -216,7 +204,7 @@ public sealed class DisplayImage
                 slot.Alias = true;
             }
 
-            return new DisplayImageSamples(decoded, Width, Height);
+            return new DisplayImageSamples(decoded, Geometry.Width, Geometry.Height);
         }
     }
 
@@ -390,7 +378,7 @@ public sealed class DisplayImage
             return 0;
         }
 
-        if (SoftMask is { } soft && soft.Width == Width && soft.Height == Height)
+        if (SoftMask is { } soft && soft.Geometry.Width == Geometry.Width && soft.Geometry.Height == Geometry.Height)
         {
             // Issue #513: a soft mask of the image's size folds into its pixels only at the same reduction.
             cap = Math.Min(cap, soft.MaxReduction);
@@ -404,7 +392,7 @@ public sealed class DisplayImage
             cap = Math.Min(cap, Decoded is not null && limit < Graphics.Colors.ImageReductions.Any ? 0 : limit);
         }
 
-        return Reduction(Width, Height, transform, samplesPerPixel, cap);
+        return Reduction(Geometry.Width, Geometry.Height, transform, samplesPerPixel, cap);
     }
 
     /// <summary>
@@ -449,12 +437,12 @@ public sealed class DisplayImage
     private ImageDecodeMap MapFor(DecodedImage decoded)
     {
         ImageDecodeMap map = DecodeMap;
-        if (decoded.BitsPerComponent == map.BitsPerComponent)
+        if (decoded.Geometry.BitsPerComponent == map.BitsPerComponent)
         {
             return map;
         }
 
-        if (_source is Reductions { Widened: { } widened } && widened.BitsPerComponent == decoded.BitsPerComponent)
+        if (_source is Reductions { Widened: { } widened } && widened.BitsPerComponent == decoded.Geometry.BitsPerComponent)
         {
             return widened;
         }
@@ -468,7 +456,7 @@ public sealed class DisplayImage
             decode[(2 * c) + 1] = map.Map(c, top);
         }
 
-        ImageDecodeMap created = ImageDecodeMap.Create(decode, map.Components, decoded.BitsPerComponent);
+        ImageDecodeMap created = ImageDecodeMap.Create(decode, map.Components, decoded.Geometry.BitsPerComponent);
         if (_source is Reductions reductions)
         {
             reductions.Widened = created;
@@ -580,7 +568,7 @@ public sealed class DisplayImage
         }
 
         ArgumentOutOfRangeException.ThrowIfNegative(y);
-        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(y, Height);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(y, Geometry.Height);
         int stride = Stride;
         byte[] blank = Volatile.Read(ref _blank);
         if (blank.Length < stride)
@@ -618,7 +606,7 @@ public sealed class DisplayImage
         Slot slot = reductions.Slots[reduction];
         if (slot.Strong is { } strong)
         {
-            return new DisplayImageSamples(strong, Width, Height);
+            return new DisplayImageSamples(strong, Geometry.Width, Geometry.Height);
         }
 
         if (!slot.Weak.TryGetTarget(out DecodedImage? samples))
@@ -632,7 +620,7 @@ public sealed class DisplayImage
             Keep(reductions, samples.Reduction, samples);
         }
 
-        return new DisplayImageSamples(samples, Width, Height);
+        return new DisplayImageSamples(samples, Geometry.Width, Geometry.Height);
     }
 
     /// <summary>Offers the samples to the document's image cache, and holds them here when the cache will not keep them.</summary>

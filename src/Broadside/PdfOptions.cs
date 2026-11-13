@@ -18,8 +18,8 @@ namespace Broadside;
 /// </remarks>
 public sealed class PdfOptions
 {
-    /// <summary>The default of <see cref="MaxDecodedStreamLength"/>: 1 GiB.</summary>
-    public const long DefaultMaxDecodedStreamLength = 1L << 30;
+    /// <summary>The default of <see cref="MaxDecodedLength"/>: 1 GiB.</summary>
+    public const long DefaultMaxDecodedLength = 1L << 30;
 
     /// <summary>The default of <see cref="StreamBufferLimit"/>: 64 MiB.</summary>
     public const long DefaultStreamBufferLimit = 64L << 20;
@@ -55,7 +55,7 @@ public sealed class PdfOptions
     private readonly List<IFontResolver> _fontResolvers = [];
     private List<IPlatformImageDecoder>? _platformImageDecoders;
     private HashSet<string>? _disabledPlatformImageDecoders;
-    private long _maxDecodedStreamLength = DefaultMaxDecodedStreamLength;
+    private long _maxDecodedLength = DefaultMaxDecodedLength;
     private long _streamBufferLimit = DefaultStreamBufferLimit;
     private int _rangeBlockSize = DefaultRangeBlockSize;
     private long _rangeCacheLimit = DefaultRangeCacheLimit;
@@ -89,13 +89,13 @@ public sealed class PdfOptions
     /// <summary>Gets or sets the most bytes one stream may decode to; longer output is truncated with a diagnostic. Default 1 GiB.</summary>
     /// <remarks>ISO 32000-2 §7.4. Guards against decompression bombs; a stream's <c>DL</c> entry is only a hint (§7.3.8.2, Table 5).</remarks>
     /// <exception cref="ArgumentOutOfRangeException">The value is not positive.</exception>
-    public long MaxDecodedStreamLength
+    public long MaxDecodedLength
     {
-        get => _maxDecodedStreamLength;
+        get => _maxDecodedLength;
         set
         {
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value);
-            _maxDecodedStreamLength = value;
+            _maxDecodedLength = value;
         }
     }
 
@@ -256,7 +256,7 @@ public sealed class PdfOptions
 
     /// <summary>
     /// Gets or sets the most pixels (width x height) one image may have; a larger image is not decoded, with a diagnostic. Default
-    /// 2^28. The bytes of its samples are also limited by <see cref="MaxDecodedStreamLength"/>.
+    /// 2^28. The bytes of its samples are also limited by <see cref="MaxDecodedLength"/>.
     /// </summary>
     /// <remarks>
     /// ISO 32000-2 §8.9.5.1, Table 87: <c>Width</c> and <c>Height</c> come from the file, so a few bytes can claim an image of any
@@ -417,7 +417,7 @@ public sealed class PdfOptions
     /// <remarks>
     /// ISO 32000-2 §8.7.4.5.5 to §8.7.4.5.8: a mesh is as long as its stream, so a small compressed stream can decode to more
     /// triangles or patches than a page can usefully show; the limit bounds the memory and the time one shading takes. The data is
-    /// also limited by <see cref="MaxDecodedStreamLength"/>.
+    /// also limited by <see cref="MaxDecodedLength"/>.
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The value is not positive.</exception>
     public int MaxMeshVertices
@@ -441,14 +441,14 @@ public sealed class PdfOptions
         return this;
     }
 
-    /// <summary>Sets <see cref="MaxDecodedStreamLength"/>.</summary>
+    /// <summary>Sets <see cref="MaxDecodedLength"/>.</summary>
     /// <param name="maxLength">The most bytes one stream may decode to.</param>
     /// <returns>These options.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxLength"/> is not positive.</exception>
     /// <remarks>ISO 32000-2 §7.4.</remarks>
-    public PdfOptions WithMaxDecodedStreamLength(long maxLength)
+    public PdfOptions WithMaxDecodedLength(long maxLength)
     {
-        MaxDecodedStreamLength = maxLength;
+        MaxDecodedLength = maxLength;
         return this;
     }
 

@@ -61,7 +61,7 @@ public sealed class FilterContext
     /// Guards against decompression bombs. A filter that must allocate for its output up front (an image codec sizing a buffer from
     /// its header) checks the size against this first.
     /// </remarks>
-    public long MaxDecodedLength { get; init; } = PdfOptions.DefaultMaxDecodedStreamLength;
+    public long MaxDecodedLength { get; init; } = PdfOptions.DefaultMaxDecodedLength;
 
     /// <summary>
     /// Gets the token that cancels the decode: a filter that runs long (an image codec, an inflater) checks it between units of work

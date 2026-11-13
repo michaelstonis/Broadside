@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using Broadside.Diagnostics;
+using Broadside.Images;
 using Broadside.Parsing;
 
 namespace Broadside.Filters.Dct;
@@ -218,7 +219,7 @@ internal static class JpegMarkerReader
                 if (body.Length >= 12 && body.StartsWith("Adobe"u8))
                 {
                     frame.Adobe = true;
-                    frame.AdobeTransform = body[11];
+                    frame.AdobeTransform = (AdobeColorTransform)body[11];
                 }
 
                 break;

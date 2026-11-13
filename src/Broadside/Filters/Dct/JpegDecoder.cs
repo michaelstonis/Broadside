@@ -50,7 +50,7 @@ internal sealed class JpegDecoder
     public int ComponentCount => _frame.ComponentCount;
 
     /// <summary>Gets the APP14 transform code, or <see langword="null"/> without an Adobe APP14 segment.</summary>
-    public int? AdobeTransform => _frame.Adobe ? _frame.AdobeTransform : null;
+    public AdobeColorTransform? AdobeTransform => _frame.Adobe ? _frame.AdobeTransform : null;
 
     /// <summary>Gets a value indicating whether a YCbCr or YCCK transform is applied.</summary>
     public bool ColorTransformApplied => _frame.Output is JpegOutputKind.YccToRgb or JpegOutputKind.YcckToCmyk;

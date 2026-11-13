@@ -37,15 +37,15 @@ internal static class DctTarget
             return;
         }
 
-        if (!hasHeader || header.Width != image.Width || header.Height != image.Height || header.Components != image.Components)
+        if (!hasHeader || header.Geometry.Width != image.Geometry.Width || header.Geometry.Height != image.Geometry.Height || header.Geometry.Components != image.Geometry.Components)
         {
-            throw new InvalidOperationException($"The decoded image ({image.Width} x {image.Height} x {image.Components}) does not match its header ({header}).");
+            throw new InvalidOperationException($"The decoded image ({image.Geometry.Width} x {image.Geometry.Height} x {image.Geometry.Components}) does not match its header ({header}).");
         }
 
-        if (image.Components is < 1 or > 4 || image.BitsPerComponent != 8 || image.Stride != image.Width * image.Components
-            || image.Samples.Length != image.Stride * image.Height || image.DecodedRows > image.Height)
+        if (image.Geometry.Components is < 1 or > 4 || image.Geometry.BitsPerComponent != 8 || image.Stride != image.Geometry.Width * image.Geometry.Components
+            || image.Samples.Length != image.Stride * image.Geometry.Height || image.DecodedRows > image.Geometry.Height)
         {
-            throw new InvalidOperationException($"The decoded image breaks the 8.9.3 layout: {image.Width} x {image.Height} x {image.Components}, stride {image.Stride}, {image.DecodedRows} decoded rows.");
+            throw new InvalidOperationException($"The decoded image breaks the 8.9.3 layout: {image.Geometry.Width} x {image.Geometry.Height} x {image.Geometry.Components}, stride {image.Stride}, {image.DecodedRows} decoded rows.");
         }
 
         if (output.WrittenCount > 0 && !output.WrittenSpan.SequenceEqual(image.Samples))
@@ -62,12 +62,12 @@ internal static class DctTarget
         }
 
         int scale = 1 << reduction;
-        if (reduced.Reduction != reduction || reduced.Width != (image.Width + scale - 1) / scale || reduced.Height != (image.Height + scale - 1) / scale
-            || reduced.Components != image.Components || reduced.Stride != reduced.Width * reduced.Components
-            || reduced.Samples.Length != reduced.Stride * reduced.Height || reduced.DecodedRows > reduced.Height)
+        if (reduced.Reduction != reduction || reduced.Geometry.Width != (image.Geometry.Width + scale - 1) / scale || reduced.Geometry.Height != (image.Geometry.Height + scale - 1) / scale
+            || reduced.Geometry.Components != image.Geometry.Components || reduced.Stride != reduced.Geometry.Width * reduced.Geometry.Components
+            || reduced.Samples.Length != reduced.Stride * reduced.Geometry.Height || reduced.DecodedRows > reduced.Geometry.Height)
         {
             throw new InvalidOperationException(
-                $"The image decoded at 1/{scale} is {reduced.Width} x {reduced.Height} x {reduced.Components} at reduction {reduced.Reduction}, {reduced.DecodedRows} decoded rows, from {image.Width} x {image.Height}.");
+                $"The image decoded at 1/{scale} is {reduced.Geometry.Width} x {reduced.Geometry.Height} x {reduced.Geometry.Components} at reduction {reduced.Reduction}, {reduced.DecodedRows} decoded rows, from {image.Geometry.Width} x {image.Geometry.Height}.");
         }
     }
 }

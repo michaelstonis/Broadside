@@ -31,19 +31,19 @@ internal static class ImageReducer
     /// <returns>The reduced samples, which the caller disposes.</returns>
     public static DecodedImage Reduce(DecodedImage source, int reduction, CancellationToken cancellationToken)
     {
-        int width = source.Width;
-        int height = source.Height;
-        int components = source.Components;
+        int width = source.Geometry.Width;
+        int height = source.Geometry.Height;
+        int components = source.Geometry.Components;
         int scale = 1 << reduction;
         int reducedWidth = ImageGeometry.Reduce(width, reduction);
         int reducedHeight = ImageGeometry.Reduce(height, reduction);
-        int bits = source.BitsPerComponent;
+        int bits = source.Geometry.BitsPerComponent;
         int outputBits = ReducedBits(bits);
         long maximum = (1L << bits) - 1;
         bool rescale = outputBits != bits;
         int values = width * components;
         int reducedValues = reducedWidth * components;
-        DecodedImageBuilder? builder = new DecodedImageBuilder(reducedWidth, reducedHeight, components, outputBits);
+        DecodedImageBuilder? builder = new DecodedImageBuilder(new ImageGeometry(reducedWidth, reducedHeight, components, outputBits));
         ushort[] raw = ArrayPool<ushort>.Shared.Rent(Math.Max(1, values));
         long[] sums = ArrayPool<long>.Shared.Rent(Math.Max(1, reducedValues));
         try

@@ -65,7 +65,7 @@ internal static class DctEncodeTarget
         var filter = new DctDecodeFilter();
         var filterContext = new FilterContext { Parameters = parameters, StreamDictionary = dictionary, ReadingMode = PdfReadingMode.Strict };
         if (!filter.TryReadHeader(jpeg, new ImageFilterContext(filterContext), out ImageHeader header)
-            || header.Width != width || header.Height != height || header.Components != components)
+            || header.Geometry.Width != width || header.Geometry.Height != height || header.Geometry.Components != components)
         {
             throw new InvalidOperationException($"The encoded header does not describe the {width} x {height} x {components} image.");
         }

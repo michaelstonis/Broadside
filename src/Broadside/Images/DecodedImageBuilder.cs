@@ -22,35 +22,20 @@ public sealed class DecodedImageBuilder : IDisposable
     private int _decodedRows;
     private byte _reduction;
 
-    internal DecodedImageBuilder(int width, int height, int components, int bitsPerComponent)
+    internal DecodedImageBuilder(ImageGeometry geometry)
     {
-        Width = width;
-        Height = height;
-        Components = components;
-        BitsPerComponent = bitsPerComponent;
-        StorageBits = ImageGeometry.StorageBits(bitsPerComponent);
-        Stride = (int)ImageGeometry.Stride(width, components, StorageBits);
-        _length = checked(Stride * height);
+        Geometry = geometry;
+        StorageBits = ImageGeometry.StorageBits(geometry.BitsPerComponent);
+        Stride = (int)ImageGeometry.Stride(geometry.Width, geometry.Components, StorageBits);
+        _length = checked(Stride * geometry.Height);
         _buffer = ArrayPool<byte>.Shared.Rent(Math.Max(1, _length));
         _buffer.AsSpan(0, _length).Clear();
-        _decodedRows = height;
+        _decodedRows = geometry.Height;
     }
 
-    /// <summary>Gets the number of samples in each row.</summary>
-    /// <remarks>ISO 32000-2 §8.9.2.</remarks>
-    public int Width { get; }
-
-    /// <summary>Gets the number of rows.</summary>
-    /// <remarks>ISO 32000-2 §8.9.2.</remarks>
-    public int Height { get; }
-
-    /// <summary>Gets the number of components in each sample.</summary>
-    /// <remarks>ISO 32000-2 §8.9.2.</remarks>
-    public int Components { get; }
-
-    /// <summary>Gets the logical bits per component.</summary>
+    /// <summary>Gets the samples' geometry: samples per row, rows, components per sample and logical bits per component.</summary>
     /// <remarks>ISO 32000-2 §8.9.2, §8.9.5.2 (the Decode formula divides by 2^n − 1).</remarks>
-    public int BitsPerComponent { get; }
+    public ImageGeometry Geometry { get; }
 
     /// <summary>Gets the bits each component occupies in the buffer: 1, 2, 4, 8 or 16.</summary>
     /// <remarks>ISO 32000-2 §8.9.3.</remarks>
@@ -65,8 +50,8 @@ public sealed class DecodedImageBuilder : IDisposable
     /// <remarks>ISO 32000-2 §8.9.3.</remarks>
     public Span<byte> Samples => Buffer.AsSpan(0, _length);
 
-    /// <summary>Gets or sets the number of rows actually decoded; the default is <see cref="Height"/>.</summary>
-    /// <exception cref="ArgumentOutOfRangeException">The value is negative or greater than <see cref="Height"/>.</exception>
+    /// <summary>Gets or sets the number of rows actually decoded; the default is <see cref="ImageGeometry.Height"/>.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative or greater than <see cref="ImageGeometry.Height"/>.</exception>
     /// <remarks>ISO 32000-2 §8.9.3: the rows after these are zero.</remarks>
     public int DecodedRows
     {
@@ -74,7 +59,7 @@ public sealed class DecodedImageBuilder : IDisposable
         set
         {
             ArgumentOutOfRangeException.ThrowIfNegative(value);
-            ArgumentOutOfRangeException.ThrowIfGreaterThan(value, Height);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(value, Geometry.Height);
             _decodedRows = value;
         }
     }
@@ -86,8 +71,8 @@ public sealed class DecodedImageBuilder : IDisposable
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">The value is negative or more than 15.</exception>
     /// <remarks>
-    /// A reduction s = 2^n of a W × H image leaves ⌈W / s⌉ × ⌈H / s⌉ samples (the builder's <see cref="Width"/> and
-    /// <see cref="Height"/>); sample i covers the source samples i·s to (i + 1)·s − 1, the last one only those that exist.
+    /// A reduction s = 2^n of a W × H image leaves ⌈W / s⌉ × ⌈H / s⌉ samples (the builder's <see cref="ImageGeometry.Width"/> and
+    /// <see cref="ImageGeometry.Height"/>); sample i covers the source samples i·s to (i + 1)·s − 1, the last one only those that exist.
     /// </remarks>
     public int Reduction
     {
@@ -116,9 +101,9 @@ public sealed class DecodedImageBuilder : IDisposable
     /// <remarks>ISO 32000-2 §7.4.9 and §8.6.6.3.</remarks>
     public ReadOnlyMemory<byte> Palette { get; set; }
 
-    /// <summary>Gets or sets the Adobe APP14 transform code.</summary>
+    /// <summary>Gets or sets the Adobe APP14 transform code, or <see langword="null"/> when there is no APP14 marker.</summary>
     /// <remarks>ISO 32000-2 §7.4.8, Table 13; Adobe Technical Note 5116.</remarks>
-    public int? AdobeTransform { get; set; }
+    public AdobeColorTransform? AdobeTransform { get; set; }
 
     /// <summary>Gets or sets a value indicating whether a YCbCr or YCCK transform was applied.</summary>
     /// <remarks>ISO 32000-2 §7.4.8, Table 13 (<c>ColorTransform</c>).</remarks>
@@ -142,7 +127,7 @@ public sealed class DecodedImageBuilder : IDisposable
     public Span<byte> GetRow(int y)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(y);
-        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(y, Height);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(y, Geometry.Height);
         return Buffer.AsSpan(y * Stride, Stride);
     }
 
@@ -162,7 +147,7 @@ public sealed class DecodedImageBuilder : IDisposable
             return false;
         }
 
-        alpha = _alpha = new DecodedImageBuilder(Width, Height, 1, bitsPerComponent);
+        alpha = _alpha = new DecodedImageBuilder(Geometry with { Components = 1, BitsPerComponent = bitsPerComponent });
         AlphaPremultiplied = premultiplied;
         return true;
     }

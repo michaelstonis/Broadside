@@ -22,7 +22,7 @@ internal static class Jbig2Testing
         long maxPixels = PdfOptions.DefaultMaxImagePixels)
     {
         var context = Context(globals, mode, width, height);
-        var imageContext = new ImageFilterContext(context) { Width = width, Height = height, BitsPerComponent = 1, ColorComponents = 1, MaxPixels = maxPixels };
+        var imageContext = new ImageFilterContext(context) { Geometry = new ImageGeometry(width, height, 1, 1), MaxPixels = maxPixels };
         DecodedImage? image = new Jbig2DecodeFilter().DecodeImage(page, imageContext);
         codes = [.. context.Diagnostics.Select(diagnostic => diagnostic.Code)];
         return image;

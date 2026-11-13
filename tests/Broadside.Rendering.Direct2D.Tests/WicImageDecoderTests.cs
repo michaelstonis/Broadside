@@ -36,7 +36,7 @@ public sealed class WicImageDecoderTests
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "On Windows WIC is available.");
         Assert.False(WicImageDecoder.IsSupported);
-        Assert.False(WicImageDecoder.Shared.CanDecode(Request(DctVectors("sampling-444"), new ImageHeader(75, 43, 3, 8), 0)));
+        Assert.False(WicImageDecoder.Shared.CanDecode(Request(DctVectors("sampling-444"), new ImageHeader(new ImageGeometry(75, 43, 3, 8)), 0)));
     }
 
     [Fact]
@@ -258,16 +258,16 @@ public sealed class WicImageDecoderTests
 
     private static bool TryHeader(byte[] jpeg, out ImageHeader header) =>
         new DctDecodeFilter().TryReadHeader(jpeg, new ImageFilterContext(new FilterContext()), out header)
-        && header.Components is 1 or 3 && header.Height > 0 && FindFrame(jpeg) is int at and >= 0 && jpeg[at + 4] == 8;
+        && header.Geometry.Components is 1 or 3 && header.Geometry.Height > 0 && FindFrame(jpeg) is int at and >= 0 && jpeg[at + 4] == 8;
 
     private static PlatformImageRequest Request(byte[] jpeg, ImageHeader header, int reduction) => new()
     {
         Filter = new CosName("DCTDecode"),
-        Width = header.Width,
-        Height = header.Height,
-        Components = header.Components,
+        Width = header.Geometry.Width,
+        Height = header.Geometry.Height,
+        Components = header.Geometry.Components,
         BitsPerComponent = 8,
-        ColorTransform = header.Components == 3,
+        ColorTransform = header.Geometry.Components == 3,
         ChromaSubsampled = Subsampled(jpeg),
         ArithmeticCoding = Marker(jpeg) is 0xC9 or 0xCA,
         Progressive = Marker(jpeg) is 0xC2 or 0xCA,

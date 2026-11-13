@@ -54,9 +54,7 @@ public sealed class Jbig2DecodeFilter : IImageFilter
         ArgumentNullException.ThrowIfNull(context);
         var imageContext = new ImageFilterContext(context)
         {
-            Width = ReadDimension(context, ImageNames.Width),
-            Height = ReadDimension(context, ImageNames.Height),
-            BitsPerComponent = 1,
+            Geometry = new ImageGeometry(ReadDimension(context, ImageNames.Width), ReadDimension(context, ImageNames.Height), 0, 1),
         };
         using DecodedImage? image = DecodeImage(encoded, imageContext);
         if (image is not null)
@@ -78,7 +76,7 @@ public sealed class Jbig2DecodeFilter : IImageFilter
             return false;
         }
 
-        header = new ImageHeader(width, height, 1, 1) { ColorModel = ImageColorModel.Gray };
+        header = new ImageHeader(new ImageGeometry(width, height, 1, 1)) { ColorModel = ImageColorModel.Gray };
         return true;
     }
 
@@ -102,8 +100,8 @@ public sealed class Jbig2DecodeFilter : IImageFilter
 
     private static bool TryGetSize(ReadOnlySpan<byte> encoded, ImageFilterContext context, out int width, out int height)
     {
-        width = context.Width;
-        height = context.Height;
+        width = context.Geometry.Width;
+        height = context.Geometry.Height;
         if (width > 0 && height > 0)
         {
             return true;

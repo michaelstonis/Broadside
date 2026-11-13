@@ -27,7 +27,7 @@ public sealed class JpxImageTests
         using (document)
         using (decoded)
         {
-            Assert.Equal((3, 8, ImageColorModel.Rgb), (decoded.Components, decoded.BitsPerComponent, decoded.ColorModel));
+            Assert.Equal((3, 8, ImageColorModel.Rgb), (decoded.Geometry.Components, decoded.Geometry.BitsPerComponent, decoded.ColorModel));
             Assert.Equal(gray.Expected().SelectMany(i => Ramp[i]), ImageTesting.Raw(decoded).Select(v => (int)v));
             Assert.Same(PdfDeviceRgbColorSpace.Instance, image.ResolveColorSpace(decoded));
             Assert.Empty(ImageTesting.Codes(document));
@@ -61,7 +61,7 @@ public sealed class JpxImageTests
         using (document)
         using (decoded)
         {
-            Assert.Equal(1, decoded.Components);
+            Assert.Equal(1, decoded.Geometry.Components);
             Assert.Equal(gray.Expected(), ImageTesting.Raw(decoded).Select(v => (int)v));
             Assert.Empty(ImageTesting.Codes(document));
         }
@@ -93,7 +93,7 @@ public sealed class JpxImageTests
         using (decoded)
         {
             int[] expected = rgba.Expected();
-            Assert.Equal((3, ImageColorModel.Rgb, PdfImageMaskKind.SoftInData), (decoded.Components, decoded.ColorModel, image.MaskKind));
+            Assert.Equal((3, ImageColorModel.Rgb, PdfImageMaskKind.SoftInData), (decoded.Geometry.Components, decoded.ColorModel, image.MaskKind));
             Assert.Equal(expected.Where((_, i) => i % 4 != 3), ImageTesting.Raw(decoded).Select(v => (int)v));
             Assert.NotNull(decoded.Alpha);
             Assert.False(decoded.AlphaPremultiplied);
@@ -112,7 +112,7 @@ public sealed class JpxImageTests
         using (document)
         using (decoded)
         {
-            Assert.Equal(3, decoded.Components);
+            Assert.Equal(3, decoded.Geometry.Components);
             Assert.Null(decoded.Alpha);
             Assert.Equal(rgba.Expected().Where((_, i) => i % 4 != 3), ImageTesting.Raw(decoded).Select(v => (int)v));
         }
@@ -128,7 +128,7 @@ public sealed class JpxImageTests
         using (decoded)
         {
             int[] expected = rgba.Expected();
-            Assert.Equal(3, decoded.Components);
+            Assert.Equal(3, decoded.Geometry.Components);
             Assert.Equal(expected.Where((_, i) => i % 4 != 3), ImageTesting.Raw(decoded).Select(v => (int)v));
             Assert.True(decoded.AlphaPremultiplied);
             Assert.Equal(expected.Where((_, i) => i % 4 == 3), ImageTesting.Raw(decoded.Alpha!).Select(v => (int)v));
@@ -282,7 +282,7 @@ public sealed class JpxImageTests
                 // Coarsest first: a finer reduction already decoded would serve a coarser request.
                 using DecodedImage expected = new JpxDecodeFilter().DecodeImage(file, new ImageFilterContext(new FilterContext()) { Reduction = reduction })!;
                 DisplayImageSamples samples = drawn.GetSamplesAt(reduction, TestContext.Current.CancellationToken)!.Value;
-                Assert.Equal((reduction, expected.Width, expected.Height), (samples.Reduction, samples.Width, samples.Height));
+                Assert.Equal((reduction, expected.Geometry.Width, expected.Geometry.Height), (samples.Reduction, samples.Width, samples.Height));
                 Assert.Equal(ImageTesting.Raw(expected), Raw(samples));
             }
 
@@ -324,12 +324,12 @@ public sealed class JpxImageTests
         document.Pages[0].CreateDisplayList().Replay(recorder);
         DisplayImage mask = Assert.Single(recorder.Images).Image.SoftMask!;
 
-        Assert.Equal((gray.Width, gray.Height, 2), (mask.Width, mask.Height, mask.MaxReduction));
+        Assert.Equal((gray.Width, gray.Height, 2), (mask.Geometry.Width, mask.Geometry.Height, mask.MaxReduction));
         for (int reduction = 2; reduction >= 1; reduction--)
         {
             using DecodedImage expected = new JpxDecodeFilter().DecodeImage(gray.Data, new ImageFilterContext(new FilterContext()) { Reduction = reduction })!;
             DisplayImageSamples samples = mask.GetSamplesAt(reduction, TestContext.Current.CancellationToken)!.Value;
-            Assert.Equal((reduction, expected.Width, expected.Height), (samples.Reduction, samples.Width, samples.Height));
+            Assert.Equal((reduction, expected.Geometry.Width, expected.Geometry.Height), (samples.Reduction, samples.Width, samples.Height));
             Assert.Equal(ImageTesting.Raw(expected), Raw(samples));
         }
 

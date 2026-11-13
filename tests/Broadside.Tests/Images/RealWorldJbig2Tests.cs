@@ -65,8 +65,8 @@ public sealed class RealWorldJbig2Tests
 
         Assert.NotNull(decoded);
         byte[] bytes = document.DecodeStream((CosStream)stream).ToArray();
-        Assert.Equal(size, string.Create(CultureInfo.InvariantCulture, $"{decoded.Width}x{decoded.Height}"));
-        Assert.Equal((1, 1, false), (decoded.Components, decoded.BitsPerComponent, decoded.SamplesInverted));
+        Assert.Equal(size, string.Create(CultureInfo.InvariantCulture, $"{decoded.Geometry.Width}x{decoded.Geometry.Height}"));
+        Assert.Equal((1, 1, false), (decoded.Geometry.Components, decoded.Geometry.BitsPerComponent, decoded.SamplesInverted));
         Assert.Equal(sha256, Jbig2Testing.Sha256(decoded.Samples));
         Assert.Equal(sha256, Jbig2Testing.Sha256(bytes));
         string[] expectedCodes = codes == "-" ? [] : codes.Split(',');

@@ -1571,7 +1571,7 @@ public sealed partial class PdfDocument : IDisposable
             ObjectLoader? loader = null;
             var streams = new StreamDecoder(
                 configuration.Filters,
-                configuration.MaxDecodedStreamLength,
+                configuration.MaxDecodedLength,
                 diagnostics,
                 value => loader is not null ? loader.Resolve(value) : value is null or CosReference ? CosNull.Instance : value)
             {

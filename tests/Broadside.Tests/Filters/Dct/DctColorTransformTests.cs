@@ -25,8 +25,18 @@ public sealed class DctColorTransformTests
         using DecodedImage decoded = new DctDecodeFilter().DecodeImage(Jpeg(vector), context)!;
 
         AssertWithinOne(Golden(reference), decoded.Samples);
-        Assert.Equal((4, ImageColorModel.Cmyk, (int?)transform, applied, false), (decoded.Components, decoded.ColorModel, decoded.AdobeTransform, decoded.ColorTransformApplied, decoded.SamplesInverted));
+        Assert.Equal((4, ImageColorModel.Cmyk, (AdobeColorTransform?)transform, applied, false), (decoded.Geometry.Components, decoded.ColorModel, decoded.AdobeTransform, decoded.ColorTransformApplied, decoded.SamplesInverted));
         Assert.Empty(context.Filter.Diagnostics);
+    }
+
+    [Theory]
+    [InlineData("cmyk", AdobeColorTransform.Unknown)]
+    [InlineData("ycck", AdobeColorTransform.YCCK)]
+    public void The_Adobe_APP14_transform_code_is_reported_as_an_enum_value(string vector, AdobeColorTransform expected)
+    {
+        using DecodedImage decoded = new DctDecodeFilter().DecodeImage(Jpeg(vector), new ImageFilterContext(new FilterContext()))!;
+
+        Assert.Equal(expected, decoded.AdobeTransform);
     }
 
     [Fact]

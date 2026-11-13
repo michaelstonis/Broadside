@@ -110,9 +110,9 @@ public sealed class PdfImage
     /// </remarks>
     public int BitsPerComponent => ReadLayout().BitsPerComponent;
 
-    /// <summary>Gets a value indicating whether the image is a stencil mask (<c>ImageMask true</c>), painted with the current fill colour.</summary>
+    /// <summary>Gets a value indicating whether the image is an image mask (<c>ImageMask true</c>), painted with the current fill colour.</summary>
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87, and §8.9.6.2.</remarks>
-    public bool IsStencil => ReadLayout().IsStencil;
+    public bool IsImageMask => ReadLayout().IsImageMask;
 
     /// <summary>
     /// Gets the colour space of the samples; <see langword="null"/> for an image mask, for a JPEG 2000 image without one (see
@@ -141,7 +141,7 @@ public sealed class PdfImage
 
     /// <summary>Gets the rendering intent for the image's colours (<c>Intent</c>, PDF 1.1), or <see langword="null"/> to use the graphics state's.</summary>
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87, and §8.6.5.8: an unknown name reads as relative colorimetric; ignored for an image mask.</remarks>
-    public RenderingIntent? Intent => IsStencil || ReadEntry(ImageNames.Intent, null) is not CosName name
+    public RenderingIntent? Intent => IsImageMask || ReadEntry(ImageNames.Intent, null) is not CosName name
         ? null
         : name.Value switch
         {
@@ -153,7 +153,7 @@ public sealed class PdfImage
 
     /// <summary>Gets which masking applies to the image.</summary>
     /// <remarks>
-    /// ISO 32000-2 §8.9.6, §11.6.4.3, Table 87: an image mask is a stencil; otherwise <c>SMaskInData</c> (non-zero, JPEG 2000 only)
+    /// ISO 32000-2 §8.9.6, §11.6.4.3, Table 87: an image mask takes precedence; otherwise <c>SMaskInData</c> (non-zero, JPEG 2000 only)
     /// wins over <c>SMask</c>, which wins over <c>Mask</c>. A <c>Mask</c> stream that is not an image mask, a non-stream <c>SMask</c>
     /// and a colour key array of the wrong length are ignored with a diagnostic, as other readers do. Masks have no masks of their own.
     /// </remarks>
@@ -222,9 +222,9 @@ public sealed class PdfImage
         }
     }
 
-    /// <summary>Gets <c>SMaskInData</c>: 0 (no opacity in the data), 1 (opacity), 2 (opacity premultiplied into the colour).</summary>
+    /// <summary>Gets <c>SMaskInData</c>: whether the data carries opacity, and whether the colors are premultiplied by it.</summary>
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87 (PDF 1.5): meaningful only for JPEG 2000 data.</remarks>
-    public int SoftMaskInData => ReadEntry(ImageNames.SMaskInData, null) is CosInteger { Value: 1 or 2 } value ? (int)value.Value : 0;
+    public PdfSoftMaskInData SoftMaskInData => ReadEntry(ImageNames.SMaskInData, null) is CosInteger { Value: 1 or 2 } value ? (PdfSoftMaskInData)(int)value.Value : PdfSoftMaskInData.None;
 
     /// <summary>Gets the image's alternates, in array order; empty when it has none (and always for an alternate).</summary>
     /// <remarks>ISO 32000-2 §8.9.5.4, Table 89 (<c>Alternates</c>, PDF 1.3): an alternate shall not have alternates of its own.</remarks>
@@ -306,7 +306,7 @@ public sealed class PdfImage
     /// <returns>
     /// The samples in the §8.9.3 layout, which the caller disposes; <see langword="null"/> when the image cannot be decoded: its
     /// dictionary lacks what decoding needs, it is larger than <see cref="PdfOptions.MaxImagePixels"/> or
-    /// <see cref="PdfOptions.MaxDecodedStreamLength"/> allow, or a filter it needs is not available. Each is recorded as a diagnostic.
+    /// <see cref="PdfOptions.MaxDecodedLength"/> allow, or a filter it needs is not available. Each is recorded as a diagnostic.
     /// </returns>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation.</exception>
     /// <remarks>
@@ -337,7 +337,7 @@ public sealed class PdfImage
     /// <returns>The samples or the encoded image; neither when the image cannot be decoded (each reason a diagnostic).</returns>
     /// <remarks>
     /// ISO 32000-2 §7.4 and §8.9.5.1. Kept encoded only when everything a renderer needs before the samples is known without them:
-    /// an image XObject or alternate (not an explicit mask, an inline image or a stencil) with a <c>ColorSpace</c> whose component
+    /// an image XObject or alternate (not an explicit mask, an inline image or an image mask) with a <c>ColorSpace</c> whose component
     /// count is the codestream's, or a JPEG 2000 image without one whose header gives it (§7.4.9), or a soft-mask image (§11.6.5.2)
     /// whose codestream has one gray component; no <c>SMaskInData</c>, read leniently (strict mode decodes now, so that a deviation
     /// throws where it always did), and a codec whose header says it reduces (<see cref="ImageHeader.MaxReduction"/>).
@@ -354,7 +354,7 @@ public sealed class PdfImage
 
         StreamDecoder streams = _document.Streams;
         if (layout.BitsPerComponent > 0 && layout.Components > 0
-            && ImageGeometry.CheckLimits(layout.Width, layout.Height, layout.Components, layout.BitsPerComponent, streams.MaxImagePixels, streams.MaxDecodedLength) is { } reason)
+            && layout.Geometry.CheckLimits(streams.MaxImagePixels, streams.MaxDecodedLength) is { } reason)
         {
             Report(ImageDiagnostics.ImageTooLarge, $"The image is not decoded: {reason}.", DiagnosticSeverity.Error);
             return default;
@@ -383,7 +383,7 @@ public sealed class PdfImage
     public ImageDecodeMap CreateDecodeMap(DecodedImage decoded)
     {
         ArgumentNullException.ThrowIfNull(decoded);
-        return CreateDecodeMapFor(decoded.Components, decoded.BitsPerComponent, decoded.SamplesInverted);
+        return CreateDecodeMapFor(decoded.Geometry.Components, decoded.Geometry.BitsPerComponent, decoded.SamplesInverted);
     }
 
     /// <summary>Returns the Decode mapping for samples of <paramref name="components"/> components at <paramref name="bitsPerComponent"/> bits.</summary>
@@ -420,12 +420,12 @@ public sealed class PdfImage
     public PdfColorSpace? ResolveColorSpace(DecodedImage decoded)
     {
         ArgumentNullException.ThrowIfNull(decoded);
-        if (IsStencil)
+        if (IsImageMask)
         {
             return null;
         }
 
-        return ColorSpace ?? CodecColorSpace(decoded.IccProfile, decoded.ColorModel, decoded.Components);
+        return ColorSpace ?? CodecColorSpace(decoded.IccProfile, decoded.ColorModel, decoded.Geometry.Components);
     }
 
     /// <summary>
@@ -694,12 +694,12 @@ public sealed class PdfImage
             return PdfImageMaskKind.None;
         }
 
-        if (IsStencil)
+        if (IsImageMask)
         {
-            return PdfImageMaskKind.Stencil;
+            return PdfImageMaskKind.ImageMask;
         }
 
-        if (SoftMaskInData != 0)
+        if (SoftMaskInData != PdfSoftMaskInData.None)
         {
             if (IsJpx)
             {
@@ -774,7 +774,7 @@ public sealed class PdfImage
         int components = layout.Components;
         int sourceStride = (int)ImageGeometry.Stride(width, components, bits);
         long needed = (long)sourceStride * height;
-        var builder = new DecodedImageBuilder(width, height, components, bits);
+        var builder = new DecodedImageBuilder(layout.Geometry);
         try
         {
             int rows = (int)Math.Min(height, data.Length / sourceStride);
@@ -791,7 +791,7 @@ public sealed class PdfImage
             {
                 builder.DecodedRows = rows;
                 Report(ImageDiagnostics.ImageDataTruncated, string.Create(CultureInfo.InvariantCulture, $"The image data has {data.Length} bytes where {needed} are needed; {rows} of {height} rows are complete and the rest are zero."));
-                if (layout.IsStencil && layout.Decode is not [1, 0])
+                if (layout.IsImageMask && layout.Decode is not [1, 0])
                 {
                     // Missing rows of a mask paint nothing: with Decode [0 1] that is sample 1.
                     int start = (int)Math.Min(data.Length, needed);
@@ -814,9 +814,9 @@ public sealed class PdfImage
     /// <summary>Copies samples of an odd depth into the next wider storage, values unchanged, row by row.</summary>
     private static void Repack(ReadOnlySpan<byte> data, DecodedImageBuilder builder, int sourceStride, int bits)
     {
-        int count = builder.Width * builder.Components;
+        int count = builder.Geometry.Width * builder.Geometry.Components;
         bool wide = builder.StorageBits == 16;
-        for (int y = 0; y < builder.Height; y++)
+        for (int y = 0; y < builder.Geometry.Height; y++)
         {
             long start = (long)y * sourceStride;
             if (start >= data.Length)
@@ -856,12 +856,9 @@ public sealed class PdfImage
         StreamDecoder streams = _document.Streams;
         var context = new ImageFilterContext(filterContext)
         {
-            Width = layout.Width,
-            Height = layout.Height,
-            BitsPerComponent = layout.BitsPerComponent,
-            ColorComponents = layout.Components,
-            IsStencil = layout.IsStencil,
-            WantsAlpha = SoftMaskInData != 0,
+            Geometry = layout.Geometry,
+            IsImageMask = layout.IsImageMask,
+            SoftMaskInData = SoftMaskInData,
             MaxPixels = streams.MaxImagePixels,
             MaxDecodedLength = streams.MaxDecodedLength,
         };
@@ -875,8 +872,8 @@ public sealed class PdfImage
             filter.Name,
             () => filter.TryReadHeader(data.Span, context, out ImageHeader found) ? new StrongBox<ImageHeader>(found) : null,
             filterContext.CancellationToken);
-        if (read?.Value is { Width: > 0, Height: > 0 } header
-            && ImageGeometry.CheckLimits(header.Width, header.Height, Math.Clamp(header.Components, 1, ImageGeometry.MaxComponents), Math.Clamp(header.BitsPerComponent, 1, 16), streams.MaxImagePixels, streams.MaxDecodedLength) is { } reason)
+        if (read?.Value is { Geometry: { Width: > 0, Height: > 0 } } header
+            && (header.Geometry with { Components = Math.Clamp(header.Geometry.Components, 1, ImageGeometry.MaxComponents), BitsPerComponent = Math.Clamp(header.Geometry.BitsPerComponent, 1, 16) }).CheckLimits(streams.MaxImagePixels, streams.MaxDecodedLength) is { } reason)
         {
             Report(ImageDiagnostics.ImageTooLarge, $"The image is not decoded: its {filter.Name.Value} header declares {reason}.", DiagnosticSeverity.Error);
             return default;
@@ -884,9 +881,9 @@ public sealed class PdfImage
 
         if (keepEncoded && read?.Value is { } kept && CanKeepEncoded(kept, layout, out PdfColorSpace? keptSpace))
         {
-            ReportDimensions(filter, kept.Width, kept.Height, layout);
+            ReportDimensions(filter, kept.Geometry.Width, kept.Geometry.Height, layout);
             var encoded = new EncodedImage(
-                dataIsStream ? data : data.ToArray(), filter, streams, filterContext.Parameters, filterContext.StreamDictionary, kept, layout.Width, layout.Height, layout.BitsPerComponent, layout.Components);
+                dataIsStream ? data : data.ToArray(), filter, streams, filterContext.Parameters, filterContext.StreamDictionary, kept, layout.Geometry);
             if (Reference is { } reference && _document.Configuration?.PlatformImages is { } platform)
             {
                 platform.Identify(encoded, reference); // names the image in the platform decoders' diagnostics (#372)
@@ -901,12 +898,12 @@ public sealed class PdfImage
             return default;
         }
 
-        ReportDimensions(filter, decoded.Width, decoded.Height, layout);
+        ReportDimensions(filter, decoded.Geometry.Width, decoded.Geometry.Height, layout);
 
-        if (layout.Components > 0 && decoded.Components != layout.Components)
+        if (layout.Components > 0 && decoded.Geometry.Components != layout.Components)
         {
             Report(ImageDiagnostics.ImageComponentMismatch, FormattableString.Invariant(
-                $"The {filter.Name.Value} data has {decoded.Components} components where the colour space has {layout.Components}; {(decoded.Components > layout.Components ? "the first ones are used" : "the missing ones are 0")}."));
+                $"The {filter.Name.Value} data has {decoded.Geometry.Components} components where the colour space has {layout.Components}; {(decoded.Geometry.Components > layout.Components ? "the first ones are used" : "the missing ones are 0")}."));
             using (decoded)
             {
 #pragma warning disable CA2000 // The prepared image hands the samples to the caller, who owns them.
@@ -940,17 +937,17 @@ public sealed class PdfImage
         space = null;
         if (header.MaxReduction <= 0
             || _role is not (ImageRole.XObject or ImageRole.Alternate or ImageRole.SoftMask)
-            || layout.IsStencil
-            || header is not { Width: > 0, Height: > 0, BitsPerComponent: >= 1 and <= 16, HasAlpha: false }
-            || header.Components is < 1 or > ImageGeometry.MaxComponents
-            || SoftMaskInData != 0
+            || layout.IsImageMask
+            || header is not { Geometry: { Width: > 0, Height: > 0, BitsPerComponent: >= 1 and <= 16 }, HasAlpha: false }
+            || header.Geometry.Components is < 1 or > ImageGeometry.MaxComponents
+            || SoftMaskInData != PdfSoftMaskInData.None
             || _document.DiagnosticSink.IsStrict)
         {
             return false;
         }
 
-        space = layout.ColorSpace ?? CodecColorSpace(header.IccProfile, header.ColorModel, header.Components);
-        return space is not null && space.ComponentCount == header.Components;
+        space = layout.ColorSpace ?? CodecColorSpace(header.IccProfile, header.ColorModel, header.Geometry.Components);
+        return space is not null && space.ComponentCount == header.Geometry.Components;
     }
 
     /// <summary>
@@ -964,23 +961,24 @@ public sealed class PdfImage
         DecodedImageBuilder? builder = null;
         try
         {
-            if (!context.TryCreateImage(decoded.Width, decoded.Height, components, decoded.BitsPerComponent, out builder))
+            ImageGeometry source = decoded.Geometry;
+            if (!context.TryCreateImage(source with { Components = components }, out builder))
             {
                 return null;
             }
 
-            int kept = Math.Min(components, decoded.Components);
+            int kept = Math.Min(components, source.Components);
             int bits = decoded.StorageBits;
-            ushort[] row = new ushort[decoded.Width * decoded.Components];
-            for (int y = 0; y < decoded.Height; y++)
+            ushort[] row = new ushort[source.Width * source.Components];
+            for (int y = 0; y < source.Height; y++)
             {
                 ImageRows.Unpack(decoded.GetRow(y), bits, row.Length, row);
                 Span<byte> target = builder.GetRow(y);
-                for (int x = 0; x < decoded.Width; x++)
+                for (int x = 0; x < source.Width; x++)
                 {
                     for (int c = 0; c < kept; c++)
                     {
-                        WriteSample(target, ((x * components) + c) * bits, bits, row[(x * decoded.Components) + c]);
+                        WriteSample(target, ((x * components) + c) * bits, bits, row[(x * source.Components) + c]);
                     }
                 }
             }
@@ -990,7 +988,7 @@ public sealed class PdfImage
             builder.Palette = decoded.Palette;
             builder.AdobeTransform = decoded.AdobeTransform;
             builder.ColorTransformApplied = decoded.ColorTransformApplied;
-            if (decoded.Alpha is { } alpha && builder.TryCreateAlpha(alpha.BitsPerComponent, decoded.AlphaPremultiplied, out DecodedImageBuilder? copy))
+            if (decoded.Alpha is { } alpha && builder.TryCreateAlpha(alpha.Geometry.BitsPerComponent, decoded.AlphaPremultiplied, out DecodedImageBuilder? copy))
             {
                 alpha.Samples.CopyTo(copy.Samples);
                 copy.DecodedRows = alpha.DecodedRows;
@@ -1102,5 +1100,9 @@ public sealed class PdfImage
 
     /// <summary>The dictionary values decoding needs, read with their defaults.</summary>
     private readonly record struct ImageLayout(
-        int Width, int Height, int BitsPerComponent, int Components, bool IsStencil, PdfColorSpace? ColorSpace, double[] Decode, bool IsDecodable);
+        int Width, int Height, int BitsPerComponent, int Components, bool IsImageMask, PdfColorSpace? ColorSpace, double[] Decode, bool IsDecodable)
+    {
+        /// <summary>Gets the dictionary's geometry as a decoder is told it.</summary>
+        public ImageGeometry Geometry => new(Width, Height, Components, BitsPerComponent);
+    }
 }

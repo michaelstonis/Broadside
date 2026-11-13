@@ -240,16 +240,16 @@ public sealed class ImageRenderingTests
         // Where samples are enlarged (dct-baseline: 4 x 4 pixels per sample), the pixel at a sample's centre shows it; where they are
         // reduced (jbig2-generic 1.5 and ccitt-g4 17 samples per pixel across), the area is not blank.
         int top = 792 - y - height;
-        if (decoded.Width <= width)
+        if (decoded.Geometry.Width <= width)
         {
-            Span<byte> row = stackalloc byte[decoded.Width];
-            for (int sy = 0; sy < decoded.Height; sy += 3)
+            Span<byte> row = stackalloc byte[decoded.Geometry.Width];
+            for (int sy = 0; sy < decoded.Geometry.Height; sy += 3)
             {
-                ImageRows.Unpack(decoded.GetRow(sy), decoded.StorageBits, decoded.Width, row);
-                for (int sx = 0; sx < decoded.Width; sx += 3)
+                ImageRows.Unpack(decoded.GetRow(sy), decoded.StorageBits, decoded.Geometry.Width, row);
+                for (int sx = 0; sx < decoded.Geometry.Width; sx += 3)
                 {
-                    double px = x + ((sx + 0.5) * width / decoded.Width);
-                    double py = top + ((sy + 0.5) * height / decoded.Height);
+                    double px = x + ((sx + 0.5) * width / decoded.Geometry.Width);
+                    double py = top + ((sy + 0.5) * height / decoded.Geometry.Height);
                     if (Math.Abs(px - Math.Floor(px) - 0.5) > 0.3 || Math.Abs(py - Math.Floor(py) - 0.5) > 0.3)
                     {
                         continue;
