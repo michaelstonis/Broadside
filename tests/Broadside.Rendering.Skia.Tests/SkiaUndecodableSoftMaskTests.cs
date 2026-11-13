@@ -6,8 +6,8 @@ namespace Broadside.Rendering.Skia.Tests;
 /// <summary>
 /// Issue #515, on Skia: a soft mask (ISO 32000-2 §11.6.5.2) kept encoded whose data cannot be decoded when it is drawn masks
 /// nothing, folded into its image's pixels or drawn on its own grid, at the image's resolution or a reduction: the image is painted
-/// as it is without the soft mask, as the software rasterizer paints it, and the codec's reason is a diagnostic of the document. An
-/// image that cannot be decoded paints nothing (§8.9.5).
+/// as it is without the soft mask (within a level of rounding), as the software rasterizer paints it, and the codec's reason is a
+/// diagnostic of the document. An image that cannot be decoded paints nothing (§8.9.5).
 /// </summary>
 public sealed class SkiaUndecodableSoftMaskTests
 {
@@ -34,8 +34,12 @@ public sealed class SkiaUndecodableSoftMaskTests
         byte[] actual = Render(masked, 0.125, scaled);
         byte[] expected = Render(unmasked, 0.125, scaled);
 
+        // Unfolded, the image is still drawn through the layer its mask would have masked; that layer's composite may round a level
+        // apart from a direct draw (x64 against arm64), never more. A transparent image would differ by up to 255 levels.
         Assert.Contains(expected, b => b != byte.MaxValue);
-        Assert.Equal(expected, actual);
+        Assert.Equal(expected.Length, actual.Length);
+        (_, _, int max) = ScaledImagePages.Compare(expected, actual);
+        Assert.True(max <= 1, $"{page}: up to {max} levels from the image without its soft mask");
         Assert.Contains(UndecodableSoftMaskPages.DiagnosticCode(page), masked.Diagnostics.Select(d => d.Code));
     }
 
