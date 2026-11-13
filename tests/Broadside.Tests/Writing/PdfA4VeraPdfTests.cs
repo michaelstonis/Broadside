@@ -1,6 +1,5 @@
 using Broadside.Diagnostics;
 using Broadside.Objects;
-using Broadside.Parsing;
 using Broadside.TestSupport;
 
 namespace Broadside.Tests.Writing;
@@ -25,7 +24,7 @@ public sealed class PdfA4VeraPdfTests
 
         byte[] saved = PdfA2u3bConformanceTests.Save(document, PdfAConformance.PdfA4);
 
-        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code is DiagnosticCodes.PdfANonConformant or DiagnosticCodes.PdfANotIdentified);
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.PdfANonConformant || diagnostic.Kind == SavingDiagnostics.PdfANotIdentified);
         Assert.Empty(VeraPdf.FailedRules(saved, "4"));
     }
 
@@ -39,7 +38,7 @@ public sealed class PdfA4VeraPdfTests
 
         byte[] saved = PdfA2u3bConformanceTests.Save(document, PdfAConformance.PdfA4f);
 
-        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code is DiagnosticCodes.PdfANonConformant or DiagnosticCodes.PdfANotIdentified);
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.PdfANonConformant || diagnostic.Kind == SavingDiagnostics.PdfANotIdentified);
         Assert.Empty(VeraPdf.FailedRules(saved, "4f"));
     }
 
@@ -53,7 +52,7 @@ public sealed class PdfA4VeraPdfTests
 
         byte[] saved = PdfA2u3bConformanceTests.Save(document, PdfAConformance.PdfA4);
 
-        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code is DiagnosticCodes.PdfANonConformant or DiagnosticCodes.PdfANotIdentified);
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.PdfANonConformant || diagnostic.Kind == SavingDiagnostics.PdfANotIdentified);
         Assert.Empty(VeraPdf.FailedRules(saved, "4"));
     }
 

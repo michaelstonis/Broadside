@@ -23,7 +23,7 @@ public sealed class PdfA2u3bVeraPdfTests
 
         byte[] saved = PdfA2u3bConformanceTests.Save(document, conformance);
 
-        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code is DiagnosticCodes.PdfANonConformant or DiagnosticCodes.PdfANotIdentified);
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.PdfANonConformant || diagnostic.Kind == SavingDiagnostics.PdfANotIdentified);
         Assert.Empty(VeraPdf.FailedRules(saved, flavour));
     }
 
@@ -53,7 +53,7 @@ public sealed class PdfA2u3bVeraPdfTests
 
         byte[] saved = PdfA2u3bConformanceTests.Save(document, conformance);
 
-        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code is DiagnosticCodes.PdfANonConformant or DiagnosticCodes.PdfANotIdentified);
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.PdfANonConformant || diagnostic.Kind == SavingDiagnostics.PdfANotIdentified);
         Assert.Empty(VeraPdf.FailedRules(saved, flavour));
     }
 
