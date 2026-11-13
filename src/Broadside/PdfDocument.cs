@@ -1,3 +1,6 @@
+// RS0026: the open and save entry points follow one rule (every asynchronous overload mirrors a synchronous one and ends in a
+// defaulted cancellation token), so several overloads of a name carry an optional parameter. Options are overloads, never optional.
+#pragma warning disable RS0026
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -332,19 +335,12 @@ public sealed partial class PdfDocument : IDisposable
 
     /// <summary>Opens the PDF file held by <paramref name="stream"/>, from its current position, with default options; a non-seekable stream is read asynchronously.</summary>
     /// <param name="stream">The stream. It is not disposed; a seekable stream must stay open and unchanged until the document is disposed.</param>
-    /// <returns>The document. Dispose it when done.</returns>
-    /// <exception cref="DiagnosticException">The file cannot be read at all.</exception>
-    /// <remarks>ISO 32000-2 §7.5. The same as <see cref="PdfEngine.OpenAsync(Stream, CancellationToken)"/> on an engine with default options.</remarks>
-    public static Task<PdfDocument> OpenAsync(Stream stream) => PdfEngine.Default.OpenAsync(stream, CancellationToken.None);
-
-    /// <summary>Opens the PDF file held by <paramref name="stream"/>, from its current position, with default options; a non-seekable stream is read asynchronously.</summary>
-    /// <param name="stream">The stream. It is not disposed; a seekable stream must stay open and unchanged until the document is disposed.</param>
     /// <param name="cancellationToken">Cancels reading a non-seekable stream.</param>
     /// <returns>The document. Dispose it when done.</returns>
     /// <exception cref="DiagnosticException">The file cannot be read at all.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
     /// <remarks>ISO 32000-2 §7.5. The same as <see cref="PdfEngine.OpenAsync(Stream, CancellationToken)"/> on an engine with default options.</remarks>
-    public static Task<PdfDocument> OpenAsync(Stream stream, CancellationToken cancellationToken) =>
+    public static Task<PdfDocument> OpenAsync(Stream stream, CancellationToken cancellationToken = default) =>
         PdfEngine.Default.OpenAsync(stream, cancellationToken);
 
     /// <summary>Opens the PDF file held by <paramref name="stream"/>, from its current position; a non-seekable stream is read asynchronously.</summary>
@@ -355,16 +351,8 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="DiagnosticException">The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
     /// <remarks>ISO 32000-2 §7.5. The same as <see cref="PdfEngine.OpenAsync(Stream, CancellationToken)"/> on an engine built from <paramref name="options"/>.</remarks>
-    public static Task<PdfDocument> OpenAsync(Stream stream, PdfOptions options, CancellationToken cancellationToken) =>
+    public static Task<PdfDocument> OpenAsync(Stream stream, PdfOptions options, CancellationToken cancellationToken = default) =>
         new PdfEngine(options).OpenAsync(stream, cancellationToken);
-
-    /// <summary>Opens the PDF file held by <paramref name="stream"/>, from its current position; a non-seekable stream is read asynchronously.</summary>
-    /// <param name="stream">The stream. It is not disposed; a seekable stream must stay open and unchanged until the document is disposed.</param>
-    /// <param name="options">The options.</param>
-    /// <returns>The document. Dispose it when done.</returns>
-    /// <exception cref="DiagnosticException">The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.</exception>
-    /// <remarks>ISO 32000-2 §7.5. As <see cref="OpenAsync(Stream, PdfOptions, CancellationToken)"/>, without cancellation.</remarks>
-    public static Task<PdfDocument> OpenAsync(Stream stream, PdfOptions options) => new PdfEngine(options).OpenAsync(stream, CancellationToken.None);
 
     /// <summary>Opens the PDF file held by <paramref name="stream"/>, from its current position.</summary>
     /// <param name="stream">The stream. It is not disposed; keep it open and unchanged until the document is disposed.</param>
@@ -377,23 +365,13 @@ public sealed partial class PdfDocument : IDisposable
     /// <summary>Opens the remote PDF file at <paramref name="uri"/> through HTTP range requests.</summary>
     /// <param name="httpClient">The client the requests go through; not disposed. It stays in use until the document is disposed.</param>
     /// <param name="uri">The file's address.</param>
-    /// <returns>The document. Dispose it when done.</returns>
-    /// <remarks>
-    /// Spec #33, viewer capability 5. The same as <see cref="PdfEngine.OpenAsync(HttpClient, Uri, CancellationToken)"/> on an engine
-    /// with default options.
-    /// </remarks>
-    public static Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri) => PdfEngine.Default.OpenAsync(httpClient, uri, CancellationToken.None);
-
-    /// <summary>Opens the remote PDF file at <paramref name="uri"/> through HTTP range requests.</summary>
-    /// <param name="httpClient">The client the requests go through; not disposed. It stays in use until the document is disposed.</param>
-    /// <param name="uri">The file's address.</param>
     /// <param name="cancellationToken">Cancels the requests made while opening.</param>
     /// <returns>The document. Dispose it when done.</returns>
     /// <remarks>
     /// Spec #33, viewer capability 5. The same as <see cref="PdfEngine.OpenAsync(HttpClient, Uri, CancellationToken)"/> on an engine
     /// with default options.
     /// </remarks>
-    public static Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri, CancellationToken cancellationToken) =>
+    public static Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri, CancellationToken cancellationToken = default) =>
         PdfEngine.Default.OpenAsync(httpClient, uri, cancellationToken);
 
     /// <summary>Opens the remote PDF file at <paramref name="uri"/> through HTTP range requests.</summary>
@@ -406,17 +384,8 @@ public sealed partial class PdfDocument : IDisposable
     /// Spec #33, viewer capability 5. The same as <see cref="PdfEngine.OpenAsync(HttpClient, Uri, CancellationToken)"/> on an engine
     /// built from <paramref name="options"/>.
     /// </remarks>
-    public static Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri, PdfOptions options, CancellationToken cancellationToken) =>
+    public static Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri, PdfOptions options, CancellationToken cancellationToken = default) =>
         new PdfEngine(options).OpenAsync(httpClient, uri, cancellationToken);
-
-    /// <summary>Opens the remote PDF file at <paramref name="uri"/> through HTTP range requests.</summary>
-    /// <param name="httpClient">The client the requests go through; not disposed. It stays in use until the document is disposed.</param>
-    /// <param name="uri">The file's address.</param>
-    /// <param name="options">The options, such as the range block size, cache limit and whether synchronous reads may fetch.</param>
-    /// <returns>The document. Dispose it when done.</returns>
-    /// <remarks>Spec #33, viewer capability 5. As <see cref="OpenAsync(HttpClient, Uri, PdfOptions, CancellationToken)"/>, without cancellation.</remarks>
-    public static Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri, PdfOptions options) =>
-        new PdfEngine(options).OpenAsync(httpClient, uri, CancellationToken.None);
 
     /// <summary>Opens the PDF file held in <paramref name="bytes"/> with default options.</summary>
     /// <param name="bytes">
@@ -434,6 +403,48 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="DiagnosticException">The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.</exception>
     /// <remarks>ISO 32000-2 §7.5.</remarks>
     public static PdfDocument Open(ReadOnlyMemory<byte> bytes, PdfOptions options) => new PdfEngine(options).Open(bytes);
+
+    /// <summary>Opens the PDF file at <paramref name="path"/> with default options; the asynchronous counterpart of <see cref="Open(string)"/>.</summary>
+    /// <param name="path">The file path. The file is memory-mapped and shared for reading: do not change it until the document is disposed.</param>
+    /// <param name="cancellationToken">Checked before the file is opened.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="DiagnosticException">The file cannot be read at all.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>ISO 32000-2 §7.5. The same as <see cref="PdfEngine.OpenAsync(string, CancellationToken)"/> on an engine with default options.</remarks>
+    public static Task<PdfDocument> OpenAsync(string path, CancellationToken cancellationToken = default) =>
+        PdfEngine.Default.OpenAsync(path, cancellationToken);
+
+    /// <summary>Opens the PDF file at <paramref name="path"/>; the asynchronous counterpart of <see cref="Open(string, PdfOptions)"/>.</summary>
+    /// <param name="path">The file path.</param>
+    /// <param name="options">The options.</param>
+    /// <param name="cancellationToken">Checked before the file is opened.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="DiagnosticException">The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>ISO 32000-2 §7.5. The same as <see cref="PdfEngine.OpenAsync(string, CancellationToken)"/> on an engine built from <paramref name="options"/>.</remarks>
+    public static Task<PdfDocument> OpenAsync(string path, PdfOptions options, CancellationToken cancellationToken = default) =>
+        new PdfEngine(options).OpenAsync(path, cancellationToken);
+
+    /// <summary>Opens the PDF file held in <paramref name="bytes"/> with default options; the asynchronous counterpart of <see cref="Open(ReadOnlyMemory{byte})"/>.</summary>
+    /// <param name="bytes">The file. Not copied: do not change it while the document or any of its objects is in use.</param>
+    /// <param name="cancellationToken">Checked before the file is opened.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="DiagnosticException">The file cannot be read at all.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>ISO 32000-2 §7.5. The same as <see cref="PdfEngine.OpenAsync(ReadOnlyMemory{byte}, CancellationToken)"/> on an engine with default options.</remarks>
+    public static Task<PdfDocument> OpenAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken = default) =>
+        PdfEngine.Default.OpenAsync(bytes, cancellationToken);
+
+    /// <summary>Opens the PDF file held in <paramref name="bytes"/>; the asynchronous counterpart of <see cref="Open(ReadOnlyMemory{byte}, PdfOptions)"/>.</summary>
+    /// <param name="bytes">The file. Not copied: do not change it while the document or any of its objects is in use.</param>
+    /// <param name="options">The options.</param>
+    /// <param name="cancellationToken">Checked before the file is opened.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="DiagnosticException">The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>ISO 32000-2 §7.5. The same as <see cref="PdfEngine.OpenAsync(ReadOnlyMemory{byte}, CancellationToken)"/> on an engine built from <paramref name="options"/>.</remarks>
+    public static Task<PdfDocument> OpenAsync(ReadOnlyMemory<byte> bytes, PdfOptions options, CancellationToken cancellationToken = default) =>
+        new PdfEngine(options).OpenAsync(bytes, cancellationToken);
 
     /// <summary>Creates a new document with one empty US Letter page (612 by 792 points), with default options.</summary>
     /// <returns>The document. Dispose it when done.</returns>
@@ -572,10 +583,9 @@ public sealed partial class PdfDocument : IDisposable
         Rebase(writer);
     }
 
-    /// <summary>Writes the document to <paramref name="stream"/> as a complete file, writing asynchronously.</summary>
+    /// <summary>Writes the document to <paramref name="stream"/> as a complete file with a classic cross-reference table, writing asynchronously.</summary>
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
-    /// <param name="options">How to lay the file out; <see langword="null"/> for the defaults (a classic cross-reference table).</param>
-    /// <param name="cancellationToken">Cancels the writes.</param>
+    /// <param name="cancellationToken">Cancels the writes; checked before each chunk is written.</param>
     /// <returns>A task that completes when the file is written.</returns>
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
@@ -585,17 +595,94 @@ public sealed partial class PdfDocument : IDisposable
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled; nothing more is written and the document is left as it was.</exception>
     /// <remarks>
-    /// ISO 32000-2 §7.5. Writes exactly the bytes <see cref="Save(Stream, PdfSaveOptions)"/> writes, from the same writer; only the
-    /// writes to <paramref name="stream"/> are asynchronous.
+    /// ISO 32000-2 §7.5. The asynchronous counterpart of <see cref="Save(Stream)"/>.
     /// </remarks>
-    public async Task SaveAsync(Stream stream, PdfSaveOptions? options = null, CancellationToken cancellationToken = default)
+    public Task SaveAsync(Stream stream, CancellationToken cancellationToken = default) => SaveAsync(stream, new PdfSaveOptions(), cancellationToken);
+
+    /// <summary>Writes the document to <paramref name="stream"/> as a complete file, writing asynchronously.</summary>
+    /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
+    /// <param name="options">How to lay the file out.</param>
+    /// <param name="cancellationToken">Cancels the writes; checked before each chunk is written.</param>
+    /// <returns>A task that completes when the file is written.</returns>
+    /// <exception cref="NotSupportedException">
+    /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
+    /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
+    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
+    /// or a linearized save would carry an integrity MAC.
+    /// </exception>
+    /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled; nothing more is written and the document is left as it was.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.5. The asynchronous counterpart of <see cref="Save(Stream, PdfSaveOptions)"/>: it writes exactly the same bytes, from the same writer;
+    /// only the writes to <paramref name="stream"/> are asynchronous. A canceled save may leave a partial file in <paramref name="stream"/>; save to a path for an all-or-nothing write.
+    /// </remarks>
+    public async Task SaveAsync(Stream stream, PdfSaveOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        FileWriter writer = PlanSave(options ?? new PdfSaveOptions());
-        foreach (ReadOnlyMemory<byte> chunk in writer.Write())
+        FileWriter writer = PlanSave(options);
+        await WriteToAsync(writer, stream, cancellationToken).ConfigureAwait(false);
+        Rebase(writer);
+    }
+
+    /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it, with a classic cross-reference table, writing asynchronously.</summary>
+    /// <param name="path">The file path. Do not name the file the document was opened from.</param>
+    /// <param name="cancellationToken">Cancels the writes; checked before each chunk is written.</param>
+    /// <returns>A task that completes when the file is written.</returns>
+    /// <exception cref="NotSupportedException">
+    /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
+    /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
+    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
+    /// or a linearized save would carry an integrity MAC.
+    /// </exception>
+    /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled; nothing more is written and the document is left as it was.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.5. The asynchronous counterpart of <see cref="Save(string)"/>. The file is written to a temporary file beside <paramref name="path"/> and moved over it only once complete, so a canceled or failed save leaves an existing file at <paramref name="path"/> as it was and creates no file there.
+    /// </remarks>
+    public Task SaveAsync(string path, CancellationToken cancellationToken = default) => SaveAsync(path, new PdfSaveOptions(), cancellationToken);
+
+    /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it, writing asynchronously.</summary>
+    /// <param name="path">The file path. Do not name the file the document was opened from.</param>
+    /// <param name="options">How to lay the file out.</param>
+    /// <param name="cancellationToken">Cancels the writes; checked before each chunk is written.</param>
+    /// <returns>A task that completes when the file is written.</returns>
+    /// <exception cref="NotSupportedException">
+    /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
+    /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
+    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
+    /// or a linearized save would carry an integrity MAC.
+    /// </exception>
+    /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled; nothing more is written and the document is left as it was.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.5. The asynchronous counterpart of <see cref="Save(string, PdfSaveOptions)"/>. The file is written to a temporary file beside <paramref name="path"/> and moved over it only once complete, so a canceled or failed save leaves an existing file at <paramref name="path"/> as it was and creates no file there.
+    /// </remarks>
+    public async Task SaveAsync(string path, PdfSaveOptions options, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+
+        // Planned before any file is created, so a document that cannot be saved leaves an existing file alone.
+        FileWriter writer = PlanSave(options);
+        string temporary = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))!, $".{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
+        try
         {
-            await stream.WriteAsync(chunk, cancellationToken).ConfigureAwait(false);
+            FileStream stream = new(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, bufferSize: 1, useAsync: true);
+            await using (stream.ConfigureAwait(false))
+            {
+                await WriteToAsync(writer, stream, cancellationToken).ConfigureAwait(false);
+            }
+
+            File.Move(temporary, path, overwrite: true);
+        }
+        catch
+        {
+            TryDelete(temporary);
+            throw;
         }
 
         Rebase(writer);
@@ -1304,6 +1391,27 @@ public sealed partial class PdfDocument : IDisposable
         foreach (ReadOnlyMemory<byte> chunk in writer.Write())
         {
             stream.Write(chunk.Span);
+        }
+    }
+
+    private static async Task WriteToAsync(FileWriter writer, Stream stream, CancellationToken cancellationToken)
+    {
+        foreach (ReadOnlyMemory<byte> chunk in writer.Write())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await stream.WriteAsync(chunk, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // The save's own failure is the one to report; a temporary file that cannot be removed is left behind.
         }
     }
 

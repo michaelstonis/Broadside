@@ -14,7 +14,7 @@ public sealed class PdfRedactAnnotation : PdfMarkupAnnotation
 
     /// <summary>Gets the quadrilaterals of the content to remove (<c>QuadPoints</c>), as stored; empty when absent, in which case the rectangle is the region.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.23, Table 195.</remarks>
-    public IReadOnlyList<PdfQuadrilateral> QuadPoints => ReadQuadPoints(required: false, "Table 195");
+    public IReadOnlyList<PdfQuadrilateral> QuadPoints => this.GetQuadrilaterals(required: false, "Table 195");
 
     /// <summary>Gets the interior colour (<c>IC</c>, PDF 1.4), or <see langword="null"/> for none.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.23, Table 195: the fill of the redacted region (DeviceRGB); ignored when <see cref="Overlay"/> is present.</remarks>
@@ -22,7 +22,7 @@ public sealed class PdfRedactAnnotation : PdfMarkupAnnotation
 
     /// <summary>Gets the form XObject drawn over the redacted region (<c>RO</c>), or <see langword="null"/>; it takes precedence over the colour, text and justification entries.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.23, Table 195.</remarks>
-    public PdfFormXObject? Overlay => ReadForm(AnnotationNames.RO);
+    public PdfFormXObject? Overlay => this.GetForm(AnnotationNames.RO);
 
     /// <summary>Gets the text drawn over the redacted region (<c>OverlayText</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.23, Table 195.</remarks>
@@ -43,7 +43,7 @@ public sealed class PdfRedactAnnotation : PdfMarkupAnnotation
                 ReportMissing(AnnotationNames.DA, "Table 195 (with OverlayText)");
             }
 
-            return ReadByteString(AnnotationNames.DA);
+            return this.GetByteString(AnnotationNames.DA);
         }
     }
 

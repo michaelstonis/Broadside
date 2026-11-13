@@ -36,6 +36,9 @@ internal static class FileAndLayerNames
     public static readonly CosName EmbeddedFile = new("EmbeddedFile");
     public static readonly CosName EmbeddedFiles = new("EmbeddedFiles");
 
+    // Unencrypted wrapper documents (§7.6.7, Table 28).
+    public static readonly CosName EncryptedPayload = new("EncryptedPayload");
+
     // Associated files and metadata (§14.13, §14.3.2).
     public static readonly CosName AF = new("AF");
     public static readonly CosName MCAF = new("MCAF");

@@ -52,6 +52,7 @@
   encrypted-rc4-length-missing.pdf,
   encrypted-rc4-user-password.pdf,
   encrypted-user-password.pdf,
+  encrypted-wrapper.pdf,
   extgstate-params.pdf,
   filter-chain.pdf,
   flate-stream.pdf,

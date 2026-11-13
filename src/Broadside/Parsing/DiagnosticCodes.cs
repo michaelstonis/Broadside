@@ -162,7 +162,6 @@ internal static partial class DiagnosticCodes
     public const string FunctionInvalid = nameof(FunctionInvalid);
     public const string FunctionEntryInvalid = nameof(FunctionEntryInvalid);
     public const string FunctionSampleDataTruncated = nameof(FunctionSampleDataTruncated);
-    public const string FunctionOrderUnsupported = nameof(FunctionOrderUnsupported);
     public const string FunctionProgramSyntaxInvalid = nameof(FunctionProgramSyntaxInvalid);
     public const string FunctionProgramStackInvalid = nameof(FunctionProgramStackInvalid);
     public const string FunctionCycle = nameof(FunctionCycle);

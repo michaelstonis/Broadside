@@ -13,9 +13,9 @@ public sealed class PdfCaretAnnotation : PdfMarkupAnnotation
 
     /// <summary>Gets the differences between the annotation rectangle and the drawn rectangle (<c>RD</c>, PDF 1.5), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.11, Table 183.</remarks>
-    public PdfRectangleDifferences? RectangleDifferences => ReadRectangleDifferences();
+    public PdfRectangleDifferences? RectangleDifferences => this.GetRectangleDifferences();
 
     /// <summary>Gets the symbol associated with the caret (<c>Sy</c>); default none.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.11, Table 183.</remarks>
-    public PdfCaretSymbol Symbol => ReadChoice(AnnotationNames.Sy, PdfCaretSymbol.None, ("P", PdfCaretSymbol.Paragraph), ("None", PdfCaretSymbol.None));
+    public PdfCaretSymbol Symbol => this.GetChoice(AnnotationNames.Sy, PdfCaretSymbol.None, ("P", PdfCaretSymbol.Paragraph), ("None", PdfCaretSymbol.None));
 }

@@ -212,7 +212,7 @@ public sealed class RangeRequestSourceTests
     public async Task A_document_opened_from_bytes_prefetches_nothing()
     {
         (byte[] file, _) = FiftyPages();
-        using PdfDocument document = PdfDocument.Open(file);
+        using PdfDocument document = await PdfDocument.OpenAsync(file, TestContext.Current.CancellationToken);
 
         Task prefetch = document.Pages[0].PrefetchAsync(TestContext.Current.CancellationToken);
 

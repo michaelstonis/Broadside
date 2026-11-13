@@ -143,7 +143,7 @@ public sealed class FirstPageFirstTests
     public async Task A_remote_linearized_file_reads_like_the_same_file_opened_locally(PdfCrossReferenceLayout layout)
     {
         (byte[] file, _) = LargeLinearized(layout);
-        using PdfDocument local = PdfDocument.Open(file);
+        using PdfDocument local = await PdfDocument.OpenAsync(file, TestContext.Current.CancellationToken);
         using var server = new RangeServer(file);
         using HttpClient client = server.CreateClient();
 
@@ -166,7 +166,7 @@ public sealed class FirstPageFirstTests
         file[data + 5] = (byte)(location >> 16);
         file[data + 6] = (byte)(location >> 8);
         file[data + 7] = (byte)location;
-        using PdfDocument local = PdfDocument.Open(file);
+        using PdfDocument local = await PdfDocument.OpenAsync(file, TestContext.Current.CancellationToken);
         using var server = new RangeServer(file);
         using HttpClient client = server.CreateClient();
 
@@ -192,7 +192,7 @@ public sealed class FirstPageFirstTests
         }
 
         Encoding.Latin1.GetBytes(new string('9', digits)).CopyTo(file, s);
-        using PdfDocument local = PdfDocument.Open(file);
+        using PdfDocument local = await PdfDocument.OpenAsync(file, TestContext.Current.CancellationToken);
         using var server = new RangeServer(file);
         using HttpClient client = server.CreateClient();
 
@@ -209,13 +209,13 @@ public sealed class FirstPageFirstTests
         // G.7: L no longer matches the file length, so the file is not linearized and its hints are not used.
         (byte[] linearized, _) = LargeLinearized(PdfCrossReferenceLayout.Table);
         int size;
-        using (PdfDocument original = PdfDocument.Open(linearized))
+        using (PdfDocument original = await PdfDocument.OpenAsync(linearized, TestContext.Current.CancellationToken))
         {
             size = (int)((CosInteger)original.Trailer[new CosName("Size")]).Value;
         }
 
         byte[] file = TestPdf.AppendUpdate(linearized, $"/Size {size + 1} /Root {RootOf(linearized)}", (size, 0, "<< /Updated true >>"));
-        using PdfDocument local = PdfDocument.Open(file);
+        using PdfDocument local = await PdfDocument.OpenAsync(file, TestContext.Current.CancellationToken);
         using var server = new RangeServer(file);
         using HttpClient client = server.CreateClient();
 

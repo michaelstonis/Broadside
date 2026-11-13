@@ -27,5 +27,9 @@ internal static partial class DiagnosticCodes
     public const string CollectionFolderIdDuplicate = nameof(CollectionFolderIdDuplicate);
     public const string CollectionFolderInvalid = nameof(CollectionFolderInvalid);
 
+    // Unencrypted wrapper documents (§7.6.7; issue #234).
+    public const string UnencryptedWrapperInvalid = nameof(UnencryptedWrapperInvalid);
+    public const string EncryptedPayloadFilterUnknown = nameof(EncryptedPayloadFilterUnknown);
+
     // Object-level metadata (§14.3.2; issue #76) reports MetadataStreamInvalid from DiagnosticCodes.Catalog.cs.
 }

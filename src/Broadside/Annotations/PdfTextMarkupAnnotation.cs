@@ -13,5 +13,5 @@ public abstract class PdfTextMarkupAnnotation : PdfMarkupAnnotation
 
     /// <summary>Gets the quadrilaterals that enclose the marked-up text (<c>QuadPoints</c>, required), as stored; empty when absent.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.10, Table 182. Counterclockwise, with the text along the edge from the first point to the second; written in other orders too (<see cref="PdfQuadrilateral"/>).</remarks>
-    public IReadOnlyList<PdfQuadrilateral> QuadPoints => ReadQuadPoints(required: true, "Table 182");
+    public IReadOnlyList<PdfQuadrilateral> QuadPoints => this.GetQuadrilaterals(required: true, "Table 182");
 }
