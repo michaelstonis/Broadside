@@ -222,6 +222,9 @@ internal static class VersionedFeatures
     /// <summary>Gets associated files (<c>AF</c>, <c>AFRelationship</c>): PDF 2.0.</summary>
     public static VersionedFeature AssociatedFiles { get; } = new("associated files (AF, AFRelationship)", "ISO 32000-2 §14.13", Pdf20);
 
+    /// <summary>Gets an unencrypted wrapper document (an encrypted payload, <c>EP</c>, presented by a hidden collection): PDF 2.0.</summary>
+    public static VersionedFeature UnencryptedWrapper { get; } = new("an unencrypted wrapper document (EP, AFRelationship EncryptedPayload)", "ISO 32000-2 §7.6.7, Table 28", Pdf20);
+
     /// <summary>Gets <c>FitB</c>, <c>FitBH</c> and <c>FitBV</c> destinations: PDF 1.1.</summary>
     public static VersionedFeature BoundingBoxDestinations { get; } = new("a FitB, FitBH or FitBV destination", "ISO 32000-2 §12.3.2.2, Table 149", Pdf11);
 

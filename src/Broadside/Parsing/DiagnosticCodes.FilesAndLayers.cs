@@ -31,5 +31,8 @@ internal static partial class DiagnosticCodes
     public const string UnencryptedWrapperInvalid = nameof(UnencryptedWrapperInvalid);
     public const string EncryptedPayloadFilterUnknown = nameof(EncryptedPayloadFilterUnknown);
 
+    // Writing an unencrypted wrapper (§7.6.7; issue #235).
+    public const string EncryptedPayloadNotEncrypted = nameof(EncryptedPayloadNotEncrypted);
+
     // Object-level metadata (§14.3.2; issue #76) reports MetadataStreamInvalid from DiagnosticCodes.Catalog.cs.
 }
