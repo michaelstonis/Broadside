@@ -1,3 +1,5 @@
+using Broadside.Diagnostics;
+
 namespace Broadside.Parsing;
 
 /// <summary>
@@ -7,23 +9,23 @@ namespace Broadside.Parsing;
 internal static partial class DiagnosticCodes
 {
     // Text (§9.3, §9.4).
-    public const string ContentFontMissing = nameof(ContentFontMissing);
+    public static string ContentFontMissing => ContentDiagnostics.ContentFontMissing.Name;
 
     // Graphics state parameter dictionaries (§8.4.5, Table 57).
-    public const string ContentExtGStateMissing = nameof(ContentExtGStateMissing);
-    public const string ContentExtGStateInvalid = nameof(ContentExtGStateInvalid);
+    public static string ContentExtGStateMissing => ContentDiagnostics.ContentExtGStateMissing.Name;
+    public static string ContentExtGStateInvalid => ContentDiagnostics.ContentExtGStateInvalid.Name;
 
     // XObjects (§8.8, §8.10).
-    public const string ContentXObjectMissing = nameof(ContentXObjectMissing);
-    public const string ContentXObjectInvalid = nameof(ContentXObjectInvalid);
-    public const string ContentPostScriptXObject = nameof(ContentPostScriptXObject);
-    public const string ContentFormInvalid = nameof(ContentFormInvalid);
-    public const string ContentFormCycle = nameof(ContentFormCycle);
+    public static string ContentXObjectMissing => ContentDiagnostics.ContentXObjectMissing.Name;
+    public static string ContentXObjectInvalid => ContentDiagnostics.ContentXObjectInvalid.Name;
+    public static string ContentPostScriptXObject => ContentDiagnostics.ContentPostScriptXObject.Name;
+    public static string ContentFormInvalid => ContentDiagnostics.ContentFormInvalid.Name;
+    public static string ContentFormCycle => ContentDiagnostics.ContentFormCycle.Name;
 
     // Inline images (§8.9.7).
-    public const string ContentInlineImageLengthMissing = nameof(ContentInlineImageLengthMissing);
+    public static string ContentInlineImageLengthMissing => ContentDiagnostics.ContentInlineImageLengthMissing.Name;
 
     // Marked content (§14.6).
-    public const string ContentPropertiesMissing = nameof(ContentPropertiesMissing);
-    public const string ContentMarkedContentUnbalanced = nameof(ContentMarkedContentUnbalanced);
+    public static string ContentPropertiesMissing => ContentDiagnostics.ContentPropertiesMissing.Name;
+    public static string ContentMarkedContentUnbalanced => ContentDiagnostics.ContentMarkedContentUnbalanced.Name;
 }

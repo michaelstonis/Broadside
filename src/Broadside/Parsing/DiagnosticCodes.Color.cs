@@ -1,29 +1,31 @@
+using Broadside.Diagnostics;
+
 namespace Broadside.Parsing;
 
 /// <summary>Diagnostic codes for colour spaces, colour operators and colour conversion (issue #77).</summary>
 internal static partial class DiagnosticCodes
 {
     // Colour spaces (§8.6).
-    public const string ColorSpaceInvalid = nameof(ColorSpaceInvalid);
-    public const string ColorSpaceEntryInvalid = nameof(ColorSpaceEntryInvalid);
-    public const string ColorSpaceCycle = nameof(ColorSpaceCycle);
-    public const string ColorSpaceTooDeep = nameof(ColorSpaceTooDeep);
-    public const string IccProfileInvalid = nameof(IccProfileInvalid);
-    public const string IccComponentCountMismatch = nameof(IccComponentCountMismatch);
-    public const string IndexedLookupInvalid = nameof(IndexedLookupInvalid);
-    public const string TintTransformInvalid = nameof(TintTransformInvalid);
-    public const string DeviceNColorantsInvalid = nameof(DeviceNColorantsInvalid);
-    public const string DefaultColorSpaceInvalid = nameof(DefaultColorSpaceInvalid);
-    public const string GroupColorSpaceInvalid = nameof(GroupColorSpaceInvalid);
-    public const string SoftMaskColorSpaceMissing = nameof(SoftMaskColorSpaceMissing);
+    public static string ColorSpaceInvalid => ColorDiagnostics.ColorSpaceInvalid.Name;
+    public static string ColorSpaceEntryInvalid => ColorDiagnostics.ColorSpaceEntryInvalid.Name;
+    public static string ColorSpaceCycle => ColorDiagnostics.ColorSpaceCycle.Name;
+    public static string ColorSpaceTooDeep => ColorDiagnostics.ColorSpaceTooDeep.Name;
+    public static string IccProfileInvalid => ColorDiagnostics.IccProfileInvalid.Name;
+    public static string IccComponentCountMismatch => ColorDiagnostics.IccComponentCountMismatch.Name;
+    public static string IndexedLookupInvalid => ColorDiagnostics.IndexedLookupInvalid.Name;
+    public static string TintTransformInvalid => ColorDiagnostics.TintTransformInvalid.Name;
+    public static string DeviceNColorantsInvalid => ColorDiagnostics.DeviceNColorantsInvalid.Name;
+    public static string DefaultColorSpaceInvalid => ColorDiagnostics.DefaultColorSpaceInvalid.Name;
+    public static string GroupColorSpaceInvalid => ColorDiagnostics.GroupColorSpaceInvalid.Name;
+    public static string SoftMaskColorSpaceMissing => ColorDiagnostics.SoftMaskColorSpaceMissing.Name;
 
     // Colour operators in content streams (§8.6.8, Table 73).
-    public const string ContentColorSpaceMissing = nameof(ContentColorSpaceMissing);
-    public const string ContentColorSpaceAbbreviated = nameof(ContentColorSpaceAbbreviated);
-    public const string ContentColorOperandCount = nameof(ContentColorOperandCount);
-    public const string ContentColorOperatorMismatch = nameof(ContentColorOperatorMismatch);
-    public const string ContentColorOperatorInvalid = nameof(ContentColorOperatorInvalid);
-    public const string ContentColorOperatorIgnored = nameof(ContentColorOperatorIgnored);
-    public const string ContentPatternMissing = nameof(ContentPatternMissing);
-    public const string ColorComponentLimitExceeded = nameof(ColorComponentLimitExceeded);
+    public static string ContentColorSpaceMissing => ColorDiagnostics.ContentColorSpaceMissing.Name;
+    public static string ContentColorSpaceAbbreviated => ColorDiagnostics.ContentColorSpaceAbbreviated.Name;
+    public static string ContentColorOperandCount => ColorDiagnostics.ContentColorOperandCount.Name;
+    public static string ContentColorOperatorMismatch => ColorDiagnostics.ContentColorOperatorMismatch.Name;
+    public static string ContentColorOperatorInvalid => ColorDiagnostics.ContentColorOperatorInvalid.Name;
+    public static string ContentColorOperatorIgnored => ColorDiagnostics.ContentColorOperatorIgnored.Name;
+    public static string ContentPatternMissing => ColorDiagnostics.ContentPatternMissing.Name;
+    public static string ColorComponentLimitExceeded => ColorDiagnostics.ColorComponentLimitExceeded.Name;
 }

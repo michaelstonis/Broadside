@@ -1,21 +1,23 @@
+using Broadside.Diagnostics;
+
 namespace Broadside.Parsing;
 
 /// <summary>Diagnostic codes for mapping character codes to Unicode (issue #58; ISO 32000-2 §9.10).</summary>
 internal static partial class DiagnosticCodes
 {
     // The ToUnicode entry and its CMap (§9.10.3), reported on the ToUnicode stream (or the font, for a name).
-    public const string ToUnicodeInvalid = nameof(ToUnicodeInvalid);
-    public const string ToUnicodeIdentityName = nameof(ToUnicodeIdentityName);
-    public const string ToUnicodeDestinationInvalid = nameof(ToUnicodeDestinationInvalid);
-    public const string ToUnicodeBfRangeOverflow = nameof(ToUnicodeBfRangeOverflow);
-    public const string ToUnicodeCidMapping = nameof(ToUnicodeCidMapping);
+    public static string ToUnicodeInvalid => TextDiagnostics.ToUnicodeInvalid.Name;
+    public static string ToUnicodeIdentityName => TextDiagnostics.ToUnicodeIdentityName.Name;
+    public static string ToUnicodeDestinationInvalid => TextDiagnostics.ToUnicodeDestinationInvalid.Name;
+    public static string ToUnicodeBfRangeOverflow => TextDiagnostics.ToUnicodeBfRangeOverflow.Name;
+    public static string ToUnicodeCidMapping => TextDiagnostics.ToUnicodeCidMapping.Name;
 
     // Looking up shown codes (§9.10.2), each reported once per font.
-    public const string ToUnicodeCodeLengthMismatch = nameof(ToUnicodeCodeLengthMismatch);
-    public const string GlyphNameNonStandard = nameof(GlyphNameNonStandard);
-    public const string TextUcs2CmapMissing = nameof(TextUcs2CmapMissing);
-    public const string TextUnicodeUnmapped = nameof(TextUnicodeUnmapped);
+    public static string ToUnicodeCodeLengthMismatch => TextDiagnostics.ToUnicodeCodeLengthMismatch.Name;
+    public static string GlyphNameNonStandard => TextDiagnostics.GlyphNameNonStandard.Name;
+    public static string TextUcs2CmapMissing => TextDiagnostics.TextUcs2CmapMissing.Name;
+    public static string TextUnicodeUnmapped => TextDiagnostics.TextUnicodeUnmapped.Name;
 
     // A Registry-Ordering-UCS2 resource a font resolver supplied (§9.10.2 step d).
-    public const string CidToUnicodeResourceInvalid = nameof(CidToUnicodeResourceInvalid);
+    public static string CidToUnicodeResourceInvalid => TextDiagnostics.CidToUnicodeResourceInvalid.Name;
 }

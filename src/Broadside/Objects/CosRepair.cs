@@ -1,5 +1,7 @@
 using System.Globalization;
 
+using Broadside.Diagnostics;
+
 namespace Broadside.Objects;
 
 /// <summary>
@@ -21,26 +23,26 @@ internal readonly record struct CosRepair(string Code, int Offset, string Messag
 /// <summary>The codes of <see cref="CosRepair"/>, one per kind of deviation.</summary>
 internal static class CosRepairCodes
 {
-    public const string UnexpectedEndOfInput = nameof(UnexpectedEndOfInput);
-    public const string UnexpectedToken = nameof(UnexpectedToken);
-    public const string TrailingContent = nameof(TrailingContent);
-    public const string NumberMalformed = nameof(NumberMalformed);
-    public const string NumberOutOfRange = nameof(NumberOutOfRange);
-    public const string ReferenceInvalid = nameof(ReferenceInvalid);
-    public const string StringUnterminated = nameof(StringUnterminated);
-    public const string HexStringUnterminated = nameof(HexStringUnterminated);
-    public const string HexStringInvalidDigit = nameof(HexStringInvalidDigit);
-    public const string NameInvalidEscape = nameof(NameInvalidEscape);
-    public const string NameContainsNull = nameof(NameContainsNull);
-    public const string ArrayUnterminated = nameof(ArrayUnterminated);
-    public const string DictionaryUnterminated = nameof(DictionaryUnterminated);
-    public const string DictionaryKeyNotName = nameof(DictionaryKeyNotName);
-    public const string DictionaryValueMissing = nameof(DictionaryValueMissing);
-    public const string DictionaryDuplicateKey = nameof(DictionaryDuplicateKey);
-    public const string NestingTooDeep = nameof(NestingTooDeep);
-    public const string StreamKeywordEndOfLine = nameof(StreamKeywordEndOfLine);
-    public const string StreamLengthInvalid = nameof(StreamLengthInvalid);
-    public const string EndstreamMissing = nameof(EndstreamMissing);
+    public static string UnexpectedEndOfInput => ObjectSyntaxDiagnostics.UnexpectedEndOfInput.Name;
+    public static string UnexpectedToken => ObjectSyntaxDiagnostics.UnexpectedToken.Name;
+    public static string TrailingContent => ObjectSyntaxDiagnostics.TrailingContent.Name;
+    public static string NumberMalformed => ObjectSyntaxDiagnostics.NumberMalformed.Name;
+    public static string NumberOutOfRange => ObjectSyntaxDiagnostics.NumberOutOfRange.Name;
+    public static string ReferenceInvalid => ObjectSyntaxDiagnostics.ReferenceInvalid.Name;
+    public static string StringUnterminated => ObjectSyntaxDiagnostics.StringUnterminated.Name;
+    public static string HexStringUnterminated => ObjectSyntaxDiagnostics.HexStringUnterminated.Name;
+    public static string HexStringInvalidDigit => ObjectSyntaxDiagnostics.HexStringInvalidDigit.Name;
+    public static string NameInvalidEscape => ObjectSyntaxDiagnostics.NameInvalidEscape.Name;
+    public static string NameContainsNull => ObjectSyntaxDiagnostics.NameContainsNull.Name;
+    public static string ArrayUnterminated => ObjectSyntaxDiagnostics.ArrayUnterminated.Name;
+    public static string DictionaryUnterminated => ObjectSyntaxDiagnostics.DictionaryUnterminated.Name;
+    public static string DictionaryKeyNotName => ObjectSyntaxDiagnostics.DictionaryKeyNotName.Name;
+    public static string DictionaryValueMissing => ObjectSyntaxDiagnostics.DictionaryValueMissing.Name;
+    public static string DictionaryDuplicateKey => ObjectSyntaxDiagnostics.DictionaryDuplicateKey.Name;
+    public static string NestingTooDeep => ObjectSyntaxDiagnostics.NestingTooDeep.Name;
+    public static string StreamKeywordEndOfLine => ObjectSyntaxDiagnostics.StreamKeywordEndOfLine.Name;
+    public static string StreamLengthInvalid => ObjectSyntaxDiagnostics.StreamLengthInvalid.Name;
+    public static string EndstreamMissing => ObjectSyntaxDiagnostics.EndstreamMissing.Name;
 }
 
 /// <summary>Collects the <see cref="CosRepair"/> records a parse produces.</summary>

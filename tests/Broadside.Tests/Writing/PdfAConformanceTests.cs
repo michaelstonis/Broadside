@@ -142,7 +142,7 @@ public sealed class PdfAConformanceTests
 
         using PdfDocument reopened = PdfDocument.Open(Save(document, new PdfSaveOptions()));
 
-        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code is DiagnosticCodes.PdfANonConformant or DiagnosticCodes.PdfANotIdentified);
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.PdfANonConformant || diagnostic.Kind == SavingDiagnostics.PdfANotIdentified);
         Assert.Equal(new PdfVersion(2, 0), reopened.Version);
         Assert.Empty(reopened.OutputIntents);
     }

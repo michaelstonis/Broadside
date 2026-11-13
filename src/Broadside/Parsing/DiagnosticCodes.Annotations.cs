@@ -1,48 +1,50 @@
+using Broadside.Diagnostics;
+
 namespace Broadside.Parsing;
 
 /// <summary>Diagnostic codes for annotations and their appearances (issue #71).</summary>
 internal static partial class DiagnosticCodes
 {
     // The page's Annots array (§7.7.3.3, Table 31; §12.5.2).
-    public const string AnnotsInvalid = nameof(AnnotsInvalid);
-    public const string AnnotsInherited = nameof(AnnotsInherited);
-    public const string AnnotationEntryInvalid = nameof(AnnotationEntryInvalid);
-    public const string AnnotationNotIndirect = nameof(AnnotationNotIndirect);
-    public const string AnnotationDuplicate = nameof(AnnotationDuplicate);
-    public const string AnnotationSharedAcrossPages = nameof(AnnotationSharedAcrossPages);
-    public const string AnnotationPageMismatch = nameof(AnnotationPageMismatch);
+    public static string AnnotsInvalid => AnnotationDiagnostics.AnnotsInvalid.Name;
+    public static string AnnotsInherited => AnnotationDiagnostics.AnnotsInherited.Name;
+    public static string AnnotationEntryInvalid => AnnotationDiagnostics.AnnotationEntryInvalid.Name;
+    public static string AnnotationNotIndirect => AnnotationDiagnostics.AnnotationNotIndirect.Name;
+    public static string AnnotationDuplicate => AnnotationDiagnostics.AnnotationDuplicate.Name;
+    public static string AnnotationSharedAcrossPages => AnnotationDiagnostics.AnnotationSharedAcrossPages.Name;
+    public static string AnnotationPageMismatch => AnnotationDiagnostics.AnnotationPageMismatch.Name;
 
     // Annotation dictionaries (§12.5.2 to §12.5.4, Tables 166 to 169).
-    public const string AnnotationTypeInvalid = nameof(AnnotationTypeInvalid);
-    public const string AnnotationSubtypeMissing = nameof(AnnotationSubtypeMissing);
-    public const string AnnotationSubtypeNotName = nameof(AnnotationSubtypeNotName);
-    public const string AnnotationRectInvalid = nameof(AnnotationRectInvalid);
-    public const string AnnotationFlagsInvalid = nameof(AnnotationFlagsInvalid);
-    public const string AnnotationValueInvalid = nameof(AnnotationValueInvalid);
-    public const string AnnotationRequiredEntryMissing = nameof(AnnotationRequiredEntryMissing);
-    public const string BorderArrayInvalid = nameof(BorderArrayInvalid);
-    public const string BorderStyleTypeInvalid = nameof(BorderStyleTypeInvalid);
-    public const string ColorArrayInvalid = nameof(ColorArrayInvalid);
-    public const string QuadPointsInvalid = nameof(QuadPointsInvalid);
+    public static string AnnotationTypeInvalid => AnnotationDiagnostics.AnnotationTypeInvalid.Name;
+    public static string AnnotationSubtypeMissing => AnnotationDiagnostics.AnnotationSubtypeMissing.Name;
+    public static string AnnotationSubtypeNotName => AnnotationDiagnostics.AnnotationSubtypeNotName.Name;
+    public static string AnnotationRectInvalid => AnnotationDiagnostics.AnnotationRectInvalid.Name;
+    public static string AnnotationFlagsInvalid => AnnotationDiagnostics.AnnotationFlagsInvalid.Name;
+    public static string AnnotationValueInvalid => AnnotationDiagnostics.AnnotationValueInvalid.Name;
+    public static string AnnotationRequiredEntryMissing => AnnotationDiagnostics.AnnotationRequiredEntryMissing.Name;
+    public static string BorderArrayInvalid => AnnotationDiagnostics.BorderArrayInvalid.Name;
+    public static string BorderStyleTypeInvalid => AnnotationDiagnostics.BorderStyleTypeInvalid.Name;
+    public static string ColorArrayInvalid => AnnotationDiagnostics.ColorArrayInvalid.Name;
+    public static string QuadPointsInvalid => AnnotationDiagnostics.QuadPointsInvalid.Name;
 
     // Appearance streams (§12.5.5, Table 170).
-    public const string AppearanceMissing = nameof(AppearanceMissing);
-    public const string AppearanceStateMissing = nameof(AppearanceStateMissing);
-    public const string AppearanceEntryInvalid = nameof(AppearanceEntryInvalid);
-    public const string AppearanceBBoxMissing = nameof(AppearanceBBoxMissing);
-    public const string AppearanceNotForm = nameof(AppearanceNotForm);
-    public const string AppearanceResourcesMissing = nameof(AppearanceResourcesMissing);
+    public static string AppearanceMissing => AnnotationDiagnostics.AppearanceMissing.Name;
+    public static string AppearanceStateMissing => AnnotationDiagnostics.AppearanceStateMissing.Name;
+    public static string AppearanceEntryInvalid => AnnotationDiagnostics.AppearanceEntryInvalid.Name;
+    public static string AppearanceBBoxMissing => AnnotationDiagnostics.AppearanceBBoxMissing.Name;
+    public static string AppearanceNotForm => AnnotationDiagnostics.AppearanceNotForm.Name;
+    public static string AppearanceResourcesMissing => AnnotationDiagnostics.AppearanceResourcesMissing.Name;
 
     // Rendering annotations (§12.5.5, issue #98).
-    public const string AppearanceNotRendered = nameof(AppearanceNotRendered);
+    public static string AppearanceNotRendered => AnnotationDiagnostics.AppearanceNotRendered.Name;
 
     // Relations between annotations (§12.5.6.2, §12.5.6.3, §12.5.6.14, §12.5.6.21).
-    public const string PopupLinkMismatch = nameof(PopupLinkMismatch);
-    public const string PopupParentInvalid = nameof(PopupParentInvalid);
-    public const string InReplyToInvalid = nameof(InReplyToInvalid);
-    public const string InReplyToOtherPage = nameof(InReplyToOtherPage);
-    public const string ReplyTypeWithoutInReplyTo = nameof(ReplyTypeWithoutInReplyTo);
-    public const string StateModelMissing = nameof(StateModelMissing);
-    public const string LinkActionAndDest = nameof(LinkActionAndDest);
-    public const string TrapNetPlacementInvalid = nameof(TrapNetPlacementInvalid);
+    public static string PopupLinkMismatch => AnnotationDiagnostics.PopupLinkMismatch.Name;
+    public static string PopupParentInvalid => AnnotationDiagnostics.PopupParentInvalid.Name;
+    public static string InReplyToInvalid => AnnotationDiagnostics.InReplyToInvalid.Name;
+    public static string InReplyToOtherPage => AnnotationDiagnostics.InReplyToOtherPage.Name;
+    public static string ReplyTypeWithoutInReplyTo => AnnotationDiagnostics.ReplyTypeWithoutInReplyTo.Name;
+    public static string StateModelMissing => AnnotationDiagnostics.StateModelMissing.Name;
+    public static string LinkActionAndDest => AnnotationDiagnostics.LinkActionAndDest.Name;
+    public static string TrapNetPlacementInvalid => AnnotationDiagnostics.TrapNetPlacementInvalid.Name;
 }

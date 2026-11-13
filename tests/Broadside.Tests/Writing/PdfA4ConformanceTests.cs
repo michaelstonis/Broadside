@@ -208,7 +208,7 @@ public sealed class PdfA4ConformanceTests
 
             PdfA2u3bConformanceTests.Save(document, PdfAConformance.PdfA4);
 
-            Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code is DiagnosticCodes.PdfANonConformant or DiagnosticCodes.PdfANotIdentified);
+            Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.PdfANonConformant || diagnostic.Kind == SavingDiagnostics.PdfANotIdentified);
         }
 
         using PdfDocument asPdfA2 = PdfDocument.Create();

@@ -5058,3 +5058,663 @@ Broadside.PdfDocument.SaveAsync(System.IO.Stream! stream, System.Threading.Cance
 Broadside.PdfDocument.SaveAsync(System.IO.Stream! stream, Broadside.PdfSaveOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Broadside.PdfDocument.SaveAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Broadside.PdfDocument.SaveAsync(string! path, Broadside.PdfSaveOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Broadside.Diagnostics.Diagnostic.Kind.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.DiagnosticCode
+Broadside.Diagnostics.DiagnosticCode.Area.get -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticCode.Clause.get -> string?
+Broadside.Diagnostics.DiagnosticCode.DefaultSeverity.get -> Broadside.Diagnostics.DiagnosticSeverity
+Broadside.Diagnostics.DiagnosticCode.Equals(Broadside.Diagnostics.DiagnosticCode? other) -> bool
+Broadside.Diagnostics.DiagnosticCode.Name.get -> string!
+override Broadside.Diagnostics.DiagnosticCode.Equals(object? obj) -> bool
+override Broadside.Diagnostics.DiagnosticCode.GetHashCode() -> int
+override Broadside.Diagnostics.DiagnosticCode.ToString() -> string!
+static Broadside.Diagnostics.DiagnosticCode.operator !=(Broadside.Diagnostics.DiagnosticCode? left, Broadside.Diagnostics.DiagnosticCode? right) -> bool
+static Broadside.Diagnostics.DiagnosticCode.operator ==(Broadside.Diagnostics.DiagnosticCode? left, Broadside.Diagnostics.DiagnosticCode? right) -> bool
+Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticCatalog
+static Broadside.Diagnostics.DiagnosticCatalog.All.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.DiagnosticCode!>!
+static Broadside.Diagnostics.DiagnosticCatalog.TryGet(string! name, out Broadside.Diagnostics.DiagnosticCode? code) -> bool
+Broadside.Diagnostics.DiagnosticArea.None = 0 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.FileStructure = 1 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.ObjectSyntax = 2 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Security = 3 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Document = 4 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Page = 5 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Saving = 6 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Navigation = 7 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.OptionalContent = 8 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.FileSpecification = 9 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Filter = 10 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Dct = 11 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Ccitt = 12 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Jbig2 = 13 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Jpx = 14 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Image = 15 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Font = 16 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.CharString = 17 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Cff = 18 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Type1 = 19 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Type3 = 20 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.CMap = 21 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Text = 22 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Content = 23 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Function = 24 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Color = 25 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Shading = 26 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Action = 27 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Annotation = 28 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Form = 29 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Structure = 30 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.FileStructureDiagnostics
+static Broadside.Diagnostics.FileStructureDiagnostics.HeaderMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.HeaderVersionInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.HeaderInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.HeaderBinaryCommentMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.StartxrefMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.StartxrefInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.EndOfFileMarkerMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.EndOfFileMarkerNotLast.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.TrailerIdMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.TrailerMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.TrailerPrevInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.RootMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.RootNotIndirect.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.CatalogNotFound.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.XrefSectionInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.XrefEntryInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.XrefEntryFormatInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.XrefSubsectionNumberingInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.XrefSubsectionHeaderInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.XrefPrevLoop.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.XrefStreamTypeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.XrefStreamWidthsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.XrefStreamIndexInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.XrefStreamSizeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.CrossReferenceEntryLimitExceeded.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.XrefStreamDataTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.TrailerXRefStmInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.ObjectStreamInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.ObjectStreamTypeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.ObjectStreamHeaderInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.ObjectStreamIndexMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.ObjectStreamMemberMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.ObjectStreamMemberInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.ObjectStreamNested.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.ObjectStreamCycle.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.TrailerEntryFromOlderRevision.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.LinearizationDictionaryInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.LinearizationHintsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.LinearizationDropped.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.XrefEntryOffsetInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.MissingEndobj.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.ReferenceChainTooDeep.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.ObjectReferenceCycle.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.ObjectSyntaxDiagnostics
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.UnexpectedEndOfInput.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.UnexpectedToken.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.TrailingContent.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.NumberMalformed.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.NumberOutOfRange.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.ReferenceInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.StringUnterminated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.HexStringUnterminated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.HexStringInvalidDigit.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.NameInvalidEscape.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.NameContainsNull.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.ArrayUnterminated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.DictionaryUnterminated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.DictionaryKeyNotName.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.DictionaryValueMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.DictionaryDuplicateKey.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.NestingTooDeep.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.StreamKeywordEndOfLine.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.StreamLengthInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ObjectSyntaxDiagnostics.EndstreamMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.SecurityDiagnostics
+static Broadside.Diagnostics.SecurityDiagnostics.UnencryptedWrapperInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.EncryptedPayloadFilterUnknown.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.EncryptDictionaryInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.EncryptionIdMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.EncryptionVersionInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.EncryptionRevisionInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.EncryptionKeyLengthInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.EncryptionEntryLengthInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.EncryptionPermissionsMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.EncryptionExtensionMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.OwnerPasswordKeyVariant.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.CryptFilterMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.CryptFilterMethodInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.EncryptedDataInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.EncryptedDataAuthenticationFailed.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.MetadataNotEncrypted.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.IntegrityCodeMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.IntegrityCodeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.IntegrityCodeMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.IntegrityCodeIncomplete.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.IntegrityCodeNotVerified.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.PublicKeyRecipientInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.PublicKeyEnvelopeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.CryptFilterNotAuthorized.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SecurityDiagnostics.EncryptionDeprecated.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.DocumentDiagnostics
+static Broadside.Diagnostics.DocumentDiagnostics.CatalogEntryInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.PageLayoutInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.PageModeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.ViewerPreferencesInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.ViewerPreferenceInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.ExtensionsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.ExtensionsNotDirect.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.DeveloperExtensionInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.DeveloperExtensionBaseVersionLater.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.RequirementInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.OutputIntentInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.PageLabelsMissingZeroKey.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.PageLabelInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.PageLabelStyleInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.PageLabelStartInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.PageLabelPrefixInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.PageLabelTooLong.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.InfoDictionaryInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.InfoValueNotTextString.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.InfoTrappedInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.DateInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.DateUnreadable.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.MetadataStreamInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.MetadataStreamTypeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.XmpMalformed.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.XmpDtdProhibited.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.XmpLeadingJunk.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.XmpPropertyDuplicate.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.FileIdentifierInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.CatalogTypeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.CatalogVersionNotName.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.CatalogVersionInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DocumentDiagnostics.PagesMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.PageDiagnostics
+static Broadside.Diagnostics.PageDiagnostics.PageTreeNodeTypeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.PageDiagnostics.PageTreeKidsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.PageDiagnostics.PageTreeKidInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.PageDiagnostics.PageTreeKidNotIndirect.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.PageDiagnostics.PageTreeCycle.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.PageDiagnostics.PageTreeTooDeep.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.PageDiagnostics.PageTreeParentMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.PageDiagnostics.PageTreeCountMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.PageDiagnostics.PageMediaBoxMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.PageDiagnostics.PageBoxInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.PageDiagnostics.PageRotateInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.PageDiagnostics.PageResourcesMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.PageDiagnostics.PageResourcesInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.PageDiagnostics.PageUserUnitInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.SavingDiagnostics
+static Broadside.Diagnostics.SavingDiagnostics.VersionRaised.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SavingDiagnostics.ObjectNumberOutOfRange.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SavingDiagnostics.PdfANonConformant.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SavingDiagnostics.PdfANotIdentified.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SavingDiagnostics.PdfAConverted.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SavingDiagnostics.PdfANotConverted.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SavingDiagnostics.PdfUANonConformant.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SavingDiagnostics.PdfUANotIdentified.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SavingDiagnostics.WellTaggedNonConformant.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SavingDiagnostics.WellTaggedNotDeclared.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.NavigationDiagnostics
+static Broadside.Diagnostics.NavigationDiagnostics.NameDictionaryInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.NameTreeNodeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.NameTreeLimitsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.NameTreeKeysUnsorted.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.NameTreeDuplicateKey.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.NameTreeKeyInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.NameTreeCycle.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.NameTreeTooDeep.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.NumberTreeNodeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.NumberTreeLimitsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.NumberTreeKeysUnsorted.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.NumberTreeDuplicateKey.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.NumberTreeKeyInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.NumberTreeCycle.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.NumberTreeTooDeep.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.DestinationInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.DestinationPageNotFound.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.NamedDestinationNotFound.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.DestinationPageRemoved.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.OutlineInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.OutlineItemInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.OutlineCycle.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.OutlineTooDeep.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.OutlineLinkInconsistent.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.OutlineCountInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.NavigationDiagnostics.OutlineDestAndAction.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.OptionalContentDiagnostics
+static Broadside.Diagnostics.OptionalContentDiagnostics.OptionalContentConfigMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.OptionalContentDiagnostics.OptionalContentGroupsMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.OptionalContentDiagnostics.OptionalContentGroupNotListed.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.OptionalContentDiagnostics.OptionalContentGroupInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.OptionalContentDiagnostics.OptionalContentBaseStateInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.OptionalContentDiagnostics.OptionalContentIntentInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.OptionalContentDiagnostics.OptionalContentGroupOnAndOff.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.OptionalContentDiagnostics.VisibilityExpressionInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.OptionalContentDiagnostics.VisibilityPolicyInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.OptionalContentDiagnostics.OptionalContentInlineProperties.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.FileSpecificationDiagnostics
+static Broadside.Diagnostics.FileSpecificationDiagnostics.FileSpecificationInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileSpecificationDiagnostics.EmbeddedFileMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileSpecificationDiagnostics.EmbeddedFileSubtypeMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileSpecificationDiagnostics.EmbeddedFileParamsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileSpecificationDiagnostics.RelatedFilesInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileSpecificationDiagnostics.AssociatedFilesInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileSpecificationDiagnostics.CollectionInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileSpecificationDiagnostics.CollectionFolderCycle.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileSpecificationDiagnostics.CollectionFolderIdDuplicate.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileSpecificationDiagnostics.CollectionFolderInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.FilterDiagnostics
+static Broadside.Diagnostics.FilterDiagnostics.FilterInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FilterDiagnostics.FilterUnsupported.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FilterDiagnostics.FilterAbbreviationNotAllowed.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FilterDiagnostics.FilterDataInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FilterDiagnostics.FilterDataTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FilterDiagnostics.FilterFailed.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FilterDiagnostics.DecodeParmsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FilterDiagnostics.PredictorInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FilterDiagnostics.CryptFilterNotFirst.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FilterDiagnostics.CryptFilterUnsupported.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FilterDiagnostics.StreamExternalFileUnsupported.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FilterDiagnostics.StreamDecodedLengthExceeded.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FilterDiagnostics.StreamDecodingTooDeep.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.DctDiagnostics
+static Broadside.Diagnostics.DctDiagnostics.DctLeadingJunk.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DctDiagnostics.DctExtraneousData.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DctDiagnostics.DctSegmentInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DctDiagnostics.DctFrameInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DctDiagnostics.DctFrameRepeated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DctDiagnostics.DctProcessUnsupported.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DctDiagnostics.DctTableMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DctDiagnostics.DctTableInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DctDiagnostics.DctScanInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DctDiagnostics.DctDataInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DctDiagnostics.DctRestartInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DctDiagnostics.DctTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DctDiagnostics.DctEndMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DctDiagnostics.DctComponentCountInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DctDiagnostics.DctLinesFromDnl.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DctDiagnostics.DctPrecisionReduced.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DctDiagnostics.DctAdobeTransformInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.DctDiagnostics.DctColorTransformInferred.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.CcittDiagnostics
+static Broadside.Diagnostics.CcittDiagnostics.CcittMissingEol.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CcittDiagnostics.CcittRunTooLong.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CcittDiagnostics.CcittDamagedRowReplaced.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CcittDiagnostics.CcittDataInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CcittDiagnostics.CcittWidthMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.Jbig2Diagnostics
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2FileHeaderPresent.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2EndOfPagePresent.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2PageNumberNotOne.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2PageInformationMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2PageSizeMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2SegmentHeaderInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2SegmentTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2SegmentTypeReserved.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2SegmentInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2UnsupportedFeature.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2GlobalsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2CombinationOperatorMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2IntermediateRegionUnused.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2RegionDataTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2RegionDataInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2LimitExceeded.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2SymbolIdOutOfRange.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2ExportRunOverflow.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2SymbolCountMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2ContextReuseInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2TableInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2RefinementReferenceMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2ReferredSegmentMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Jbig2Diagnostics.Jbig2GrayValueOutOfRange.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.JpxDiagnostics
+static Broadside.Diagnostics.JpxDiagnostics.JpxSignatureInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxBoxInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxMarkerUnexpected.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxMarkerSegmentInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxPsotInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxCodestreamTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxTilePartOrder.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxPocInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxPpmInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxCodestreamRaw.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxCodestreamsIgnored.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxHighThroughputUnsupported.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxPacketHeaderTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxEphMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxCodeBlockInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxSegmentationSymbolMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxMctSkipped.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxPrecisionUnsupported.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxChannelCountMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxLimitExceeded.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxColorSpecificationUnsupported.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxPaletteIndexOutOfRange.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxOpacityChannelAmbiguous.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.ImageDiagnostics
+static Broadside.Diagnostics.ImageDiagnostics.ImageSubtypeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageDimensionInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageBitsPerComponentInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageColorSpaceMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageColorSpaceInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageMaskConflict.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageDecodeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageKeyAbbreviated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageAlternatesInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageTooLarge.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageDataTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageDataTooLong.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageFilterNotLast.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageDimensionMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageComponentMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageMaskInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageSoftMaskInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageMatteInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageSoftMaskInDataIgnored.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageDecodedManaged.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.PlatformImageVerified.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.PlatformImageMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.InlineImageFilterNotAllowed.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.InlineImageKeyInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.FontDiagnostics
+static Broadside.Diagnostics.FontDiagnostics.Type0EncodingMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.Type0DescendantFontsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.Type0IdentityNotEmbedded.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.CidSystemInfoInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.CidSystemInfoMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.CidFontSubtypeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.CidFontWidthsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.CidFontVerticalMetricsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.CidToGidMapMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.CidToGidMapInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontSubstituted.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontProgramNotFound.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontSubstituteUnreadable.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontTypeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontSubtypeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontBaseFontMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontStandard14Alias.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontStandard14EntriesIncomplete.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontDescriptorMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontDescriptorInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontWidthsMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontWidthsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontEncodingInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontEncodingIgnored.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontDifferencesInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontBuiltInEncodingUnavailable.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontGlyphMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontProgramUnsupported.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontProgramFormatMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontProgramInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontProgramTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontTableInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontGlyphInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontCmapInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FontDiagnostics.FontGlyphMappingFallback.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.CharStringDiagnostics
+static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringStackOverflow.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringArgumentCount.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringSubrOutOfRange.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringSubrDepth.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringBudgetExceeded.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringUnknownOperator.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringSeacComponentMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringNoEndchar.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringMovetoMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringOperandInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.CffDiagnostics
+static Broadside.Diagnostics.CffDiagnostics.FontCffHeaderInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CffDiagnostics.FontCffIndexInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CffDiagnostics.FontCffDictInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CffDiagnostics.FontCffPrivateMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CffDiagnostics.FontCffMultipleFonts.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CffDiagnostics.FontCffCharsetInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CffDiagnostics.FontCffEncodingInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CffDiagnostics.FontCff2Unsupported.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CffDiagnostics.FontCffFdArrayMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CffDiagnostics.FontCffFdSelectInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.Type1Diagnostics
+static Broadside.Diagnostics.Type1Diagnostics.FontType1PfbWrapped.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Type1Diagnostics.FontType1Length1Repaired.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Type1Diagnostics.FontType1Length2Repaired.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Type1Diagnostics.FontType1HexEexec.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Type1Diagnostics.FontType1NoEexec.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Type1Diagnostics.FontType1FontMatrixInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Type1Diagnostics.FontType1EncodingInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Type1Diagnostics.FontType1PrivateMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Type1Diagnostics.FontType1EntryInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Type1Diagnostics.FontType1CharStringsMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Type1Diagnostics.FontType1NotdefMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Type1Diagnostics.FontType1CharstringTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Type1Diagnostics.FontType1FlexMalformed.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Type1Diagnostics.FontType1BlendUnavailable.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Type1Diagnostics.FontType1NoWidth.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Type1Diagnostics.FontType1GlyphTooComplex.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.Type3Diagnostics
+static Broadside.Diagnostics.Type3Diagnostics.FontType3FontMatrixInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Type3Diagnostics.FontType3CharProcsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Type3Diagnostics.ContentType3GlyphMetricsMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Type3Diagnostics.ContentType3GlyphMetricsMisplaced.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.Type3Diagnostics.ContentType3GlyphRecursion.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.CMapDiagnostics
+static Broadside.Diagnostics.CMapDiagnostics.CMapSyntaxInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CMapDiagnostics.CMapEntryInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CMapDiagnostics.CMapEntryLimitExceeded.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CMapDiagnostics.CMapCodespaceMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CMapDiagnostics.CMapOperatorNotAllowed.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CMapDiagnostics.CMapUseCMapInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CMapDiagnostics.CMapUseCMapCycle.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CMapDiagnostics.CMapUseCMapTooDeep.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CMapDiagnostics.CMapWritingModeMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CMapDiagnostics.CMapUnavailable.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CMapDiagnostics.CMapCodeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.TextDiagnostics
+static Broadside.Diagnostics.TextDiagnostics.ToUnicodeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.TextDiagnostics.ToUnicodeIdentityName.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.TextDiagnostics.ToUnicodeDestinationInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.TextDiagnostics.ToUnicodeBfRangeOverflow.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.TextDiagnostics.ToUnicodeCidMapping.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.TextDiagnostics.ToUnicodeCodeLengthMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.TextDiagnostics.GlyphNameNonStandard.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.TextDiagnostics.TextUcs2CmapMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.TextDiagnostics.TextUnicodeUnmapped.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.TextDiagnostics.CidToUnicodeResourceInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.ContentDiagnostics
+static Broadside.Diagnostics.ContentDiagnostics.ContentFontMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentExtGStateMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentExtGStateInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentXObjectMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentXObjectInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentPostScriptXObject.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentFormInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentFormCycle.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentInlineImageLengthMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentPropertiesMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentMarkedContentUnbalanced.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentStreamInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentUnknownOperator.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentOperandCount.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentOperandType.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentOperandOverflow.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentSyntaxInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentGluedTokens.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentOperatorOutOfContext.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentStackUnderflow.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentStackOverflow.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentUnbalancedSave.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentNoCurrentPoint.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentNoCurrentPath.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentPathNotPainted.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentGraphicsStateRange.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentCompatibilityUnbalanced.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentTextObjectUnbalanced.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ContentDiagnostics.ContentInlineImageInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.FunctionDiagnostics
+static Broadside.Diagnostics.FunctionDiagnostics.FunctionInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FunctionDiagnostics.FunctionEntryInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FunctionDiagnostics.FunctionSampleDataTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FunctionDiagnostics.FunctionProgramSyntaxInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FunctionDiagnostics.FunctionProgramStackInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FunctionDiagnostics.FunctionCycle.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FunctionDiagnostics.FunctionTooDeep.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FunctionDiagnostics.FunctionEvaluationRepaired.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.ColorDiagnostics
+static Broadside.Diagnostics.ColorDiagnostics.ColorSpaceInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ColorDiagnostics.ColorSpaceEntryInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ColorDiagnostics.ColorSpaceCycle.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ColorDiagnostics.ColorSpaceTooDeep.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ColorDiagnostics.IccProfileInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ColorDiagnostics.IccComponentCountMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ColorDiagnostics.IndexedLookupInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ColorDiagnostics.TintTransformInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ColorDiagnostics.DeviceNColorantsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ColorDiagnostics.DefaultColorSpaceInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ColorDiagnostics.GroupColorSpaceInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ColorDiagnostics.SoftMaskColorSpaceMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ColorDiagnostics.ContentColorSpaceMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ColorDiagnostics.ContentColorSpaceAbbreviated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ColorDiagnostics.ContentColorOperandCount.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ColorDiagnostics.ContentColorOperatorMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ColorDiagnostics.ContentColorOperatorInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ColorDiagnostics.ContentColorOperatorIgnored.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ColorDiagnostics.ContentPatternMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ColorDiagnostics.ColorComponentLimitExceeded.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.ShadingDiagnostics
+static Broadside.Diagnostics.ShadingDiagnostics.ShadingTypeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.ShadingColorSpaceInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.ShadingColorSpaceAbbreviated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.ShadingFunctionInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.ShadingCoordsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.ShadingEntryInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.ShadingExtendInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.ShadingBackgroundInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.ShadingDecodeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.ShadingBitsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.ShadingNotStream.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.MeshDataTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.MeshEdgeFlagInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.MeshLatticeIncomplete.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.MeshSizeExceeded.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.MeshPatchesUnpadded.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.PatternTypeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.PatternEntryInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.TilingPatternStepInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.TilingPatternBBoxMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.PatternResourcesMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.ContentShadingMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.ContentPatternRecursion.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ShadingDiagnostics.ContentNestingTooDeep.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.ActionDiagnostics
+static Broadside.Diagnostics.ActionDiagnostics.ActionEntryInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ActionDiagnostics.ActionNextInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ActionDiagnostics.ActionCycle.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ActionDiagnostics.ActionTreeTooDeep.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ActionDiagnostics.ActionTargetCycle.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ActionDiagnostics.ActionOutOfScope.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ActionDiagnostics.UriInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ActionDiagnostics.AdditionalActionsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ActionDiagnostics.OpenActionInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ActionDiagnostics.ActionInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.AnnotationDiagnostics
+static Broadside.Diagnostics.AnnotationDiagnostics.AnnotsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AnnotsInherited.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AnnotationEntryInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AnnotationNotIndirect.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AnnotationDuplicate.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AnnotationSharedAcrossPages.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AnnotationPageMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AnnotationTypeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AnnotationSubtypeMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AnnotationSubtypeNotName.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AnnotationRectInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AnnotationFlagsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AnnotationValueInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AnnotationRequiredEntryMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.BorderArrayInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.BorderStyleTypeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.ColorArrayInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.QuadPointsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AppearanceMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AppearanceStateMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AppearanceEntryInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AppearanceBBoxMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AppearanceNotForm.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AppearanceResourcesMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.AppearanceNotRendered.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.PopupLinkMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.PopupParentInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.InReplyToInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.InReplyToOtherPage.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.ReplyTypeWithoutInReplyTo.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.StateModelMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.LinkActionAndDest.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.AnnotationDiagnostics.TrapNetPlacementInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.FormDiagnostics
+static Broadside.Diagnostics.FormDiagnostics.AcroFormInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.AcroFormFieldsMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.AcroFormEntryInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.XfaFormPresent.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.XfaFormDynamic.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.XfaPacketsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.XfaDataNotUpdated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FlattenInvalidatesSignatures.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FieldReferenceInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FieldNotIndirect.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FieldTreeCycle.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FieldTreeTooDeep.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FieldNotRoot.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FieldParentMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FieldParentMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FieldKidsMixed.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FieldNameMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FieldNameHasPeriod.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FieldNameDuplicateInconsistent.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FieldTypeMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.ButtonFlagsConflict.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.SignatureFieldMultipleWidgets.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.WidgetNotInFieldTree.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FieldEntryInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FieldFlagsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FieldValueTypeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.DefaultAppearanceMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.DefaultAppearanceInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.DefaultAppearanceFontMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.TextCombInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.ButtonValueStateMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.ButtonValueUnknownState.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.ButtonStatesAmbiguous.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.ButtonOnStateMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.ButtonOptLengthMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.ChoiceOptionInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.ChoiceOptionsInherited.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.ChoiceValueNotInOptions.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.ChoiceIndicesInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.SignatureFieldDictNotIndirect.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Diagnostics.StructureDiagnostics
+static Broadside.Diagnostics.StructureDiagnostics.MarkInfoInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.StructTreeRootInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.StructElemInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.StructElemTypeUnknown.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.StructElemParentMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.StructElemPageMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.StructTreeCycle.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.StructTreeDepthExceeded.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.ParentTreeMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.ParentTreeEntryInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.McidDuplicate.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.IdTreeDuplicate.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.IdTreeEntryInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.NamespaceInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.NamespaceNotDeclared.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.StructureTypeUnresolved.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.AttributeObjectInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.AttributeOwnerInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.AttributeRevisionInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.StructureRoleConflict.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.StructureClassConflict.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.StructureIdConflict.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.StructureDiagnostics.FigureAlternateTextPlaceholder.get -> Broadside.Diagnostics.DiagnosticCode!

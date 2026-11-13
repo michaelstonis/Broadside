@@ -1,15 +1,17 @@
+using Broadside.Diagnostics;
+
 namespace Broadside.Parsing;
 
 /// <summary>Diagnostic codes for CFF font programs and charstrings (issue #51).</summary>
 internal static partial class DiagnosticCodes
 {
     // The CFF container (Adobe Technical Note #5176).
-    public const string FontCffHeaderInvalid = nameof(FontCffHeaderInvalid);
-    public const string FontCffIndexInvalid = nameof(FontCffIndexInvalid);
-    public const string FontCffDictInvalid = nameof(FontCffDictInvalid);
-    public const string FontCffPrivateMissing = nameof(FontCffPrivateMissing);
-    public const string FontCffMultipleFonts = nameof(FontCffMultipleFonts);
-    public const string FontCffCharsetInvalid = nameof(FontCffCharsetInvalid);
-    public const string FontCffEncodingInvalid = nameof(FontCffEncodingInvalid);
-    public const string FontCff2Unsupported = nameof(FontCff2Unsupported);
+    public static string FontCffHeaderInvalid => CffDiagnostics.FontCffHeaderInvalid.Name;
+    public static string FontCffIndexInvalid => CffDiagnostics.FontCffIndexInvalid.Name;
+    public static string FontCffDictInvalid => CffDiagnostics.FontCffDictInvalid.Name;
+    public static string FontCffPrivateMissing => CffDiagnostics.FontCffPrivateMissing.Name;
+    public static string FontCffMultipleFonts => CffDiagnostics.FontCffMultipleFonts.Name;
+    public static string FontCffCharsetInvalid => CffDiagnostics.FontCffCharsetInvalid.Name;
+    public static string FontCffEncodingInvalid => CffDiagnostics.FontCffEncodingInvalid.Name;
+    public static string FontCff2Unsupported => CffDiagnostics.FontCff2Unsupported.Name;
 }

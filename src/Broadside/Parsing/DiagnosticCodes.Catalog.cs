@@ -1,68 +1,70 @@
+using Broadside.Diagnostics;
+
 namespace Broadside.Parsing;
 
 /// <content>Codes for the document-level catalog entries, page labels, information and metadata (issue #69).</content>
 internal static partial class DiagnosticCodes
 {
     // Document catalog entries (§7.7.2 Table 29, §7.12, §12.2, §12.11).
-    public const string CatalogEntryInvalid = nameof(CatalogEntryInvalid);
-    public const string PageLayoutInvalid = nameof(PageLayoutInvalid);
-    public const string PageModeInvalid = nameof(PageModeInvalid);
-    public const string ViewerPreferencesInvalid = nameof(ViewerPreferencesInvalid);
-    public const string ViewerPreferenceInvalid = nameof(ViewerPreferenceInvalid);
-    public const string ExtensionsInvalid = nameof(ExtensionsInvalid);
-    public const string ExtensionsNotDirect = nameof(ExtensionsNotDirect);
-    public const string DeveloperExtensionInvalid = nameof(DeveloperExtensionInvalid);
-    public const string DeveloperExtensionBaseVersionLater = nameof(DeveloperExtensionBaseVersionLater);
-    public const string RequirementInvalid = nameof(RequirementInvalid);
+    public static string CatalogEntryInvalid => DocumentDiagnostics.CatalogEntryInvalid.Name;
+    public static string PageLayoutInvalid => DocumentDiagnostics.PageLayoutInvalid.Name;
+    public static string PageModeInvalid => DocumentDiagnostics.PageModeInvalid.Name;
+    public static string ViewerPreferencesInvalid => DocumentDiagnostics.ViewerPreferencesInvalid.Name;
+    public static string ViewerPreferenceInvalid => DocumentDiagnostics.ViewerPreferenceInvalid.Name;
+    public static string ExtensionsInvalid => DocumentDiagnostics.ExtensionsInvalid.Name;
+    public static string ExtensionsNotDirect => DocumentDiagnostics.ExtensionsNotDirect.Name;
+    public static string DeveloperExtensionInvalid => DocumentDiagnostics.DeveloperExtensionInvalid.Name;
+    public static string DeveloperExtensionBaseVersionLater => DocumentDiagnostics.DeveloperExtensionBaseVersionLater.Name;
+    public static string RequirementInvalid => DocumentDiagnostics.RequirementInvalid.Name;
 
     // Output intents (§14.11.5, issue #119).
-    public const string OutputIntentInvalid = nameof(OutputIntentInvalid);
+    public static string OutputIntentInvalid => DocumentDiagnostics.OutputIntentInvalid.Name;
 
     // Page labels (§12.4.2).
-    public const string PageLabelsMissingZeroKey = nameof(PageLabelsMissingZeroKey);
-    public const string PageLabelInvalid = nameof(PageLabelInvalid);
-    public const string PageLabelStyleInvalid = nameof(PageLabelStyleInvalid);
-    public const string PageLabelStartInvalid = nameof(PageLabelStartInvalid);
-    public const string PageLabelPrefixInvalid = nameof(PageLabelPrefixInvalid);
-    public const string PageLabelTooLong = nameof(PageLabelTooLong);
+    public static string PageLabelsMissingZeroKey => DocumentDiagnostics.PageLabelsMissingZeroKey.Name;
+    public static string PageLabelInvalid => DocumentDiagnostics.PageLabelInvalid.Name;
+    public static string PageLabelStyleInvalid => DocumentDiagnostics.PageLabelStyleInvalid.Name;
+    public static string PageLabelStartInvalid => DocumentDiagnostics.PageLabelStartInvalid.Name;
+    public static string PageLabelPrefixInvalid => DocumentDiagnostics.PageLabelPrefixInvalid.Name;
+    public static string PageLabelTooLong => DocumentDiagnostics.PageLabelTooLong.Name;
 
     // Document information, metadata and file identifiers (§7.9.4, §14.3, §14.4).
-    public const string InfoDictionaryInvalid = nameof(InfoDictionaryInvalid);
-    public const string InfoValueNotTextString = nameof(InfoValueNotTextString);
-    public const string InfoTrappedInvalid = nameof(InfoTrappedInvalid);
-    public const string DateInvalid = nameof(DateInvalid);
-    public const string DateUnreadable = nameof(DateUnreadable);
-    public const string MetadataStreamInvalid = nameof(MetadataStreamInvalid);
-    public const string MetadataStreamTypeInvalid = nameof(MetadataStreamTypeInvalid);
-    public const string XmpMalformed = nameof(XmpMalformed);
-    public const string XmpDtdProhibited = nameof(XmpDtdProhibited);
-    public const string XmpLeadingJunk = nameof(XmpLeadingJunk);
-    public const string XmpPropertyDuplicate = nameof(XmpPropertyDuplicate);
-    public const string FileIdentifierInvalid = nameof(FileIdentifierInvalid);
+    public static string InfoDictionaryInvalid => DocumentDiagnostics.InfoDictionaryInvalid.Name;
+    public static string InfoValueNotTextString => DocumentDiagnostics.InfoValueNotTextString.Name;
+    public static string InfoTrappedInvalid => DocumentDiagnostics.InfoTrappedInvalid.Name;
+    public static string DateInvalid => DocumentDiagnostics.DateInvalid.Name;
+    public static string DateUnreadable => DocumentDiagnostics.DateUnreadable.Name;
+    public static string MetadataStreamInvalid => DocumentDiagnostics.MetadataStreamInvalid.Name;
+    public static string MetadataStreamTypeInvalid => DocumentDiagnostics.MetadataStreamTypeInvalid.Name;
+    public static string XmpMalformed => DocumentDiagnostics.XmpMalformed.Name;
+    public static string XmpDtdProhibited => DocumentDiagnostics.XmpDtdProhibited.Name;
+    public static string XmpLeadingJunk => DocumentDiagnostics.XmpLeadingJunk.Name;
+    public static string XmpPropertyDuplicate => DocumentDiagnostics.XmpPropertyDuplicate.Name;
+    public static string FileIdentifierInvalid => DocumentDiagnostics.FileIdentifierInvalid.Name;
 
     // Saving (ADR 0003; §7.5.2, §7.7.2 Table 29): the version a save writes (issue #141).
-    public const string VersionRaised = nameof(VersionRaised);
+    public static string VersionRaised => SavingDiagnostics.VersionRaised.Name;
 
     // Saving (§7.5.4, §7.5.6, Annex C Table C.1): an object number a save cannot keep or represent (issue #371).
-    public const string ObjectNumberOutOfRange = nameof(ObjectNumberOutOfRange);
+    public static string ObjectNumberOutOfRange => SavingDiagnostics.ObjectNumberOutOfRange.Name;
 
     // Saving with a PDF/A conformance level (issue #201; veraPDF validation-profile rule identifiers): a rule the document cannot
     // meet (Warning, refused in strict mode), and a lenient save that therefore does not claim the conformance (Information).
-    public const string PdfANonConformant = nameof(PdfANonConformant);
-    public const string PdfANotIdentified = nameof(PdfANotIdentified);
+    public static string PdfANonConformant => SavingDiagnostics.PdfANonConformant.Name;
+    public static string PdfANotIdentified => SavingDiagnostics.PdfANotIdentified.Name;
 
     // Converting a document to a PDF/A level (issue #229): what the conversion changed or removed, and what it could not fix and why
     // (both Information; the rules still not met are PdfANonConformant warnings).
-    public const string PdfAConverted = nameof(PdfAConverted);
-    public const string PdfANotConverted = nameof(PdfANotConverted);
+    public static string PdfAConverted => SavingDiagnostics.PdfAConverted.Name;
+    public static string PdfANotConverted => SavingDiagnostics.PdfANotConverted.Name;
 
     // Saving with a PDF/UA conformance (issue #204; veraPDF PDF/UA-1 rule identifiers): a failure condition the document has
     // (Warning, refused in strict mode), and a lenient save that therefore does not claim the conformance (Information).
-    public const string PdfUANonConformant = nameof(PdfUANonConformant);
-    public const string PdfUANotIdentified = nameof(PdfUANotIdentified);
+    public static string PdfUANonConformant => SavingDiagnostics.PdfUANonConformant.Name;
+    public static string PdfUANotIdentified => SavingDiagnostics.PdfUANotIdentified.Name;
 
     // Saving with Well-Tagged PDF declarations (issue #205; veraPDF WTPDF 1.0 rule identifiers): a failure condition the document has
     // (Warning, refused in strict mode), and a lenient save that therefore does not declare the level (Information).
-    public const string WellTaggedNonConformant = nameof(WellTaggedNonConformant);
-    public const string WellTaggedNotDeclared = nameof(WellTaggedNotDeclared);
+    public static string WellTaggedNonConformant => SavingDiagnostics.WellTaggedNonConformant.Name;
+    public static string WellTaggedNotDeclared => SavingDiagnostics.WellTaggedNotDeclared.Name;
 }
