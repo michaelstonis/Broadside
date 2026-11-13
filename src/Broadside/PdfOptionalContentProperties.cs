@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Broadside.Caching;
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -61,13 +62,13 @@ public sealed class PdfOptionalContentProperties
                         _stamps.Add(ViewReading.Get(document, group, FileAndLayerNames.Intent));
                         if (ViewReading.Name(document, group, KnownNames.Type) is { } type && !type.Equals(FileAndLayerNames.OCG))
                         {
-                            Warn(DiagnosticCodes.OptionalContentGroupInvalid, $"An OCGs entry is a /{type.Value} dictionary, not an optional content group; it is ignored.", entry as CosReference);
+                            Warn(OptionalContentDiagnostics.OptionalContentGroupInvalid, $"An OCGs entry is a /{type.Value} dictionary, not an optional content group; it is ignored.", entry as CosReference);
                             break;
                         }
 
                         if (!group.ContainsKey(KnownNames.Type))
                         {
-                            Warn(DiagnosticCodes.OptionalContentGroupInvalid, "An optional content group has no Type entry; it is read as an optional content group.", entry as CosReference);
+                            Warn(OptionalContentDiagnostics.OptionalContentGroupInvalid, "An optional content group has no Type entry; it is read as an optional content group.", entry as CosReference);
                         }
 
                         var view = new PdfOptionalContentGroup(document, group, entry as CosReference, groups.Count);
@@ -77,14 +78,14 @@ public sealed class PdfOptionalContentProperties
                     case CosDictionary or CosNull:
                         break;
                     default:
-                        Warn(DiagnosticCodes.OptionalContentGroupInvalid, "An OCGs entry is not a dictionary; it is ignored.", entry as CosReference);
+                        Warn(OptionalContentDiagnostics.OptionalContentGroupInvalid, "An OCGs entry is not a dictionary; it is ignored.", entry as CosReference);
                         break;
                 }
             }
         }
         else
         {
-            Warn(DiagnosticCodes.OptionalContentGroupsMissing, "The optional content properties have no OCGs array; no group is optional content and all content is visible.", null);
+            Warn(OptionalContentDiagnostics.OptionalContentGroupsMissing, "The optional content properties have no OCGs array; no group is optional content and all content is visible.", null);
         }
 
         _groups = [.. groups];
@@ -110,7 +111,7 @@ public sealed class PdfOptionalContentProperties
                 return new PdfOptionalContentConfiguration(this, configuration, ViewReading.ReferenceOf(Dictionary, FileAndLayerNames.D), isDefault: true);
             }
 
-            Warn(DiagnosticCodes.OptionalContentConfigMissing, "The optional content properties have no default configuration D; an empty one is used (every group ON).", null);
+            Warn(OptionalContentDiagnostics.OptionalContentConfigMissing, "The optional content properties have no default configuration D; an empty one is used (every group ON).", null);
             return new PdfOptionalContentConfiguration(this, _missingDefault, null, isDefault: true);
         }
     }
@@ -345,10 +346,10 @@ public sealed class PdfOptionalContentProperties
                     groups.Add(group);
                     break;
                 case CosDictionary dictionary when !ViewReading.HasType(Document, dictionary, FileAndLayerNames.OCMD):
-                    Warn(DiagnosticCodes.OptionalContentGroupNotListed, "An optional content group is not listed in OCProperties OCGs; it is not optional content.", entry as CosReference ?? owner);
+                    Warn(OptionalContentDiagnostics.OptionalContentGroupNotListed, "An optional content group is not listed in OCProperties OCGs; it is not optional content.", entry as CosReference ?? owner);
                     break;
                 default:
-                    Warn(DiagnosticCodes.OptionalContentGroupInvalid, "An entry that shall be an optional content group is not one; it is ignored.", entry as CosReference ?? owner);
+                    Warn(OptionalContentDiagnostics.OptionalContentGroupInvalid, "An entry that shall be an optional content group is not one; it is ignored.", entry as CosReference ?? owner);
                     break;
             }
         }
@@ -363,7 +364,7 @@ public sealed class PdfOptionalContentProperties
         PdfVisibilityExpression? expression = ParseNode(array, 0);
         if (problem is not null)
         {
-            Warn(DiagnosticCodes.VisibilityExpressionInvalid, problem, owner);
+            Warn(OptionalContentDiagnostics.VisibilityExpressionInvalid, problem, owner);
         }
 
         return expression;
@@ -420,7 +421,7 @@ public sealed class PdfOptionalContentProperties
                             operands.Add(new PdfVisibilityExpression(PdfVisibilityOperator.Group, group, []));
                             break;
                         case CosDictionary:
-                            Warn(DiagnosticCodes.OptionalContentGroupNotListed, "A visibility expression names a group not listed in OCProperties OCGs; the operand has no effect.", node[index] as CosReference ?? owner);
+                            Warn(OptionalContentDiagnostics.OptionalContentGroupNotListed, "A visibility expression names a group not listed in OCProperties OCGs; the operand has no effect.", node[index] as CosReference ?? owner);
                             break;
                         default:
                             problem ??= "A visibility expression operand is neither a group nor an expression; it is ignored.";
@@ -453,7 +454,7 @@ public sealed class PdfOptionalContentProperties
         CosName? type = ViewReading.Name(Document, dictionary, KnownNames.Type);
         if (type is not null && type.Equals(FileAndLayerNames.OCG))
         {
-            Warn(DiagnosticCodes.OptionalContentGroupNotListed, "Content refers to an optional content group not listed in OCProperties OCGs; it is not optional content and is visible.", reference);
+            Warn(OptionalContentDiagnostics.OptionalContentGroupNotListed, "Content refers to an optional content group not listed in OCProperties OCGs; it is not optional content and is visible.", reference);
             return VisibilityProgram.AlwaysVisible;
         }
 
@@ -471,7 +472,7 @@ public sealed class PdfOptionalContentProperties
         PdfVisibilityPolicy? policy = ReadPolicy(policyName);
         if (policyName is not null && policy is null)
         {
-            Warn(DiagnosticCodes.VisibilityPolicyInvalid, $"The visibility policy /{policyName.Value} is not AllOn, AnyOn, AnyOff or AllOff; AnyOn is used.", reference);
+            Warn(OptionalContentDiagnostics.VisibilityPolicyInvalid, $"The visibility policy /{policyName.Value} is not AllOn, AnyOn, AnyOff or AllOff; AnyOn is used.", reference);
         }
 
         CosObject? groups = ViewReading.Get(Document, dictionary, FileAndLayerNames.OCGs);
@@ -486,7 +487,7 @@ public sealed class PdfOptionalContentProperties
         CosName? written = ViewReading.Name(Document, configuration.Dictionary, FileAndLayerNames.BaseState);
         if (configuration.IsDefault && written is not null && baseState != PdfOptionalContentBaseState.On)
         {
-            Warn(DiagnosticCodes.OptionalContentBaseStateInvalid, $"The default configuration's BaseState shall be ON, not /{written.Value}; {(baseState == PdfOptionalContentBaseState.Off ? "OFF is honoured" : "ON is used")}.", where);
+            Warn(OptionalContentDiagnostics.OptionalContentBaseStateInvalid, $"The default configuration's BaseState shall be ON, not /{written.Value}; {(baseState == PdfOptionalContentBaseState.Off ? "OFF is honoured" : "ON is used")}.", where);
             if (baseState == PdfOptionalContentBaseState.Unchanged)
             {
                 baseState = PdfOptionalContentBaseState.On;
@@ -497,7 +498,7 @@ public sealed class PdfOptionalContentProperties
         if (configuration.IsDefault && ViewReading.Get(Document, configuration.Dictionary, FileAndLayerNames.Intent) is not null
             && !(intents.Count == 1 && intents[0].Equals(FileAndLayerNames.View)))
         {
-            Warn(DiagnosticCodes.OptionalContentIntentInvalid, "The default configuration's Intent shall be View; the written intent is honoured.", where);
+            Warn(OptionalContentDiagnostics.OptionalContentIntentInvalid, "The default configuration's Intent shall be View; the written intent is honoured.", where);
         }
 
         bool[] states;
@@ -522,7 +523,7 @@ public sealed class PdfOptionalContentProperties
         {
             if (on.Contains(group.Ordinal))
             {
-                Warn(DiagnosticCodes.OptionalContentGroupOnAndOff, $"The group '{group.Name}' is in both the ON and the OFF array of a configuration; OFF is applied last.", where);
+                Warn(OptionalContentDiagnostics.OptionalContentGroupOnAndOff, $"The group '{group.Name}' is in both the ON and the OFF array of a configuration; OFF is applied last.", where);
             }
 
             states[group.Ordinal] = false;
@@ -540,7 +541,7 @@ public sealed class PdfOptionalContentProperties
         }
     }
 
-    private void Warn(string code, string message, CosReference? reference) => ViewReading.Warn(Document, code, message, reference ?? _reference);
+    private void Warn(DiagnosticCode code, string message, CosReference? reference) => ViewReading.Warn(Document, code, message, reference ?? _reference);
 
     private static bool? Recommend(string category, PdfOptionalContentUsage? usage, PdfOptionalContentUsageContext context, bool anyExactLanguage)
     {

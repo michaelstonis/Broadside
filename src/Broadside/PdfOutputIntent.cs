@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -61,7 +62,7 @@ public sealed class PdfOutputIntent
                 case CosName name:
                     return name.Value;
                 default:
-                    _view.Report(DiagnosticCodes.OutputIntentInvalid, "The output intent's S entry shall be a name; it is ignored.");
+                    _view.Report(DocumentDiagnostics.OutputIntentInvalid, "The output intent's S entry shall be a name; it is ignored.");
                     return null;
             }
         }
@@ -69,19 +70,19 @@ public sealed class PdfOutputIntent
 
     /// <summary>Gets the human-readable name of the output condition (<c>OutputCondition</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 401 (optional).</remarks>
-    public string? OutputCondition => _view.ReadText(OutputConditionKey, DiagnosticCodes.OutputIntentInvalid);
+    public string? OutputCondition => _view.ReadText(OutputConditionKey, DocumentDiagnostics.OutputIntentInvalid);
 
     /// <summary>Gets the identifier of the output condition (<c>OutputConditionIdentifier</c>), such as a registry name or <c>Custom</c>.</summary>
     /// <remarks>ISO 32000-2 Table 401 (required).</remarks>
-    public string? OutputConditionIdentifier => _view.ReadText(OutputConditionIdentifierKey, DiagnosticCodes.OutputIntentInvalid);
+    public string? OutputConditionIdentifier => _view.ReadText(OutputConditionIdentifierKey, DocumentDiagnostics.OutputIntentInvalid);
 
     /// <summary>Gets the registry the condition is defined in (<c>RegistryName</c>), conventionally a URI, or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 401 (optional).</remarks>
-    public string? RegistryName => _view.ReadText(RegistryNameKey, DiagnosticCodes.OutputIntentInvalid);
+    public string? RegistryName => _view.ReadText(RegistryNameKey, DocumentDiagnostics.OutputIntentInvalid);
 
     /// <summary>Gets further human-readable information on the condition (<c>Info</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 401.</remarks>
-    public string? Info => _view.ReadText(InfoKey, DiagnosticCodes.OutputIntentInvalid);
+    public string? Info => _view.ReadText(InfoKey, DocumentDiagnostics.OutputIntentInvalid);
 
     /// <summary>
     /// Gets the ICC profile of the output condition (<c>DestOutputProfile</c>) as an ICCBased colour space, or <see langword="null"/>
@@ -113,7 +114,7 @@ public sealed class PdfOutputIntent
                     space = _view.Document.ColorSpaces.Find(new CosArray([IccBasedName, entry!]), _view.Reference, inline: false, out _) as PdfIccBasedColorSpace;
                     break;
                 default:
-                    _view.Report(DiagnosticCodes.OutputIntentInvalid, "The output intent's DestOutputProfile shall be an ICC profile stream; it is ignored.");
+                    _view.Report(DocumentDiagnostics.OutputIntentInvalid, "The output intent's DestOutputProfile shall be an ICC profile stream; it is ignored.");
                     break;
             }
 
@@ -144,7 +145,7 @@ public sealed class PdfOutputIntent
                     if (document.Resolve(element) is not CosDictionary dictionary)
                     {
                         document.DiagnosticSink.Report(
-                            DiagnosticCodes.OutputIntentInvalid,
+                            DocumentDiagnostics.OutputIntentInvalid,
                             Diagnostics.DiagnosticSeverity.Warning,
                             "An OutputIntents element is not an output intent dictionary; it is skipped.",
                             objectReference: element as CosReference ?? owner);
@@ -166,7 +167,7 @@ public sealed class PdfOutputIntent
                 return intents;
             default:
                 document.DiagnosticSink.Report(
-                    DiagnosticCodes.OutputIntentInvalid,
+                    DocumentDiagnostics.OutputIntentInvalid,
                     Diagnostics.DiagnosticSeverity.Warning,
                     "The OutputIntents entry shall be an array of output intent dictionaries; it is ignored.",
                     objectReference: value as CosReference ?? owner);

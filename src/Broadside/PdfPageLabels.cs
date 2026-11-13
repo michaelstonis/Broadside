@@ -166,7 +166,7 @@ public sealed class PdfPageLabels
     /// <summary>The label of a page before the first range: decimal from 1, reported.</summary>
     private string Unlabelled(int pageIndex)
     {
-        Report(DiagnosticCodes.PageLabelsMissingZeroKey, "The page labels number tree shall have a range for page index 0; pages before its first range are numbered in decimal from 1.");
+        Report(DocumentDiagnostics.PageLabelsMissingZeroKey, "The page labels number tree shall have a range for page index 0; pages before its first range are numbered in decimal from 1.");
         return (pageIndex + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 
@@ -175,19 +175,19 @@ public sealed class PdfPageLabels
     {
         if (key < 0)
         {
-            Report(DiagnosticCodes.PageLabelInvalid, "A page labels number tree key shall be a page index; a negative key is ignored.");
+            Report(DocumentDiagnostics.PageLabelInvalid, "A page labels number tree key shall be a page index; a negative key is ignored.");
             return null;
         }
 
         if (value is not CosDictionary dictionary)
         {
-            Report(DiagnosticCodes.PageLabelInvalid, "A page labels number tree value shall be a page label dictionary; the entry is ignored.");
+            Report(DocumentDiagnostics.PageLabelInvalid, "A page labels number tree value shall be a page label dictionary; the entry is ignored.");
             return null;
         }
 
         return new PdfPageLabelRange(_document, key, dictionary, _tree.RootReference ?? _document.CatalogReference);
     }
 
-    private void Report(string code, string message) =>
+    private void Report(DiagnosticCode code, string message) =>
         _document.DiagnosticSink.Report(code, DiagnosticSeverity.Warning, message, objectReference: _tree.RootReference ?? _document.CatalogReference);
 }

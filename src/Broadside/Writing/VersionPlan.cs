@@ -58,14 +58,14 @@ internal static class VersionPlan
         if (diagnostics.IsStrict)
         {
             diagnostics.Report(
-                DiagnosticCodes.VersionRaised,
+                SavingDiagnostics.VersionRaised,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"The document is PDF {current}, but the save uses features of a later version: {names}. Strict mode does not raise the version (ADR 0003); nothing is written."));
         }
         else
         {
             diagnostics.Report(
-                DiagnosticCodes.VersionRaised,
+                SavingDiagnostics.VersionRaised,
                 DiagnosticSeverity.Information,
                 string.Create(CultureInfo.InvariantCulture, $"The saved file is PDF {needed}, raised from {current}: {names} (ISO 32000-2 §7.5.2)."));
         }

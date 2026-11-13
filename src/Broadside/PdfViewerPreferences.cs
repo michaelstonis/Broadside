@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -85,7 +86,7 @@ public sealed class PdfViewerPreferences
     /// </remarks>
     public PdfPageMode NonFullScreenPageMode => _view.ReadName(
         NonFullScreenPageModeKey,
-        DiagnosticCodes.ViewerPreferenceInvalid,
+        DocumentDiagnostics.ViewerPreferenceInvalid,
         PdfPageMode.UseNone,
         ("UseNone", PdfPageMode.UseNone),
         ("UseOutlines", PdfPageMode.UseOutlines),
@@ -96,7 +97,7 @@ public sealed class PdfViewerPreferences
     /// <remarks>ISO 32000-2 §12.2, Table 147.</remarks>
     public PdfReadingDirection Direction => _view.ReadName(
         DirectionKey,
-        DiagnosticCodes.ViewerPreferenceInvalid,
+        DocumentDiagnostics.ViewerPreferenceInvalid,
         PdfReadingDirection.LeftToRight,
         ("L2R", PdfReadingDirection.LeftToRight),
         ("R2L", PdfReadingDirection.RightToLeft))!.Value;
@@ -125,7 +126,7 @@ public sealed class PdfViewerPreferences
     /// <remarks>ISO 32000-2 §12.2, Table 147.</remarks>
     public PdfDuplex? Duplex => _view.ReadName<PdfDuplex>(
         DuplexKey,
-        DiagnosticCodes.ViewerPreferenceInvalid,
+        DocumentDiagnostics.ViewerPreferenceInvalid,
         null,
         ("Simplex", PdfDuplex.Simplex),
         ("DuplexFlipShortEdge", PdfDuplex.DuplexFlipShortEdge),
@@ -136,7 +137,7 @@ public sealed class PdfViewerPreferences
     /// <see langword="null"/>: implementation dependent.
     /// </summary>
     /// <remarks>ISO 32000-2 §12.2, Table 147.</remarks>
-    public bool? PickTrayByPdfSize => _view.ReadBoolean(PickTrayByPdfSizeKey, DiagnosticCodes.ViewerPreferenceInvalid, null);
+    public bool? PickTrayByPdfSize => _view.ReadBoolean(PickTrayByPdfSizeKey, DocumentDiagnostics.ViewerPreferenceInvalid, null);
 
     /// <summary>
     /// Gets the page ranges a print dialog starts with (<c>PrintPageRange</c>, PDF 1.7), numbered from 1, or <see langword="null"/>:
@@ -193,7 +194,7 @@ public sealed class PdfViewerPreferences
     {
         get
         {
-            int? copies = _view.ReadInteger(NumCopiesKey, DiagnosticCodes.ViewerPreferenceInvalid);
+            int? copies = _view.ReadInteger(NumCopiesKey, DocumentDiagnostics.ViewerPreferenceInvalid);
             if (copies is < 1)
             {
                 Invalid(NumCopiesKey);
@@ -250,11 +251,11 @@ public sealed class PdfViewerPreferences
         }
     }
 
-    private bool ReadFlag(CosName key) => _view.ReadBoolean(key, DiagnosticCodes.ViewerPreferenceInvalid, false)!.Value;
+    private bool ReadFlag(CosName key) => _view.ReadBoolean(key, DocumentDiagnostics.ViewerPreferenceInvalid, false)!.Value;
 
     private PdfPageBoundary ReadBoundary(CosName key) => _view.ReadName(
         key,
-        DiagnosticCodes.ViewerPreferenceInvalid,
+        DocumentDiagnostics.ViewerPreferenceInvalid,
         PdfPageBoundary.CropBox,
         ("CropBox", PdfPageBoundary.CropBox),
         ("MediaBox", PdfPageBoundary.MediaBox),
@@ -265,11 +266,11 @@ public sealed class PdfViewerPreferences
     /// <summary>The valid PrintScaling value, or null when absent or unrecognised (reported).</summary>
     private PdfPrintScaling? ReadPrintScaling() => _view.ReadName<PdfPrintScaling>(
         PrintScalingKey,
-        DiagnosticCodes.ViewerPreferenceInvalid,
+        DocumentDiagnostics.ViewerPreferenceInvalid,
         null,
         ("None", PdfPrintScaling.None),
         ("AppDefault", PdfPrintScaling.AppDefault));
 
     private void Invalid(CosName key) =>
-        _view.Report(DiagnosticCodes.ViewerPreferenceInvalid, $"The viewer preference {key.Value} does not have a value Table 147 allows; it is read as its default.");
+        _view.Report(DocumentDiagnostics.ViewerPreferenceInvalid, $"The viewer preference {key.Value} does not have a value Table 147 allows; it is read as its default.");
 }

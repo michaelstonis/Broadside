@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -52,7 +53,7 @@ public sealed class PdfCollection
                 case "C" when Navigator is not null:
                     return PdfCollectionView.Navigator;
                 case "C":
-                    ViewReading.Warn(_document, DiagnosticCodes.CollectionInvalid, "The collection's View is C (navigator) but it has no Navigator; details view is used.", Reference);
+                    ViewReading.Warn(_document, FileSpecificationDiagnostics.CollectionInvalid, "The collection's View is C (navigator) but it has no Navigator; details view is used.", Reference);
                     return PdfCollectionView.Details;
                 default:
                     return PdfCollectionView.Details;
@@ -158,7 +159,7 @@ public sealed class PdfCollection
             {
                 if (!visited.Add(child))
                 {
-                    ViewReading.Warn(_document, DiagnosticCodes.CollectionFolderCycle, "A collection folder's Child or Next leads back to a folder already reached; the link is ignored.", folder.Reference ?? Reference);
+                    ViewReading.Warn(_document, FileSpecificationDiagnostics.CollectionFolderCycle, "A collection folder's Child or Next leads back to a folder already reached; the link is ignored.", folder.Reference ?? Reference);
                     break;
                 }
 
@@ -182,7 +183,7 @@ public sealed class PdfCollection
             int id = folder.Id;
             if (id >= 0 && !index.TryAdd(id, folder))
             {
-                ViewReading.Warn(_document, DiagnosticCodes.CollectionFolderIdDuplicate, $"Two collection folders have the ID {id}; the first one found keeps it.", folder.Reference ?? Reference);
+                ViewReading.Warn(_document, FileSpecificationDiagnostics.CollectionFolderIdDuplicate, $"Two collection folders have the ID {id}; the first one found keeps it.", folder.Reference ?? Reference);
             }
         }
     }

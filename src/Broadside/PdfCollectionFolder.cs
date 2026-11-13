@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 
 namespace Broadside;
@@ -137,5 +138,5 @@ public sealed class PdfCollectionFolder
 
     internal void AddChild(PdfCollectionFolder child) => _children.Add(child);
 
-    private EntryReport Issue => new(_document, Parsing.DiagnosticCodes.CollectionFolderInvalid, Reference, "The collection folder");
+    private EntryReport Issue => new(_document, FileSpecificationDiagnostics.CollectionFolderInvalid, Reference, "The collection folder");
 }

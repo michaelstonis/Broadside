@@ -564,7 +564,7 @@ internal abstract partial class TreeReader<TKey>
             $"A {Kind} key lies outside the Limits of a node that holds it; lookups fall back to reading the whole tree.",
             reference);
 
-    private void Report(string code, DiagnosticSeverity severity, string message, CosReference? reference) =>
+    private void Report(DiagnosticCode code, DiagnosticSeverity severity, string message, CosReference? reference) =>
         Diagnostics.Report(code, severity, message, objectReference: reference);
 
     /// <summary>How usable a key read from a tree is.</summary>
@@ -581,7 +581,7 @@ internal abstract partial class TreeReader<TKey>
     }
 
     /// <summary>The diagnostic codes of one kind of tree.</summary>
-    private protected sealed record TreeCodes(string NodeInvalid, string LimitsInvalid, string KeysUnsorted, string DuplicateKey, string KeyInvalid, string Cycle, string TooDeep);
+    private protected sealed record TreeCodes(DiagnosticCode NodeInvalid, DiagnosticCode LimitsInvalid, DiagnosticCode KeysUnsorted, DiagnosticCode DuplicateKey, DiagnosticCode KeyInvalid, DiagnosticCode Cycle, DiagnosticCode TooDeep);
 
     /// <summary>A node waiting to be visited.</summary>
     /// <param name="Node">The node dictionary.</param>

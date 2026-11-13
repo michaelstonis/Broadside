@@ -71,7 +71,7 @@ public sealed partial class PdfDocument
 
     private void ReportNonConformance(PdfSaveOptions options, PdfAViolation violation) =>
         _diagnostics.Report(
-            DiagnosticCodes.PdfANonConformant,
+            SavingDiagnostics.PdfANonConformant,
             DiagnosticSeverity.Warning,
             $"The file cannot conform to {options.PdfAConformance.Describe()}: {violation.Message} (veraPDF rule {violation.Rule}, ISO 19005-{options.PdfAConformance.Part()} clause {violation.Rule[..violation.Rule.LastIndexOf('-')]}).",
             objectReference: violation.Reference);
@@ -79,7 +79,7 @@ public sealed partial class PdfDocument
     /// <summary>Records that a lenient save does not claim the conformance it could not meet.</summary>
     private void ReportNotIdentified(PdfSaveOptions options) =>
         _diagnostics.Report(
-            DiagnosticCodes.PdfANotIdentified,
+            SavingDiagnostics.PdfANotIdentified,
             DiagnosticSeverity.Information,
             $"The file is saved without the {options.PdfAConformance.Describe()} identification, output intent or other PDF/A changes: the document cannot conform (see the PdfANonConformant diagnostics).");
 
@@ -235,12 +235,12 @@ public sealed partial class PdfDocument
         // One diagnostic each, listing every item: the sink keeps one diagnostic per code for an object.
         if (changed.Count > 0)
         {
-            _diagnostics.Report(DiagnosticCodes.PdfAConverted, DiagnosticSeverity.Information, $"Converting to {conformance.Describe()}: {string.Join("; ", changed)}.");
+            _diagnostics.Report(SavingDiagnostics.PdfAConverted, DiagnosticSeverity.Information, $"Converting to {conformance.Describe()}: {string.Join("; ", changed)}.");
         }
 
         if (unfixed.Count > 0)
         {
-            _diagnostics.Report(DiagnosticCodes.PdfANotConverted, DiagnosticSeverity.Information, $"Converting to {conformance.Describe()} left what it could not fix: {string.Join("; ", unfixed)}.");
+            _diagnostics.Report(SavingDiagnostics.PdfANotConverted, DiagnosticSeverity.Information, $"Converting to {conformance.Describe()} left what it could not fix: {string.Join("; ", unfixed)}.");
         }
 
         foreach (PdfAViolation violation in violations)

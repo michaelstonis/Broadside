@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Text;
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -177,7 +178,7 @@ public sealed class PdfFileSpecification
                 }
             }
 
-            ViewReading.Warn(_document, DiagnosticCodes.EmbeddedFileMissing, "The file specification's EF entry holds no embedded file stream; the file reads as not embedded.", Reference);
+            ViewReading.Warn(_document, FileSpecificationDiagnostics.EmbeddedFileMissing, "The file specification's EF entry holds no embedded file stream; the file reads as not embedded.", Reference);
             return null;
         }
     }
@@ -237,7 +238,7 @@ public sealed class PdfFileSpecification
 
             return files;
 
-            void Report() => ViewReading.Warn(_document, DiagnosticCodes.RelatedFilesInvalid, "The related files array is not pairs of a name string and an embedded file stream; malformed pairs are skipped.", Reference);
+            void Report() => ViewReading.Warn(_document, FileSpecificationDiagnostics.RelatedFilesInvalid, "The related files array is not pairs of a name string and an embedded file stream; malformed pairs are skipped.", Reference);
         }
     }
 

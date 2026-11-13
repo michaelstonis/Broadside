@@ -31,20 +31,20 @@ internal static class XmpPacketReader
     /// <param name="data">The bytes.</param>
     /// <param name="report">Receives the deviations (code, severity, message); <see langword="null"/> to ignore them.</param>
     /// <returns>The packet, or <see langword="null"/> when the bytes hold no readable <c>rdf:RDF</c> element.</returns>
-    public static XmpPacket? Read(ReadOnlySpan<byte> data, Action<string, DiagnosticSeverity, string>? report)
+    public static XmpPacket? Read(ReadOnlySpan<byte> data, Action<DiagnosticCode, DiagnosticSeverity, string>? report)
     {
         string text = Decode(data);
         int start = text.IndexOf('<', StringComparison.Ordinal);
         if (start < 0)
         {
-            report?.Invoke(DiagnosticCodes.XmpMalformed, DiagnosticSeverity.Error, "The metadata stream holds no XML markup; it is not an XMP packet.");
+            report?.Invoke(DocumentDiagnostics.XmpMalformed, DiagnosticSeverity.Error, "The metadata stream holds no XML markup; it is not an XMP packet.");
             return null;
         }
 
         if (text.AsSpan(0, start).ContainsAnyExcept(" \t\r\n﻿"))
         {
             report?.Invoke(
-                DiagnosticCodes.XmpLeadingJunk,
+                DocumentDiagnostics.XmpLeadingJunk,
                 DiagnosticSeverity.Warning,
                 "The XMP packet has bytes other than white-space before its first markup; they are skipped.");
         }
@@ -58,7 +58,7 @@ internal static class XmpPacketReader
         {
             bool doctype = text.Contains("<!DOCTYPE", StringComparison.Ordinal);
             report?.Invoke(
-                doctype ? DiagnosticCodes.XmpDtdProhibited : DiagnosticCodes.XmpMalformed,
+                doctype ? DocumentDiagnostics.XmpDtdProhibited : DocumentDiagnostics.XmpMalformed,
                 DiagnosticSeverity.Error,
                 doctype
                     ? "The XMP packet has a document type declaration, which is not read (it could expand entities or fetch files); the packet is ignored."
@@ -68,7 +68,7 @@ internal static class XmpPacketReader
 
         if (rdf is null)
         {
-            report?.Invoke(DiagnosticCodes.XmpMalformed, DiagnosticSeverity.Error, "The XMP packet has no rdf:RDF element; the packet is ignored.");
+            report?.Invoke(DocumentDiagnostics.XmpMalformed, DiagnosticSeverity.Error, "The XMP packet has no rdf:RDF element; the packet is ignored.");
             return null;
         }
 
@@ -159,7 +159,7 @@ internal static class XmpPacketReader
     }
 
     /// <summary>Merges the properties of every description in <c>rdf:RDF</c> (ISO 16684-1 §7.4); the first of two equal names wins.</summary>
-    private static XmpPacket Build(XElement rdf, Action<string, DiagnosticSeverity, string>? report)
+    private static XmpPacket Build(XElement rdf, Action<DiagnosticCode, DiagnosticSeverity, string>? report)
     {
         var properties = new List<XmpProperty>();
         var names = new HashSet<(string, string)>();
@@ -176,7 +176,7 @@ internal static class XmpPacketReader
                 else
                 {
                     report?.Invoke(
-                        DiagnosticCodes.XmpPropertyDuplicate,
+                        DocumentDiagnostics.XmpPropertyDuplicate,
                         DiagnosticSeverity.Warning,
                         $"The XMP property {property.Name} ({property.NamespaceName}) is given more than once; the first value is used.");
                 }
