@@ -12,7 +12,9 @@ namespace Broadside.Graphics;
 /// </para>
 /// <para>
 /// Interpolation is multilinear between the 2^m surrounding samples (simplex interpolation between m + 1 of them when more than eight
-/// inputs fall between samples). <see cref="Order"/> 3 (cubic spline) is evaluated linearly and noted once as a diagnostic.
+/// inputs fall between samples). <see cref="Order"/> 3 interpolates each input of Size 4 or more with a cubic spline through the
+/// samples (a Catmull-Rom cubic Hermite spline, with straight tangents at the first and last sample), applied along each input in
+/// turn; an input with fewer than 4 samples stays linear, as the clause says Order 3 is then ignored.
 /// Samples are held in single precision, so 24- and 32-bit samples resolve to about 2^-24 of their decoded range.
 /// </para>
 /// </remarks>
