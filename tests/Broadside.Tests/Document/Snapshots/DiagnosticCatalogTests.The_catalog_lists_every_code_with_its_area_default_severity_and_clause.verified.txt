@@ -17,6 +17,10 @@ FileStructure	XrefEntryInvalid	Error	ISO 32000-2 §7.5.4
 FileStructure	XrefEntryFormatInvalid	Warning	ISO 32000-2 §7.5.4
 FileStructure	XrefSubsectionNumberingInvalid	Warning	ISO 32000-2 §7.5.4
 FileStructure	XrefSubsectionHeaderInvalid	Warning	ISO 32000-2 §7.5.4
+FileStructure	XrefEntryBeyondSize	Warning	ISO 32000-2 §7.5.5
+FileStructure	XrefCommentIgnored	Warning	ISO 32000-2 §7.5.4
+FileStructure	XrefLineMalformed	Warning	ISO 32000-2 §7.5.4
+FileStructure	StartxrefLastDamaged	Warning	ISO 32000-2 §7.5.5
 FileStructure	XrefPrevLoop	Error	ISO 32000-2 §7.5.4
 FileStructure	XrefStreamTypeInvalid	Warning	ISO 32000-2 §7.5.8
 FileStructure	XrefStreamWidthsInvalid	Error	ISO 32000-2 §7.5.8

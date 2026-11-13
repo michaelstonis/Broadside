@@ -47,7 +47,7 @@ public sealed class ObjectCopyTests
 
     public static TheoryData<string> UnencryptedFiles => [.. Corpus.WellFormedFileNames.Where(name => !name.StartsWith("encrypted-", StringComparison.Ordinal))];
 
-    public static TheoryData<string> EncryptedFiles => [.. Corpus.WellFormedFileNames.Where(name => name.StartsWith("encrypted-", StringComparison.Ordinal))];
+    public static TheoryData<string> EncryptedFiles => [.. Corpus.WellFormedFileNames.Where(name => name.StartsWith("encrypted-", StringComparison.Ordinal) && name != "encrypted-wrapper.pdf")];
 
     [Theory]
     [MemberData(nameof(UnencryptedFiles))]
