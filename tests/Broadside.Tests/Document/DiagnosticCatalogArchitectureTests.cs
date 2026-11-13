@@ -42,10 +42,10 @@ public sealed partial class DiagnosticCatalogArchitectureTests
         {
             Write(root, "src/Broadside/Diagnostics/FakeDiagnostics.cs", "public static class FakeDiagnostics { public static " + "DiagnosticCode Fine { get; } = null!; }");
             Write(root, "src/Broadside/Parsing/Late.cs", "internal static class Late { public static " + "DiagnosticCode LateCode { get; } = null!; }");
-            Write(root, "src/Broadside.Layout/Constants.cs", "internal static class Constants { public " + "const string LateName = \"LateName\"; }");
-            Write(root, "src/Broadside.Layout/Named.cs", "internal static class Named { public " + "const string Other = nameof(Other); }");
-            Write(root, "tests/Some.Tests/Forward.cs", "internal static class Forward { public static " + "string Forwarded => FakeDiagnostics.Forwarded.Name; }");
-            Write(root, "src/Broadside/Parsing/Fine.cs", "internal static class Fine { internal static " + "DiagnosticCode Pick(int i) => FakeDiagnostics.Fine; public const " + "string Module = \"module\"; }");
+            Write(root, "src/Broadside.Layout/Constants.cs", "internal static class Constants { public const" + " string LateName = \"LateName\"; }");
+            Write(root, "src/Broadside.Layout/Named.cs", "internal static class Named { public const" + " string Other = nameof(Other); }");
+            Write(root, "tests/Some.Tests/Forward.cs", "internal static class Forward { public static string" + " Forwarded => FakeDiagnostics.Forwarded.Name; }");
+            Write(root, "src/Broadside/Parsing/Fine.cs", "internal static class Fine { internal static " + "DiagnosticCode Pick(int i) => FakeDiagnostics.Fine; public const" + " string Module = \"module\"; }");
             Write(root, "tests/Some.Tests/Mine.cs", "internal static class Mine { public static " + "DiagnosticCode Tests { get; } = DiagnosticCode.Create(\"Tests\", \"Custom\", DiagnosticSeverity.Information); }");
             Write(root, "src/Broadside/obj/Generated.cs", "internal static class G { public static " + "DiagnosticCode Ignored { get; } = null!; }");
 
@@ -153,8 +153,9 @@ public sealed partial class DiagnosticCatalogArchitectureTests
     /// <summary>A member initialized by <c>DiagnosticCode.Create</c> is an owner-prefixed third-party code (a test fixture, say), not a Broadside code.</summary>
     private static bool IsThirdPartyCode(string text, Match match)
     {
-        int end = text.IndexOf(';', match.Index);
-        return end > 0 && text.AsSpan(match.Index, end - match.Index).Contains("DiagnosticCode.Create(", StringComparison.Ordinal);
+        int equals = text.IndexOf('=', match.Index);
+        int end = equals < 0 ? -1 : text.IndexOf(';', equals);
+        return end > 0 && text.AsSpan(equals, end - equals).Contains("DiagnosticCode.Create(", StringComparison.Ordinal);
     }
 
     private static bool IsCatalogClass(string relative) =>
