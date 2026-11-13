@@ -59,6 +59,10 @@ public sealed class PdfFileSpecification
     /// <summary>Gets the document the specification belongs to.</summary>
     internal PdfDocument Document => _document;
 
+    /// <summary>Gets the files associated with this file specification (its <c>AF</c>); empty for the string form.</summary>
+    /// <remarks>ISO 32000-2 Table 43 (PDF 2.0), and §14.13.1. Read on every call, as <see cref="PdfDocument.AssociatedFiles"/> is.</remarks>
+    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => Dictionary is { } dictionary ? AssociatedFileReader.ReadOwner(_document, dictionary, Reference) : [];
+
     /// <summary>Gets the file system the specification is interpreted by (<c>FS</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §7.11.3, Table 43. <c>URL</c> is the only standard file system (§7.11.5).</remarks>
     public CosName? FileSystem => Dictionary is { } dictionary ? ViewReading.Name(_document, dictionary, FileAndLayerNames.FS) : null;

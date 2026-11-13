@@ -260,8 +260,8 @@ public abstract class PdfAnnotation
     public void RemoveOptionalContent() => OptionalContentWriter.Assign(Document, Dictionary, null);
 
     /// <summary>Gets the files associated with the annotation (<c>AF</c>, PDF 2.0); empty when there are none.</summary>
-    /// <remarks>ISO 32000-2 §12.5.2, Table 166, and §14.13.9; read as <see cref="PdfDocument.ReadAssociatedFiles"/> reads any owner's.</remarks>
-    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => Document.ReadAssociatedFiles(Dictionary, DiagnosticReference);
+    /// <remarks>ISO 32000-2 §12.5.2, Table 166, and §14.13.9; read on every call, as <see cref="PdfDocument.AssociatedFiles"/> is. Common to every annotation subtype.</remarks>
+    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => AssociatedFileReader.ReadOwner(Document, Dictionary, DiagnosticReference);
 
     /// <summary>Gets or sets the stroking opacity used when the appearance is regenerated (<c>CA</c>, PDF 1.4); default 1.0, and setting 1 removes the entry.</summary>
     /// <remarks>ISO 32000-2 §12.5.2, Table 166. Not used when the annotation has an appearance stream.</remarks>

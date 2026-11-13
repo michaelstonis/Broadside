@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using Broadside.Diagnostics;
 using Broadside.Filters.Codecs;
 using Broadside.Images;
+using Broadside.Numerics;
 using Broadside.Parsing;
 
 namespace Broadside.Filters.Jpx;
@@ -428,7 +429,7 @@ internal static class JpxComposer
         static double Encode(double v)
         {
             v = Math.Clamp(v, 0, 1);
-            return v <= 0.0031308 ? 12.92 * v : (1.055 * Math.Pow(v, 1 / 2.4)) - 0.055;
+            return v <= 0.0031308 ? 12.92 * v : (1.055 * DeterministicMath.Pow(v, 1 / 2.4)) - 0.055;
         }
     }
 

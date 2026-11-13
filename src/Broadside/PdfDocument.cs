@@ -1025,34 +1025,11 @@ public sealed partial class PdfDocument : IDisposable
     public IReadOnlyList<PdfDeclaration> Declarations => PdfDeclaration.Read(Metadata?.Packet);
 
     /// <summary>Gets the files associated with the whole document (the catalog's <c>AF</c>).</summary>
-    /// <remarks>ISO 32000-2 §7.7.2, Table 29 (PDF 2.0), and §14.13.3. Read on every call.</remarks>
-    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => ReadAssociatedFiles(Catalog, CatalogReference);
-
-    /// <summary>Returns the associated files listed in the <c>AF</c> entry of <paramref name="owner"/>.</summary>
-    /// <param name="owner">Any dictionary or stream dictionary of this document: a structure element, an annotation, a form field.</param>
-    /// <param name="ownerReference">The owner's indirect reference, for diagnostics.</param>
-    /// <returns>The file specifications, in order.</returns>
-    /// <remarks>
-    /// ISO 32000-2 §14.13.2 (PDF 2.0): <c>AF</c> is an array of file specification dictionaries. A single dictionary is read as an
-    /// array of one and a file specification string is accepted, both with an <c>AssociatedFilesInvalid</c> diagnostic. An embedded
-    /// associated file without <c>Subtype</c>, or with <c>Params</c> but no <c>ModDate</c>, is reported. A missing
-    /// <c>AFRelationship</c> means Unspecified and is not reported.
-    /// </remarks>
-    public IReadOnlyList<PdfFileSpecification> ReadAssociatedFiles(CosDictionary owner, CosReference? ownerReference = null)
-    {
-        ArgumentNullException.ThrowIfNull(owner);
-        return owner.TryGetValue(FileAndLayerNames.AF, out CosObject? value) ? AssociatedFileReader.Read(this, value, ownerReference) : [];
-    }
-
-    /// <summary>Returns the associated files of a marked-content sequence, from the property list of its <c>/AF</c> tag.</summary>
-    /// <param name="properties">The property list operand of <c>/AF ... BDC</c>, resolved from the <c>Properties</c> resource, or a reference to it.</param>
-    /// <returns>The file specifications.</returns>
-    /// <remarks>
-    /// ISO 32000-2 §14.13.5 and errata Table 409a: a property list dictionary whose <c>MCAF</c> array lists the files (each shall
-    /// have <c>AFRelationship</c>), or, as in the original text's Example 2, a resource that is the array itself. Both are accepted.
-    /// </remarks>
-    public IReadOnlyList<PdfFileSpecification> ReadMarkedContentAssociatedFiles(CosObject? properties) =>
-        AssociatedFileReader.ReadMarkedContent(this, properties, properties as CosReference);
+    /// <remarks>ISO 32000-2 §7.7.2, Table 29 (PDF 2.0), and §14.13.3. Read on every call: a live view over the catalog's <c>AF</c> array.
+    /// A single dictionary is read as an array of one and a file specification string is accepted, both with an <c>AssociatedFilesInvalid</c>
+    /// diagnostic (§14.13.2). An embedded associated file without <c>Subtype</c>, or with <c>Params</c> but no <c>ModDate</c>, is reported.
+    /// A missing <c>AFRelationship</c> means Unspecified and is not reported.</remarks>
+    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => AssociatedFileReader.ReadOwner(this, Catalog, CatalogReference);
 
     /// <summary>Enumerates every associated file of the document with the object it is associated with.</summary>
     /// <param name="deep">

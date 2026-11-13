@@ -1,3 +1,5 @@
+using Broadside.Numerics;
+
 namespace Broadside.Rendering.Icc;
 
 /// <summary>The profile connection space encodings a lookup table's PCS side uses, and the PCSLAB to PCSXYZ conversion.</summary>
@@ -74,5 +76,5 @@ internal static class IccPcs
 
     private static float Inverse(float t) => t > 6f / 29 ? t * t * t : 3 * (36f / 841) * (t - (4f / 29));
 
-    private static float Forward(float t) => t > 216f / 24389 ? MathF.Cbrt(t) : ((24389f / 27 * t) + 16) / 116;
+    private static float Forward(float t) => t > 216f / 24389 ? (float)DeterministicMath.Cbrt(t) : ((24389f / 27 * t) + 16) / 116;
 }

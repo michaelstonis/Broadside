@@ -64,6 +64,10 @@ internal static class AssociatedFileReader
         void Warn(string message) => ViewReading.Warn(document, DiagnosticCodes.AssociatedFilesInvalid, message, owner);
     }
 
+    /// <summary>Reads the <c>AF</c> entry of <paramref name="owner"/>, if it has one.</summary>
+    public static IReadOnlyList<PdfFileSpecification> ReadOwner(PdfDocument document, CosDictionary owner, CosReference? reference) =>
+        owner.TryGetValue(FileAndLayerNames.AF, out CosObject? value) ? Read(document, value, reference) : [];
+
     /// <summary>Reads the associated files of a marked-content property list (§14.13.5): an <c>MCAF</c> entry, or the array itself.</summary>
     public static IReadOnlyList<PdfFileSpecification> ReadMarkedContent(PdfDocument document, CosObject? properties, CosReference? owner) =>
         document.Resolve(properties) switch
