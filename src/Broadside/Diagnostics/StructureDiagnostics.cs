@@ -98,6 +98,10 @@ public static class StructureDiagnostics
     /// <remarks>ISO 32000-2 §14.9.3</remarks>
     public static DiagnosticCode FigureAlternateTextPlaceholder { get; } = new(nameof(FigureAlternateTextPlaceholder), DiagnosticArea.Structure, DiagnosticSeverity.Warning, "ISO 32000-2 §14.9.3");
 
+    /// <summary>Gets the <c>FigureWithoutAlternateText</c> code.</summary>
+    /// <remarks>ISO 32000-2 §14.9.3</remarks>
+    public static DiagnosticCode FigureWithoutAlternateText { get; } = new(nameof(FigureWithoutAlternateText), DiagnosticArea.Structure, DiagnosticSeverity.Warning, "ISO 32000-2 §14.9.3");
+
     /// <summary>Gets every code of this area, in declaration order.</summary>
     internal static DiagnosticCode[] Codes { get; } =
     [
@@ -124,5 +128,6 @@ public static class StructureDiagnostics
         StructureClassConflict,
         StructureIdConflict,
         FigureAlternateTextPlaceholder,
+        FigureWithoutAlternateText,
     ];
 }
