@@ -269,3 +269,23 @@ underneath (lexer, filters, decryption into a buffer) are the classes whose `All
 | ManagedAesCbcDecrypt |  | 1.28 ms | 15.03 us | 0 B |
 | AesGcmDecrypt |  | 12.59 us | 328.5 ns | 40 B |
 | Revision6Hash |  | 235.22 us | 395.1 ns | 9.24 KB |
+
+## Later change: compact cross-reference entries (issue #237)
+
+Cross-reference sections and the merged lookup became sorted arrays of 16-byte entries with one record per run of consecutive
+numbers (`XrefEntryMap`) instead of hash maps, and a full save copies an unchanged object's bytes longer than 1 MiB in 1 MiB
+windows. Measured before and after on the same machine (Apple M4 Max, in-process toolchain, BenchmarkDotNet default job, other
+agents sharing the machine, so treat a few percent either way as noise):
+
+| Benchmark | Before | After |
+|---|---:|---:|
+| `CrossReferenceBenchmarks.ReadTable` (100,000 entries) | 8.02 ms, 13,285,612 B | 8.15 ms, 1,601,088 B |
+| `CrossReferenceBenchmarks.Lookup` (200,000 lookups) | 498.9 us, 0 B | 470.2 us, 0 B |
+| `DocumentOpenBenchmarks.OpenAndReadFileStructure` (empty-page.pdf) | 3.87 us | 3.86 us |
+| `DocumentOpenBenchmarks.OpenAndWalkPages` (linearized.pdf) | 12.84 us | 11.82 us |
+| `DocumentSaveBenchmarks.OpenAndSave` (object-stream.pdf, Table) | 10.27 us | 10.09 us |
+| `DocumentSaveBenchmarks.OpenAndSave` (text-truetype-embedded.pdf, Table) | 13.29 us | 14.48 us |
+| `LazyLoadingBenchmarks.OpenFromBytesAndResolveAll` (page-tree-inherited.pdf) | 9.60 us | 9.59 us |
+
+No time regression beyond the machine's noise; every open allocates a few hundred bytes to a few KB less (the gate's
+`allocations.json` records the new figures). A file of five million objects allocates 16.0 bytes per entry while it opens.
