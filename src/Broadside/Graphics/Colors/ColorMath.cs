@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Broadside.Numerics;
 
 namespace Broadside.Graphics.Colors;
 
@@ -64,7 +65,7 @@ internal static class ColorMath
             return linear > 0 ? 12.92 * linear : 0;
         }
 
-        return linear >= 1 ? 1 : (1.055 * Math.Pow(linear, 1 / 2.4)) - 0.055;
+        return linear >= 1 ? 1 : (1.055 * DeterministicMath.Pow(linear, 1 / 2.4)) - 0.055;
     }
 
     /// <summary>The inverse of the Lab companding function: g(x) = x³ for x ≥ 6/29, else 108/841·(x − 4/29).</summary>

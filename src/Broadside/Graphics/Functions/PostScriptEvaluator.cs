@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Broadside.Numerics;
 
 namespace Broadside.Graphics.Functions;
 
@@ -148,7 +149,7 @@ internal sealed class PostScriptEvaluator : FunctionEvaluator
                         {
                             PostScriptOpCode.Div => y == 0 ? double.NaN : x / y,
                             PostScriptOpCode.Atan => x == 0 && y == 0 ? double.NaN : Degrees(x, y),
-                            _ => Math.Pow(x, y),
+                            _ => DeterministicMath.Pow(x, y),
                         };
                         if (!double.IsFinite(result))
                         {
@@ -231,10 +232,10 @@ internal sealed class PostScriptEvaluator : FunctionEvaluator
                         double result = instruction.OpCode switch
                         {
                             PostScriptOpCode.Sqrt => x >= 0 ? Math.Sqrt(x) : double.NaN,
-                            PostScriptOpCode.Sin => double.SinPi(x % 360 / 180),
-                            PostScriptOpCode.Cos => double.CosPi(x % 360 / 180),
-                            PostScriptOpCode.Ln => x > 0 ? Math.Log(x) : double.NaN,
-                            PostScriptOpCode.Log => x > 0 ? Math.Log10(x) : double.NaN,
+                            PostScriptOpCode.Sin => DeterministicMath.SinCosDegrees(x).Sin,
+                            PostScriptOpCode.Cos => DeterministicMath.SinCosDegrees(x).Cos,
+                            PostScriptOpCode.Ln => x > 0 ? DeterministicMath.Log(x) : double.NaN,
+                            PostScriptOpCode.Log => x > 0 ? DeterministicMath.Log10(x) : double.NaN,
                             _ => x,
                         };
                         if (!double.IsFinite(result))
@@ -541,7 +542,7 @@ internal sealed class PostScriptEvaluator : FunctionEvaluator
     /// <summary>The angle of (den, num) in degrees, in [0, 360).</summary>
     private static double Degrees(double numerator, double denominator)
     {
-        double degrees = Math.Atan2(numerator, denominator) * (180 / Math.PI);
+        double degrees = DeterministicMath.Atan2(numerator, denominator) * (180 / Math.PI);
         return degrees < 0 ? degrees + 360 : degrees;
     }
 

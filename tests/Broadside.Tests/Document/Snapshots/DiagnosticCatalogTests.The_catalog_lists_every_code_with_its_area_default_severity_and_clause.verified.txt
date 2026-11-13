@@ -63,6 +63,7 @@ ObjectSyntax	StreamLengthInvalid	Warning	ISO 32000-2 §7.2, §7.3
 ObjectSyntax	EndstreamMissing	Warning	ISO 32000-2 §7.2, §7.3
 Security	UnencryptedWrapperInvalid	Warning	ISO 32000-2 §7.6.7
 Security	EncryptedPayloadFilterUnknown	Information	ISO 32000-2 §7.6.7
+Security	EncryptedPayloadNotEncrypted	Warning	ISO 32000-2 §7.6.7
 Security	EncryptDictionaryInvalid	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
 Security	EncryptionIdMissing	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
 Security	EncryptionVersionInvalid	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004

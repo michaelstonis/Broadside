@@ -33,5 +33,8 @@ internal static partial class DiagnosticCodes
     public static string UnencryptedWrapperInvalid => SecurityDiagnostics.UnencryptedWrapperInvalid.Name;
     public static string EncryptedPayloadFilterUnknown => SecurityDiagnostics.EncryptedPayloadFilterUnknown.Name;
 
+    // Writing an unencrypted wrapper (§7.6.7; issue #235).
+    public static string EncryptedPayloadNotEncrypted => SecurityDiagnostics.EncryptedPayloadNotEncrypted.Name;
+
     // Object-level metadata (§14.3.2; issue #76) reports MetadataStreamInvalid from DiagnosticCodes.Catalog.cs.
 }

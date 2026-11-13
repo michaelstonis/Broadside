@@ -14,6 +14,10 @@ public static class SecurityDiagnostics
     /// <remarks>ISO 32000-2 §7.6.7</remarks>
     public static DiagnosticCode EncryptedPayloadFilterUnknown { get; } = new(nameof(EncryptedPayloadFilterUnknown), DiagnosticArea.Security, DiagnosticSeverity.Information, "ISO 32000-2 §7.6.7");
 
+    /// <summary>Gets the <c>EncryptedPayloadNotEncrypted</c> code: an unencrypted wrapper is written around a payload that is not encrypted.</summary>
+    /// <remarks>ISO 32000-2 §7.6.7</remarks>
+    public static DiagnosticCode EncryptedPayloadNotEncrypted { get; } = new(nameof(EncryptedPayloadNotEncrypted), DiagnosticArea.Security, DiagnosticSeverity.Warning, "ISO 32000-2 §7.6.7");
+
     /// <summary>Gets the <c>EncryptDictionaryInvalid</c> code.</summary>
     /// <remarks>ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004</remarks>
     public static DiagnosticCode EncryptDictionaryInvalid { get; } = new(nameof(EncryptDictionaryInvalid), DiagnosticArea.Security, DiagnosticSeverity.Warning, "ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004");
@@ -111,6 +115,7 @@ public static class SecurityDiagnostics
     [
         UnencryptedWrapperInvalid,
         EncryptedPayloadFilterUnknown,
+        EncryptedPayloadNotEncrypted,
         EncryptDictionaryInvalid,
         EncryptionIdMissing,
         EncryptionVersionInvalid,
