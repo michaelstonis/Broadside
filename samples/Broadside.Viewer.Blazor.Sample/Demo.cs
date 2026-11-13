@@ -5,8 +5,9 @@ using Microsoft.JSInterop;
 namespace Broadside.Viewer.Blazor.Sample;
 
 /// <summary>
-/// A gallery document: hand-written test corpus files and the sample's signed file, bundled with the app, and pdf.js's TraceMonkey paper
-/// (real world), read from pdf.js's own copy because its licence does not cover redistribution (see README.md, "Documents and licences").
+/// A gallery document: the representative sample documents (samples/documents), hand-written test corpus files and the sample's signed
+/// file, bundled with the app, and pdf.js's TraceMonkey paper (real world), read from pdf.js's own copy because its licence does not
+/// cover redistribution (see README.md, "Documents and licences").
 /// </summary>
 /// <param name="File">The address relative to the app, or an absolute address for a document the app does not bundle.</param>
 /// <param name="Title">What the gallery shows.</param>
@@ -25,10 +26,49 @@ public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRunti
     /// <summary>pdf.js's copy of the TraceMonkey paper, which Mozilla serves to any origin (the app does not bundle it).</summary>
     public const string TraceMonkey = "https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf";
 
-    /// <summary>The gallery, in the order the menu shows it; the first entry opens at start.</summary>
+    /// <summary>
+    /// The gallery, in the order the menu shows it; the first entry opens at start. The sample documents come first (#363), then
+    /// TraceMonkey, then the single-feature corpus files.
+    /// </summary>
     public static readonly GalleryEntry[] Gallery =
     [
-        new(TraceMonkey, "TraceMonkey paper (real world)"),
+        new("documents/textbook.pdf", "Textbook chapter (WeasyPrint)"),
+        new("documents/catalogue.pdf", "Product catalogue (WeasyPrint, CMYK and bleed)"),
+        new("documents/newsletter.pdf", "Newsletter (Chrome)"),
+        new("documents/paper.pdf", "Scientific paper with equations (Chrome)"),
+        new("documents/invoice-colourful.pdf", "Invoice, colourful (WeasyPrint)"),
+        new("documents/invoice-conservative-filled.pdf", "Invoice with a filled form (Broadside)", Panel: "form"),
+        new("documents/brochure.pdf", "Brochure, print-ready (Broadside)"),
+        new("documents/dictionary.pdf", "Dictionary (WeasyPrint)"),
+        new("documents/showcase.pdf", "Feature showcase with layers", Panel: "outline"),
+        new("documents/novel-pocket.pdf", "Novel, pocket edition (170 pages)"),
+        new("documents/novel-hardback.pdf", "Novel, hardback edition (tagged)"),
+        new("documents/novel-large-print.pdf", "Novel, large print (Broadside, PDF/UA)"),
+        new("documents/textbook-linearized.pdf", "Textbook, linearized (range requests)", Remote: true),
+        new("documents/contract-signed.pdf", "Agreement, certified and signed (Broadside)", Panel: "signatures"),
+        new("documents/textbook-aes128.pdf", "Textbook, encrypted (AES-128, copying not allowed)"),
+        new("documents/paper-rc4.pdf", "Paper, encrypted (RC4, printing not allowed)"),
+        new("documents/dictionary-aes256-gcm.pdf", "Dictionary, encrypted (AES-256-GCM, PDF 2.0)"),
+        new("documents/application-form.pdf", "Application form with calculated fields (Broadside)", Panel: "form"),
+        new("documents/application-form-xfa.pdf", "Application form, XFA hybrid", Panel: "form"),
+        new("documents/paper-reviewed.pdf", "Paper with a referee's annotations", Panel: "annotate"),
+        new("documents/leaflet-multilingual.pdf", "Leaflet in twelve languages (WeasyPrint)"),
+        new("documents/notice-trilingual.pdf", "Notice in English, Arabic and Hebrew (Broadside)"),
+        new("documents/rashomon-vertical.pdf", "Japanese novella in vertical writing (Broadside)"),
+        new("documents/report-1996.pdf", "Technical memo, 1996 style (Type 1, Type 3, LZW)"),
+        new("documents/scan-memo-g4.pdf", "Scanned memo with OCR text (CCITT G4)"),
+        new("documents/scan-memo-jbig2.pdf", "Scanned memo with OCR text (JBIG2)"),
+        new("documents/scan-moon-memo-jpx.pdf", "Scanned memo in color with OCR text (JPEG 2000)"),
+        new("documents/color-guide.pdf", "Color guide: Lab, Indexed, DeviceN, overprint (Broadside)"),
+        new("documents/shakespeare.pdf", "Complete works of Shakespeare (1,168 pages)"),
+        new("documents/contour-map.pdf", "Topographic map: 400,000 contour segments on one A1 page"),
+        new("documents/board-pack.pdf", "Board pack: mixed sizes and rotated pages"),
+        new("documents/portfolio.pdf", "Project portfolio with attached files"),
+        new("documents/invoice-pdfa3.pdf", "Invoice, PDF/A-3b with its XML data"),
+        new("documents/paper-pdfa2b.pdf", "Paper, PDF/A-2b"),
+        new("documents/showcase-broken-xref.pdf", "Damaged: broken cross-reference offsets"),
+        new("documents/novel-large-print-truncated.pdf", "Damaged: interrupted download (157 of 219 pages)"),
+        new(TraceMonkey, "TraceMonkey paper (real world, downloaded)"),
         new("documents/layout-two-column-tagged.pdf", "Two columns (tagged)"),
         new("documents/outline-full.pdf", "Outline", Note: "This file has an outline and no page content, so its page is blank (as in every viewer): its bookmarks are in the Outline panel.", Panel: "outline"),
         new("documents/acroform-fields.pdf", "Form fields"),

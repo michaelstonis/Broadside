@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Per-page render timings of the representative sample documents (#363) for docs/benchmarks/sample-documents-baseline.md, the
+    same code JIT-compiled (`dotnet run -c Release`) and natively compiled (`dotnet publish -c Release -r <rid>`, Native AOT). The
+    browser column comes from the Blazor sample's RenderStats.RenderDocumentPagesAsync, driven by a browser test.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Broadside.Benchmarks</RootNamespace>
+    <PublishAot>true</PublishAot>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <IlcTreatWarningsAsErrors>true</IlcTreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside/Broadside.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <ProjectReference Include="../../src/Broadside.Rendering/Broadside.Rendering.csproj" />
+    <Compile Include="../../tests/Broadside.TestSupport/CorpusLocator.cs" Link="CorpusLocator.cs" />
+  </ItemGroup>
+
+</Project>

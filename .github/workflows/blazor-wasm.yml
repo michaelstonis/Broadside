@@ -1,7 +1,8 @@
 # Publishes the Blazor WebAssembly viewer sample as a static site (trimmed, AOT-compiled; needs the wasm-tools workload) and drives
 # it in headless browsers through Playwright (issue #221): page 1 of a remote linearized file shows before the download completes,
 # keyboard and screen-reader navigation reach page text in reading order, a phone profile loads it and pinch-zooms, and the site
-# has no native binaries and fits its size budget. Measurements (bytes served, frame times, site size) go to the job summary.
+# has no native binaries and fits its size budget. Measurements (bytes served, frame times, site size, and the SIMD kernel
+# benchmark in both the AOT and the interpreter build, #470) go to the job summary.
 #
 # Chromium is always the hosted image's Google Chrome. Which of Playwright's own browsers also run is the `browsers` input
 # (issue #389): ci.yml passes `firefox` for pull requests into the integration branch, and `firefox webkit` for pull requests into
@@ -41,7 +42,8 @@ env:
 jobs:
   blazor-wasm:
     name: blazor-wasm (chrome ${{ inputs.browsers || 'firefox webkit' }})
-    runs-on: ubuntu-latest
+    # Pinned: Playwright 1.58 cannot install Firefox on the ubuntu-26.04 image that ubuntu-latest now points at (#459).
+    runs-on: ubuntu-24.04
     timeout-minutes: 50
     steps:
       - name: Check out
@@ -134,7 +136,7 @@ jobs:
           BROADSIDE_BROWSER_SCREENSHOTS: ${{ runner.temp }}/screenshots
         run: |
           mkdir -p "${RUNNER_TEMP}/screenshots"
-          dotnet test --project tests/Broadside.Viewer.Blazor.BrowserTests -c Release --no-build --minimum-expected-tests 14
+          dotnet test --project tests/Broadside.Viewer.Blazor.BrowserTests -c Release --no-build --minimum-expected-tests 15
 
       - name: Upload screenshots
         if: always()
@@ -142,6 +144,15 @@ jobs:
         with:
           name: blazor-demo-screenshots
           path: ${{ runner.temp }}/screenshots
+          if-no-files-found: ignore
+
+      - name: Upload measurements
+        # The measurement log as a file too (the job summary has no API), for docs/benchmarks/sample-documents-baseline.md.
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: blazor-browser-measurements
+          path: ${{ runner.temp }}/browser-measurements.txt
           if-no-files-found: ignore
 
       - name: Measurements

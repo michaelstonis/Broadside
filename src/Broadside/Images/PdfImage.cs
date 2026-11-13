@@ -333,9 +333,10 @@ public sealed class PdfImage
     /// <returns>The samples or the encoded image; neither when the image cannot be decoded (each reason a diagnostic).</returns>
     /// <remarks>
     /// ISO 32000-2 §7.4 and §8.9.5.1. Kept encoded only when everything a renderer needs before the samples is known without them:
-    /// an image XObject or alternate (not a mask, an inline image or a stencil) with a <c>ColorSpace</c> whose component count is
-    /// the codestream's, no <c>SMaskInData</c>, read leniently (strict mode decodes now, so that a deviation throws where it always
-    /// did), and a codec whose header says it reduces (<see cref="ImageHeader.MaxReduction"/>).
+    /// an image XObject or alternate (not an explicit mask, an inline image or a stencil) with a <c>ColorSpace</c> whose component
+    /// count is the codestream's, or a JPEG 2000 image without one whose header gives it (§7.4.9), or a soft-mask image (§11.6.5.2)
+    /// whose codestream has one gray component; no <c>SMaskInData</c>, read leniently (strict mode decodes now, so that a deviation
+    /// throws where it always did), and a codec whose header says it reduces (<see cref="ImageHeader.MaxReduction"/>).
     /// </remarks>
     internal PreparedImage Prepare(CancellationToken cancellationToken) => Load(keepEncoded: true, cancellationToken);
 
@@ -420,25 +421,34 @@ public sealed class PdfImage
             return null;
         }
 
-        if (ColorSpace is { } space)
-        {
-            return space;
-        }
+        return ColorSpace ?? CodecColorSpace(decoded.IccProfile, decoded.ColorModel, decoded.Components);
+    }
 
-        if (!decoded.IccProfile.IsEmpty
-            && IccProfileHeader.Parse(decoded.IccProfile.Span) is { IsSupportedForPdf: true } header
-            && header.ComponentCount == decoded.Components)
+    /// <summary>
+    /// Returns the colour space the codec's report gives samples of <paramref name="components"/> components: an ICCBased space over
+    /// <paramref name="iccProfile"/> (when its header is usable and its component count matches), else <paramref name="colorModel"/>,
+    /// else the device space with as many components (1 gray, 3 RGB, 4 CMYK); <see langword="null"/> when none fits.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.4.9 and §8.6.5.5. Shared by <see cref="ResolveColorSpace"/> (from decoded samples) and an image kept encoded
+    /// (from its header, <see cref="ImageHeader.IccProfile"/> and <see cref="ImageHeader.ColorModel"/>), so both give the same space.
+    /// </remarks>
+    private PdfColorSpace? CodecColorSpace(ReadOnlyMemory<byte> iccProfile, ImageColorModel colorModel, int components)
+    {
+        if (!iccProfile.IsEmpty
+            && IccProfileHeader.Parse(iccProfile.Span) is { IsSupportedForPdf: true } header
+            && header.ComponentCount == components)
         {
             var profile = new CosDictionary { [ImageNames.N] = new CosInteger(header.ComponentCount) };
-            return _document.ColorSpaces.Get(new CosArray([ImageNames.IccBased, new CosStream(profile, decoded.IccProfile)]), Reference ?? _owner);
+            return _document.ColorSpaces.Get(new CosArray([ImageNames.IccBased, new CosStream(profile, iccProfile)]), Reference ?? _owner);
         }
 
-        return decoded.ColorModel switch
+        return colorModel switch
         {
             ImageColorModel.Gray => PdfDeviceGrayColorSpace.Instance,
             ImageColorModel.Rgb => PdfDeviceRgbColorSpace.Instance,
             ImageColorModel.Cmyk => PdfDeviceCmykColorSpace.Instance,
-            _ => decoded.Components switch
+            _ => components switch
             {
                 1 => PdfDeviceGrayColorSpace.Instance,
                 3 => PdfDeviceRgbColorSpace.Instance,
@@ -868,17 +878,17 @@ public sealed class PdfImage
             return default;
         }
 
-        if (keepEncoded && read?.Value is { } kept && CanKeepEncoded(kept, layout))
+        if (keepEncoded && read?.Value is { } kept && CanKeepEncoded(kept, layout, out PdfColorSpace? keptSpace))
         {
             ReportDimensions(filter, kept.Width, kept.Height, layout);
             var encoded = new EncodedImage(
-                dataIsStream ? data : data.ToArray(), filter, streams, filterContext.Parameters, filterContext.StreamDictionary, kept, layout.Width, layout.Height, layout.BitsPerComponent);
+                dataIsStream ? data : data.ToArray(), filter, streams, filterContext.Parameters, filterContext.StreamDictionary, kept, layout.Width, layout.Height, layout.BitsPerComponent, layout.Components);
             if (Reference is { } reference && _document.Configuration?.PlatformImages is { } platform)
             {
                 platform.Identify(encoded, reference); // names the image in the platform decoders' diagnostics (#372)
             }
 
-            return new PreparedImage(null, encoded);
+            return new PreparedImage(null, encoded, keptSpace);
         }
 
         DecodedImage? decoded = streams.RunImageFilter(filter.Name, () => filter.DecodeImage(data, context), filterContext.CancellationToken);
@@ -914,17 +924,30 @@ public sealed class PdfImage
         }
     }
 
-    /// <summary>Whether the image can wait to be decoded until it is drawn (see <see cref="Prepare"/>).</summary>
-    private bool CanKeepEncoded(in ImageHeader header, ImageLayout layout) =>
-        header.MaxReduction > 0
-        && _role is ImageRole.XObject or ImageRole.Alternate
-        && !layout.IsStencil
-        && layout.ColorSpace is not null
-        && header is { Width: > 0, Height: > 0, BitsPerComponent: >= 1 and <= 16, HasAlpha: false }
-        && header.Components == layout.Components
-        && header.Components is >= 1 and <= ImageGeometry.MaxComponents
-        && SoftMaskInData == 0
-        && !_document.DiagnosticSink.IsStrict;
+    /// <summary>Whether the image can wait to be decoded until it is drawn (see <see cref="Prepare"/>), and its colour space if so.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.4.9: without a <c>ColorSpace</c> entry (JPXDecode only), the space is the one the codestream's header gives,
+    /// the same <see cref="ResolveColorSpace"/> gives the decoded samples, and the decode later asks for no colour components, as the
+    /// one at build would have (issue #507). A soft mask's space is always DeviceGray (§11.6.5.2, Table 143), so its codestream must
+    /// have one component (issue #513).
+    /// </remarks>
+    private bool CanKeepEncoded(in ImageHeader header, ImageLayout layout, out PdfColorSpace? space)
+    {
+        space = null;
+        if (header.MaxReduction <= 0
+            || _role is not (ImageRole.XObject or ImageRole.Alternate or ImageRole.SoftMask)
+            || layout.IsStencil
+            || header is not { Width: > 0, Height: > 0, BitsPerComponent: >= 1 and <= 16, HasAlpha: false }
+            || header.Components is < 1 or > ImageGeometry.MaxComponents
+            || SoftMaskInData != 0
+            || _document.DiagnosticSink.IsStrict)
+        {
+            return false;
+        }
+
+        space = layout.ColorSpace ?? CodecColorSpace(header.IccProfile, header.ColorModel, header.Components);
+        return space is not null && space.ComponentCount == header.Components;
+    }
 
     /// <summary>
     /// Copies <paramref name="decoded"/> with <paramref name="components"/> components per sample: the first ones it has, 0 for those
@@ -1070,7 +1093,8 @@ public sealed class PdfImage
     /// <summary>What <see cref="Prepare"/> returns: the samples, or the image kept encoded; neither when it cannot be decoded.</summary>
     /// <param name="Decoded">The samples, which the caller owns.</param>
     /// <param name="Encoded">The image kept encoded until it is drawn.</param>
-    internal readonly record struct PreparedImage(DecodedImage? Decoded, EncodedImage? Encoded);
+    /// <param name="EncodedColorSpace">The colour space of <paramref name="Encoded"/>: the dictionary's, or the one its codestream gives.</param>
+    internal readonly record struct PreparedImage(DecodedImage? Decoded, EncodedImage? Encoded, PdfColorSpace? EncodedColorSpace = null);
 
     /// <summary>The dictionary values decoding needs, read with their defaults.</summary>
     private readonly record struct ImageLayout(

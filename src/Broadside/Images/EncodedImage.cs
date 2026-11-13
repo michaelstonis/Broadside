@@ -33,6 +33,7 @@ internal sealed class EncodedImage
     private readonly int _dictionaryWidth;
     private readonly int _dictionaryHeight;
     private readonly int _dictionaryBits;
+    private readonly int _colorComponents;
 
     /// <summary>Initializes a new instance of the <see cref="EncodedImage"/> class.</summary>
     /// <param name="data">The data the codec decodes, which nothing writes from now on.</param>
@@ -44,7 +45,11 @@ internal sealed class EncodedImage
     /// <param name="width">The dictionary's width.</param>
     /// <param name="height">The dictionary's height.</param>
     /// <param name="bitsPerComponent">The dictionary's bits per component.</param>
-    public EncodedImage(ReadOnlyMemory<byte> data, IImageFilter filter, StreamDecoder streams, CosDictionary? parameters, CosDictionary dictionary, in ImageHeader header, int width, int height, int bitsPerComponent)
+    /// <param name="colorComponents">
+    /// The dictionary's colour space's component count, or 0 without a colour space (JPXDecode, §7.4.9): what the decode at build
+    /// would have asked the codec for, so every reduction delivers the same channels and colours.
+    /// </param>
+    public EncodedImage(ReadOnlyMemory<byte> data, IImageFilter filter, StreamDecoder streams, CosDictionary? parameters, CosDictionary dictionary, in ImageHeader header, int width, int height, int bitsPerComponent, int colorComponents)
     {
         _data = data;
         _filter = filter;
@@ -55,6 +60,7 @@ internal sealed class EncodedImage
         _dictionaryWidth = width;
         _dictionaryHeight = height;
         _dictionaryBits = bitsPerComponent;
+        _colorComponents = colorComponents;
     }
 
     /// <summary>Gets the codestream's header: the size, components and depth every decode delivers at reduction 0.</summary>
@@ -114,7 +120,7 @@ internal sealed class EncodedImage
             Width = _dictionaryWidth,
             Height = _dictionaryHeight,
             BitsPerComponent = _dictionaryBits,
-            ColorComponents = Header.Components,
+            ColorComponents = _colorComponents,
             MaxPixels = _streams.MaxImagePixels,
             MaxDecodedLength = _streams.MaxDecodedLength,
             Reduction = Math.Clamp(reduction, 0, Header.MaxReduction),

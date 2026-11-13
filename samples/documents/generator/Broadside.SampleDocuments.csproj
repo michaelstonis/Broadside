@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Writes the sample documents that Broadside produces itself (#363), with the writer, PdfCanvas and the flow layout package. samples/documents/build.sh runs it (see Program.cs for the arguments).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Broadside.SampleDocuments</RootNamespace>
+    <AssemblyName>Broadside.SampleDocuments</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Broadside/Broadside.csproj" />
+    <ProjectReference Include="../../../src/Broadside.Layout/Broadside.Layout.csproj" />
+  </ItemGroup>
+
+</Project>

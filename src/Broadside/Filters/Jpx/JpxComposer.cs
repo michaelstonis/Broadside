@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Runtime.InteropServices;
 using Broadside.Diagnostics;
 using Broadside.Filters.Codecs;
 using Broadside.Images;
@@ -62,13 +63,21 @@ internal sealed class JpxPlane : IDisposable
         return width * height;
     }
 
-    /// <summary>Writes a decoded tile-component (integers before the DC level shift) at its place.</summary>
-    public void Write(JpxTileComponent component, int[] buffer, CodecReporter reporter)
+    /// <summary>
+    /// Writes a decoded tile-component at its place: integers before the DC level shift, or the 9/7 path's floats (in the same
+    /// buffer) when <paramref name="irreversible"/>, rounded here (<see cref="JpxLevelShift"/>).
+    /// </summary>
+    public void Write(JpxTileComponent component, int[] buffer, bool irreversible, CodecReporter reporter)
     {
-        long shift = 1L << (SourceDepth - 1);
-        long max = (1L << SourceDepth) - 1;
         int left = (int)(component.X0 - X0);
         int top = (int)(component.Y0 - Y0);
+        int first = Math.Max(0, -left);
+        int last = Math.Min(component.Width, Width - left);
+        if (first >= last)
+        {
+            return;
+        }
+
         for (int y = 0; y < component.Height; y++)
         {
             reporter.ThrowIfCancellationRequested();
@@ -78,24 +87,42 @@ internal sealed class JpxPlane : IDisposable
                 continue;
             }
 
-            Span<ushort> target = _samples.AsSpan(row * Width, Width);
-            ReadOnlySpan<int> source = buffer.AsSpan(y * component.Width, component.Width);
-            for (int x = 0; x < source.Length; x++)
+            Span<ushort> target = _samples.AsSpan((row * Width) + left + first, last - first);
+            Span<int> source = buffer.AsSpan((y * component.Width) + first, last - first);
+            if (SourceDepth <= 16)
             {
-                int column = left + x;
-                if ((uint)column >= (uint)Width)
+                int shift = 1 << (SourceDepth - 1);
+                int max = (1 << SourceDepth) - 1;
+                if (irreversible)
                 {
-                    continue;
+                    JpxLevelShift.RoundShift(MemoryMarshal.Cast<int, float>(source), target, shift, max);
+                }
+                else
+                {
+                    JpxLevelShift.Shift(source, target, shift, max);
                 }
 
-                long value = Math.Clamp(source[x] + shift, 0, max);
-                if (SourceDepth > 16)
-                {
-                    value = ((value * 65535) + (max / 2)) / max;
-                }
-
-                target[column] = (ushort)value;
+                continue;
             }
+
+            if (irreversible)
+            {
+                JpxLevelShift.RoundToIntegers(source);
+            }
+
+            WriteDeep(source, target);
+        }
+    }
+
+    /// <summary>The DC level shift and clipping of a component deeper than 16 bits, scaled to 16.</summary>
+    private void WriteDeep(ReadOnlySpan<int> source, Span<ushort> target)
+    {
+        long shift = 1L << (SourceDepth - 1);
+        long max = (1L << SourceDepth) - 1;
+        for (int x = 0; x < source.Length; x++)
+        {
+            long value = Math.Clamp(source[x] + shift, 0, max);
+            target[x] = (ushort)(((value * 65535) + (max / 2)) / max);
         }
     }
 
@@ -137,10 +164,34 @@ internal static class JpxComposer
                 }
             }
 
+            // Every colour channel a component's own samples, one per image sample, at the output precision of 8 bits, with no
+            // conversion: each row is the components' rows interleaved, copied without the integer row in between.
+            bool direct = bits == 8 && builder.StorageBits == 8 && (plan.Conversion == JpxColorConversion.None || channels < 3);
+            for (int ch = 0; ch < channels && direct; ch++)
+            {
+                direct = ch < plan.Colors.Length && plan.Colors[ch] is { Column: < 0 } source
+                    && planes[source.Component] is { Depth: 8, Width: > 0, Height: > 0 } plane && plane.Width >= width
+                    && IsIdentity(columns[source.Component].AsSpan(0, width));
+            }
+
             bool clamped = false;
             for (int y = 0; y < height; y++)
             {
                 reporter.ThrowIfCancellationRequested();
+                if (direct)
+                {
+                    Span<byte> target = builder.GetRow(y)[..(width * channels)];
+                    for (int ch = 0; ch < channels; ch++)
+                    {
+                        JpxChannelSource source = plan.Colors[ch]!.Value;
+                        JpxPlane plane = planes[source.Component]!;
+                        Interleave(Row(plane, y, size.OriginY)[..width], target, ch, channels);
+                    }
+
+                    StoreAlpha(size, plan, planes, alpha, row, columns, y, ref clamped);
+                    continue;
+                }
+
                 Span<int> values = row.AsSpan(0, width * channels);
                 for (int ch = 0; ch < channels; ch++)
                 {
@@ -160,12 +211,7 @@ internal static class JpxComposer
 
                 Convert(plan, values, channels, bits);
                 Store(builder.GetRow(y), values, builder.StorageBits);
-                if (alpha is not null && plan.Alpha is { } opacity && planes[opacity.Component] is { } alphaPlane)
-                {
-                    Span<int> alphaValues = row.AsSpan(0, width);
-                    clamped |= ReadChannel(alphaPlane, opacity, plan.Palette, columns[opacity.Component], y, size.OriginY, alpha.BitsPerComponent, alphaValues, 0, 1);
-                    Store(alpha.GetRow(y), alphaValues, alpha.StorageBits);
-                }
+                StoreAlpha(size, plan, planes, alpha, row, columns, y, ref clamped);
             }
 
             if (clamped)
@@ -183,6 +229,50 @@ internal static class JpxComposer
                     ArrayPool<int>.Shared.Return(map);
                 }
             }
+        }
+    }
+
+    /// <summary>Writes the opacity channel of image row <paramref name="y"/> to the alpha plane, when there is one.</summary>
+    private static void StoreAlpha(JpxImageSize size, JpxOutputPlan plan, JpxPlane?[] planes, DecodedImageBuilder? alpha, int[] row, int[][] columns, int y, ref bool clamped)
+    {
+        if (alpha is not null && plan.Alpha is { } opacity && planes[opacity.Component] is { } alphaPlane)
+        {
+            Span<int> alphaValues = row.AsSpan(0, alpha.Width);
+            clamped |= ReadChannel(alphaPlane, opacity, plan.Palette, columns[opacity.Component], y, size.OriginY, alpha.BitsPerComponent, alphaValues, 0, 1);
+            Store(alpha.GetRow(y), alphaValues, alpha.StorageBits);
+        }
+    }
+
+    /// <summary>Whether a column map takes component sample i for image sample i (a component that is not sub-sampled).</summary>
+    private static bool IsIdentity(ReadOnlySpan<int> map)
+    {
+        for (int i = 0; i < map.Length; i++)
+        {
+            if (map[i] != i)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>The component row image row <paramref name="y"/> takes (G.4: the sample at or above it), as <see cref="ReadChannel"/> picks it.</summary>
+    private static ReadOnlySpan<ushort> Row(JpxPlane plane, int y, long originY)
+    {
+        long componentRow = Math.Max((originY + y) / plane.Dy, plane.Y0) - plane.Y0;
+        int rowIndex = (int)Math.Clamp(componentRow, 0, Math.Max(plane.Height - 1, 0));
+        return plane.Samples.Slice(rowIndex * plane.Width, plane.Width);
+    }
+
+    /// <summary>Writes 8-bit samples to every <paramref name="stride"/>-th byte of <paramref name="target"/> from <paramref name="offset"/>.</summary>
+    private static void Interleave(ReadOnlySpan<ushort> samples, Span<byte> target, int offset, int stride)
+    {
+        // target is sliced to samples.Length × stride, so offset + x × stride stays inside it for every x < samples.Length.
+        target = target[..(samples.Length * stride)];
+        for (int x = 0, i = offset; x < samples.Length; x++, i += stride)
+        {
+            target[i] = (byte)samples[x];
         }
     }
 
@@ -214,9 +304,7 @@ internal static class JpxComposer
             return false;
         }
 
-        long componentRow = Math.Max((originY + y) / plane.Dy, plane.Y0) - plane.Y0;
-        int rowIndex = (int)Math.Clamp(componentRow, 0, Math.Max(plane.Height - 1, 0));
-        ReadOnlySpan<ushort> samples = plane.Samples.Slice(rowIndex * plane.Width, plane.Width);
+        ReadOnlySpan<ushort> samples = Row(plane, y, originY);
         int width = values.Length / stride;
         bool clamped = false;
         if (channel.Column < 0 || palette is null)

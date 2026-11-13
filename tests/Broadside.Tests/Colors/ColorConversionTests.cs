@@ -155,6 +155,35 @@ public sealed class ColorConversionTests
     }
 
     [Fact]
+    public void Eight_bit_samples_of_an_ICCBased_space_with_a_device_alternate_convert_as_their_components_do()
+    {
+        // With 0..1 ranges and the alternate in the target model, the samples are copied (#476); a narrower range still clips.
+        using PdfDocument document = PdfDocument.Open(Page(
+            "<< >>",
+            string.Empty,
+            IccProfiles.Stream(IccProfiles.Header("mntr", "RGB "), "/N 3 /Alternate /DeviceRGB"),
+            IccProfiles.Stream(IccProfiles.Header("mntr", "RGB "), "/N 3 /Alternate /DeviceRGB /Range [0 1 0 1 0 0.5]")));
+        foreach ((string reference, double blue) in (ReadOnlySpan<(string, double)>)[("[/ICCBased 5 0 R]", 1), ("[/ICCBased 6 0 R]", 0.5)])
+        {
+            PdfColorConverter converter = document.GetColorConverter(document.GetColorSpace(Cos(reference)));
+            byte[] samples = new byte[3 * 256];
+            float[] components = new float[3 * 256];
+            for (int i = 0; i < samples.Length; i++)
+            {
+                samples[i] = (byte)((i / 3) + (85 * (i % 3)));
+                components[i] = (float)(samples[i] * (i % 3 == 2 ? blue : 1) / 255);
+            }
+
+            byte[] bytes = new byte[samples.Length];
+            float[] colors = new float[samples.Length];
+            converter.Convert(samples, bytes, 256);
+            converter.Convert(components, colors, 256);
+
+            Assert.Equal(colors.Select(static value => (byte)((Math.Clamp((double)value, 0, 1) * 255) + 0.5)), bytes);
+        }
+    }
+
+    [Fact]
     public void Indexed_colours_come_from_the_table_scaled_to_the_base_ranges()
     {
         using PdfDocument document = PdfDocument.Create();

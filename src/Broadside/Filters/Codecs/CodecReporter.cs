@@ -71,6 +71,9 @@ internal class CodecReporter
         _context?.Report(code, severity, message);
     }
 
+    /// <summary>Gets the decode's token, for work on other threads that cannot throw to the caller; <c>default</c> without a context.</summary>
+    public CancellationToken CancellationToken => _context?.CancellationToken ?? default;
+
     /// <summary>Throws <see cref="OperationCanceledException"/> when the decode's token (<see cref="FilterContext.CancellationToken"/>) is cancelled.</summary>
     /// <remarks>Issue #97: codecs call this between units of work (a row of blocks, a code-block, a tile); it costs one read.</remarks>
     public void ThrowIfCancellationRequested()

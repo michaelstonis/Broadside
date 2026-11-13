@@ -6,8 +6,9 @@
 #   samples/Broadside.Viewer.Blazor.Sample/publish-static.sh [--no-aot] [--runtime-folder <name>] <output-folder>
 #
 #   (default)                 trimmed and compiled ahead of time to WebAssembly: fastest, but the runtime module is ~21 MB.
-#   --no-aot                  trimmed, no ahead-of-time compilation (the IL runs in the interpreter): ~12 MB in all and no file over
-#                             ~4.5 MB, for hosts with a per-file size limit. Builds in its own obj/bin folders (obj/noaot, bin/noaot):
+#   --no-aot                  trimmed, no ahead-of-time compilation (the IL runs in the interpreter): ~14 MB besides the gallery documents,
+#                             and no file over ~4.5 MB besides them (the largest sample PDF is 8.1 MB), for hosts with a
+#                             per-file size limit. Builds in its own obj/bin folders (obj/noaot, bin/noaot):
 #                             a non-AOT build over AOT intermediates produces a runtime that fails at startup.
 #   --runtime-folder <name>   puts the runtime in <name>/ instead of _framework/ and component assets in <name>-content/ instead of
 #                             _content/, for hosts that reserve paths starting with "_" (see README.md).

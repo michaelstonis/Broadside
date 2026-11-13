@@ -1,0 +1,142 @@
+/* Orbital Prints catalogue: A4 with a 3 mm bleed and crop marks, laid out for WeasyPrint (CSS Paged Media). */
+
+@font-face { font-family: "Bebas Neue"; src: url("../fonts/bebasneue/BebasNeue-Regular.ttf"); }
+@font-face { font-family: "Fira Sans"; src: url("../fonts/firasans/FiraSans-Regular.ttf"); }
+@font-face { font-family: "Fira Sans"; font-style: italic; src: url("../fonts/firasans/FiraSans-Italic.ttf"); }
+@font-face { font-family: "Fira Sans"; font-weight: 300; src: url("../fonts/firasans/FiraSans-Light.ttf"); }
+@font-face { font-family: "Fira Sans"; font-weight: 700; src: url("../fonts/firasans/FiraSans-Bold.ttf"); }
+@font-face { font-family: "Fira Sans Condensed"; font-weight: 600; src: url("../fonts/firasanscondensed/FiraSansCondensed-SemiBold.ttf"); }
+
+:root {
+  --ink: device-cmyk(0.85 0.65 0.2 0.55);
+  --orange: device-cmyk(0 0.62 0.95 0);
+  --sky: device-cmyk(0.62 0.12 0 0);
+  --paper: device-cmyk(0.02 0.02 0.06 0);
+}
+
+@page {
+  size: A4;
+  bleed: 3mm;
+  marks: crop;
+  margin: 0;
+}
+
+@page product {
+  @bottom-right {
+    content: "Orbital Prints · Spring 2027 · " counter(page);
+    font: 300 7.5pt "Fira Sans";
+    color: #fff;
+    margin: 0 12mm 7mm 0;
+    vertical-align: bottom;
+  }
+}
+
+@page grid {
+  margin: 18mm 15mm 20mm 15mm;
+  background: var(--paper);
+  @bottom-center { content: counter(page); font: 300 8pt "Fira Sans"; color: var(--ink); }
+  @top-left { content: "Small prints"; font: 600 8pt "Fira Sans Condensed"; letter-spacing: 0.15em; text-transform: uppercase; color: var(--orange); }
+}
+
+html { font: 300 10pt/1.45 "Fira Sans"; color: var(--ink); }
+body { margin: 0; }
+h1, h2, h3 { font-family: "Bebas Neue"; font-weight: normal; margin: 0; letter-spacing: 0.02em; }
+
+.sheet { position: relative; width: 210mm; height: 297mm; page-break-after: always; overflow: visible; }
+.sheet.product { page: product; }
+.bleed { position: absolute; top: -3mm; left: -3mm; width: 216mm; height: 303mm; object-fit: cover; }
+.bleed-top { position: absolute; top: -3mm; left: -3mm; width: 216mm; height: 190mm; object-fit: cover; }
+
+/* Cover */
+.cover h1 { position: absolute; left: 14mm; top: 16mm; font-size: 92pt; line-height: 0.85; color: #fff; }
+.cover .band {
+  position: absolute; left: -3mm; right: -3mm; bottom: 26mm; padding: 9mm 17mm;
+  background: rgba(8, 12, 30, 0.55); color: #fff;
+}
+.cover .band p { margin: 0; font-size: 15pt; }
+.cover .band .season { font: 600 11pt "Fira Sans Condensed"; letter-spacing: 0.25em; text-transform: uppercase; color: var(--orange); }
+.cover .sticker {
+  position: absolute; right: 16mm; top: 120mm; width: 38mm; height: 38mm; border-radius: 50%;
+  background: var(--orange); color: #fff; text-align: center; transform: rotate(-12deg);
+  font: 22pt/1 "Bebas Neue"; padding-top: 9mm; box-sizing: border-box; opacity: 0.94;
+}
+.cover .sticker small { display: block; font: 600 7pt "Fira Sans Condensed"; letter-spacing: 0.1em; margin-top: 2mm; }
+
+/* Welcome */
+.welcome { background: var(--paper); }
+.welcome .panel {
+  position: absolute; left: -3mm; top: -3mm; width: 96mm; height: 303mm; background: var(--ink); color: #fff;
+}
+.welcome .panel .inner { position: absolute; left: 17mm; top: 22mm; width: 64mm; }
+.welcome .panel h2 { font-size: 40pt; line-height: 0.95; color: var(--orange); margin-bottom: 8mm; }
+.welcome .panel ol { margin: 0; padding: 0; list-style: none; counter-reset: item; }
+.welcome .panel li { counter-increment: item; margin-bottom: 3.2mm; font-size: 9.5pt; }
+.welcome .panel li::before { content: counter(item, decimal-leading-zero); font: 13pt "Bebas Neue"; color: var(--sky); margin-right: 3mm; }
+.welcome .panel li a { color: #fff; text-decoration: none; }
+.welcome .panel li a::after { content: leader(".") target-counter(attr(href), page); color: var(--sky); }
+.welcome .letter { position: absolute; left: 108mm; top: 26mm; width: 86mm; }
+.welcome .letter h2 { font-size: 30pt; color: var(--ink); margin-bottom: 4mm; }
+.welcome .letter p { margin: 0 0 3mm; text-align: justify; hyphens: auto; }
+.welcome .letter .signature { font-style: italic; margin-top: 6mm; }
+.welcome .globe { position: absolute; left: 62mm; top: 172mm; width: 92mm; }
+.welcome .shadow {
+  position: absolute; left: 70mm; top: 252mm; width: 80mm; height: 12mm; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+/* Product pages */
+.caption {
+  position: absolute; background: rgba(255, 255, 255, 0.86); color: var(--ink); padding: 7mm 8mm; width: 80mm;
+  border-radius: 3mm;
+}
+.caption .code { font: 600 7.5pt "Fira Sans Condensed"; letter-spacing: 0.2em; text-transform: uppercase; color: var(--orange); }
+.caption h2 { font-size: 30pt; line-height: 1; margin: 1mm 0 3mm; }
+.caption p { margin: 0 0 2.5mm; }
+.fade {
+  position: absolute; left: -3mm; right: -3mm; bottom: -3mm; height: 120mm;
+  background: linear-gradient(to bottom, rgba(5, 8, 20, 0), rgba(5, 8, 20, 0.92));
+}
+.overlay-text { position: absolute; left: 15mm; bottom: 22mm; width: 120mm; color: #fff; }
+.overlay-text .code { font: 600 7.5pt "Fira Sans Condensed"; letter-spacing: 0.2em; text-transform: uppercase; color: var(--orange); }
+.overlay-text h2 { font-size: 46pt; line-height: 0.95; margin: 1mm 0 4mm; }
+.overlay-text p { margin: 0 0 3mm; font-size: 10.5pt; }
+.lower { position: absolute; left: 15mm; right: 15mm; top: 196mm; }
+.lower .cols { column-count: 2; column-gap: 9mm; }
+.lower .cols p { margin: 0 0 3mm; }
+.lower h2 { font-size: 34pt; }
+.lower .code { font: 600 7.5pt "Fira Sans Condensed"; letter-spacing: 0.2em; text-transform: uppercase; color: var(--orange); }
+
+table.sizes { border-collapse: collapse; width: 100%; margin-top: 3mm; font-size: 8.5pt; }
+table.sizes th { font: 600 7.5pt "Fira Sans Condensed"; text-transform: uppercase; letter-spacing: 0.1em; text-align: left; border-bottom: 0.8pt solid var(--orange); padding: 1.2mm 0; }
+table.sizes td { padding: 1.2mm 0; border-bottom: 0.4pt solid rgba(20, 30, 60, 0.25); }
+table.sizes td.price { text-align: right; font-weight: 700; }
+.overlay-text table.sizes td { border-bottom-color: rgba(255, 255, 255, 0.35); }
+
+.badge {
+  position: absolute; display: block; padding: 2mm 4mm; border-radius: 1.5mm; background: var(--sky); color: #fff;
+  font: 600 8pt "Fira Sans Condensed"; letter-spacing: 0.15em; text-transform: uppercase; transform: rotate(4deg);
+}
+
+/* Grid page */
+.grid-page { page: grid; page-break-after: always; }
+.grid-page h2 { font-size: 40pt; margin-bottom: 2mm; }
+.grid-page .intro { width: 120mm; margin-bottom: 7mm; }
+.grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6mm; }
+.tile { background: #fff; border-radius: 2mm; overflow: hidden; box-shadow: 0 0.6mm 2mm rgba(0, 0, 0, 0.18); }
+.tile img { width: 100%; height: 38mm; object-fit: cover; display: block; }
+.tile .body { padding: 2.5mm 3mm 3mm; font-size: 8.5pt; }
+.tile .body b { font: 15pt "Bebas Neue"; font-weight: normal; display: block; }
+.tile .body .price { float: right; font-weight: 700; color: var(--orange); }
+.tile.sold img { opacity: 0.45; }
+.tile.sold .body::after { content: "Sold out"; color: var(--sky); font-weight: 700; }
+
+/* Back cover */
+.back { background: var(--ink); color: #fff; }
+.back .astronaut { position: absolute; right: -3mm; top: 30mm; width: 120mm; }
+.back .inner { position: absolute; left: 17mm; top: 30mm; width: 90mm; }
+.back h2 { font-size: 44pt; color: var(--orange); line-height: 0.95; margin-bottom: 6mm; }
+.back p { margin: 0 0 3mm; }
+.swatches { display: flex; gap: 4mm; margin: 6mm 0; }
+.swatch { width: 18mm; text-align: center; font-size: 7pt; }
+.swatch span { display: block; height: 18mm; border-radius: 50%; border: 0.6pt solid rgba(255, 255, 255, 0.6); margin-bottom: 1.5mm; }
+.address { position: absolute; left: 17mm; bottom: 22mm; font-size: 8.5pt; color: var(--sky); }

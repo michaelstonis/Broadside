@@ -184,6 +184,19 @@ internal static class DeviceProtocol
     /// <summary>The scaled decode case of a warm replay's allocations.</summary>
     public const string AllocationCase = "allocation";
 
+    /// <summary>
+    /// The scaled decode case of an image whose soft mask cannot be decoded when drawn (issue #515; <c>UndecodableSoftMaskPages</c>),
+    /// rendered at an eighth with scaled decode or without: <see cref="Identical"/> to the image rendered without its soft mask,
+    /// <see cref="Painted"/>, and the document's diagnostic codes (<see cref="Diagnostics"/>).
+    /// </summary>
+    public static string UndecodableCase(string page, bool scaled) => $"undecodable-{page}{(scaled ? "-scaled" : string.Empty)}";
+
+    /// <summary>The scaled decode case of an image that cannot be decoded when drawn (issue #515): <see cref="Painted"/> must be <c>no</c>.</summary>
+    public static string UndecodableImageCase(bool scaled) => UndecodableCase("image", scaled);
+
+    /// <summary>The figure, <c>yes</c> or <c>no</c>, of whether a render on white painted any pixel (of the expected render, when two are compared).</summary>
+    public const string Painted = "painted";
+
     /// <summary>The figure of a reduced render's PSNR against the full one, in dB.</summary>
     public const string Psnr = "psnr";
 
@@ -216,6 +229,54 @@ internal static class DeviceProtocol
 
     /// <summary>Returns the result key of a figure of a scaled decode case.</summary>
     public static string ScaledKey(string name, string figure) => $"scaled:{name}:{figure}";
+
+    /// <summary>The platform image decoder case (issue #376) of a document whose images are prefetched at <paramref name="reduction"/>.</summary>
+    public static string PlatformCase(string name, int reduction) => FormattableString.Invariant($"{name}-r{reduction}");
+
+    /// <summary>The platform image decoder case of a JPEG with an Exif orientation of 6 and an ICC profile that swaps red and blue.</summary>
+    public const string ExifIccPhoto = "photo-exif-icc";
+
+    /// <summary>The ICC probe variant decoded with its profile as it is.</summary>
+    public const string ProfileAsIs = "icc-as-is";
+
+    /// <summary>The ICC probe variant decoded with <c>inPreferredColorSpace</c> sRGB.</summary>
+    public const string ProfileSrgb = "icc-srgb";
+
+    /// <summary>The ICC probe variant decoded with the profile's payload zero-filled, as the core hands it over.</summary>
+    public const string ProfileCleared = "icc-cleared";
+
+    /// <summary>The platform image decoder case of eight prefetches of one photograph at once from pool threads (issue #484).</summary>
+    public const string ConcurrentPhoto = "photo-444-concurrent";
+
+    /// <summary>The figure of how many times the platform decoder was called.</summary>
+    public const string Decodes = "decodes";
+
+    /// <summary>What separates the lines of a figure: <c>am instrument</c> reports one result per line.</summary>
+    public const string LineSeparator = " || ";
+
+    /// <summary>The figure of the platform decoder's diagnostics, <c>code|message</c> lines.</summary>
+    public const string Diagnostics = "diagnostics";
+
+    /// <summary>The figure of a direct decode against the managed one: the reduction delivered, max, PSNR and percent over 2 levels.</summary>
+    public const string Fidelity = "fidelity";
+
+    /// <summary>The figure of the milliseconds a step took.</summary>
+    public const string Milliseconds = "ms";
+
+    /// <summary>The figure of a bitmap's colour space name.</summary>
+    public const string ColorSpaceName = "color-space";
+
+    /// <summary>The time variant with the managed decoder.</summary>
+    public const string Managed = "managed";
+
+    /// <summary>The time variant with the Android image decoder.</summary>
+    public const string Platform = "platform";
+
+    /// <summary>Returns the result key of a figure of a platform image decoder case.</summary>
+    public static string PlatformKey(string name, string figure) => $"platform:{name}:{figure}";
+
+    /// <summary>Returns the result key of a time measurement, in milliseconds, of a platform image decoder case.</summary>
+    public static string TimeKey(string name, string variant) => $"time:{name}:{variant}";
 
     private static string Suffix(string variant) => variant.Length == 0 ? string.Empty : "-" + variant;
 }

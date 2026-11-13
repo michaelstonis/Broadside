@@ -277,6 +277,42 @@ public static partial class RenderStats
     }
 
     /// <summary>
+    /// Renders every page of a document with the software rasterizer at <paramref name="dpi"/>, twice, outside the viewer, and returns
+    /// the second pass's time of each page in milliseconds, comma-separated (#363: the browser column of
+    /// docs/benchmarks/sample-documents-baseline.md and the sample documents' browser smoke test). The same measurement as
+    /// bench/Broadside.SampleTimings: one document, no display-list cache, so the timed pass interprets every page again.
+    /// </summary>
+    [JSExport]
+    public static async Task<string> RenderDocumentPagesAsync(string address, double dpi)
+    {
+        using var http = new HttpClient();
+        byte[] bytes = await http.GetByteArrayAsync(new Uri(address)).ConfigureAwait(true);
+        using PdfDocument document = new PdfEngine(new PdfOptions().UseStandard14Fonts().WithDisplayListCacheBudget(0)).Open(bytes);
+        var options = new RenderOptions { Dpi = dpi };
+        using var rasterizer = new SoftwareRasterizer();
+        int count = document.Pages.Count;
+        for (int page = 0; page < count; page++)
+        {
+            using Bitmap warm = rasterizer.Render(document.Pages[page], options);
+            await Task.Yield(); // let the page breathe between renders
+        }
+
+        var times = new string[count];
+        for (int page = 0; page < count; page++)
+        {
+            long start = Stopwatch.GetTimestamp();
+            using (Bitmap bitmap = rasterizer.Render(document.Pages[page], options))
+            {
+                times[page] = Stopwatch.GetElapsedTime(start).TotalMilliseconds.ToString("0.###", CultureInfo.InvariantCulture);
+            }
+
+            await Task.Yield();
+        }
+
+        return string.Join(',', times);
+    }
+
+    /// <summary>
     /// Renders one page twice as the Pages panel draws thumbnails, through a cooperative session with the WebGL backend presenting to a
     /// <see cref="PngSurface"/>; returns "diagnostic codes;base64 PNG;base64 PNG" (#380: the thumbnail had only the paper, and the
     /// render after it read the canvas back into the thumbnail's released bitmap).

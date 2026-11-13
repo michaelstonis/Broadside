@@ -1,8 +1,11 @@
+using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics;
+
 namespace Broadside.Graphics.Colors;
 
 /// <summary>
 /// DeviceCMYK to sRGB through a cubic polynomial per channel fitted to the CGATS TR 001 (SWOP) characterisation data: what
-/// <see cref="CmykConversion.Characterized"/> uses until the ICC engine (Phase 3) converts through a real CMYK profile.
+/// <c>CmykConversion.Characterized</c> uses until the ICC engine (Phase 3) converts through a real CMYK profile.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -16,7 +19,7 @@ namespace Broadside.Graphics.Colors;
 /// No black point compensation is built in: 0 0 0 1 is the measured SWOP black, about (54, 53, 54) in 8-bit sRGB.
 /// </para>
 /// </remarks>
-internal static class CmykCharacterization
+internal static partial class CmykCharacterization
 {
     // Term order after the constant 1 (exponents of c, m, y, k):
     // k, y, m, c, k², yk, y², mk, my, m², ck, cy, cm, c², k³, yk², y²k, y³, mk², myk, my², m²k, m²y, m³,
@@ -137,7 +140,7 @@ internal static class CmykCharacterization
         rSum += Red[31] * t31;
         rSum += Red[32] * t32;
         rSum += Red[33] * t33;
-        r = ColorMath.Clamp01(1 + rSum);
+        r = Clamp01(1 + rSum);
         double gSum = 0;
         gSum += Green[0] * t0;
         gSum += Green[1] * t1;
@@ -173,7 +176,7 @@ internal static class CmykCharacterization
         gSum += Green[31] * t31;
         gSum += Green[32] * t32;
         gSum += Green[33] * t33;
-        g = ColorMath.Clamp01(1 + gSum);
+        g = Clamp01(1 + gSum);
         double bSum = 0;
         bSum += Blue[0] * t0;
         bSum += Blue[1] * t1;
@@ -209,6 +212,56 @@ internal static class CmykCharacterization
         bSum += Blue[31] * t31;
         bSum += Blue[32] * t32;
         bSum += Blue[33] * t33;
-        b = ColorMath.Clamp01(1 + bSum);
+        b = Clamp01(1 + bSum);
     }
+
+    /// <summary>
+    /// Converts a row of CMYK colors to RGB as <c>DeviceConverter</c> does for an RGB target: each component clipped to 0..1,
+    /// <see cref="ToRgb"/>, then each channel narrowed to <see langword="float"/>. Takes <see cref="ToRgbRowVector"/> where
+    /// <see cref="Vector128"/> is accelerated, outside the browser: the WebAssembly interpreter runs the vector path slower than the
+    /// scalar one (0.89x on CI), and the AOT build cannot be told apart from it at run time (see
+    /// <c>docs/benchmarks/simd-kernels.md</c>).
+    /// </summary>
+    /// <param name="cmyk">Four components per color.</param>
+    /// <param name="rgb">Three channels per color; its length sets the number of colors.</param>
+    public static void ToRgbRow(ReadOnlySpan<float> cmyk, Span<float> rgb)
+    {
+        if (Vector128.IsHardwareAccelerated && !OperatingSystem.IsBrowser())
+        {
+            ToRgbRowVector(cmyk, rgb);
+        }
+        else
+        {
+            ToRgbRowScalar(cmyk, rgb);
+        }
+    }
+
+    /// <summary>The scalar path of <see cref="ToRgbRow"/>: <see cref="ToRgb"/> once per color.</summary>
+    /// <param name="cmyk">Four components per color.</param>
+    /// <param name="rgb">Three channels per color; its length sets the number of colors.</param>
+    public static void ToRgbRowScalar(ReadOnlySpan<float> cmyk, Span<float> rgb)
+    {
+        int count = rgb.Length / 3;
+        cmyk = cmyk[..(count * 4)];
+        for (int i = 0; i < count; i++)
+        {
+            ToRgb(
+                Clamp01(cmyk[4 * i]),
+                Clamp01(cmyk[(4 * i) + 1]),
+                Clamp01(cmyk[(4 * i) + 2]),
+                Clamp01(cmyk[(4 * i) + 3]),
+                out double r,
+                out double g,
+                out double b);
+            rgb[3 * i] = (float)r;
+            rgb[(3 * i) + 1] = (float)g;
+            rgb[(3 * i) + 2] = (float)b;
+        }
+    }
+
+    /// <summary><c>ColorMath.Clamp01</c>, repeated so the kernel's sources stand alone: 0 unless greater than 0 (NaN too), then at most 1.</summary>
+    /// <param name="value">The value.</param>
+    /// <returns>The clipped value.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static double Clamp01(double value) => value > 0 ? (value < 1 ? value : 1) : 0;
 }

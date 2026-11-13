@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The realistic tier (#363): rendering the representative sample documents in samples/documents/pdf. A project of its own so the
+    regression gate, which measures every class in bench/Broadside.Benchmarks, never sees it: these documents are large, their pages
+    vary widely, and they are for watching trends (docs/benchmarks/sample-documents-baseline.md), not for failing pull requests.
+    CI dry-runs it next to the gated benchmarks (.github/workflows/ci.yml, bench-dry).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Broadside.Benchmarks</RootNamespace>
+    <!-- BenchmarkDotNet needs the benchmark assembly to be optimized; a Debug build is refused by its validator. -->
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside/Broadside.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <ProjectReference Include="../../src/Broadside.Rendering/Broadside.Rendering.csproj" />
+    <PackageReference Include="BenchmarkDotNet" />
+    <Compile Include="../Broadside.Benchmarks/BenchmarkConfig.cs" Link="BenchmarkConfig.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/CorpusLocator.cs" Link="CorpusLocator.cs" />
+    <Compile Include="../Broadside.SampleTimings/SampleDocuments.cs" Link="SampleDocuments.cs" />
+  </ItemGroup>
+
+</Project>

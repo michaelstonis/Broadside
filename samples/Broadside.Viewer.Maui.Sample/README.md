@@ -1,6 +1,6 @@
 # Broadside .NET MAUI viewer sample
 
-A MAUI app around `Broadside.Viewer.Maui`'s `PdfView`: the same gallery as the Blazor demo, TraceMonkey first, drawn with SkiaSharp
+A MAUI app around `Broadside.Viewer.Maui`'s `PdfView`: the same gallery as the Blazor demo, the sample documents first, drawn with SkiaSharp
 (tiles rendered off the UI thread, composed on the GPU: Metal on iOS and Mac Catalyst, OpenGL ES on Android).
 
 Needs the `maui` workload. Run it on Mac Catalyst from the repository root:
@@ -17,12 +17,12 @@ form field to edit it, Tab between fields, arrows, Page Up/Down, Home/End and +/
 links inside the document navigate.
 
 Smoke run: `BROADSIDE_SMOKE=1` (Android: `adb shell am start -n dev.broadside.viewer.sample/.MainActivity --ez smoke true`) opens
-TraceMonkey, waits for page 1, captures the frame from the GPU surface, logs `BROADSIDE_SMOKE_OK` with what it measured and quits.
+the sample textbook chapter, waits for page 1, captures the frame from the GPU surface, logs `BROADSIDE_SMOKE_OK` with what it measured and quits.
 `smoke-android.sh <apk>` installs an APK on the connected emulator or device, runs that intent and fails on `BROADSIDE_SMOKE_FAILED`,
 a native abort or no verdict in time; `.github/workflows/maui-android.yml` runs it on the Release build (#368).
 
 Frame bench (#357): `BROADSIDE_FRAMES=1` (iOS simulator: `SIMCTL_CHILD_BROADSIDE_FRAMES=1 xcrun simctl launch --console-pty ...`;
-Android: `--ez frames true`) scrolls TraceMonkey, then pdf.js issue5567 zoomed in (bundled only when `BROADSIDE_CORPUS_DIR` has it at
+Android: `--ez frames true`) scrolls the sample catalogue, then pdf.js issue5567 zoomed in (bundled only when `BROADSIDE_CORPUS_DIR` has it at
 build time), for four seconds each while a probe thread measures how long the UI thread takes to pick up work, and logs one
 `BROADSIDE_FRAMES` line per document (`max` is the longest UI-thread stall).
 
@@ -32,5 +32,6 @@ build time), for four seconds each while a probe thread measures how long the UI
   of pdf.js. Its first page carries the ACM's copyright notice, which does not allow redistribution, so the app does not bundle it:
   it downloads pdf.js's copy (<https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf>) when the gallery opens it,
   which needs a network connection (the smoke run and the frame bench included).
+- The sample documents: linked from `samples/documents/pdf` (sources and licences in `samples/documents/MANIFEST.md`).
 - `signed.pdf`: the Blazor sample's self-signed demo document.
 - Every other document is linked from `tests/Corpus` (Broadside's own hand-written files, MIT).

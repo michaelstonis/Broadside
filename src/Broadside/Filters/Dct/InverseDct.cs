@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics;
 
 namespace Broadside.Filters.Dct;
 
@@ -19,7 +20,7 @@ namespace Broadside.Filters.Dct;
 /// within rounding, from the coefficients that contribute to them (the 4 x 4 one never reads row or column 4, the 2 x 2 one
 /// only the odd rows and columns and the DC).
 /// </remarks>
-internal static class InverseDct
+internal static partial class InverseDct
 {
     private const int ConstBits = 13;
     private const int Pass1Bits = 2;
@@ -56,13 +57,33 @@ internal static class InverseDct
     /// <summary>The 12-bit range-limit table, indexed by the descaled value masked to 14 bits (the same layout scaled by 16).</summary>
     private static readonly ushort[] RangeLimit12 = CreateRangeLimit12();
 
-    /// <summary>Transforms one block of quantized coefficients into 8 x 8 samples.</summary>
+    /// <summary>
+    /// Transforms one block of quantized coefficients into 8 x 8 samples: the vector path where <see cref="Vector128"/> is
+    /// accelerated, else the scalar one.
+    /// </summary>
+    /// <param name="coefficients">The 64 quantized coefficients in natural order.</param>
+    /// <param name="quantization">The 64 quantization values in natural order.</param>
+    /// <param name="output">Where the first sample row starts.</param>
+    /// <param name="stride">The distance between sample rows in <paramref name="output"/>.</param>
+    public static void Transform(ReadOnlySpan<short> coefficients, ReadOnlySpan<int> quantization, Span<byte> output, int stride)
+    {
+        if (Vector128.IsHardwareAccelerated)
+        {
+            TransformVector(coefficients, quantization, output, stride);
+        }
+        else
+        {
+            TransformScalar(coefficients, quantization, output, stride);
+        }
+    }
+
+    /// <summary>Transforms one block of quantized coefficients into 8 x 8 samples, a column and a row at a time: the reference the vector path matches.</summary>
     /// <param name="coefficients">The 64 quantized coefficients in natural order.</param>
     /// <param name="quantization">The 64 quantization values in natural order.</param>
     /// <param name="output">Where the first sample row starts.</param>
     /// <param name="stride">The distance between sample rows in <paramref name="output"/>.</param>
     [SkipLocalsInit]
-    public static void Transform(ReadOnlySpan<short> coefficients, ReadOnlySpan<int> quantization, Span<byte> output, int stride)
+    public static void TransformScalar(ReadOnlySpan<short> coefficients, ReadOnlySpan<int> quantization, Span<byte> output, int stride)
     {
         Span<int> workspace = stackalloc int[64];
         coefficients = coefficients[..64];

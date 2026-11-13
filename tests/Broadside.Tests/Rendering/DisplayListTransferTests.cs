@@ -119,6 +119,59 @@ public sealed class DisplayListTransferTests
         Assert.Equal((byte)Math.Round(Math.Pow(128 / 255.0, 2) * 255), bytes[0]);
     }
 
+    [Theory]
+    [InlineData("0.2 0.4 0.6 rg", DeviceColorModel.Rgb)]
+    [InlineData("0.1 0.2 0.3 0.4 k", DeviceColorModel.Cmyk)]
+    [InlineData("0.5 g", DeviceColorModel.Cmyk)]
+    [InlineData("0.5 g", DeviceColorModel.Gray)]
+    public void Runs_of_8_bit_samples_go_through_each_components_function(string color, DeviceColorModel target)
+    {
+        // More colors than one run of the 8-bit path and not a multiple of it, so every run and the short last one are checked.
+        const int count = 5000;
+        using PdfDocument document = Open("/Four gs " + color + " 0 0 1 1 re f");
+        var recorder = new RecordingBackend();
+        document.Pages[0].CreateDisplayList().Replay(recorder);
+        var fill = recorder.Fills[0];
+        ColorConversion conversion = fill.Conversion with { Target = target };
+        PdfColorConverter transferred = document.GetColorConverter(fill.ColorSpace, conversion, fill.Defaults);
+        PdfColorConverter plain = document.GetColorConverter(fill.ColorSpace, conversion with { TransferFunction = null }, fill.Defaults);
+
+        var samples = new byte[count * transferred.InputCount];
+        for (int i = 0; i < samples.Length; i++)
+        {
+            samples[i] = (byte)((i * 151) + (i / 7));
+        }
+
+        int outputs = transferred.OutputCount;
+        var expected = new byte[count * outputs];
+        var actual = new byte[count * outputs];
+        plain.Convert(samples, expected, count);
+        transferred.Convert(samples, actual, count);
+
+        // Invert, Square, Root, Invert (red, green, blue, gray); CMYK in additive form; a gray source on CMYK transfers black alone.
+        bool grayOnBlack = target == DeviceColorModel.Cmyk && color.EndsWith(" g", StringComparison.Ordinal);
+        Func<double, double>[] functions = [x => 1 - x, x => x * x, Math.Sqrt, x => 1 - x];
+        for (int i = 0; i < expected.Length; i++)
+        {
+            int component = i % outputs;
+            double value = expected[i] / 255.0;
+            if (target == DeviceColorModel.Gray)
+            {
+                value = functions[3](value);
+            }
+            else if (target == DeviceColorModel.Cmyk)
+            {
+                value = grayOnBlack && component < 3 ? value : 1 - functions[component](1 - value);
+            }
+            else
+            {
+                value = functions[component](value);
+            }
+
+            Assert.True(Math.Abs((value * 255) - actual[i]) <= 1, $"Byte {i}: expected {value * 255:F1}, got {actual[i]}.");
+        }
+    }
+
     private static PdfDocument Open(string content) =>
         PdfDocument.Open(ContentSamples.OnePage(Encoding.Latin1.GetBytes(content), Resources));
 

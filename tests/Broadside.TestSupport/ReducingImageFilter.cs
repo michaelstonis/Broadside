@@ -14,11 +14,13 @@ namespace Broadside.TestSupport;
 /// (the last ones partial), rounded half up. It counts its decodes per reduction asked for, and can be told to fail.
 /// </summary>
 /// <remarks>
-/// Registered with <see cref="PdfOptions.UseFilter"/> under <c>/BroadsideReduce</c>; <see cref="Page"/> builds a page that paints
-/// one such image. It stands in for DCT and JPEG 2000, whose own reduced decodes follow, so that the display list's on-demand
+/// Registered with <see cref="PdfOptions.UseFilter"/> under <c>/BroadsideReduce</c>, or the name given; <see cref="Page"/> builds a
+/// page that paints one such image. It stands in for DCT and JPEG 2000, whose own reduced decodes follow, so that the display list's on-demand
 /// decode, the reduction rule, the cache and the rasterizer's geometry can be tested on their own.
 /// </remarks>
-public sealed class ReducingImageFilter(int maxReduction = 3) : IImageFilter
+/// <param name="maxReduction">The largest reduction its header offers.</param>
+/// <param name="name">The filter's name, <see cref="FilterName"/> by default: another lets two codecs of different reductions share a page.</param>
+public sealed class ReducingImageFilter(int maxReduction = 3, string? name = null) : IImageFilter
 {
     /// <summary>The filter's name.</summary>
     public static readonly CosName FilterName = new("BroadsideReduce");
@@ -30,7 +32,7 @@ public sealed class ReducingImageFilter(int maxReduction = 3) : IImageFilter
     public bool Fails { get; set; }
 
     /// <inheritdoc/>
-    public CosName Name => FilterName;
+    public CosName Name { get; } = name is null ? FilterName : new CosName(name);
 
     /// <summary>Gets how often a header was read.</summary>
     public int Headers => _headers;

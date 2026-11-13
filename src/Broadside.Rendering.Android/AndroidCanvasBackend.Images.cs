@@ -171,6 +171,14 @@ public sealed partial class AndroidCanvasBackend
                 _imagePaint.Alpha = _compositing.FillAlpha;
                 SetBlendMode(_imagePaint, ref _imageBlendMode);
                 object? mask = entry.Folded ? null : (object?)image.SoftMask ?? image.Mask;
+                if (mask is DisplayImage soft && !SoftMaskDecodes(soft))
+                {
+                    // ISO 32000-2 §11.6.5.2: a soft mask that cannot be decoded (its reason is a diagnostic of the document) masks
+                    // nothing, so the image is painted unmasked, as when the soft mask could not be decoded when the list was built
+                    // (issue #515). Decided before the layers: an empty destination-in layer would erase the image.
+                    mask = null;
+                }
+
                 if (mask is null)
                 {
                     PaintSamples(pixels, entry, grid, image.Interpolate, _imagePaint, clipEdges: true);
@@ -423,12 +431,7 @@ public sealed partial class AndroidCanvasBackend
             var soft = mask as DisplayImage;
             var stencil = mask as DisplayImageMask;
             (int width, int height, bool interpolate) = soft is not null ? (soft.Width, soft.Height, soft.Interpolate) : (stencil!.Width, stencil.Height, stencil.Interpolate);
-            int reduction = 0;
-            if (TryGetImageSamplesPerPixel(out double samplesPerPixel, out Matrix toPixels))
-            {
-                reduction = soft is not null ? soft.GetReduction(toPixels, samplesPerPixel, null) : stencil!.GetReduction(toPixels, samplesPerPixel);
-            }
-
+            int reduction = MaskReduction(soft, stencil);
             ImageCache cache = _images;
             ImageCache.Entry entry = cache.Find(mask);
             PixelImage? alpha = entry.Delivered <= reduction ? entry.Image : null;
@@ -462,6 +465,28 @@ public sealed partial class AndroidCanvasBackend
                     alpha.Dispose();
                 }
             }
+        }
+
+        /// <summary>The reduction a mask not folded into its image is drawn at: 0, or with scaled image decode that of its own rule (issue #362).</summary>
+        private int MaskReduction(DisplayImage? soft, DisplayImageMask? stencil)
+        {
+            if (!TryGetImageSamplesPerPixel(out double samplesPerPixel, out Matrix toPixels))
+            {
+                return 0;
+            }
+
+            return soft is not null ? soft.GetReduction(toPixels, samplesPerPixel, null) : stencil!.GetReduction(toPixels, samplesPerPixel);
+        }
+
+        /// <summary>
+        /// Whether a soft mask drawn on its own grid masks its image: its alpha bitmap is kept at the reduction it is drawn at or a finer
+        /// one, or its samples can be decoded at that reduction (ISO 32000-2 §11.6.5.2; issue #515).
+        /// </summary>
+        private bool SoftMaskDecodes(DisplayImage soft)
+        {
+            int reduction = MaskReduction(soft, null);
+            ImageCache.Entry entry = _images.Find(soft);
+            return (entry.Image is not null && entry.Delivered <= reduction) || soft.GetSamplesAt(reduction) is not null;
         }
 
         /// <summary>Converts a mask to an alpha bitmap at <paramref name="reduction"/> (or what its samples deliver); null when too large.</summary>

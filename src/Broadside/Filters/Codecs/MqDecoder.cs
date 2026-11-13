@@ -1,4 +1,6 @@
+using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Broadside.Filters.Codecs;
 
@@ -124,6 +126,151 @@ internal ref struct MqDecoder
 
         return decision;
     }
+
+    /// <summary>Gets the segment the decoder reads, for <see cref="Decode(ref byte, ReadOnlySpan{byte}, ref uint, ref uint, ref int, ref int)"/>.</summary>
+    public readonly ReadOnlySpan<byte> Data => _data;
+
+    /// <summary>
+    /// Gets the A, C and CT registers and the read position, for a caller that keeps them in locals across a loop
+    /// (<see cref="Decode(ref byte, ReadOnlySpan{byte}, ref uint, ref uint, ref int, ref int)"/>).
+    /// </summary>
+    /// <param name="a">The interval register A.</param>
+    /// <param name="c">The code register C.</param>
+    /// <param name="ct">The bit counter CT.</param>
+    /// <param name="position">The position of the last byte read.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public readonly void GetRegisters(out uint a, out uint c, out int ct, out int position)
+    {
+        a = _a;
+        c = _c;
+        ct = _ct;
+        position = _position;
+    }
+
+    /// <summary>Stores the registers and read position a caller kept in locals back into the decoder.</summary>
+    /// <param name="a">The interval register A.</param>
+    /// <param name="c">The code register C.</param>
+    /// <param name="ct">The bit counter CT.</param>
+    /// <param name="position">The position of the last byte read.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void SetRegisters(uint a, uint c, int ct, int position)
+    {
+        _a = a;
+        _c = c;
+        _ct = ct;
+        _position = position;
+    }
+
+    /// <summary>
+    /// DECODE with the registers and read position in the caller's locals (from <see cref="GetRegisters"/>, stored back with
+    /// <see cref="SetRegisters"/>): the same decisions, context updates and bytes read as <see cref="Decode(ref byte)"/>, but nothing
+    /// touches memory except the context, so a coding pass keeps the decoder in registers. The decision and the new state come from
+    /// one table word per context (Qe and both transitions resolved), mostly without branches, and RENORMD shifts by the leading zeros
+    /// of A at once between byte inputs. It does not count <see cref="MarkerBytes"/>.
+    /// </summary>
+    /// <param name="context">The context byte, <c>(I &lt;&lt; 1) | MPS</c>.</param>
+    /// <param name="data">The segment (<see cref="Data"/>).</param>
+    /// <param name="a">The interval register A.</param>
+    /// <param name="c">The code register C.</param>
+    /// <param name="ct">The bit counter CT.</param>
+    /// <param name="position">The position of the last byte read.</param>
+    /// <returns>The decision, 0 or 1.</returns>
+    /// <remarks>ITU-T T.800 C.3.2 to C.3.4, Figures C.15 to C.19.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int Decode(ref byte context, ReadOnlySpan<byte> data, ref uint a, ref uint c, ref int ct, ref int position)
+    {
+        // Figures C.15 to C.17 without branches, since a pass's decisions are often close to even and mispredict: A and C stay below
+        // 2^16 and 2^32, so the borrow of a 32-bit subtraction gives each comparison. lps: C lies in the LPS sub-interval;
+        // exchange: the conditional exchange swaps the symbols; the decision is the MPS unless exactly one of them holds. Without
+        // renormalization (A still at least 0x8000, only in the MPS sub-interval) neither holds and the context keeps its state.
+        ref uint words = ref MemoryMarshal.GetReference(Words);
+        uint word = Unsafe.Add(ref words, context);
+        uint qe = word >> 16;
+        a -= qe;
+        uint lps = ((c >> 16) - qe) >> 31;
+        if ((lps | (((a >> 15) & 1) ^ 1)) == 0)
+        {
+            // The MPS sub-interval without renormalization: the one outcome that skewed contexts mostly take, kept on a branch.
+            c -= qe << 16;
+            return (int)(word & 1);
+        }
+
+        uint exchange = (a - qe) >> 31;
+        uint lpsMask = 0u - lps;
+        c -= (qe << 16) & ~lpsMask;
+        a = (qe & lpsMask) | (a & ~lpsMask);
+        uint flip = lps ^ exchange;
+        uint renormalize = ((a >> 15) & 1) ^ 1;
+        uint next = (word >> (int)(8 - (7 * flip))) & 0x7F;
+        context = (byte)(context ^ ((context ^ next) & (0u - renormalize)));
+
+        // RENORMD: A has n leading zeros in its 16 bits, so it and C shift n times; BYTEIN comes in whenever CT runs out.
+        int n = BitOperations.LeadingZeroCount(a) - 16;
+        a <<= n;
+        while (n > ct)
+        {
+            c <<= ct;
+            n -= ct;
+            ByteIn(data, ref c, ref ct, ref position);
+        }
+
+        c <<= n;
+        ct -= n;
+        return (int)((word ^ flip) & 1);
+    }
+
+    /// <summary>BYTEIN (T.800 C.3.4, Figure C.19) on registers held by the caller.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void ByteIn(ReadOnlySpan<byte> data, ref uint c, ref int ct, ref int position)
+    {
+        uint current = (uint)position < (uint)data.Length ? data[position] : 0xFFu;
+        int next = position + 1;
+        uint following = (uint)next < (uint)data.Length ? data[next] : 0xFFu;
+        if (current == 0xFF)
+        {
+            if (following > 0x8F)
+            {
+                c += 0xFF00;
+                ct = 8;
+            }
+            else
+            {
+                position = next;
+                c += following << 9;
+                ct = 7;
+            }
+        }
+        else
+        {
+            position = next;
+            c += following << 8;
+            ct = 8;
+        }
+    }
+
+    // By context byte (I << 1) | MPS: Qe << 16, the context byte after an MPS << 8, after an LPS (SWITCH applied) << 1, and the MPS;
+    // Table C.2 (T.800) / Table E.1 (T.88) with both transitions resolved. Padded to 256 entries so that any byte indexes inside it.
+    private static ReadOnlySpan<uint> Words =>
+    [
+        0x56010206, 0x56010305, 0x34010418, 0x3401051B, 0x18010624, 0x18010727, 0x0AC10830, 0x0AC10933,
+        0x05210A74, 0x05210B77, 0x02214C84, 0x02214D87, 0x56010E1A, 0x56010F19, 0x54011038, 0x5401113B,
+        0x48011238, 0x4801133B, 0x38011438, 0x3801153B, 0x30011644, 0x30011747, 0x24011848, 0x2401194B,
+        0x1C011A50, 0x1C011B53, 0x16013A54, 0x16013B57, 0x56011E3A, 0x56011F39, 0x54012038, 0x5401213B,
+        0x5101223C, 0x5101233F, 0x48012440, 0x48012543, 0x38012644, 0x38012747, 0x34012848, 0x3401294B,
+        0x30012A4C, 0x30012B4F, 0x28012C4C, 0x28012D4F, 0x24012E50, 0x24012F53, 0x22013054, 0x22013157,
+        0x1C013258, 0x1C01335B, 0x1801345C, 0x1801355F, 0x16013660, 0x16013763, 0x14013864, 0x14013967,
+        0x12013A68, 0x12013B6B, 0x11013C6C, 0x11013D6F, 0x0AC13E70, 0x0AC13F73, 0x09C14074, 0x09C14177,
+        0x08A14278, 0x08A1437B, 0x0521447C, 0x0521457F, 0x04414680, 0x04414783, 0x02A14884, 0x02A14987,
+        0x02214A88, 0x02214B8B, 0x01414C8C, 0x01414D8F, 0x01114E90, 0x01114F93, 0x00855094, 0x00855197,
+        0x00495298, 0x0049539B, 0x0025549C, 0x0025559F, 0x001556A0, 0x001557A3, 0x000958A4, 0x000959A7,
+        0x00055AA8, 0x00055BAB, 0x00015AAC, 0x00015BAF, 0x56015CB8, 0x56015DBB,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ];
 
     private static uint[] Build(ReadOnlySpan<int> rows)
     {

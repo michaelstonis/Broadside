@@ -69,7 +69,16 @@ jobs:
           QPDF_VERSION: 12.4.2
           QPDF_SHA256: db367d897829f22c4198ce1094143c9d467bd6ee7dfabc44ba6f02056b24f8b1
         run: |
-          sudo apt-get update && sudo apt-get install -y poppler-utils
+          # Ubuntu's archive is sometimes unreachable from the runners. Retry, then carry on without poppler-utils: the tests
+          # that need pdfinfo skip, and the warning says so on the run's summary.
+          installed=false
+          for attempt in 1 2 3; do
+            if sudo apt-get update && sudo apt-get install -y -o Acquire::Retries=3 poppler-utils; then installed=true; break; fi
+            sleep $((attempt * 30))
+          done
+          if [ "$installed" != true ]; then
+            echo "::warning title=poppler-utils::poppler-utils could not be installed; the pdfinfo checks are skipped on this run."
+          fi
           curl -fsSL -o "$RUNNER_TEMP/qpdf.zip" "https://github.com/qpdf/qpdf/releases/download/v${QPDF_VERSION}/qpdf-${QPDF_VERSION}-bin-linux-x86_64.zip"
           echo "${QPDF_SHA256}  $RUNNER_TEMP/qpdf.zip" | sha256sum -c -
           unzip -q "$RUNNER_TEMP/qpdf.zip" -d "$RUNNER_TEMP/qpdf"
@@ -92,6 +101,15 @@ jobs:
       - name: Test
         run: dotnet test Broadside.Core.slnf -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
 
+      - name: Test the SIMD kernels without hardware intrinsics (Linux)
+        # The SimdKernel category again with Vector128.IsHardwareAccelerated false (issue #470): each kernel's dispatcher takes its
+        # scalar path and the vector method runs on the software fallback. Seconds: the build above is reused. A test project with
+        # no kernel tests exits 8 (zero tests ran), which is ignored.
+        if: runner.os == 'Linux'
+        env:
+          DOTNET_EnableHWIntrinsic: '0'
+        run: dotnet test Broadside.Core.slnf -c Release --no-build -- --filter-trait "Category=SimdKernel" --ignore-exit-code 8
+
       - name: Test the CoreGraphics backend (macOS)
         # The backend's render tests run on macOS only; the build above already compiled it for macOS, iOS and Mac Catalyst (issue #125).
         if: runner.os == 'macOS'
@@ -113,7 +131,10 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ matrix.os }}
-          path: artifacts/test-results/**/*.trx
+          # The .md files are measurement tables some tests write beside their results (the WIC JPEG measurement, issue #377).
+          path: |
+            artifacts/test-results/**/*.trx
+            artifacts/test-results/**/*.md
           if-no-files-found: warn
 
       - name: Upload golden-image differences
@@ -467,6 +488,10 @@ jobs:
 
       - name: Dry run every benchmark
         run: dotnet run -c Release --project bench/Broadside.Benchmarks --no-build -- --filter '*' --job dry
+
+      # The realistic tier (#363): the sample documents, not gated, dry-run so it keeps working.
+      - name: Dry run the realistic tier
+        run: dotnet run -c Release --project bench/Broadside.Benchmarks.Realistic -- --filter '*' --job dry
 
   # The Blazor WebAssembly viewer sample published as a static site and driven in headless browsers (issues #221, #338); the job is in
   # blazor-wasm.yml. Pull requests into the integration branch run the image's Chrome and Playwright's Firefox; pull requests into

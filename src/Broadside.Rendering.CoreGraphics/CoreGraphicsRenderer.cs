@@ -151,6 +151,31 @@ public sealed class CoreGraphicsRenderer : IDisposable
     }
 
     /// <summary>
+    /// Has the engine's platform image decoders (such as <see cref="ImageIODecoder"/>, registered with
+    /// <see cref="PdfOptions.UsePlatformImageDecoder"/>) decode the images that a render of <paramref name="list"/> onto a
+    /// <paramref name="width"/> × <paramref name="height"/> pixel context under <paramref name="deviceTransform"/> will draw, at the
+    /// reductions this renderer will ask for (<see cref="ScaledImageDecode"/>, <see cref="ImageSamplesPerPixel"/>): the step to await
+    /// before <see cref="Render(DisplayList, CGContext, in Matrix)"/>.
+    /// </summary>
+    /// <param name="list">The display list to be rendered.</param>
+    /// <param name="deviceTransform">The transform the render will use.</param>
+    /// <param name="width">The width in pixels of the area the render draws.</param>
+    /// <param name="height">The height in pixels of the area the render draws.</param>
+    /// <param name="cancellationToken">Cancels the decodes only this call waits for.</param>
+    /// <returns>A task that completes when the images are decoded or left to the managed codec; at once when there is nothing to do.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.4.8 and §8.9.4. See <see cref="DisplayList.PrefetchImagesAsync"/>; the render draws the same images without it,
+    /// decoded by the managed codec. Page renders (<see cref="Render(PdfPage, CGBitmapContext, RenderOptions)"/>) never use a
+    /// platform decoder.
+    /// </remarks>
+    public ValueTask PrefetchImagesAsync(DisplayList list, in Matrix deviceTransform, int width, int height, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(list);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return list.PrefetchImagesAsync(deviceTransform, TryGetRegion(deviceTransform, width, height, out PdfRectangle region) ? region : null, ScaledImageDecode ? _imageSamplesPerPixel : 0, cancellationToken);
+    }
+
+    /// <summary>
     /// Gets or sets a value indicating whether the renders of a display list given to this renderer decode images at the resolution
     /// they are drawn at rather than their own; <see langword="false"/> by default. Page renders take
     /// <see cref="RenderOptions.ScaledImageDecode"/> instead.
@@ -199,6 +224,32 @@ public sealed class CoreGraphicsRenderer : IDisposable
     {
         _disposed = true;
         _backend.Dispose();
+    }
+
+    /// <summary>The part of default user space a <paramref name="width"/> × <paramref name="height"/> area shows, two pixels wider; false without an inverse.</summary>
+    private static bool TryGetRegion(in Matrix device, int width, int height, out PdfRectangle region)
+    {
+        region = default;
+        if (!device.TryInvert(out Matrix inverse))
+        {
+            return false;
+        }
+
+        PathPoint a = inverse.Transform(-2, -2);
+        PathPoint b = inverse.Transform(width + 2, -2);
+        PathPoint c = inverse.Transform(width + 2, height + 2);
+        PathPoint d = inverse.Transform(-2, height + 2);
+        double left = Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X));
+        double bottom = Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y));
+        double right = Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X));
+        double top = Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y));
+        if (!(double.IsFinite(left) && double.IsFinite(bottom) && double.IsFinite(right) && double.IsFinite(top)))
+        {
+            return false;
+        }
+
+        region = new PdfRectangle(left, bottom, right, top);
+        return true;
     }
 
     private static readonly CGColor White = new(1, 1, 1, 1);

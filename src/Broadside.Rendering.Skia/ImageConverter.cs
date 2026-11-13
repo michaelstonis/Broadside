@@ -27,10 +27,9 @@ internal static class ImageConverter
         image.SoftMask is null && image.Mask is { } mask && mask.Width == image.Width && mask.Height == image.Height;
 
     /// <summary>
-    /// Returns whether the image's soft mask folds into its converted <paramref name="samples"/>, and its samples to fold: at the
-    /// image's own resolution a soft mask of its size always folds (<paramref name="softSamples"/> null when the mask cannot be
-    /// decoded: its rows read as zero); reduced (issue #362), only when the mask's samples have the same reduction, so that the grids
-    /// align (§11.6.5.2).
+    /// Returns whether the image's soft mask folds into its converted <paramref name="samples"/>, and its samples to fold: a soft mask
+    /// of its size whose samples have the same reduction, so that the grids align (§11.6.5.2; issue #362). One that cannot be decoded
+    /// does not fold and leaves the image unmasked, as when it could not be decoded when the list was built (issue #515).
     /// </summary>
     public static bool FoldsSoftMask(DisplayImage image, DisplayImageSamples samples, out DisplayImageSamples? softSamples)
     {
@@ -41,7 +40,7 @@ internal static class ImageConverter
         }
 
         softSamples = image.SoftMask!.GetSamplesAt(samples.Reduction);
-        return samples.Reduction == 0 || (softSamples is { } soft && soft.Reduction == samples.Reduction);
+        return softSamples is { } soft && soft.Reduction == samples.Reduction;
     }
 
     /// <summary>Whether the image's explicit mask folds into its converted <paramref name="samples"/>: of the image's size, at its own resolution.</summary>
@@ -50,7 +49,7 @@ internal static class ImageConverter
     /// <summary>
     /// Converts a colour image's samples, at its own resolution or a reduction (issue #362), to premultiplied BGRA; null when they
     /// have more pixels than a managed array can hold. The soft mask folds when <paramref name="foldSoft"/> is set, through
-    /// <paramref name="softSamples"/> (null at the image's resolution: its rows are read), the explicit mask when
+    /// <paramref name="softSamples"/> (as <see cref="FoldsSoftMask(DisplayImage, DisplayImageSamples, out DisplayImageSamples?)"/> gives them), the explicit mask when
     /// <paramref name="foldMask"/> is.
     /// </summary>
     public static SKImage? Convert(DisplayImage image, DisplayImageSamples samples, bool foldSoft, DisplayImageSamples? softSamples, bool foldMask, PdfColorConverter converter, PdfColorConverter? baseConverter)
@@ -160,24 +159,7 @@ internal static class ImageConverter
                 }
 
                 Span<byte> target = pixels.AsSpan(y * width * 4, width * 4);
-                for (int x = 0; x < width; x++)
-                {
-                    int r = rgbRow[3 * x];
-                    int g = rgbRow[(3 * x) + 1];
-                    int b = rgbRow[(3 * x) + 2];
-                    int a = alpha ? opacityRow[x] : 255;
-                    if (a != 255)
-                    {
-                        r = Divide255(r * a);
-                        g = Divide255(g * a);
-                        b = Divide255(b * a);
-                    }
-
-                    target[4 * x] = (byte)b;
-                    target[(4 * x) + 1] = (byte)g;
-                    target[(4 * x) + 2] = (byte)r;
-                    target[(4 * x) + 3] = (byte)a;
-                }
+                ImageRows.PackBgra(rgbRow, alpha ? opacityRow : default, width, target);
             }
 
             var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
@@ -377,11 +359,6 @@ internal static class ImageConverter
         }
     }
 
-    private static int Divide255(int value)
-    {
-        value += 128;
-        return (value + (value >> 8)) >> 8;
-    }
 
     private static void ToBytes(PdfColorConverter converter, ReadOnlySpan<float> values, Span<byte> rgb, Span<float> rgbValues, int width)
     {

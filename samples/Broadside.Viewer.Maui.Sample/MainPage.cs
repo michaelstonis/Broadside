@@ -16,10 +16,45 @@ public sealed class MainPage : ContentPage
     /// </summary>
     public const string TraceMonkey = "https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf";
 
-    /// <summary>The Blazor demo's gallery, TraceMonkey first.</summary>
+    /// <summary>The Blazor demo's gallery: the sample documents (#363) first, then TraceMonkey (downloaded), then the corpus files.</summary>
     public static readonly GalleryEntry[] Gallery =
     [
-        new(TraceMonkey, "TraceMonkey paper (real world)"),
+        new("documents/textbook.pdf", "Textbook chapter (WeasyPrint)"),
+        new("documents/catalogue.pdf", "Product catalogue (WeasyPrint, CMYK and bleed)"),
+        new("documents/newsletter.pdf", "Newsletter (Chrome)"),
+        new("documents/paper.pdf", "Scientific paper with equations (Chrome)"),
+        new("documents/invoice-colourful.pdf", "Invoice, colourful (WeasyPrint)"),
+        new("documents/invoice-conservative-filled.pdf", "Invoice with a filled form (Broadside)"),
+        new("documents/brochure.pdf", "Brochure, print-ready (Broadside)"),
+        new("documents/dictionary.pdf", "Dictionary (WeasyPrint)"),
+        new("documents/showcase.pdf", "Feature showcase with layers"),
+        new("documents/novel-pocket.pdf", "Novel, pocket edition (170 pages)"),
+        new("documents/novel-hardback.pdf", "Novel, hardback edition (tagged)"),
+        new("documents/novel-large-print.pdf", "Novel, large print (Broadside, PDF/UA)"),
+        new("documents/contract-signed.pdf", "Agreement, certified and signed (Broadside)"),
+        new("documents/textbook-aes128.pdf", "Textbook, encrypted (AES-128, copying not allowed)"),
+        new("documents/paper-rc4.pdf", "Paper, encrypted (RC4, printing not allowed)"),
+        new("documents/dictionary-aes256-gcm.pdf", "Dictionary, encrypted (AES-256-GCM, PDF 2.0)"),
+        new("documents/application-form.pdf", "Application form with calculated fields (Broadside)"),
+        new("documents/application-form-xfa.pdf", "Application form, XFA hybrid"),
+        new("documents/paper-reviewed.pdf", "Paper with a referee's annotations"),
+        new("documents/leaflet-multilingual.pdf", "Leaflet in twelve languages (WeasyPrint)"),
+        new("documents/notice-trilingual.pdf", "Notice in English, Arabic and Hebrew (Broadside)"),
+        new("documents/rashomon-vertical.pdf", "Japanese novella in vertical writing (Broadside)"),
+        new("documents/report-1996.pdf", "Technical memo, 1996 style (Type 1, Type 3, LZW)"),
+        new("documents/scan-memo-g4.pdf", "Scanned memo with OCR text (CCITT G4)"),
+        new("documents/scan-memo-jbig2.pdf", "Scanned memo with OCR text (JBIG2)"),
+        new("documents/scan-moon-memo-jpx.pdf", "Scanned memo in color with OCR text (JPEG 2000)"),
+        new("documents/color-guide.pdf", "Color guide: Lab, Indexed, DeviceN, overprint (Broadside)"),
+        new("documents/shakespeare.pdf", "Complete works of Shakespeare (1,168 pages)"),
+        new("documents/contour-map.pdf", "Topographic map: 400,000 contour segments on one A1 page"),
+        new("documents/board-pack.pdf", "Board pack: mixed sizes and rotated pages"),
+        new("documents/portfolio.pdf", "Project portfolio with attached files"),
+        new("documents/invoice-pdfa3.pdf", "Invoice, PDF/A-3b with its XML data"),
+        new("documents/paper-pdfa2b.pdf", "Paper, PDF/A-2b"),
+        new("documents/showcase-broken-xref.pdf", "Damaged: broken cross-reference offsets"),
+        new("documents/novel-large-print-truncated.pdf", "Damaged: interrupted download (157 of 219 pages)"),
+        new(TraceMonkey, "TraceMonkey paper (real world, downloaded)"),
         new("documents/layout-two-column-tagged.pdf", "Two columns (tagged)"),
         new("documents/outline-full.pdf", "Outline"),
         new("documents/acroform-fields.pdf", "Form fields"),
@@ -200,7 +235,7 @@ public sealed class MainPage : ContentPage
 
             string path = Path.Combine(Environment.GetEnvironmentVariable("BROADSIDE_SMOKE_OUT") ?? FileSystem.CacheDirectory, "smoke.png");
             await File.WriteAllBytesAsync(path, png);
-            bool ok = dark > samples / 200 && white > samples / 4 && _view.State.PageIndex == 0;
+            bool ok = dark > samples / 1000 && white > samples / 4 && _view.State.PageIndex == 0;
             Console.WriteLine(string.Create(
                 CultureInfo.InvariantCulture,
                 $"BROADSIDE_SMOKE_{(ok ? "OK" : "FAILED")} pages={_view.State.PageCount} page={_view.State.PageIndex + 1} size={bitmap.Width}x{bitmap.Height} dark={dark} white={white} samples={samples} gpu={_view.UseHardwareAcceleration} path={path}"));

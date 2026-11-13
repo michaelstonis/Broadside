@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Welcome to Riverside Public Library</title>
+<meta name="author" content="Broadside sample documents">
+<meta name="description" content="A multilingual visitor leaflet: Latin, Greek, Cyrillic, Arabic, Hebrew, Devanagari, Thai, Chinese, Japanese and Korean text.">
+<meta name="generator" content="WeasyPrint">
+<style>
+@font-face { font-family: "Noto Sans"; src: url(../fonts/notosans/NotoSans-Regular.ttf); font-weight: 400; }
+@font-face { font-family: "Noto Sans"; src: url(../fonts/notosans/NotoSans-Bold.ttf); font-weight: 700; }
+@font-face { font-family: "Noto Naskh Arabic"; src: url(../fonts/notonaskharabic/NotoNaskhArabic-Regular.ttf); font-weight: 400; }
+@font-face { font-family: "Noto Naskh Arabic"; src: url(../fonts/notonaskharabic/NotoNaskhArabic-Bold.ttf); font-weight: 700; }
+@font-face { font-family: "Noto Sans Hebrew"; src: url(../fonts/notosanshebrew/NotoSansHebrew-Regular.ttf); font-weight: 400; }
+@font-face { font-family: "Noto Sans Hebrew"; src: url(../fonts/notosanshebrew/NotoSansHebrew-Bold.ttf); font-weight: 700; }
+@font-face { font-family: "Noto Sans Devanagari"; src: url(../fonts/notosansdevanagari/NotoSansDevanagari-Regular.ttf); font-weight: 400; }
+@font-face { font-family: "Noto Sans Devanagari"; src: url(../fonts/notosansdevanagari/NotoSansDevanagari-Bold.ttf); font-weight: 700; }
+@font-face { font-family: "Noto Sans Thai"; src: url(../fonts/notosansthai/NotoSansThai-Regular.ttf); font-weight: 400; }
+@font-face { font-family: "Noto Sans Thai"; src: url(../fonts/notosansthai/NotoSansThai-Bold.ttf); font-weight: 700; }
+/* One weight of each CJK font: headings use it too (declared as both weights, so nothing is synthesized or taken from the system). */
+@font-face { font-family: "Noto Sans CJK SC"; src: url(../fonts/notosanscjk/NotoSansCJKsc-Regular.otf); font-weight: 400 700; }
+@font-face { font-family: "Noto Sans CJK JP"; src: url(../fonts/notosanscjk/NotoSansCJKjp-Regular.otf); font-weight: 400 700; }
+@font-face { font-family: "Noto Sans CJK KR"; src: url(../fonts/notosanscjk/NotoSansCJKkr-Regular.otf); font-weight: 400 700; }
+
+@page {
+  size: A4;
+  margin: 18mm 16mm 20mm;
+  @bottom-left { content: "Riverside Public Library is invented for the Broadside sample documents."; font: 7pt "Noto Sans"; color: #6b7a86; }
+  @bottom-right { content: counter(page) " / " counter(pages); font: 7pt "Noto Sans"; color: #6b7a86; }
+}
+html { font-family: "Noto Sans"; font-size: 9pt; line-height: 1.45; color: #1d2a33; }
+body { margin: 0; }
+header { background: #164e63; color: white; padding: 7mm 8mm 6mm; border-radius: 3mm; margin-bottom: 6mm; }
+header h1 { font-size: 22pt; margin: 0 0 1mm; line-height: 1.1; }
+header p { margin: 0; font-size: 10pt; opacity: 0.85; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
+article { border: 0.6pt solid #b9c7cf; border-radius: 2mm; padding: 4mm 5mm 3mm; break-inside: avoid; }
+article h2 { font-size: 11.5pt; margin: 0 0 1.5mm; color: #164e63; line-height: 1.3; }
+article .lang { float: right; font-size: 7pt; color: #6b7a86; border: 0.5pt solid #b9c7cf; border-radius: 1mm; padding: 0 1.2mm; }
+article[dir=rtl] .lang { float: left; }
+article p { margin: 0 0 1.6mm; }
+[lang=ar] { font-family: "Noto Naskh Arabic", "Noto Sans"; font-size: 10pt; line-height: 1.7; }
+[lang=he] { font-family: "Noto Sans Hebrew", "Noto Sans"; }
+[lang=hi] { font-family: "Noto Sans Devanagari", "Noto Sans"; line-height: 1.6; }
+[lang=th] { font-family: "Noto Sans Thai", "Noto Sans"; line-height: 1.7; }
+[lang=zh-Hans] { font-family: "Noto Sans CJK SC", "Noto Sans"; }
+[lang=ja] { font-family: "Noto Sans CJK JP", "Noto Sans"; }
+[lang=ko] { font-family: "Noto Sans CJK KR", "Noto Sans"; word-break: keep-all; }
+.hours { margin-top: 6mm; break-inside: avoid; }
+.hours h2 { font-size: 12pt; color: #164e63; margin: 0 0 2mm; }
+table { border-collapse: collapse; width: 100%; font-size: 8.5pt; }
+th, td { border-bottom: 0.5pt solid #d4dee4; padding: 1.4mm 2mm; text-align: start; vertical-align: top; }
+th { background: #e8f1f5; }
+td.time { white-space: nowrap; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Welcome to Riverside Public Library</h1>
+  <p>Visitor information in twelve languages · Ask at the front desk if you need help in another language.</p>
+</header>
+
+<div class="grid">
+<article lang="en">
+  <span class="lang">English</span>
+  <h2>Welcome to Riverside Public Library</h2>
+  <p>Library cards are free for everyone who lives, works or studies in Riverside. Bring a photo ID and something with your address to the front desk.</p>
+  <p>Borrow up to 30 items for three weeks. Wi-Fi and computers are free. Story time for children is on Saturdays at 10:30.</p>
+</article>
+
+<article lang="es">
+  <span class="lang">Español</span>
+  <h2>Bienvenidos a la Biblioteca Pública de Riverside</h2>
+  <p>La tarjeta de la biblioteca es gratuita para todas las personas que viven, trabajan o estudian en Riverside. Traiga una identificación con foto y un documento con su dirección al mostrador de atención.</p>
+  <p>Puede tomar prestados hasta 30 artículos durante tres semanas. El wifi y las computadoras son gratuitos. La hora del cuento para niños es los sábados a las 10:30.</p>
+</article>
+
+<article lang="ar" dir="rtl">
+  <span class="lang">العربية</span>
+  <h2>مرحبًا بكم في مكتبة ريفرسايد العامة</h2>
+  <p>بطاقة المكتبة مجانية لكل من يسكن أو يعمل أو يدرس في ريفرسايد. أحضر بطاقة هوية تحمل صورتك ووثيقة تحمل عنوانك إلى مكتب الاستقبال.</p>
+  <p>يمكنك استعارة ما يصل إلى ٣٠ مادة لمدة ثلاثة أسابيع. خدمة الإنترنت اللاسلكي (Wi-Fi) والحواسيب مجانية. ساعة الحكايات للأطفال أيام السبت الساعة ١٠:٣٠.</p>
+</article>
+
+<article lang="he" dir="rtl">
+  <span class="lang">עברית</span>
+  <h2>ברוכים הבאים לספרייה הציבורית של ריברסייד</h2>
+  <p>כרטיס הספרייה ניתן בחינם לכל מי שגר, עובד או לומד בריברסייד. יש להביא לדלפק תעודה מזהה עם תמונה ומסמך שמופיעה בו הכתובת שלכם.</p>
+  <p>אפשר לשאול עד 30 פריטים לשלושה שבועות. ה־Wi-Fi והמחשבים בחינם. שעת סיפור לילדים בימי שבת בשעה 10:30.</p>
+</article>
+
+<article lang="zh-Hans">
+  <span class="lang">简体中文</span>
+  <h2>欢迎来到河畔公共图书馆</h2>
+  <p>凡在河畔居住、工作或学习的人都可以免费办理借书证。请携带带照片的身份证件和一份写有您地址的文件到服务台办理。</p>
+  <p>每次最多可借30件资料，借期三周。无线网络和电脑免费使用。儿童故事会在每周六上午10:30举行。</p>
+</article>
+
+<article lang="ja">
+  <span class="lang">日本語</span>
+  <h2>リバーサイド公共図書館へようこそ</h2>
+  <p>リバーサイドに住んでいる方、働いている方、通学している方は、どなたでも無料で図書館カードを作れます。写真付きの身分証明書と住所がわかるものを受付にお持ちください。</p>
+  <p>資料は30点まで、3週間借りられます。Wi-Fiとパソコンは無料です。子ども向けのおはなし会は毎週土曜日の10時30分からです。</p>
+</article>
+
+<article lang="ko">
+  <span class="lang">한국어</span>
+  <h2>리버사이드 공공도서관에 오신 것을 환영합니다</h2>
+  <p>리버사이드에 살거나 일하거나 공부하는 분은 누구나 무료로 도서관 카드를 만들 수 있습니다. 사진이 있는 신분증과 주소를 확인할 수 있는 서류를 안내 데스크에 가져오세요.</p>
+  <p>자료는 최대 30점까지 3주 동안 빌릴 수 있습니다. 와이파이와 컴퓨터는 무료입니다. 어린이 이야기 시간은 매주 토요일 10시 30분에 있습니다.</p>
+</article>
+
+<article lang="hi">
+  <span class="lang">हिन्दी</span>
+  <h2>रिवरसाइड सार्वजनिक पुस्तकालय में आपका स्वागत है</h2>
+  <p>रिवरसाइड में रहने, काम करने या पढ़ने वाले हर व्यक्ति के लिए पुस्तकालय कार्ड निःशुल्क है। फ़ोटो वाला पहचान पत्र और अपने पते वाला कोई दस्तावेज़ लेकर सहायता डेस्क पर आएँ।</p>
+  <p>आप तीन सप्ताह के लिए 30 वस्तुएँ तक उधार ले सकते हैं। वाई-फ़ाई और कंप्यूटर निःशुल्क हैं। बच्चों के लिए कहानी का समय हर शनिवार सुबह 10:30 बजे है।</p>
+</article>
+
+<article lang="th">
+  <span class="lang">ไทย</span>
+  <h2>ยินดีต้อนรับสู่ห้องสมุดประชาชนริเวอร์ไซด์</h2>
+  <p>ทุกคนที่อาศัย ทำงาน หรือเรียนในริเวอร์ไซด์ สามารถทำบัตรห้องสมุดได้ฟรี โปรดนำบัตรประจำตัวที่มีรูปถ่ายและเอกสารที่แสดงที่อยู่ของคุณมาที่เคาน์เตอร์บริการ</p>
+  <p>ยืมได้สูงสุด 30 รายการ เป็นเวลาสามสัปดาห์ ใช้ Wi-Fi และคอมพิวเตอร์ได้ฟรี กิจกรรมเล่านิทานสำหรับเด็กทุกวันเสาร์ เวลา 10:30 น.</p>
+</article>
+
+<article lang="ru">
+  <span class="lang">Русский</span>
+  <h2>Добро пожаловать в публичную библиотеку Риверсайда</h2>
+  <p>Читательский билет бесплатный для всех, кто живёт, работает или учится в Риверсайде. Принесите на стойку обслуживания удостоверение личности с фотографией и документ с вашим адресом.</p>
+  <p>Можно взять до 30 единиц на три недели. Wi-Fi и компьютеры бесплатны. Чтение сказок для детей — по субботам в 10:30.</p>
+</article>
+
+<article lang="el">
+  <span class="lang">Ελληνικά</span>
+  <h2>Καλώς ήρθατε στη Δημόσια Βιβλιοθήκη του Ρίβερσαϊντ</h2>
+  <p>Η κάρτα βιβλιοθήκης είναι δωρεάν για όποιον μένει, εργάζεται ή σπουδάζει στο Ρίβερσαϊντ. Φέρτε στο γραφείο εξυπηρέτησης μια ταυτότητα με φωτογραφία και ένα έγγραφο με τη διεύθυνσή σας.</p>
+  <p>Μπορείτε να δανειστείτε έως 30 τεκμήρια για τρεις εβδομάδες. Το Wi-Fi και οι υπολογιστές είναι δωρεάν. Η ώρα παραμυθιού για παιδιά είναι κάθε Σάββατο στις 10:30.</p>
+</article>
+
+<article lang="vi">
+  <span class="lang">Tiếng Việt</span>
+  <h2>Chào mừng bạn đến Thư viện Công cộng Riverside</h2>
+  <p>Thẻ thư viện miễn phí cho tất cả những ai sống, làm việc hoặc học tập tại Riverside. Vui lòng mang theo giấy tờ tùy thân có ảnh và một giấy tờ ghi địa chỉ của bạn đến quầy tiếp đón.</p>
+  <p>Bạn có thể mượn tối đa 30 tài liệu trong ba tuần. Wi-Fi và máy tính được sử dụng miễn phí. Giờ kể chuyện cho trẻ em vào lúc 10:30 sáng thứ Bảy hằng tuần.</p>
+</article>
+</div>
+
+<section class="hours">
+  <h2>Opening hours · Horario · <span lang="ar">ساعات العمل</span> · <span lang="he">שעות פתיחה</span> · <span lang="zh-Hans">开放时间</span> · <span lang="ja">開館時間</span> · <span lang="ko">운영 시간</span></h2>
+  <table>
+    <tr><th>Day</th><th>Hours</th><th lang="ar" dir="rtl">اليوم</th><th lang="he" dir="rtl">יום</th><th lang="zh-Hans">日期</th><th lang="ja">曜日</th><th lang="ko">요일</th></tr>
+    <tr><td>Monday to Thursday</td><td class="time">9:00–20:00</td><td lang="ar" dir="rtl">من الاثنين إلى الخميس</td><td lang="he" dir="rtl">שני עד חמישי</td><td lang="zh-Hans">周一至周四</td><td lang="ja">月曜日～木曜日</td><td lang="ko">월요일~목요일</td></tr>
+    <tr><td>Friday</td><td class="time">9:00–18:00</td><td lang="ar" dir="rtl">الجمعة</td><td lang="he" dir="rtl">שישי</td><td lang="zh-Hans">周五</td><td lang="ja">金曜日</td><td lang="ko">금요일</td></tr>
+    <tr><td>Saturday</td><td class="time">10:00–17:00</td><td lang="ar" dir="rtl">السبت</td><td lang="he" dir="rtl">שבת</td><td lang="zh-Hans">周六</td><td lang="ja">土曜日</td><td lang="ko">토요일</td></tr>
+    <tr><td>Sunday</td><td class="time">13:00–17:00</td><td lang="ar" dir="rtl">الأحد</td><td lang="he" dir="rtl">ראשון</td><td lang="zh-Hans">周日</td><td lang="ja">日曜日</td><td lang="ko">일요일</td></tr>
+  </table>
+</section>
+</body>
+</html>

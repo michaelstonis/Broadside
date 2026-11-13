@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Chapter 4: Orbits, or how things stay up</title>
+<meta name="author" content="Broadside sample documents">
+<meta name="description" content="A physics textbook chapter written for the Broadside project: sidenotes, footnotes, floated figures and tables, cross-references.">
+<meta name="keywords" content="textbook, physics, orbits, sample">
+<meta name="generator" content="WeasyPrint">
+<meta name="dcterms.created" content="2026-10-25T00:00:00Z">
+<meta name="dcterms.modified" content="2026-10-25T00:00:00Z">
+<link rel="stylesheet" href="textbook.css">
+<style>body { counter-reset: figure table footnote section; }</style>
+</head>
+<body>
+<!-- Written for the Broadside project. The chapter belongs to an imaginary introductory physics course. -->
+
+<header class="chapter-head">
+  <div class="number">4</div>
+  <h1>Orbits, or how things stay up</h1>
+  <p class="lead">A satellite is not floating. It is falling, all the time, and missing the ground.</p>
+</header>
+
+<div class="objectives">
+  <h2>By the end of this chapter you should be able to</h2>
+  <ul>
+    <li>explain why an object in orbit is in free fall, using Newton's cannon as a thought experiment;</li>
+    <li>calculate the speed and period of a circular orbit from its radius;</li>
+    <li>describe an elliptical orbit with its semi-major axis, eccentricity, periapsis and apoapsis;</li>
+    <li>use Kepler's third law to compare the orbits of planets and satellites;</li>
+    <li>explain the difference between orbital speed and escape speed.</li>
+  </ul>
+</div>
+
+<h2 class="section" id="s-falling">Falling around the Earth</h2>
+
+<p><span class="sidenote key"><b>Key idea.</b> An orbit is a fall that never reaches the ground because the ground curves away as fast
+  as the object drops.</span>Astronauts on the International Space Station float around the cabin, and photographs of them are often
+  described as showing “zero gravity”. That description is wrong. At the station's height, about 400 km above the surface, the pull of
+  the Earth is still about 89% of what it is on the ground. If you could build a tower 400 km tall and stand on top of it, you would
+  feel almost exactly as heavy as you do now.</p>
+
+<p>So why do astronauts float? Because the station and everyone inside it are falling together. A person in a falling lift feels
+  weightless for the same reason: the floor drops away at the same rate as their feet, so it pushes on them with no force at all. The
+  difference is that the lift hits the bottom of the shaft after a second or two, while the station keeps falling for years.</p>
+
+<p>The station never hits the ground because it is also moving sideways, very fast: about 7.7 kilometres every second. In the time it
+  takes to fall a few metres, it travels so far around the planet that the surface beneath it has curved away by the same few metres.
+  It falls, and it misses.</p>
+
+<figure class="wide" id="f-cannon">
+<svg viewBox="0 0 520 250" xmlns="http://www.w3.org/2000/svg" font-family="Libertinus Sans" font-size="10">
+  <defs>
+    <radialGradient id="planet" cx="0.45" cy="0.4" r="0.6">
+      <stop offset="0" stop-color="#9fd0f0"/><stop offset="0.7" stop-color="#3f7fb0"/><stop offset="1" stop-color="#244c70"/>
+    </radialGradient>
+  </defs>
+  <rect width="520" height="250" fill="#fdfaf3"/>
+  <circle cx="260" cy="300" r="190" fill="url(#planet)"/>
+  <path d="M248 112 l0 -14 l24 0 l0 14 z" fill="#6b4a2a"/>
+  <rect x="258" y="88" width="34" height="7" rx="2" fill="#333" transform="rotate(-4 258 92)"/>
+  <g fill="none" stroke-width="1.8" stroke-linecap="round">
+    <path d="M292 90 Q 330 92 350 128" stroke="#e0a63a"/>
+    <path d="M292 90 Q 370 88 400 150" stroke="#d68a1a"/>
+    <path d="M292 90 Q 420 86 446 196" stroke="#b86d10"/>
+    <path d="M292 90 C 420 84 470 150 468 245" stroke="#8a5a00" stroke-dasharray="5 3"/>
+    <circle cx="260" cy="300" r="205" stroke="#8a5a00" stroke-width="2.2" stroke-dasharray="1 0"/>
+  </g>
+  <g fill="#333">
+    <text x="354" y="126">A</text><text x="404" y="150">B</text><text x="452" y="196">C</text><text x="474" y="236">D</text>
+    <text x="40" y="40" font-size="12" font-weight="700" fill="#8a5a00">Faster and faster</text>
+    <text x="40" y="56">A–C: the shell lands further away each time.</text>
+    <text x="40" y="70">D: it lands on the other side of the world.</text>
+    <text x="40" y="84">Outer circle: it never lands. That is an orbit.</text>
+  </g>
+</svg>
+<figcaption>Newton's cannon. A cannon on an impossibly tall mountain fires shells horizontally at greater and greater speeds. Each shell
+  falls, but the faster ones travel further before they reach the ground, until one is fast enough to fall all the way round. Newton
+  drew a similar picture in his <i>Treatise of the System of the World</i>, published in 1728.</figcaption>
+</figure>
+
+<p>Isaac Newton described this as a thought experiment, illustrated in <a class="fig" href="#f-cannon">Figure</a>. Imagine a mountain so
+  high that it rises above the air, so there is no drag. A cannon on its summit fires a shell horizontally. The shell curves down and
+  lands some distance away. Fire it faster, and it lands further away. Because the Earth is round, there is a speed at which the shell
+  falls towards the ground exactly as fast as the ground curves away beneath it.<span class="fn">Newton's own diagram shows the mountain as a small bump on a large circle. The mountain would need to be well over a hundred kilometres high to rise above most of the atmosphere, which is why the experiment stays in the imagination.</span> That shell never lands. It comes back round to the
+  mountain from behind, and, if nobody moves the cannon, it carries on circling forever.</p>
+
+<h2 class="section" id="s-circular">Circular orbits</h2>
+
+<p><span class="sidenote"><b>Notation.</b> We use <var>r</var> for the distance from the <em>centre</em> of the Earth, not the height
+  above the surface. For the station, <var>r</var> ≈ 6371 km + 400 km = 6771 km.</span>For the simplest orbit, a circle, we can work
+  out the speed needed. An object moving in a circle of radius <var>r</var> at speed <var>v</var> needs a force towards the centre of
+  <var>mv</var>²/<var>r</var>. In orbit, gravity provides exactly that force, and nothing else does. Newton's law of gravitation gives
+  the size of the gravitational force between the Earth, of mass <var>M</var>, and the satellite, of mass <var>m</var>:</p>
+
+<p class="equation" id="e-gravity"><span class="label">(4.1)</span>𝐹 = 𝐺𝑀𝑚 ∕ 𝑟²</p>
+
+<p>Setting the two equal, the satellite's mass cancels out. That is a remarkable result: a spanner dropped by an astronaut and the
+  station itself follow the same orbit, which is why tools that drift away during a spacewalk stay close to the station for a while
+  before slowly separating.</p>
+
+<p class="equation" id="e-speed"><span class="label">(4.2)</span>𝑣 = √(𝐺𝑀 ∕ 𝑟)</p>
+
+<p>The product <var>GM</var> for the Earth is known very precisely from the motion of satellites: 3.986 × 10<sup>14</sup>
+  m<sup>3</sup> s<sup>−2</sup>. You do not need to know <var>G</var> and <var>M</var> separately to calculate an orbit, which is
+  fortunate, because <var>G</var> is one of the least precisely measured constants in physics.</p>
+
+<div class="box">
+  <h4>Worked example: the space station</h4>
+  <p>The station orbits about 400 km above the surface, so <var>r</var> = 6.771 × 10<sup>6</sup> m. Equation (4.2) gives</p>
+  <p class="equation">𝑣 = √(3.986 × 10¹⁴ ∕ 6.771 × 10⁶) ≈ 7670 m s⁻¹</p>
+  <p>One trip round the circle is 2π<var>r</var> ≈ 4.25 × 10<sup>7</sup> m, so the period is</p>
+  <p class="equation">𝑇 = 2π𝑟 ∕ 𝑣 ≈ 5540 s ≈ 92 minutes.</p>
+  <p>The crew see about sixteen sunrises and sixteen sunsets every day.</p>
+</div>
+
+<figure class="float" id="f-speed">
+<svg viewBox="0 0 320 230" xmlns="http://www.w3.org/2000/svg" font-family="Libertinus Sans" font-size="11">
+  <rect width="320" height="230" fill="#fff"/>
+  <g stroke="#ddd" stroke-width="0.6">
+    <line x1="40" y1="20" x2="300" y2="20"/><line x1="40" y1="50" x2="300" y2="50"/><line x1="40" y1="80" x2="300" y2="80"/>
+    <line x1="40" y1="110" x2="300" y2="110"/><line x1="40" y1="140" x2="300" y2="140"/><line x1="40" y1="170" x2="300" y2="170"/>
+    <line x1="105" y1="20" x2="105" y2="200"/><line x1="170" y1="20" x2="170" y2="200"/><line x1="235" y1="20" x2="235" y2="200"/>
+  </g>
+  <path d="M40 200 L300 200 M40 200 L40 20" stroke="#333" stroke-width="1" fill="none"/>
+  <polyline fill="none" stroke="#e0a63a" stroke-width="2.4" stroke-linejoin="round"
+    points="40,22.7 43.3,31.5 46.5,39.4 53,53 72.5,82.4 105,112 137.5,130.4 170,143.3 235,160.7 272.6,167.9 300,171.8"/>
+  <circle cx="42.6" cy="29.8" r="3.5" fill="#8a5a00"/><text x="50" y="27" fill="#8a5a00">Space station</text>
+  <circle cx="272.6" cy="167.9" r="3.5" fill="#8a5a00"/><text x="214" y="190" fill="#8a5a00">Geostationary</text>
+  <g fill="#555" font-size="10">
+    <text x="30" y="204" text-anchor="end">2</text><text x="30" y="144" text-anchor="end">4</text><text x="30" y="84" text-anchor="end">6</text><text x="30" y="24" text-anchor="end">8</text>
+    <text x="40" y="214" text-anchor="middle">0</text><text x="105" y="214" text-anchor="middle">10</text><text x="170" y="214" text-anchor="middle">20</text><text x="235" y="214" text-anchor="middle">30</text><text x="300" y="214" text-anchor="middle">40</text>
+    <text x="170" y="228" text-anchor="middle">Height above the surface (thousand km)</text>
+    <text x="10" y="110" transform="rotate(-90 10 110)" text-anchor="middle">Speed (km/s)</text>
+  </g>
+</svg>
+<figcaption>The speed of a circular orbit falls as the orbit gets higher, from Equation (4.2).</figcaption>
+</figure>
+
+<p>Equation (4.2) says that higher orbits are slower, as <a class="fig" href="#f-speed">Figure</a> shows. This surprises most people the
+  first time they meet it. A satellite 20,000 km up moves at under 4 km s<sup>−1</sup>, about half the station's speed, and because
+  it also has much further to go round, its period is nearly twelve hours. The satellites of the Global Positioning System orbit at
+  about that height.</p>
+
+<p>Go higher still and the period stretches to a full day. At a radius of 42,164 km, a satellite above the equator goes round once
+  in 23 hours and 56 minutes, the time the Earth takes to turn once relative to the stars.<span class="fn">That is a sidereal day. The 24-hour solar day is about four minutes longer, because the Earth also moves along its orbit round the Sun during the day and has to turn a little further to bring the Sun back to the same place in the sky.</span> Seen from the ground, such a satellite hangs still
+  in the sky, so a dish pointed at it never needs to move. This is a <em>geostationary</em> orbit, and it is crowded with weather and
+  communication satellites.</p>
+
+<table class="data float" id="t-orbits">
+  <caption>Common Earth orbits.</caption>
+  <tr><th>Orbit</th><th>Height</th><th>Period</th></tr>
+  <tr><td>Low (LEO)</td><td class="n">160–2000 km</td><td class="n">88–127 min</td></tr>
+  <tr><td>GPS (MEO)</td><td class="n">20,200 km</td><td class="n">11 h 58 min</td></tr>
+  <tr><td>Geostationary</td><td class="n">35,786 km</td><td class="n">23 h 56 min</td></tr>
+  <tr><td>The Moon</td><td class="n">≈ 384,000 km</td><td class="n">27.3 days</td></tr>
+</table>
+
+<p><a class="tab" href="#t-orbits">Table</a> lists some common orbits. Notice how strongly the period depends on the height. Low orbits
+  are cheap to reach and close enough for sharp photographs of the ground, but a satellite there is only above any one place for a
+  few minutes at a time. Higher orbits see more of the Earth at once, but the signals take longer to travel and the satellites cost
+  more to launch. Engineers choose an orbit the way an architect chooses a site: by balancing what the mission needs against what it can
+  afford.</p>
+
+<p>The Moon itself is a satellite in a nearly circular orbit, at about sixty times the radius of the Earth. Newton's great insight was
+  that the force making an apple fall and the force holding the Moon in its orbit are the same force, weakened at the Moon's distance by
+  the square of sixty. He checked that idea against the Moon's period and found that it agreed “pretty nearly”, in his own words.</p>
+
+<h2 class="section" id="s-ellipses">Ellipses</h2>
+
+<figure class="float" id="f-ellipse">
+<svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" font-family="Libertinus Sans" font-size="11">
+  <rect width="300" height="200" fill="#fff"/>
+  <ellipse cx="150" cy="100" rx="120" ry="72" fill="#fbf3e1" stroke="#8a5a00" stroke-width="1.6"/>
+  <line x1="30" y1="100" x2="270" y2="100" stroke="#999" stroke-dasharray="3 3"/>
+  <circle cx="246" cy="100" r="10" fill="#3f7fb0"/>
+  <circle cx="54" cy="100" r="2.5" fill="#999"/>
+  <circle cx="270" cy="100" r="4" fill="#e0a63a"/>
+  <circle cx="30" cy="100" r="4" fill="#e0a63a"/>
+  <path d="M150 104 L150 114 M150 109 L268 109" stroke="#333" stroke-width="0.8" fill="none"/>
+  <text x="196" y="124" text-anchor="middle">a</text>
+  <text x="270" y="88" text-anchor="middle">periapsis</text>
+  <text x="34" y="88" text-anchor="middle">apoapsis</text>
+  <text x="246" y="130" text-anchor="middle" fill="#3f7fb0">planet</text>
+  <text x="54" y="118" text-anchor="middle" fill="#777">empty focus</text>
+</svg>
+<figcaption>An elliptical orbit. The planet sits at one focus; the other focus is empty.</figcaption>
+</figure>
+
+<p>Most real orbits are not circles but ellipses, as Johannes Kepler discovered in 1609 from Tycho Brahe's careful observations of
+  Mars. An ellipse is a stretched circle with two special points inside it called foci. The body being orbited sits at one focus, as
+  <a class="fig" href="#f-ellipse">Figure</a> shows, and the other focus is empty.</p>
+
+<p><span class="sidenote"><b>Words.</b> <i>Periapsis</i> and <i>apoapsis</i> are the general terms. For orbits round the Earth they are
+  often called perigee and apogee; round the Sun, perihelion and aphelion.</span>The size of an ellipse is given by its semi-major axis
+  <var>a</var>, half of its longest diameter. Its shape is given by its eccentricity <var>e</var>, a number between 0 and 1. A circle
+  has <var>e</var> = 0; the larger <var>e</var>, the more stretched the ellipse. The Earth's orbit round the Sun has <var>e</var> ≈ 0.017,
+  so close to a circle that you could not tell the difference by eye. Halley's comet has <var>e</var> ≈ 0.97, and spends most of its
+  76-year orbit far out beyond Neptune.</p>
+
+<p>The point of closest approach is the periapsis and the furthest point is the apoapsis. A body in an elliptical orbit moves fastest
+  at periapsis and slowest at apoapsis. Kepler expressed this as his second law: a line from the Sun to a planet sweeps out equal areas
+  in equal times. Today we see it as a consequence of conservation of angular momentum, which you met in Chapter 3.</p>
+
+<h3>Changing orbit</h3>
+
+<p>To move a spacecraft from a low circular orbit to a higher one, mission planners use a <em>transfer orbit</em>: an ellipse whose
+  periapsis touches the low orbit and whose apoapsis touches the high one. A short burn of the engine at the low orbit stretches the
+  circle into the ellipse; half an orbit later, at apoapsis, a second burn rounds the ellipse out into the higher circle. This
+  two-burn manoeuvre is called a Hohmann transfer, after the German engineer Walter Hohmann, who described it in 1925, decades before
+  anyone could launch a satellite.</p>
+
+<div class="box">
+  <h4>Try it yourself</h4>
+  <ol>
+    <li>Tie a weight to a length of string and swing it round in a horizontal circle. Feel how the pull you must supply grows as you
+      swing faster. That pull plays the part of gravity.</li>
+    <li>Pin a loop of string round two drawing pins on a board and trace a pencil round the inside of the loop. You have drawn an
+      ellipse with the pins at its foci. Move the pins apart and the ellipse becomes more eccentric.</li>
+  </ol>
+</div>
+
+<h2 class="section" id="s-kepler">Kepler's third law</h2>
+
+<p>Kepler's third law, published in 1619, connects the size of an orbit to its period. For every planet going round the Sun, the
+  square of the period is proportional to the cube of the semi-major axis:</p>
+
+<p class="equation" id="e-kepler"><span class="label">(4.3)</span>𝑇² ∕ 𝑎³ = 4π² ∕ 𝐺𝑀 = constant</p>
+
+<p>If we measure <var>T</var> in years and <var>a</var> in astronomical units (the average distance from the Earth to the Sun), the
+  constant is exactly 1 for every planet, because it is 1 for the Earth by definition. <a class="tab" href="#t-planets">Table</a>
+  shows how well the planets obey it.</p>
+
+<table class="data" id="t-planets">
+  <caption>Kepler's third law for six planets. Semi-major axes in astronomical units, periods in years.</caption>
+  <tr><th>Planet</th><th style="text-align:right">Semi-major axis <var>a</var></th><th style="text-align:right">Period <var>T</var></th><th style="text-align:right"><var>T</var>²</th><th style="text-align:right"><var>a</var>³</th><th style="text-align:right"><var>T</var>² ∕ <var>a</var>³</th></tr>
+  <tr><td>Mercury</td><td class="n">0.387</td><td class="n">0.241</td><td class="n">0.0581</td><td class="n">0.0580</td><td class="n">1.00</td></tr>
+  <tr><td>Venus</td><td class="n">0.723</td><td class="n">0.615</td><td class="n">0.378</td><td class="n">0.378</td><td class="n">1.00</td></tr>
+  <tr><td>Earth</td><td class="n">1.000</td><td class="n">1.000</td><td class="n">1.000</td><td class="n">1.000</td><td class="n">1.00</td></tr>
+  <tr><td>Mars</td><td class="n">1.524</td><td class="n">1.881</td><td class="n">3.54</td><td class="n">3.54</td><td class="n">1.00</td></tr>
+  <tr><td>Jupiter</td><td class="n">5.203</td><td class="n">11.86</td><td class="n">140.7</td><td class="n">140.8</td><td class="n">1.00</td></tr>
+  <tr><td>Saturn</td><td class="n">9.537</td><td class="n">29.46</td><td class="n">867.9</td><td class="n">867.4</td><td class="n">1.00</td></tr>
+</table>
+
+<p>Kepler found this law by trial and error, working through years of calculations by hand. Newton later showed that it follows
+  directly from his law of gravitation, and in doing so gave the constant a meaning: it depends only on the mass of the body at the
+  focus. That turned Kepler's law into a scale. Measure the period and size of any orbit, and you can weigh whatever is at the centre,
+  whether it is a planet with moons, a star with planets, or the black hole at the centre of our galaxy.</p>
+
+<figure class="float" id="f-earthrise">
+  <img src="../catalogue/images/earthrise.jpg" alt="The Earth rising over the Moon's horizon, photographed from lunar orbit by Apollo 8">
+  <figcaption>The Earth seen from lunar orbit by the Apollo 8 crew in 1968 (NASA, public domain).</figcaption>
+</figure>
+
+<p>The same law works for the Moon and for artificial satellites, with the Earth's mass in place of the Sun's. The Apollo spacecraft
+  that orbited the Moon, like the one whose crew took the photograph in <a class="fig" href="#f-earthrise">Figure</a>, used it with the
+  Moon's mass: in a low orbit about 110 km above the lunar surface they went round once every two hours.</p>
+
+<h2 class="section" id="s-escape">Escaping</h2>
+
+<p><span class="sidenote key"><b>Key idea.</b> Escape speed is √2 times the circular orbital speed at the same distance.</span>What
+  happens if the cannon on Newton's mountain fires even faster than the speed for a circular orbit? The shell still goes round, but its
+  path stretches into an ellipse that carries it further and further out. At a speed √2 ≈ 1.41 times the circular speed, the ellipse
+  never closes: the shell has enough energy to escape from the Earth's gravity altogether and never come back. That speed is called the
+  escape speed.</p>
+
+<p>At the Earth's surface, ignoring air, the circular orbital speed is about 7.9 km s<sup>−1</sup> and the escape speed is about
+  11.2 km s<sup>−1</sup>. Notice that the escape speed does not depend on the direction of travel, as long as the path does not run
+  into the planet: it is a statement about energy, not about aim.<span class="fn">Real rockets do care about direction, because the Earth's rotation gives anything launched eastwards from near the equator a free start of up to 0.46 km s<sup>−1</sup>. That is why launch sites are placed as close to the equator as politics allows.</span></p>
+
+<p>The worked example about <a class="page" href="#s-circular">the space station</a> used circular orbits. The questions below ask you to
+  apply the same ideas to ellipses and escape.</p>
+
+<section class="questions">
+  <h2 class="section">Questions</h2>
+  <ol>
+    <li>Explain, without equations, why astronauts on the space station feel weightless even though gravity there is almost as strong as
+      on the ground.<span class="level">Core</span></li>
+    <li>Use Equation (4.2) to calculate the speed of a satellite in a circular orbit 1000 km above the Earth's surface. Take the Earth's
+      radius as 6371 km.<span class="level">Core</span></li>
+    <li>A satellite's orbit has a periapsis 500 km above the surface and an apoapsis 7000 km above it. Find its semi-major axis and
+      its eccentricity.<span class="level">Stretch</span></li>
+    <li>Use Kepler's third law and the data in <a class="tab" href="#t-planets">Table</a> to estimate the period of a dwarf planet with a
+      semi-major axis of 39.5 astronomical units.<span class="level">Core</span></li>
+    <li>The Moon's escape speed is 2.4 km s<sup>−1</sup>. What is the speed of a circular orbit just above its surface? Why could the
+      Apollo lunar modules leave the Moon with much smaller rockets than the ones that left the Earth?<span class="level">Stretch</span></li>
+  </ol>
+</section>
+
+</body>
+</html>

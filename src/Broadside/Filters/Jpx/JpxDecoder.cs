@@ -49,6 +49,7 @@ internal static class JpxDecoder
         {
             HasAlpha = plan.Alpha is not null,
             ColorModel = plan.Model,
+            IccProfile = plan.IccProfile,
             MaxReduction = maxReduction,
         };
         return true;
@@ -58,11 +59,12 @@ internal static class JpxDecoder
     /// The most resolution levels a reduced decode may drop (issue #362; ITU-T T.800 B.5): the fewest decomposition levels of any
     /// tile-component, and no more than keep the image origin on the reduced grid, so a reduction by 2^d is exactly ⌈W / 2^d⌉ x
     /// ⌈H / 2^d⌉ samples. The header offers the main header's levels (<see cref="JpxCodestreamReader.ReadMainHeaderLevels"/>); a
-    /// tile-part header that lowers them makes the decode deliver less than asked, which the samples' reduction says.
+    /// tile-part header that lowers them makes the decode deliver less than asked, which the samples' reduction says. The decode
+    /// never drops more than the header offers (issue #424): tile-part headers that all raise the levels do not lift that limit.
     /// </summary>
-    private static int MaxReduction(JpxCodestream stream)
+    private static int MaxReduction(JpxCodestream stream, ReadOnlySpan<byte> codestream)
     {
-        int levels = ImageGeometry.MaxReduction;
+        int levels = JpxCodestreamReader.ReadMainHeaderLevels(codestream, stream.Size.Components.Length);
         foreach (JpxTile tile in stream.Tiles)
         {
             foreach (JpxComponentStyle style in JpxTileParameters.Resolve(stream.Main, tile.Markers).Components)
@@ -135,7 +137,7 @@ internal static class JpxDecoder
         }
 
         JpxImageSize size = stream.Size;
-        int reduction = context.Reduction > 0 ? Math.Min(context.Reduction, MaxReduction(stream)) : 0;
+        int reduction = context.Reduction > 0 ? Math.Min(context.Reduction, MaxReduction(stream, codestream)) : 0;
         JpxImageSize output = Reduce(size, reduction);
         long width = output.Width - output.OriginX;
         long height = output.Height - output.OriginY;
@@ -298,12 +300,7 @@ internal static class JpxDecoder
             ApplyComponentTransform(parameters, components, buffers, reporter);
             for (int c = 0; c < count; c++)
             {
-                if (!components[c].Style.Reversible)
-                {
-                    RoundToIntegers(buffers[c].AsSpan(0, components[c].Width * components[c].Height), reporter);
-                }
-
-                planes[c]?.Write(components[c], buffers[c], reporter);
+                planes[c]?.Write(components[c], buffers[c], !components[c].Style.Reversible, reporter);
             }
         }
         finally
@@ -323,13 +320,14 @@ internal static class JpxDecoder
         }
     }
 
-    /// <summary>
-    /// The inverse component transformation of components 0 to 2 (G.2.2, G.3.2): the RCT when they use the 5/3 filter, the ICT when
-    /// they use the 9/7 one; skipped with a diagnostic when they differ in size or filter.
-    /// </summary>
     /// <summary>How many samples a whole-component loop handles between cancellation checks, less one (a mask: 64 Ki samples).</summary>
     private const int CancellationStride = (1 << 16) - 1;
 
+    /// <summary>
+    /// The inverse component transformation of components 0 to 2 (G.2.2, G.3.2): the RCT when they use the 5/3 filter, the ICT when
+    /// they use the 9/7 one (<see cref="JpxLifting"/>, 64 Ki samples between cancellation checks); skipped with a diagnostic when they
+    /// differ in size or filter.
+    /// </summary>
     private static void ApplyComponentTransform(JpxTileParameters parameters, JpxTileComponent[] components, int[][] buffers, CodecReporter reporter)
     {
         if (parameters.Coding.Transform != 1 || components.Length < 3)
@@ -350,61 +348,21 @@ internal static class JpxDecoder
         }
 
         int count = components[0].Width * components[0].Height;
-        if (reversible)
+        for (int start = 0; start < count; start += CancellationStride + 1)
         {
-            // G-6 to G-8.
-            Span<int> y0 = buffers[0].AsSpan(0, count);
-            Span<int> y1 = buffers[1].AsSpan(0, count);
-            Span<int> y2 = buffers[2].AsSpan(0, count);
-            for (int i = 0; i < y0.Length; i++)
+            reporter.ThrowIfCancellationRequested();
+            int length = Math.Min(CancellationStride + 1, count - start);
+            Span<int> y0 = buffers[0].AsSpan(start, length);
+            Span<int> y1 = buffers[1].AsSpan(start, length);
+            Span<int> y2 = buffers[2].AsSpan(start, length);
+            if (reversible)
             {
-                if ((i & CancellationStride) == 0)
-                {
-                    reporter.ThrowIfCancellationRequested();
-                }
-
-                int g = y0[i] - ((y1[i] + y2[i]) >> 2);
-                y0[i] = y2[i] + g;
-                y2[i] = y1[i] + g;
-                y1[i] = g;
+                JpxLifting.InverseRct(y0, y1, y2);
             }
-
-            return;
-        }
-
-        // G-12 to G-14.
-        Span<float> f0 = MemoryMarshal.Cast<int, float>(buffers[0].AsSpan(0, count));
-        Span<float> f1 = MemoryMarshal.Cast<int, float>(buffers[1].AsSpan(0, count));
-        Span<float> f2 = MemoryMarshal.Cast<int, float>(buffers[2].AsSpan(0, count));
-        for (int i = 0; i < f0.Length; i++)
-        {
-            if ((i & CancellationStride) == 0)
+            else
             {
-                reporter.ThrowIfCancellationRequested();
+                JpxLifting.InverseIct(MemoryMarshal.Cast<int, float>(y0), MemoryMarshal.Cast<int, float>(y1), MemoryMarshal.Cast<int, float>(y2));
             }
-
-            float y = f0[i];
-            float cb = f1[i];
-            float cr = f2[i];
-            f0[i] = y + (1.402f * cr);
-            f1[i] = y - (0.34413f * cb) - (0.71414f * cr);
-            f2[i] = y + (1.772f * cb);
-        }
-    }
-
-    /// <summary>Rounds an irreversible tile-component's reconstructed values to integers in place (G.1.2, before the DC level shift).</summary>
-    private static void RoundToIntegers(Span<int> buffer, CodecReporter reporter)
-    {
-        Span<float> values = MemoryMarshal.Cast<int, float>(buffer);
-        for (int i = 0; i < buffer.Length; i++)
-        {
-            if ((i & CancellationStride) == 0)
-            {
-                reporter.ThrowIfCancellationRequested();
-            }
-
-            float value = values[i];
-            buffer[i] = value >= int.MaxValue ? int.MaxValue : value <= int.MinValue ? int.MinValue : float.IsNaN(value) ? 0 : (int)MathF.Round(value);
         }
     }
 }

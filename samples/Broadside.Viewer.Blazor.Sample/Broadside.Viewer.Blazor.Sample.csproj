@@ -44,8 +44,25 @@
     <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
   </ItemGroup>
 
-  <!-- The gallery: hand-written files from the test corpus, served from wwwroot/documents (linked, so they never drift). -->
+  <!--
+    The browser kernel benchmark (KernelBenchmarks.cs, #470): SIMD kernels are linked as source, so the sample sees no internals.
+  -->
   <ItemGroup>
+    <Compile Include="../../tests/Broadside.TestSupport/SpanKernel.cs;../../tests/Broadside.TestSupport/SimdExampleKernel.cs" LinkBase="Kernels" />
+    <Compile Include="../../src/Broadside/Images/PixelPacking.cs;../../src/Broadside/Graphics/Colors/GrayExpansion.cs" LinkBase="Kernels" />
+    <Compile Include="../../src/Broadside/Filters/Dct/JpegColor.cs;../../src/Broadside/Filters/Dct/JpegColor.Vector128.cs" LinkBase="Kernels" />
+    <Compile Include="../../src/Broadside/Filters/Dct/InverseDct.cs;../../src/Broadside/Filters/Dct/InverseDct.Vector128.cs" LinkBase="Kernels" />
+    <Compile Include="../../src/Broadside.Rendering/CompositingRows.cs;../../src/Broadside.Rendering/BoxFilter.cs" LinkBase="Kernels" />
+    <Compile Include="../../src/Broadside/Graphics/Colors/CmykCharacterization.cs;../../src/Broadside/Graphics/Colors/CmykCharacterization.Vector128.cs" LinkBase="Kernels" />
+    <Compile Include="../../src/Broadside/Filters/Jpx/JpxLifting.cs;../../src/Broadside/Filters/Jpx/JpxLifting.Vector128.cs;../../src/Broadside/Filters/Jpx/JpxLevelShift.cs;../../src/Broadside/Filters/Jpx/JpxLevelShift.Vector128.cs" LinkBase="Kernels" />
+  </ItemGroup>
+
+  <!--
+    The gallery: the representative sample documents (samples/documents/pdf, #363) and hand-written files from the test corpus, served
+    from wwwroot/documents (linked, so they never drift).
+  -->
+  <ItemGroup>
+    <Content Include="../documents/pdf/*.pdf" Link="wwwroot/documents/%(Filename)%(Extension)" CopyToOutputDirectory="Never" />
     <Content Include="../../tests/Corpus/layout-two-column-tagged.pdf;../../tests/Corpus/layout-tables.pdf;../../tests/Corpus/tagged-structure.pdf;../../tests/Corpus/outline-full.pdf;../../tests/Corpus/annotations-link.pdf;../../tests/Corpus/acroform-fields.pdf;../../tests/Corpus/info-dictionary.pdf;../../tests/Corpus/shading-radial-cases.pdf;../../tests/Corpus/transparency-blend-modes.pdf;../../tests/Corpus/page-rotation.pdf;../../tests/Corpus/linearized.pdf"
              Link="wwwroot/documents/%(Filename)%(Extension)" CopyToOutputDirectory="Never" />
   </ItemGroup>

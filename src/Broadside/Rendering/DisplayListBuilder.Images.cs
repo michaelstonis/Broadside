@@ -187,14 +187,16 @@ internal sealed partial class DisplayListBuilder
         PdfImage.PreparedImage prepared = model.Prepare(cancellationToken);
         if (prepared.Encoded is { } encoded)
         {
-            // Prepare keeps an image encoded only when its dictionary's colour space has the codestream's component count.
-            PdfColorSpace space = model.ColorSpace!;
+            // Prepare keeps an image encoded only when its colour space, the dictionary's or the one its codestream's header gives
+            // (JPXDecode without a ColorSpace, issue #507), has the codestream's component count.
+            PdfColorSpace space = prepared.EncodedColorSpace!;
             if (space.Family == PdfColorSpaceFamily.Pattern)
             {
                 return null;
             }
 
-            MaskParts parts = DecodeMasks(model, null, space, document.Caches.Images, cancellationToken);
+            // The image reduces when drawn small, so a soft mask of its size must too, on the same grid (issue #513).
+            MaskParts parts = DecodeMasks(model, null, space, document.Caches.Images, encoded.Header.Width, encoded.Header.Height, cancellationToken);
             return new DisplayImage(encoded, document.Caches.Images, space, model.CreateDecodeMapFor(space.ComponentCount, encoded.Header.BitsPerComponent, inverted: false), model.Interpolate)
             {
                 Mask = parts.Mask,
@@ -216,7 +218,7 @@ internal sealed partial class DisplayListBuilder
                 return null;
             }
 
-            MaskParts mask = DecodeMasks(model, decoded, space, document.Caches.Images, cancellationToken);
+            MaskParts mask = DecodeMasks(model, decoded, space, document.Caches.Images, 0, 0, cancellationToken);
             var image = new DisplayImage(decoded, space, model.CreateDecodeMap(decoded), model.Interpolate, document.Caches.Images)
             {
                 Mask = mask.Mask,
@@ -248,8 +250,10 @@ internal sealed partial class DisplayListBuilder
     /// ISO 32000-2 §8.9.6 and §11.6.4.3 (which mask applies: <see cref="PdfImage.MaskKind"/>), §8.9.6.3 (explicit), §8.9.6.4 (colour
     /// key), §11.6.5.2 (soft mask and Matte), §7.4.9 and Table 87 (SMaskInData: 1 opacity, 2 opacity premultiplied into the
     /// colour, which is a Matte of zeros). An unusable mask leaves the image unmasked; its reason is already a diagnostic.
+    /// <paramref name="reducedWidth"/> and <paramref name="reducedHeight"/> are the size of an image kept encoded, which reduces
+    /// when drawn small (0 otherwise): a soft mask of that size is made reducible too, so that both reduce alike (issue #513).
     /// </remarks>
-    private static MaskParts DecodeMasks(PdfImage model, DecodedImage? decoded, PdfColorSpace space, ByteBudgetCache<(object Source, int Slot), IBudgetedEntry> cache, CancellationToken cancellationToken)
+    private static MaskParts DecodeMasks(PdfImage model, DecodedImage? decoded, PdfColorSpace space, ByteBudgetCache<(object Source, int Slot), IBudgetedEntry> cache, int reducedWidth, int reducedHeight, CancellationToken cancellationToken)
     {
         switch (model.MaskKind)
         {
@@ -257,7 +261,7 @@ internal sealed partial class DisplayListBuilder
                 return new MaskParts(DecodeMask(explicitMask, cancellationToken), null, [], []);
             case PdfImageMaskKind.ColorKey when model.ColorKey is { } ranges:
                 return new MaskParts(null, null, [.. ranges], []);
-            case PdfImageMaskKind.Soft when model.Mask is { } softMask && DecodeSoftMask(softMask, cache, cancellationToken) is { } soft:
+            case PdfImageMaskKind.Soft when model.Mask is { } softMask && DecodeSoftMask(softMask, cache, reducedWidth, reducedHeight, cancellationToken) is { } soft:
                 return new MaskParts(null, soft, [], model.Matte is { } matte ? [.. matte.Select(static m => (float)m)] : []);
             case PdfImageMaskKind.SoftInData when decoded?.Alpha is { } alpha:
                 int components = space is PdfIndexedColorSpace indexed ? indexed.Base.ComponentCount : space.ComponentCount;
@@ -290,11 +294,26 @@ internal sealed partial class DisplayListBuilder
         }
     }
 
-    /// <summary>Decodes a soft-mask image at its own size, as a one-component image whose Decode mapping gives the opacity.</summary>
+    /// <summary>
+    /// Decodes a soft-mask image at its own size, as a one-component image whose Decode mapping gives the opacity; a soft mask whose
+    /// codec decodes reduced resolutions is kept encoded instead, to be decoded at the resolution it is drawn at (issue #513).
+    /// </summary>
+    /// <param name="model">The soft-mask image.</param>
+    /// <param name="cache">The document's image cache.</param>
+    /// <param name="reducedWidth">The width of the image it masks when that image reduces, else 0.</param>
+    /// <param name="reducedHeight">The height of the image it masks when that image reduces, else 0.</param>
+    /// <param name="cancellationToken">The build's token.</param>
     /// <returns>The soft mask, or <see langword="null"/> when it cannot be decoded (already a diagnostic) or has more than one component.</returns>
-    private static DisplayImage? DecodeSoftMask(PdfImage model, ByteBudgetCache<(object Source, int Slot), IBudgetedEntry> cache, CancellationToken cancellationToken)
+    private static DisplayImage? DecodeSoftMask(PdfImage model, ByteBudgetCache<(object Source, int Slot), IBudgetedEntry> cache, int reducedWidth, int reducedHeight, CancellationToken cancellationToken)
     {
-        DecodedImage? decoded = model.DecodeSamples(cancellationToken);
+        PdfImage.PreparedImage prepared = model.Prepare(cancellationToken);
+        if (prepared.Encoded is { } encoded)
+        {
+            // Prepare keeps a soft mask encoded only when its codestream has the one gray component §11.6.5.2 asks for.
+            return new DisplayImage(encoded, cache, PdfDeviceGrayColorSpace.Instance, model.CreateDecodeMapFor(1, encoded.Header.BitsPerComponent, inverted: false), model.Interpolate);
+        }
+
+        DecodedImage? decoded = prepared.Decoded;
         try
         {
             if (decoded is null || decoded.Components != 1)
@@ -302,7 +321,10 @@ internal sealed partial class DisplayListBuilder
                 return null;
             }
 
-            var soft = new DisplayImage(decoded, PdfDeviceGrayColorSpace.Instance, model.CreateDecodeMap(decoded), model.Interpolate, cache);
+            // A small soft mask of the size of an image that reduces is made reducible too, by a box average, so that both fold at
+            // the same reduction on every backend (issue #513); otherwise the image would have to be drawn at its own resolution.
+            bool reducible = decoded.Width == reducedWidth && decoded.Height == reducedHeight;
+            var soft = new DisplayImage(decoded, PdfDeviceGrayColorSpace.Instance, model.CreateDecodeMap(decoded), model.Interpolate, cache, reducible);
             decoded = null;
             return soft;
         }

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dictionary: {{FIRST}} to {{LAST}}</title>
+<meta name="author" content="Broadside sample documents">
+<meta name="description" content="Dense three-column dictionary pages set by WeasyPrint from the 1913 Webster's Unabridged Dictionary (public domain in the US).">
+<meta name="generator" content="WeasyPrint">
+<meta name="dcterms.created" content="2026-10-25T00:00:00Z">
+<meta name="dcterms.modified" content="2026-10-25T00:00:00Z">
+<!-- dictionary.html is generated from this template by tools/webster_extract.py; edit the template, not the output. -->
+<style>
+@font-face { font-family: "Old Standard"; src: url("../fonts/oldstandardtt/OldStandard-Regular.ttf"); }
+@font-face { font-family: "Old Standard"; font-style: italic; src: url("../fonts/oldstandardtt/OldStandard-Italic.ttf"); }
+@font-face { font-family: "Old Standard"; font-weight: 700; src: url("../fonts/oldstandardtt/OldStandard-Bold.ttf"); }
+@font-face { font-family: "PT Sans"; src: url("../fonts/ptsans/PT_Sans-Web-Regular.ttf"); }
+@font-face { font-family: "PT Sans"; font-weight: 700; src: url("../fonts/ptsans/PT_Sans-Web-Bold.ttf"); }
+@font-face { font-family: "Fira Sans Condensed"; font-weight: 600; src: url("../fonts/firasanscondensed/FiraSansCondensed-SemiBold.ttf"); }
+@font-face { font-family: "Libertinus Serif"; font-style: italic; src: url("../fonts/libertinus/LibertinusSerif-Italic.otf"); }
+@font-face { font-family: "Abril Fatface"; src: url("../fonts/abrilfatface/AbrilFatface-Regular.ttf"); }
+
+@page {
+  size: 170mm 240mm;
+  margin: 17mm 16mm 15mm 14mm;
+  @top-left { content: string(hw, first); font: 700 9pt "PT Sans"; vertical-align: bottom; padding-bottom: 2mm; }
+  @top-center { content: counter(page); font: 8pt "PT Sans"; vertical-align: bottom; padding-bottom: 2mm; }
+  @top-right { content: string(hw, last); font: 700 9pt "PT Sans"; vertical-align: bottom; padding-bottom: 2mm; }
+}
+@page :first { @top-left { content: none; } @top-right { content: none; } }
+
+html { font: 6.9pt/1.22 "Old Standard"; color: #111; }
+body { margin: 0; }
+.letter { column-span: all; display: flex; align-items: flex-end; gap: 4mm; border-bottom: 1.2pt solid #111; padding-bottom: 2mm; margin-bottom: 3mm; }
+.letter .big { font: 64pt/0.8 "Abril Fatface"; }
+.letter p { font: italic 8pt/1.35 "Old Standard"; margin: 0; max-width: 90mm; }
+main { column-count: 3; column-gap: 4mm; column-rule: 0.3pt solid #999; text-align: justify; hyphens: auto; }
+.entry { margin: 0 0 0.9mm; text-indent: -2.4mm; padding-left: 2.4mm; string-set: hw attr(data-hw); }
+.hw { font-weight: 700; font-size: 7.4pt; margin-right: 0.6mm; }
+.etym { font: italic 6.3pt/1.2 "Libertinus Serif"; color: #333; }
+.n { font-family: "PT Sans"; font-size: 6.2pt; }
+.syn { font-variant: small-caps; letter-spacing: 0.04em; }
+i { font-style: italic; }
+
+/* The thumb tab: a fixed element repeats on every page, at the outer edge. */
+.tab {
+  position: fixed; right: -16mm; top: 70mm; width: 13mm; height: 26mm; background: #111; color: #fff; border-radius: 2mm 0 0 2mm;
+}
+.tab span {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(90deg); white-space: nowrap;
+  font: 600 9pt "Fira Sans Condensed"; letter-spacing: 0.25em;
+}
+.colophon { column-span: all; margin-top: 4mm; border-top: 0.6pt solid #111; padding-top: 2mm; font: 6.5pt/1.35 "PT Sans"; color: #444; }
+</style>
+</head>
+<body>
+<div class="tab"><span>Q · QUA–</span></div>
+<main>
+<div class="letter">
+  <div class="big">Q</div>
+  <p>Entries from Webster's Unabridged Dictionary, 1913 edition, which is in the public domain in the United States, set in three
+    columns for a sample document. The text is reproduced as published, apart from a few entries left out of this selection.</p>
+</div>
+<!-- ENTRIES -->
+<div class="colophon">Selection: {{FIRST}} to {{LAST}}. Source text: Webster's Unabridged Dictionary (G. &amp; C. Merriam Co., 1913), via
+  a public-domain transcription. Typeset for the Broadside project with Old Standard, PT Sans, Fira Sans Condensed, Libertinus and
+  Abril Fatface (SIL Open Font License).</div>
+</main>
+</body>
+</html>

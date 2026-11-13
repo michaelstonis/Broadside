@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Globalization;
+using Broadside.Filters;
 using Broadside.Graphics;
 using Broadside.Rendering;
+using Broadside.Rendering.Skia;
 using Broadside.TestSupport;
 using Broadside.Viewer.Maui;
 
@@ -15,13 +17,21 @@ namespace Broadside.Viewer.Maui.Sample;
 /// heap and decoded-image cache afterwards (process memory is sampled from outside: iOS does not report it to the app), then quits.
 /// One measurement per launch, so each starts from a fresh process. BROADSIDE_PHOTO_WIDTH narrows the view to a share of the
 /// window (a phone at 3 pixels per point reduces the cover at fit width only in a narrower view, or with BROADSIDE_PHOTO_K=1);
-/// BROADSIDE_PHOTO_FULL=1 turns scaled image decode off, for comparison.
+/// BROADSIDE_PHOTO_FULL=1 turns scaled image decode off, for comparison. BROADSIDE_PHOTO_DECODER=managed decodes the photograph with
+/// the managed codec instead of SkiaSharp's (#374), and BROADSIDE_PHOTO_SAMPLING=420 encodes it with 4:2:0 chroma (4:4:4 by default).
 /// </summary>
 public static class PhotoBench
 {
     public static bool Requested { get; set; } = Environment.GetEnvironmentVariable("BROADSIDE_PHOTO") == "1";
 
     public static bool FullDecode { get; set; } = Environment.GetEnvironmentVariable("BROADSIDE_PHOTO_FULL") == "1";
+
+    /// <summary>Gets or sets a value indicating whether the managed codec decodes the photograph (BROADSIDE_PHOTO_DECODER=managed), not SkiaSharp's.</summary>
+    public static bool ManagedDecoder { get; set; } = Environment.GetEnvironmentVariable("BROADSIDE_PHOTO_DECODER") == "managed";
+
+    /// <summary>Gets or sets the photograph's chroma subsampling (BROADSIDE_PHOTO_SAMPLING: 444 by default, or 420).</summary>
+    public static DctChromaSubsampling Sampling { get; set; } =
+        Environment.GetEnvironmentVariable("BROADSIDE_PHOTO_SAMPLING") == "420" ? DctChromaSubsampling.HorizontalAndVertical : DctChromaSubsampling.None;
 
     /// <summary>Gets or sets the share of the window's width the view takes (BROADSIDE_PHOTO_WIDTH, 1 by default).</summary>
     public static double Width { get; set; } = double.TryParse(Environment.GetEnvironmentVariable("BROADSIDE_PHOTO_WIDTH"), CultureInfo.InvariantCulture, out double width) ? width : 1;
@@ -46,13 +56,15 @@ public static class PhotoBench
 
     private static async Task RunCoreAsync(PdfView view, Action<DocumentSession> show)
     {
-        byte[] file = await Task.Run(() => CatalogueSamples.Cover());
+        byte[] file = await Task.Run(() => CatalogueSamples.Cover(subsampling: Sampling));
+        string decoder = ManagedDecoder ? "managed" : SkiaImageDecoder.DecoderName;
+        string sampling = Sampling == DctChromaSubsampling.None ? "444" : "420";
 
         // Encoding the photograph takes memory of its own: settle it, and report where the process stands before the viewer opens.
         GC.Collect();
         GC.WaitForPendingFinalizers();
         await Task.Delay(1000);
-        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"BROADSIDE_PHOTO ready decode={(FullDecode ? "full" : "scaled")} managed={GC.GetTotalMemory(false) / 1048576}MB"));
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"BROADSIDE_PHOTO ready decode={(FullDecode ? "full" : "scaled")} decoder={decoder} sampling={sampling} managed={GC.GetTotalMemory(false) / 1048576}MB"));
         if (Width < 1)
         {
             // A narrower view (a thumbnail, a split screen): the page is drawn smaller, so the photograph is reduced at fit width.
@@ -63,7 +75,7 @@ public static class PhotoBench
 
         var timings = new TileTimings();
         ViewerOptions options = new ViewerOptions()
-            .UseEngine(new PdfEngine(new PdfOptions().UseStandard14Fonts()))
+            .UseEngine(new PdfEngine(ManagedDecoder ? new PdfOptions().UseStandard14Fonts() : new PdfOptions().UseStandard14Fonts().UseSkiaImageDecoder()))
             .WithScaledImageDecode(!FullDecode)
             .WithImageSamplesPerPixel(SamplesPerPixel)
             .UseBackend(() => new TimedTileBackend(new SkiaTileBackend(!FullDecode, SamplesPerPixel), timings));
@@ -76,7 +88,7 @@ public static class PhotoBench
         GC.WaitForPendingFinalizers();
         Console.WriteLine(string.Create(
             CultureInfo.InvariantCulture,
-            $"BROADSIDE_PHOTO fit decode={(FullDecode ? "full" : "scaled")} k={SamplesPerPixel} width={view.Width:F0}pt zoom={view.State.Zoom:F2} tiles={timings.Count} tileTotal={timings.TotalMs:F0}ms tileMax={timings.MaxMs:F0}ms idle={idle:F0}ms managed={GC.GetTotalMemory(false) / 1048576}MB imageCache={session.Document.CacheStatistics.Images.Bytes / 1048576}MB"));
+            $"BROADSIDE_PHOTO fit decode={(FullDecode ? "full" : "scaled")} decoder={decoder} sampling={sampling} k={SamplesPerPixel} width={view.Width:F0}pt zoom={view.State.Zoom:F2} tiles={timings.Count} tileTotal={timings.TotalMs:F0}ms tileMax={timings.MaxMs:F0}ms prefetch={timings.PrefetchMs:F0}ms idle={idle:F0}ms managed={GC.GetTotalMemory(false) / 1048576}MB imageCache={session.Document.CacheStatistics.Images.Bytes / 1048576}MB"));
     }
 
     /// <summary>Waits until the view has drawn everything it shows, then half a second more (it returns that much late).</summary>
@@ -105,6 +117,20 @@ public static class PhotoBench
 
         public double MaxMs => TimeSpan.FromTicks(Interlocked.Read(ref _max)).TotalMilliseconds;
 
+        /// <summary>Gets the longest prefetch: the one that decoded the photograph with the platform decoder, off the tiles' own time.</summary>
+        public double PrefetchMs => TimeSpan.FromTicks(Interlocked.Read(ref _prefetchMax)).TotalMilliseconds;
+
+        private long _prefetchMax;
+
+        public void AddPrefetch(long start, long end)
+        {
+            long ticks = Stopwatch.GetElapsedTime(start, end).Ticks;
+            lock (_gate)
+            {
+                _prefetchMax = Math.Max(_prefetchMax, ticks);
+            }
+        }
+
         public void Reset()
         {
             lock (_gate)
@@ -132,8 +158,25 @@ public static class PhotoBench
         public ITileRender Begin(DisplayList list, Bitmap target, in Matrix deviceTransform, CancellationToken cancellationToken) =>
             new Timed(inner.Begin(list, target, deviceTransform, cancellationToken), timings);
 
-        public ValueTask PrefetchImagesAsync(DisplayList list, in Matrix deviceTransform, int width, int height, CancellationToken cancellationToken) =>
-            inner.PrefetchImagesAsync(list, deviceTransform, width, height, cancellationToken);
+        public ValueTask PrefetchImagesAsync(DisplayList list, in Matrix deviceTransform, int width, int height, CancellationToken cancellationToken)
+        {
+            long start = Stopwatch.GetTimestamp();
+            ValueTask prefetch = inner.PrefetchImagesAsync(list, deviceTransform, width, height, cancellationToken);
+            if (prefetch.IsCompletedSuccessfully)
+            {
+                // A synchronous platform decoder (Skia's) has decoded already.
+                timings.AddPrefetch(start, Stopwatch.GetTimestamp());
+                return prefetch;
+            }
+
+            return TimedAsync(prefetch, start);
+        }
+
+        private async ValueTask TimedAsync(ValueTask prefetch, long start)
+        {
+            await prefetch;
+            timings.AddPrefetch(start, Stopwatch.GetTimestamp());
+        }
 
         public void Dispose() => inner.Dispose();
 
