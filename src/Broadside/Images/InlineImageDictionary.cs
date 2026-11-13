@@ -76,7 +76,7 @@ internal static class InlineImageDictionary
         if (full.Equals(FilterNames.JpxDecode) || full.Equals(FilterNames.Jbig2Decode) || full.Equals(FilterNames.Crypt))
         {
             diagnostics.Report(
-                DiagnosticCodes.InlineImageFilterNotAllowed,
+                ImageDiagnostics.InlineImageFilterNotAllowed,
                 DiagnosticSeverity.Warning,
                 $"The filter /{full.Value} shall not be used in an inline image; it is applied anyway.",
                 offset: null,

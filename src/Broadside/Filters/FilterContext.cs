@@ -131,7 +131,7 @@ public sealed class FilterContext
                 return value;
             default:
                 Report(
-                    DiagnosticCodes.DecodeParmsInvalid,
+                    FilterDiagnostics.DecodeParmsInvalid.Name,
                     DiagnosticSeverity.Warning,
                     string.Create(
                         CultureInfo.InvariantCulture,

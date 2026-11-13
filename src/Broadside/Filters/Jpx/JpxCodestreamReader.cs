@@ -49,7 +49,7 @@ internal static class JpxCodestreamReader
         if (data.Length >= 4 && BinaryPrimitives.ReadUInt16BigEndian(data) == Soc && BinaryPrimitives.ReadUInt16BigEndian(data[2..]) == Siz)
         {
             reporter.Report(
-                DiagnosticCodes.JpxCodestreamRaw,
+                JpxDiagnostics.JpxCodestreamRaw,
                 DiagnosticSeverity.Information,
                 "The JPXDecode data is a bare JPEG 2000 codestream, not the JPX file structure ISO 32000-2 §7.4.9 expects; it is decoded.");
             return (0, data.Length);
@@ -63,12 +63,12 @@ internal static class JpxCodestreamReader
                 return box;
             }
 
-            reporter.Report(DiagnosticCodes.JpxBoxInvalid, DiagnosticSeverity.Error, "The JPEG 2000 file has no contiguous codestream box (jp2c).");
+            reporter.Report(JpxDiagnostics.JpxBoxInvalid, DiagnosticSeverity.Error, "The JPEG 2000 file has no contiguous codestream box (jp2c).");
             return Scan(data);
         }
 
         reporter.Report(
-            DiagnosticCodes.JpxSignatureInvalid,
+            JpxDiagnostics.JpxSignatureInvalid,
             DiagnosticSeverity.Warning,
             "The JPXDecode data is neither a JPEG 2000 file nor a codestream; the first SOC and SIZ markers in it are used.");
         return Scan(data);
@@ -89,14 +89,14 @@ internal static class JpxCodestreamReader
         if (codestreams > 1)
         {
             reporter.Report(
-                DiagnosticCodes.JpxCodestreamsIgnored,
+                JpxDiagnostics.JpxCodestreamsIgnored,
                 DiagnosticSeverity.Warning,
                 $"The JPX file holds {codestreams} codestreams (ISO/IEC 15444-2 composition or animation, not supported in PDF files by ISO 32000-2 §7.4.9); only the first is decoded.");
         }
         else if (fragmented)
         {
             reporter.Report(
-                DiagnosticCodes.JpxCodestreamsIgnored,
+                JpxDiagnostics.JpxCodestreamsIgnored,
                 DiagnosticSeverity.Warning,
                 "The JPX file holds a fragment table (an ISO/IEC 15444-2 fragmented codestream), which is not read; only the contiguous codestream is decoded.");
         }
@@ -107,7 +107,7 @@ internal static class JpxCodestreamReader
     {
         if (codestream.Length < 4 || BinaryPrimitives.ReadUInt16BigEndian(codestream) != Soc || BinaryPrimitives.ReadUInt16BigEndian(codestream[2..]) != Siz)
         {
-            reporter.Report(DiagnosticCodes.JpxMarkerUnexpected, DiagnosticSeverity.Error, "The JPEG 2000 codestream does not start with the SOC and SIZ markers.");
+            reporter.Report(JpxDiagnostics.JpxMarkerUnexpected, DiagnosticSeverity.Error, "The JPEG 2000 codestream does not start with the SOC and SIZ markers.");
             return null;
         }
 
@@ -208,7 +208,7 @@ internal static class JpxCodestreamReader
         bool highThroughput = main.HighThroughput;
         if (main.Cod is null || main.Qcd is null)
         {
-            reporter.Report(DiagnosticCodes.JpxMarkerSegmentInvalid, DiagnosticSeverity.Error, "The JPEG 2000 main header has no COD or no QCD marker segment.");
+            reporter.Report(JpxDiagnostics.JpxMarkerSegmentInvalid, DiagnosticSeverity.Error, "The JPEG 2000 main header has no COD or no QCD marker segment.");
             return null;
         }
 
@@ -231,7 +231,7 @@ internal static class JpxCodestreamReader
                 }
                 else
                 {
-                    reporter.Report(DiagnosticCodes.JpxMarkerUnexpected, DiagnosticSeverity.Warning, $"A JPEG 2000 tile-part is expected where the codestream holds 0x{marker:X4}; the rest is ignored.");
+                    reporter.Report(JpxDiagnostics.JpxMarkerUnexpected, DiagnosticSeverity.Warning, $"A JPEG 2000 tile-part is expected where the codestream holds 0x{marker:X4}; the rest is ignored.");
                 }
 
                 break;
@@ -254,7 +254,7 @@ internal static class JpxCodestreamReader
             {
                 end = FindNextTilePart(codestream, start + 12, tileCount);
                 reporter.Report(
-                    DiagnosticCodes.JpxPsotInvalid,
+                    JpxDiagnostics.JpxPsotInvalid,
                     DiagnosticSeverity.Warning,
                     $"A JPEG 2000 tile-part length Psot of {length} is impossible; the tile-part is taken to end at the next tile-part or the end of the codestream.");
             }
@@ -271,7 +271,7 @@ internal static class JpxCodestreamReader
             JpxTile? tile = null;
             if (index >= tileCount)
             {
-                reporter.Report(DiagnosticCodes.JpxMarkerSegmentInvalid, DiagnosticSeverity.Warning, $"A JPEG 2000 tile-part names tile {index} of {tileCount}; it is ignored.");
+                reporter.Report(JpxDiagnostics.JpxMarkerSegmentInvalid, DiagnosticSeverity.Warning, $"A JPEG 2000 tile-part names tile {index} of {tileCount}; it is ignored.");
             }
             else
             {
@@ -324,14 +324,14 @@ internal static class JpxCodestreamReader
         {
             if (seen == part)
             {
-                reporter.Report(DiagnosticCodes.JpxTilePartOrder, DiagnosticSeverity.Warning, $"Tile {tile.Index} has two tile-parts with TPsot {part}; the second is ignored.");
+                reporter.Report(JpxDiagnostics.JpxTilePartOrder, DiagnosticSeverity.Warning, $"Tile {tile.Index} has two tile-parts with TPsot {part}; the second is ignored.");
                 return;
             }
         }
 
         if (tile.Parts.Count > 0 && tile.Parts[^1].Part > part)
         {
-            reporter.Report(DiagnosticCodes.JpxTilePartOrder, DiagnosticSeverity.Warning, $"The tile-parts of tile {tile.Index} are not in TPsot order; they are read in that order.");
+            reporter.Report(JpxDiagnostics.JpxTilePartOrder, DiagnosticSeverity.Warning, $"The tile-parts of tile {tile.Index} are not in TPsot order; they are read in that order.");
         }
 
         tile.Parts.Add((part, data.Offset, data.Length));
@@ -346,7 +346,7 @@ internal static class JpxCodestreamReader
         }
         else if (markers.Cod is not null || markers.Qcd is not null || Array.Exists(markers.Coc, c => c is not null) || Array.Exists(markers.Qcc, q => q is not null))
         {
-            reporter.Report(DiagnosticCodes.JpxMarkerUnexpected, DiagnosticSeverity.Warning, "A JPEG 2000 tile-part other than the first of its tile holds COD, COC, QCD or QCC; they are ignored (A.4.2).");
+            reporter.Report(JpxDiagnostics.JpxMarkerUnexpected, DiagnosticSeverity.Warning, "A JPEG 2000 tile-part other than the first of its tile holds COD, COC, QCD or QCC; they are ignored (A.4.2).");
         }
 
         foreach (JpxProgressionVolume volume in markers.Volumes)
@@ -414,7 +414,7 @@ internal static class JpxCodestreamReader
     }
 
     private static void Truncated(CodecReporter reporter) => reporter.Report(
-        DiagnosticCodes.JpxCodestreamTruncated,
+        JpxDiagnostics.JpxCodestreamTruncated,
         DiagnosticSeverity.Warning,
         "The JPEG 2000 codestream ends early; what is present is decoded and the rest of the image is left empty.");
 
@@ -448,7 +448,7 @@ internal static class JpxCodestreamReader
             {
                 if (marker < 0xFF00)
                 {
-                    reporter.Report(DiagnosticCodes.JpxMarkerUnexpected, DiagnosticSeverity.Warning, "A JPEG 2000 header holds bytes that are not a marker segment; the header ends there.");
+                    reporter.Report(JpxDiagnostics.JpxMarkerUnexpected, DiagnosticSeverity.Warning, "A JPEG 2000 header holds bytes that are not a marker segment; the header ends there.");
                 }
 
                 return false;
@@ -486,7 +486,7 @@ internal static class JpxCodestreamReader
                     packed.Add((body[0], body[1..].ToArray()));
                     break;
                 case Ppm or Ppt:
-                    reporter.Report(DiagnosticCodes.JpxPpmInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 PPM or PPT marker segment is empty or in the wrong header (A.7.4, A.7.5); it is ignored.");
+                    reporter.Report(JpxDiagnostics.JpxPpmInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 PPM or PPT marker segment is empty or in the wrong header (A.7.4, A.7.5); it is ignored.");
                     break;
             }
 
@@ -515,7 +515,7 @@ internal static class JpxCodestreamReader
         int entry = wide ? 9 : 7;
         if (body.Length < entry || body.Length % entry != 0)
         {
-            reporter.Report(DiagnosticCodes.JpxPocInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 POC marker segment has a length that is not a whole number of progression volumes; the whole ones are used.");
+            reporter.Report(JpxDiagnostics.JpxPocInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 POC marker segment has a length that is not a whole number of progression volumes; the whole ones are used.");
         }
 
         for (int offset = 0; offset + entry <= body.Length; offset += entry)
@@ -535,7 +535,7 @@ internal static class JpxCodestreamReader
 
             if (order > 4 || rs >= re || cs >= ce || lye == 0)
             {
-                reporter.Report(DiagnosticCodes.JpxPocInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 progression volume of a POC marker segment is empty or has an unknown order; it is skipped.");
+                reporter.Report(JpxDiagnostics.JpxPocInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 progression volume of a POC marker segment is empty or has an unknown order; it is skipped.");
                 continue;
             }
 
@@ -559,7 +559,7 @@ internal static class JpxCodestreamReader
         {
             if (_position + 4 > _data.Length)
             {
-                reporter.Report(DiagnosticCodes.JpxPpmInvalid, DiagnosticSeverity.Warning, "The JPEG 2000 PPM marker segments hold fewer packet-header records than there are tile-parts; the rest have none.");
+                reporter.Report(JpxDiagnostics.JpxPpmInvalid, DiagnosticSeverity.Warning, "The JPEG 2000 PPM marker segments hold fewer packet-header records than there are tile-parts; the rest have none.");
                 _position = _data.Length;
                 return [];
             }
@@ -568,7 +568,7 @@ internal static class JpxCodestreamReader
             _position += 4;
             if (count > _data.Length - _position)
             {
-                reporter.Report(DiagnosticCodes.JpxPpmInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 PPM packet-header record runs past the PPM data; it is cut there.");
+                reporter.Report(JpxDiagnostics.JpxPpmInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 PPM packet-header record runs past the PPM data; it is cut there.");
                 count = _data.Length - _position;
             }
 
@@ -591,7 +591,7 @@ internal static class JpxCodestreamReader
         int length = BinaryPrimitives.ReadUInt16BigEndian(data[(position + 2)..]);
         if (length < 2)
         {
-            reporter.Report(DiagnosticCodes.JpxMarkerSegmentInvalid, DiagnosticSeverity.Warning, $"A JPEG 2000 marker segment has the impossible length {length}.");
+            reporter.Report(JpxDiagnostics.JpxMarkerSegmentInvalid, DiagnosticSeverity.Warning, $"A JPEG 2000 marker segment has the impossible length {length}.");
             return false;
         }
 
@@ -657,7 +657,7 @@ internal static class JpxCodestreamReader
         long high = JpxMath.CeilDivide(size.Height - size.TileOriginY, size.TileHeight);
         if (wide > MaxTiles || high > MaxTiles || wide * high > MaxTiles)
         {
-            reporter.Report(DiagnosticCodes.JpxLimitExceeded, DiagnosticSeverity.Error, $"The JPEG 2000 codestream declares more than {MaxTiles} tiles.");
+            reporter.Report(JpxDiagnostics.JpxLimitExceeded, DiagnosticSeverity.Error, $"The JPEG 2000 codestream declares more than {MaxTiles} tiles.");
             return null;
         }
 
@@ -666,7 +666,7 @@ internal static class JpxCodestreamReader
 
     private static JpxImageSize? InvalidSize(CodecReporter reporter, string reason)
     {
-        reporter.Report(DiagnosticCodes.JpxMarkerSegmentInvalid, DiagnosticSeverity.Error, $"The JPEG 2000 SIZ marker segment cannot be used: {reason}.");
+        reporter.Report(JpxDiagnostics.JpxMarkerSegmentInvalid, DiagnosticSeverity.Error, $"The JPEG 2000 SIZ marker segment cannot be used: {reason}.");
         return null;
     }
 
@@ -816,7 +816,7 @@ internal static class JpxCodestreamReader
     }
 
     private static void Invalid(CodecReporter reporter, string segment) => reporter.Report(
-        DiagnosticCodes.JpxMarkerSegmentInvalid,
+        JpxDiagnostics.JpxMarkerSegmentInvalid,
         DiagnosticSeverity.Warning,
         $"A JPEG 2000 {segment} marker segment holds values outside Annex A's ranges; what can be used is kept.");
 
@@ -849,7 +849,7 @@ internal static class JpxCodestreamReader
 
             if (length < header)
             {
-                reporter.Report(DiagnosticCodes.JpxBoxInvalid, DiagnosticSeverity.Warning, $"A JPEG 2000 box has the impossible length {length}; the boxes after it are not read.");
+                reporter.Report(JpxDiagnostics.JpxBoxInvalid, DiagnosticSeverity.Warning, $"A JPEG 2000 box has the impossible length {length}; the boxes after it are not read.");
                 break;
             }
 

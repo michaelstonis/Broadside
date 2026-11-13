@@ -91,7 +91,7 @@ public sealed class Ascii85DecodeFilter : IStreamFilter
         ReportIf(context, loneDigit, "ASCII85Decode data ends with a partial group of one character, which cannot occur; it is dropped.");
         if (!ended)
         {
-            context.Report(DiagnosticCodes.FilterDataTruncated, DiagnosticSeverity.Warning, "ASCII85Decode data ends without the ~> end-of-data marker; it is decoded to its end.");
+            context.Report(FilterDiagnostics.FilterDataTruncated.Name, DiagnosticSeverity.Warning, "ASCII85Decode data ends without the ~> end-of-data marker; it is decoded to its end.");
         }
     }
 
@@ -99,7 +99,7 @@ public sealed class Ascii85DecodeFilter : IStreamFilter
     {
         if (condition)
         {
-            context.Report(DiagnosticCodes.FilterDataInvalid, DiagnosticSeverity.Warning, message);
+            context.Report(FilterDiagnostics.FilterDataInvalid.Name, DiagnosticSeverity.Warning, message);
         }
     }
 

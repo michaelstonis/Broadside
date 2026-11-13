@@ -117,7 +117,7 @@ internal sealed class JpxFileHeader
                         header.Channels ??= ReadDefinitions(body);
                         break;
                     case ColorBox:
-                        reporter.Report(DiagnosticCodes.JpxBoxInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 colour specification box is too short; it is ignored.");
+                        reporter.Report(JpxDiagnostics.JpxBoxInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 colour specification box is too short; it is ignored.");
                         break;
                 }
             }
@@ -159,14 +159,14 @@ internal sealed class JpxFileHeader
 
             if (length < header)
             {
-                reporter.Report(DiagnosticCodes.JpxBoxInvalid, DiagnosticSeverity.Warning, $"A JPEG 2000 box has the impossible length {length}; the boxes after it are not read.");
+                reporter.Report(JpxDiagnostics.JpxBoxInvalid, DiagnosticSeverity.Warning, $"A JPEG 2000 box has the impossible length {length}; the boxes after it are not read.");
                 break;
             }
 
             long boxEnd = length > end - position ? end : position + length;
             if (length > end - position)
             {
-                reporter.Report(DiagnosticCodes.JpxBoxInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 box runs past the end of the box or file holding it; it is cut there.");
+                reporter.Report(JpxDiagnostics.JpxBoxInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 box runs past the end of the box or file holding it; it is cut there.");
             }
 
             boxes.Add((type, (int)position + header, (int)(boxEnd - position - header)));
@@ -252,7 +252,7 @@ internal sealed class JpxFileHeader
         int available = Math.Min(entries, values.Length / rowBytes);
         if (available < entries)
         {
-            reporter.Report(DiagnosticCodes.JpxBoxInvalid, DiagnosticSeverity.Warning, "The JPEG 2000 palette box holds fewer entries than it declares; the missing ones are zero.");
+            reporter.Report(JpxDiagnostics.JpxBoxInvalid, DiagnosticSeverity.Warning, "The JPEG 2000 palette box holds fewer entries than it declares; the missing ones are zero.");
         }
 
         long[] table = new long[entries * columns];
@@ -283,7 +283,7 @@ internal sealed class JpxFileHeader
 
     private static JpxPalette? InvalidPalette(CodecReporter reporter)
     {
-        reporter.Report(DiagnosticCodes.JpxBoxInvalid, DiagnosticSeverity.Warning, "The JPEG 2000 palette box is outside Table I.13's ranges; it is ignored.");
+        reporter.Report(JpxDiagnostics.JpxBoxInvalid, DiagnosticSeverity.Warning, "The JPEG 2000 palette box is outside Table I.13's ranges; it is ignored.");
         return null;
     }
 

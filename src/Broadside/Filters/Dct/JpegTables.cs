@@ -52,7 +52,7 @@ internal sealed class JpegTables
             int value = body[i + 1];
             if (tableClass > 1 || destination > 3 || (tableClass == 0 && (value & 15) > value >> 4) || (tableClass == 1 && value is < 1 or > 63))
             {
-                reporter.Report(DiagnosticCodes.DctTableInvalid, DiagnosticSeverity.Warning, "A DCT arithmetic conditioning table is invalid; it was ignored.");
+                reporter.Report(DctDiagnostics.DctTableInvalid, DiagnosticSeverity.Warning, "A DCT arithmetic conditioning table is invalid; it was ignored.");
                 continue;
             }
 
@@ -69,7 +69,7 @@ internal sealed class JpegTables
 
         if ((body.Length & 1) != 0)
         {
-            reporter.Report(DiagnosticCodes.DctSegmentInvalid, DiagnosticSeverity.Warning, "A DCT DAC segment has an odd length; its last byte was ignored.");
+            reporter.Report(DctDiagnostics.DctSegmentInvalid, DiagnosticSeverity.Warning, "A DCT DAC segment has an odd length; its last byte was ignored.");
         }
     }
 
@@ -87,7 +87,7 @@ internal sealed class JpegTables
             int size = precision == 0 ? 64 : 128;
             if (precision > 1 || destination > 3 || i + 1 + size > body.Length)
             {
-                reporter.Report(DiagnosticCodes.DctTableInvalid, DiagnosticSeverity.Warning, "A DCT quantization table is invalid; it was ignored.");
+                reporter.Report(DctDiagnostics.DctTableInvalid, DiagnosticSeverity.Warning, "A DCT quantization table is invalid; it was ignored.");
                 return;
             }
 
@@ -115,7 +115,7 @@ internal sealed class JpegTables
         {
             if (i + 17 > body.Length)
             {
-                reporter.Report(DiagnosticCodes.DctTableInvalid, DiagnosticSeverity.Warning, "A DCT Huffman table is truncated; it was ignored.");
+                reporter.Report(DctDiagnostics.DctTableInvalid, DiagnosticSeverity.Warning, "A DCT Huffman table is truncated; it was ignored.");
                 return;
             }
 
@@ -130,14 +130,14 @@ internal sealed class JpegTables
 
             if (tableClass > 1 || destination > 3 || total > 256 || i + 17 + total > body.Length)
             {
-                reporter.Report(DiagnosticCodes.DctTableInvalid, DiagnosticSeverity.Warning, "A DCT Huffman table is invalid; it was ignored.");
+                reporter.Report(DctDiagnostics.DctTableInvalid, DiagnosticSeverity.Warning, "A DCT Huffman table is invalid; it was ignored.");
                 return;
             }
 
             HuffmanTable table = tableClass == 0 ? Dc[destination] : Ac[destination];
             if (!table.Build(counts, body.Slice(i + 17, total), tableClass == 0 ? 15 : 255))
             {
-                reporter.Report(DiagnosticCodes.DctTableInvalid, DiagnosticSeverity.Warning, "A DCT Huffman table does not form a valid code; it was ignored.");
+                reporter.Report(DctDiagnostics.DctTableInvalid, DiagnosticSeverity.Warning, "A DCT Huffman table does not form a valid code; it was ignored.");
             }
 
             i += 17 + total;

@@ -41,7 +41,7 @@ internal sealed class Jbig2PatternDictionary
     {
         if (data.Length < 7)
         {
-            Report(reporter, segment.Number, DiagnosticCodes.Jbig2SegmentInvalid, DiagnosticSeverity.Error, "ends inside its 7-byte data header (ITU-T T.88 §7.4.4.1); it is not decoded");
+            Report(reporter, segment.Number, Jbig2Diagnostics.Jbig2SegmentInvalid, DiagnosticSeverity.Error, "ends inside its 7-byte data header (ITU-T T.88 §7.4.4.1); it is not decoded");
             return null;
         }
 
@@ -52,14 +52,14 @@ internal sealed class Jbig2PatternDictionary
         long grayMax = BinaryPrimitives.ReadUInt32BigEndian(data[3..]);
         if (width == 0 || height == 0)
         {
-            Report(reporter, segment.Number, DiagnosticCodes.Jbig2SegmentInvalid, DiagnosticSeverity.Error, "has a pattern width or height of 0 (ITU-T T.88 §7.4.4.1.2-3); it is not decoded");
+            Report(reporter, segment.Number, Jbig2Diagnostics.Jbig2SegmentInvalid, DiagnosticSeverity.Error, "has a pattern width or height of 0 (ITU-T T.88 §7.4.4.1.2-3); it is not decoded");
             return null;
         }
 
         long totalWidth = (grayMax + 1) * width;
         if ((grayMax + 1) * ((width * height) + 64) > maxPixels || totalWidth > int.MaxValue - 7 || (long)Jbig2Bitmap.StrideOf((int)Math.Min(int.MaxValue - 7, totalWidth)) * height > Array.MaxLength)
         {
-            Report(reporter, segment.Number, DiagnosticCodes.Jbig2LimitExceeded, DiagnosticSeverity.Error, "holds more pattern pixels than the image limits allow; it is not decoded");
+            Report(reporter, segment.Number, Jbig2Diagnostics.Jbig2LimitExceeded, DiagnosticSeverity.Error, "holds more pattern pixels than the image limits allow; it is not decoded");
             return null;
         }
 
@@ -70,7 +70,7 @@ internal sealed class Jbig2PatternDictionary
             MmrResult result = Jbig2GenericRegion.DecodeMmr(coded, collective.View);
             if (result.Status == MmrStatus.Invalid)
             {
-                Report(reporter, segment.Number, DiagnosticCodes.Jbig2RegionDataInvalid, DiagnosticSeverity.Error, "has an invalid MMR code in its collective bitmap; the rows after it are 0");
+                Report(reporter, segment.Number, Jbig2Diagnostics.Jbig2RegionDataInvalid, DiagnosticSeverity.Error, "has an invalid MMR code in its collective bitmap; the rows after it are 0");
             }
         }
         else
@@ -90,7 +90,7 @@ internal sealed class Jbig2PatternDictionary
         return new Jbig2PatternDictionary(patterns, width, height);
     }
 
-    internal static void Report(Jbig2Reporter reporter, uint number, string code, DiagnosticSeverity severity, string what) => reporter.Report(
+    internal static void Report(Jbig2Reporter reporter, uint number, DiagnosticCode code, DiagnosticSeverity severity, string what) => reporter.Report(
         code,
         severity,
         string.Create(CultureInfo.InvariantCulture, $"The JBIG2 pattern dictionary segment {number} {what}."));
@@ -156,7 +156,7 @@ internal static class Jbig2HalftoneRegion
         Jbig2PatternDictionary patterns,
         Jbig2Statistics statistics,
         Jbig2Bitmap region,
-        Action<string, DiagnosticSeverity, string> report,
+        Action<DiagnosticCode, DiagnosticSeverity, string> report,
         long maxPixels)
     {
         long gridWidth = parameters.GridWidth;
@@ -240,7 +240,7 @@ internal static class Jbig2HalftoneRegion
 
             if (outOfRange)
             {
-                report(DiagnosticCodes.Jbig2GrayValueOutOfRange, DiagnosticSeverity.Warning, "has gray-scale values beyond its pattern dictionary's GRAYMAX (ITU-T T.88 §6.6.5.2); the last pattern is used for them");
+                report(Jbig2Diagnostics.Jbig2GrayValueOutOfRange, DiagnosticSeverity.Warning, "has gray-scale values beyond its pattern dictionary's GRAYMAX (ITU-T T.88 §6.6.5.2); the last pattern is used for them");
             }
 
             return true;
@@ -266,7 +266,7 @@ internal static class Jbig2HalftoneRegion
         int stride,
         int bitsPerPixel,
         Jbig2Bitmap skip,
-        Action<string, DiagnosticSeverity, string> report)
+        Action<DiagnosticCode, DiagnosticSeverity, string> report)
     {
         int planeLength = stride * height;
         var decoder = parameters.Mmr ? default : new MqDecoder(coded);
@@ -292,7 +292,7 @@ internal static class Jbig2HalftoneRegion
                 if (!reported && (result.Status == MmrStatus.Invalid || result.Rows < height))
                 {
                     reported = true;
-                    report(DiagnosticCodes.Jbig2RegionDataTruncated, DiagnosticSeverity.Warning, "has MMR gray-scale bitplanes that end early or are invalid (ITU-T T.88 Annex C.5); the missing rows are 0");
+                    report(Jbig2Diagnostics.Jbig2RegionDataTruncated, DiagnosticSeverity.Warning, "has MMR gray-scale bitplanes that end early or are invalid (ITU-T T.88 Annex C.5); the missing rows are 0");
                 }
 
                 mmrData = mmrData[Math.Min(mmrData.Length, result.BytesConsumed)..];
