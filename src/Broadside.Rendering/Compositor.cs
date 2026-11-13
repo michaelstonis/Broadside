@@ -79,6 +79,29 @@ internal readonly struct Compositor
         return Mode == BlendMode.Normal ? Over(source, destination, scaled) : Blend(source, destination, scaled, Mode);
     }
 
+    /// <summary>
+    /// Composites each pixel of <paramref name="source"/> over the pixel of <paramref name="target"/> at the same index, at one
+    /// <paramref name="coverage"/> (0 to 255, before the constant alpha): <see cref="Composite"/> pixel by pixel, a row at a time in
+    /// Normal (<see cref="CompositingRows.OverRow"/>).
+    /// </summary>
+    /// <param name="source">The source pixels, premultiplied BGRA, at least as many as <paramref name="target"/>.</param>
+    /// <param name="target">The backdrop pixels, premultiplied BGRA, replaced by the result.</param>
+    /// <param name="coverage">The shape of the paint over the row.</param>
+    public void CompositeRow(ReadOnlySpan<uint> source, Span<uint> target, int coverage)
+    {
+        source = source[..target.Length];
+        if (Mode == BlendMode.Normal)
+        {
+            CompositingRows.OverRow(source, target, Scale(coverage));
+            return;
+        }
+
+        for (int i = 0; i < target.Length; i++)
+        {
+            target[i] = Composite(source[i], target[i], coverage);
+        }
+    }
+
     /// <summary>Composites one opaque colour over a run of pixels at one coverage (0 to 255, before the constant alpha).</summary>
     /// <param name="line">The row.</param>
     /// <param name="x">The first pixel of the run.</param>
