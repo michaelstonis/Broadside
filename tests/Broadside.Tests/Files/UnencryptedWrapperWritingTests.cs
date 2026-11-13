@@ -60,7 +60,7 @@ public sealed class UnencryptedWrapperWritingTests
         Assert.Contains("Standard", payload.File.Description, StringComparison.Ordinal);
         Assert.Equal(payload.Name, wrapper.Collection!.InitialDocument);
         Assert.Single(wrapper.EmbeddedFiles);
-        Assert.Same(payload.File.Dictionary, Assert.Single(wrapper.ReadAssociatedFiles(wrapper.Catalog)).Dictionary);
+        Assert.Same(payload.File.Dictionary, Assert.Single(wrapper.AssociatedFiles).Dictionary);
         Assert.Empty(wrapper.Diagnostics);
     }
 
