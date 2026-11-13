@@ -5060,3 +5060,27 @@ Broadside.PdfDocument.SaveAsync(System.IO.Stream! stream, System.Threading.Cance
 Broadside.PdfDocument.SaveAsync(System.IO.Stream! stream, Broadside.PdfSaveOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Broadside.PdfDocument.SaveAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Broadside.PdfDocument.SaveAsync(string! path, Broadside.PdfSaveOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+static Broadside.PdfDocument.CreateUnencryptedWrapper(System.ReadOnlySpan<byte> payload) -> Broadside.PdfDocument!
+Broadside.PdfEngine.CreateUnencryptedWrapper(System.ReadOnlySpan<byte> payload) -> Broadside.PdfDocument!
+Broadside.PdfEngine.CreateUnencryptedWrapper(System.ReadOnlySpan<byte> payload, Broadside.PdfUnencryptedWrapperOptions! options) -> Broadside.PdfDocument!
+Broadside.PdfUnencryptedWrapperOptions
+Broadside.PdfUnencryptedWrapperOptions.Cover.get -> Broadside.PdfDocument?
+Broadside.PdfUnencryptedWrapperOptions.Cover.set -> void
+Broadside.PdfUnencryptedWrapperOptions.CryptographicFilter.get -> string?
+Broadside.PdfUnencryptedWrapperOptions.CryptographicFilter.set -> void
+Broadside.PdfUnencryptedWrapperOptions.CryptographicFilterVersion.get -> string?
+Broadside.PdfUnencryptedWrapperOptions.CryptographicFilterVersion.set -> void
+Broadside.PdfUnencryptedWrapperOptions.Description.get -> string?
+Broadside.PdfUnencryptedWrapperOptions.Description.set -> void
+Broadside.PdfUnencryptedWrapperOptions.ModificationDate.get -> System.DateTimeOffset?
+Broadside.PdfUnencryptedWrapperOptions.ModificationDate.set -> void
+Broadside.PdfUnencryptedWrapperOptions.Name.get -> string?
+Broadside.PdfUnencryptedWrapperOptions.Name.set -> void
+Broadside.PdfUnencryptedWrapperOptions.PdfUnencryptedWrapperOptions() -> void
+Broadside.PdfUnencryptedWrapperOptions.WithCover(Broadside.PdfDocument? cover) -> Broadside.PdfUnencryptedWrapperOptions!
+Broadside.PdfUnencryptedWrapperOptions.WithCryptographicFilter(string? filter) -> Broadside.PdfUnencryptedWrapperOptions!
+Broadside.PdfUnencryptedWrapperOptions.WithCryptographicFilterVersion(string? version) -> Broadside.PdfUnencryptedWrapperOptions!
+Broadside.PdfUnencryptedWrapperOptions.WithDescription(string? description) -> Broadside.PdfUnencryptedWrapperOptions!
+Broadside.PdfUnencryptedWrapperOptions.WithModificationDate(System.DateTimeOffset? date) -> Broadside.PdfUnencryptedWrapperOptions!
+Broadside.PdfUnencryptedWrapperOptions.WithName(string? name) -> Broadside.PdfUnencryptedWrapperOptions!
+static Broadside.PdfDocument.CreateUnencryptedWrapper(System.ReadOnlySpan<byte> payload, Broadside.PdfUnencryptedWrapperOptions! options) -> Broadside.PdfDocument!
