@@ -64,7 +64,7 @@ public sealed class CitationCheckerTests
     public void A_row_naming_a_type_that_does_not_cite_its_clause_fails()
     {
         using var fixture = new FixtureCopy();
-        fixture.Edit(Map, static text => text + "| 4.1 | Writing | partial | `Foo` | | |\n");
+        fixture.Edit(Map, static text => text + "| 4.1 | Writing | partial | `Foo` | | Tracked by #1. |\n");
 
         Violation violation = Assert.Single(fixture.Check().Violations);
 
@@ -92,10 +92,10 @@ public sealed class CitationCheckerTests
         fixture.Edit(
             Map,
             static text => text
-                + "| 2 | Syntax | partial | `Parser` | | |\n"
-                + "| 2.1 | Grammar | partial | `Parser` | | |\n"
-                + "| 2.1.2 | Accepting | partial | `Parser` | | |\n"
-                + "| 2.1.1.4.2 | Detail | partial | `Parser` | | |\n");
+                + "| 2 | Syntax | partial | `Parser` | | Tracked by #1. |\n"
+                + "| 2.1 | Grammar | partial | `Parser` | | Tracked by #1. |\n"
+                + "| 2.1.2 | Accepting | partial | `Parser` | | Tracked by #1. |\n"
+                + "| 2.1.1.4.2 | Detail | partial | `Parser` | | Tracked by #1. |\n");
 
         Assert.Equal(
             [

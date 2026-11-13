@@ -509,6 +509,11 @@ public static partial class ConformanceChecker
                     break;
             }
 
+            if (row.Status is ConformanceStatus.NotStarted or ConformanceStatus.Partial && !TrackingIssue().IsMatch(row.Notes))
+            {
+                Report($"{row.Status} row must name the issue that tracks it in the Notes cell ('Tracked by #<issue>')");
+            }
+
             if (row.Tests.Length > 0)
             {
                 if (TryParseIdentifierList(row.Tests, out List<string> tests))
@@ -600,6 +605,10 @@ public static partial class ConformanceChecker
 
     [GeneratedRegex("`([^`]*)`")]
     private static partial Regex Backticked();
+
+    /// <summary>The issue a row that is neither done nor n/a names: <c>Tracked by #123</c> (or several, <c>Tracked by #123, #456</c>).</summary>
+    [GeneratedRegex(@"\bTracked by #[1-9][0-9]*\b")]
+    private static partial Regex TrackingIssue();
 
     [GeneratedRegex(@"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+$")]
     private static partial Regex QualifiedName();

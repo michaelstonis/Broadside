@@ -15,7 +15,7 @@ The conformance map is the per-clause record of what Broadside implements (`CONT
 grep -n '^| 7\.2 ' docs/conformance/iso-32000-2.md
 ```
 
-Today every row is at the second level (`7.2`, `7.3`, ...), all `not started`.
+Since #241 every row is resolved: `done` with tests, `n/a` with a reason, or `partial`/`not started` with the open issue that tracks the rest (`Tracked by #N`).
 
 ## 2. Row format
 
@@ -29,6 +29,8 @@ Today every row is at the second level (`7.2`, `7.3`, ...), all `not started`.
 - **Implementing types**: simple type names (no namespace, no type arguments), each in backticks, comma-separated: `` `CosDictionary`, `CosParser` ``. Each must be declared as a class, struct, interface, enum or record under `src/`. Leave empty for `not started` and `n/a`.
 - **Tests**: fully qualified test identifiers `Namespace.Class.Method`, each in backticks, comma-separated: `` `Broadside.Tests.Objects.LexerTests.Tokenizes_names` ``. For a theory, name the method once. A `done` row needs at least one; give `partial` rows their tests too so the checker's counts mean something. The authoritative formats are in `docs/conformance/README.md`; the checker enforces them.
 - **Notes**: for `partial`, what is still missing; for `n/a`, why; otherwise anything a reader needs to find the code (an ADR number, a corpus file name).
+- **Tracking issue**: a `partial` or `not started` row ends its Notes with `Tracked by #N` (several: `Tracked by #N, #M`), naming an open issue for the rest of the clause; the checker fails a row without one. Link an existing open issue when one fits; otherwise open one (milestone `Post-v1` when it is not v1 work) and add it to `docs/known-limitations.md`. When your PR finishes a clause, drop the tracking issue from the row as you mark it `done`.
+- **`n/a` reasons**: introductory or informative text, a heading split into sub-clauses, viewer or printer behavior, or a parse-and-preserve feature from `CLAUDE.md`'s out-of-scope list; an out-of-scope row links a round-trip test (`FullRewriteTests.Objects_the_library_does_not_interpret_survive_a_compact_rewrite_unchanged` takes a new `InlineData` case).
 
 Keep cells on one line; the table has no multi-line cells.
 
@@ -72,9 +74,12 @@ The check is mechanical, so write citations the way it reads them:
 ```sh
 dotnet build src/Broadside.Layout/Broadside.Layout.csproj    # builds Broadside too; also build Broadside.Rendering and the Fonts packages you touched
 dotnet run --project tools/ConformanceCheck -- --root . --summary --citations
+dotnet run --project tools/ConformanceCheck -- --root . --site-page site/articles/conformance.md --write-site-page   # after any status change
 ```
 
-Without `--citations` it checks the rows only (cell formats, statuses, a test on every `done` row, every named test and type exists) and needs no build. With `--citations` it also reads each checked package's XML documentation from `artifacts/bin/<package>/debug/<package>.xml` and applies the citation rules above; a missing build is reported as a violation. Failures print as `<file>:<line>: <message>`: an uncited public type at its line in `src/<package>/PublicAPI.Unshipped.txt`, a row whose type does not cite its clause at the row's line. CI's `conformance-map` job runs the command above on every PR, and `tests/ConformanceCheck.Tests` runs the same check as part of `dotnet test Broadside.Core.slnf`. The full rules are in `docs/conformance/README.md` (rules 1 to 12).
+The documentation site's conformance page holds per-specification counts generated from the maps; `./check-docs.sh` and CI's `conformance-map` job fail when they are stale, so regenerate them whenever a row's status changes.
+
+Without `--citations` it checks the rows only (cell formats, statuses, a test on every `done` row, every named test and type exists) and needs no build. With `--citations` it also reads each checked package's XML documentation from `artifacts/bin/<package>/debug/<package>.xml` and applies the citation rules above; a missing build is reported as a violation. Failures print as `<file>:<line>: <message>`: an uncited public type at its line in `src/<package>/PublicAPI.Unshipped.txt`, a row whose type does not cite its clause at the row's line. CI's `conformance-map` job runs the command above on every PR, and `tests/ConformanceCheck.Tests` runs the same check as part of `dotnet test Broadside.Core.slnf`. The full rules are in `docs/conformance/README.md` (rules 1 to 13).
 
 ## Worked example: marking §7.2 partial
 
@@ -99,5 +104,7 @@ and `CosLexer` carries `<remarks>ISO 32000-2 §7.2.</remarks>`. When the follow-
 - [ ] Types are simple names and tests are fully qualified, all backticked and comma-separated
 - [ ] Split to third-level rows where statuses differ; titles copied from `Specs/`
 - [ ] Each implementing type named in a row cites that row's clause in its XML docs (on the type or a member); each new public type cites a specification or is exempted with a reason in `docs/conformance/citation-policy.json`
+- [ ] Every `partial` or `not started` row you touch names its tracking issue (`Tracked by #N`)
 - [ ] `dotnet run --project tools/ConformanceCheck -- --root . --summary --citations` passes after building the checked packages
+- [ ] The site counts are regenerated (`--site-page site/articles/conformance.md --write-site-page`) when a status changed
 - [ ] The PR body lists the clauses as they appear in the map

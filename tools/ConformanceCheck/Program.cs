@@ -59,7 +59,45 @@ internal static class Program
         Console.Out.WriteLine(report.IsValid
             ? string.Create(CultureInfo.InvariantCulture, $"Conformance map OK: {report.Files.Count} files, {report.RowCount} rows, 0 violations.")
             : string.Create(CultureInfo.InvariantCulture, $"Conformance map FAILED: {report.Violations.Count} violation(s) in {report.Files.Count} files, {report.RowCount} rows."));
-        return report.IsValid ? 0 : 1;
+
+        bool siteCurrent = true;
+        if (options.SitePage is not null)
+        {
+            try
+            {
+                siteCurrent = CheckSitePage(root, options.SitePage, report, options.WriteSitePage);
+            }
+            catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException or InvalidDataException)
+            {
+                Console.Error.WriteLine(ex.Message);
+                return 2;
+            }
+        }
+
+        return report.IsValid && siteCurrent ? 0 : 1;
+    }
+
+    /// <summary>Checks, or with <paramref name="write"/> regenerates, the counts block of the site's conformance page.</summary>
+    private static bool CheckSitePage(string root, string sitePage, ConformanceReport report, bool write)
+    {
+        string path = Path.GetFullPath(sitePage, root);
+        string page = File.ReadAllText(path);
+        string expected = SiteCounts.Render(report, root);
+        if (SiteCounts.IsCurrent(page, expected))
+        {
+            Console.Out.WriteLine($"Site counts OK: {sitePage}.");
+            return true;
+        }
+
+        if (write)
+        {
+            File.WriteAllText(path, SiteCounts.Update(page, expected));
+            Console.Out.WriteLine($"Site counts written: {sitePage}.");
+            return true;
+        }
+
+        Console.Out.WriteLine($"{sitePage}: the conformance counts are stale; regenerate them with dotnet run --project tools/ConformanceCheck -- --site-page {sitePage} --write-site-page");
+        return false;
     }
 }
 
@@ -77,6 +115,10 @@ internal sealed class Options
     public bool Citations { get; private set; }
 
     public string Configuration { get; private set; } = "debug";
+
+    public string? SitePage { get; private set; }
+
+    public bool WriteSitePage { get; private set; }
 
     public static Options? Parse(string[] args, TextWriter errors)
     {
@@ -116,6 +158,18 @@ internal sealed class Options
 
                     options.Configuration = args[++i];
                     break;
+                case "--site-page":
+                    if (i + 1 >= args.Length)
+                    {
+                        errors.WriteLine("--site-page needs a path.");
+                        return null;
+                    }
+
+                    options.SitePage = args[++i];
+                    break;
+                case "--write-site-page":
+                    options.WriteSitePage = true;
+                    break;
                 case "-h":
                 case "--help":
                     options.ShowHelp = true;
@@ -132,6 +186,12 @@ internal sealed class Options
             }
         }
 
+        if (options.WriteSitePage && options.SitePage is null)
+        {
+            errors.WriteLine("--write-site-page needs --site-page <path>.");
+            return null;
+        }
+
         return options;
     }
 
@@ -142,8 +202,9 @@ internal sealed class Options
         output.WriteLine("Usage: dotnet run --project tools/ConformanceCheck -- [options]");
         output.WriteLine();
         output.WriteLine("Checks every docs/conformance/*.md (except README.md) against the rules in docs/conformance/README.md:");
-        output.WriteLine("six cells per row, a known status, tests on done rows, notes on n/a rows, no duplicate clauses, and every");
-        output.WriteLine("cited test and implementing type present in tests/ and src/. Prints one line per violation as");
+        output.WriteLine("six cells per row, a known status, tests on done rows, notes on n/a rows, a tracking issue ('Tracked by #N')");
+        output.WriteLine("on every row that is neither done nor n/a, no duplicate clauses, and every cited test and implementing type");
+        output.WriteLine("present in tests/ and src/. Prints one line per violation as");
         output.WriteLine("docs/conformance/<file>.md:<line>: <message>.");
         output.WriteLine();
         output.WriteLine("Options:");
@@ -155,6 +216,12 @@ internal sealed class Options
         output.WriteLine("                 implementing types cite that row's clause. Rules: docs/conformance/citation-policy.json.");
         output.WriteLine("  --configuration <name>");
         output.WriteLine("                 Build configuration whose artifacts/bin output --citations reads (default: debug).");
+        output.WriteLine("  --site-page <path>");
+        output.WriteLine("                 Also fail when the per-specification counts generated into that page (between its");
+        output.WriteLine("                 conformance-counts markers) differ from the maps. The docs build passes");
+        output.WriteLine("                 site/articles/conformance.md.");
+        output.WriteLine("  --write-site-page");
+        output.WriteLine("                 With --site-page, regenerate the counts instead of failing.");
         output.WriteLine("  -h, --help     Show this help.");
         output.WriteLine();
         output.WriteLine("Exit code: 0 when the map is valid, 1 when any rule fails, 2 for a usage or environment error.");

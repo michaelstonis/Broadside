@@ -322,7 +322,8 @@ jobs:
           } >> "${GITHUB_STEP_SUMMARY}"
 
   # Checks docs/conformance/ with tools/ConformanceCheck (issue #7) and, with --citations, the clause citations in the XML
-  # documentation of the packages docs/conformance/citation-policy.json checks (issue #240), so those are built first.
+  # documentation of the packages docs/conformance/citation-policy.json checks (issue #240), so those are built first, and the
+  # per-specification counts generated into site/articles/conformance.md (issue #241).
   conformance-map:
     name: conformance-map
     runs-on: ubuntu-latest
@@ -354,7 +355,7 @@ jobs:
 
       - name: Check the conformance map and clause citations
         shell: bash
-        run: dotnet run --project tools/ConformanceCheck -- --root . --summary --citations >> "${GITHUB_STEP_SUMMARY}"
+        run: dotnet run --project tools/ConformanceCheck -- --root . --summary --citations --site-page site/articles/conformance.md >> "${GITHUB_STEP_SUMMARY}"
 
   # Checks the formatting of everything dotnet format can see: the core solution filter, and the fuzz, benchmark and Windows-only
   # Direct2D test and benchmark projects, which are outside it.

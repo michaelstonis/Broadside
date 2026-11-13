@@ -2,7 +2,8 @@
 # Builds the documentation site with Lunet and checks the output: every expected route exists,
 # search is wired in, every package under src/ has an API reference, and every internal link and asset
 # reference resolves to a generated file.
-# First runs ./check-adr-refs.sh: no doc, README, site page, template or XML doc comment references an ADR.
+# First runs ./check-adr-refs.sh: no doc, README, site page, template or XML doc comment references an ADR; then checks that the
+# per-specification counts on the conformance page match the maps in docs/conformance/ (tools/ConformanceCheck --site-page).
 # Modelled on wieslawsoltes/TreeDataGrid check-docs.sh; see docs/research/doc-site-tooling.md.
 #
 #   ./check-docs.sh                  build into site/.lunet/build/www and check it
@@ -47,6 +48,12 @@ cd "${ROOT}"
 # 0. No ADR references in user-facing text (fast, before the build).
 if ! "${ROOT}/check-adr-refs.sh"; then
     fail "ADR references in user-facing text (lines above)"
+fi
+
+# 0b. The conformance page's per-specification counts are generated from docs/conformance/ and must be current
+#     (regenerate with: dotnet run --project tools/ConformanceCheck -- --site-page site/articles/conformance.md --write-site-page).
+if ! dotnet run --project "${ROOT}/tools/ConformanceCheck" -- --root "${ROOT}" --site-page site/articles/conformance.md; then
+    fail "the conformance map is invalid or the counts in site/articles/conformance.md are stale (lines above)"
 fi
 
 dotnet tool restore

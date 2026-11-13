@@ -5,4 +5,4 @@
 | Clause | Title | Status | Implementing types | Tests | Notes |
 |---|---|---|---|---|---|
 | 1 | Parsing | done | `Foo` | `Foo.Tests.FooTests.Helper` | |
-| 2 | Later | not started | | | |
+| 2 | Later | not started | | | Tracked by #1. |

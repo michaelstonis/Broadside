@@ -83,9 +83,9 @@ public sealed class ConformanceCheckerTests
     }
 
     [Fact]
-    public void Partial_row_without_tests_or_notes_passes_unless_strict()
+    public void Partial_row_without_tests_or_notes_needs_only_its_tracking_issue_unless_strict()
     {
-        Assert.Empty(Check("partial-without-tests").Violations);
+        AssertSingleViolation("partial-without-tests", $"{FixtureFile}:7: partial row must name the issue that tracks it in the Notes cell ('Tracked by #<issue>')");
 
         ConformanceReport strict = Check("partial-without-tests", strict: true);
 
@@ -93,8 +93,23 @@ public sealed class ConformanceCheckerTests
             [
                 $"{FixtureFile}:7: partial row must name at least one test in the Tests cell (--strict)",
                 $"{FixtureFile}:7: partial row must say what is missing in the Notes cell (--strict)",
+                $"{FixtureFile}:7: partial row must name the issue that tracks it in the Notes cell ('Tracked by #<issue>')",
             ],
             strict.Violations.Select(static violation => violation.ToString()).ToArray());
+    }
+
+    [Fact]
+    public void Row_that_is_neither_done_nor_na_without_a_tracking_issue_is_a_violation()
+    {
+        ConformanceReport report = Check("untracked-row");
+
+        Assert.Equal(
+            [
+                $"{FixtureFile}:8: partial row must name the issue that tracks it in the Notes cell ('Tracked by #<issue>')",
+                $"{FixtureFile}:9: not started row must name the issue that tracks it in the Notes cell ('Tracked by #<issue>')",
+            ],
+            report.Violations.Select(static violation => violation.ToString()).ToArray());
+        Assert.False(report.IsValid);
     }
 
     [Fact]
