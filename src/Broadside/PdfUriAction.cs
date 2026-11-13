@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -38,12 +39,12 @@ public sealed class PdfUriAction : PdfAction
                     string uri = DecodeUri(text.Bytes, out bool repaired);
                     if (repaired)
                     {
-                        Report(DiagnosticCodes.UriInvalid, "A URI action's URI is not UTF-8; it is read as UTF-16 or PDFDocEncoding.");
+                        Report(ActionDiagnostics.UriInvalid, "A URI action's URI is not UTF-8; it is read as UTF-16 or PDFDocEncoding.");
                     }
 
                     return uri;
                 case CosName name:
-                    Report(DiagnosticCodes.UriInvalid, "A URI action's URI shall be a string; it is a name, read as its bytes.");
+                    Report(ActionDiagnostics.UriInvalid, "A URI action's URI shall be a string; it is a name, read as its bytes.");
                     return DecodeUri(name.Bytes, out _);
                 case null:
                     return null;

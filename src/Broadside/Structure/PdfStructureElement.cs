@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -75,7 +76,7 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
 
             if (!_context.IsDeclared(ns))
             {
-                _context.Report(DiagnosticCodes.NamespaceNotDeclared, "A structure element's namespace is not in the structure tree root's Namespaces array (§14.8.6.2); used anyway.", Reference);
+                _context.Report(StructureDiagnostics.NamespaceNotDeclared, "A structure element's namespace is not in the structure tree root's Namespaces array (§14.8.6.2); used anyway.", Reference);
             }
 
             return _context.Namespace(ns, value as CosReference);
@@ -100,7 +101,7 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
             RoleResolution resolution = _context.ResolveRole(type, Namespace);
             if (resolution.Standard is null && _context.IsTagged)
             {
-                _context.Report(DiagnosticCodes.StructureTypeUnresolved, $"The structure type /{type.Value} does not resolve to a standard structure type through the role maps (§14.8.4.1).", Reference);
+                _context.Report(StructureDiagnostics.StructureTypeUnresolved, $"The structure type /{type.Value} does not resolve to a standard structure type through the role maps (§14.8.4.1).", Reference);
             }
 
             return resolution.Standard;
@@ -285,11 +286,11 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
                     case KidKind.Element:
                         if (IsSelfOrAncestor(kid.Dictionary!))
                         {
-                            _context.Report(DiagnosticCodes.StructTreeCycle, "A structure element's K holds the element itself or one of its ancestors (§14.7.2); left out.", kid.Reference ?? Reference);
+                            _context.Report(StructureDiagnostics.StructTreeCycle, "A structure element's K holds the element itself or one of its ancestors (§14.7.2); left out.", kid.Reference ?? Reference);
                         }
                         else if (Depth + 1 >= StructureContext.MaxDepth)
                         {
-                            _context.Report(DiagnosticCodes.StructTreeDepthExceeded, $"The structure hierarchy nests deeper than {StructureContext.MaxDepth} levels; the rest is not read.", Reference);
+                            _context.Report(StructureDiagnostics.StructTreeDepthExceeded, $"The structure hierarchy nests deeper than {StructureContext.MaxDepth} levels; the rest is not read.", Reference);
                         }
                         else
                         {
@@ -533,7 +534,7 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
         {
             if (ViewReading.Get(_context.Document, ancestor.Dictionary, StructureNames.Pg) is CosDictionary inherited)
             {
-                _context.Report(DiagnosticCodes.StructElemPageMissing, "A structure element holds MCIDs but has no Pg (Table 355); the nearest ancestor's page is used.", Reference);
+                _context.Report(StructureDiagnostics.StructElemPageMissing, "A structure element holds MCIDs but has no Pg (Table 355); the nearest ancestor's page is used.", Reference);
                 return inherited;
             }
         }
@@ -545,7 +546,7 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
 
         CosDictionary? fromParentTree = _context.PageFromParentTree(Dictionary, mcid);
         _context.Report(
-            DiagnosticCodes.StructElemPageMissing,
+            StructureDiagnostics.StructElemPageMissing,
             fromParentTree is null
                 ? "A structure element holds MCIDs but no Pg names their page (Table 355); their page is unknown."
                 : "A structure element holds MCIDs but no Pg names their page (Table 355); the page whose parent-tree entry lists it is used.",

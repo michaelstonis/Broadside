@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -41,12 +42,12 @@ public sealed class PdfStructureNamespace : IEquatable<PdfStructureNamespace>
         Reference = reference;
         if (ViewReading.Get(context.Document, dictionary, StructureNames.NS) is not CosString)
         {
-            context.Report(DiagnosticCodes.NamespaceInvalid, "A namespace dictionary has no NS text string (Table 356); its namespace name reads as empty.", reference);
+            context.Report(StructureDiagnostics.NamespaceInvalid, "A namespace dictionary has no NS text string (Table 356); its namespace name reads as empty.", reference);
         }
 
         if (ViewReading.Get(context.Document, dictionary, Objects.KnownNames.Type) is { } type && !StructureNames.Namespace.Equals(type))
         {
-            context.Report(DiagnosticCodes.NamespaceInvalid, "A namespace dictionary's Type is not Namespace (Table 356); read as a namespace.", reference);
+            context.Report(StructureDiagnostics.NamespaceInvalid, "A namespace dictionary's Type is not Namespace (Table 356); read as a namespace.", reference);
         }
     }
 

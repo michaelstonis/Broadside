@@ -1,4 +1,5 @@
 using System.Globalization;
+using Broadside.Diagnostics;
 using Broadside.Graphics.Colors;
 using Broadside.Graphics.Functions;
 using Broadside.Objects;
@@ -101,13 +102,13 @@ public sealed class PdfDeviceNColorSpace : PdfColorSpace
         IReadOnlyList<CosName> names = ColorantNames;
         if (names.Count == 0)
         {
-            Report(DiagnosticCodes.ColorSpaceInvalid, "A DeviceN colour space has no colourant names; DeviceGray is used.");
+            Report(ColorDiagnostics.ColorSpaceInvalid, "A DeviceN colour space has no colourant names; DeviceGray is used.");
             return false;
         }
 
         if (Element(1) is CosArray array && array.Count != names.Count)
         {
-            Report(DiagnosticCodes.DeviceNColorantsInvalid, "A DeviceN names array holds something that is not a name; it is skipped.");
+            Report(ColorDiagnostics.DeviceNColorantsInvalid, "A DeviceN names array holds something that is not a name; it is skipped.");
         }
 
         var seen = new HashSet<CosName>();
@@ -115,7 +116,7 @@ public sealed class PdfDeviceNColorSpace : PdfColorSpace
         {
             if (name.Equals(ColorSpaceNames.All) || (!name.Equals(ColorSpaceNames.None) && !seen.Add(name)))
             {
-                Report(DiagnosticCodes.DeviceNColorantsInvalid, "A DeviceN names array repeats a colourant or names All, which it shall not.");
+                Report(ColorDiagnostics.DeviceNColorantsInvalid, "A DeviceN names array repeats a colourant or names All, which it shall not.");
                 break;
             }
         }
@@ -123,7 +124,7 @@ public sealed class PdfDeviceNColorSpace : PdfColorSpace
         if (names.Count > PdfColor.MaxComponents)
         {
             Report(
-                DiagnosticCodes.ColorComponentLimitExceeded,
+                ColorDiagnostics.ColorComponentLimitExceeded,
                 string.Create(CultureInfo.InvariantCulture, $"A DeviceN colour space has {names.Count} colourants; colours set in it are painted through its alternate."),
                 Diagnostics.DiagnosticSeverity.Information);
         }

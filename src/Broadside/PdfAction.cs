@@ -81,7 +81,7 @@ public abstract class PdfAction
                     {
                         if (Document.Resolve(element) is not CosDictionary)
                         {
-                            Report(DiagnosticCodes.ActionNextInvalid, $"An element of the {ActionType.Value} action's Next array is not an action dictionary; it is skipped.");
+                            Report(ActionDiagnostics.ActionNextInvalid, $"An element of the {ActionType.Value} action's Next array is not an action dictionary; it is skipped.");
                         }
                         else if (Create(Document, element, DiagnosticReference) is { } following)
                         {
@@ -91,7 +91,7 @@ public abstract class PdfAction
 
                     return actions;
                 default:
-                    Report(DiagnosticCodes.ActionNextInvalid, $"The {ActionType.Value} action's Next entry shall be an action dictionary or an array of them; it is ignored.");
+                    Report(ActionDiagnostics.ActionNextInvalid, $"The {ActionType.Value} action's Next entry shall be an action dictionary or an array of them; it is ignored.");
                     return [];
             }
         }
@@ -185,12 +185,12 @@ public abstract class PdfAction
     private protected void Report(string message) => Report(Document, message, DiagnosticReference);
 
     /// <summary>Reports a deviation under <paramref name="code"/>.</summary>
-    private protected void Report(string code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
+    private protected void Report(DiagnosticCode code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
         Document.DiagnosticSink.Report(code, severity, message, objectReference: DiagnosticReference);
 
     /// <summary>Records that the action is out of scope: kept as data, never performed (<c>ActionOutOfScope</c>, Information).</summary>
     private protected void ReportOutOfScope(string what) =>
-        Report(DiagnosticCodes.ActionOutOfScope, $"A {ActionType.Value} action is kept as data and never performed: {what} is out of scope.", DiagnosticSeverity.Information);
+        Report(ActionDiagnostics.ActionOutOfScope, $"A {ActionType.Value} action is kept as data and never performed: {what} is out of scope.", DiagnosticSeverity.Information);
 
     /// <summary>Returns the entry for <paramref name="key"/>, resolved; <see langword="null"/> when absent, null, or a reference to nothing.</summary>
     private protected CosObject? Get(CosName key) => EntryReader.Get(Document, Dictionary, key);
@@ -202,7 +202,7 @@ public abstract class PdfAction
     private protected void ReportEntry(CosName key, string expected) => Issue.Ignored(key, expected);
 
     /// <summary>The report for an entry of the wrong type (<c>ActionEntryInvalid</c>).</summary>
-    private protected EntryReport Issue => new(Document, DiagnosticCodes.ActionEntryInvalid, DiagnosticReference, $"The {ActionType.Value} action");
+    private protected EntryReport Issue => new(Document, ActionDiagnostics.ActionEntryInvalid, DiagnosticReference, $"The {ActionType.Value} action");
 
     /// <summary>Reads a dictionary entry; another type reads as absent with a diagnostic.</summary>
     private protected CosDictionary? ReadDictionary(CosName key) => Read<CosDictionary>(key, "a dictionary");
@@ -272,7 +272,7 @@ public abstract class PdfAction
         Dictionary.TryGetValue(key, out CosObject? value) ? PdfDestination.Create(Document, value, isRemote, DiagnosticReference) : null;
 
     private static void Report(PdfDocument document, string message, CosReference? reference) =>
-        document.DiagnosticSink.Report(DiagnosticCodes.ActionInvalid, DiagnosticSeverity.Warning, message, objectReference: reference);
+        document.DiagnosticSink.Report(ActionDiagnostics.ActionInvalid, DiagnosticSeverity.Warning, message, objectReference: reference);
 
     private T? Read<T>(CosName key, string expected)
         where T : CosObject => EntryReader.Typed<T>(Get(key), key, expected, Issue);
@@ -299,7 +299,7 @@ public abstract class PdfAction
                 if (onPath.Contains(child.Dictionary))
                 {
                     frame.Action.Report(
-                        DiagnosticCodes.ActionCycle,
+                        ActionDiagnostics.ActionCycle,
                         $"The {frame.Action.ActionType.Value} action's Next leads back to an action it follows; the cycle is cut and that action is not repeated.",
                         DiagnosticSeverity.Information);
                 }
@@ -309,7 +309,7 @@ public abstract class PdfAction
 
             if (frames.Count > maxDepth)
             {
-                frame.Action.Report(DiagnosticCodes.ActionTreeTooDeep, $"The action tree is deeper than {maxDepth} Next levels; the actions below are not read.");
+                frame.Action.Report(ActionDiagnostics.ActionTreeTooDeep, $"The action tree is deeper than {maxDepth} Next levels; the actions below are not read.");
                 continue;
             }
 

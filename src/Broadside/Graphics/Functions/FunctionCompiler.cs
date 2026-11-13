@@ -81,13 +81,13 @@ internal static class FunctionCompiler
 
             if (compilation.Depth >= FunctionCompilation.MaxDepth)
             {
-                compilation.Report(DiagnosticCodes.FunctionTooDeep, DiagnosticSeverity.Error, string.Create(CultureInfo.InvariantCulture, $"Functions nest more than {FunctionCompilation.MaxDepth} deep; the innermost is not used."));
+                compilation.Report(FunctionDiagnostics.FunctionTooDeep, DiagnosticSeverity.Error, string.Create(CultureInfo.InvariantCulture, $"Functions nest more than {FunctionCompilation.MaxDepth} deep; the innermost is not used."));
                 return Invalid(expectedInputs, expectedOutputs);
             }
 
             if (!compilation.Enter(resolved))
             {
-                compilation.Report(DiagnosticCodes.FunctionCycle, DiagnosticSeverity.Error, "A stitching function contains itself.");
+                compilation.Report(FunctionDiagnostics.FunctionCycle, DiagnosticSeverity.Error, "A stitching function contains itself.");
                 return Invalid(expectedInputs, expectedOutputs);
             }
 

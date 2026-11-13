@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics.Shadings;
 using Broadside.Parsing;
 
@@ -22,7 +23,7 @@ public sealed class PdfRadialShading : PdfShading
         {
             if (coords[2] < 0 || coords[5] < 0)
             {
-                reader.Report(DiagnosticCodes.ShadingCoordsInvalid, "A radial shading has a negative radius; it is read as 0.");
+                reader.Report(ShadingDiagnostics.ShadingCoordsInvalid, "A radial shading has a negative radius; it is read as 0.");
             }
 
             StartCenter = new PathPoint(coords[0], coords[1]);
@@ -32,10 +33,10 @@ public sealed class PdfRadialShading : PdfShading
         }
         else
         {
-            reader.Invalid(DiagnosticCodes.ShadingCoordsInvalid, "A radial shading's Coords entry is not six numbers.");
+            reader.Invalid(ShadingDiagnostics.ShadingCoordsInvalid, "A radial shading's Coords entry is not six numbers.");
         }
 
-        Domain = Array.AsReadOnly(reader.Numbers(ShadingNames.Domain, 2, [0, 1], DiagnosticCodes.ShadingEntryInvalid));
+        Domain = Array.AsReadOnly(reader.Numbers(ShadingNames.Domain, 2, [0, 1], ShadingDiagnostics.ShadingEntryInvalid));
         (ExtendStart, ExtendEnd) = reader.Extend();
         IsValid = reader.IsValid;
     }

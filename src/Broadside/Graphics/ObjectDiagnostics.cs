@@ -20,13 +20,13 @@ internal readonly struct ObjectDiagnostics(DiagnosticSink? sink, CosReference? r
     /// <param name="code">The diagnostic code.</param>
     /// <param name="message">What was found and what is done about it.</param>
     /// <param name="severity">The severity.</param>
-    public void Report(string code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
+    public void Report(DiagnosticCode code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
         sink?.Report(code, severity, message, offset: null, reference);
 
     /// <summary>As <see cref="Report"/>, recorded once per code and reference: for deviations found on a hot path.</summary>
     /// <param name="code">The diagnostic code.</param>
     /// <param name="message">What was found and what is done about it.</param>
     /// <param name="severity">The severity.</param>
-    public void ReportOnce(string code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
+    public void ReportOnce(DiagnosticCode code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
         sink?.ReportOnce(code, severity, message, offset: null, reference);
 }

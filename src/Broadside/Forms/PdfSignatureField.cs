@@ -66,7 +66,7 @@ public sealed class PdfSignatureField : PdfTerminalField
             case CosDictionary dictionary:
                 if (Dictionary[key] is not CosReference)
                 {
-                    Report(DiagnosticCodes.SignatureFieldDictNotIndirect, $"The signature field's {key.Value} entry shall be an indirect reference; it is a direct dictionary, read anyway.");
+                    Report(FormDiagnostics.SignatureFieldDictNotIndirect, $"The signature field's {key.Value} entry shall be an indirect reference; it is a direct dictionary, read anyway.");
                 }
 
                 return dictionary;
@@ -106,7 +106,7 @@ public sealed class PdfSignatureFieldLock
             };
             if (action == PdfSignatureFieldLockAction.Unknown)
             {
-                _field.Report(DiagnosticCodes.FieldEntryInvalid, "The signature field lock dictionary's Action shall be All, Include or Exclude (Table 236).");
+                _field.Report(FormDiagnostics.FieldEntryInvalid, "The signature field lock dictionary's Action shall be All, Include or Exclude (Table 236).");
             }
 
             return action;
@@ -123,7 +123,7 @@ public sealed class PdfSignatureFieldLock
             {
                 if (Action is PdfSignatureFieldLockAction.Include or PdfSignatureFieldLockAction.Exclude)
                 {
-                    _field.Report(DiagnosticCodes.FieldEntryInvalid, "The signature field lock dictionary has no Fields array, which Table 236 requires for Include and Exclude.");
+                    _field.Report(FormDiagnostics.FieldEntryInvalid, "The signature field lock dictionary has no Fields array, which Table 236 requires for Include and Exclude.");
                 }
 
                 return [];
@@ -146,7 +146,7 @@ public sealed class PdfSignatureFieldLock
                 case CosInteger { Value: >= 1 and <= 3 } integer:
                     return (int)integer.Value;
                 default:
-                    _field.Report(DiagnosticCodes.FieldEntryInvalid, "The signature field lock dictionary's P shall be 1, 2 or 3 (Table 236); it is ignored.", DiagnosticSeverity.Warning);
+                    _field.Report(FormDiagnostics.FieldEntryInvalid, "The signature field lock dictionary's P shall be 1, 2 or 3 (Table 236); it is ignored.", DiagnosticSeverity.Warning);
                     return null;
             }
         }
