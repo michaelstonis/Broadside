@@ -69,7 +69,7 @@ internal sealed class FontProgramParserRegistry
             if (declared is { } format && !Handles(parser, format))
             {
                 context.Report(
-                    DiagnosticCodes.FontProgramFormatMismatch,
+                    FontDiagnostics.FontProgramFormatMismatch,
                     DiagnosticSeverity.Warning,
                     $"The font file stream declares a {format} program (ISO 32000-2 §9.9, Table 124), but its data is a {string.Join(" or ", parser.Formats)} program; it is read as such.");
             }
@@ -82,7 +82,7 @@ internal sealed class FontProgramParserRegistry
         if (parser is null)
         {
             context.Report(
-                DiagnosticCodes.FontProgramUnsupported,
+                FontDiagnostics.FontProgramUnsupported,
                 DiagnosticSeverity.Information,
                 declared is { } format
                     ? $"No font program parser reads {format} programs yet (ISO 32000-2 §9.9); the font's glyphs are not available."
@@ -97,7 +97,7 @@ internal sealed class FontProgramParserRegistry
         catch (Exception exception) when (exception is not DiagnosticException)
         {
             context.Report(
-                DiagnosticCodes.FontProgramInvalid,
+                FontDiagnostics.FontProgramInvalid,
                 DiagnosticSeverity.Error,
                 $"The font program parser failed ({exception.GetType().Name}: {exception.Message}); the font's glyphs are not available.");
             return null;

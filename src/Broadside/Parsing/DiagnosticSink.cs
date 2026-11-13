@@ -15,9 +15,9 @@ namespace Broadside.Parsing;
 /// optional observer sees each recorded diagnostic before strict mode throws (issue #46 logs through it).
 /// </para>
 /// <para>
-/// Each repair is recorded once. <see cref="Report"/> drops a diagnostic equal in code, offset and object to one already recorded
+/// Each repair is recorded once. <see cref="Report(string, DiagnosticSeverity, string, long?, CosReference?)"/> drops a diagnostic equal in code, offset and object to one already recorded
 /// (the same object loaded on two threads, a lazy value computed twice, a structure validated before and after reconstruction).
-/// <see cref="ReportOnce"/> keeps only the first diagnostic of a code per object, whatever its offset: for deviations that can
+/// <see cref="ReportOnce(string, DiagnosticSeverity, string, long?, CosReference?)"/> keeps only the first diagnostic of a code per object, whatever its offset: for deviations that can
 /// repeat many times inside one object, such as an operator error in every line of a page's content. A dropped duplicate is not
 /// observed and not added, but strict mode still throws it: the operation that met it failed again.
 /// </para>
@@ -44,9 +44,21 @@ internal sealed class DiagnosticSink(bool strict, Action<Diagnostic>? observer =
     /// <param name="offset">The absolute byte offset in the file, when known.</param>
     /// <param name="objectReference">The object the deviation is in, when known.</param>
     /// <exception cref="DiagnosticException">The sink is strict and the severity is not <see cref="DiagnosticSeverity.Information"/>.</exception>
-    public void Report(string code, DiagnosticSeverity severity, string message, long? offset = null, CosReference? objectReference = null)
+    public void Report(string code, DiagnosticSeverity severity, string message, long? offset = null, CosReference? objectReference = null) =>
+        Report(new Diagnostic(code, severity, message, offset, objectReference));
+
+    /// <summary>Records a deviation, unless an equal one is already recorded; in strict mode, throws it.</summary>
+    /// <param name="code">The diagnostic code, from the catalog (<see cref="DiagnosticCatalog"/>).</param>
+    /// <param name="severity">How much the repair may have changed the document.</param>
+    /// <param name="message">What was wrong and what the reader did.</param>
+    /// <param name="offset">The absolute byte offset in the file, when known.</param>
+    /// <param name="objectReference">The object the deviation is in, when known.</param>
+    /// <exception cref="DiagnosticException">The sink is strict and the severity is not <see cref="DiagnosticSeverity.Information"/>.</exception>
+    public void Report(DiagnosticCode code, DiagnosticSeverity severity, string message, long? offset = null, CosReference? objectReference = null) =>
+        Report(new Diagnostic(code, severity, message, offset, objectReference));
+
+    private void Report(Diagnostic diagnostic)
     {
-        var diagnostic = new Diagnostic(code, severity, message, offset, objectReference);
         bool added;
         lock (_gate)
         {
@@ -66,9 +78,21 @@ internal sealed class DiagnosticSink(bool strict, Action<Diagnostic>? observer =
     /// <param name="offset">The absolute byte offset in the file, when known; not part of the key.</param>
     /// <param name="objectReference">The object the deviation is in, when known.</param>
     /// <exception cref="DiagnosticException">The sink is strict and the severity is not <see cref="DiagnosticSeverity.Information"/>.</exception>
-    public void ReportOnce(string code, DiagnosticSeverity severity, string message, long? offset = null, CosReference? objectReference = null)
+    public void ReportOnce(string code, DiagnosticSeverity severity, string message, long? offset = null, CosReference? objectReference = null) =>
+        ReportOnce(new Diagnostic(code, severity, message, offset, objectReference));
+
+    /// <summary>Records a deviation unless one with the same code is already recorded for <paramref name="objectReference"/>; see the string overload.</summary>
+    /// <param name="code">The diagnostic code, from the catalog (<see cref="DiagnosticCatalog"/>).</param>
+    /// <param name="severity">How much the repair may have changed the document.</param>
+    /// <param name="message">What was wrong and what the reader did.</param>
+    /// <param name="offset">The absolute byte offset in the file, when known; not part of the key.</param>
+    /// <param name="objectReference">The object the deviation is in, when known.</param>
+    /// <exception cref="DiagnosticException">The sink is strict and the severity is not <see cref="DiagnosticSeverity.Information"/>.</exception>
+    public void ReportOnce(DiagnosticCode code, DiagnosticSeverity severity, string message, long? offset = null, CosReference? objectReference = null) =>
+        ReportOnce(new Diagnostic(code, severity, message, offset, objectReference));
+
+    private void ReportOnce(Diagnostic diagnostic)
     {
-        var diagnostic = new Diagnostic(code, severity, message, offset, objectReference);
         bool added;
         lock (_gate)
         {
@@ -84,9 +108,21 @@ internal sealed class DiagnosticSink(bool strict, Action<Diagnostic>? observer =
     /// <param name="offset">The absolute byte offset in the file, when known.</param>
     /// <exception cref="DiagnosticException">Always.</exception>
     [DoesNotReturn]
-    public void Fail(string code, string message, long? offset = null)
+    public void Fail(string code, string message, long? offset = null) =>
+        Fail(new Diagnostic(code, DiagnosticSeverity.Error, message, offset));
+
+    /// <summary>Records a deviation the reader cannot repair, and throws it in either mode.</summary>
+    /// <param name="code">The diagnostic code, from the catalog (<see cref="DiagnosticCatalog"/>).</param>
+    /// <param name="message">What was wrong.</param>
+    /// <param name="offset">The absolute byte offset in the file, when known.</param>
+    /// <exception cref="DiagnosticException">Always.</exception>
+    [DoesNotReturn]
+    public void Fail(DiagnosticCode code, string message, long? offset = null) =>
+        Fail(new Diagnostic(code, DiagnosticSeverity.Error, message, offset));
+
+    [DoesNotReturn]
+    private void Fail(Diagnostic diagnostic)
     {
-        var diagnostic = new Diagnostic(code, DiagnosticSeverity.Error, message, offset);
         bool added;
         lock (_gate)
         {
@@ -116,7 +152,7 @@ internal sealed class DiagnosticSink(bool strict, Action<Diagnostic>? observer =
     /// the recorded diagnostic in place. Called under the gate.
     /// </summary>
     /// <param name="diagnostic">The diagnostic.</param>
-    /// <param name="perObject">Whether the code is also keyed per object whatever the offset (<see cref="ReportOnce"/>).</param>
+    /// <param name="perObject">Whether the code is also keyed per object whatever the offset (<see cref="ReportOnce(string, DiagnosticSeverity, string, long?, CosReference?)"/>).</param>
     /// <returns><see langword="true"/> when the diagnostic was added or replaced a less severe one.</returns>
     private bool Record(Diagnostic diagnostic, bool perObject)
     {

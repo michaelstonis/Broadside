@@ -78,7 +78,7 @@ internal sealed class CharStringReporter(FontProgramContext context, string form
         }
 
         Interlocked.Or(ref _reported, bit);
-        (string code, string text) = Describe(issue);
+        (DiagnosticCode code, string text) = Describe(issue);
         context.Report(
             code,
             DropsGlyph(issue) ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning,
@@ -89,23 +89,23 @@ internal sealed class CharStringReporter(FontProgramContext context, string form
     private static bool DropsGlyph(CharStringIssue issue) => issue is CharStringIssue.StackOverflow or CharStringIssue.SubroutineDepth
         or CharStringIssue.BudgetExceeded or CharStringIssue.Truncated or CharStringIssue.GlyphTooComplex;
 
-    private static (string Code, string Text) Describe(CharStringIssue issue) => issue switch
+    private static (DiagnosticCode Code, string Text) Describe(CharStringIssue issue) => issue switch
     {
-        CharStringIssue.StackOverflow => (DiagnosticCodes.FontCharstringStackOverflow, $"its charstring pushes more than {CharStringLimits.MaxArguments} operands (Adobe Technical Note #5177, Appendix B; Type 1 Font Format §6.1 with multiple master data); the glyph is dropped."),
-        CharStringIssue.ArgumentCount => (DiagnosticCodes.FontCharstringArgumentCount, "an operator has too few or too many arguments (Adobe Technical Note #5177 §4; Type 1 Font Format §6.4); whole argument groups are used and the rest dropped."),
-        CharStringIssue.SubroutineOutOfRange => (DiagnosticCodes.FontCharstringSubrOutOfRange, "a subroutine call names a subroutine that does not exist (Adobe Technical Note #5177 §4.7; Type 1 Font Format §8.1); the call is skipped."),
-        CharStringIssue.SubroutineDepth => (DiagnosticCodes.FontCharstringSubrDepth, $"subroutines nest deeper than {CharStringLimits.MaxSubroutineDepth} levels (Adobe Technical Note #5177, Appendix B; Type 1 Font Format §8.1); the glyph is dropped."),
-        CharStringIssue.BudgetExceeded => (DiagnosticCodes.FontCharstringBudgetExceeded, "the charstring executes more operators than the configured limit (FontProgramContext.MaxCharStringOperators); the glyph is dropped."),
-        CharStringIssue.UnknownOperator => (DiagnosticCodes.FontCharstringUnknownOperator, "a reserved operator occurs (Adobe Technical Note #5177, Appendix A; Type 1 Font Format §6.4), or return outside a subroutine; it is ignored and the argument stack cleared."),
-        CharStringIssue.SeacComponentMissing => (DiagnosticCodes.FontCharstringSeacComponentMissing, "a component of the accented character (endchar with four arguments, Adobe Technical Note #5177, Appendix C; seac, Type 1 Font Format §6.4) is not in the font, or is itself accented; the component is skipped."),
-        CharStringIssue.NoEndchar => (DiagnosticCodes.FontCharstringNoEndchar, "a charstring ends without endchar, or a subroutine without return (Adobe Technical Note #5177 §3.1; Type 1 Font Format §6.4); it is ended there."),
-        CharStringIssue.MovetoMissing => (DiagnosticCodes.FontCharstringMovetoMissing, "a path segment comes before any moveto (Adobe Technical Note #5177 §4.1); the contour starts at the current point."),
-        CharStringIssue.OperandInvalid => (DiagnosticCodes.FontCharstringOperandInvalid, "an arithmetic or storage operator gets an operand it cannot use (Adobe Technical Note #5177 §4.4, §4.5; div, Type 1 Font Format §6.5); 0 is used."),
-        CharStringIssue.FlexMalformed => (DiagnosticCodes.FontType1FlexMalformed, "a flex does not record seven points between OtherSubrs 1 and 0 (Type 1 Font Format §8.3); the stray point or the flex is dropped."),
-        CharStringIssue.BlendUnavailable => (DiagnosticCodes.FontType1BlendUnavailable, "a multiple master blend has no matching WeightVector (TN 5015 §3.13); the first master's values are used."),
-        CharStringIssue.NoWidth => (DiagnosticCodes.FontType1NoWidth, "the charstring does not start with hsbw or sbw (Type 1 Font Format §6.4); its side bearing and width are 0."),
-        CharStringIssue.GlyphTooComplex => (DiagnosticCodes.FontType1GlyphTooComplex, "the glyph has more points than the limit (FontProgramContext.MaxGlyphPoints) or its coordinates overflow; the glyph is dropped."),
-        _ => (DiagnosticCodes.FontCharstringTruncated, "the charstring ends inside an operand or a hint mask (Adobe Technical Note #5177 §3.2, §4.3; Type 1 Font Format §6.2); the glyph is dropped."),
+        CharStringIssue.StackOverflow => (CharStringDiagnostics.FontCharstringStackOverflow, $"its charstring pushes more than {CharStringLimits.MaxArguments} operands (Adobe Technical Note #5177, Appendix B; Type 1 Font Format §6.1 with multiple master data); the glyph is dropped."),
+        CharStringIssue.ArgumentCount => (CharStringDiagnostics.FontCharstringArgumentCount, "an operator has too few or too many arguments (Adobe Technical Note #5177 §4; Type 1 Font Format §6.4); whole argument groups are used and the rest dropped."),
+        CharStringIssue.SubroutineOutOfRange => (CharStringDiagnostics.FontCharstringSubrOutOfRange, "a subroutine call names a subroutine that does not exist (Adobe Technical Note #5177 §4.7; Type 1 Font Format §8.1); the call is skipped."),
+        CharStringIssue.SubroutineDepth => (CharStringDiagnostics.FontCharstringSubrDepth, $"subroutines nest deeper than {CharStringLimits.MaxSubroutineDepth} levels (Adobe Technical Note #5177, Appendix B; Type 1 Font Format §8.1); the glyph is dropped."),
+        CharStringIssue.BudgetExceeded => (CharStringDiagnostics.FontCharstringBudgetExceeded, "the charstring executes more operators than the configured limit (FontProgramContext.MaxCharStringOperators); the glyph is dropped."),
+        CharStringIssue.UnknownOperator => (CharStringDiagnostics.FontCharstringUnknownOperator, "a reserved operator occurs (Adobe Technical Note #5177, Appendix A; Type 1 Font Format §6.4), or return outside a subroutine; it is ignored and the argument stack cleared."),
+        CharStringIssue.SeacComponentMissing => (CharStringDiagnostics.FontCharstringSeacComponentMissing, "a component of the accented character (endchar with four arguments, Adobe Technical Note #5177, Appendix C; seac, Type 1 Font Format §6.4) is not in the font, or is itself accented; the component is skipped."),
+        CharStringIssue.NoEndchar => (CharStringDiagnostics.FontCharstringNoEndchar, "a charstring ends without endchar, or a subroutine without return (Adobe Technical Note #5177 §3.1; Type 1 Font Format §6.4); it is ended there."),
+        CharStringIssue.MovetoMissing => (CharStringDiagnostics.FontCharstringMovetoMissing, "a path segment comes before any moveto (Adobe Technical Note #5177 §4.1); the contour starts at the current point."),
+        CharStringIssue.OperandInvalid => (CharStringDiagnostics.FontCharstringOperandInvalid, "an arithmetic or storage operator gets an operand it cannot use (Adobe Technical Note #5177 §4.4, §4.5; div, Type 1 Font Format §6.5); 0 is used."),
+        CharStringIssue.FlexMalformed => (Type1Diagnostics.FontType1FlexMalformed, "a flex does not record seven points between OtherSubrs 1 and 0 (Type 1 Font Format §8.3); the stray point or the flex is dropped."),
+        CharStringIssue.BlendUnavailable => (Type1Diagnostics.FontType1BlendUnavailable, "a multiple master blend has no matching WeightVector (TN 5015 §3.13); the first master's values are used."),
+        CharStringIssue.NoWidth => (Type1Diagnostics.FontType1NoWidth, "the charstring does not start with hsbw or sbw (Type 1 Font Format §6.4); its side bearing and width are 0."),
+        CharStringIssue.GlyphTooComplex => (Type1Diagnostics.FontType1GlyphTooComplex, "the glyph has more points than the limit (FontProgramContext.MaxGlyphPoints) or its coordinates overflow; the glyph is dropped."),
+        _ => (CharStringDiagnostics.FontCharstringTruncated, "the charstring ends inside an operand or a hint mask (Adobe Technical Note #5177 §3.2, §4.3; Type 1 Font Format §6.2); the glyph is dropped."),
     };
 }
 

@@ -206,7 +206,7 @@ public sealed class PdfType0Font : PdfFont
 
         _invalidCodeReported = true;
         Report(
-            DiagnosticCodes.CMapCodeInvalid,
+            CMapDiagnostics.CMapCodeInvalid,
             DiagnosticSeverity.Warning,
             $"A shown string has a code (0x{code.Value:X}) in no codespace range of the font's CMap (ISO 32000-2 §9.7.6.3); it takes {code.Length} byte(s) and shows the glyph of CID 0.");
     }
