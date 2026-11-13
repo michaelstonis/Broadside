@@ -8,6 +8,7 @@ bfo-pdfa-testsuite/pdfa2-6-1-13-bfo-t03-fail.pdf	ToUnicodeBfRangeOverflow	1	9.10
 bfo-pdfa-testsuite/pdfa2-6-1-13-bfo-t05-fail.pdf	ToUnicodeBfRangeOverflow	1	9.10.3 bfrange destination whose last byte overflows past 255 over the range (common generator defect; incremented as pdf.js does)
 bfo-pdfa-testsuite/pdfa2-6-1-13-bfo-t07-pass.pdf	ToUnicodeBfRangeOverflow	1	9.10.3 bfrange destination whose last byte overflows past 255 over the range (common generator defect; incremented as pdf.js does)
 bfo-pdfa-testsuite/pdfa2-6-1-5-bfo-t01-pass.pdf	ToUnicodeBfRangeOverflow	1	9.10.3 bfrange destination whose last byte overflows past 255 over the range (common generator defect; incremented as pdf.js does)
+bfo-pdfa-testsuite/pdfa2-6-10-bfo-t01-fail.pdf	ToUnicodeBfRangeOverflow	1	9.10.3 bfrange destination whose last byte overflows past 255 over the range (common generator defect; incremented as pdf.js does)
 bfo-pdfa-testsuite/pdfa2-6-10-bfo-t02-fail.pdf	ToUnicodeBfRangeOverflow	1	9.10.3 bfrange destination whose last byte overflows past 255 over the range (common generator defect; incremented as pdf.js does)
 bfo-pdfa-testsuite/pdfa2-6-11-bfo-t01-fail.pdf	ToUnicodeBfRangeOverflow	1	9.10.3 bfrange destination whose last byte overflows past 255 over the range (common generator defect; incremented as pdf.js does)
 bfo-pdfa-testsuite/pdfa2-6-3-3-bfo-t01-fail.pdf	ToUnicodeCodeLengthMismatch	1	9.10.3 ToUnicode codes of another byte length than the font CMap reads
@@ -47,11 +48,14 @@ pdfium-tests/third_party/tcpdf/example_063.pdf	ToUnicodeBfRangeOverflow	1	9.10.3
 pdfium-tests/third_party/tcpdf/example_063.pdf	ToUnicodeDestinationInvalid	1	9.10.3 ToUnicode destination not UTF-16BE (unpaired surrogate, empty or odd-length string) met when the text of drawn glyphs is mapped
 pdfjs/IdentityToUnicodeMap_charCodeOf.pdf	ToUnicodeIdentityName	1	9.10.3 ToUnicode given as the name /Identity-H instead of a CMap stream
 pdfjs/TrueType_without_cmap.pdf	FontTableInvalid	1	OpenType table directory: hmtx offset one byte off, hmtx shorter than hhea/maxp require, or a simple TrueType program without cmap (font program defect met when glyphs are drawn)
+pdfjs/bug1027533.pdf	FontTableInvalid	1	OpenType table directory: hmtx offset one byte off, hmtx shorter than hhea/maxp require, or a simple TrueType program without cmap (font program defect met when glyphs are drawn)
+pdfjs/bug1028735.pdf	CMapEntryInvalid	1	Adobe TN 5099 4.2 codespace range with lower above upper, or range codes of different lengths, in a ToUnicode CMap
 pdfjs/bug1050040.pdf	FontCmapInvalid	1	OpenType cmap subtable whose length, glyph id array or glyph ids run past the table or the glyph count
 pdfjs/bug1050040.pdf	FontGlyphInvalid	1	OpenType glyf/loca defect in a glyph that is drawn (loca end before start or past glyf, truncated points, self-referencing composite)
 pdfjs/bug1050040.pdf	FontProgramTruncated	1	9.9 Table 125 font file shorter than its Length1/Length2
 pdfjs/bug1050040.pdf	FontTableInvalid	1	OpenType table directory: hmtx offset one byte off, hmtx shorter than hhea/maxp require, or a simple TrueType program without cmap (font program defect met when glyphs are drawn)
 pdfjs/bug1065245.pdf	DctLeadingJunk	1	T.81 B.2.1 bytes before the SOI marker of a DCT image decoded for drawing (libjpeg skips them too)
+pdfjs/bug1068432.pdf	FontCffDictInvalid	1	Adobe TN 5176 4 malformed real operand in a CFF Top DICT
 pdfjs/bug1151216.pdf	FontTableInvalid	1	OpenType table directory: hmtx offset one byte off, hmtx shorter than hhea/maxp require, or a simple TrueType program without cmap (font program defect met when glyphs are drawn)
 pdfjs/bug1186827.pdf	ToUnicodeBfRangeOverflow	1	9.10.3 bfrange destination whose last byte overflows past 255 over the range (common generator defect; incremented as pdf.js does)
 pdfjs/bug1186827.pdf	ToUnicodeDestinationInvalid	1	9.10.3 ToUnicode destination not UTF-16BE (unpaired surrogate, empty or odd-length string) met when the text of drawn glyphs is mapped
@@ -60,7 +64,10 @@ pdfjs/bug1473809.pdf	ToUnicodeDestinationInvalid	1	9.10.3 ToUnicode destination 
 pdfjs/bug1627427_reduced.pdf	ToUnicodeBfRangeOverflow	1	9.10.3 bfrange destination whose last byte overflows past 255 over the range (common generator defect; incremented as pdf.js does)
 pdfjs/bug1650302_reduced.pdf	FontGlyphInvalid	1	OpenType glyf/loca defect in a glyph that is drawn (loca end before start or past glyf, truncated points, self-referencing composite)
 pdfjs/bug1650302_reduced.pdf	ToUnicodeIdentityName	1	9.10.3 ToUnicode given as the name /Identity-H instead of a CMap stream
+pdfjs/bug866395.pdf	FontCffHeaderInvalid	1	9.9 Table 124 FontFile3 /Type1C data without a CFF header
+pdfjs/bug868745.pdf	FontTableInvalid	1	OpenType table directory: hmtx offset one byte off, hmtx shorter than hhea/maxp require, or a simple TrueType program without cmap (font program defect met when glyphs are drawn)
 pdfjs/bug894572.pdf	FontCmapInvalid	1	OpenType cmap subtable whose length, glyph id array or glyph ids run past the table or the glyph count
+pdfjs/bug898853.pdf	ToUnicodeCodeLengthMismatch	1	9.10.3 ToUnicode codes of another byte length than the font CMap reads
 pdfjs/bug920426.pdf	ToUnicodeIdentityName	1	9.10.3 ToUnicode given as the name /Identity-H instead of a CMap stream
 pdfjs/canvas.pdf	FontTableInvalid	3	OpenType table directory: hmtx offset one byte off, hmtx shorter than hhea/maxp require, or a simple TrueType program without cmap (font program defect met when glyphs are drawn)
 pdfjs/file_pdfjs_test.pdf	FontTableInvalid	5	OpenType table directory: hmtx offset one byte off, hmtx shorter than hhea/maxp require, or a simple TrueType program without cmap (font program defect met when glyphs are drawn)
@@ -72,7 +79,9 @@ pdfjs/issue11922_reduced.pdf	ToUnicodeCodeLengthMismatch	1	9.10.3 ToUnicode code
 pdfjs/issue11922_reduced.pdf	ToUnicodeDestinationInvalid	1	9.10.3 ToUnicode destination not UTF-16BE (unpaired surrogate, empty or odd-length string) met when the text of drawn glyphs is mapped
 pdfjs/issue12418_reduced.pdf	ToUnicodeIdentityName	1	9.10.3 ToUnicode given as the name /Identity-H instead of a CMap stream
 pdfjs/issue13211.pdf	ToUnicodeBfRangeOverflow	1	9.10.3 bfrange destination whose last byte overflows past 255 over the range (common generator defect; incremented as pdf.js does)
+pdfjs/issue13316_reduced.pdf	CidSystemInfoInvalid	1	9.10.3 ToUnicode CMap whose CIDSystemInfo is not a Registry/Ordering/Supplement dictionary
 pdfjs/issue14297.pdf	FontTableInvalid	2	OpenType table directory: hmtx offset one byte off, hmtx shorter than hhea/maxp require, or a simple TrueType program without cmap (font program defect met when glyphs are drawn)
+pdfjs/issue14462_reduced.pdf	FontType1PfbWrapped	1	9.9 Table 124 FontFile holding a PFB file with segment headers
 pdfjs/issue14497.pdf	FontTableInvalid	1	OpenType table directory: hmtx offset one byte off, hmtx shorter than hhea/maxp require, or a simple TrueType program without cmap (font program defect met when glyphs are drawn)
 pdfjs/issue15910.pdf	ToUnicodeBfRangeOverflow	2	9.10.3 bfrange destination whose last byte overflows past 255 over the range (common generator defect; incremented as pdf.js does)
 pdfjs/issue17671.pdf	FontGlyphInvalid	1	OpenType glyf/loca defect in a glyph that is drawn (loca end before start or past glyf, truncated points, self-referencing composite)
@@ -80,17 +89,24 @@ pdfjs/issue18099_reduced.pdf	ToUnicodeDestinationInvalid	1	9.10.3 ToUnicode dest
 pdfjs/issue20232.pdf	ToUnicodeBfRangeOverflow	1	9.10.3 bfrange destination whose last byte overflows past 255 over the range (common generator defect; incremented as pdf.js does)
 pdfjs/issue2074.pdf	ToUnicodeBfRangeOverflow	1	9.10.3 bfrange destination whose last byte overflows past 255 over the range (common generator defect; incremented as pdf.js does)
 pdfjs/issue2074.pdf	ToUnicodeDestinationInvalid	1	9.10.3 ToUnicode destination not UTF-16BE (unpaired surrogate, empty or odd-length string) met when the text of drawn glyphs is mapped
+pdfjs/issue215.pdf	FontProgramFormatMismatch	1	9.9 Table 124 FontFile2/FontFile3 holding another program format than its key declares
+pdfjs/issue2537r.pdf	FontCmapInvalid	1	OpenType cmap subtable whose length, glyph id array or glyph ids run past the table or the glyph count
 pdfjs/issue2948.pdf	FontTableInvalid	3	OpenType table directory: hmtx offset one byte off, hmtx shorter than hhea/maxp require, or a simple TrueType program without cmap (font program defect met when glyphs are drawn)
 pdfjs/issue2956.pdf	ToUnicodeBfRangeOverflow	2	9.10.3 bfrange destination whose last byte overflows past 255 over the range (common generator defect; incremented as pdf.js does)
 pdfjs/issue2956.pdf	ToUnicodeDestinationInvalid	2	9.10.3 ToUnicode destination not UTF-16BE (unpaired surrogate, empty or odd-length string) met when the text of drawn glyphs is mapped
+pdfjs/issue3025.pdf	FontCmapInvalid	1	OpenType cmap subtable whose length, glyph id array or glyph ids run past the table or the glyph count
 pdfjs/issue3207r.pdf	FontCharstringUnknownOperator	1	Adobe TN 5177 Appendix A reserved charstring operator in a drawn glyph
+pdfjs/issue3438.pdf	ToUnicodeBfRangeOverflow	1	9.10.3 bfrange destination whose last byte overflows past 255 over the range (common generator defect; incremented as pdf.js does)
 pdfjs/issue3928.pdf	FontType1Length1Repaired	1	9.9 Table 125 Type 1 Length1 that does not end at eexec
 pdfjs/issue3928.pdf	FontType1Length2Repaired	2	9.9 Table 125 Type 1 Length2 shorter than the encrypted portion
 pdfjs/issue4061.pdf	CMapEntryInvalid	1	Adobe TN 5099 4.2 codespace range with lower above upper, or range codes of different lengths, in a ToUnicode CMap
 pdfjs/issue4398.pdf	FontGlyphInvalid	1	OpenType glyf/loca defect in a glyph that is drawn (loca end before start or past glyf, truncated points, self-referencing composite)
 pdfjs/issue4402_reduced.pdf	ToUnicodeIdentityName	1	9.10.3 ToUnicode given as the name /Identity-H instead of a CMap stream
+pdfjs/issue4668.pdf	FontProgramFormatMismatch	1	9.9 Table 124 FontFile2/FontFile3 holding another program format than its key declares
 pdfjs/issue4684.pdf	FontProgramInvalid	1	9.9 Table 124 embedded TrueType program without glyf or loca (not usable; the substitute draws)
 pdfjs/issue4706.pdf	FontTableInvalid	1	OpenType table directory: hmtx offset one byte off, hmtx shorter than hhea/maxp require, or a simple TrueType program without cmap (font program defect met when glyphs are drawn)
+pdfjs/issue4875.pdf	ToUnicodeDestinationInvalid	1	9.10.3 ToUnicode destination not UTF-16BE (unpaired surrogate, empty or odd-length string) met when the text of drawn glyphs is mapped
+pdfjs/issue5010.pdf	CMapUseCMapInvalid	1	9.10.3 ToUnicode CMap usecmap of a predefined (non-ToUnicode) CMap name
 pdfjs/issue5677.pdf	ToUnicodeBfRangeOverflow	1	9.10.3 bfrange destination whose last byte overflows past 255 over the range (common generator defect; incremented as pdf.js does)
 pdfjs/issue5677.pdf	ToUnicodeDestinationInvalid	1	9.10.3 ToUnicode destination not UTF-16BE (unpaired surrogate, empty or odd-length string) met when the text of drawn glyphs is mapped
 pdfjs/issue5801.pdf	ToUnicodeCidMapping	1	9.10.3 ToUnicode CMap mapping with cidchar/cidrange instead of bfchar/bfrange

@@ -19,8 +19,8 @@ namespace Broadside.Parsing;
 /// Repairs, each recorded once per section: a comment between tokens of the table is skipped
 /// (<see cref="FileStructureDiagnostics.XrefCommentIgnored"/>); a line that is neither a subsection header nor an entry is skipped
 /// (<see cref="FileStructureDiagnostics.XrefLineMalformed"/>); an entry numbered like the trailer's <c>Size</c> or more is
-/// dropped, because Size is the number of entries in the table (§7.5.5, Table 15;
-/// <see cref="FileStructureDiagnostics.XrefEntryBeyondSize"/>).
+/// reported but kept in lenient mode, because Size is the number of entries in the table (§7.5.5, Table 15) and real writers
+/// undercount it (<see cref="FileStructureDiagnostics.XrefEntryBeyondSize"/>).
 /// </para>
 /// </remarks>
 internal static class XrefTableReader
@@ -69,15 +69,17 @@ internal static class XrefTableReader
             return null;
         }
 
-        DropEntriesBeyondSize(entries, dictionary, sectionOffset, diagnostics);
+        ReportEntriesBeyondSize(entries, dictionary, sectionOffset, diagnostics);
         return new XrefSection(sectionOffset, sectionOffset + parser.Position, XrefSectionKind.Table, entries, dictionary);
     }
 
     /// <summary>
-    /// Removes the entries numbered <c>Size</c> or more: Size is "the total number of entries in the file's cross-reference table"
-    /// (§7.5.5, Table 15), so they are not part of it. A missing or unusable Size drops nothing.
+    /// Reports the entries numbered <c>Size</c> or more: Size is "the total number of entries in the file's cross-reference table"
+    /// (§7.5.5, Table 15), so they are not part of it. Strict mode throws; lenient mode keeps them, because real writers undercount
+    /// Size (often with the Root beyond it) and ignoring the entries would rebuild those files for nothing. A missing or unusable
+    /// Size reports nothing.
     /// </summary>
-    private static void DropEntriesBeyondSize(Dictionary<int, XrefEntry> entries, CosDictionary trailer, long sectionOffset, DiagnosticSink diagnostics)
+    private static void ReportEntriesBeyondSize(Dictionary<int, XrefEntry> entries, CosDictionary trailer, long sectionOffset, DiagnosticSink diagnostics)
     {
         if (!trailer.TryGetValue(KnownNames.Size, out CosObject? size) || size is not CosInteger { Value: >= 0 } stated)
         {
@@ -100,15 +102,10 @@ internal static class XrefTableReader
             return;
         }
 
-        foreach (int number in entries.Keys.Where(number => number >= stated.Value).ToArray())
-        {
-            _ = entries.Remove(number);
-        }
-
         diagnostics.Report(
             FileStructureDiagnostics.XrefEntryBeyondSize,
             DiagnosticSeverity.Warning,
-            string.Create(CultureInfo.InvariantCulture, $"The table lists {dropped} entries numbered {stated.Value} or more (the first is object {first}), but the trailer's Size is {stated.Value}, the total number of entries; they are ignored."),
+            string.Create(CultureInfo.InvariantCulture, $"The table lists {dropped} entries numbered {stated.Value} or more (the first is object {first}), but the trailer's Size is {stated.Value}, the total number of entries; they are kept."),
             sectionOffset);
     }
 

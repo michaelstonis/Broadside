@@ -1,6 +1,6 @@
 ﻿corpus: bfo-pdfa-testsuite @ c22d80260c7ec975a511f9bfcc6590b7ceb1cf18
 files: 33
-well-formed files: 28
+well-formed files: 29
 outcomes:
   Interpreted: 33
   PasswordRequired: 0
@@ -91,6 +91,6 @@ appearance events:
   MarkedContentPoints: 0
   MaxDepth: 0
 diagnostics on well-formed files (files, total):
-  ContentColorOperatorMismatch: 18, 22
+  ContentColorOperatorMismatch: 19, 23
 diagnostics on other files (files, total):
-  ContentColorOperatorMismatch: 5, 5
+  ContentColorOperatorMismatch: 4, 4

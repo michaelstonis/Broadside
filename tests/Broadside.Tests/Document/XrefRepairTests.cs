@@ -13,11 +13,11 @@ namespace Broadside.Tests.Document;
 public sealed class XrefRepairTests
 {
     [Fact]
-    public void An_entry_numbered_Size_or_more_is_ignored_and_the_object_reads_as_null()
+    public void An_entry_numbered_Size_or_more_is_reported_and_kept_in_lenient_mode()
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Path("xref-entry-beyond-size.pdf"));
 
-        Assert.Same(CosNull.Instance, document.Resolve(new CosReference(4, 0)));
+        Assert.IsType<CosDictionary>(document.Resolve(new CosReference(4, 0)));
         Assert.Equal(["XrefEntryBeyondSize"], document.Diagnostics.Select(static diagnostic => diagnostic.Code));
         Assert.Equal(DiagnosticSeverity.Warning, document.Diagnostics[0].Severity);
     }

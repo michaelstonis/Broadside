@@ -9,12 +9,12 @@ outcomes:
   Rejected: 13
   Crash: 0
   Timeout: 0
-pages: 3576
+pages: 3575
 appearance streams: 1882
 concurrent passes: 166
 page events:
-  Runs: 3576
-  Operators: 145152
+  Runs: 3575
+  Operators: 145147
   UnknownOperators: 74
   StateSaves: 15686
   PathVerbs: 42459
@@ -25,8 +25,8 @@ page events:
   ClipsPath: 828
   ClipsRectangle: 647
   ClipsText: 0
-  TextObjects: 5529
-  GlyphsType1: 173219
+  TextObjects: 5528
+  GlyphsType1: 173213
   GlyphsMMType1: 0
   GlyphsTrueType: 9864
   GlyphsType3: 0
@@ -126,7 +126,7 @@ diagnostics on other files (files, total):
   FontDescriptorInvalid: 1, 6
   FontEncodingInvalid: 1, 1
   ImageDimensionInvalid: 1, 1
-  MissingEndobj: 10, 10
+  MissingEndobj: 9, 9
   ObjectStreamIndexMismatch: 2, 2
   PredictorInvalid: 1, 1
   StreamKeywordEndOfLine: 1, 4
