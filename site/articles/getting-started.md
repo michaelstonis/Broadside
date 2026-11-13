@@ -81,6 +81,8 @@ using (PdfDocument report = PdfDocument.Create())
 }
 ```
 
+The software rasterizer gives the same bytes for the same package version, page and `RenderOptions` on Linux, Windows and macOS, on x64 and Arm64: it uses no platform maths library, fused multiply-add or vector path that could round differently, and CI compares render hashes across those runners. WebAssembly is not covered yet, and native backends (SkiaSharp, CoreGraphics, Direct2D, Android) match it within the golden-image threshold rather than bit for bit.
+
 Reading is lenient by default: a damaged file is repaired and every repair is recorded as a diagnostic on the document. `new PdfOptions().UseStrict()` makes the first deviation an error instead.
 
 ## Viewers

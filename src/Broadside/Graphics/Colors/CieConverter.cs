@@ -1,3 +1,5 @@
+using Broadside.Numerics;
+
 namespace Broadside.Graphics.Colors;
 
 /// <summary>Converts CalGray, CalRGB and Lab colours (and Lab-based ICC profiles) through CIE XYZ to sRGB, then to the target model.</summary>
@@ -89,16 +91,16 @@ internal sealed class CieConverter : IColorConverter
         {
             case PdfColorSpaceFamily.CalGray:
                 // §8.6.5.2: X = XW·A^G, Y = YW·A^G, Z = ZW·A^G.
-                double a = Math.Pow(ColorMath.Clamp01(input[0]), _gamma[0]);
+                double a = DeterministicMath.Pow(ColorMath.Clamp01(input[0]), _gamma[0]);
                 xyz[0] = _white.X * a;
                 xyz[1] = _white.Y * a;
                 xyz[2] = _white.Z * a;
                 break;
             case PdfColorSpaceFamily.CalRgb:
                 // §8.6.5.3: X = XA·A^GR + XB·B^GG + XC·C^GB, likewise Y and Z; Matrix = [XA YA ZA XB YB ZB XC YC ZC].
-                double ag = Math.Pow(ColorMath.Clamp01(input[0]), _gamma[0]);
-                double bg = Math.Pow(ColorMath.Clamp01(input[1]), _gamma[1]);
-                double cg = Math.Pow(ColorMath.Clamp01(input[2]), _gamma[2]);
+                double ag = DeterministicMath.Pow(ColorMath.Clamp01(input[0]), _gamma[0]);
+                double bg = DeterministicMath.Pow(ColorMath.Clamp01(input[1]), _gamma[1]);
+                double cg = DeterministicMath.Pow(ColorMath.Clamp01(input[2]), _gamma[2]);
                 xyz[0] = (_matrix[0] * ag) + (_matrix[3] * bg) + (_matrix[6] * cg);
                 xyz[1] = (_matrix[1] * ag) + (_matrix[4] * bg) + (_matrix[7] * cg);
                 xyz[2] = (_matrix[2] * ag) + (_matrix[5] * bg) + (_matrix[8] * cg);

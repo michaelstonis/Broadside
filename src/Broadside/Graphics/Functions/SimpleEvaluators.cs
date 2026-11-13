@@ -1,3 +1,5 @@
+using Broadside.Numerics;
+
 namespace Broadside.Graphics.Functions;
 
 /// <summary>A function that could not be compiled: every evaluation fails and writes 0, clipped to the range when there is one.</summary>
@@ -83,7 +85,7 @@ internal sealed class ExponentialEvaluator : FunctionEvaluator
         {
             1 => x,
             2 => x * x,
-            _ => Math.Pow(x, _exponent),
+            _ => DeterministicMath.Pow(x, _exponent),
         };
         if (!double.IsFinite(power))
         {
