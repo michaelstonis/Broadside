@@ -67,7 +67,7 @@ internal static class SampledCompiler
             return FunctionCompiler.Invalid(m, n, range);
         }
 
-        ReadOrder(dictionary, size, compilation);
+        bool cubic = ReadOrder(dictionary, compilation);
         double[] defaultEncode = new double[2 * m];
         for (int i = 0; i < m; i++)
         {
@@ -90,7 +90,7 @@ internal static class SampledCompiler
         }
 
         float[] samples = ReadSamples(compilation.Decode(stream).Span, (int)values, n, bitsPerSample, decode, compilation);
-        return new SampledEvaluator(domain, range, size, encode, samples, n);
+        return new SampledEvaluator(domain, range, size, encode, samples, n, cubic);
     }
 
     /// <summary>Reads Size: m positive integers; reals are truncated with a diagnostic.</summary>
@@ -145,27 +145,26 @@ internal static class SampledCompiler
         return result;
     }
 
-    /// <summary>Reads Order: 3 is evaluated linearly (noted when a cubic spline was possible); other values are repaired to 1.</summary>
-    private static void ReadOrder(CosDictionary dictionary, int[] size, FunctionCompilation compilation)
+    /// <summary>Reads Order: <see langword="true"/> for 3 (cubic spline); other values other than 1 are repaired to 1.</summary>
+    /// <remarks>
+    /// §7.10.2: with fewer than 4 samples in a dimension a spline is not possible and Order 3 "shall be ignored"; the evaluator
+    /// applies that per dimension.
+    /// </remarks>
+    private static bool ReadOrder(CosDictionary dictionary, FunctionCompilation compilation)
     {
         double? order = compilation.ReadNumber(dictionary, FunctionNames.Order);
         if (order is null or 1)
         {
-            return;
+            return false;
         }
 
         if (order != 3)
         {
             compilation.Repaired("Order is neither 1 nor 3; linear interpolation is used.");
+            return false;
         }
-        else if (Array.TrueForAll(size, static dimension => dimension >= 4))
-        {
-            // §7.10.2: with fewer than 4 samples in a dimension Order 3 "shall be ignored", so only a possible spline is noted.
-            compilation.Report(
-                DiagnosticCodes.FunctionOrderUnsupported,
-                DiagnosticSeverity.Information,
-                "Order 3 (cubic spline interpolation) is not implemented; linear interpolation is used.");
-        }
+
+        return true;
     }
 
     /// <summary>Fits an array of pairs to <paramref name="pairs"/> pairs, taking missing ones from <paramref name="defaults"/>.</summary>

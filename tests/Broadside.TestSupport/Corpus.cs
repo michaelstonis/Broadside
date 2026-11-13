@@ -99,6 +99,7 @@ public static class Corpus
         "embedded-files.pdf",
         "collection-portfolio.pdf",
         "associated-files.pdf",
+        "encrypted-wrapper.pdf",
         "object-metadata.pdf",
         "declarations.pdf",
         "actions-all.pdf",

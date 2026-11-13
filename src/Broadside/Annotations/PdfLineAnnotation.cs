@@ -22,11 +22,11 @@ public sealed class PdfLineAnnotation : PdfMarkupAnnotation
 
     /// <summary>Gets the line ending at the first point (<c>LE</c>, PDF 1.4); default none.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.7, Table 178, and Table 179.</remarks>
-    public PdfLineEnding StartLineEnding => ReadLineEndings().Start;
+    public PdfLineEnding StartLineEnding => this.GetLineEndings().Start;
 
     /// <summary>Gets the line ending at the last point (<c>LE</c>, PDF 1.4); default none.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.7, Table 178, and Table 179.</remarks>
-    public PdfLineEnding EndLineEnding => ReadLineEndings().End;
+    public PdfLineEnding EndLineEnding => this.GetLineEndings().End;
 
     /// <summary>Gets or sets the interior colour (<c>IC</c>, PDF 1.4), or <see langword="null"/> for none; setting <see langword="null"/> removes it, and the appearance is kept until <see cref="PdfAnnotation.RegenerateAppearance"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.7, Table 178: it fills the line endings.</remarks>
@@ -58,7 +58,7 @@ public sealed class PdfLineAnnotation : PdfMarkupAnnotation
 
     /// <summary>Gets where the caption is placed (<c>CP</c>, PDF 1.7); default inline.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.7, Table 178.</remarks>
-    public PdfLineCaptionPosition CaptionPosition => ReadChoice(AnnotationNames.CP, PdfLineCaptionPosition.Inline, ("Inline", PdfLineCaptionPosition.Inline), ("Top", PdfLineCaptionPosition.Top));
+    public PdfLineCaptionPosition CaptionPosition => this.GetChoice(AnnotationNames.CP, PdfLineCaptionPosition.Inline, ("Inline", PdfLineCaptionPosition.Inline), ("Top", PdfLineCaptionPosition.Top));
 
     /// <summary>Gets the offset of the caption from its position (<c>CO</c>, PDF 1.7); default (0, 0).</summary>
     /// <remarks>ISO 32000-2 §12.5.6.7, Table 178.</remarks>
@@ -66,7 +66,7 @@ public sealed class PdfLineAnnotation : PdfMarkupAnnotation
     {
         get
         {
-            IReadOnlyList<PathPoint> offset = ReadPoints(AnnotationNames.CO, required: false, "Table 178");
+            IReadOnlyList<PathPoint> offset = this.GetPointPairs(AnnotationNames.CO, required: false, "Table 178");
             return offset.Count == 1 ? offset[0] : new PathPoint(0, 0);
         }
     }
@@ -77,7 +77,7 @@ public sealed class PdfLineAnnotation : PdfMarkupAnnotation
 
     private (PathPoint Start, PathPoint End) ReadLine()
     {
-        IReadOnlyList<PathPoint> points = ReadPoints(AnnotationNames.L, required: true, "Table 178");
+        IReadOnlyList<PathPoint> points = this.GetPointPairs(AnnotationNames.L, required: true, "Table 178");
         if (points.Count == 2)
         {
             return (points[0], points[1]);

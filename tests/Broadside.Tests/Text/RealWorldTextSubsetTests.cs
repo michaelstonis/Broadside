@@ -42,7 +42,7 @@ public sealed class RealWorldTextSubsetTests
                 continue;
             }
 
-            using PdfDocument document = PdfDocument.Open(bytes);
+            using PdfDocument document = await PdfDocument.OpenAsync(bytes, TestContext.Current.CancellationToken);
             long glyphs = 0;
             long words = 0;
             long lines = 0;

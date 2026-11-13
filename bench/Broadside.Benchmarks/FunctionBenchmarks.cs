@@ -32,6 +32,12 @@ public class FunctionBenchmarks
         ["Type0TwoIn"] = static () => new CosStream(
             Dictionary("<< /FunctionType 0 /Domain [0 1 0 1] /Range [0 1 0 1 0 1] /Size [16 16] /BitsPerSample 8 >>"),
             Enumerable.Range(0, 768).Select(static i => (byte)(i * 11)).ToArray()),
+        ["Type0Order3OneIn"] = static () => new CosStream(
+            Dictionary("<< /FunctionType 0 /Domain [0 1] /Range [0 1 0 1 0 1] /Size [256] /Order 3 /BitsPerSample 8 >>"),
+            Enumerable.Range(0, 768).Select(static i => (byte)(i * 7)).ToArray()),
+        ["Type0Order3ThreeIn"] = static () => new CosStream(
+            Dictionary("<< /FunctionType 0 /Domain [0 1 0 1 0 1] /Range [0 1 0 1 0 1] /Size [8 8 8] /Order 3 /BitsPerSample 8 >>"),
+            Enumerable.Range(0, 1536).Select(static i => (byte)(i * 11)).ToArray()),
         ["Type2"] = static () => Dictionary("<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0] /C1 [1 0.5 0.25] /N 1.7 >>"),
         ["Type3"] = static () => Dictionary(
             "<< /FunctionType 3 /Domain [0 1] /Bounds [0.25 0.5 0.75] /Encode [0 1 1 0 0 1 1 0] /Functions [" +
@@ -45,7 +51,7 @@ public class FunctionBenchmarks
     private float[] _outputs = [];
 
     /// <summary>The function to evaluate.</summary>
-    [Params("Type4LogoGreen", "Type4DoubleDot", "Type4Hexachrome", "Type0OneInThreeOut", "Type0TwoIn", "Type2", "Type3")]
+    [Params("Type4LogoGreen", "Type4DoubleDot", "Type4Hexachrome", "Type0OneInThreeOut", "Type0TwoIn", "Type0Order3OneIn", "Type0Order3ThreeIn", "Type2", "Type3")]
     public string Function { get; set; } = "";
 
     [GlobalSetup]

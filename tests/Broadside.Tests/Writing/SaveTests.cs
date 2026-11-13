@@ -306,7 +306,7 @@ public sealed class SaveTests
     [InlineData(PdfCrossReferenceLayout.StreamWithObjectStreams)]
     public async Task SaveAsync_writes_the_same_bytes_as_Save(PdfCrossReferenceLayout layout)
     {
-        using PdfDocument source = PdfDocument.Open(Corpus.Path("object-stream.pdf"));
+        using PdfDocument source = await PdfDocument.OpenAsync(Corpus.Path("object-stream.pdf"), TestContext.Current.CancellationToken);
         var options = new PdfSaveOptions().WithCrossReferenceLayout(layout);
         using var synchronous = new MemoryStream();
         using var asynchronous = new MemoryStream();
