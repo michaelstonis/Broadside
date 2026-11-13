@@ -306,6 +306,36 @@ public sealed class JpxImageTests
         }
     }
 
+    [Fact]
+    public void A_JPX_soft_mask_is_kept_encoded_and_decoded_at_the_resolution_drawn()
+    {
+        // Issue #513: the soft mask's codestream has the one gray component §11.6.5.2 asks for, so the list keeps it encoded and
+        // every reduction is the codec's own, as a direct decode gives it; reduction 0 is the soft mask's decode at build.
+        JpxVector gray = JpxSamples.Vector("Rlcp3Layers");
+        string image = ContentSamples.Stream(
+            new string('\x80', gray.Width * gray.Height * 3),
+            $"/Type /XObject /Subtype /Image /Width {gray.Width} /Height {gray.Height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /SMask 6 0 R");
+        string soft = ContentSamples.Stream(
+            Encoding.Latin1.GetString(gray.Data), $"/Type /XObject /Subtype /Image /Width {gray.Width} /Height {gray.Height} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /JPXDecode");
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage("q 100 0 0 100 0 0 cm /Im0 Do Q"u8.ToArray(), "/XObject << /Im0 5 0 R >>", image, soft));
+        using DecodedImage atBuild = document.Pages[0].GetImage("Im0")!.Mask!.Decode()!;
+
+        var recorder = new RecordingBackend();
+        document.Pages[0].CreateDisplayList().Replay(recorder);
+        DisplayImage mask = Assert.Single(recorder.Images).Image.SoftMask!;
+
+        Assert.Equal((gray.Width, gray.Height, 2), (mask.Width, mask.Height, mask.MaxReduction));
+        for (int reduction = 2; reduction >= 1; reduction--)
+        {
+            using DecodedImage expected = new JpxDecodeFilter().DecodeImage(gray.Data, new ImageFilterContext(new FilterContext()) { Reduction = reduction })!;
+            DisplayImageSamples samples = mask.GetSamplesAt(reduction, TestContext.Current.CancellationToken)!.Value;
+            Assert.Equal((reduction, expected.Width, expected.Height), (samples.Reduction, samples.Width, samples.Height));
+            Assert.Equal(ImageTesting.Raw(expected), Raw(samples));
+        }
+
+        Assert.Equal(ImageTesting.Raw(atBuild), Raw(mask.GetSamplesAt(0, TestContext.Current.CancellationToken)!.Value));
+    }
+
     private static ushort[] Raw(DisplayImageSamples samples) =>
         [.. Enumerable.Range(0, samples.Height).SelectMany(y => samples.GetRow(y).Slice(0, samples.Width * samples.Components).ToArray().Select(b => (ushort)b))];
 

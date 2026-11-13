@@ -287,6 +287,100 @@ public sealed class ScaledImageDecodeTests
     }
 
     [Fact]
+    public void A_soft_mask_in_a_reducing_codec_is_kept_encoded_and_decoded_at_the_reduction_it_is_drawn()
+    {
+        // Issue #513: a 256 x 256 Flate image (decoded at build) whose 1024 x 1024 soft mask reduces. At a sixteenth the mask's 1024
+        // samples cover 32 pixels, so it decodes at an eighth, its codec's largest; nothing of it is decoded before the render.
+        var codec = new ReducingImageFilter();
+        string image = ContentSamples.Stream(
+            System.Text.Encoding.Latin1.GetString(ReducingImageFilter.Photo(256, 256, 3)),
+            "/Type /XObject /Subtype /Image /Width 256 /Height 256 /ColorSpace /DeviceRGB /BitsPerComponent 8 /SMask 6 0 R");
+        string soft = ContentSamples.Stream(
+            System.Text.Encoding.Latin1.GetString(ReducingImageFilter.Photo(1024, 1024, 1)),
+            "/Type /XObject /Subtype /Image /Width 1024 /Height 1024 /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /BroadsideReduce");
+        using PdfDocument document = PdfDocument.Open(
+            ContentSamples.OnePage(System.Text.Encoding.ASCII.GetBytes(Paint), "/XObject << /Im0 5 0 R >>", image, soft), new PdfOptions().UseFilter(codec));
+
+        var recorder = new RecordingBackend();
+        document.Pages[0].CreateDisplayList().Replay(recorder);
+        DisplayImage mask = Assert.Single(recorder.Images).Image.SoftMask!;
+        Assert.Equal((1024, 1024, 3, 0), (mask.Width, mask.Height, mask.MaxReduction, codec.Decodes));
+
+        using Bitmap reduced = RenderList(document, 0.0625, scaled: true);
+        Assert.Equal((1, 1), (codec.Decodes, codec.DecodesAt(3)));
+        using Bitmap full = RenderList(document, 0.0625, scaled: false);
+        Assert.Equal(1, codec.DecodesAt(0));
+
+        (double psnr, double over8) = Compare(reduced, full);
+        Assert.True(psnr >= 35, $"PSNR {psnr:F1} dB");
+        Assert.True(over8 <= 0.04, $"{over8:P2} of pixels over 8 levels");
+    }
+
+    [Fact]
+    public void A_small_soft_mask_of_its_image_size_reduces_with_the_image()
+    {
+        // Issue #513: a 256 x 256 soft mask decoded at build is under the size from which images decoded at build reduce, but its
+        // image reduces, so it reduces too, at the image's reduction: every backend folds the two on one grid instead of drawing the
+        // image at its own resolution (WebGL) or resampling the mask on its own (the rasterizer).
+        var codec = new ReducingImageFilter();
+        string image = ContentSamples.Stream(
+            System.Text.Encoding.Latin1.GetString(ReducingImageFilter.Photo(256, 256, 3)),
+            "/Type /XObject /Subtype /Image /Width 256 /Height 256 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /BroadsideReduce /SMask 6 0 R");
+        string soft = ContentSamples.Stream(
+            System.Text.Encoding.Latin1.GetString(ReducingImageFilter.Photo(256, 256, 1)), "/Type /XObject /Subtype /Image /Width 256 /Height 256 /ColorSpace /DeviceGray /BitsPerComponent 8");
+        using PdfDocument document = PdfDocument.Open(
+            ContentSamples.OnePage(System.Text.Encoding.ASCII.GetBytes(Paint), "/XObject << /Im0 5 0 R >>", image, soft), new PdfOptions().UseFilter(codec));
+
+        var recorder = new RecordingBackend();
+        document.Pages[0].CreateDisplayList().Replay(recorder);
+        DisplayImage drawn = Assert.Single(recorder.Images).Image;
+        DisplayImage mask = drawn.SoftMask!;
+        Assert.True(mask.MaxReduction >= drawn.MaxReduction, $"The soft mask reduces at most {mask.MaxReduction} times.");
+
+        // 256 samples over 32 pixels at a sixteenth: a quarter keeps two per pixel, for the image and its mask alike.
+        using Bitmap reduced = RenderList(document, 0.0625, scaled: true);
+        Assert.Equal((1, 1), (codec.Decodes, codec.DecodesAt(2)));
+        Assert.Equal(2, mask.GetSamplesAt(2, TestContext.Current.CancellationToken)!.Value.Reduction);
+        using Bitmap full = RenderList(document, 0.0625, scaled: false);
+
+        (double psnr, double over8) = Compare(reduced, full);
+        Assert.True(psnr >= 35, $"PSNR {psnr:F1} dB");
+        Assert.True(over8 <= 0.04, $"{over8:P2} of pixels over 8 levels");
+    }
+
+    [Fact]
+    public void An_image_reduces_no_further_than_its_soft_mask_of_the_same_size()
+    {
+        // Issue #513: the image's codec reduces to an eighth, its soft mask's (of the same size) only to a half, so the image stops
+        // at a half too and the two fold at the same reduction.
+        var codec = new ReducingImageFilter();
+        var halving = new ReducingImageFilter(1, "BroadsideHalve");
+        string image = ContentSamples.Stream(
+            System.Text.Encoding.Latin1.GetString(ReducingImageFilter.Photo(256, 256, 3)),
+            "/Type /XObject /Subtype /Image /Width 256 /Height 256 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /BroadsideReduce /SMask 6 0 R");
+        string soft = ContentSamples.Stream(
+            System.Text.Encoding.Latin1.GetString(ReducingImageFilter.Photo(256, 256, 1)),
+            "/Type /XObject /Subtype /Image /Width 256 /Height 256 /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /BroadsideHalve");
+        using PdfDocument document = PdfDocument.Open(
+            ContentSamples.OnePage(System.Text.Encoding.ASCII.GetBytes(Paint), "/XObject << /Im0 5 0 R >>", image, soft), new PdfOptions().UseFilter(codec).UseFilter(halving));
+
+        var recorder = new RecordingBackend();
+        document.Pages[0].CreateDisplayList().Replay(recorder);
+        DisplayImage drawn = Assert.Single(recorder.Images).Image;
+        PdfColorConverter rgb = document.GetColorConverter(drawn.ColorSpace);
+        Assert.Equal((3, 1), (drawn.MaxReduction, drawn.SoftMask!.MaxReduction));
+        Assert.Equal(1, drawn.GetReduction(new Matrix(8, 0, 0, 8, 0, 0), 2, rgb));
+        Assert.Equal(1, drawn.SoftMask.GetReduction(new Matrix(8, 0, 0, 8, 0, 0), 2, null));
+
+        using Bitmap reduced = RenderList(document, 0.0625, scaled: true);
+        Assert.Equal((1, 1, 1, 1), (codec.Decodes, codec.DecodesAt(1), halving.Decodes, halving.DecodesAt(1)));
+        using Bitmap full = RenderList(document, 0.0625, scaled: false);
+
+        (double psnr, _) = Compare(reduced, full);
+        Assert.True(psnr >= 35, $"PSNR {psnr:F1} dB");
+    }
+
+    [Fact]
     public void The_reduction_follows_the_most_enlarged_direction_and_the_colour_conversion()
     {
         (PdfDocument document, ReducingImageFilter codec) = Open(ReducingImageFilter.Photo(256, 256, 3), 256, 256, "/DeviceRGB");

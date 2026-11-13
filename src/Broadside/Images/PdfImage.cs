@@ -333,9 +333,10 @@ public sealed class PdfImage
     /// <returns>The samples or the encoded image; neither when the image cannot be decoded (each reason a diagnostic).</returns>
     /// <remarks>
     /// ISO 32000-2 §7.4 and §8.9.5.1. Kept encoded only when everything a renderer needs before the samples is known without them:
-    /// an image XObject or alternate (not a mask, an inline image or a stencil) with a <c>ColorSpace</c> whose component count is
-    /// the codestream's, or a JPEG 2000 image without one whose header gives it (§7.4.9), no <c>SMaskInData</c>, read leniently (strict mode decodes now, so that a deviation throws where it always
-    /// did), and a codec whose header says it reduces (<see cref="ImageHeader.MaxReduction"/>).
+    /// an image XObject or alternate (not an explicit mask, an inline image or a stencil) with a <c>ColorSpace</c> whose component
+    /// count is the codestream's, or a JPEG 2000 image without one whose header gives it (§7.4.9), or a soft-mask image (§11.6.5.2)
+    /// whose codestream has one gray component; no <c>SMaskInData</c>, read leniently (strict mode decodes now, so that a deviation
+    /// throws where it always did), and a codec whose header says it reduces (<see cref="ImageHeader.MaxReduction"/>).
     /// </remarks>
     internal PreparedImage Prepare(CancellationToken cancellationToken) => Load(keepEncoded: true, cancellationToken);
 
@@ -927,13 +928,14 @@ public sealed class PdfImage
     /// <remarks>
     /// ISO 32000-2 §7.4.9: without a <c>ColorSpace</c> entry (JPXDecode only), the space is the one the codestream's header gives,
     /// the same <see cref="ResolveColorSpace"/> gives the decoded samples, and the decode later asks for no colour components, as the
-    /// one at build would have (issue #507).
+    /// one at build would have (issue #507). A soft mask's space is always DeviceGray (§11.6.5.2, Table 143), so its codestream must
+    /// have one component (issue #513).
     /// </remarks>
     private bool CanKeepEncoded(in ImageHeader header, ImageLayout layout, out PdfColorSpace? space)
     {
         space = null;
         if (header.MaxReduction <= 0
-            || _role is not (ImageRole.XObject or ImageRole.Alternate)
+            || _role is not (ImageRole.XObject or ImageRole.Alternate or ImageRole.SoftMask)
             || layout.IsStencil
             || header is not { Width: > 0, Height: > 0, BitsPerComponent: >= 1 and <= 16, HasAlpha: false }
             || header.Components is < 1 or > ImageGeometry.MaxComponents
