@@ -101,7 +101,7 @@ public sealed class RenderCorpusPinnedSubsetTests(ITestOutputHelper output)
         {
             RenderFileResult sequential = await RenderCorpusGate.RunFileAsync(file, hashes: true);
             Assert.Equal(RenderFileOutcome.Rendered, sequential.Outcome);
-            using PdfDocument document = RenderCorpusGate.Engine.Open(await File.ReadAllBytesAsync(RealWorldCorpus.PathOf(file), TestContext.Current.CancellationToken));
+            using PdfDocument document = await RenderCorpusGate.Engine.OpenAsync(await File.ReadAllBytesAsync(RealWorldCorpus.PathOf(file), TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
             PdfPage[] pages = [.. document.Pages];
             var hashes = new string[pages.Length];
             Parallel.For(0, pages.Length, index =>

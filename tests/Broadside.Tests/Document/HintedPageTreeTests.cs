@@ -37,7 +37,7 @@ public sealed class HintedPageTreeTests
 
         int[] numbers = await document.ReadAsync(static d => d.Pages.Select(static page => page.Reference!.ObjectNumber).ToArray(), Token);
 
-        using PdfDocument local = PdfDocument.Open(file);
+        using PdfDocument local = await PdfDocument.OpenAsync(file, TestContext.Current.CancellationToken);
         Assert.Equal(local.Pages.Select(static page => page.Reference!.ObjectNumber), numbers);
         string[] texts = await document.ReadAsync(static d => d.Pages.Select(static page => page.ExtractText().Text.Trim()).ToArray(), Token);
         Assert.Equal(Enumerable.Range(1, TaggedLinearizedFile.PageCount).Select(static n => string.Create(CultureInfo.InvariantCulture, $"Page {n}")), texts);
@@ -130,7 +130,7 @@ public sealed class HintedPageTreeTests
     [Fact]
     public async Task A_local_document_runs_an_async_read_once()
     {
-        using PdfDocument document = PdfDocument.Open(TaggedLinearizedFile.Create());
+        using PdfDocument document = await PdfDocument.OpenAsync(TaggedLinearizedFile.Create(), TestContext.Current.CancellationToken);
         int runs = 0;
 
         Assert.Equal(TaggedLinearizedFile.PageCount, await document.ReadAsync(d => ++runs > 0 ? d.Pages.Count : 0, Token));

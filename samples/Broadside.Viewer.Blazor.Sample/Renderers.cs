@@ -222,7 +222,7 @@ public static partial class RenderStats
             await WebGLRenderer.InitializeAsync().ConfigureAwait(true);
         }
 
-        using PdfDocument document = new PdfEngine(new PdfOptions().UseStandard14Fonts()).Open(bytes);
+        using PdfDocument document = await new PdfEngine(new PdfOptions().UseStandard14Fonts()).OpenAsync(bytes).ConfigureAwait(true);
         PdfPage pdfPage = document.Pages[page];
         var options = new RenderOptions { Dpi = dpi };
         pdfPage.CreateDisplayList();
@@ -261,7 +261,7 @@ public static partial class RenderStats
         using var http = new HttpClient();
         byte[] bytes = await http.GetByteArrayAsync(new Uri(address)).ConfigureAwait(true);
         await WebGLRenderer.InitializeAsync().ConfigureAwait(true);
-        using PdfDocument document = new PdfEngine(new PdfOptions().UseStandard14Fonts()).Open(bytes);
+        using PdfDocument document = await new PdfEngine(new PdfOptions().UseStandard14Fonts()).OpenAsync(bytes).ConfigureAwait(true);
         RenderOptions options = new RenderOptions().WithScale(scale).WithScaledImageDecode(samplesPerPixel >= 1);
         if (samplesPerPixel >= 1)
         {
@@ -287,7 +287,7 @@ public static partial class RenderStats
     {
         using var http = new HttpClient();
         byte[] bytes = await http.GetByteArrayAsync(new Uri(address)).ConfigureAwait(true);
-        using PdfDocument document = new PdfEngine(new PdfOptions().UseStandard14Fonts().WithDisplayListCacheBudget(0)).Open(bytes);
+        using PdfDocument document = await new PdfEngine(new PdfOptions().UseStandard14Fonts().WithDisplayListCacheBudget(0)).OpenAsync(bytes).ConfigureAwait(true);
         var options = new RenderOptions { Dpi = dpi };
         using var rasterizer = new SoftwareRasterizer();
         int count = document.Pages.Count;

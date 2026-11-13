@@ -47,7 +47,7 @@ public sealed class SkiaImageDecoderRegistrationTests
     /// <summary>Opens a photograph's page with <paramref name="options"/>, prefetches a tile's images and returns the platform decode diagnostics.</summary>
     private static async Task<string[]> DecodesAsync(ViewerOptions options)
     {
-        using PdfDocument document = PdfDocument.Open(CatalogueSamples.Cover(640, 800, DctChromaSubsampling.None), options.DocumentOptions!);
+        using PdfDocument document = await PdfDocument.OpenAsync(CatalogueSamples.Cover(640, 800, DctChromaSubsampling.None), options.DocumentOptions!, TestContext.Current.CancellationToken);
         DisplayList list = document.Pages[0].CreateDisplayList();
         using ITileBackend backend = options.BackendFactory!();
 

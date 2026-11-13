@@ -73,7 +73,7 @@ public sealed class ImageIODecoderTests
     public async Task Corpus_DCT_files_never_mismatch_in_verification_mode(string file)
     {
         // Their images are 4:2:0 (never offered), quality 50 (refused, Information), or CMYK (never offered).
-        using PdfDocument document = PdfDocument.Open(Corpus.Path(file), Options());
+        using PdfDocument document = await PdfDocument.OpenAsync(Corpus.Path(file), Options(), TestContext.Current.CancellationToken);
         DisplayList list = document.Pages[0].CreateDisplayList();
 
         await list.PrefetchImagesAsync(Device, null, 0, TestContext.Current.CancellationToken);
@@ -93,7 +93,7 @@ public sealed class ImageIODecoderTests
     {
         byte[] page = Page(ImageIOTesting.Vector(name), colorSpace, 75, 43);
         using PdfDocument document = Open(page);
-        using PdfDocument managed = PdfDocument.Open(page);
+        using PdfDocument managed = await PdfDocument.OpenAsync(page, TestContext.Current.CancellationToken);
         DisplayList list = document.Pages[0].CreateDisplayList();
 
         await list.PrefetchImagesAsync(Device, null, 0, TestContext.Current.CancellationToken);
@@ -109,7 +109,7 @@ public sealed class ImageIODecoderTests
     {
         const int count = 8;
         var decoder = new CountingDecoder(ImageIODecoder.Shared);
-        using PdfDocument document = PdfDocument.Open(CatalogueSamples.Cover(), new PdfOptions().UsePlatformImageDecoder(decoder).WithDisplayListCacheBudget(0));
+        using PdfDocument document = await PdfDocument.OpenAsync(CatalogueSamples.Cover(), new PdfOptions().UsePlatformImageDecoder(decoder).WithDisplayListCacheBudget(0), TestContext.Current.CancellationToken);
         DisplayList list = document.Pages[0].CreateDisplayList();
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         using var start = new Barrier(count);
@@ -275,7 +275,7 @@ public sealed class ImageIODecoderTests
     public async Task A_renderer_prefetch_draws_the_page_within_the_page_tolerance_of_a_managed_decode()
     {
         using PdfDocument platform = Open(CatalogueSamples.Cover());
-        using PdfDocument managed = PdfDocument.Open(CatalogueSamples.Cover(), new PdfOptions().WithDisplayListCacheBudget(0));
+        using PdfDocument managed = await PdfDocument.OpenAsync(CatalogueSamples.Cover(), new PdfOptions().WithDisplayListCacheBudget(0), TestContext.Current.CancellationToken);
 
         byte[] withImageIO = await RenderAsync(platform, prefetch: true);
         byte[] withManaged = await RenderAsync(managed, prefetch: true);
