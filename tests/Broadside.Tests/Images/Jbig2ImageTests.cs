@@ -22,10 +22,10 @@ public sealed class Jbig2ImageTests
         using DecodedImage decoded = image.Decode()!;
         byte[] bytes = document.DecodeStream(image.Stream!).ToArray();
 
-        Assert.Equal((150, 48, 1, 1, false), (decoded.Width, decoded.Height, decoded.Components, decoded.BitsPerComponent, decoded.SamplesInverted));
+        Assert.Equal((150, 48, 1, 1, false), (decoded.Geometry.Width, decoded.Geometry.Height, decoded.Geometry.Components, decoded.Geometry.BitsPerComponent, decoded.SamplesInverted));
         Assert.Equal(expected, decoded.Samples.ToArray());
         Assert.Equal(expected, bytes);
-        Assert.Equal(stencil, image.IsStencil);
+        Assert.Equal(stencil, image.IsImageMask);
         Assert.False(image.CreateDecodeMap(decoded).IsInverted);
         Assert.Empty(document.Diagnostics);
     }

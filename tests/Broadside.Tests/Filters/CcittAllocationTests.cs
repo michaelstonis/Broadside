@@ -1,6 +1,7 @@
 using System.Buffers;
 using Broadside.Filters;
 using Broadside.Filters.Ccitt;
+using Broadside.Images;
 using Broadside.Objects;
 using Broadside.Tests.Document;
 using Broadside.TestSupport;
@@ -63,7 +64,7 @@ public sealed class CcittAllocationTests
     {
         byte[] encoded = CcittEncoder.Encode(CcittEncoder.SampleBitmap(300, rows), new CcittEncoding(K: -1));
         var filter = new CcittFaxDecodeFilter();
-        var context = new ImageFilterContext(new FilterContext { Parameters = Parameters(-1, 300) }) { Width = 300, Height = rows, BitsPerComponent = 1, ColorComponents = 1 };
+        var context = new ImageFilterContext(new FilterContext { Parameters = Parameters(-1, 300) }) { Geometry = new ImageGeometry(300, rows, 1, 1) };
         return Allocations.Measure(() => filter.DecodeImage(encoded, context)!.Dispose());
     }
 

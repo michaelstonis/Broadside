@@ -25,9 +25,9 @@ public sealed class CorpusDctTests
         using DecodedImage decoded = image.Decode()!;
 
         DctGolden reference = Golden(golden);
-        Assert.Equal((reference.Width, reference.Height, reference.Components), (decoded.Width, decoded.Height, decoded.Components));
+        Assert.Equal((reference.Width, reference.Height, reference.Components), (decoded.Geometry.Width, decoded.Geometry.Height, decoded.Geometry.Components));
         AssertWithinOne(reference, decoded.Samples);
-        Assert.Equal((model, decoded.Height), (decoded.ColorModel, decoded.DecodedRows));
+        Assert.Equal((model, decoded.Geometry.Height), (decoded.ColorModel, decoded.DecodedRows));
         Assert.Empty(document.Diagnostics);
     }
 

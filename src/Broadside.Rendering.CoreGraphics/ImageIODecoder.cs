@@ -249,7 +249,7 @@ public sealed class ImageIODecoder : IPlatformImageDecoder
     private static void Repack(ReadOnlySpan<byte> pixels, in Layout layout, int width, int height, int components, DecodedImageBuilder builder)
     {
         int stride = layout.PixelBytes;
-        for (int y = 0; y < builder.Height; y++)
+        for (int y = 0; y < builder.Geometry.Height; y++)
         {
             ReadOnlySpan<byte> source = pixels.Slice(Math.Min(y, height - 1) * layout.BytesPerRow, width * stride);
             Span<byte> row = builder.GetRow(y);
@@ -280,7 +280,7 @@ public sealed class ImageIODecoder : IPlatformImageDecoder
                 }
             }
 
-            for (int x = width; x < builder.Width; x++)
+            for (int x = width; x < builder.Geometry.Width; x++)
             {
                 row.Slice((width - 1) * components, components).CopyTo(row[(x * components)..]);
             }

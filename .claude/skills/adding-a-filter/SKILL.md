@@ -44,7 +44,7 @@ public sealed class FilterContext
 
 // Registration, per engine (no static registry):
 new PdfOptions().UseFilter(IStreamFilter filter);     // replaces the default of filter.Name or adds a name; later wins
-new PdfOptions().WithMaxDecodedStreamLength(long);    // decompression-bomb limit, default PdfOptions.DefaultMaxDecodedStreamLength (1 GiB)
+new PdfOptions().WithMaxDecodedLength(long);    // decompression-bomb limit, default PdfOptions.DefaultMaxDecodedLength (1 GiB)
 
 // Consumption:
 ReadOnlyMemory<byte> PdfDocument.DecodeStream(CosStream stream);
@@ -63,7 +63,46 @@ What the pipeline (internal `StreamDecoder`, one per document) does so a filter 
 
 Rules for an implementation: keep no state between calls (one instance serves every thread of every document of the engine); write through `IBufferWriter<byte>` in chunks (internal `FilterOutput` ref struct does this for the defaults); report each kind of deviation once per call with the codes of the public catalog: `FilterDiagnostics` (`src/Broadside/Diagnostics/FilterDiagnostics.cs`: `FilterDataInvalid`, `FilterDataTruncated`, ...), and for a codec its own class (`DctDiagnostics`, `CcittDiagnostics`, `Jbig2Diagnostics`, `JpxDiagnostics`, `ImageDiagnostics`); a new code is added only there, never to the internal `Parsing/DiagnosticCodes*.cs`; in lenient mode write what can be decoded and return.
 
-Image codecs (Phase 2B): read the image entries from `StreamDictionary`, resolve auxiliary streams with `Resolve` and decode them with `DecodeStream`, size-check against `MaxDecodedLength` before allocating, and write the §8.9.3 sample layout so a codec behaves like any filter in a chain. Codec metadata (DCT transform, JPX components and colour, alpha) is #60's optional image facet: a second interface the four codecs implement in addition to `IStreamFilter`, used when the codec is last in the chain.
+Image codecs (Phase 2B): read the image entries from `StreamDictionary`, resolve auxiliary streams with `Resolve` and decode them with `DecodeStream`, size-check against `MaxDecodedLength` before allocating, and write the §8.9.3 sample layout so a codec behaves like any filter in a chain. Codec metadata (DCT transform, JPX components and color, alpha) is #60's optional image facet: a second interface the four codecs implement in addition to `IStreamFilter`, used when the codec is last in the chain. Its contract after the image API tidy (#251):
+
+```csharp
+namespace Broadside.Images;
+public readonly record struct ImageGeometry(int Width, int Height, int Components, int BitsPerComponent)
+{
+    public ImageGeometry AtReduction(int reduction);     // ceil(W / 2^n) x ceil(H / 2^n), components and depth unchanged
+}
+public enum PdfSoftMaskInData { None = 0, Alpha = 1, PremultipliedAlpha = 2 }  // the dictionary's SMaskInData
+public enum AdobeColorTransform : byte { Unknown = 0, YCbCr = 1, YCCK = 2 }    // a JPEG APP14 marker's transform code
+
+namespace Broadside.Filters;
+public interface IImageFilter : IStreamFilter           // register with UseFilter, like any filter
+{
+    bool TryReadHeader(ReadOnlySpan<byte> encoded, ImageFilterContext context, out ImageHeader header);
+    DecodedImage? DecodeImage(ReadOnlyMemory<byte> encoded, ImageFilterContext context);
+}
+
+public readonly record struct ImageHeader(ImageGeometry Geometry)  // what the codestream declares
+{
+    public bool HasAlpha { get; init; }
+    public int MaxReduction { get; init; }                // 0: always full resolution; 3: decodes at 1/2, 1/4, 1/8 too
+    public ImageColorModel ColorModel { get; init; }
+    public ReadOnlyMemory<byte> IccProfile { get; init; }
+}
+
+public sealed class ImageFilterContext
+{
+    public FilterContext Filter { get; }                  // Parameters, StreamDictionary, Report, Resolve
+    public ImageGeometry Geometry { get; init; }          // the dictionary's Width, Height, BitsPerComponent, and its ColorSpace's component count; 0 where absent
+    public bool IsImageMask { get; init; }                // ImageMask true: one component, one bit
+    public PdfSoftMaskInData SoftMaskInData { get; init; }// None: the codec may skip the opacity channel
+    public int Reduction { get; init; }                   // power of two asked for; deliver less and say so in DecodedImageBuilder.Reduction
+    public long MaxPixels { get; init; }
+    public long MaxDecodedLength { get; init; }           // the same name and limit as FilterContext.MaxDecodedLength and PdfOptions.MaxDecodedLength
+    public bool TryCreateImage(ImageGeometry geometry, out DecodedImageBuilder? image); // checks both limits before renting memory
+}
+```
+
+A third-party image codec is exercised in `tests/Broadside.Tests/Images/ThirdPartyImageFilterTests.cs`; it compiles against exactly this surface.
 
 Encoding (#142) is a separate contract, so decode-only filters need not change:
 

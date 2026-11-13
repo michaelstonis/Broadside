@@ -212,10 +212,10 @@ internal sealed class PlatformImageDecoding
     {
         int r = decoded.Reduction;
         if (r <= request.Reduction
-            && decoded.Width == ImageGeometry.Reduce(request.Width, r)
-            && decoded.Height == ImageGeometry.Reduce(request.Height, r)
-            && decoded.Components == request.Components
-            && decoded.BitsPerComponent == 8
+            && decoded.Geometry.Width == ImageGeometry.Reduce(request.Width, r)
+            && decoded.Geometry.Height == ImageGeometry.Reduce(request.Height, r)
+            && decoded.Geometry.Components == request.Components
+            && decoded.Geometry.BitsPerComponent == 8
             && decoded.StorageBits == 8
             && !decoded.SamplesInverted
             && decoded.Alpha is null)
@@ -225,14 +225,14 @@ internal sealed class PlatformImageDecoding
 
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"it delivered {decoded.Width} x {decoded.Height} x {decoded.Components} samples of {decoded.BitsPerComponent} bits at reduction {r} for a request of reduction {request.Reduction}");
+            $"it delivered {decoded.Geometry.Width} x {decoded.Geometry.Height} x {decoded.Geometry.Components} samples of {decoded.Geometry.BitsPerComponent} bits at reduction {r} for a request of reduction {request.Reduction}");
     }
 
     /// <summary>Decodes the image with the managed codec at the platform's reduction and records how far apart the two are.</summary>
     private void Compare(EncodedImage encoded, IPlatformImageDecoder decoder, in PlatformImageRequest request, DecodedImage platform, CancellationToken cancellationToken)
     {
         using DecodedImage? managed = encoded.Decode(platform.Reduction, cancellationToken);
-        if (managed is null || managed.Width != platform.Width || managed.Height != platform.Height || managed.Components != platform.Components)
+        if (managed is null || managed.Geometry.Width != platform.Geometry.Width || managed.Geometry.Height != platform.Geometry.Height || managed.Geometry.Components != platform.Geometry.Components)
         {
             Report(encoded, DiagnosticCodes.PlatformImageMismatch, DiagnosticSeverity.Warning, string.Create(
                 CultureInfo.InvariantCulture,

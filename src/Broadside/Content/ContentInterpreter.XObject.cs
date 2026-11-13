@@ -85,7 +85,7 @@ internal sealed partial class ContentInterpreter
 
     private void PaintImageXObject(CosStream stream, CosReference? reference, ReadOnlySpan<byte> name)
     {
-        bool stencil = IsStencil(stream.Dictionary);
+        bool stencil = IsImageMask(stream.Dictionary);
         if (IgnoresColorOperators && !stencil)
         {
             Report(ContentIssue.ColorOperatorIgnored, -1, "An image that is not an image mask is painted inside a d1 glyph or an uncoloured pattern, where only image masks are allowed; it is ignored.");
@@ -106,7 +106,7 @@ internal sealed partial class ContentInterpreter
             if (!ReferenceEquals(selected, stream))
             {
                 stream = selected;
-                stencil = IsStencil(stream.Dictionary);
+                stencil = IsImageMask(stream.Dictionary);
             }
         }
 
@@ -124,7 +124,7 @@ internal sealed partial class ContentInterpreter
             Reference = reference,
             ResourceName = name,
             Image = model,
-            IsStencil = stencil,
+            IsImageMask = stencil,
             Ctm = State.Ctm,
             StructParent = Annotations.AnnotationValues.ReadInteger(document, dictionary.TryGetValue(StructParentName, out CosObject? key) ? key : null),
             IsHidden = hidden,
@@ -133,7 +133,7 @@ internal sealed partial class ContentInterpreter
     }
 
     /// <summary>Whether an image dictionary is a stencil mask: <c>ImageMask</c>, or its inline abbreviation <c>IM</c>, which the image layer reads on an XObject too (ImageKeyAbbreviated).</summary>
-    private bool IsStencil(CosDictionary dictionary) =>
+    private bool IsImageMask(CosDictionary dictionary) =>
         (dictionary.TryGetValue(ImageMaskName, out CosObject? mask) || dictionary.TryGetValue(ImageMaskAbbreviation, out mask))
         && _context.Document.Resolve(mask) is CosBoolean { Value: true };
 
@@ -244,7 +244,7 @@ internal sealed partial class ContentInterpreter
             Image = _context.GetInlineImage(written),
             InlineDictionary = dictionary,
             InlineData = data,
-            IsStencil = stencil,
+            IsImageMask = stencil,
             Ctm = State.Ctm,
             IsHidden = _context.IsHidden,
         };

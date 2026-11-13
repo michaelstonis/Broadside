@@ -219,7 +219,7 @@ public sealed class DisplayListAllocationTests
         public void IntersectClip(PathView path, FillRule rule) => Checksum += path.Points.Length + (int)rule;
 
         public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion) =>
-            Checksum += image.Width + image.Height;
+            Checksum += image.Geometry.Width + image.Geometry.Height;
 
         public void DrawGlyphs(in GlyphRun run)
         {

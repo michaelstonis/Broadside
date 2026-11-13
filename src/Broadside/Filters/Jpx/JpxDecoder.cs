@@ -41,11 +41,11 @@ internal static class JpxDecoder
         var quiet = new CodecReporter(context.Filter, silent: true);
         JpxOutputPlan plan = JpxOutputPlan.Create(size, JpxFileHeader.Read(data, quiet), context, quiet);
         int maxReduction = OnReducedGrid(size, JpxCodestreamReader.ReadMainHeaderLevels(data.Slice(range.Offset, range.Length), size.Components.Length));
-        header = new ImageHeader(
+        header = new ImageHeader(new ImageGeometry(
             (int)Math.Min(size.Width - size.OriginX, int.MaxValue),
             (int)Math.Min(size.Height - size.OriginY, int.MaxValue),
             plan.Colors.Length,
-            plan.Bits)
+            plan.Bits))
         {
             HasAlpha = plan.Alpha is not null,
             ColorModel = plan.Model,
@@ -157,7 +157,7 @@ internal static class JpxDecoder
         var planes = new JpxPlane?[size.Components.Length];
         try
         {
-            if (!context.TryCreateImage((int)width, (int)height, Math.Clamp(plan.Colors.Length, 1, ImageGeometry.MaxComponents), plan.Bits, out builder))
+            if (!context.TryCreateImage(new ImageGeometry((int)width, (int)height, Math.Clamp(plan.Colors.Length, 1, ImageGeometry.MaxComponents), plan.Bits), out builder))
             {
                 return null;
             }

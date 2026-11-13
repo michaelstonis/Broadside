@@ -50,7 +50,7 @@ public class Jbig2Benchmarks
             .. Jbig2Encoder.Segment(1, 16, 1, Jbig2Encoder.PatternDictionary(patterns, 4, 0, mmr: false)),
             .. Jbig2Encoder.Segment(2, 22, 1, [1], Jbig2Encoder.HalftoneRegion(Width, Height, 0, gray, 16, 4, 0, 0, 0, mmr: false)),
         ];
-        _context = new ImageFilterContext(new FilterContext()) { Width = Width, Height = Height, BitsPerComponent = 1, ColorComponents = 1 };
+        _context = new ImageFilterContext(new FilterContext()) { Geometry = new ImageGeometry(Width, Height, 1, 1) };
         if (DecodeGenericTemplate0Tpgd() == 0 || DecodeGenericMmr() == 0 || DecodeTextRegion() == 0 || DecodeHalftone() == 0)
         {
             throw new InvalidOperationException("The page did not decode.");

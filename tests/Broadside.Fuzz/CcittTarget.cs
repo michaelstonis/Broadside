@@ -1,6 +1,7 @@
 using System.Buffers;
 using Broadside.Filters;
 using Broadside.Filters.Ccitt;
+using Broadside.Images;
 using Broadside.Objects;
 
 namespace Broadside.Fuzz;
@@ -64,12 +65,12 @@ internal static class CcittTarget
 
         int width = Math.Max(1, columns + ((data[4] >> 2) & 7) - 3);
         int height = Math.Max(1, rows + ((data[4] >> 5) & 7));
-        var context = new ImageFilterContext(new FilterContext { Parameters = parameters }) { Width = width, Height = height, BitsPerComponent = 1, ColorComponents = 1, MaxPixels = 1 << 22 };
+        var context = new ImageFilterContext(new FilterContext { Parameters = parameters }) { Geometry = new ImageGeometry(width, height, 1, 1), MaxPixels = 1 << 22 };
         using (Images.DecodedImage? image = Filter.DecodeImage(body, context))
         {
-            if (image is not null && (image.Width != width || image.Height != height || image.Stride != (width + 7) / 8 || image.Samples.Length != image.Stride * height || image.DecodedRows > height))
+            if (image is not null && (image.Geometry.Width != width || image.Geometry.Height != height || image.Stride != (width + 7) / 8 || image.Samples.Length != image.Stride * height || image.DecodedRows > height))
             {
-                throw new InvalidOperationException($"The CCITT image is {image.Width} x {image.Height} (stride {image.Stride}) where {width} x {height} was asked for.");
+                throw new InvalidOperationException($"The CCITT image is {image.Geometry.Width} x {image.Geometry.Height} (stride {image.Stride}) where {width} x {height} was asked for.");
             }
         }
 

@@ -14,7 +14,7 @@ namespace Broadside.Filters;
 /// reading <c>Filter</c> and <c>DecodeParms</c>, the inline-image abbreviations of §8.9.7 Table 92, the predictor functions of
 /// §7.4.4.4 after any filter named <c>LZWDecode</c> or <c>FlateDecode</c> (a replacement for either gets them too and must not apply
 /// them itself), the <c>Crypt</c> filter of §7.4.10 (handled by the security handler, never by a registered filter), the
-/// decoded-length limit (<see cref="PdfOptions.MaxDecodedStreamLength"/>), and converting any exception other than a strict-mode
+/// decoded-length limit (<see cref="PdfOptions.MaxDecodedLength"/>), and converting any exception other than a strict-mode
 /// <see cref="Diagnostics.DiagnosticException"/> into a diagnostic.
 /// </para>
 /// <para>

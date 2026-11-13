@@ -48,7 +48,7 @@ public sealed class RealWorldJpxTests(ITestOutputHelper output)
 
         using DecodedImage decoded = document.Pages[0].GetImage(name)!.Decode()!;
 
-        Assert.Equal(shape, $"{decoded.Width}x{decoded.Height}x{decoded.Components}@{decoded.BitsPerComponent}");
+        Assert.Equal(shape, $"{decoded.Geometry.Width}x{decoded.Geometry.Height}x{decoded.Geometry.Components}@{decoded.Geometry.BitsPerComponent}");
         Assert.Equal(sha256, Convert.ToHexStringLower(SHA256.HashData(decoded.Samples)));
         Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code.StartsWith("Jpx", StringComparison.Ordinal) && diagnostic.Severity > DiagnosticSeverity.Information);
     }
@@ -64,7 +64,7 @@ public sealed class RealWorldJpxTests(ITestOutputHelper output)
 
         using DecodedImage decoded = image.Decode()!;
 
-        Assert.Equal((2, 1, 3, 8, ImageColorModel.Rgb), (decoded.Width, decoded.Height, decoded.Components, decoded.BitsPerComponent, decoded.ColorModel));
+        Assert.Equal((2, 1, 3, 8, ImageColorModel.Rgb), (decoded.Geometry.Width, decoded.Geometry.Height, decoded.Geometry.Components, decoded.Geometry.BitsPerComponent, decoded.ColorModel));
         Assert.NotNull(decoded.Alpha);
         Assert.True(decoded.AlphaPremultiplied);
         Assert.Equal(PdfImageMaskKind.SoftInData, image.MaskKind);
@@ -146,7 +146,7 @@ public sealed class RealWorldJpxTests(ITestOutputHelper output)
             return "null";
         }
 
-        string alpha = decoded.Alpha is { } plane ? $"+a{plane.BitsPerComponent}{(decoded.AlphaPremultiplied ? "p" : string.Empty)}" : string.Empty;
+        string alpha = decoded.Alpha is { } plane ? $"+a{plane.Geometry.BitsPerComponent}{(decoded.AlphaPremultiplied ? "p" : string.Empty)}" : string.Empty;
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         hash.AppendData(decoded.Samples);
         if (decoded.Alpha is { } opacity)
@@ -154,7 +154,7 @@ public sealed class RealWorldJpxTests(ITestOutputHelper output)
             hash.AppendData(opacity.Samples);
         }
 
-        return $"{decoded.Width}x{decoded.Height}x{decoded.Components}@{decoded.BitsPerComponent}{alpha} | {Convert.ToHexStringLower(hash.GetHashAndReset())}";
+        return $"{decoded.Geometry.Width}x{decoded.Geometry.Height}x{decoded.Geometry.Components}@{decoded.Geometry.BitsPerComponent}{alpha} | {Convert.ToHexStringLower(hash.GetHashAndReset())}";
     }
 
     /// <summary>Every image stream whose last filter is JPXDecode, reached from the trailer.</summary>
@@ -223,11 +223,11 @@ public sealed class RealWorldJpxTests(ITestOutputHelper output)
         if (decoded is not null)
         {
             File.WriteAllBytes(stem + ".samples", decoded.Samples.ToArray());
-            info.Append($"{decoded.Width} {decoded.Height} {decoded.Components} {decoded.BitsPerComponent}\n");
+            info.Append($"{decoded.Geometry.Width} {decoded.Geometry.Height} {decoded.Geometry.Components} {decoded.Geometry.BitsPerComponent}\n");
             if (decoded.Alpha is { } alpha)
             {
                 File.WriteAllBytes(stem + ".alpha", alpha.Samples.ToArray());
-                info.Append($"alpha {alpha.BitsPerComponent}\n");
+                info.Append($"alpha {alpha.Geometry.BitsPerComponent}\n");
                 info.Append(decoded.AlphaPremultiplied ? "premultiplied\n" : string.Empty);
             }
 

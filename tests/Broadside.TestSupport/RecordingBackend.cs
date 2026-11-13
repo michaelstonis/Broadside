@@ -130,7 +130,7 @@ public sealed class RecordingBackend : IRenderingBackend
         ArgumentNullException.ThrowIfNull(image);
         var text = new StringBuilder(string.Create(
             CultureInfo.InvariantCulture,
-            $"image {image.Width}x{image.Height} {image.ColorSpace.Family} bpc {image.BitsPerComponent}{(image.Interpolate ? " interpolate" : string.Empty)}"));
+            $"image {image.Geometry.Width}x{image.Geometry.Height} {image.ColorSpace.Family} bpc {image.Geometry.BitsPerComponent}{(image.Interpolate ? " interpolate" : string.Empty)}"));
         if (image.Mask is { } mask)
         {
             text.Append(CultureInfo.InvariantCulture, $" mask {mask.Width}x{mask.Height}{(mask.IsInverted ? " inverted" : string.Empty)}");
@@ -138,7 +138,7 @@ public sealed class RecordingBackend : IRenderingBackend
 
         if (image.SoftMask is { } soft)
         {
-            text.Append(CultureInfo.InvariantCulture, $" smask {soft.Width}x{soft.Height} {soft.ColorSpace.Family} bpc {soft.BitsPerComponent}");
+            text.Append(CultureInfo.InvariantCulture, $" smask {soft.Geometry.Width}x{soft.Geometry.Height} {soft.ColorSpace.Family} bpc {soft.Geometry.BitsPerComponent}");
         }
 
         if (!image.Matte.IsEmpty)

@@ -1,4 +1,5 @@
 using Broadside.Diagnostics;
+using Broadside.Images;
 using Broadside.Parsing;
 
 namespace Broadside.Filters.Dct;
@@ -30,12 +31,12 @@ internal static class JpegSampleWriter
     /// <param name="colorTransform">The DecodeParms <c>ColorTransform</c> value, or -1 when absent.</param>
     public static void SelectColorTransform(JpegFrame frame, int colorTransform)
     {
-        if (frame.Adobe && ((frame.ComponentCount == 3 && frame.AdobeTransform > 1) || (frame.ComponentCount == 4 && frame.AdobeTransform is 1 or > 2)))
+        if (frame.Adobe && ((frame.ComponentCount == 3 && frame.AdobeTransform > AdobeColorTransform.YCbCr) || (frame.ComponentCount == 4 && frame.AdobeTransform is AdobeColorTransform.YCbCr or > AdobeColorTransform.YCCK)))
         {
             frame.Report(
                 DiagnosticCodes.DctAdobeTransformInvalid,
                 DiagnosticSeverity.Warning,
-                JpegFrame.Invariant($"The APP14 transform code {frame.AdobeTransform} does not fit {frame.ComponentCount} components; {(frame.ComponentCount == 3 ? "YCbCr" : "YCCK")} is assumed."));
+                JpegFrame.Invariant($"The APP14 transform code {(int)frame.AdobeTransform} does not fit {frame.ComponentCount} components; {(frame.ComponentCount == 3 ? "YCbCr" : "YCCK")} is assumed."));
         }
 
         bool rgbIdentifiers = frame.ComponentCount == 3 && frame.Components[0].Id == 'R' && frame.Components[1].Id == 'G' && frame.Components[2].Id == 'B';
@@ -49,10 +50,10 @@ internal static class JpegSampleWriter
 
         bool transform = frame.ComponentCount switch
         {
-            3 when frame.Adobe => frame.AdobeTransform != 0,
+            3 when frame.Adobe => frame.AdobeTransform != AdobeColorTransform.Unknown,
             3 when colorTransform >= 0 => colorTransform == 1,
             3 => !rgbIdentifiers,
-            4 when frame.Adobe => frame.AdobeTransform != 0,
+            4 when frame.Adobe => frame.AdobeTransform != AdobeColorTransform.Unknown,
             4 => colorTransform == 1,
             _ => false,
         };

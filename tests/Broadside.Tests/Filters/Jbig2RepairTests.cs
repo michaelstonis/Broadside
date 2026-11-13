@@ -113,7 +113,7 @@ public sealed class Jbig2RepairTests
     {
         using DecodedImage image = Jbig2Testing.DecodeImage([.. Info(width: 80, height: 8), .. Region()], 40, 16, out string[] codes);
 
-        Assert.Equal((40, 16), (image.Width, image.Height));
+        Assert.Equal((40, 16), (image.Geometry.Width, image.Geometry.Height));
         Assert.Equal(PackPdf(Bitmap, 40), image.Samples.ToArray());
         Assert.Equal(["Jbig2PageSizeMismatch"], codes);
     }
@@ -205,7 +205,7 @@ public sealed class Jbig2RepairTests
     {
         var context = new FilterContext { Parameters = new CosDictionary { [new CosName("JBIG2Globals")] = new CosInteger(7) } };
 
-        using DecodedImage image = new Jbig2DecodeFilter().DecodeImage(Jbig2Samples.AnnexHMmrGeneric, new ImageFilterContext(context) { Width = 64, Height = 56 })!;
+        using DecodedImage image = new Jbig2DecodeFilter().DecodeImage(Jbig2Samples.AnnexHMmrGeneric, new ImageFilterContext(context) { Geometry = new ImageGeometry(64, 56, 0, 0) })!;
 
         Assert.Equal(Jbig2Samples.AnnexHGenericPageSha256, Jbig2Testing.Sha256(image.Samples));
         Assert.Equal(["Jbig2GlobalsInvalid"], context.Diagnostics.Select(diagnostic => diagnostic.Code));

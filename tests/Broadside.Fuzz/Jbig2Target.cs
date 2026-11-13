@@ -53,10 +53,7 @@ internal static class Jbig2Target
         var dictionary = new CosDictionary { [new CosName("Width")] = new CosInteger(width), [new CosName("Height")] = new CosInteger(height) };
         var context = new ImageFilterContext(new FilterContext { Parameters = parameters, StreamDictionary = dictionary, MaxDecodedLength = MaxBytes })
         {
-            Width = width,
-            Height = height,
-            BitsPerComponent = 1,
-            ColorComponents = 1,
+            Geometry = new ImageGeometry(width, height, 1, 1),
             MaxPixels = MaxPixels,
         };
         using DecodedImage? image = filter.DecodeImage(page, context);
@@ -68,9 +65,9 @@ internal static class Jbig2Target
         }
 
         int stride = (width + 7) / 8;
-        if (image.Width != width || image.Height != height || image.Components != 1 || image.BitsPerComponent != 1 || image.Stride != stride || image.Samples.Length != stride * height)
+        if (image.Geometry.Width != width || image.Geometry.Height != height || image.Geometry.Components != 1 || image.Geometry.BitsPerComponent != 1 || image.Stride != stride || image.Samples.Length != stride * height)
         {
-            throw new InvalidOperationException($"The JBIG2 image is {image.Width} x {image.Height} x {image.Components} (stride {image.Stride}) where {width} x {height} was asked for.");
+            throw new InvalidOperationException($"The JBIG2 image is {image.Geometry.Width} x {image.Geometry.Height} x {image.Geometry.Components} (stride {image.Stride}) where {width} x {height} was asked for.");
         }
 
         if ((width & 7) != 0)

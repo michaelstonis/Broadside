@@ -17,7 +17,7 @@ namespace Broadside.Fuzz;
 /// <remarks>ISO 32000-2 §8.9.</remarks>
 internal static class ImageDecodeTarget
 {
-    private static readonly PdfEngine Engine = new(new PdfOptions().WithMaxImagePixels(1 << 16).WithMaxDecodedStreamLength(1 << 20));
+    private static readonly PdfEngine Engine = new(new PdfOptions().WithMaxImagePixels(1 << 16).WithMaxDecodedLength(1 << 20));
 
     public static void Target(ReadOnlySpan<byte> data)
     {
@@ -77,7 +77,7 @@ internal static class ImageDecodeTarget
 
     private static void Exercise(PdfImage image)
     {
-        _ = (image.Width, image.Height, image.BitsPerComponent, image.IsStencil, image.ColorSpace, image.DecodeArray, image.Interpolate, image.Intent);
+        _ = (image.Width, image.Height, image.BitsPerComponent, image.IsImageMask, image.ColorSpace, image.DecodeArray, image.Interpolate, image.Intent);
         _ = (image.MaskKind, image.ColorKey, image.Matte, image.SoftMaskInData, image.Alternates.Count, image.OptionalContent, image.Metadata, image.StructParent, image.Name);
         Check(image);
         if (image.Mask is { } mask)
@@ -94,17 +94,17 @@ internal static class ImageDecodeTarget
             return;
         }
 
-        long stride = ((long)decoded.Width * decoded.Components * decoded.StorageBits + 7) / 8;
-        if (decoded.Stride != stride || decoded.Samples.Length != (long)decoded.Stride * decoded.Height || decoded.DecodedRows > decoded.Height || decoded.DecodedRows < 0)
+        long stride = ((long)decoded.Geometry.Width * decoded.Geometry.Components * decoded.StorageBits + 7) / 8;
+        if (decoded.Stride != stride || decoded.Samples.Length != (long)decoded.Stride * decoded.Geometry.Height || decoded.DecodedRows > decoded.Geometry.Height || decoded.DecodedRows < 0)
         {
             throw new InvalidOperationException(
-                $"Decoded {decoded.Width} x {decoded.Height} x {decoded.Components} at {decoded.StorageBits} bits: stride {decoded.Stride}, {decoded.Samples.Length} bytes, {decoded.DecodedRows} rows.");
+                $"Decoded {decoded.Geometry.Width} x {decoded.Geometry.Height} x {decoded.Geometry.Components} at {decoded.StorageBits} bits: stride {decoded.Stride}, {decoded.Samples.Length} bytes, {decoded.DecodedRows} rows.");
         }
 
         ImageDecodeMap map = image.CreateDecodeMap(decoded);
-        ushort[] row = new ushort[decoded.Width * decoded.Components];
+        ushort[] row = new ushort[decoded.Geometry.Width * decoded.Geometry.Components];
         float[] values = new float[row.Length];
-        for (int y = 0; y < decoded.Height; y++)
+        for (int y = 0; y < decoded.Geometry.Height; y++)
         {
             ImageRows.Unpack(decoded.GetRow(y), decoded.StorageBits, row.Length, row);
             map.Map(row, values);
@@ -112,19 +112,19 @@ internal static class ImageDecodeTarget
 
         // Issue #362: the box-average reduction a viewer makes of an image decoded in full keeps the layout at ceil(W / s) x ceil(H / s),
         // 8 bits or more, and never averages above the largest raw value.
-        int reduction = 1 + (decoded.Width % 3);
+        int reduction = 1 + (decoded.Geometry.Width % 3);
         using DecodedImage reduced = ImageReducer.Reduce(decoded, reduction, CancellationToken.None);
         int scale = 1 << reduction;
-        if (reduced.Width != (decoded.Width + scale - 1) / scale || reduced.Height != (decoded.Height + scale - 1) / scale
-            || reduced.Components != decoded.Components || reduced.BitsPerComponent < 8 || reduced.Reduction != reduction
-            || reduced.Samples.Length != (long)reduced.Stride * reduced.Height || reduced.DecodedRows > reduced.Height)
+        if (reduced.Geometry.Width != (decoded.Geometry.Width + scale - 1) / scale || reduced.Geometry.Height != (decoded.Geometry.Height + scale - 1) / scale
+            || reduced.Geometry.Components != decoded.Geometry.Components || reduced.Geometry.BitsPerComponent < 8 || reduced.Reduction != reduction
+            || reduced.Samples.Length != (long)reduced.Stride * reduced.Geometry.Height || reduced.DecodedRows > reduced.Geometry.Height)
         {
-            throw new InvalidOperationException($"Reduced {decoded.Width} x {decoded.Height} by {scale} to {reduced.Width} x {reduced.Height} x {reduced.Components} at {reduced.BitsPerComponent} bits.");
+            throw new InvalidOperationException($"Reduced {decoded.Geometry.Width} x {decoded.Geometry.Height} by {scale} to {reduced.Geometry.Width} x {reduced.Geometry.Height} x {reduced.Geometry.Components} at {reduced.Geometry.BitsPerComponent} bits.");
         }
 
-        ushort[] reducedRow = new ushort[reduced.Width * reduced.Components];
-        int top = (1 << reduced.BitsPerComponent) - 1;
-        for (int y = 0; y < reduced.Height; y++)
+        ushort[] reducedRow = new ushort[reduced.Geometry.Width * reduced.Geometry.Components];
+        int top = (1 << reduced.Geometry.BitsPerComponent) - 1;
+        for (int y = 0; y < reduced.Geometry.Height; y++)
         {
             ImageRows.Unpack(reduced.GetRow(y), reduced.StorageBits, reducedRow.Length, reducedRow);
             if (reducedRow.Any(value => value > top))

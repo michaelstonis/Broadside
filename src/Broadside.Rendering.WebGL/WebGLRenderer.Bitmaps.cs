@@ -67,7 +67,7 @@ public sealed partial class WebGLRenderer
         foreach ((DisplayImage image, int key) in started)
         {
             string status = await WebGLInterop.WaitBitmap(key).WaitAsync(cancellationToken).ConfigureAwait(true);
-            if (status.StartsWith("ok ", StringComparison.Ordinal) && status == FormattableString.Invariant($"ok {image.Width} {image.Height}"))
+            if (status.StartsWith("ok ", StringComparison.Ordinal) && status == FormattableString.Invariant($"ok {image.Geometry.Width} {image.Geometry.Height}"))
             {
                 TextureCache.AttachBitmap(image, key);
             }

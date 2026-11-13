@@ -160,14 +160,14 @@ internal static class PlatformImageDecodeRun
     /// <summary>The largest difference, the PSNR and the share of pixels more than 2 levels apart (the verification mode's measures).</summary>
     private static (int Max, double Psnr, double Over) Difference(DecodedImage a, DecodedImage b)
     {
-        int components = a.Components;
+        int components = a.Geometry.Components;
         int max = 0;
         long over = 0;
         double squares = 0;
-        for (int y = 0; y < a.Height; y++)
+        for (int y = 0; y < a.Geometry.Height; y++)
         {
-            ReadOnlySpan<byte> rowA = a.GetRow(y)[..(a.Width * components)];
-            ReadOnlySpan<byte> rowB = b.GetRow(y)[..(a.Width * components)];
+            ReadOnlySpan<byte> rowA = a.GetRow(y)[..(a.Geometry.Width * components)];
+            ReadOnlySpan<byte> rowB = b.GetRow(y)[..(a.Geometry.Width * components)];
             for (int x = 0; x < rowA.Length; x += components)
             {
                 int pixel = 0;
@@ -183,7 +183,7 @@ internal static class PlatformImageDecodeRun
             }
         }
 
-        long pixels = (long)a.Width * a.Height;
+        long pixels = (long)a.Geometry.Width * a.Geometry.Height;
         double mse = squares / (pixels * components);
         return (max, mse == 0 ? double.PositiveInfinity : 10 * Math.Log10(255.0 * 255.0 / mse), over / (double)pixels);
     }
@@ -254,10 +254,10 @@ internal static class PlatformImageDecodeRun
         }
 
         int max = 0;
-        for (int y = 0; y < managed.Height; y++)
+        for (int y = 0; y < managed.Geometry.Height; y++)
         {
             ReadOnlySpan<byte> row = managed.GetRow(y);
-            for (int x = 0; x < managed.Width; x++)
+            for (int x = 0; x < managed.Geometry.Width; x++)
             {
                 for (int c = 0; c < 3; c++)
                 {
@@ -371,10 +371,7 @@ internal static class PlatformImageDecodeRun
     private static DecodedImage Managed(byte[] jpeg, int width, int height, int components, int reduction) =>
         new DctDecodeFilter().DecodeImage(jpeg, new ImageFilterContext(new FilterContext())
         {
-            Width = width,
-            Height = height,
-            BitsPerComponent = 8,
-            ColorComponents = components,
+            Geometry = new ImageGeometry(width, height, components, 8),
             Reduction = reduction,
         }) ?? throw new InvalidOperationException("The managed decoder decoded nothing.");
 

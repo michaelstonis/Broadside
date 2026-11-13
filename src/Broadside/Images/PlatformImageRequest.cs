@@ -111,7 +111,7 @@ public readonly record struct PlatformImageRequest
     {
         ArgumentOutOfRangeException.ThrowIfNegative(reduction);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(reduction, Reduction);
-        var image = new DecodedImageBuilder(ImageGeometry.Reduce(Width, reduction), ImageGeometry.Reduce(Height, reduction), Components, 8)
+        var image = new DecodedImageBuilder(new ImageGeometry(Width, Height, Components, 8).AtReduction(reduction))
         {
             Reduction = reduction,
             ColorModel = Components == 1 ? ImageColorModel.Gray : ImageColorModel.Rgb,

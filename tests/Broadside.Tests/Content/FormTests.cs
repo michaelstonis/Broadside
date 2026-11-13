@@ -305,7 +305,7 @@ public sealed class FormTests
 
         public override ContentEvents Events => ContentEvents.Paths | ContentEvents.Images;
 
-        public override void PaintImage(in ImageEvent image, ContentContext context) => ImageStencils.Add(image.IsStencil);
+        public override void PaintImage(in ImageEvent image, ContentContext context) => ImageStencils.Add(image.IsImageMask);
 
         public override void PaintPath(in PathEvent path, ContentContext context) => States.Add(context.State);
     }
@@ -357,8 +357,8 @@ internal sealed class ImageRecorder : ContentProcessor
 
     public override void PaintImage(in ImageEvent image, ContentContext context)
     {
-        Images.Add((image.IsInline, System.Text.Encoding.Latin1.GetString(image.ResourceName), image.IsStencil, image.Ctm, image.StructParent, image.Stream));
-        Models.Add((image.Image?.Width, image.Image?.Height, image.Image?.IsStencil));
+        Images.Add((image.IsInline, System.Text.Encoding.Latin1.GetString(image.ResourceName), image.IsImageMask, image.Ctm, image.StructParent, image.Stream));
+        Models.Add((image.Image?.Width, image.Image?.Height, image.Image?.IsImageMask));
         if (image.IsInline)
         {
             Inline.Add((image.InlineData.ToArray(), image.InlineDictionary.Items.Count / 2));

@@ -169,7 +169,7 @@ public sealed class ImageIODecoderTests
         using DecodedImage? platform = ImageIODecoder.Decode(jpeg, request, 0);
         using DecodedImage? managed = ImageIOTesting.Managed(jpeg, request);
 
-        Assert.Equal((96, 40), (platform!.Width, platform.Height));
+        Assert.Equal((96, 40), (platform!.Geometry.Width, platform.Geometry.Height));
         AssertWithinTolerance(ImageIOTesting.Compare(platform, managed!), "Exif orientation 6");
     }
 
@@ -204,7 +204,7 @@ public sealed class ImageIODecoderTests
 
         Assert.Equal(reduction, ImageIODecoder.DeliveredReduction(request, floorWidth, floorHeight, reduction));
         Assert.Equal(reduction, platform!.Reduction);
-        Assert.Equal((ceilWidth, ceilHeight), (platform.Width, platform.Height));
+        Assert.Equal((ceilWidth, ceilHeight), (platform.Geometry.Width, platform.Geometry.Height));
         if (ceilWidth != floorWidth)
         {
             ReadOnlySpan<byte> row = platform.GetRow(0);
@@ -267,7 +267,7 @@ public sealed class ImageIODecoderTests
 
             _ = ImageIODecoder.MeanQuantizerStep(damaged);
             using DecodedImage? image = ImageIODecoder.Decode(damaged, request with { Reduction = i % 4 }, i % 4);
-            Assert.True(image is null || (image.Width, image.Height) == (64 >> image.Reduction, 48 >> image.Reduction));
+            Assert.True(image is null || (image.Geometry.Width, image.Geometry.Height) == (64 >> image.Reduction, 48 >> image.Reduction));
         }
     }
 

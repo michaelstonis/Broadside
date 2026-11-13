@@ -142,7 +142,7 @@ internal sealed class MaskSource : IDisposable
     /// <summary>Writes the opacity of each sample of row <paramref name="y"/> of an image mask: 255 where it paints, 0 elsewhere.</summary>
     /// <remarks>ISO 32000-2 §8.9.6.2 and §8.9.6.3.</remarks>
     public static void StencilRow(DisplayImageMask mask, int y, Span<byte> alpha) =>
-        ImageRows.Stencil(mask.GetRow(y), mask.Width, mask.IsInverted, alpha);
+        ImageRows.ImageMask(mask.GetRow(y), mask.Width, mask.IsInverted, alpha);
 
     /// <summary>Writes the opacity of each sample of row <paramref name="y"/> of a soft mask's samples, 0 to 255.</summary>
     /// <param name="mask">The soft mask's samples.</param>

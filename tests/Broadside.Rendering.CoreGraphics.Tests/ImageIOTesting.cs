@@ -86,18 +86,18 @@ internal static class ImageIOTesting
         using (full)
         {
             int scale = 1 << reduction;
-            int components = full.Components;
-            var request = new PlatformImageRequest { Width = full.Width, Height = full.Height, Components = components, BitsPerComponent = 8, Reduction = reduction };
+            int components = full.Geometry.Components;
+            var request = new PlatformImageRequest { Width = full.Geometry.Width, Height = full.Geometry.Height, Components = components, BitsPerComponent = 8, Reduction = reduction };
             using DecodedImageBuilder builder = request.CreateImage(reduction);
-            int[] sums = new int[builder.Width * components];
-            for (int y = 0; y < builder.Height; y++)
+            int[] sums = new int[builder.Geometry.Width * components];
+            for (int y = 0; y < builder.Geometry.Height; y++)
             {
                 Array.Clear(sums);
-                int rows = Math.Min(full.Height, (y + 1) * scale) - (y * scale);
+                int rows = Math.Min(full.Geometry.Height, (y + 1) * scale) - (y * scale);
                 for (int sy = y * scale; sy < (y * scale) + rows; sy++)
                 {
                     ReadOnlySpan<byte> source = full.GetRow(sy);
-                    for (int x = 0; x < full.Width; x++)
+                    for (int x = 0; x < full.Geometry.Width; x++)
                     {
                         for (int c = 0; c < components; c++)
                         {
@@ -107,9 +107,9 @@ internal static class ImageIOTesting
                 }
 
                 Span<byte> row = builder.GetRow(y);
-                for (int x = 0; x < builder.Width; x++)
+                for (int x = 0; x < builder.Geometry.Width; x++)
                 {
-                    int count = (Math.Min(full.Width, (x + 1) * scale) - (x * scale)) * rows;
+                    int count = (Math.Min(full.Geometry.Width, (x + 1) * scale) - (x * scale)) * rows;
                     for (int c = 0; c < components; c++)
                     {
                         row[(x * components) + c] = (byte)((sums[(x * components) + c] + (count / 2)) / count);
@@ -125,25 +125,22 @@ internal static class ImageIOTesting
     public static DecodedImage? Managed(byte[] jpeg, in PlatformImageRequest request) =>
         new DctDecodeFilter().DecodeImage(jpeg, new ImageFilterContext(new FilterContext())
         {
-            Width = request.Width,
-            Height = request.Height,
-            BitsPerComponent = 8,
-            ColorComponents = request.Components,
+            Geometry = new ImageGeometry(request.Width, request.Height, request.Components, 8),
             Reduction = request.Reduction,
         });
 
     /// <summary>Measures <paramref name="a"/> against <paramref name="b"/> (same size and components, 8-bit).</summary>
     public static Difference Compare(DecodedImage a, DecodedImage b)
     {
-        Assert.Equal((b.Width, b.Height, b.Components), (a.Width, a.Height, a.Components));
-        int components = a.Components;
+        Assert.Equal((b.Geometry.Width, b.Geometry.Height, b.Geometry.Components), (a.Geometry.Width, a.Geometry.Height, a.Geometry.Components));
+        int components = a.Geometry.Components;
         int max = 0;
         long over = 0;
         double squares = 0;
-        for (int y = 0; y < a.Height; y++)
+        for (int y = 0; y < a.Geometry.Height; y++)
         {
-            ReadOnlySpan<byte> rowA = a.GetRow(y)[..(a.Width * components)];
-            ReadOnlySpan<byte> rowB = b.GetRow(y)[..(a.Width * components)];
+            ReadOnlySpan<byte> rowA = a.GetRow(y)[..(a.Geometry.Width * components)];
+            ReadOnlySpan<byte> rowB = b.GetRow(y)[..(a.Geometry.Width * components)];
             for (int x = 0; x < rowA.Length; x += components)
             {
                 int pixel = 0;
@@ -159,7 +156,7 @@ internal static class ImageIOTesting
             }
         }
 
-        long pixels = (long)a.Width * a.Height;
+        long pixels = (long)a.Geometry.Width * a.Geometry.Height;
         double mse = squares / (pixels * components);
         return new Difference(max, mse == 0 ? double.PositiveInfinity : 10 * Math.Log10(255.0 * 255.0 / mse), over / (double)pixels);
     }

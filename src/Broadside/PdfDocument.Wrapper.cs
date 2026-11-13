@@ -291,7 +291,7 @@ public sealed partial class PdfDocument
             ObjectLoader? loader = null;
             var streams = new StreamDecoder(
                 configuration.Filters,
-                configuration.MaxDecodedStreamLength,
+                configuration.MaxDecodedLength,
                 diagnostics,
                 value => loader is not null ? loader.Resolve(value) : value is null or CosReference ? CosNull.Instance : value);
             var scan = new Lazy<FileScan>(() => FileScan.Run(source), LazyThreadSafetyMode.None);

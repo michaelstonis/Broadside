@@ -19,7 +19,7 @@ namespace Broadside.Filters;
 /// What the codec reports wins over the image dictionary where §7.4.9 and the codec formats say so: the image's width, height and
 /// bits per component come from the codestream (a mismatch with the dictionary is recorded as a diagnostic); the dictionary's
 /// <c>ColorSpace</c> wins over <see cref="DecodedImage.ColorModel"/>; an alpha plane is kept only when the dictionary's
-/// <c>SMaskInData</c> asks for it (<see cref="ImageFilterContext.WantsAlpha"/>).
+/// <c>SMaskInData</c> asks for it (<see cref="ImageFilterContext.SoftMaskInData"/>).
 /// </para>
 /// <para>Thread safety and leniency as for <see cref="IStreamFilter"/>: stateless, every call self-contained.</para>
 /// </remarks>

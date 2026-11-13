@@ -225,10 +225,7 @@ public sealed class BrowserImageDecoder : IPlatformImageDecoder
         {
             using DecodedImage? managed = new DctDecodeFilter().DecodeImage(jpeg, new ImageFilterContext(new FilterContext())
             {
-                Width = size,
-                Height = size,
-                BitsPerComponent = 8,
-                ColorComponents = 3,
+                Geometry = new ImageGeometry(size, size, 3, 8),
                 Reduction = reduction,
             });
             int reduced = size >> reduction;

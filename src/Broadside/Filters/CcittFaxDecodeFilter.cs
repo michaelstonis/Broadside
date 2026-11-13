@@ -96,8 +96,8 @@ public sealed class CcittFaxDecodeFilter : IImageFilter
     public bool TryReadHeader(ReadOnlySpan<byte> encoded, ImageFilterContext context, out ImageHeader header)
     {
         ArgumentNullException.ThrowIfNull(context);
-        CcittParameters parameters = ReadParameters(context.Filter, context.Width, report: false);
-        header = new ImageHeader(context.Width > 0 ? context.Width : parameters.Columns, context.Height > 0 ? context.Height : parameters.Rows, 1, 1)
+        CcittParameters parameters = ReadParameters(context.Filter, context.Geometry.Width, report: false);
+        header = new ImageHeader(new ImageGeometry(context.Geometry.Width > 0 ? context.Geometry.Width : parameters.Columns, context.Geometry.Height > 0 ? context.Geometry.Height : parameters.Rows, 1, 1))
         {
             ColorModel = ImageColorModel.Gray,
         };
@@ -110,14 +110,14 @@ public sealed class CcittFaxDecodeFilter : IImageFilter
     {
         ArgumentNullException.ThrowIfNull(context);
         FilterContext filter = context.Filter;
-        CcittParameters parameters = ReadParameters(filter, context.Width, report: false);
-        int width = context.Width > 0 ? context.Width : parameters.Columns;
-        int height = context.Height > 0 ? context.Height : parameters.Rows;
+        CcittParameters parameters = ReadParameters(filter, context.Geometry.Width, report: false);
+        int width = context.Geometry.Width > 0 ? context.Geometry.Width : parameters.Columns;
+        int height = context.Geometry.Height > 0 ? context.Geometry.Height : parameters.Rows;
 
         // With no height known, the stream path decodes and reports; otherwise report the parameters here.
         if (height > 0)
         {
-            parameters = ReadParameters(filter, context.Width, report: true);
+            parameters = ReadParameters(filter, context.Geometry.Width, report: true);
             if (!FitsLimit(parameters, context.MaxDecodedLength, filter))
             {
                 return null;
@@ -147,7 +147,7 @@ public sealed class CcittFaxDecodeFilter : IImageFilter
         DecodedImageBuilder? image = null;
         try
         {
-            if (!context.TryCreateImage(width, height, 1, 1, out image))
+            if (!context.TryCreateImage(new ImageGeometry(width, height, 1, 1), out image))
             {
                 return null;
             }
@@ -212,7 +212,7 @@ public sealed class CcittFaxDecodeFilter : IImageFilter
         DecodedImageBuilder? image = null;
         try
         {
-            if (!context.TryCreateImage(width, height, 1, 1, out image))
+            if (!context.TryCreateImage(new ImageGeometry(width, height, 1, 1), out image))
             {
                 return null;
             }

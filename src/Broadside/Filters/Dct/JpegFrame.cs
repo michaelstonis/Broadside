@@ -89,7 +89,7 @@ internal sealed class JpegFrame
     public bool Adobe { get; set; }
 
     /// <summary>Gets or sets the APP14 transform code.</summary>
-    public int AdobeTransform { get; set; }
+    public AdobeColorTransform AdobeTransform { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the frame is progressive (SOF2, SOF10).</summary>
     public bool Progressive { get; set; }
@@ -215,7 +215,7 @@ internal sealed class JpegFrame
         ComponentCount = 0;
         RestartInterval = 0;
         Adobe = false;
-        AdobeTransform = 0;
+        AdobeTransform = AdobeColorTransform.Unknown;
         Streaming = false;
         StorageReady = false;
         ScansDecoded = 0;

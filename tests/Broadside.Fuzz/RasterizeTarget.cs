@@ -17,7 +17,7 @@ internal static class RasterizeTarget
     private const int Size = 48;
 
     // Inline images in the input are decoded and drawn (issue #102); small limits keep a mutated /W /H from costing gigabytes.
-    private static readonly PdfEngine Engine = new(new PdfOptions().WithMaxImagePixels(1 << 16).WithMaxDecodedStreamLength(1 << 20));
+    private static readonly PdfEngine Engine = new(new PdfOptions().WithMaxImagePixels(1 << 16).WithMaxDecodedLength(1 << 20));
 
     public static void Target(ReadOnlySpan<byte> data)
     {

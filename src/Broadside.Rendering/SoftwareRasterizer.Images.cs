@@ -45,7 +45,7 @@ public sealed partial class SoftwareRasterizer
                 return;
             }
 
-            if (!TryCoverUnitSquare(image.Width, image.Height, out Matrix inverse))
+            if (!TryCoverUnitSquare(image.Geometry.Width, image.Geometry.Height, out Matrix inverse))
             {
                 return;
             }
@@ -148,7 +148,7 @@ public sealed partial class SoftwareRasterizer
         /// </summary>
         private DisplayImageSamples? FoldedSoftMask(DisplayImage image, DisplayImageSamples samples)
         {
-            if (image.SoftMask is not { } mask || mask.Width != image.Width || mask.Height != image.Height)
+            if (image.SoftMask is not { } mask || mask.Geometry.Width != image.Geometry.Width || mask.Geometry.Height != image.Geometry.Height)
             {
                 return null;
             }
@@ -164,14 +164,14 @@ public sealed partial class SoftwareRasterizer
         private ImageMask PrepareImageMask(DisplayImage image, DisplayImageSamples samples, DisplayImageSamples? folded)
         {
             double scale = 1 << samples.Reduction;
-            if (image.SoftMask is { } soft && folded is null && (long)soft.Width * soft.Height <= Array.MaxLength)
+            if (image.SoftMask is { } soft && folded is null && (long)soft.Geometry.Width * soft.Geometry.Height <= Array.MaxLength)
             {
                 int reduction = _imageSamplesPerPixel > 0 ? soft.GetReduction(_toDevice, _imageSamplesPerPixel, null) : 0;
                 if (soft.GetSamplesAt(reduction, _cancellationToken) is { } opacity)
                 {
                     _maskSource.Prepare(soft, opacity);
                     double factor = scale / (1 << opacity.Reduction);
-                    return new ImageMask(_maskSource.Buffer, _maskSource.Width, _maskSource.Height, soft.Interpolate, factor * soft.Width / image.Width, factor * soft.Height / image.Height);
+                    return new ImageMask(_maskSource.Buffer, _maskSource.Width, _maskSource.Height, soft.Interpolate, factor * soft.Geometry.Width / image.Geometry.Width, factor * soft.Geometry.Height / image.Geometry.Height);
                 }
             }
 
@@ -180,7 +180,7 @@ public sealed partial class SoftwareRasterizer
                 int reduction = _imageSamplesPerPixel > 0 ? mask.GetReduction(_toDevice, _imageSamplesPerPixel) : 0;
                 _maskSource.Prepare(mask, reduction);
                 double factor = scale / (1 << reduction);
-                return new ImageMask(_maskSource.Buffer, _maskSource.Width, _maskSource.Height, mask.Interpolate, factor * mask.Width / image.Width, factor * mask.Height / image.Height);
+                return new ImageMask(_maskSource.Buffer, _maskSource.Width, _maskSource.Height, mask.Interpolate, factor * mask.Width / image.Geometry.Width, factor * mask.Height / image.Geometry.Height);
             }
 
             return new ImageMask(null, 1, 1, false, 0, 0);

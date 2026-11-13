@@ -19,11 +19,11 @@ internal static class ImageConverter
 {
     /// <summary>Whether the image's soft mask has the image's size, so that its opacity is folded into the converted pixels.</summary>
     public static bool FoldsSoftMask(DisplayImage image) =>
-        image.SoftMask is { } soft && soft.Width == image.Width && soft.Height == image.Height;
+        image.SoftMask is { } soft && soft.Geometry.Width == image.Geometry.Width && soft.Geometry.Height == image.Geometry.Height;
 
     /// <summary>Whether the image's explicit mask has the image's size, so that it is folded into the converted pixels.</summary>
     public static bool FoldsMask(DisplayImage image) =>
-        image.SoftMask is null && image.Mask is { } mask && mask.Width == image.Width && mask.Height == image.Height;
+        image.SoftMask is null && image.Mask is { } mask && mask.Width == image.Geometry.Width && mask.Height == image.Geometry.Height;
 
     /// <summary>
     /// Returns whether the image's soft mask folds into its converted <paramref name="samples"/>, and its samples to fold: a soft mask
@@ -57,7 +57,7 @@ internal static class ImageConverter
             return null;
         }
 
-        int components = image.Components;
+        int components = image.Geometry.Components;
         int values = width * components;
         PdfColorSpace space = image.ColorSpace;
         var indexed = space as PdfIndexedColorSpace;
@@ -121,7 +121,7 @@ internal static class ImageConverter
                 }
                 else if (foldMask)
                 {
-                    ImageRows.Stencil(image.Mask!.GetRow(y), width, image.Mask.IsInverted, opacityRow);
+                    ImageRows.ImageMask(image.Mask!.GetRow(y), width, image.Mask.IsInverted, opacityRow);
                 }
                 else if (colorKey)
                 {
@@ -191,7 +191,7 @@ internal static class ImageConverter
         byte[] pixels = ArrayPool<byte>.Shared.Rent(width * height);
         for (int y = 0; y < height; y++)
         {
-            ImageRows.Stencil(mask.GetRow(y), width, mask.IsInverted, pixels.AsSpan(y * width, width));
+            ImageRows.ImageMask(mask.GetRow(y), width, mask.IsInverted, pixels.AsSpan(y * width, width));
         }
 
         return pixels;
@@ -227,7 +227,7 @@ internal static class ImageConverter
                 int rows = Math.Min(height, first + scale) - first;
                 for (int sy = first; sy < first + rows; sy++)
                 {
-                    ImageRows.Stencil(mask.GetRow(sy), width, mask.IsInverted, line.AsSpan(0, width));
+                    ImageRows.ImageMask(mask.GetRow(sy), width, mask.IsInverted, line.AsSpan(0, width));
                     for (int x = 0; x < width; x++)
                     {
                         sums[x >> reduction] += line[x];
@@ -279,12 +279,12 @@ internal static class ImageConverter
     /// <summary>Writes the opacity of each sample of a soft mask row, 0 to 255: the samples through its Decode array, clamped to 0 to 1 (Table 143).</summary>
     private static void SoftRow(DisplayImage mask, int y, Span<byte> alpha, ushort[] raw, float[] values)
     {
-        int width = mask.Width;
+        int width = mask.Geometry.Width;
         ImageDecodeMap map = mask.DecodeMap;
         int top = (1 << map.BitsPerComponent) - 1;
         if (mask.StorageBits <= 8 && map.Map(0, 0) == 0f && map.Map(0, top) == 1f)
         {
-            ImageRows.UnpackScaled(mask.GetRow(y), mask.StorageBits, mask.BitsPerComponent, width, alpha);
+            ImageRows.UnpackScaled(mask.GetRow(y), mask.StorageBits, mask.Geometry.BitsPerComponent, width, alpha);
             return;
         }
 

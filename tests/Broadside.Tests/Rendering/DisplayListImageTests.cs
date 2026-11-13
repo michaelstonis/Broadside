@@ -95,7 +95,7 @@ public sealed class DisplayListImageTests
         Assert.Equal([0x05, 0xFF, 0x91, 0xEF], image.Samples.ToArray());
         Assert.Equal(2, image.Stride);
         Assert.Equal(4, image.StorageBits);
-        Assert.Equal(1, image.Components);
+        Assert.Equal(1, image.Geometry.Components);
         Assert.Equal(5f, image.DecodeMap.Map(0, 5));
     }
 
@@ -302,7 +302,7 @@ public sealed class DisplayListImageTests
         byte[] painted = new byte[mask.Width * mask.Height];
         for (int y = 0; y < mask.Height; y++)
         {
-            Broadside.Images.ImageRows.Stencil(mask.GetRow(y), mask.Width, mask.IsInverted, painted.AsSpan(y * mask.Width, mask.Width));
+            Broadside.Images.ImageRows.ImageMask(mask.GetRow(y), mask.Width, mask.IsInverted, painted.AsSpan(y * mask.Width, mask.Width));
         }
 
         return painted;
