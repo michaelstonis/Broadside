@@ -40,7 +40,7 @@ public sealed partial class PdfDocument
     /// <remarks>ISO 32000-2 §7.7.2, Table 29. An unknown name reads as the default with a <c>PageLayoutInvalid</c> diagnostic.</remarks>
     public PdfPageLayout PageLayout => CatalogView.ReadName(
         PageLayoutKey,
-        DiagnosticCodes.PageLayoutInvalid,
+        DocumentDiagnostics.PageLayoutInvalid,
         PdfPageLayout.SinglePage,
         ("SinglePage", PdfPageLayout.SinglePage),
         ("OneColumn", PdfPageLayout.OneColumn),
@@ -53,7 +53,7 @@ public sealed partial class PdfDocument
     /// <remarks>ISO 32000-2 §7.7.2, Table 29. An unknown name reads as the default with a <c>PageModeInvalid</c> diagnostic.</remarks>
     public PdfPageMode PageMode => CatalogView.ReadName(
         PageModeKey,
-        DiagnosticCodes.PageModeInvalid,
+        DocumentDiagnostics.PageModeInvalid,
         PdfPageMode.UseNone,
         ("UseNone", PdfPageMode.UseNone),
         ("UseOutlines", PdfPageMode.UseOutlines),
@@ -79,7 +79,7 @@ public sealed partial class PdfDocument
                 case CosDictionary preferences:
                     return new PdfViewerPreferences(this, preferences, entry as CosReference ?? CatalogReference);
                 default:
-                    CatalogView.Report(DiagnosticCodes.ViewerPreferencesInvalid, "The catalog's ViewerPreferences entry shall be a dictionary; it is ignored.");
+                    CatalogView.Report(DocumentDiagnostics.ViewerPreferencesInvalid, "The catalog's ViewerPreferences entry shall be a dictionary; it is ignored.");
                     return null;
             }
         }
@@ -112,7 +112,7 @@ public sealed partial class PdfDocument
 
     /// <summary>Gets the natural language of the document's text (<c>Lang</c>), such as <c>en-US</c>, or <see langword="null"/> when unknown.</summary>
     /// <remarks>ISO 32000-2 §7.7.2, Table 29 (PDF 1.4), and §14.9.2. Not checked against BCP 47.</remarks>
-    public string? Language => CatalogView.ReadText(LangKey, DiagnosticCodes.CatalogEntryInvalid);
+    public string? Language => CatalogView.ReadText(LangKey, DocumentDiagnostics.CatalogEntryInvalid);
 
     /// <summary>Gets the developer extensions the document declares (<c>Extensions</c>), in the order written; empty when none.</summary>
     /// <remarks>
@@ -138,7 +138,7 @@ public sealed partial class PdfDocument
             PdfVersion version = Version;
             if (value is not CosDictionary extensions)
             {
-                catalog.Report(DiagnosticCodes.ExtensionsInvalid, "The catalog's Extensions entry shall be a dictionary; it is ignored.");
+                catalog.Report(DocumentDiagnostics.ExtensionsInvalid, "The catalog's Extensions entry shall be a dictionary; it is ignored.");
                 return [];
             }
 
@@ -180,7 +180,7 @@ public sealed partial class PdfDocument
 
             if (indirect)
             {
-                catalog.Report(DiagnosticCodes.ExtensionsNotDirect, "The extensions dictionary and the developer extensions dictionaries shall be direct objects; they are read through their references.");
+                catalog.Report(DocumentDiagnostics.ExtensionsNotDirect, "The extensions dictionary and the developer extensions dictionaries shall be direct objects; they are read through their references.");
             }
 
             return result;
@@ -197,7 +197,7 @@ public sealed partial class PdfDocument
                     // §7.12.4: BaseVersion "shall be less than or equal to the PDF version". Compared with the version the document
                     // conforms to (the header's, or the catalog's when later), which an incremental update raises through the catalog.
                     catalog.Report(
-                        DiagnosticCodes.DeveloperExtensionBaseVersionLater,
+                        DocumentDiagnostics.DeveloperExtensionBaseVersionLater,
                         string.Create(CultureInfo.InvariantCulture, $"The developer extension {prefix.Value} extends PDF {baseVersion}, later than the document's version {version}; the BaseVersion shall not be later than the document's version (ISO 32000-2 §7.12.4). Saving raises the version."));
                 }
 
@@ -205,7 +205,7 @@ public sealed partial class PdfDocument
             }
 
             void ReportExtension(CosName prefix) => catalog.Report(
-                DiagnosticCodes.DeveloperExtensionInvalid,
+                DocumentDiagnostics.DeveloperExtensionInvalid,
                 $"The developer extension {prefix.Value} shall be a dictionary, or an array of dictionaries, with a BaseVersion name and an ExtensionLevel integer.");
         }
     }
@@ -229,7 +229,7 @@ public sealed partial class PdfDocument
             const string message = "The catalog's Requirements entry shall be an array of requirement dictionaries, each with a type and a penalty from 0 to 100 (Table 273).";
             if (value is not CosArray array)
             {
-                CatalogView.Report(DiagnosticCodes.RequirementInvalid, message);
+                CatalogView.Report(DocumentDiagnostics.RequirementInvalid, message);
                 return [];
             }
 
@@ -250,7 +250,7 @@ public sealed partial class PdfDocument
 
             if (invalid)
             {
-                CatalogView.Report(DiagnosticCodes.RequirementInvalid, message);
+                CatalogView.Report(DocumentDiagnostics.RequirementInvalid, message);
             }
 
             return requirements;
@@ -275,7 +275,7 @@ public sealed partial class PdfDocument
                     return new PdfDocumentInformation(this, info, entry as CosReference);
                 default:
                     _diagnostics.Report(
-                        DiagnosticCodes.InfoDictionaryInvalid,
+                        DocumentDiagnostics.InfoDictionaryInvalid,
                         DiagnosticSeverity.Warning,
                         "The trailer's Info entry shall refer to the document information dictionary; it is ignored.",
                         objectReference: entry as CosReference);
@@ -305,7 +305,7 @@ public sealed partial class PdfDocument
                         || !XmlSubtype.Equals(Resolve(stream.Dictionary.GetValueOrDefault(SubtypeKey))))
                     {
                         _diagnostics.Report(
-                            DiagnosticCodes.MetadataStreamTypeInvalid,
+                            DocumentDiagnostics.MetadataStreamTypeInvalid,
                             DiagnosticSeverity.Warning,
                             "A metadata stream shall have Type Metadata and Subtype XML; it is read as XMP anyway.",
                             objectReference: reference);
@@ -313,7 +313,7 @@ public sealed partial class PdfDocument
 
                     return new PdfMetadata(this, stream, reference);
                 default:
-                    CatalogView.Report(DiagnosticCodes.MetadataStreamInvalid, "The catalog's Metadata entry shall be a metadata stream; it is ignored.");
+                    CatalogView.Report(DocumentDiagnostics.MetadataStreamInvalid, "The catalog's Metadata entry shall be a metadata stream; it is ignored.");
                     return null;
             }
         }
@@ -340,13 +340,13 @@ public sealed partial class PdfDocument
 
             if (value is not CosArray { Count: 2 } array || Resolve(array[0]) is not CosString permanent || Resolve(array[1]) is not CosString changing)
             {
-                _diagnostics.Report(DiagnosticCodes.FileIdentifierInvalid, DiagnosticSeverity.Warning, "The trailer's ID entry shall be an array of two byte strings; it is ignored.");
+                _diagnostics.Report(DocumentDiagnostics.FileIdentifierInvalid, DiagnosticSeverity.Warning, "The trailer's ID entry shall be an array of two byte strings; it is ignored.");
                 return null;
             }
 
             if (permanent.Bytes.Length < 16 || changing.Bytes.Length < 16)
             {
-                _diagnostics.Report(DiagnosticCodes.FileIdentifierInvalid, DiagnosticSeverity.Warning, "Each file identifier shall be at least 16 bytes long; the shorter ones are used as they are.");
+                _diagnostics.Report(DocumentDiagnostics.FileIdentifierInvalid, DiagnosticSeverity.Warning, "Each file identifier shall be at least 16 bytes long; the shorter ones are used as they are.");
             }
 
             return new PdfFileIdentifier(permanent.Bytes.ToArray(), changing.Bytes.ToArray());

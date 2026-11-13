@@ -53,7 +53,7 @@ public sealed class PdfNamedDestination : PdfDestination
         if (!found)
         {
             Document.DiagnosticSink.Report(
-                DiagnosticCodes.NamedDestinationNotFound,
+                NavigationDiagnostics.NamedDestinationNotFound,
                 DiagnosticSeverity.Warning,
                 $"The document has no named destination \"{Escape(Text)}\"; the reference to it shows no page.",
                 objectReference: Owner);

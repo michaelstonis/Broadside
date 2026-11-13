@@ -127,7 +127,7 @@ internal sealed class SimpleFontMetrics
             else if (value is not null)
             {
                 font.Report(
-                    DiagnosticCodes.FontDescriptorInvalid,
+                    FontDiagnostics.FontDescriptorInvalid,
                     DiagnosticSeverity.Warning,
                     "A font's FontDescriptor shall be a dictionary (ISO 32000-2 §9.6.2.1, Table 109); ignored.");
             }
@@ -171,7 +171,7 @@ internal sealed class SimpleFontMetrics
             if (problems.Count > 0)
             {
                 font.Report(
-                    DiagnosticCodes.FontDescriptorInvalid,
+                    FontDiagnostics.FontDescriptorInvalid,
                     DiagnosticSeverity.Warning,
                     $"The font descriptor deviates from ISO 32000-2 §9.8.1 Table 120: {string.Join("; ", problems)}; defaults are used.");
             }
@@ -186,7 +186,7 @@ internal sealed class SimpleFontMetrics
                 if (!IsType3)
                 {
                     font.Report(
-                        DiagnosticCodes.FontBaseFontMissing,
+                        FontDiagnostics.FontBaseFontMissing,
                         DiagnosticSeverity.Warning,
                         "A font dictionary shall have a BaseFont name (ISO 32000-2 §9.6.2.1, Table 109).");
                 }
@@ -197,7 +197,7 @@ internal sealed class SimpleFontMetrics
                 if (isAlias)
                 {
                     font.Report(
-                        DiagnosticCodes.FontStandard14Alias,
+                        FontDiagnostics.FontStandard14Alias,
                         DiagnosticSeverity.Information,
                         $"The font /{name.Value} is not embedded; the metrics of the Standard 14 font {Standard14Data.PostScriptName(standard14)} are used for it.");
                 }
@@ -360,7 +360,7 @@ internal sealed class SimpleFontMetrics
                 }
 
                 font.Report(
-                    DiagnosticCodes.FontBuiltInEncodingUnavailable,
+                    FontDiagnostics.FontBuiltInEncodingUnavailable,
                     DiagnosticSeverity.Information,
                     "The embedded font program's built-in encoding is not read; StandardEncoding stands in for it.");
                 Apply(BuiltInEncoding.Standard);
@@ -376,7 +376,7 @@ internal sealed class SimpleFontMetrics
             if (_symbolic)
             {
                 font.Report(
-                    DiagnosticCodes.FontBuiltInEncodingUnavailable,
+                    FontDiagnostics.FontBuiltInEncodingUnavailable,
                     DiagnosticSeverity.Information,
                     "A symbolic font that is not embedded has no known built-in encoding (ISO 32000-2 §9.6.5.1); StandardEncoding stands in for it.");
             }
@@ -458,7 +458,7 @@ internal sealed class SimpleFontMetrics
             if (value is not null)
             {
                 font.Report(
-                    DiagnosticCodes.FontWidthsInvalid,
+                    FontDiagnostics.FontWidthsInvalid,
                     DiagnosticSeverity.Warning,
                     "A font's Widths shall be an array (ISO 32000-2 §9.6.2.1, Table 109); ignored.");
             }
@@ -474,7 +474,7 @@ internal sealed class SimpleFontMetrics
             }
 
             font.Report(
-                DiagnosticCodes.FontWidthsMissing,
+                FontDiagnostics.FontWidthsMissing,
                 DiagnosticSeverity.Warning,
                 "The font has no Widths and is not a Standard 14 font (ISO 32000-2 §9.6.2.1, Table 109); each code takes its glyph's own width (the embedded program's advance, or a Type 3 glyph's d0 or d1 width), else 0.");
             for (int code = 0; code < 256; code++)
@@ -551,7 +551,7 @@ internal sealed class SimpleFontMetrics
             }
 
             font.Report(
-                DiagnosticCodes.FontGlyphMissing,
+                FontDiagnostics.FontGlyphMissing,
                 DiagnosticSeverity.Information,
                 $"The Standard 14 font {Standard14Data.PostScriptName(standard14)} has no glyph /{glyphName}; its width is 0.");
             return 0;
@@ -570,7 +570,7 @@ internal sealed class SimpleFontMetrics
                 if (present is > 0 and < 4)
                 {
                     font.Report(
-                        DiagnosticCodes.FontStandard14EntriesIncomplete,
+                        FontDiagnostics.FontStandard14EntriesIncomplete,
                         DiagnosticSeverity.Warning,
                         "A Standard 14 font shall have all or none of FirstChar, LastChar, Widths and FontDescriptor (ISO 32000-2 §9.6.2.1, Table 109); the entries present are used.");
                 }
@@ -578,29 +578,29 @@ internal sealed class SimpleFontMetrics
             else if (!IsType3 && _descriptor is null)
             {
                 font.Report(
-                    DiagnosticCodes.FontDescriptorMissing,
+                    FontDiagnostics.FontDescriptorMissing,
                     DiagnosticSeverity.Warning,
                     "A simple font that is not a Standard 14 font shall have a font descriptor (ISO 32000-2 §9.6.1, §9.6.2.1).");
             }
         }
 
         private void ReportNamedEncodingIgnored(CosName name) => font.Report(
-            DiagnosticCodes.FontEncodingIgnored,
+            FontDiagnostics.FontEncodingIgnored,
             DiagnosticSeverity.Information,
             $"The encoding /{name.Value} is ignored for the non-embedded symbolic font; its built-in encoding is used (as pdf.js does).");
 
         private void ReportEncodingInvalid(string problem) => font.Report(
-            DiagnosticCodes.FontEncodingInvalid,
+            FontDiagnostics.FontEncodingInvalid,
             DiagnosticSeverity.Warning,
             $"The font's encoding deviates from ISO 32000-2 §9.6.5.1 Table 112: {problem}.");
 
         private void ReportDifferencesInvalid(string problem) => font.Report(
-            DiagnosticCodes.FontDifferencesInvalid,
+            FontDiagnostics.FontDifferencesInvalid,
             DiagnosticSeverity.Warning,
             $"The encoding's Differences array deviates from ISO 32000-2 §9.6.5.1: {problem}.");
 
         private void ReportWidthsInvalid(string problem) => font.Report(
-            DiagnosticCodes.FontWidthsInvalid,
+            FontDiagnostics.FontWidthsInvalid,
             DiagnosticSeverity.Warning,
             $"The font's widths deviate from ISO 32000-2 §9.6.2.1 Table 109: {problem}.");
     }

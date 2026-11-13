@@ -80,7 +80,7 @@ internal sealed class ToUnicodeMap
             }
             else
             {
-                context.Report(DiagnosticCodes.CMapUseCMapInvalid, DiagnosticSeverity.Warning, $"The ToUnicode CMap uses /{name}, which is not a ToUnicode CMap (ISO 32000-2 §9.10.3); read without it.");
+                context.Report(CMapDiagnostics.CMapUseCMapInvalid, DiagnosticSeverity.Warning, $"The ToUnicode CMap uses /{name}, which is not a ToUnicode CMap (ISO 32000-2 §9.10.3); read without it.");
             }
         }
 

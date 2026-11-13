@@ -17,7 +17,6 @@ internal static partial class DiagnosticCodes
     /// <summary>A row has an invalid code: kept as far as it decodes, white after; decoding resumes at the next EOL or stops (Error).</summary>
     public static string CcittDataInvalid => CcittDiagnostics.CcittDataInvalid.Name;
 
-
     /// <summary>The image's Width differs from Columns: rows are decoded at Columns and cut or padded with white to Width (Warning).</summary>
     public static string CcittWidthMismatch => CcittDiagnostics.CcittWidthMismatch.Name;
 }

@@ -61,7 +61,7 @@ public sealed class PdfOptionalContentTracker
             if (inlineProperties)
             {
                 _properties.Document.DiagnosticSink.ReportOnce(
-                    DiagnosticCodes.OptionalContentInlineProperties,
+                    OptionalContentDiagnostics.OptionalContentInlineProperties,
                     DiagnosticSeverity.Warning,
                     "An /OC marked-content section has an inline property list; it shall be a named resource. It is honoured.");
             }

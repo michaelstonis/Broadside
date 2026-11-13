@@ -82,10 +82,10 @@ internal static class AnnotationEntryReaders
             case DateParseOutcome.Valid:
                 return date;
             case DateParseOutcome.Repaired:
-                annotation.Report(DiagnosticCodes.DateInvalid, $"The annotation's {key.Value} entry does not follow the date format of §7.9.4; it is read with the deviating fields repaired.");
+                annotation.Report(DocumentDiagnostics.DateInvalid.Name, $"The annotation's {key.Value} entry does not follow the date format of §7.9.4; it is read with the deviating fields repaired.");
                 return date;
             default:
-                annotation.Report(DiagnosticCodes.DateUnreadable, $"The annotation's {key.Value} entry is not a date (§7.9.4).");
+                annotation.Report(DocumentDiagnostics.DateUnreadable.Name, $"The annotation's {key.Value} entry is not a date (§7.9.4).");
                 return null;
         }
     }
