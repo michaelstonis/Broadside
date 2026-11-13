@@ -9,7 +9,7 @@ outcomes:
   Rejected: 13
   Crash: 0
   Timeout: 0
-pages rendered: 3575
+pages rendered: 3576
 render diagnostics on well-formed files (files, total):
   ColorSpaceInvalid: 1, 1
   ContentFontMissing: 7, 8

@@ -20,6 +20,11 @@ public sealed class BrokenCorpusTests
         { "wrong-stream-length.pdf", "text-standard14.pdf", ["StreamLengthInvalid 4 267"] },
         { "no-xref.pdf", "empty-page.pdf", ["StartxrefMissing - -", "TrailerMissing - -"] },
         { "startxref-wrong.pdf", "empty-page.pdf", ["StartxrefInvalid - 303"] },
+        { "xref-entry-beyond-size.pdf", "empty-page.pdf", ["XrefEntryBeyondSize - 251"] },
+        { "xref-comment.pdf", "empty-page.pdf", ["XrefCommentIgnored - 212"] },
+        { "xref-line-malformed.pdf", "empty-page.pdf", ["XrefLineMalformed - 272"] },
+        { "xrefstm-offset-wrong.pdf", "hybrid-xref.pdf", ["TrailerXRefStmInvalid - 541"] },
+        { "startxref-last-damaged.pdf", "incremental-update.pdf", ["StartxrefLastDamaged - 346"] },
     };
 
     [Theory]

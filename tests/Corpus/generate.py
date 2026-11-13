@@ -2506,6 +2506,70 @@ def gen_startxref_wrong() -> bytes:
     return f.finish_classic(b"<< /Size 4 /Root 1 0 R >>", startxref_delta=100)
 
 
+def gen_xref_entry_beyond_size() -> bytes:
+    """7.5.5 Table 15: Size is the total number of entries in the cross-reference table, so an
+    entry numbered Size or more is not part of it. The table lists object 4, the trailer says 4."""
+    f = File()
+    f.add(1, catalog())
+    f.add(2, pages())
+    f.add(3, page())
+    f.add(4, b"<< /Note (listed beyond Size) >>")
+    start = f.pos()
+    f.raw(xref_table(f.offsets, 5, b"<< /Size 4 /Root 1 0 R >>"))
+    f.raw(b"startxref\n%d\n%%%%EOF\n" % start)
+    return bytes(f.buf)
+
+
+def gen_xref_comment() -> bytes:
+    """7.5.4: a table is subsections of entries; a comment (7.2.4) is not part of it. A comment
+    line sits between the subsection header and its first entry."""
+    f = File()
+    f.add(1, catalog())
+    f.add(2, pages())
+    f.add(3, page())
+    start = f.pos()
+    table = xref_table(f.offsets, 4, b"<< /Size 4 /Root 1 0 R >>")
+    table = table.replace(b"xref\n0 4\n", b"xref\n0 4\n% written by a tool\n", 1)
+    f.raw(table)
+    f.raw(b"startxref\n%d\n%%%%EOF\n" % start)
+    return bytes(f.buf)
+
+
+def gen_xref_line_malformed() -> bytes:
+    """7.5.4: every line of a table is a subsection header or an entry. A line of text sits
+    between the entries of object 2 and object 3."""
+    f = File()
+    f.add(1, catalog())
+    f.add(2, pages())
+    f.add(3, page())
+    start = f.pos()
+    table = xref_table(f.offsets, 4, b"<< /Size 4 /Root 1 0 R >>")
+    marker = b"%010d 00000 n \n" % f.offsets[3]
+    table = table.replace(marker, b"not an entry\n" + marker, 1)
+    f.raw(table)
+    f.raw(b"startxref\n%d\n%%%%EOF\n" % start)
+    return bytes(f.buf)
+
+
+def gen_xrefstm_offset_wrong() -> bytes:
+    """7.5.8.4 Table 19: hybrid-xref.pdf whose trailer's XRefStm offset points 25 bytes past the
+    start of the cross-reference stream (into its body)."""
+    data = gen_hybrid_xref()
+    at = data.index(b"/XRefStm ") + len(b"/XRefStm ")
+    end = data.index(b" ", at)
+    wrong = b"%d" % (int(data[at:end]) + 25)
+    assert len(wrong) == end - at
+    return data[:at] + wrong + data[end:]
+
+
+def gen_startxref_last_damaged() -> bytes:
+    """7.5.5, 7.5.6: incremental-update.pdf whose last startxref keyword is misspelled, so the only
+    startxref left is the one of the original revision."""
+    data = gen_incremental_update()
+    at = data.rindex(b"startxref")
+    return data[:at] + b"startxrf" + data[at + len(b"startxref"):]
+
+
 def gen_inline_image() -> bytes:
     content = (b"q 100 0 0 100 72 600 cm BI /W 2 /H 2 /CS /G /BPC 8 ID \x00\xff\xff\x00 EI Q")
     return simple_file([
@@ -7173,6 +7237,11 @@ FILES = {
     "wrong-stream-length.pdf": gen_wrong_stream_length,
     "no-xref.pdf": gen_no_xref,
     "startxref-wrong.pdf": gen_startxref_wrong,
+    "xref-entry-beyond-size.pdf": gen_xref_entry_beyond_size,
+    "xref-comment.pdf": gen_xref_comment,
+    "xref-line-malformed.pdf": gen_xref_line_malformed,
+    "xrefstm-offset-wrong.pdf": gen_xrefstm_offset_wrong,
+    "startxref-last-damaged.pdf": gen_startxref_last_damaged,
     "inline-image.pdf": gen_inline_image,
     "page-tree-inherited.pdf": gen_page_tree_inherited,
     "annotations-link.pdf": gen_annotations_link,

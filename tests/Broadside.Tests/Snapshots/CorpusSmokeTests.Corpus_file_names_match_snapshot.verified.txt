@@ -136,6 +136,7 @@
   shading-type5-lattice.pdf,
   shading-type6-coons.pdf,
   shading-type7-tensor.pdf,
+  startxref-last-damaged.pdf,
   startxref-wrong.pdf,
   tagged-structure.pdf,
   text-cff-embedded.pdf,
@@ -181,5 +182,9 @@
   transparency-soft-masks.pdf,
   viewer-preferences.pdf,
   wrong-stream-length.pdf,
-  xref-stream.pdf
+  xref-comment.pdf,
+  xref-entry-beyond-size.pdf,
+  xref-line-malformed.pdf,
+  xref-stream.pdf,
+  xrefstm-offset-wrong.pdf
 ]

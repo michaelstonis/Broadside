@@ -82,6 +82,22 @@ public static class FileStructureDiagnostics
     /// <remarks>ISO 32000-2 §7.5.4</remarks>
     public static DiagnosticCode XrefSubsectionHeaderInvalid { get; } = new(nameof(XrefSubsectionHeaderInvalid), DiagnosticArea.FileStructure, DiagnosticSeverity.Warning, "ISO 32000-2 §7.5.4");
 
+    /// <summary>Gets the <c>XrefEntryBeyondSize</c> code.</summary>
+    /// <remarks>ISO 32000-2 §7.5.5</remarks>
+    public static DiagnosticCode XrefEntryBeyondSize { get; } = new(nameof(XrefEntryBeyondSize), DiagnosticArea.FileStructure, DiagnosticSeverity.Warning, "ISO 32000-2 §7.5.5");
+
+    /// <summary>Gets the <c>XrefCommentIgnored</c> code.</summary>
+    /// <remarks>ISO 32000-2 §7.5.4</remarks>
+    public static DiagnosticCode XrefCommentIgnored { get; } = new(nameof(XrefCommentIgnored), DiagnosticArea.FileStructure, DiagnosticSeverity.Warning, "ISO 32000-2 §7.5.4");
+
+    /// <summary>Gets the <c>XrefLineMalformed</c> code.</summary>
+    /// <remarks>ISO 32000-2 §7.5.4</remarks>
+    public static DiagnosticCode XrefLineMalformed { get; } = new(nameof(XrefLineMalformed), DiagnosticArea.FileStructure, DiagnosticSeverity.Warning, "ISO 32000-2 §7.5.4");
+
+    /// <summary>Gets the <c>StartxrefLastDamaged</c> code.</summary>
+    /// <remarks>ISO 32000-2 §7.5.5</remarks>
+    public static DiagnosticCode StartxrefLastDamaged { get; } = new(nameof(StartxrefLastDamaged), DiagnosticArea.FileStructure, DiagnosticSeverity.Warning, "ISO 32000-2 §7.5.5");
+
     /// <summary>Gets the <c>XrefPrevLoop</c> code.</summary>
     /// <remarks>ISO 32000-2 §7.5.4</remarks>
     public static DiagnosticCode XrefPrevLoop { get; } = new(nameof(XrefPrevLoop), DiagnosticArea.FileStructure, DiagnosticSeverity.Error, "ISO 32000-2 §7.5.4");
@@ -200,6 +216,10 @@ public static class FileStructureDiagnostics
         XrefEntryFormatInvalid,
         XrefSubsectionNumberingInvalid,
         XrefSubsectionHeaderInvalid,
+        XrefEntryBeyondSize,
+        XrefCommentIgnored,
+        XrefLineMalformed,
+        StartxrefLastDamaged,
         XrefPrevLoop,
         XrefStreamTypeInvalid,
         XrefStreamWidthsInvalid,
