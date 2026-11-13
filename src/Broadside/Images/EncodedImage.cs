@@ -98,7 +98,7 @@ internal sealed class EncodedImage
     /// <param name="severity">The severity.</param>
     /// <param name="message">The message.</param>
     /// <param name="reference">The image stream's reference, which makes the diagnostic the image's own; <see langword="null"/> when direct.</param>
-    public void Report(string code, DiagnosticSeverity severity, string message, CosReference? reference) =>
+    public void Report(DiagnosticCode code, DiagnosticSeverity severity, string message, CosReference? reference) =>
         _streams.Report(new Diagnostic(code, severity, message, null, reference));
 
     /// <summary>Gets the bytes the encoded data keeps.</summary>
@@ -141,7 +141,7 @@ internal sealed class EncodedImage
             || decoded.SamplesInverted
             || decoded.Alpha is not null)
         {
-            filterContext.Report(DiagnosticCodes.FilterFailed, DiagnosticSeverity.Error, FormattableString.Invariant(
+            filterContext.Report(FilterDiagnostics.FilterFailed.Name, DiagnosticSeverity.Error, FormattableString.Invariant(
                 $"The filter /{_filter.Name.Value} decoded {decoded.Width} x {decoded.Height} x {decoded.Components} samples of {decoded.BitsPerComponent} bits at reduction {delivered} where its header promised {Header.Width} x {Header.Height} x {Header.Components} of {Header.BitsPerComponent} bits; the image is not decoded."));
             decoded.Dispose();
             return null;

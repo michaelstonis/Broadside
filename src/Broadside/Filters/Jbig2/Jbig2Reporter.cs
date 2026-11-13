@@ -25,7 +25,7 @@ internal sealed class Jbig2Reporter(FilterContext? context) : CodecReporter(cont
     {
         Undecodable |= paintsPage;
         Report(
-            DiagnosticCodes.Jbig2UnsupportedFeature,
+            Jbig2Diagnostics.Jbig2UnsupportedFeature,
             DiagnosticSeverity.Information,
             paintsPage
                 ? $"The JBIG2 stream uses {feature}, which is not decoded; the image is not decoded."

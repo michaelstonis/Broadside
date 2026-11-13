@@ -2,6 +2,7 @@ using System.Buffers;
 using System.IO.Compression;
 using System.Text;
 using Broadside.Content;
+using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.Graphics;
 using Broadside.Objects;
@@ -184,7 +185,7 @@ public sealed class DisplayListImageTests
 
         Assert.Empty(recorder.Images);
         Assert.Equal(["fill nonzero M 0 0 L 10 0 L 10 10 L 0 10 Z | DeviceGray 0"], recorder.Operations);
-        Assert.Contains(document.Diagnostics, static d => d.Code == DiagnosticCodes.ImageColorSpaceMissing);
+        Assert.Contains(document.Diagnostics, static d => d.Kind == ImageDiagnostics.ImageColorSpaceMissing);
     }
 
     [Fact]

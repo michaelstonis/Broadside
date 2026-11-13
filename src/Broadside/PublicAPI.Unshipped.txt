@@ -5420,7 +5420,6 @@ static Broadside.Diagnostics.JpxDiagnostics.JpxColorSpecificationUnsupported.get
 static Broadside.Diagnostics.JpxDiagnostics.JpxPaletteIndexOutOfRange.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.JpxDiagnostics.JpxOpacityChannelAmbiguous.get -> Broadside.Diagnostics.DiagnosticCode!
 Broadside.Diagnostics.ImageDiagnostics
-static Broadside.Diagnostics.ImageDiagnostics.ImageSubtypeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.ImageDiagnostics.ImageDimensionInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.ImageDiagnostics.ImageBitsPerComponentInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.ImageDiagnostics.ImageColorSpaceMissing.get -> Broadside.Diagnostics.DiagnosticCode!
@@ -5432,7 +5431,6 @@ static Broadside.Diagnostics.ImageDiagnostics.ImageAlternatesInvalid.get -> Broa
 static Broadside.Diagnostics.ImageDiagnostics.ImageTooLarge.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.ImageDiagnostics.ImageDataTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.ImageDiagnostics.ImageDataTooLong.get -> Broadside.Diagnostics.DiagnosticCode!
-static Broadside.Diagnostics.ImageDiagnostics.ImageFilterNotLast.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.ImageDiagnostics.ImageDimensionMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.ImageDiagnostics.ImageComponentMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.ImageDiagnostics.ImageMaskInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
@@ -5443,7 +5441,6 @@ static Broadside.Diagnostics.ImageDiagnostics.ImageDecodedManaged.get -> Broadsi
 static Broadside.Diagnostics.ImageDiagnostics.PlatformImageVerified.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.ImageDiagnostics.PlatformImageMismatch.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.ImageDiagnostics.InlineImageFilterNotAllowed.get -> Broadside.Diagnostics.DiagnosticCode!
-static Broadside.Diagnostics.ImageDiagnostics.InlineImageKeyInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
 Broadside.Diagnostics.FontDiagnostics
 static Broadside.Diagnostics.FontDiagnostics.Type0EncodingMissing.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.FontDiagnostics.Type0DescendantFontsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!

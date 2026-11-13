@@ -116,7 +116,7 @@ internal static class JpxDecoder
         var reporter = new CodecReporter(context.Filter);
         if (JpxCodestreamReader.Locate(data, reporter) is not { } range)
         {
-            reporter.Report(DiagnosticCodes.JpxSignatureInvalid, DiagnosticSeverity.Error, "The JPXDecode data holds no JPEG 2000 codestream.");
+            reporter.Report(JpxDiagnostics.JpxSignatureInvalid, DiagnosticSeverity.Error, "The JPXDecode data holds no JPEG 2000 codestream.");
             return null;
         }
 
@@ -130,7 +130,7 @@ internal static class JpxDecoder
         if (stream.HighThroughput)
         {
             reporter.Report(
-                DiagnosticCodes.JpxHighThroughputUnsupported,
+                JpxDiagnostics.JpxHighThroughputUnsupported,
                 DiagnosticSeverity.Error,
                 "The JPEG 2000 codestream uses high-throughput block coding (HTJ2K, ISO/IEC 15444-15), which is outside the JPX baseline ISO 32000-2 §7.4.9 limits PDF images to; the image is not decoded.");
             return null;
@@ -143,7 +143,7 @@ internal static class JpxDecoder
         long height = output.Height - output.OriginY;
         if (width > int.MaxValue || height > int.MaxValue)
         {
-            reporter.Report(DiagnosticCodes.JpxLimitExceeded, DiagnosticSeverity.Error, $"The JPEG 2000 image of {width} x {height} samples is too large.");
+            reporter.Report(JpxDiagnostics.JpxLimitExceeded, DiagnosticSeverity.Error, $"The JPEG 2000 image of {width} x {height} samples is too large.");
             return null;
         }
 
@@ -218,7 +218,7 @@ internal static class JpxDecoder
             if (samples > context.MaxPixels)
             {
                 reporter.Report(
-                    DiagnosticCodes.JpxLimitExceeded,
+                    JpxDiagnostics.JpxLimitExceeded,
                     DiagnosticSeverity.Error,
                     $"A JPEG 2000 tile holds {samples} samples over its components, more than the limit of {context.MaxPixels}; the image is not decoded.");
                 return false;
@@ -237,7 +237,7 @@ internal static class JpxDecoder
         if (planes > context.MaxPixels || planes > Array.MaxLength)
         {
             reporter.Report(
-                DiagnosticCodes.JpxLimitExceeded,
+                JpxDiagnostics.JpxLimitExceeded,
                 DiagnosticSeverity.Error,
                 $"The JPEG 2000 components the image needs hold {planes} samples, more than the limit of {context.MaxPixels}; the image is not decoded.");
             return false;
@@ -341,7 +341,7 @@ internal static class JpxDecoder
             || components[1].Style.Reversible != reversible || components[2].Style.Reversible != reversible)
         {
             reporter.Report(
-                DiagnosticCodes.JpxMctSkipped,
+                JpxDiagnostics.JpxMctSkipped,
                 DiagnosticSeverity.Warning,
                 "The JPEG 2000 component transformation needs components 0 to 2 of one size and one wavelet filter; it is not applied.");
             return;
