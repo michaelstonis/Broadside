@@ -72,7 +72,8 @@ public sealed class DeterministicMathTests
             double nearOne = 1 - Math.ScaleB(inputs.Next(0, 1), -(int)inputs.Next(1, 50));
             AssertClose(Math.Acos(nearOne), DeterministicMath.Acos(nearOne), 2, $"Acos({nearOne:R})");
             double cube = Math.ScaleB(inputs.Next(-2, 2), (int)inputs.Next(-1070, 1020));
-            AssertClose(Math.Cbrt(cube), DeterministicMath.Cbrt(cube), 1, $"Cbrt({cube:R})");
+            // The platform cbrt is not correctly rounded on glibc or Windows (about 1 ulp each way), so allow 2 like the others.
+            AssertClose(Math.Cbrt(cube), DeterministicMath.Cbrt(cube), 2, $"Cbrt({cube:R})");
         }
     }
 
