@@ -28,5 +28,5 @@ public sealed class PdfSoundAnnotation : PdfMarkupAnnotation
 
     /// <summary>Gets the name of the icon (<c>Name</c>): <c>Speaker</c> (the default), <c>Mic</c> or another name.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.16, Table 188.</remarks>
-    public string IconName => ReadIconName("Speaker");
+    public string IconName => this.GetIconName("Speaker");
 }

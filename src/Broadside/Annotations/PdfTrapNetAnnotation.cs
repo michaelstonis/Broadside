@@ -22,7 +22,7 @@ public sealed class PdfTrapNetAnnotation : PdfAnnotation
                 ReportMissing(AnnotationNames.LastModified, "Table 403 (without Version and AnnotStates)");
             }
 
-            return ReadDate(AnnotationNames.LastModified);
+            return this.GetDate(AnnotationNames.LastModified);
         }
     }
 

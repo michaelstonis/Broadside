@@ -572,6 +572,7 @@ public abstract class PdfAnnotation
     private protected string? ReadText(CosName key) => EntryReader.Text(Get(key), key, Issue);
 
     /// <summary>Reads a text string or text stream entry (§7.9.3): a stream's decoded bytes read as a text string.</summary>
+    [Obsolete("Subtype-specific reader; use the AnnotationEntryReaders extension from the subtype that owns the entry. Removed with the base-class contraction.")]
     private protected string? ReadTextOrStream(CosName key)
     {
         switch (Get(key))
@@ -589,6 +590,7 @@ public abstract class PdfAnnotation
     }
 
     /// <summary>Reads a byte string entry, such as a default appearance string, as Latin-1 text.</summary>
+    [Obsolete("Subtype-specific reader; use the AnnotationEntryReaders extension from the subtype that owns the entry. Removed with the base-class contraction.")]
     private protected string? ReadByteString(CosName key)
     {
         switch (Get(key))
@@ -619,6 +621,7 @@ public abstract class PdfAnnotation
     private protected CosName? ReadName(CosName key) => EntryReader.Typed<CosName>(Get(key), key, "a name", Issue);
 
     /// <summary>Reads a name entry from a fixed set; an unknown name reads as <paramref name="fallback"/> silently (the sets are open), another type with a diagnostic.</summary>
+    [Obsolete("Subtype-specific reader; use the AnnotationEntryReaders extension from the subtype that owns the entry. Removed with the base-class contraction.")]
     private protected T ReadChoice<T>(CosName key, T fallback, params ReadOnlySpan<(string Name, T Value)> choices)
     {
         if (ReadName(key) is { } name)
@@ -657,14 +660,17 @@ public abstract class PdfAnnotation
     }
 
     /// <summary>Reads an action entry (§12.6).</summary>
+    [Obsolete("Subtype-specific reader; use the AnnotationEntryReaders extension from the subtype that owns the entry. Removed with the base-class contraction.")]
     private protected PdfAction? ReadAction(CosName key) =>
         Dictionary.TryGetValue(key, out CosObject? value) ? PdfAction.Create(Document, value, DiagnosticReference) : null;
 
     /// <summary>Reads a form XObject entry (§8.10).</summary>
+    [Obsolete("Subtype-specific reader; use the AnnotationEntryReaders extension from the subtype that owns the entry. Removed with the base-class contraction.")]
     private protected PdfFormXObject? ReadForm(CosName key) =>
         ReadStream(key) is not null && Dictionary.TryGetValue(key, out CosObject? value) ? PdfFormXObject.Create(Document, value) : null;
 
     /// <summary>Reads a date entry (§7.9.4), recording a deviation from the date format.</summary>
+    [Obsolete("Subtype-specific reader; use the AnnotationEntryReaders extension from the subtype that owns the entry. Removed with the base-class contraction.")]
     private protected PdfDate? ReadDate(CosName key)
     {
         if (ReadText(key) is not { } text)
@@ -686,6 +692,7 @@ public abstract class PdfAnnotation
     }
 
     /// <summary>Reads a flat array of x y pairs, such as <c>Vertices</c> or <c>L</c>; an odd count or a non-number records a diagnostic.</summary>
+    [Obsolete("Subtype-specific reader; use the AnnotationEntryReaders extension from the subtype that owns the entry. Removed with the base-class contraction.")]
     private protected IReadOnlyList<PathPoint> ReadPoints(CosName key, bool required, string table)
     {
         CosObject? value = Get(key);
@@ -719,6 +726,7 @@ public abstract class PdfAnnotation
     }
 
     /// <summary>Reads an array of arrays of x y pairs, such as <c>InkList</c>.</summary>
+    [Obsolete("Subtype-specific reader; use the AnnotationEntryReaders extension from the subtype that owns the entry. Removed with the base-class contraction.")]
     private protected IReadOnlyList<IReadOnlyList<PathPoint>> ReadPointLists(CosName key, bool required, string table)
     {
         CosObject? value = Get(key);
@@ -767,6 +775,7 @@ public abstract class PdfAnnotation
     }
 
     /// <summary>Reads <c>Path</c> (PDF 2.0): arrays of 2 numbers (a point) or 6 (a Bézier curve's two control points and end point).</summary>
+    [Obsolete("Subtype-specific reader; use the AnnotationEntryReaders extension from the subtype that owns the entry. Removed with the base-class contraction.")]
     private protected IReadOnlyList<IReadOnlyList<double>>? ReadPath()
     {
         if (ReadArray(AnnotationNames.Path) is not { } outer)
@@ -796,6 +805,7 @@ public abstract class PdfAnnotation
     }
 
     /// <summary>Reads <c>QuadPoints</c>: complete quadrilaterals only; a count not a multiple of 8 or a non-number records a diagnostic.</summary>
+    [Obsolete("Subtype-specific reader; use the AnnotationEntryReaders extension from the subtype that owns the entry. Removed with the base-class contraction.")]
     private protected IReadOnlyList<PdfQuadrilateral> ReadQuadPoints(bool required, string table)
     {
         CosObject? value = Get(AnnotationNames.QuadPoints);
@@ -834,6 +844,7 @@ public abstract class PdfAnnotation
     }
 
     /// <summary>Reads <c>RD</c>: four non-negative numbers.</summary>
+    [Obsolete("Subtype-specific reader; use the AnnotationEntryReaders extension from the subtype that owns the entry. Removed with the base-class contraction.")]
     private protected PdfRectangleDifferences? ReadRectangleDifferences()
     {
         CosObject? value = Get(AnnotationNames.RD);
@@ -854,6 +865,7 @@ public abstract class PdfAnnotation
     }
 
     /// <summary>Reads a line ending name (Table 179); unknown names read as None.</summary>
+    [Obsolete("Subtype-specific reader; use the AnnotationEntryReaders extension from the subtype that owns the entry. Removed with the base-class contraction.")]
     private protected static PdfLineEnding ParseLineEnding(CosObject? value) => value is CosName name
         ? name.Value switch
         {
@@ -871,6 +883,7 @@ public abstract class PdfAnnotation
         : PdfLineEnding.None;
 
     /// <summary>Reads <c>LE</c> as two line endings, start and end (line and polyline annotations).</summary>
+    [Obsolete("Subtype-specific reader; use the AnnotationEntryReaders extension from the subtype that owns the entry. Removed with the base-class contraction.")]
     private protected (PdfLineEnding Start, PdfLineEnding End) ReadLineEndings()
     {
         switch (Get(AnnotationNames.LE))
@@ -886,6 +899,7 @@ public abstract class PdfAnnotation
     }
 
     /// <summary>Reads the border effect dictionary <c>BE</c> (Table 169).</summary>
+    [Obsolete("Subtype-specific reader; use the AnnotationEntryReaders extension from the subtype that owns the entry. Removed with the base-class contraction.")]
     private protected PdfBorderEffect? ReadBorderEffect()
     {
         if (ReadDictionary(AnnotationNames.BE) is not { } effect)
@@ -906,6 +920,7 @@ public abstract class PdfAnnotation
     }
 
     /// <summary>Reads the icon name entry <c>Name</c>, with the subtype's default.</summary>
+    [Obsolete("Subtype-specific reader; use the AnnotationEntryReaders extension from the subtype that owns the entry. Removed with the base-class contraction.")]
     private protected string ReadIconName(string fallback) => ReadName(AnnotationNames.Name)?.Value ?? fallback;
 
     private static void Report(PdfDocument document, string code, string message, CosReference? reference) =>
