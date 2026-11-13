@@ -35,7 +35,7 @@ internal sealed class ShadingCache
         var reference = value as CosReference;
         if (dictionary is null)
         {
-            Report(DiagnosticCodes.ShadingTypeInvalid, "A shading is not a dictionary or a stream.", reference ?? owner);
+            Report(ShadingDiagnostics.ShadingTypeInvalid, "A shading is not a dictionary or a stream.", reference ?? owner);
             return null;
         }
 
@@ -58,7 +58,7 @@ internal sealed class ShadingCache
         var reference = value as CosReference;
         if (dictionary is null)
         {
-            Report(DiagnosticCodes.PatternTypeInvalid, "A pattern is not a dictionary or a stream.", reference ?? owner);
+            Report(ShadingDiagnostics.PatternTypeInvalid, "A pattern is not a dictionary or a stream.", reference ?? owner);
             return null;
         }
 
@@ -86,7 +86,7 @@ internal sealed class ShadingCache
         int? type = reader.Integer(ShadingNames.ShadingType);
         if (type is not (>= 1 and <= 7))
         {
-            reader.Invalid(DiagnosticCodes.ShadingTypeInvalid, "A shading's ShadingType is missing or not 1 to 7.");
+            reader.Invalid(ShadingDiagnostics.ShadingTypeInvalid, "A shading's ShadingType is missing or not 1 to 7.");
             return null;
         }
 
@@ -111,12 +111,12 @@ internal sealed class ShadingCache
             case 2:
                 return new PdfShadingPattern(reader);
             default:
-                reader.Invalid(DiagnosticCodes.PatternTypeInvalid, "A pattern's PatternType is missing or not 1 or 2.");
+                reader.Invalid(ShadingDiagnostics.PatternTypeInvalid, "A pattern's PatternType is missing or not 1 or 2.");
                 return null;
         }
     }
 
-    private void Report(string code, string message, CosReference? reference) =>
+    private void Report(DiagnosticCode code, string message, CosReference? reference) =>
         _document.DiagnosticSink.Report(code, DiagnosticSeverity.Error, message, offset: null, reference);
 
     /// <summary>The object's identity and the versions of what the model was read from.</summary>

@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -52,7 +53,7 @@ public abstract class PdfMarkupAnnotation : PdfAnnotation
                 && Document.Resolve(parent) is CosDictionary parentDictionary
                 && !ReferenceEquals(parentDictionary, Dictionary))
             {
-                Report(DiagnosticCodes.PopupLinkMismatch, "The annotation's pop-up names another annotation as its Parent.");
+                Report(AnnotationDiagnostics.PopupLinkMismatch, "The annotation's pop-up names another annotation as its Parent.");
             }
 
             return popup;
@@ -84,13 +85,13 @@ public abstract class PdfMarkupAnnotation : PdfAnnotation
             PdfAnnotation? target = Document.AnnotationIndex.Find(value, this);
             if (target is null || ReferenceEquals(target, this))
             {
-                Report(DiagnosticCodes.InReplyToInvalid, "The annotation's IRT entry is not another annotation's dictionary; it is ignored.");
+                Report(AnnotationDiagnostics.InReplyToInvalid, "The annotation's IRT entry is not another annotation's dictionary; it is ignored.");
                 return null;
             }
 
             if (Page is not null && !ReferenceEquals(target.Page, Page))
             {
-                Report(DiagnosticCodes.InReplyToOtherPage, "The annotation replies to an annotation that is not on its page, which IRT shall name.");
+                Report(AnnotationDiagnostics.InReplyToOtherPage, "The annotation replies to an annotation that is not on its page, which IRT shall name.");
             }
 
             return target;
@@ -117,7 +118,7 @@ public abstract class PdfMarkupAnnotation : PdfAnnotation
         {
             if (Dictionary.ContainsKey(AnnotationNames.RT) && !Dictionary.ContainsKey(AnnotationNames.IRT))
             {
-                Report(DiagnosticCodes.ReplyTypeWithoutInReplyTo, "The annotation has an RT entry but no IRT entry, which Table 172 requires with it.");
+                Report(AnnotationDiagnostics.ReplyTypeWithoutInReplyTo, "The annotation has an RT entry but no IRT entry, which Table 172 requires with it.");
             }
 
             return this.GetChoice(AnnotationNames.RT, PdfReplyType.Reply, ("R", PdfReplyType.Reply), ("Group", PdfReplyType.Group));

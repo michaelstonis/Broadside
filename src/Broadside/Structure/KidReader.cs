@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -87,7 +88,7 @@ internal static class KidReader
             case CosDictionary dictionary:
                 return ClassifyDictionary(context, dictionary, reference, where);
             default:
-                context.Report(DiagnosticCodes.StructElemInvalid, $"A K entry is {Describe(value)}, not a structure element, an MCID, an MCR or an OBJR (Table 355); skipped.", where);
+                context.Report(StructureDiagnostics.StructElemInvalid, $"A K entry is {Describe(value)}, not a structure element, an MCID, an MCR or an OBJR (Table 355); skipped.", where);
                 return default;
         }
     }
@@ -115,23 +116,23 @@ internal static class KidReader
         }
         else if (hasStructureType)
         {
-            context.Report(DiagnosticCodes.StructElemTypeUnknown, $"A K entry has Type /{type.Value} and an S entry; read as a structure element (Table 355).", where);
+            context.Report(StructureDiagnostics.StructElemTypeUnknown, $"A K entry has Type /{type.Value} and an S entry; read as a structure element (Table 355).", where);
             return new Kid(KidKind.Element, dictionary, reference, 0);
         }
 
         if (mcid is not null)
         {
-            context.Report(DiagnosticCodes.StructElemTypeUnknown, "A K entry without Type MCR holds an MCID; read as a marked-content reference (Table 357).", where);
+            context.Report(StructureDiagnostics.StructElemTypeUnknown, "A K entry without Type MCR holds an MCID; read as a marked-content reference (Table 357).", where);
             return Mcr(context, dictionary, reference, where, mcid);
         }
 
         if (hasObject)
         {
-            context.Report(DiagnosticCodes.StructElemTypeUnknown, "A K entry without Type OBJR holds Obj; read as an object reference (Table 358).", where);
+            context.Report(StructureDiagnostics.StructElemTypeUnknown, "A K entry without Type OBJR holds Obj; read as an object reference (Table 358).", where);
             return Objr(context, dictionary, reference, where, hasObject);
         }
 
-        context.Report(DiagnosticCodes.StructElemTypeUnknown, $"A K entry has Type /{type!.Value} and is neither a structure element, an MCR nor an OBJR; skipped.", where);
+        context.Report(StructureDiagnostics.StructElemTypeUnknown, $"A K entry has Type /{type!.Value} and is neither a structure element, an MCR nor an OBJR; skipped.", where);
         return default;
     }
 
@@ -142,7 +143,7 @@ internal static class KidReader
             return new Kid(KidKind.MarkedContent, dictionary, reference, (int)integer.Value);
         }
 
-        context.Report(DiagnosticCodes.StructElemInvalid, "A marked-content reference has no non-negative integer MCID (Table 357); skipped.", where);
+        context.Report(StructureDiagnostics.StructElemInvalid, "A marked-content reference has no non-negative integer MCID (Table 357); skipped.", where);
         return default;
     }
 
@@ -153,7 +154,7 @@ internal static class KidReader
             return new Kid(KidKind.Object, dictionary, reference, 0);
         }
 
-        context.Report(DiagnosticCodes.StructElemInvalid, "An object reference has no Obj entry (Table 358); skipped.", where);
+        context.Report(StructureDiagnostics.StructElemInvalid, "An object reference has no Obj entry (Table 358); skipped.", where);
         return default;
     }
 

@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics.Colors;
 using Broadside.Graphics.Functions;
 using Broadside.Objects;
@@ -49,7 +50,7 @@ public sealed class PdfCalGrayColorSpace : PdfColorSpace
         CieChecks.WhiteAndBlack(this, Cache!, dictionary, "CalGray");
         if (dictionary.ContainsKey(ColorSpaceNames.Gamma) && ColorEntries.Number(Cache!, dictionary, ColorSpaceNames.Gamma) is not > 0)
         {
-            Report(DiagnosticCodes.ColorSpaceEntryInvalid, "A CalGray Gamma is not a positive number; 1 is used.");
+            Report(ColorDiagnostics.ColorSpaceEntryInvalid, "A CalGray Gamma is not a positive number; 1 is used.");
         }
 
         return true;

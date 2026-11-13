@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics.Colors;
 using Broadside.Graphics.Functions;
 using Broadside.Objects;
@@ -140,7 +141,7 @@ public sealed class PdfIccBasedColorSpace : PdfColorSpace
     public void ReportProfileInvalid(string message)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        Report(DiagnosticCodes.IccProfileInvalid, message);
+        Report(ColorDiagnostics.IccProfileInvalid, message);
     }
 
     /// <inheritdoc/>
@@ -151,39 +152,39 @@ public sealed class PdfIccBasedColorSpace : PdfColorSpace
         IccProfileHeader? header = ProfileHeader;
         if (declared is not (1 or 3 or 4))
         {
-            Report(DiagnosticCodes.ColorSpaceEntryInvalid, $"An ICCBased stream's N is missing or not 1, 3 or 4; {ComponentCount} is used.");
+            Report(ColorDiagnostics.ColorSpaceEntryInvalid, $"An ICCBased stream's N is missing or not 1, 3 or 4; {ComponentCount} is used.");
         }
 
         if (header is null)
         {
-            Report(DiagnosticCodes.IccProfileInvalid, "An ICCBased stream does not hold an ICC profile (fewer than 128 bytes or no 'acsp' signature); the alternate colour space is used.");
+            Report(ColorDiagnostics.IccProfileInvalid, "An ICCBased stream does not hold an ICC profile (fewer than 128 bytes or no 'acsp' signature); the alternate colour space is used.");
         }
         else
         {
             if (header.ProfileSize > _header!.Length)
             {
-                Report(DiagnosticCodes.IccProfileInvalid, "An ICC profile's header states a size larger than the stream's data; the profile is truncated.");
+                Report(ColorDiagnostics.IccProfileInvalid, "An ICC profile's header states a size larger than the stream's data; the profile is truncated.");
             }
 
             if (!header.IsSupportedForPdf && header.Version.Major < 5)
             {
-                Report(DiagnosticCodes.IccProfileInvalid, $"An ICC profile of class '{header.DeviceClass}' and colour space '{header.DataColorSpace}' is not one Table 67 allows; the alternate colour space is used.");
+                Report(ColorDiagnostics.IccProfileInvalid, $"An ICC profile of class '{header.DeviceClass}' and colour space '{header.DataColorSpace}' is not one Table 67 allows; the alternate colour space is used.");
             }
 
             if (declared is 1 or 3 or 4 && header.ComponentCount is 1 or 3 or 4 && declared != header.ComponentCount)
             {
-                Report(DiagnosticCodes.IccComponentCountMismatch, $"An ICCBased stream's N is {declared} but its profile has {header.ComponentCount} components; the profile's count is used.");
+                Report(ColorDiagnostics.IccComponentCountMismatch, $"An ICCBased stream's N is {declared} but its profile has {header.ComponentCount} components; the profile's count is used.");
             }
         }
 
         if (dictionary.ContainsKey(ColorSpaceNames.Alternate) && !ReferenceEquals(Alternate, DeclaredAlternate))
         {
-            Report(DiagnosticCodes.ColorSpaceEntryInvalid, "An ICCBased Alternate has the wrong number of components or cannot be an alternate; the device colour space with as many components is used.");
+            Report(ColorDiagnostics.ColorSpaceEntryInvalid, "An ICCBased Alternate has the wrong number of components or cannot be an alternate; the device colour space with as many components is used.");
         }
 
         if (dictionary.ContainsKey(ColorSpaceNames.Range) && ReadRange(ComponentCount) is null)
         {
-            Report(DiagnosticCodes.ColorSpaceEntryInvalid, "An ICCBased Range is not 2 x N numbers with each minimum below its maximum; the default is used.");
+            Report(ColorDiagnostics.ColorSpaceEntryInvalid, "An ICCBased Range is not 2 x N numbers with each minimum below its maximum; the default is used.");
         }
 
         return true;

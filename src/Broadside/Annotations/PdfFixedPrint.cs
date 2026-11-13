@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -40,7 +41,7 @@ public sealed class PdfFixedPrint
                 return matrix;
             }
 
-            _owner.Report(DiagnosticCodes.AnnotationValueInvalid, "The fixed print dictionary's Matrix is not six numbers; the identity is used.");
+            _owner.Report(AnnotationDiagnostics.AnnotationValueInvalid, "The fixed print dictionary's Matrix is not six numbers; the identity is used.");
             return Matrix.Identity;
         }
     }
@@ -62,7 +63,7 @@ public sealed class PdfFixedPrint
             bool valid = Dictionary.TryGetValue(AnnotationNames.Type, out CosObject? type) && _owner.Document.Resolve(type) is CosName { Value: "FixedPrint" };
             if (!valid)
             {
-                _owner.Report(DiagnosticCodes.AnnotationValueInvalid, "The fixed print dictionary's Type shall be FixedPrint.");
+                _owner.Report(AnnotationDiagnostics.AnnotationValueInvalid, "The fixed print dictionary's Type shall be FixedPrint.");
             }
 
             return valid;
@@ -81,7 +82,7 @@ public sealed class PdfFixedPrint
             return number;
         }
 
-        _owner.Report(DiagnosticCodes.AnnotationValueInvalid, $"The fixed print dictionary's {key.Value} entry is not a number; 0 is used.");
+        _owner.Report(AnnotationDiagnostics.AnnotationValueInvalid, $"The fixed print dictionary's {key.Value} entry is not a number; 0 is used.");
         return 0;
     }
 }

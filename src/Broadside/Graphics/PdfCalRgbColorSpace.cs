@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics.Colors;
 using Broadside.Graphics.Functions;
 using Broadside.Objects;
@@ -58,12 +59,12 @@ public sealed class PdfCalRgbColorSpace : PdfColorSpace
         CieChecks.WhiteAndBlack(this, Cache!, dictionary, "CalRGB");
         if (dictionary.ContainsKey(ColorSpaceNames.Gamma) && ColorEntries.Numbers(Cache!, dictionary, ColorSpaceNames.Gamma) is not [> 0, > 0, > 0])
         {
-            Report(DiagnosticCodes.ColorSpaceEntryInvalid, "A CalRGB Gamma is not three positive numbers; [1 1 1] is used.");
+            Report(ColorDiagnostics.ColorSpaceEntryInvalid, "A CalRGB Gamma is not three positive numbers; [1 1 1] is used.");
         }
 
         if (dictionary.ContainsKey(ColorSpaceNames.Matrix) && ColorEntries.Numbers(Cache!, dictionary, ColorSpaceNames.Matrix) is not { Length: 9 })
         {
-            Report(DiagnosticCodes.ColorSpaceEntryInvalid, "A CalRGB Matrix is not nine numbers; the identity is used.");
+            Report(ColorDiagnostics.ColorSpaceEntryInvalid, "A CalRGB Matrix is not nine numbers; the identity is used.");
         }
 
         return true;

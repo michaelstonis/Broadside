@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics.Colors;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -68,12 +69,12 @@ public sealed class PdfDeviceNAttributes
     {
         if (Dictionary.TryGetValue(ColorSpaceNames.Colorants, out CosObject? colorants) && Cache.Resolve(colorants) is not CosDictionary)
         {
-            _owner.Report(DiagnosticCodes.ColorSpaceEntryInvalid, "A DeviceN attributes dictionary's Colorants is not a dictionary; it is ignored.");
+            _owner.Report(ColorDiagnostics.ColorSpaceEntryInvalid, "A DeviceN attributes dictionary's Colorants is not a dictionary; it is ignored.");
         }
 
         if (Process is { } process && (process.ColorSpace is null || process.Components.Count == 0))
         {
-            _owner.Report(DiagnosticCodes.ColorSpaceEntryInvalid, "A DeviceN Process dictionary lacks its Components or a ColorSpace that is a device or CIE-based space other than Lab; it is ignored.");
+            _owner.Report(ColorDiagnostics.ColorSpaceEntryInvalid, "A DeviceN Process dictionary lacks its Components or a ColorSpace that is a device or CIE-based space other than Lab; it is ignored.");
         }
     }
 }

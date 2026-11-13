@@ -64,7 +64,7 @@ public sealed class PdfNameDictionary
                         break;
                     case { } other:
                         _document.DiagnosticSink.Report(
-                            DiagnosticCodes.ActionEntryInvalid,
+                            ActionDiagnostics.ActionEntryInvalid,
                             DiagnosticSeverity.Warning,
                             $"A value of the name dictionary's JavaScript tree shall be an ECMAScript action; it is a {other.ActionType.Value} action, skipped.",
                             objectReference: other.Reference ?? tree.RootReference);

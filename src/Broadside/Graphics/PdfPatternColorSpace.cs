@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics.Colors;
 using Broadside.Graphics.Functions;
 using Broadside.Objects;
@@ -49,7 +50,7 @@ public sealed class PdfPatternColorSpace : PdfColorSpace
             }
             else
             {
-                Report(DiagnosticCodes.ColorSpaceEntryInvalid, "A Pattern colour space's underlying space is itself a Pattern space; it is ignored.");
+                Report(ColorDiagnostics.ColorSpaceEntryInvalid, "A Pattern colour space's underlying space is itself a Pattern space; it is ignored.");
             }
         }
 

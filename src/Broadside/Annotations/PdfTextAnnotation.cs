@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 
 namespace Broadside.Annotations;
@@ -45,7 +46,7 @@ public sealed class PdfTextAnnotation : PdfMarkupAnnotation
 
             if (!Dictionary.ContainsKey(AnnotationNames.StateModel))
             {
-                Report(Parsing.DiagnosticCodes.StateModelMissing, "The text annotation has a State but no StateModel, which Table 175 requires with it.");
+                Report(AnnotationDiagnostics.StateModelMissing, "The text annotation has a State but no StateModel, which Table 175 requires with it.");
             }
 
             return state;
