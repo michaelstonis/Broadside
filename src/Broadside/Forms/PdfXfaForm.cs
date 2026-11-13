@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -62,7 +63,7 @@ public sealed class PdfXfaForm
 
                     if (invalid)
                     {
-                        _form.Report(DiagnosticCodes.XfaPacketsInvalid, "The XFA array shall alternate packet names (text strings) and streams (Annex K); the elements that do not are skipped.");
+                        _form.Report(FormDiagnostics.XfaPacketsInvalid, "The XFA array shall alternate packet names (text strings) and streams (Annex K); the elements that do not are skipped.");
                     }
 
                     return packets;

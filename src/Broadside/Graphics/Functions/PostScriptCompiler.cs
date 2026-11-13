@@ -92,7 +92,7 @@ internal static class PostScriptCompiler
         }
         else
         {
-            compilation.Report(DiagnosticCodes.FunctionProgramSyntaxInvalid, DiagnosticSeverity.Warning, "The program does not start with {; it is read as if it did.");
+            compilation.Report(FunctionDiagnostics.FunctionProgramSyntaxInvalid, DiagnosticSeverity.Warning, "The program does not start with {; it is read as if it did.");
         }
 
         while (true)
@@ -107,7 +107,7 @@ internal static class PostScriptCompiler
 
                     if (braced)
                     {
-                        compilation.Report(DiagnosticCodes.FunctionProgramSyntaxInvalid, DiagnosticSeverity.Warning, "The program does not end with }; it is read as if it did.");
+                        compilation.Report(FunctionDiagnostics.FunctionProgramSyntaxInvalid, DiagnosticSeverity.Warning, "The program does not end with }; it is read as if it did.");
                     }
 
                     return Finish(code, exponents, compilation);
@@ -127,7 +127,7 @@ internal static class PostScriptCompiler
                     {
                         if (lexer.Next().Kind != PostScriptTokenKind.End || !braced)
                         {
-                            compilation.Report(DiagnosticCodes.FunctionProgramSyntaxInvalid, DiagnosticSeverity.Warning, "There is text after the } that closes the program; it is ignored.");
+                            compilation.Report(FunctionDiagnostics.FunctionProgramSyntaxInvalid, DiagnosticSeverity.Warning, "There is text after the } that closes the program; it is ignored.");
                         }
 
                         return Finish(code, exponents, compilation);
@@ -195,7 +195,7 @@ internal static class PostScriptCompiler
     {
         if (exponents)
         {
-            compilation.Report(DiagnosticCodes.FunctionProgramSyntaxInvalid, DiagnosticSeverity.Warning, "A number is written with an exponent, which PDF syntax does not allow; it is read.");
+            compilation.Report(FunctionDiagnostics.FunctionProgramSyntaxInvalid, DiagnosticSeverity.Warning, "A number is written with an exponent, which PDF syntax does not allow; it is read.");
         }
 
         return [.. code];
@@ -280,14 +280,14 @@ internal static class PostScriptCompiler
 
             if (depth < needed)
             {
-                compilation.Report(DiagnosticCodes.FunctionProgramStackInvalid, DiagnosticSeverity.Warning, "The program takes more values from the stack than it holds.");
+                compilation.Report(FunctionDiagnostics.FunctionProgramStackInvalid, DiagnosticSeverity.Warning, "The program takes more values from the stack than it holds.");
                 return;
             }
 
             int after = depth + change;
             if (after > PostScriptEvaluator.StackLimit)
             {
-                compilation.Report(DiagnosticCodes.FunctionProgramStackInvalid, DiagnosticSeverity.Warning, string.Create(CultureInfo.InvariantCulture, $"The program needs more than the {PostScriptEvaluator.StackLimit} stack entries a reader provides."));
+                compilation.Report(FunctionDiagnostics.FunctionProgramStackInvalid, DiagnosticSeverity.Warning, string.Create(CultureInfo.InvariantCulture, $"The program needs more than the {PostScriptEvaluator.StackLimit} stack entries a reader provides."));
                 return;
             }
 
@@ -305,7 +305,7 @@ internal static class PostScriptCompiler
 
         if (depths[code.Length] is int final and not unreached && final != n)
         {
-            compilation.Report(DiagnosticCodes.FunctionProgramStackInvalid, DiagnosticSeverity.Warning, string.Create(CultureInfo.InvariantCulture, $"The program leaves {final} values on the stack but Range has {n} outputs."));
+            compilation.Report(FunctionDiagnostics.FunctionProgramStackInvalid, DiagnosticSeverity.Warning, string.Create(CultureInfo.InvariantCulture, $"The program leaves {final} values on the stack but Range has {n} outputs."));
         }
     }
 

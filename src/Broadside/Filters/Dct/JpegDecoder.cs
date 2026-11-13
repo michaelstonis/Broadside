@@ -157,7 +157,7 @@ internal sealed class JpegDecoder
 
             if (usable && frame.Streaming && frame.ScansDecoded > 0)
             {
-                frame.Report(DiagnosticCodes.DctScanInvalid, DiagnosticSeverity.Warning, "A DCT scan repeats components an earlier scan decoded; it was ignored.");
+                frame.Report(DctDiagnostics.DctScanInvalid, DiagnosticSeverity.Warning, "A DCT scan repeats components an earlier scan decoded; it was ignored.");
                 usable = false;
             }
 
@@ -208,7 +208,7 @@ internal sealed class JpegDecoder
                 {
                     if (marker < 0 && !frame.Truncated && frame.ScansDecoded > 0)
                     {
-                        frame.Report(DiagnosticCodes.DctEndMissing, DiagnosticSeverity.Warning, "The DCT data ends without the EOI marker.");
+                        frame.Report(DctDiagnostics.DctEndMissing, DiagnosticSeverity.Warning, "The DCT data ends without the EOI marker.");
                     }
 
                     ended = true;
@@ -217,7 +217,7 @@ internal sealed class JpegDecoder
 
                 if (JpegMarkers.IsStartOfFrame((byte)marker))
                 {
-                    frame.Report(DiagnosticCodes.DctFrameRepeated, DiagnosticSeverity.Warning, "The DCT data has a second frame; only the first is decoded.");
+                    frame.Report(DctDiagnostics.DctFrameRepeated, DiagnosticSeverity.Warning, "The DCT data has a second frame; only the first is decoded.");
                     ended = true;
                     break;
                 }
@@ -272,7 +272,7 @@ internal sealed class JpegDecoder
         if (blocks * 64 > Array.MaxLength || bytes > maxBytes)
         {
             frame.Report(
-                DiagnosticCodes.ImageTooLarge,
+                ImageDiagnostics.ImageTooLarge,
                 DiagnosticSeverity.Error,
                 JpegFrame.Invariant($"The DCT image is not decoded: its coefficients would take {bytes} bytes, more than the {maxBytes} allowed."));
             return false;

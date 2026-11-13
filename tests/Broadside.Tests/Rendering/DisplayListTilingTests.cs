@@ -1,4 +1,5 @@
 using System.Text;
+using Broadside.Diagnostics;
 using Broadside.Graphics;
 using Broadside.Parsing;
 using Broadside.Rendering;
@@ -121,7 +122,7 @@ public sealed class DisplayListTilingTests
         document.Pages[0].CreateDisplayList().Replay(recorder);
 
         Assert.Empty(Replay(Assert.Single(recorder.Tilings).Cell));
-        Assert.Contains(document.Diagnostics, static d => d.Code == DiagnosticCodes.ContentPatternRecursion);
+        Assert.Contains(document.Diagnostics, static d => d.Code == ShadingDiagnostics.ContentPatternRecursion.Name);
     }
 
     [Fact]

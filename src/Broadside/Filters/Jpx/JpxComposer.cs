@@ -217,7 +217,7 @@ internal static class JpxComposer
 
             if (clamped)
             {
-                reporter.Report(DiagnosticCodes.JpxPaletteIndexOutOfRange, DiagnosticSeverity.Warning, "A JPEG 2000 component holds palette indices past the palette's last entry; they take the last entry.");
+                reporter.Report(JpxDiagnostics.JpxPaletteIndexOutOfRange, DiagnosticSeverity.Warning, "A JPEG 2000 component holds palette indices past the palette's last entry; they take the last entry.");
             }
         }
         finally

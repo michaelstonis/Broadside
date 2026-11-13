@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Broadside.Caching;
 using Broadside.IO;
 using Broadside.Objects;
@@ -30,11 +29,6 @@ internal enum XrefEntryKind : byte
 /// <see cref="XrefEntryKind.InUse"/> and <see cref="XrefEntryKind.Free"/>: the generation number.
 /// <see cref="XrefEntryKind.Compressed"/>: the index of the object inside the object stream.
 /// </param>
-/// <remarks>
-/// Laid out by the runtime (largest field first), so an entry takes 16 bytes rather than the 24 its declared order would: a file's
-/// entries are held in arrays of it (<see cref="XrefEntryMap"/>, issue #237).
-/// </remarks>
-[StructLayout(LayoutKind.Auto)]
 internal readonly record struct XrefEntry(XrefEntryKind Kind, long Offset, int Generation)
 {
     /// <summary>A free entry with no successor, what an absent or zero-offset entry reads as.</summary>
@@ -60,9 +54,6 @@ internal sealed class XrefEntryBudget(long limit)
     /// <param name="source">The file.</param>
     /// <returns>A new budget.</returns>
     public static XrefEntryBudget For(PdfSource source) => new(Math.Max(Minimum, source.Length));
-
-    /// <summary>Gets how many entries the budget still allows.</summary>
-    public long Remaining => Math.Max(0, _remaining);
 
     /// <summary>Spends one entry.</summary>
     /// <returns><see langword="false"/> when the budget is spent.</returns>
@@ -95,13 +86,13 @@ internal enum XrefSectionKind : byte
 /// The absolute byte offset just past the section's trailer dictionary; for a stream, just past the stream object's <c>endobj</c>.
 /// </param>
 /// <param name="Kind">Table or stream.</param>
-/// <param name="Entries">The entries, by object number, ascending. Object number 0 is never present.</param>
+/// <param name="Entries">The entries, by object number. Object number 0 is never present.</param>
 /// <param name="Trailer">
 /// The section's trailer dictionary. For a cross-reference stream, its dictionary without the entries that describe the stream
 /// itself (Type, Length, W, Index, Filter, DecodeParms, DL, F, FFilter, FDecodeParms); for the stream a hybrid file's table names
 /// through <c>XRefStm</c>, an empty dictionary, since the table's trailer is the trailer (§7.5.8.4).
 /// </param>
-internal sealed record XrefSection(long Offset, long End, XrefSectionKind Kind, XrefEntryMap Entries, CosDictionary Trailer)
+internal sealed record XrefSection(long Offset, long End, XrefSectionKind Kind, IReadOnlyDictionary<int, XrefEntry> Entries, CosDictionary Trailer)
 {
     /// <summary>
     /// Gets the absolute offset of the cross-reference stream this table's trailer names through <c>XRefStm</c> (§7.5.8.4), when it
@@ -138,7 +129,7 @@ internal sealed record XrefSection(long Offset, long End, XrefSectionKind Kind, 
 /// </remarks>
 internal sealed class CrossReference
 {
-    private readonly XrefEntryMap _merged;
+    private readonly Dictionary<int, XrefEntry> _merged = [];
     private readonly IReadOnlyList<XrefSection>? _sections;
     private readonly IReadOnlyList<XrefRevision>? _revisions;
     private readonly IReadOnlyList<CosName>? _inheritedTrailerKeys;
@@ -155,16 +146,30 @@ internal sealed class CrossReference
         _sections = sections;
         _revisions = GroupRevisions(sections);
         IReadOnlyList<XrefRevision> revisions = _revisions;
-
-        // Newest first, first write wins, a hybrid table's free entries giving way to its XRefStm stream (§7.5.8.4). The revisions,
-        // newest first, with their sections in order, are the sections in order, so the merge takes them as they are.
-        _merged = XrefEntryMap.Merge(sections);
         var trailer = new OrderedDictionary<CosName, CosObject>();
         var inherited = new List<CosName>();
         for (int revision = revisions.Count - 1; revision >= 0; revision--)
         {
-            foreach (XrefSection section in revisions[revision].Sections)
+            IReadOnlyList<XrefSection> revisionSections = revisions[revision].Sections;
+            for (int index = 0; index < revisionSections.Count; index++)
             {
+                XrefSection section = revisionSections[index];
+                XrefSection? hybridStream = section.XRefStreamOffset is { } streamOffset
+                    && index + 1 < revisionSections.Count
+                    && revisionSections[index + 1].Offset == streamOffset
+                        ? revisionSections[index + 1]
+                        : null;
+                foreach ((int number, XrefEntry entry) in section.Entries)
+                {
+                    // §7.5.8.4: a free table entry is the pre-1.5 marker of an object the section's XRefStm stream defines, and
+                    // "a PDF reader shall look in the cross-reference stream first"; an in-use table entry still wins.
+                    XrefEntry effective = entry.Kind == XrefEntryKind.Free && hybridStream is not null
+                        && hybridStream.Entries.TryGetValue(number, out XrefEntry fromStream)
+                            ? fromStream
+                            : entry;
+                    _merged.TryAdd(number, effective);
+                }
+
                 foreach (KeyValuePair<CosName, CosObject> entry in section.Trailer)
                 {
                     if (trailer.TryAdd(entry.Key, entry.Value) && revision < revisions.Count - 1)
@@ -184,7 +189,10 @@ internal sealed class CrossReference
         _firstPage = firstPage;
         _readComplete = readComplete;
         _complete = new();
-        _merged = firstPage.Entries;
+        foreach ((int number, XrefEntry entry) in firstPage.Entries)
+        {
+            _merged.TryAdd(number, entry);
+        }
 
         var trailer = new OrderedDictionary<CosName, CosObject>();
         foreach (KeyValuePair<CosName, CosObject> entry in firstPage.Trailer)
@@ -238,7 +246,7 @@ internal sealed class CrossReference
     public IReadOnlyList<CosName> InheritedTrailerKeys => _inheritedTrailerKeys ?? Complete.InheritedTrailerKeys;
 
     /// <summary>Gets the merged lookup: for every object number a section lists, the entry <see cref="TryGetEntry"/> returns.</summary>
-    public XrefEntryMap Entries => _firstPage is null ? _merged : Complete.Entries;
+    public IReadOnlyDictionary<int, XrefEntry> Entries => _firstPage is null ? _merged : Complete.Entries;
 
     /// <summary>Gets the merged trailer dictionary.</summary>
     /// <remarks>

@@ -25,9 +25,6 @@ namespace Broadside.Parsing;
 /// </remarks>
 internal static class XrefTableReader
 {
-    /// <summary>The length of one entry, end of line included (§7.5.4).</summary>
-    private const int EntryLength = 20;
-
     /// <summary>Reads the section that starts at the beginning of <paramref name="window"/>, whose first token is <c>xref</c>.</summary>
     /// <param name="window">The bytes from the section's <c>xref</c> keyword on.</param>
     /// <param name="sectionOffset">The absolute offset of <paramref name="window"/>[0].</param>
@@ -37,7 +34,7 @@ internal static class XrefTableReader
     {
         var lexer = new CosLexer(window);
         _ = lexer.Next(); // xref
-        var entries = new XrefEntryMap.Builder();
+        var entries = new Dictionary<int, XrefEntry>();
         if (!ReadSubsections(ref lexer, entries, sectionOffset, diagnostics))
         {
             int trailerKeyword = window[lexer.Position..].IndexOf("trailer"u8);
@@ -72,9 +69,8 @@ internal static class XrefTableReader
             return null;
         }
 
-        XrefEntryMap built = entries.Build();
-        ReportEntriesBeyondSize(built, dictionary, sectionOffset, diagnostics);
-        return new XrefSection(sectionOffset, sectionOffset + parser.Position, XrefSectionKind.Table, built, dictionary);
+        ReportEntriesBeyondSize(entries, dictionary, sectionOffset, diagnostics);
+        return new XrefSection(sectionOffset, sectionOffset + parser.Position, XrefSectionKind.Table, entries, dictionary);
     }
 
     /// <summary>
@@ -83,14 +79,9 @@ internal static class XrefTableReader
     /// Size (often with the Root beyond it) and ignoring the entries would rebuild those files for nothing. A missing or unusable
     /// Size reports nothing.
     /// </summary>
-    private static void ReportEntriesBeyondSize(XrefEntryMap entries, CosDictionary trailer, long sectionOffset, DiagnosticSink diagnostics)
+    private static void ReportEntriesBeyondSize(Dictionary<int, XrefEntry> entries, CosDictionary trailer, long sectionOffset, DiagnosticSink diagnostics)
     {
         if (!trailer.TryGetValue(KnownNames.Size, out CosObject? size) || size is not CosInteger { Value: >= 0 } stated)
-        {
-            return;
-        }
-
-        if (entries.MaxNumber < stated.Value)
         {
             return;
         }
@@ -154,7 +145,7 @@ internal static class XrefTableReader
 
     /// <summary>Reads subsections up to and including the <c>trailer</c> keyword.</summary>
     /// <returns><see langword="false"/> when the table is malformed; the lexer is then somewhere inside it.</returns>
-    private static bool ReadSubsections(ref CosLexer lexer, XrefEntryMap.Builder entries, long sectionOffset, DiagnosticSink diagnostics)
+    private static bool ReadSubsections(ref CosLexer lexer, Dictionary<int, XrefEntry> entries, long sectionOffset, DiagnosticSink diagnostics)
     {
         bool formatReported = false;
         bool headerReported = false;
@@ -202,9 +193,6 @@ internal static class XrefTableReader
                     subsectionStart);
             }
 
-            // Room for the whole subsection at once, so a large table is stored without growing: as many entries as the header
-            // counts, but no more than 20-byte entries (§7.5.4) the rest of the window can hold.
-            entries.EnsureCapacity(Math.Min(count, ((lexer.Source.Length - lexer.Position) / EntryLength) + 1));
             for (long index = 0; index < count; index++)
             {
                 int entryGap = lexer.Position;
@@ -259,7 +247,7 @@ internal static class XrefTableReader
                 // §7.5.4: object number 0 is always free and is the head of the free list; it never names an object.
                 if (number != 0)
                 {
-                    entries.Add((int)number, entry);
+                    entries.TryAdd((int)number, entry);
                 }
             }
         }

@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics.Shadings;
 using Broadside.Parsing;
 
@@ -14,8 +15,8 @@ public sealed class PdfFunctionShading : PdfShading
     internal PdfFunctionShading(ShadingReader reader)
         : base(reader, PdfShadingType.FunctionBased)
     {
-        Domain = Array.AsReadOnly(reader.Numbers(ShadingNames.Domain, 4, [0, 1, 0, 1], DiagnosticCodes.ShadingEntryInvalid));
-        Matrix = reader.Matrix(ShadingNames.Matrix, DiagnosticCodes.ShadingEntryInvalid);
+        Domain = Array.AsReadOnly(reader.Numbers(ShadingNames.Domain, 4, [0, 1, 0, 1], ShadingDiagnostics.ShadingEntryInvalid));
+        Matrix = reader.Matrix(ShadingNames.Matrix, ShadingDiagnostics.ShadingEntryInvalid);
         IsValid = reader.IsValid;
     }
 

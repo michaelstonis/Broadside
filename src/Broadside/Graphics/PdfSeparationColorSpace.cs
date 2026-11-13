@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics.Colors;
 using Broadside.Graphics.Functions;
 using Broadside.Objects;
@@ -54,7 +55,7 @@ public sealed class PdfSeparationColorSpace : PdfColorSpace
     {
         if (Element(1) is not CosName)
         {
-            Report(DiagnosticCodes.ColorSpaceInvalid, "A Separation colour space's colourant is not a name; DeviceGray is used.");
+            Report(ColorDiagnostics.ColorSpaceInvalid, "A Separation colour space's colourant is not a name; DeviceGray is used.");
             return false;
         }
 

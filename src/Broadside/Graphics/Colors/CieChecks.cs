@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -16,13 +17,13 @@ internal static class CieChecks
         if (ColorEntries.WhitePoint(cache, dictionary) is null)
         {
             space.Report(
-                DiagnosticCodes.ColorSpaceEntryInvalid,
+                ColorDiagnostics.ColorSpaceEntryInvalid,
                 $"A {family} WhitePoint is missing or invalid (it shall be three numbers with X and Z positive and Y 1.0); D65 is used.");
         }
 
         if (ColorEntries.BlackPoint(cache, dictionary, out bool present) is null && present)
         {
-            space.Report(DiagnosticCodes.ColorSpaceEntryInvalid, $"A {family} BlackPoint is not three non-negative numbers; [0 0 0] is used.");
+            space.Report(ColorDiagnostics.ColorSpaceEntryInvalid, $"A {family} BlackPoint is not three non-negative numbers; [0 0 0] is used.");
         }
     }
 
@@ -38,7 +39,7 @@ internal static class CieChecks
             return dictionary;
         }
 
-        space.Report(DiagnosticCodes.ColorSpaceEntryInvalid, $"A {family} colour space has no dictionary; its entries take their defaults and D65 is used as the white point.");
+        space.Report(ColorDiagnostics.ColorSpaceEntryInvalid, $"A {family} colour space has no dictionary; its entries take their defaults and D65 is used as the white point.");
         return null;
     }
 }

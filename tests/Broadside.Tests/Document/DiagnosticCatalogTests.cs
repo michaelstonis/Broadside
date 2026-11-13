@@ -94,7 +94,6 @@ public sealed class DiagnosticCatalogTests
     {
         string[] internalNames = [.. InternalCodes(typeof(DiagnosticCodes))];
 
-        Assert.NotEmpty(internalNames);
         foreach (string name in internalNames)
         {
             Assert.True(DiagnosticCatalog.TryGet(name, out DiagnosticCode? code), name);

@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -39,7 +40,7 @@ internal static class AttributeReader
                 {
                     if (pending is null || revisionSeen || revision.Value is < 0 or > int.MaxValue)
                     {
-                        context.Report(DiagnosticCodes.AttributeRevisionInvalid, "A revision number in an A array does not follow an attribute object (§14.7.6.3); ignored.", where);
+                        context.Report(StructureDiagnostics.AttributeRevisionInvalid, "A revision number in an A array does not follow an attribute object (§14.7.6.3); ignored.", where);
                         continue;
                     }
 
@@ -63,7 +64,7 @@ internal static class AttributeReader
                 }
                 else if (entry is not CosNull)
                 {
-                    context.Report(DiagnosticCodes.AttributeObjectInvalid, "An A entry is neither an attribute object (a dictionary or a stream) nor a revision number (Table 355); skipped.", where);
+                    context.Report(StructureDiagnostics.AttributeObjectInvalid, "An A entry is neither an attribute object (a dictionary or a stream) nor a revision number (Table 355); skipped.", where);
                 }
             }
 
@@ -78,7 +79,7 @@ internal static class AttributeReader
         }
         else if (resolved is not CosNull)
         {
-            context.Report(DiagnosticCodes.AttributeObjectInvalid, "An A entry is neither an attribute object nor an array of them (Table 355); ignored.", where);
+            context.Report(StructureDiagnostics.AttributeObjectInvalid, "An A entry is neither an attribute object nor an array of them (Table 355); ignored.", where);
         }
 
         return objects;
@@ -113,10 +114,10 @@ internal static class AttributeReader
                             revisionAllowed = false;
                             break;
                         case CosInteger:
-                            context.Report(DiagnosticCodes.AttributeRevisionInvalid, "A revision number in a C array does not follow a class name (§14.7.6.3); ignored.", where);
+                            context.Report(StructureDiagnostics.AttributeRevisionInvalid, "A revision number in a C array does not follow a class name (§14.7.6.3); ignored.", where);
                             break;
                         default:
-                            context.Report(DiagnosticCodes.AttributeObjectInvalid, "A C entry is not a class name (Table 355); skipped.", where);
+                            context.Report(StructureDiagnostics.AttributeObjectInvalid, "A C entry is not a class name (Table 355); skipped.", where);
                             revisionAllowed = false;
                             break;
                     }
@@ -126,7 +127,7 @@ internal static class AttributeReader
             case CosNull:
                 break;
             default:
-                context.Report(DiagnosticCodes.AttributeObjectInvalid, "C is neither a class name nor an array of them (Table 355); ignored.", where);
+                context.Report(StructureDiagnostics.AttributeObjectInvalid, "C is neither a class name nor an array of them (Table 355); ignored.", where);
                 break;
         }
 
@@ -164,12 +165,12 @@ internal static class AttributeReader
         bool hasNamespace = attributes.Dictionary.ContainsKey(StructureNames.NS);
         if (attributes.Owner is null)
         {
-            context.Report(DiagnosticCodes.AttributeOwnerInvalid, "An attribute object has no owner (O, Table 360); read without one.", reference ?? where);
+            context.Report(StructureDiagnostics.AttributeOwnerInvalid, "An attribute object has no owner (O, Table 360); read without one.", reference ?? where);
         }
         else if (isNamespaceOwner != hasNamespace)
         {
             context.Report(
-                DiagnosticCodes.AttributeOwnerInvalid,
+                StructureDiagnostics.AttributeOwnerInvalid,
                 isNamespaceOwner ? "An attribute object owned by NSO has no NS entry (Table 360)." : "An attribute object has NS but its owner is not NSO (Table 360).",
                 reference ?? where);
         }

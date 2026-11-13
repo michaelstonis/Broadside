@@ -362,7 +362,11 @@ internal sealed class ObjectLoader
     /// </summary>
     private int FirstUnusedNumber()
     {
-        long next = Math.Max(1, CrossReference.Entries.MaxNumber + 1L);
+        long next = 1;
+        foreach (int number in CrossReference.Entries.Keys)
+        {
+            next = Math.Max(next, (long)number + 1);
+        }
 
         if (CrossReference.Trailer.TryGetValue(KnownNames.Size, out CosObject? size) && size is CosInteger { Value: > 0 and < int.MaxValue } count)
         {

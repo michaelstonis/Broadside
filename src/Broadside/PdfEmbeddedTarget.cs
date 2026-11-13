@@ -77,7 +77,7 @@ public sealed class PdfEmbeddedTarget
             if (ReferenceEquals(next, Dictionary) || Array.Exists(_path, step => ReferenceEquals(step, next)) || _path.Length >= MaxDepth)
             {
                 _document.DiagnosticSink.Report(
-                    DiagnosticCodes.ActionTargetCycle,
+                    ActionDiagnostics.ActionTargetCycle,
                     DiagnosticSeverity.Warning,
                     "An embedded go-to action's target dictionaries form a cycle (or nest too deeply); the action shall not be performed.",
                     objectReference: _owner);

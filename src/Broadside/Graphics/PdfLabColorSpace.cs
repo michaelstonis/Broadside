@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics.Colors;
 using Broadside.Graphics.Functions;
 using Broadside.Objects;
@@ -52,7 +53,7 @@ public sealed class PdfLabColorSpace : PdfColorSpace
         CieChecks.WhiteAndBlack(this, Cache!, dictionary, "Lab");
         if (dictionary.ContainsKey(ColorSpaceNames.Range) && ReadRange() is null)
         {
-            Report(DiagnosticCodes.ColorSpaceEntryInvalid, "A Lab Range is not four numbers [amin amax bmin bmax] with each minimum below its maximum; [-100 100 -100 100] is used.");
+            Report(ColorDiagnostics.ColorSpaceEntryInvalid, "A Lab Range is not four numbers [amin amax bmin bmax] with each minimum below its maximum; [-100 100 -100 100] is used.");
         }
 
         return true;

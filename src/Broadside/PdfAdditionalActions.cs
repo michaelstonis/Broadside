@@ -73,7 +73,7 @@ public abstract class PdfAdditionalActions
                 return create(document, dictionary, value as CosReference, owner);
             default:
                 document.DiagnosticSink.Report(
-                    DiagnosticCodes.AdditionalActionsInvalid,
+                    ActionDiagnostics.AdditionalActionsInvalid,
                     DiagnosticSeverity.Warning,
                     "An AA entry shall be an additional-actions dictionary; it is ignored.",
                     objectReference: value as CosReference ?? owner);
