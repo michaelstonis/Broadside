@@ -1,4 +1,5 @@
 using Broadside.Graphics;
+using Broadside.Numerics;
 
 namespace Broadside.Rendering;
 
@@ -727,7 +728,7 @@ internal sealed class Stroker
 
         if (smooth || _join == LineJoin.Round)
         {
-            Arc(vertex, a, Math.Atan2(Math.Abs(cross), dot));
+            Arc(vertex, a, DeterministicMath.Atan2(Math.Abs(cross), dot));
         }
         else if (_join == LineJoin.Miter)
         {
@@ -793,13 +794,12 @@ internal sealed class Stroker
         int n = 1;
         if (deviceRadius > Tolerance && double.IsFinite(deviceRadius))
         {
-            double step = 2 * Math.Acos(1 - (Tolerance / deviceRadius));
+            double step = 2 * DeterministicMath.Acos(1 - (Tolerance / deviceRadius));
             n = step > 0 ? (int)Math.Clamp(Math.Ceiling(sweep / step), 1, MaxSegments) : MaxSegments;
         }
 
         double angle = -sweep / n;
-        double cos = Math.Cos(angle);
-        double sin = Math.Sin(angle);
+        (double sin, double cos) = DeterministicMath.SinCos(angle);
         Vec offset = from;
         for (int i = 1; i < n; i++)
         {
