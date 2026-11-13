@@ -204,9 +204,9 @@ internal static class JpegScanDecoder
 
     private static void ReportInvalidData(JpegFrame frame, string message)
     {
-        if (frame.ShouldReport(DiagnosticCodes.DctDataInvalid))
+        if (frame.ShouldReport(DctDiagnostics.DctDataInvalid))
         {
-            frame.Report(DiagnosticCodes.DctDataInvalid, DiagnosticSeverity.Warning, message);
+            frame.Report(DctDiagnostics.DctDataInvalid, DiagnosticSeverity.Warning, message);
         }
     }
 
@@ -241,7 +241,7 @@ internal static class JpegScanDecoder
                 break;
             }
 
-            frame.Report(DiagnosticCodes.DctRestartInvalid, DiagnosticSeverity.Warning, JpegFrame.Invariant($"The DCT data has restart marker RST{found} where RST{expected} should come; the decoder resynchronized."));
+            frame.Report(DctDiagnostics.DctRestartInvalid, DiagnosticSeverity.Warning, JpegFrame.Invariant($"The DCT data has restart marker RST{found} where RST{expected} should come; the decoder resynchronized."));
             if (found == ((expected + 1) & 7) || found == ((expected + 2) & 7))
             {
                 // The expected marker was lost: leave this one for a later interval; this interval has no data.

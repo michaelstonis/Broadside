@@ -53,12 +53,12 @@ public abstract class PdfShading
         (_evaluator, Functions) = ReadFunction(reader, type, space);
         if (space is PdfIndexedColorSpace && (type <= PdfShadingType.Radial || _evaluator is not null))
         {
-            reader.Invalid(DiagnosticCodes.ShadingColorSpaceInvalid, "An Indexed colour space is not allowed in a shading of Types 1 to 3 or in one with a Function.");
+            reader.Invalid(ShadingDiagnostics.ShadingColorSpaceInvalid, "An Indexed colour space is not allowed in a shading of Types 1 to 3 or in one with a Function.");
         }
 
         Background = ReadBackground(reader, ColorSpace) is { } background ? Array.AsReadOnly(background) : null;
-        BoundingBox = reader.Rectangle(ShadingNames.BBox, DiagnosticCodes.ShadingEntryInvalid);
-        AntiAlias = reader.Boolean(ShadingNames.AntiAlias, false, DiagnosticCodes.ShadingEntryInvalid);
+        BoundingBox = reader.Rectangle(ShadingNames.BBox, ShadingDiagnostics.ShadingEntryInvalid);
+        AntiAlias = reader.Boolean(ShadingNames.AntiAlias, false, ShadingDiagnostics.ShadingEntryInvalid);
     }
 
     /// <summary>Gets the shading's type, its <c>ShadingType</c> entry.</summary>
@@ -158,7 +158,7 @@ public abstract class PdfShading
         FunctionStatus status = evaluator.Evaluate(input, outputs);
         if (status != FunctionStatus.Ok)
         {
-            Diagnostics.ReportOnce(DiagnosticCodes.FunctionEvaluationRepaired, "A shading's function met an error while evaluating; its outputs were repaired.");
+            Diagnostics.ReportOnce(FunctionDiagnostics.FunctionEvaluationRepaired, "A shading's function met an error while evaluating; its outputs were repaired.");
         }
 
         for (int i = 0; i < _ranges.Length; i++)
@@ -175,32 +175,32 @@ public abstract class PdfShading
         CosObject? value = reader.Get(ShadingNames.ColorSpace);
         if (value is null && reader.Get(ShadingNames.CS) is { } abbreviated)
         {
-            reader.Report(DiagnosticCodes.ShadingColorSpaceAbbreviated, "The shading names its colour space with CS instead of ColorSpace; it is used.");
+            reader.Report(ShadingDiagnostics.ShadingColorSpaceAbbreviated, "The shading names its colour space with CS instead of ColorSpace; it is used.");
             value = abbreviated;
         }
 
         if (value is null)
         {
-            reader.Invalid(DiagnosticCodes.ShadingColorSpaceInvalid, "The shading has no ColorSpace entry.");
+            reader.Invalid(ShadingDiagnostics.ShadingColorSpaceInvalid, "The shading has no ColorSpace entry.");
             return null;
         }
 
         PdfColorSpace? space = reader.Document.ColorSpaces.Find(value, reader.DiagnosticReference, inline: false, out _);
         if (space is null)
         {
-            reader.Invalid(DiagnosticCodes.ShadingColorSpaceInvalid, "The shading's ColorSpace is not a colour space.");
+            reader.Invalid(ShadingDiagnostics.ShadingColorSpaceInvalid, "The shading's ColorSpace is not a colour space.");
             return null;
         }
 
         if (space.Family == PdfColorSpaceFamily.Pattern)
         {
-            reader.Invalid(DiagnosticCodes.ShadingColorSpaceInvalid, "A shading's colour space shall not be a Pattern colour space.");
+            reader.Invalid(ShadingDiagnostics.ShadingColorSpaceInvalid, "A shading's colour space shall not be a Pattern colour space.");
             return null;
         }
 
         if (space.ComponentCount > PdfColor.MaxComponents)
         {
-            reader.Invalid(DiagnosticCodes.ShadingColorSpaceInvalid, "The shading's colour space has more than 32 components.");
+            reader.Invalid(ShadingDiagnostics.ShadingColorSpaceInvalid, "The shading's colour space has more than 32 components.");
             return null;
         }
 
@@ -214,7 +214,7 @@ public abstract class PdfShading
         {
             if (type <= PdfShadingType.Radial)
             {
-                reader.Invalid(DiagnosticCodes.ShadingFunctionInvalid, "The shading has no Function entry, which its type requires.");
+                reader.Invalid(ShadingDiagnostics.ShadingFunctionInvalid, "The shading has no Function entry, which its type requires.");
             }
 
             return (null, []);
@@ -232,14 +232,14 @@ public abstract class PdfShading
         if (evaluator is not { IsValid: true } || evaluator.InputCount != inputs || evaluator.OutputCount < outputs)
         {
             reader.Invalid(
-                DiagnosticCodes.ShadingFunctionInvalid,
+                ShadingDiagnostics.ShadingFunctionInvalid,
                 string.Create(CultureInfo.InvariantCulture, $"The shading's Function is not usable as a function of {inputs} input(s) and {outputs} output(s)."));
             return (null, []);
         }
 
         if (evaluator.OutputCount > outputs)
         {
-            reader.Report(DiagnosticCodes.ShadingFunctionInvalid, "The shading's Function has more outputs than its colour space has components; the first ones are used.");
+            reader.Report(ShadingDiagnostics.ShadingFunctionInvalid, "The shading's Function has more outputs than its colour space has components; the first ones are used.");
         }
 
         IReadOnlyList<PdfFunction> list = reader.Resolve(value) is CosArray array
@@ -258,7 +258,7 @@ public abstract class PdfShading
         double[]? numbers = reader.Numbers(ShadingNames.Background);
         if (numbers is null || numbers.Length != space.ComponentCount)
         {
-            reader.Report(DiagnosticCodes.ShadingBackgroundInvalid, "The shading's Background is not one number per component of its colour space; it is ignored.");
+            reader.Report(ShadingDiagnostics.ShadingBackgroundInvalid, "The shading's Background is not one number per component of its colour space; it is ignored.");
             return null;
         }
 

@@ -45,10 +45,10 @@ internal sealed class ShadingReader
     public CosObject Resolve(CosObject? value) => Document.Resolve(value);
 
     /// <summary>Records a repair: the object stays usable.</summary>
-    public void Report(string code, string message) => Diagnostics.Report(code, message);
+    public void Report(DiagnosticCode code, string message) => Diagnostics.Report(code, message);
 
     /// <summary>Records why the object cannot be used: it paints nothing.</summary>
-    public void Invalid(string code, string message)
+    public void Invalid(DiagnosticCode code, string message)
     {
         IsValid = false;
         Diagnostics.Report(code, message, DiagnosticSeverity.Error);
@@ -64,7 +64,7 @@ internal sealed class ShadingReader
     public int? Integer(CosName key) => AnnotationValues.ReadInteger(Document, Get(key));
 
     /// <summary>Reads a matrix (§8.3.4); the identity when absent, the identity with a diagnostic when malformed.</summary>
-    public Matrix Matrix(CosName key, string code)
+    public Matrix Matrix(CosName key, DiagnosticCode code)
     {
         CosObject? value = Get(key);
         if (value is null)
@@ -82,7 +82,7 @@ internal sealed class ShadingReader
     }
 
     /// <summary>Reads a rectangle; <see langword="null"/> when absent, <see langword="null"/> with a diagnostic when malformed.</summary>
-    public PdfRectangle? Rectangle(CosName key, string code)
+    public PdfRectangle? Rectangle(CosName key, DiagnosticCode code)
     {
         CosObject? value = Get(key);
         if (value is null)
@@ -100,7 +100,7 @@ internal sealed class ShadingReader
     }
 
     /// <summary>Reads a boolean; <paramref name="fallback"/> when absent, with a diagnostic when malformed.</summary>
-    public bool Boolean(CosName key, bool fallback, string code)
+    public bool Boolean(CosName key, bool fallback, DiagnosticCode code)
     {
         CosObject? value = Get(key);
         if (value is null)
@@ -118,7 +118,7 @@ internal sealed class ShadingReader
     }
 
     /// <summary>Reads an array of <paramref name="count"/> numbers; <paramref name="fallback"/> when absent, with a diagnostic when malformed.</summary>
-    public double[] Numbers(CosName key, int count, double[] fallback, string code)
+    public double[] Numbers(CosName key, int count, double[] fallback, DiagnosticCode code)
     {
         if (Get(key) is null)
         {
@@ -148,7 +148,7 @@ internal sealed class ShadingReader
             return (start.Value, end.Value);
         }
 
-        Report(DiagnosticCodes.ShadingExtendInvalid, "The Extend entry is not an array of two booleans; neither end is extended.");
+        Report(ShadingDiagnostics.ShadingExtendInvalid, "The Extend entry is not an array of two booleans; neither end is extended.");
         return (false, false);
     }
 }

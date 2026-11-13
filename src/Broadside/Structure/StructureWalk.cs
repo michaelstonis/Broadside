@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -53,7 +54,7 @@ internal sealed class StructureWalk
             Kid kid = KidReader.Classify(context, entry, parent?.Reference ?? context.RootReference);
             if (parent is null && kid.Kind is KidKind.MarkedContent or KidKind.Object)
             {
-                context.Report(DiagnosticCodes.StructTreeRootInvalid, "The structure tree root's K holds a content item; only structure elements may be its children (Table 354). Skipped.", context.RootReference);
+                context.Report(StructureDiagnostics.StructTreeRootInvalid, "The structure tree root's K holds a content item; only structure elements may be its children (Table 354). Skipped.", context.RootReference);
                 continue;
             }
 
@@ -158,13 +159,13 @@ internal sealed class StructureWalk
         CosReference? where = kid.Reference ?? parent?.Reference;
         if (ReferenceEquals(dictionary, context.Root) || !visited.Add(dictionary))
         {
-            context.Report(DiagnosticCodes.StructTreeCycle, "A structure element is reached a second time through K (§14.7.2: the hierarchy is a tree); the second occurrence is skipped.", where);
+            context.Report(StructureDiagnostics.StructTreeCycle, "A structure element is reached a second time through K (§14.7.2: the hierarchy is a tree); the second occurrence is skipped.", where);
             return;
         }
 
         if (depth >= StructureContext.MaxDepth)
         {
-            context.Report(DiagnosticCodes.StructTreeDepthExceeded, $"The structure hierarchy nests deeper than {StructureContext.MaxDepth} levels; the rest is not read.", where);
+            context.Report(StructureDiagnostics.StructTreeDepthExceeded, $"The structure hierarchy nests deeper than {StructureContext.MaxDepth} levels; the rest is not read.", where);
             return;
         }
 
@@ -175,18 +176,18 @@ internal sealed class StructureWalk
         CosDictionary expectedParent = parent?.Dictionary ?? context.Root;
         if (!dictionary.TryGetValue(StructureNames.P, out CosObject? declaredParent) || !ReferenceEquals(context.Resolve(declaredParent), expectedParent))
         {
-            context.Report(DiagnosticCodes.StructElemParentMismatch, "A structure element's P is not the element (or root) whose K holds it (Table 355); the K hierarchy is used.", where);
+            context.Report(StructureDiagnostics.StructElemParentMismatch, "A structure element's P is not the element (or root) whose K holds it (Table 355); the K hierarchy is used.", where);
         }
 
         if (ViewReading.Get(context.Document, dictionary, StructureNames.ID) is CosString id)
         {
             if (!_ids.TryAdd(Encoding.Latin1.GetString(id.Bytes), element))
             {
-                context.Report(DiagnosticCodes.IdTreeDuplicate, "Two structure elements have the same ID (Table 355: unique in the document); lookups find the first.", where);
+                context.Report(StructureDiagnostics.IdTreeDuplicate, "Two structure elements have the same ID (Table 355: unique in the document); lookups find the first.", where);
             }
             else if (context.IdTree is not { } idTree || !idTree.TryGetValue(id.Bytes, out CosObject? listed) || !ReferenceEquals(listed, dictionary))
             {
-                context.Report(DiagnosticCodes.IdTreeEntryInvalid, "A structure element's ID is not in the structure tree root's IDTree, or maps to another element (Table 354); lookups find it through K.", where);
+                context.Report(StructureDiagnostics.IdTreeEntryInvalid, "A structure element's ID is not in the structure tree root's IDTree, or maps to another element (Table 354); lookups find it through K.", where);
             }
         }
 
@@ -214,7 +215,7 @@ internal sealed class StructureWalk
         else
         {
             context.Report(
-                DiagnosticCodes.McidDuplicate,
+                StructureDiagnostics.McidDuplicate,
                 $"MCID {item.Mcid} of one content stream is a content item of two structure elements (§14.7.5.2: MCIDs are unique per content stream); the first is kept.",
                 item.Parent.Reference);
         }

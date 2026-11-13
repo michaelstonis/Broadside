@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics.Shadings;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -30,7 +31,7 @@ public abstract class PdfPattern
         Dictionary = reader.Dictionary;
         Reference = reader.Reference;
         Document = reader.Document;
-        Matrix = reader.Matrix(ShadingNames.Matrix, DiagnosticCodes.PatternEntryInvalid);
+        Matrix = reader.Matrix(ShadingNames.Matrix, ShadingDiagnostics.PatternEntryInvalid);
     }
 
     /// <summary>Gets the pattern's type, its <c>PatternType</c> entry.</summary>

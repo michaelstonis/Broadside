@@ -98,7 +98,7 @@ internal sealed class EncodedImage
     /// <param name="severity">The severity.</param>
     /// <param name="message">The message.</param>
     /// <param name="reference">The image stream's reference, which makes the diagnostic the image's own; <see langword="null"/> when direct.</param>
-    public void Report(string code, DiagnosticSeverity severity, string message, CosReference? reference) =>
+    public void Report(DiagnosticCode code, DiagnosticSeverity severity, string message, CosReference? reference) =>
         _streams.Report(new Diagnostic(code, severity, message, null, reference));
 
     /// <summary>Gets the bytes the encoded data keeps.</summary>

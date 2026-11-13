@@ -140,7 +140,7 @@ internal sealed partial class DisplayListBuilder
             if (space is null)
             {
                 document.DiagnosticSink.ReportOnce(
-                    DiagnosticCodes.SoftMaskColorSpaceMissing,
+                    ColorDiagnostics.SoftMaskColorSpaceMissing,
                     DiagnosticSeverity.Warning,
                     "A luminosity soft mask's group has no usable colour space (CS, Table 145); the backdrop's number of components decides it.",
                     offset: null,

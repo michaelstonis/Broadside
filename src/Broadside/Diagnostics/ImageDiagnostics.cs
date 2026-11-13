@@ -6,10 +6,6 @@ namespace Broadside.Diagnostics;
 /// </remarks>
 public static class ImageDiagnostics
 {
-    /// <summary>Gets the <c>ImageSubtypeInvalid</c> code.</summary>
-    /// <remarks>ISO 32000-2 §8.9.5 Table 87</remarks>
-    public static DiagnosticCode ImageSubtypeInvalid { get; } = new(nameof(ImageSubtypeInvalid), DiagnosticArea.Image, DiagnosticSeverity.Warning, "ISO 32000-2 §8.9.5 Table 87");
-
     /// <summary>Gets the <c>ImageDimensionInvalid</c> code.</summary>
     /// <remarks>ISO 32000-2 §8.9.5 Table 87</remarks>
     public static DiagnosticCode ImageDimensionInvalid { get; } = new(nameof(ImageDimensionInvalid), DiagnosticArea.Image, DiagnosticSeverity.Warning, "ISO 32000-2 §8.9.5 Table 87");
@@ -54,10 +50,6 @@ public static class ImageDiagnostics
     /// <remarks>ISO 32000-2 §8.9.3</remarks>
     public static DiagnosticCode ImageDataTooLong { get; } = new(nameof(ImageDataTooLong), DiagnosticArea.Image, DiagnosticSeverity.Information, "ISO 32000-2 §8.9.3");
 
-    /// <summary>Gets the <c>ImageFilterNotLast</c> code.</summary>
-    /// <remarks>ISO 32000-2 §8.9.3</remarks>
-    public static DiagnosticCode ImageFilterNotLast { get; } = new(nameof(ImageFilterNotLast), DiagnosticArea.Image, DiagnosticSeverity.Warning, "ISO 32000-2 §8.9.3");
-
     /// <summary>Gets the <c>ImageDimensionMismatch</c> code.</summary>
     /// <remarks>ISO 32000-2 §8.9.3</remarks>
     public static DiagnosticCode ImageDimensionMismatch { get; } = new(nameof(ImageDimensionMismatch), DiagnosticArea.Image, DiagnosticSeverity.Warning, "ISO 32000-2 §8.9.3");
@@ -98,14 +90,9 @@ public static class ImageDiagnostics
     /// <remarks>ISO 32000-2 §8.9.7</remarks>
     public static DiagnosticCode InlineImageFilterNotAllowed { get; } = new(nameof(InlineImageFilterNotAllowed), DiagnosticArea.Image, DiagnosticSeverity.Warning, "ISO 32000-2 §8.9.7");
 
-    /// <summary>Gets the <c>InlineImageKeyInvalid</c> code.</summary>
-    /// <remarks>ISO 32000-2 §8.9.7</remarks>
-    public static DiagnosticCode InlineImageKeyInvalid { get; } = new(nameof(InlineImageKeyInvalid), DiagnosticArea.Image, DiagnosticSeverity.Warning, "ISO 32000-2 §8.9.7");
-
     /// <summary>Gets every code of this area, in declaration order.</summary>
     internal static DiagnosticCode[] Codes { get; } =
     [
-        ImageSubtypeInvalid,
         ImageDimensionInvalid,
         ImageBitsPerComponentInvalid,
         ImageColorSpaceMissing,
@@ -117,7 +104,6 @@ public static class ImageDiagnostics
         ImageTooLarge,
         ImageDataTruncated,
         ImageDataTooLong,
-        ImageFilterNotLast,
         ImageDimensionMismatch,
         ImageComponentMismatch,
         ImageMaskInvalid,
@@ -128,6 +114,5 @@ public static class ImageDiagnostics
         PlatformImageVerified,
         PlatformImageMismatch,
         InlineImageFilterNotAllowed,
-        InlineImageKeyInvalid,
     ];
 }

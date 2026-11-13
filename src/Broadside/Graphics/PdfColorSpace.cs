@@ -157,7 +157,7 @@ public abstract class PdfColorSpace
     /// <param name="code">The diagnostic code.</param>
     /// <param name="message">What was found and what is done about it.</param>
     /// <param name="severity">The severity; Warning unless given.</param>
-    internal void Report(string code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
+    internal void Report(DiagnosticCode code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
         new ObjectDiagnostics(Cache?.Diagnostics, DiagnosticReference).Report(code, message, severity);
 
     /// <summary>

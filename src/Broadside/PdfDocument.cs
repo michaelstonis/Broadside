@@ -278,7 +278,7 @@ public sealed partial class PdfDocument : IDisposable
             {
                 if (Resolve(value) is not CosNull)
                 {
-                    _diagnostics.Report(DiagnosticCodes.StructTreeRootInvalid, DiagnosticSeverity.Warning, "The catalog's StructTreeRoot is not a dictionary (Table 29); the document is read without a structure tree.", offset: null, reference);
+                    _diagnostics.Report(StructureDiagnostics.StructTreeRootInvalid, DiagnosticSeverity.Warning, "The catalog's StructTreeRoot is not a dictionary (Table 29); the document is read without a structure tree.", offset: null, reference);
                 }
 
                 return null;
@@ -289,7 +289,7 @@ public sealed partial class PdfDocument : IDisposable
             {
                 if (root.TryGetValue(KnownNames.Type, out CosObject? type) && !StructureNames.StructTreeRoot.Equals(Resolve(type)))
                 {
-                    _diagnostics.Report(DiagnosticCodes.StructTreeRootInvalid, DiagnosticSeverity.Warning, "The structure tree root's Type is not StructTreeRoot (Table 354); read as the root.", offset: null, reference);
+                    _diagnostics.Report(StructureDiagnostics.StructTreeRootInvalid, DiagnosticSeverity.Warning, "The structure tree root's Type is not StructTreeRoot (Table 354); read as the root.", offset: null, reference);
                 }
 
                 var created = new StructureContext(this, root, reference);

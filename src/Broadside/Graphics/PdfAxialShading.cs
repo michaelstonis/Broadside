@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics.Shadings;
 using Broadside.Parsing;
 
@@ -22,10 +23,10 @@ public sealed class PdfAxialShading : PdfShading
         }
         else
         {
-            reader.Invalid(DiagnosticCodes.ShadingCoordsInvalid, "An axial shading's Coords entry is not four numbers.");
+            reader.Invalid(ShadingDiagnostics.ShadingCoordsInvalid, "An axial shading's Coords entry is not four numbers.");
         }
 
-        Domain = Array.AsReadOnly(reader.Numbers(ShadingNames.Domain, 2, [0, 1], DiagnosticCodes.ShadingEntryInvalid));
+        Domain = Array.AsReadOnly(reader.Numbers(ShadingNames.Domain, 2, [0, 1], ShadingDiagnostics.ShadingEntryInvalid));
         (ExtendStart, ExtendEnd) = reader.Extend();
         IsValid = reader.IsValid;
     }

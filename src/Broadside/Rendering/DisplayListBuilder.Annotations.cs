@@ -271,7 +271,7 @@ internal sealed partial class DisplayListBuilder
         }
 
         annotation.Document.DiagnosticSink.ReportOnce(
-            DiagnosticCodes.AppearanceNotRendered,
+            AnnotationDiagnostics.AppearanceNotRendered,
             DiagnosticSeverity.Information,
             "The annotation has no normal appearance stream for its appearance state; it is not drawn (appearances are not generated when rendering, §12.5.5).",
             objectReference: annotation.DiagnosticReference);
