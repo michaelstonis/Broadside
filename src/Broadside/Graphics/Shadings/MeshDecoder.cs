@@ -22,6 +22,7 @@ namespace Broadside.Graphics.Shadings;
 /// the decoded prefix kept; a Type 4 flag of 3, or a flag 1 or 2 with no triangle before it, skips that vertex; a patch flag other
 /// than 0 with no patch before it drops that patch; a lattice's incomplete last row is dropped, and fewer than two rows give nothing.
 /// </para>
+/// <para>ISO 32000-2 §8.7.4.5.6 and §8.7.4.5.7.</para>
 /// </remarks>
 internal static class MeshDecoder
 {

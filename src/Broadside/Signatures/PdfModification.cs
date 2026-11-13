@@ -19,6 +19,7 @@ namespace Broadside.Signatures;
 /// Without a certification signature the permissions in effect are those of <see cref="PdfCertificationPermissions.FormFillingAndAnnotations"/>
 /// (Table 236), narrowed by each signed field lock's <c>P</c> for the updates after its signature.
 /// </para>
+/// <para>ISO 32000-2 §12.8.2.1.</para>
 /// </remarks>
 public enum PdfModificationKind
 {
@@ -60,7 +61,7 @@ public enum PdfModificationKind
 }
 
 /// <summary>One change an incremental update after a signature made, and whether that signature permits it.</summary>
-/// <remarks>ISO 32000-2 §12.8.2.2.2 and §12.8.2.4.</remarks>
+/// <remarks>ISO 32000-2 §12.8.2.2.2 and §12.8.2.4. Also §12.8.2.1.</remarks>
 public sealed class PdfModification
 {
     internal PdfModification(int revision, PdfModificationKind kind, CosReference? objectReference, string? fieldName, string description, bool isPermitted)

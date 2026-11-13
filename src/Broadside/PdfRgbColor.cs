@@ -3,7 +3,7 @@ using System.Globalization;
 namespace Broadside;
 
 /// <summary>A colour in the DeviceRGB colour space, each component from 0.0 to 1.0, as interactive features such as outline items give it.</summary>
-/// <remarks>ISO 32000-2 §8.6.4.3 (DeviceRGB) and §12.3.3, Table 151 (<c>C</c>).</remarks>
+/// <remarks>ISO 32000-2 §8.6.4.3 (DeviceRGB) and §12.3.3, Table 151 (<c>C</c>). Also §12.3.5.</remarks>
 public readonly struct PdfRgbColor : IEquatable<PdfRgbColor>
 {
     /// <summary>Initializes a new instance of the <see cref="PdfRgbColor"/> struct.</summary>

@@ -12,6 +12,7 @@ namespace Broadside.Filters.Dct;
 /// software (see THIRD-PARTY-NOTICES.txt). The output of <c>jpeg_fdct_islow</c> is scaled up by 8, so the divisor of each
 /// coefficient is 8 Q. Changes: C# syntax, 32-bit arithmetic throughout (libjpeg's <c>JLONG</c>); the reciprocal multiply gives
 /// round(|S| / 8Q) with the sign restored, the same as libjpeg's division for every input an 8-bit FDCT produces.
+/// <para>ISO 32000-2 §7.4.8.</para>
 /// </remarks>
 internal static class ForwardDct
 {

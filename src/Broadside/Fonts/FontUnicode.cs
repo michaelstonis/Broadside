@@ -5,7 +5,7 @@ using Broadside.Parsing;
 namespace Broadside.Fonts;
 
 /// <summary>The character-code-to-Unicode state shared by the font kinds: the ToUnicode CMap and where it came from.</summary>
-/// <remarks>ISO 32000-2 §9.10.2 and §9.10.3. Immutable once built; a font rebuilds it when a source changes.</remarks>
+/// <remarks>ISO 32000-2 §9.10.2 and §9.10.3. Immutable once built; a font rebuilds it when a source changes. Also §9.10.1.</remarks>
 internal abstract class FontUnicode
 {
     /// <summary>The most UTF-16 units one code maps to: a 512-byte ToUnicode destination plus an incremented scalar, or a long glyph name.</summary>
@@ -46,6 +46,7 @@ internal abstract class FontUnicode
 }
 
 /// <summary>The Unicode text of the 256 codes of a simple font (§9.10.2: ToUnicode, then the glyph name through the Adobe Glyph List).</summary>
+/// <remarks>ISO 32000-2 §9.10.2.</remarks>
 internal sealed class SimpleFontUnicode : FontUnicode
 {
     private static readonly Entry ReplacementEntry = new(Replacement.ToString(), UnicodeSource.Unmapped, Flags.None);
@@ -144,6 +145,7 @@ internal sealed class SimpleFontUnicode : FontUnicode
 /// The Unicode state of a Type 0 font (§9.10.2): its ToUnicode CMap, and for a font of a known character collection the
 /// Registry-Ordering-UCS2 table its CIDs map through.
 /// </summary>
+/// <remarks>ISO 32000-2 §9.10.2.</remarks>
 internal sealed class Type0FontUnicode : FontUnicode
 {
     private static readonly string[] Collections = ["GB1", "CNS1", "Japan1", "Korea1", "KR"];

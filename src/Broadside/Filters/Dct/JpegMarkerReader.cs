@@ -13,6 +13,7 @@ namespace Broadside.Filters.Dct;
 /// ITU-T T.81 Annex B: §B.1.1.2 and §B.1.1.3 (markers, fill bytes), §B.2.1 (Figure B.2, the order of segments), §B.2.2 (frame
 /// header), §B.2.3 (scan header), §B.2.4 (DQT, DHT, DAC, DRI, APPn), §B.2.5 (DNL); §G.1.1.1 (progressive scan parameters);
 /// Adobe Technical Note #5116 §18 (APP14). Every deviation is reported through the frame, once per code.
+/// <para>ISO 32000-2 §7.4.8.</para>
 /// </remarks>
 internal static class JpegMarkerReader
 {

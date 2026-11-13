@@ -21,6 +21,7 @@ namespace Broadside.Graphics;
 /// A converter is built once per document, source, conversion and defaults, and again when a COS object it was built from changes or an object is added or removed (§7.3.10).
 /// It is immutable, safe to use from several threads at once, and allocates nothing per call.
 /// </para>
+/// <para>ISO 32000-2 §8.7.4.4 and §11.7.5.</para>
 /// </remarks>
 public sealed class PdfColorConverter
 {

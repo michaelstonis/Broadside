@@ -11,6 +11,7 @@ namespace Broadside.Filters.Jbig2;
 /// shared by every image that names the stream, on any thread: the results are immutable and the deviations are replayed into each
 /// image's context.
 /// </summary>
+/// <remarks>ISO 32000-2 §7.4.7.</remarks>
 internal sealed class Jbig2Globals
 {
     private static readonly ConditionalWeakTable<CosStream, Jbig2Globals> Cache = [];

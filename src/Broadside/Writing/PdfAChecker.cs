@@ -65,6 +65,9 @@ internal readonly record struct PdfAViolation(string Rule, string Message, CosRe
 /// normal appearance is a stream (6.3.3-3), XMP metadata of any object but the catalog (6.6.2.3.1-1, not verified: reported),
 /// optional content configurations (6.9-1 to 6.9-4), PDF/A-3's F and UF (6.8-2) and a document with no pages (6.1.1-1).
 /// </para>
+/// <para>ISO 19005-2 §6.1.2, §6.1.3, §6.1.7, §6.1.10, §6.2.2, §6.2.3, §6.2.4.3, §6.2.5, §6.2.8, §6.2.9, §6.2.10, §6.2.11, §6.3, §6.4, §6.5, §6.8, §6.9, §6.10 and §6.11.</para>
+/// <para>ISO 19005-3 §6.1.2, §6.2.11 and §6.8.</para>
+/// <para>ISO 19005-4 §6.1.2, §6.1.3, §6.1.6, §6.1.9, §6.2.3, §6.2.4.3, §6.2.5, §6.2.7, §6.2.8, §6.2.9, §6.2.10, §6.3, §6.4, §6.6, §6.9, §6.10, §6.11 and §6.12.</para>
 /// </remarks>
 internal sealed partial class PdfAChecker
 {

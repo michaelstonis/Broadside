@@ -18,6 +18,7 @@ namespace Broadside.Images;
 /// <para>
 /// Allocates the reduced image (pooled) and two pooled rows per call; nothing per row or sample.
 /// </para>
+/// <para>ISO 32000-2 §8.9.5.1.</para>
 /// </remarks>
 internal static class ImageReducer
 {

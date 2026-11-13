@@ -14,6 +14,9 @@ public readonly record struct PdfARuleViolation(string Rule, string Message);
 /// ISO 19005-2, -3 and -4 (veraPDF PDF/A-2B, -2U, -3B, -3U, -4 and -4F validation profiles). The same lists are recorded on
 /// <see cref="PdfDocument.Diagnostics"/>: <c>PdfAConverted</c> and <c>PdfANotConverted</c> (Information) and <c>PdfANonConformant</c>
 /// (Warning).
+/// <para>ISO 19005-2 §6.1.7, §6.2.11, §6.3, §6.4, §6.5, §6.6, §6.8 and §6.9.</para>
+/// <para>ISO 19005-3 §6.8.</para>
+/// <para>ISO 19005-4 §6.2.10 and §6.10.</para>
 /// </remarks>
 public sealed class PdfAConversion
 {

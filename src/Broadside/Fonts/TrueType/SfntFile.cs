@@ -13,6 +13,7 @@ namespace Broadside.Fonts.TrueType;
 /// <remarks>
 /// OpenType specification, "OpenType font file": table directory and TTC header. Table checksums are not verified (real files carry
 /// wrong ones and no reader checks them). Offsets are from the start of the file, also inside a collection.
+/// <para>ISO 32000-2 §9.9.1.</para>
 /// </remarks>
 internal sealed class SfntFile
 {

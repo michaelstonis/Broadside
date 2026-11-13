@@ -13,7 +13,10 @@ namespace Broadside.Content;
 /// The run a processor is called from: the current graphics state, what is being interpreted, and how to resolve clip handles.
 /// One instance serves a whole run; it is valid only during the run's callbacks.
 /// </summary>
-/// <remarks>ISO 32000-2 §7.8.2 (content streams), §7.8.3 (resources), §8.4 (graphics state), §8.3.2 (coordinate spaces).</remarks>
+/// <remarks>
+/// <para>ISO 32000-2 §7.8.2 (content streams), §7.8.3 (resources), §8.4 (graphics state), §8.3.2 (coordinate spaces).</para>
+/// <para>ISO 32000-2 §8.5.1, §9.4.1 and §11.5.</para>
+/// </remarks>
 public sealed class ContentContext
 {
     private readonly ContentInterpreter _interpreter;

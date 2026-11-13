@@ -19,6 +19,7 @@ namespace Broadside.Graphics.Colors;
 /// <para>
 /// pdf.js approximates CalGray and Lab differently, so renders differ slightly from it; this is the colorimetric result.
 /// </para>
+/// <para>ISO 32000-2 §8.6.5.3.</para>
 /// </remarks>
 internal sealed class CieConverter : IColorConverter
 {

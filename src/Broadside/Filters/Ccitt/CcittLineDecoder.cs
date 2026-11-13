@@ -55,6 +55,7 @@ internal enum CcittPatternEnd : byte
 /// on at the start of the next line (T.6 §2.3.1: the end of one line and the start of the next "are concatenated to one pattern"),
 /// so the decoder keeps the mode and the rest of the pattern across lines; an EOL, a new block or damage ends the mode.
 /// </para>
+/// <para>ISO 32000-2 §7.4.6.</para>
 /// </remarks>
 internal ref struct CcittLineDecoder
 {

@@ -26,6 +26,7 @@ internal enum JpegScanKind
 /// <remarks>
 /// ITU-T T.81 §B.2.3, Table B.3 (Ns, Csj, Ss, Se, Ah, Al); §G.1.2.2 (EOBRUN); §F.1.4.4 and §G.1.3 (statistics areas: Table F.4,
 /// 64 DC bins, and Table F.5, 256 AC bins, per conditioning table).
+/// <para>ISO 32000-2 §7.4.8.</para>
 /// </remarks>
 internal sealed class JpegScan
 {

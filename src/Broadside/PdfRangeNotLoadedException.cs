@@ -17,6 +17,7 @@ namespace Broadside;
 /// <para>
 /// A read that fails this way leaves nothing cached: after the prefetch, the same read succeeds.
 /// </para>
+/// <para>ISO 32000-2 §7.5.1.</para>
 /// </remarks>
 public sealed class PdfRangeNotLoadedException : InvalidOperationException
 {

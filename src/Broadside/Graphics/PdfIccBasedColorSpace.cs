@@ -20,6 +20,8 @@ namespace Broadside.Graphics;
 /// space gives way to DeviceGray, DeviceRGB or DeviceCMYK by component count. A <c>Range</c> that
 /// is not 2 × N numbers reads as its default.
 /// </para>
+/// <para>ISO 19005-2 §6.2.3.</para>
+/// <para>ISO 32000-2 §8.6.5.1.</para>
 /// </remarks>
 public sealed class PdfIccBasedColorSpace : PdfColorSpace
 {

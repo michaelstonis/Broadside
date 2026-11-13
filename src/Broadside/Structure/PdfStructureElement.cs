@@ -18,6 +18,7 @@ namespace Broadside.Structure;
 /// diagnostic, and the hierarchy is cut below 256 levels (<c>StructTreeDepthExceeded</c>), so a recursive walk over
 /// <see cref="Children"/> always ends.
 /// </para>
+/// <para>ISO 32000-2 §14.8.1.</para>
 /// </remarks>
 public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStructureElement>
 {

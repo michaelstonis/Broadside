@@ -9,6 +9,7 @@ namespace Broadside.Filters.Jbig2;
 /// destination bitmap's. AT locations are stored as <see langword="int"/>: the pattern dictionary procedure (§6.7.5) places A1 at
 /// (-HDPW, 0), outside Figure 7's range.
 /// </summary>
+/// <remarks>ISO 32000-2 §7.4.7.</remarks>
 internal readonly struct Jbig2GenericParameters
 {
     /// <summary>Gets the template, 0 to 3 (GBTEMPLATE).</summary>
@@ -66,6 +67,7 @@ internal readonly struct Jbig2GenericParameters
 /// previous one: two new pixels from the rows above per step, nominal AT pixels included; moved AT pixels override their bit.
 /// </para>
 /// <para>Allocates nothing: the destination, the contexts and the skip bitmap belong to the caller.</para>
+/// <para>ISO 32000-2 §7.4.7.</para>
 /// </remarks>
 internal static class Jbig2GenericRegion
 {

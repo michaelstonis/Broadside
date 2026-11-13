@@ -24,6 +24,7 @@ namespace Broadside.Graphics;
 /// that cannot be used (a missing or Pattern colour space, a missing function, malformed coordinates) has <see cref="IsValid"/>
 /// <see langword="false"/>, paints nothing, and the reason is in the document's diagnostics.
 /// </para>
+/// <para>ISO 32000-2 §8.7.4.1.</para>
 /// </remarks>
 public abstract class PdfShading
 {

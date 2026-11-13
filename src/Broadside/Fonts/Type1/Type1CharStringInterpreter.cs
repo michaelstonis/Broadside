@@ -26,6 +26,7 @@ namespace Broadside.Fonts.Type1;
 /// 48 operands, 10 subroutine levels (Type 1 Font Format §8.1), and <see cref="FontProgramContext.MaxCharStringOperators"/> operators
 /// and operands per glyph, subroutines and <c>seac</c> components included.
 /// </para>
+/// <para>ISO 32000-2 §9.9.1.</para>
 /// </remarks>
 internal ref struct Type1CharStringInterpreter
 {

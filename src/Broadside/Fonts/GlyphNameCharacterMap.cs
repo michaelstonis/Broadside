@@ -5,7 +5,10 @@ namespace Broadside.Fonts;
 /// List (else, for names such as <c>a1</c>-<c>a191</c>, the ITC Zapf Dingbats list) maps to one character maps that character to the
 /// glyph; the lowest glyph id wins.
 /// </summary>
-/// <remarks>Adobe Glyph List Specification; ISO 32000-2 §9.10.2 (glyph names to Unicode). Reported as the (3, 1) Unicode map.</remarks>
+/// <remarks>
+/// <para>Adobe Glyph List Specification; ISO 32000-2 §9.10.2 (glyph names to Unicode). Reported as the (3, 1) Unicode map.</para>
+/// <para>ISO 32000-2 §9.9.2.</para>
+/// </remarks>
 internal sealed class GlyphNameCharacterMap : FontCharacterMap
 {
     private readonly Dictionary<int, int> _glyphs;

@@ -16,6 +16,7 @@ namespace Broadside.Graphics;
 /// Any six numbers make a matrix, including singular ones (scaling by zero): they are legal operands and map everything to a line
 /// or a point. <see cref="TryInvert"/> reports whether an inverse exists.
 /// </para>
+/// <para>ISO 32000-2 §8.3.2.</para>
 /// </remarks>
 public readonly struct Matrix : IEquatable<Matrix>
 {

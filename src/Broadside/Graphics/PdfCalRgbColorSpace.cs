@@ -11,6 +11,7 @@ namespace Broadside.Graphics;
 /// ISO 32000-2 §8.6.5.3, Table 63: <c>[/CalRGB dictionary]</c>. X = XA·A^GR + XB·B^GG + XC·C^GB, and likewise Y and Z, with
 /// <c>Matrix</c> = [XA YA ZA XB YB ZB XC YC ZC]. Missing or invalid entries read as their defaults (a white point as D65), each
 /// recorded once.
+/// <para>ISO 32000-2 §8.6.5.1.</para>
 /// </remarks>
 public sealed class PdfCalRgbColorSpace : PdfColorSpace
 {

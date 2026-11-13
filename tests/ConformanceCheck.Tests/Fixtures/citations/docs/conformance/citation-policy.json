@@ -1,0 +1,17 @@
+{
+  // Fixture for tools/ConformanceCheck.
+  "citationForms": [
+    { "name": "ISO 32000-2 clause", "pattern": "ISO 32000-2 §\\d" },
+    { "name": "ITU-T recommendation", "pattern": "ITU-T [A-Z]\\.\\d+" }
+  ],
+  "maps": [
+    { "map": "x.md", "name": "ISO 32000-2", "document": "ISO 32000-2" }
+  ],
+  "packages": [
+    { "name": "Foo", "checked": true },
+    { "name": "Bar", "checked": false, "reason": "Fixture: an unchecked package." }
+  ],
+  "exemptions": [
+    { "symbol": "Foo.FooOptions", "reason": "Options." }
+  ]
+}

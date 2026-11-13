@@ -12,6 +12,7 @@ namespace Broadside.Filters.Dct;
 /// <remarks>
 /// ITU-T T.81 §B.2.4.1 (DQT, Table B.4), §B.2.4.2 (DHT, Table B.5), §B.2.4.3 (DAC, Table B.6; defaults L = 0, U = 1, Kx = 5 from
 /// §F.1.4.4.1.2 and §F.1.4.4.2). A later definition replaces an earlier one for the scans after it.
+/// <para>ISO 32000-2 §7.4.8.</para>
 /// </remarks>
 internal sealed class JpegTables
 {

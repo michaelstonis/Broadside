@@ -21,6 +21,7 @@ namespace Broadside.Fonts;
 /// <see cref="MeasureWidth(ReadOnlySpan{char}, double, bool)"/> gives the advance of text without character spacing, word spacing or horizontal scaling, which the
 /// canvas's text state adds when the text is shown (§9.4.4: <c>tx = ((w0 − Tj/1000) × Tfs + Tc + Tw) × Th</c>).
 /// </para>
+/// <para>ISO 32000-2 §9.2.2 and §9.6.2.2.</para>
 /// </remarks>
 public abstract class PdfCanvasFont
 {

@@ -31,6 +31,7 @@ internal sealed record ValidationParameters(
 /// §12.8.3.4.5 to §12.8.3.4.8 for the signing-certificate check, the time in the past and revocation), §12.8.5 (<c>ETSI.RFC3161</c>
 /// document timestamps, whose token's message imprint is the byte range digest); RFC 5652 §5.4 and §5.6; RFC 3161 §2.3, §2.4 and
 /// Appendix A; RFC 5035 §3.
+/// <para>ISO/TS 32002 §5.1.4.</para>
 /// </remarks>
 internal static class SignatureValidator
 {

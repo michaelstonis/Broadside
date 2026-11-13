@@ -9,6 +9,7 @@ namespace Broadside.Graphics;
 /// <remarks>
 /// ISO 32000-2 §10.5 and Table 57 (<c>TR</c>, <c>TR2</c>; deprecated in PDF 2.0). Each function takes one input and gives one
 /// output, both in 0 to 1. The device default (<c>TR2 /Default</c>) is a graphics state without a transfer function.
+/// <para>ISO 32000-2 §8.4.1 and §8.4.5.</para>
 /// </remarks>
 public sealed class PdfTransferFunction
 {

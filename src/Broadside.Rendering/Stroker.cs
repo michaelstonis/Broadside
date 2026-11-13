@@ -33,6 +33,7 @@ namespace Broadside.Rendering;
 /// Hot path (CLAUDE.md): working arrays grow by doubling and are kept, so a warm stroker allocates nothing per subpath, segment, dash
 /// or join.
 /// </para>
+/// <para>ISO 32000-2 §10.7.4.</para>
 /// </remarks>
 internal sealed class Stroker
 {

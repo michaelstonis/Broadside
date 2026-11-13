@@ -13,6 +13,7 @@ namespace Broadside.Layout;
 /// ISO 32000-2 §14.8.4 and ISO/TS 32005; the node kinds and the structure types they come from are listed on
 /// <see cref="LayoutNodeKind"/>. A node holds the content of its descendants: its <see cref="Extents"/> and <see cref="Text"/> cover
 /// theirs. Immutable once its tree is built.
+/// <para>ISO/TS 32005 §5.6.</para>
 /// </remarks>
 public class LayoutNode
 {

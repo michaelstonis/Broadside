@@ -12,6 +12,7 @@ namespace Broadside.Fonts;
 /// <remarks>
 /// ISO 32000-2 §9.7.4.1 (Table 115) and §9.7.4.3. <c>W</c> and <c>W2</c> become interval tables (a range costs one entry however
 /// many CIDs it spans); where a CID is given twice, the first specification is used (§9.7.4.3). Immutable once built.
+/// <para>ISO 32000-2 §9.8.3.</para>
 /// </remarks>
 internal sealed class CidFontMetrics
 {

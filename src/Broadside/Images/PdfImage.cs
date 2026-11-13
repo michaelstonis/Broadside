@@ -27,6 +27,7 @@ namespace Broadside.Images;
 /// resampled here. Nothing is cached; each <see cref="Decode()"/> decodes again.
 /// </para>
 /// <para>Thread-safe for concurrent reads while the document is not mutated.</para>
+/// <para>PDF 2.0 Application Note 002 §2.</para>
 /// </remarks>
 public sealed class PdfImage
 {

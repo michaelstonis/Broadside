@@ -14,6 +14,7 @@ namespace Broadside.Security;
 /// The 32-byte <c>KDFSalt</c> the integrity MAC derives its key with (ISO/TS 32004 §5.1.1, §6.4), or <see langword="null"/> when the
 /// file carries no MAC.
 /// </param>
+/// <remarks>ISO 32000-2 §7.6.3.</remarks>
 internal sealed record StandardEncryption(CosDictionary Dictionary, CryptFilter Filter, bool EncryptMetadata, byte[]? KdfSalt)
 {
     private static readonly CosName StandardFilterName = new("StdCF");

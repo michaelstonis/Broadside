@@ -6,7 +6,10 @@ using Broadside.Parsing;
 namespace Broadside.Annotations;
 
 /// <summary>An appearance characteristics dictionary: what a processor needs to construct a widget's or screen's appearance. A live view over <c>MK</c>.</summary>
-/// <remarks>ISO 32000-2 §12.5.6.19, Table 192. Captions and icons apply to button fields; the colours and rotation to any widget.</remarks>
+/// <remarks>
+/// <para>ISO 32000-2 §12.5.6.19, Table 192. Captions and icons apply to button fields; the colours and rotation to any widget.</para>
+/// <para>ISO 32000-2 §12.5.6.18.</para>
+/// </remarks>
 public sealed class PdfAppearanceCharacteristics
 {
     private readonly PdfAnnotation _owner;

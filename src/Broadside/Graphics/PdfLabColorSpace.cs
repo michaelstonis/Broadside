@@ -11,6 +11,7 @@ namespace Broadside.Graphics;
 /// ISO 32000-2 §8.6.5.4, Table 64: <c>[/Lab dictionary]</c>. M = (L* + 16) / 116, L = M + a* / 500, N = M − b* / 200;
 /// X = XW·g(L), Y = YW·g(M), Z = ZW·g(N), with g(x) = x³ for x ≥ 6/29, else 108/841·(x − 4/29). A missing or invalid
 /// <c>Range</c> reads as [−100 100 −100 100]; the initial colour is 0 0 0 clipped into the ranges.
+/// <para>ISO 32000-2 §8.6.5.1.</para>
 /// </remarks>
 public sealed class PdfLabColorSpace : PdfColorSpace
 {

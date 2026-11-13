@@ -25,6 +25,7 @@ namespace Broadside.Parsing;
 /// range is searched once, on the first lookup that falls in it, and the search is a pure function of the file's bytes, so a
 /// search a remote read interrupts (issue #207) is simply repeated.
 /// </para>
+/// <para>ISO 32000-2 Annex F.4.2, Annex F.4.3 and Annex G.4.</para>
 /// </remarks>
 internal sealed class HintObjectLocator : IObjectLocator
 {

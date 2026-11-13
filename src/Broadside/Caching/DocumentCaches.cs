@@ -26,6 +26,7 @@ internal sealed record CacheBudgets(long Content, long Images, long Glyphs, long
 /// <remarks>
 /// Safe for concurrent renders of an unchanged document (CLAUDE.md thread-safety contract): each cache has its own lock, and two
 /// threads missing the same entry both build it, the later addition replacing the earlier (both are equal, so either is right).
+/// <para>ISO 32000-2 §7.8.2 and §8.5.3.</para>
 /// </remarks>
 internal sealed class DocumentCaches(CacheBudgets budgets)
 {

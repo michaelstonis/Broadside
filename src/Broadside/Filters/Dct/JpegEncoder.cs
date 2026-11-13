@@ -23,7 +23,10 @@ internal enum JpegColorLayout
 }
 
 /// <summary>One quantization table and the divisors that apply it, for one quality setting.</summary>
-/// <remarks>ITU-T T.81 §A.3.4, §B.2.4.1 (DQT), Annex K.1 (Tables K.1 and K.2); the IJG quality scaling of libjpeg <c>jcparam.c</c>.</remarks>
+/// <remarks>
+/// <para>ITU-T T.81 §A.3.4, §B.2.4.1 (DQT), Annex K.1 (Tables K.1 and K.2); the IJG quality scaling of libjpeg <c>jcparam.c</c>.</para>
+/// <para>ISO 32000-2 §7.4.8.</para>
+/// </remarks>
 internal sealed class JpegQuantization
 {
     /// <summary>Table K.1, luminance, natural order.</summary>
@@ -92,6 +95,7 @@ internal sealed class JpegQuantization
 /// 2 x 1 or 2 x 2 samples with libjpeg's alternating rounding bias (0, 1 and 1, 2). Colour conversion is libjpeg's
 /// <c>jccolor.c</c> 16-bit fixed point (Rec. 601, full range). The Independent JPEG Group's software, see THIRD-PARTY-NOTICES.txt.
 /// </para>
+/// <para>ISO 32000-2 §7.4.8.</para>
 /// </remarks>
 internal static class JpegEncoder
 {

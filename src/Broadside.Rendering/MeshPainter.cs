@@ -12,6 +12,7 @@ namespace Broadside.Rendering;
 /// own points). It is a coverage sink of <see cref="ScanlineRasterizer.Paint"/>, so the runs it receives are already cut by the
 /// clipping path (§8.5.4), and it composites through the paint's <see cref="Compositor"/> (constant alpha and blend mode, §11.3).
 /// Hot path: allocates nothing; a table read and a composite per pixel.
+/// <para>ISO 32000-2 §8.7.4.5.7 and §8.7.4.5.8.</para>
 /// </remarks>
 internal readonly ref struct MeshPainter : ICoverageSink
 {

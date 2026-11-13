@@ -23,6 +23,7 @@ namespace Broadside.Images;
 /// Built by a <see cref="DecodedImageBuilder"/>, then immutable: safe for concurrent readers until disposed. Disposing while another
 /// thread reads is a caller error.
 /// </para>
+/// <para>ISO 32000-2 §8.9.1.</para>
 /// </remarks>
 public sealed class DecodedImage : IDisposable
 {

@@ -11,6 +11,7 @@ namespace Broadside.Graphics;
 /// A key is reused only while its reference still resolves to the object created for it (an object removed or replaced through
 /// <see cref="PdfDocument.RemoveObject"/> or <see cref="PdfDocument.AddObject"/> is created again). Used only by mutations, which are
 /// single-threaded (the document's concurrency contract), so it takes no lock.
+/// <para>ISO 32000-2 §8.4.5.</para>
 /// </remarks>
 internal sealed class DrawingCache(PdfDocument document)
 {

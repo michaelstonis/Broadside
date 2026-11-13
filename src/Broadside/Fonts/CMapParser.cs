@@ -25,6 +25,7 @@ namespace Broadside.Fonts;
 /// <c>beginbfchar</c>/<c>beginbfrange</c> keep their UTF-16BE strings (and array forms) in <see cref="CMapFile.Bf"/> instead of
 /// reading them as CIDs.
 /// </para>
+/// <para>ISO 32000-2 §9.7.5.</para>
 /// </remarks>
 internal static class CMapParser
 {

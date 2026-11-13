@@ -1,7 +1,7 @@
 namespace Broadside.Fonts;
 
 /// <summary>What <see cref="CMapParser"/> reads from a CMap file, before the parent is resolved and the tables are built.</summary>
-/// <remarks>Adobe TN 5014 §7.</remarks>
+/// <remarks>Adobe TN 5014 §7. ISO 32000-2 §9.7.5.</remarks>
 internal sealed class CMapFile
 {
     /// <summary>Gets or sets the <c>CMapName</c>.</summary>

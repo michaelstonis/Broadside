@@ -16,6 +16,8 @@ namespace Broadside.Graphics;
 /// <see cref="Decode"/> returns the content's bytes through the document's filters; <see cref="RewriteContent(ContentEditor)"/> runs it
 /// through an editor and stores the edited content.
 /// </para>
+/// <para>ISO 32000-2 §8.10.2.</para>
+/// <para>PDF 2.0 Application Note 002 §2.</para>
 /// </remarks>
 public sealed class PdfFormXObject
 {

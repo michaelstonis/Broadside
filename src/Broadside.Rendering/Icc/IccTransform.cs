@@ -19,6 +19,9 @@ namespace Broadside.Rendering.Icc;
 /// ISO 18619, see <see cref="IccBlackPoint"/>), each tristimulus value scaled and offset so the source black point lands on the
 /// destination's while the PCS white stays; otherwise nothing.
 /// </para>
+/// <para>ICC.1:2022 Annex F.2.</para>
+/// <para>ISO 32000-2 §8.6.5.5 and §8.6.5.8.</para>
+/// <para>PDF 2.0 Application Note 001 §BPC-1.</para>
 /// </remarks>
 internal abstract class IccTransform
 {

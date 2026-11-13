@@ -3,7 +3,7 @@ using System.Security.Cryptography.X509Certificates;
 namespace Broadside.Signatures;
 
 /// <summary>What the revocation data that was found says about one certificate.</summary>
-/// <remarks>RFC 6960 §2.2 (good, revoked, unknown); RFC 5280 §5.3 and §6.3.</remarks>
+/// <remarks>RFC 6960 §2.2 (good, revoked, unknown); RFC 5280 §5.3 and §6.3. ISO 32000-2 §12.8.1.</remarks>
 public enum PdfRevocationStatus
 {
     /// <summary>No CRL or OCSP response that applies at the validation time was found, or none was fetched.</summary>
@@ -20,7 +20,7 @@ public enum PdfRevocationStatus
 }
 
 /// <summary>The kind of revocation data a status comes from.</summary>
-/// <remarks>RFC 5280 §5 (CRL); RFC 6960 (OCSP).</remarks>
+/// <remarks>RFC 5280 §5 (CRL); RFC 6960 (OCSP). ISO 32000-2 §12.8.1.</remarks>
 public enum PdfRevocationSource
 {
     /// <summary>No revocation data applied.</summary>
@@ -40,6 +40,7 @@ public enum PdfRevocationSource
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §12.8.3.3.2, §12.8.3.4.6 to §12.8.3.4.8 and §12.8.4.3; RFC 5280 §5 and §6.3 (CRLs); RFC 6960 (OCSP).
+/// <para>ISO 32000-2 §12.8.1.</para>
 /// </remarks>
 public sealed class PdfCertificateRevocation
 {

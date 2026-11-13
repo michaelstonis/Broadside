@@ -22,6 +22,7 @@ namespace Broadside.Layout;
 /// the same interpreter run as the extraction's. Owner runs are wrapped at the shallowest level where they nest properly with
 /// <c>BT</c>/<c>ET</c> and existing marked content (§14.6.1); a container holding several owners is entered and its children are
 /// wrapped instead. Existing artifact sequences are left as they are.
+/// <para>ISO 32000-2 §14.8.1.</para>
 /// </remarks>
 internal sealed class AutoTagger : ContentEditor
 {

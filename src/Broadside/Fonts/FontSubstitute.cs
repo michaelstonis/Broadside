@@ -12,6 +12,7 @@ namespace Broadside.Fonts;
 /// scales it horizontally by the ratio of the two.
 /// </para>
 /// <para>The glyph a character code selects in <see cref="Program"/> is <see cref="PdfType1Font.GetGlyphId"/> or <see cref="PdfTrueTypeFont.GetGlyphId"/>.</para>
+/// <para>ISO 32000-2 §9.7.4.</para>
 /// </remarks>
 public sealed class FontSubstitute
 {

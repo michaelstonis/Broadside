@@ -12,6 +12,7 @@ namespace Broadside.Annotations;
 /// replies and the structure tree's references. Every change of one call is recorded in a <see cref="CosChangeLog"/> and undone
 /// when the call fails part way.
 /// </summary>
+/// <remarks>ISO 32000-2 §12.5.2.</remarks>
 internal static class AnnotationEditing
 {
     private static readonly CosName Note = new("Note");

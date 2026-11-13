@@ -10,6 +10,7 @@ namespace Broadside.Graphics;
 /// <remarks>
 /// ISO 32000-2 §8.6.5.2, Table 62: <c>[/CalGray dictionary]</c>. A maps to X = XW·A^G, Y = YW·A^G, Z = ZW·A^G. A missing or
 /// invalid white point reads as D65, a negative black point as [0 0 0] and a gamma that is not positive as 1, each recorded once.
+/// <para>ISO 32000-2 §8.6.5.1.</para>
 /// </remarks>
 public sealed class PdfCalGrayColorSpace : PdfColorSpace
 {

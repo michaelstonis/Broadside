@@ -22,6 +22,7 @@ namespace Broadside.Graphics;
 /// is kept as written. The colours (§8.6) are <see cref="PdfColor"/> values. Numeric parameters are always within their valid ranges:
 /// the interpreter clips out-of-range operands and records a diagnostic (§8.4.1).
 /// </para>
+/// <para>ISO 32000-2 §8.4.4 and §11.6.3.</para>
 /// </remarks>
 [SuppressMessage("Performance", "CA1815:Override equals and operator equals on value types", Justification = "A snapshot of interpreter state, never compared; value equality over every parameter would mislead.")]
 public struct GraphicsState

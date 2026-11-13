@@ -18,6 +18,7 @@ namespace Broadside.Fonts;
 /// encoding and widths of a simple font) are cached and rebuilt when one of the dictionaries or arrays they come from changes. A
 /// font is safe for concurrent reads while nobody mutates the document.
 /// </para>
+/// <para>ISO 32000-2 §9.2.2 and §9.10.1.</para>
 /// </remarks>
 public abstract class PdfFont
 {

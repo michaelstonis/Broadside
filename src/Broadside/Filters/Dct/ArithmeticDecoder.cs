@@ -24,6 +24,7 @@ namespace Broadside.Filters.Dct;
 /// A marker inside the data ends it: zeros are supplied from there, which is legal in arithmetic coding (the decoder may need
 /// more bits than the encoder wrote, §D.2.6). The end of the data does the same and is recorded as <see cref="Exhausted"/>.
 /// </para>
+/// <para>ISO 32000-2 §7.4.8.</para>
 /// </remarks>
 internal ref struct ArithmeticDecoder
 {

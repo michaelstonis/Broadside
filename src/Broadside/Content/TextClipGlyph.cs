@@ -11,6 +11,7 @@ namespace Broadside.Content;
 /// <remarks>
 /// ISO 32000-2 §9.3.6, Table 104: in modes 4 to 7 the glyph outlines of a text object are accumulated and, at <c>ET</c>, intersected
 /// with the clipping path under the nonzero winding rule. Type 3 glyphs never clip.
+/// <para>ISO 32000-2 §8.5.4 and §9.2.3.</para>
 /// </remarks>
 [SuppressMessage("Performance", "CA1815:Override equals and operator equals on value types", Justification = "A record of interpreter output, never compared.")]
 public readonly struct TextClipGlyph

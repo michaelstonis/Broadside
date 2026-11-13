@@ -26,6 +26,8 @@ namespace Broadside;
 /// File names are untrusted: they may hold <c>..</c>, absolute paths, backslashes, NUL or reserved device names. The library never
 /// combines them with a file-system path; <see cref="SafeFileName"/> gives a sanitised last component for callers that do.
 /// </para>
+/// <para>ISO 32000-2 §12.5.6.15.</para>
+/// <para>PDF 2.0 Application Note 002 §2.</para>
 /// </remarks>
 public sealed class PdfFileSpecification
 {

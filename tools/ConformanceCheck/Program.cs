@@ -32,9 +32,9 @@ internal static class Program
         ConformanceReport report;
         try
         {
-            report = ConformanceChecker.Check(root, options.Strict);
+            report = ConformanceChecker.Check(root, options.Strict, options.Citations ? new CitationOptions(options.Configuration) : null);
         }
-        catch (DirectoryNotFoundException ex)
+        catch (Exception ex) when (ex is DirectoryNotFoundException or FileNotFoundException or InvalidDataException)
         {
             Console.Error.WriteLine(ex.Message);
             return 2;
@@ -74,6 +74,10 @@ internal sealed class Options
 
     public bool ShowHelp { get; private set; }
 
+    public bool Citations { get; private set; }
+
+    public string Configuration { get; private set; } = "debug";
+
     public static Options? Parse(string[] args, TextWriter errors)
     {
         ArgumentNullException.ThrowIfNull(args);
@@ -99,6 +103,18 @@ internal sealed class Options
                     break;
                 case "--strict":
                     options.Strict = true;
+                    break;
+                case "--citations":
+                    options.Citations = true;
+                    break;
+                case "--configuration":
+                    if (i + 1 >= args.Length)
+                    {
+                        errors.WriteLine("--configuration needs a name.");
+                        return null;
+                    }
+
+                    options.Configuration = args[++i];
                     break;
                 case "-h":
                 case "--help":
@@ -134,6 +150,11 @@ internal sealed class Options
         output.WriteLine("  --root <dir>   Repository root (default: the nearest parent of the current directory holding Broadside.slnx).");
         output.WriteLine("  --summary      Also print a Markdown table of row counts per status for every file, with a total.");
         output.WriteLine("  --strict       Also fail partial rows that have an empty Tests or Notes cell.");
+        output.WriteLine("  --citations    Also check clause citations in the packages' XML documentation (build them first): every");
+        output.WriteLine("                 public type of a checked package cites a specification or is exempt, and every row's");
+        output.WriteLine("                 implementing types cite that row's clause. Rules: docs/conformance/citation-policy.json.");
+        output.WriteLine("  --configuration <name>");
+        output.WriteLine("                 Build configuration whose artifacts/bin output --citations reads (default: debug).");
         output.WriteLine("  -h, --help     Show this help.");
         output.WriteLine();
         output.WriteLine("Exit code: 0 when the map is valid, 1 when any rule fails, 2 for a usage or environment error.");

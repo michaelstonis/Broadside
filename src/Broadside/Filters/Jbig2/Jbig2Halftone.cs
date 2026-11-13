@@ -12,6 +12,7 @@ namespace Broadside.Filters.Jbig2;
 /// A decoded pattern dictionary segment (ITU-T T.88 §7.4.4, type 16): GRAYMAX + 1 patterns of HDPW x HDPH, cut from one collective
 /// bitmap (§6.7.5). Immutable.
 /// </summary>
+/// <remarks>ISO 32000-2 §7.4.7.</remarks>
 internal sealed class Jbig2PatternDictionary
 {
     private Jbig2PatternDictionary(Jbig2Image[] patterns, int width, int height)
@@ -97,6 +98,7 @@ internal sealed class Jbig2PatternDictionary
 }
 
 /// <summary>The halftone region segment's data header fields (ITU-T T.88 §7.4.5.1) after its region information.</summary>
+/// <remarks>ISO 32000-2 §7.4.7.</remarks>
 internal readonly struct Jbig2HalftoneParameters
 {
     /// <summary>Gets a value indicating whether the gray-scale image is MMR coded (HMMR).</summary>
@@ -138,7 +140,10 @@ internal readonly struct Jbig2HalftoneParameters
 /// bitplanes decoded most significant first with the generic region procedure (one decoder, one GB context set for all planes) or
 /// MMR, then each grid cell's pattern drawn at <c>((HGX + m HRY + n HRX) &gt;&gt; 8, (HGY + m HRX - n HRY) &gt;&gt; 8)</c> with HCOMBOP.
 /// </summary>
-/// <remarks>Grid arithmetic is 64-bit with arithmetic shifts; gray values beyond the last pattern use the last one (reported).</remarks>
+/// <remarks>
+/// <para>Grid arithmetic is 64-bit with arithmetic shifts; gray values beyond the last pattern use the last one (reported).</para>
+/// <para>ISO 32000-2 §7.4.7.</para>
+/// </remarks>
 internal static class Jbig2HalftoneRegion
 {
     /// <summary>Decodes HTREG into <paramref name="region"/>, which the caller filled with HDEFPIXEL.</summary>

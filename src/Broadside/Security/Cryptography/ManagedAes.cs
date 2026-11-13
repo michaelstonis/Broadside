@@ -4,6 +4,7 @@ namespace Broadside.Security.Cryptography;
 /// <remarks>
 /// A direct transcription of FIPS 197 §5 with byte-wide S-box lookups. It is not hardened against cache-timing attacks; it reads
 /// documents on platforms that offer nothing else, and the base class library's AES is used wherever it exists.
+/// <para>ISO 32000-2 §7.6.3.</para>
 /// </remarks>
 internal sealed class ManagedAes
 {

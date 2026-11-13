@@ -36,6 +36,7 @@ public enum FlowStructureNamespace
 /// given with <see cref="WithRoleMapping"/>, or else to the type the element would have had (a paragraph to <c>P</c>, an image to
 /// <c>Figure</c>, a list to <c>L</c>, a table to <c>Table</c>, a run to <c>Span</c> or <c>Link</c>). Instances are immutable.
 /// </para>
+/// <para>ISO 32000-2 §14.8.2.5.</para>
 /// </remarks>
 public sealed class FlowTagging
 {

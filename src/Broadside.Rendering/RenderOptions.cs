@@ -25,6 +25,7 @@ namespace Broadside.Rendering;
 /// CoreGraphics, Direct2D, Android) anti-alias with platform code, so they match the rasterizer within the golden-image threshold,
 /// not bit for bit, whether or not <see cref="ForceOutlines"/> is set.
 /// </para>
+/// <para>ISO 32000-2 §9.4.3.</para>
 /// </remarks>
 public sealed class RenderOptions
 {

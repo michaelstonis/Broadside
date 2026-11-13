@@ -19,6 +19,7 @@ namespace Broadside.Rendering;
 /// Hot path: a value type, allocates nothing; Normal costs one multiply per run when the alpha is below 1, other modes a few dozen
 /// floating-point operations per pixel. The default value is opaque Normal, so painters that take one optionally are unchanged.
 /// </para>
+/// <para>ISO 32000-2 §8.6.7, §11.3.8 and §11.6.3.</para>
 /// </remarks>
 internal readonly struct Compositor
 {

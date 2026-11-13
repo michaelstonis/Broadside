@@ -18,6 +18,9 @@ namespace Broadside.Signatures;
 /// <see cref="IPdfSigner"/> over a key that can is the way. The platform cannot load a private key for an <c>id-RSASSA-PSS</c>
 /// certificate key either; sign such a certificate through an <see cref="IPdfSigner"/>.
 /// </para>
+/// <para>ISO 32000-2 §12.8.1 and §12.8.3.1.</para>
+/// <para>ISO/TS 32001 §5.1.4.</para>
+/// <para>ISO/TS 32002 §5.1.1.</para>
 /// </remarks>
 public sealed class PdfCertificateSigner : IPdfSigner
 {

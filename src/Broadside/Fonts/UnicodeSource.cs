@@ -6,6 +6,7 @@ namespace Broadside.Fonts;
 /// <see cref="CidCollection"/> (composite fonts of a known character collection). When they all fail "there is no way to determine
 /// what the character code represents"; Broadside then tries the font program's own Unicode "cmap" table
 /// (<see cref="FontProgram"/>, beyond the specification, as PDFBox does) before giving up (<see cref="Unmapped"/>).
+/// <para>ISO 32000-2 §9.10.1.</para>
 /// </remarks>
 public enum UnicodeSource
 {

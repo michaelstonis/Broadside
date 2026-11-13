@@ -7,6 +7,7 @@ using Broadside.Parsing;
 namespace Broadside.Fonts.Cff;
 
 /// <summary>CID-keyed CFF fonts: FDArray, per-Font-DICT Private DICTs and matrices, FDSelect, and CID to glyph id lookup (issue #54).</summary>
+/// <remarks>ISO 32000-2 §9.6.5.2.</remarks>
 internal sealed partial class CffFont
 {
     /// <summary>FDSelect values are Card8, so at most 256 Font DICTs are reachable (5176 §19).</summary>

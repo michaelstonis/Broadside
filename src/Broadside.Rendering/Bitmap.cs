@@ -13,6 +13,7 @@ namespace Broadside.Rendering;
 /// A pixel covers the half-open square of device space from its integer coordinates (ISO 32000-2 §10.7.4).
 /// </para>
 /// <para>Not thread-safe: one writer at a time. A bitmap over caller memory never frees it; disposing only detaches it.</para>
+/// <para>ISO 32000-2 §10.7.1.</para>
 /// </remarks>
 public sealed class Bitmap : IDisposable
 {

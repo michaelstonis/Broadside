@@ -5,6 +5,7 @@ namespace Broadside.Filters;
 /// ITU-T T.81 §A.1.1 (sampling factors H and V) and §A.2 (MCUs). Applies only where the encoder converts colour: RGB to YCbCr and
 /// CMYK to YCCK, whose two chrominance components are sampled at 1 x 1 while luminance (and K) take the factors below. Gray, and RGB
 /// or CMYK stored without a colour transform, are never subsampled.
+/// <para>ISO 32000-2 §7.4.8.</para>
 /// </remarks>
 public enum DctChromaSubsampling
 {

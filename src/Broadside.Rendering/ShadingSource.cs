@@ -20,6 +20,7 @@ namespace Broadside.Rendering;
 /// <para>
 /// The buffers are allocated on first use and kept, so a warm render allocates nothing.
 /// </para>
+/// <para>ISO 32000-2 §8.7.4.3 and §8.7.4.4.</para>
 /// </remarks>
 internal sealed class ShadingSource
 {

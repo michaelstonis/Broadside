@@ -14,6 +14,7 @@ namespace Broadside;
 /// local time with a zero offset and <see cref="HasTimeZone"/> is <see langword="false"/>: compare such a value as a local time, not
 /// as an instant.
 /// </para>
+/// <para>ISO 32000-2 §7.9.4 and §14.3.2.</para>
 /// </remarks>
 public readonly struct XmpDate : IEquatable<XmpDate>
 {

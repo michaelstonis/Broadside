@@ -35,6 +35,9 @@ namespace Broadside.Writing;
 /// glyph in it (rule 6.2.11.8-1 forbids the .notdef glyph), or when the program's widths differ from the font's by more than a
 /// unit for a code the content shows (rule 6.2.11.5-1 would fail, or the text would move).
 /// </para>
+/// <para>ISO 19005-2 §6.1.7, §6.2.2, §6.2.11, §6.3, §6.4, §6.5, §6.6, §6.8 and §6.9.</para>
+/// <para>ISO 19005-3 §6.8.</para>
+/// <para>ISO 19005-4 §6.2.10 and §6.10.</para>
 /// </remarks>
 internal sealed class PdfAConverter
 {

@@ -14,6 +14,7 @@ namespace Broadside.Signatures.Validation;
 /// RFC 5035 §3; time-stamp tokens from the id-aa-signatureTimeStampToken unsigned attribute (RFC 3161 Appendix A). Other unsigned
 /// attributes (a PDF MAC token per ISO/TS 32004 §6.5) are skipped. A malformed optional attribute is left out rather than failing the
 /// whole object.
+/// <para>ISO 32000-2 §12.8.5 and §12.8.5.2.</para>
 /// </remarks>
 internal sealed class CmsSignature
 {

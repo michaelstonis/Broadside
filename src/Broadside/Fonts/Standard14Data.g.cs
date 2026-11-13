@@ -99,7 +99,7 @@
 namespace Broadside.Fonts;
 
 /// <summary>Metrics of the Standard 14 fonts, from the Adobe Core 14 AFM files.</summary>
-/// <remarks>ISO 32000-2 §9.6.2.2; Adobe Technical Note #5004.</remarks>
+/// <remarks>ISO 32000-2 §9.6.2.2; Adobe Technical Note #5004. ISO 32000-2 §9.6.5.2, Annex D.2, Annex D.5 and Annex D.6.</remarks>
 internal static partial class Standard14Data
 {
     /// <summary>The number of glyph names in <see cref="GlyphNameTable.Names"/>; the stride of <see cref="Widths"/>.</summary>

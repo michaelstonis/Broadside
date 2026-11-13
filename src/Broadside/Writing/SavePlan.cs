@@ -50,6 +50,7 @@ namespace Broadside.Writing;
 /// An unfiltered stream that <see cref="PdfSaveOptions.StreamCompression"/> selects is written instead as a <c>FlateDecode</c> copy
 /// when that is smaller (§7.4.4), under its written number, with its references renumbered and a direct <c>Length</c> (§7.3.8.2).
 /// </para>
+/// <para>ISO 32000-2 Annex F.3.</para>
 /// </remarks>
 internal static class SavePlan
 {

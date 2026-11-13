@@ -24,6 +24,8 @@ namespace Broadside.Rendering.Icc;
 /// when that leaves a gray, RGB or CMYK profile with nothing to convert by, the profile is refused. An unusable BToA tag is treated
 /// as missing.
 /// </para>
+/// <para>ICC.1:2022 §7.4.</para>
+/// <para>ISO 32000-2 §8.6.5.5 and §8.6.5.8.</para>
 /// </remarks>
 public sealed class IccProfile
 {

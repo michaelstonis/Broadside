@@ -10,6 +10,7 @@ namespace Broadside.Content;
 /// ISO 32000-2 §14.6, Table 352. The property list is either inline (<see cref="InlineProperties"/>) or named in the resources'
 /// <c>Properties</c> subdictionary (<see cref="Properties"/>). Declared with the content interpreter's processor surface
 /// (issue #55); reported from issue #56. Members are added, never changed.
+/// <para>PDF 2.0 Application Note 002 §2.</para>
 /// </remarks>
 public readonly ref struct MarkedContentEvent
 {

@@ -20,6 +20,7 @@ namespace Broadside.Rendering;
 /// nothing else until the render completes, is cancelled, fails or is disposed. Dispose it to abandon it: the bitmap keeps the
 /// partial image and the rasterizer is free again, with nothing left behind that changes its next render.
 /// </para>
+/// <para>ISO 32000-2 §10.7.1.</para>
 /// </remarks>
 public sealed class ProgressiveRender : IDisposable
 {

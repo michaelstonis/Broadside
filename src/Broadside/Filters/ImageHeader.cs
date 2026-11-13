@@ -7,7 +7,7 @@ namespace Broadside.Filters;
 /// The size, components and precision the codestream declares: the number of samples in each row and of rows, the number of color
 /// components (without an opacity channel), and the precision of the components (the greatest when they differ).
 /// </param>
-/// <remarks>ISO 32000-2 §7.4.9 and §8.9.2. Returned by <see cref="IImageFilter.TryReadHeader"/>.</remarks>
+/// <remarks>ISO 32000-2 §7.4.9 and §8.9.2. Returned by <see cref="IImageFilter.TryReadHeader"/>. Also §8.9.5.1.</remarks>
 public readonly record struct ImageHeader(ImageGeometry Geometry)
 {
     /// <summary>Gets a value indicating whether the codestream also has an opacity channel.</summary>

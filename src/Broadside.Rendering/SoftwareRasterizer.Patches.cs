@@ -3,6 +3,7 @@ using Broadside.Graphics;
 namespace Broadside.Rendering;
 
 /// <summary>Coons and tensor-product patch mesh shadings (ISO 32000-2 §8.7.4.5.7, §8.7.4.5.8).</summary>
+/// <remarks>ISO 32000-2 §8.7.4.5.3, §8.7.4.5.4, §9.2.3, §9.6.4, §10.7.1, §11.6.7 and §11.7.2.</remarks>
 public sealed partial class SoftwareRasterizer
 {
     /// <summary>Gets the number of triangles the last render cut its patch meshes into, before any split for a non-linear colour conversion.</summary>

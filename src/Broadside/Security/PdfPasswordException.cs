@@ -50,6 +50,7 @@ public sealed class PdfPasswordException : Exception
 }
 
 /// <summary>What about a document's encryption this engine cannot handle.</summary>
+/// <remarks>ISO 32000-2 §7.6.2 (Table 20: the encryption dictionary's <c>Filter</c> and <c>SubFilter</c>) and §7.6.6 (Table 25: crypt filter methods).</remarks>
 public enum PdfEncryptionNotSupportedReason
 {
     /// <summary>No registered security handler implements the encryption dictionary's <c>Filter</c> or <c>SubFilter</c>.</summary>

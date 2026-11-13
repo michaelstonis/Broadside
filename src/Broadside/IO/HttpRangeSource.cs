@@ -27,6 +27,7 @@ namespace Broadside.IO;
 /// so the operation that asked for them finds them when it runs again. Requests carry <c>If-Range</c> with the file's strong entity
 /// tag, so a file that changes between requests fails with an <see cref="IOException"/> instead of mixing two versions.
 /// </para>
+/// <para>ISO 32000-2 Annex G.2.</para>
 /// </remarks>
 internal sealed class HttpRangeSource : PdfSource
 {

@@ -24,6 +24,7 @@ namespace Broadside.Structure;
 /// maps, namespaces, class maps, attributes, IDs and the text entries are edited in place. New objects are made with
 /// <see cref="PdfDocument.AddObject"/>, so both full and incremental saves write them.
 /// </para>
+/// <para>ISO 32000-2 §12.3.2.3.</para>
 /// </remarks>
 public sealed class PdfStructureTreeRoot
 {

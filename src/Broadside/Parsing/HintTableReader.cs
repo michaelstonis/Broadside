@@ -22,6 +22,7 @@ namespace Broadside.Parsing;
 /// <see cref="FileStructureDiagnostics.LinearizationHintsInvalid"/> diagnostic; it never affects how the document reads. Filtered hint
 /// streams (qpdf writes FlateDecode by default) are decoded through the document's filter pipeline (§7.4) first.
 /// </para>
+/// <para>ISO 32000-2 Annex F.4.1, Annex F.4.2 and Annex F.4.3.</para>
 /// </remarks>
 internal static class HintTableReader
 {

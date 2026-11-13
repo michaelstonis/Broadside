@@ -7,6 +7,7 @@ namespace Broadside.Fonts;
 /// <remarks>
 /// ISO 32000-2 §9.7.6.2; Adobe TN 5014 §5.2 and Figure 6: a range is multi-dimensional, so <c>&lt;8210&gt;</c> is not in
 /// <c>&lt;8140&gt; &lt;9FFC&gt;</c> although it lies between them as a number.
+/// <para>ISO 32000-2 §9.7.5.</para>
 /// </remarks>
 internal readonly record struct CodespaceRange(int Length, uint Low, uint High)
 {

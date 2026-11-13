@@ -10,6 +10,7 @@ namespace Broadside.Fonts;
 /// look a whole name up; <see cref="MapName"/> applies the AGL specification's algorithm (ISO 32000-2 §9.10.2 refers to it): the
 /// suffix after the first period is dropped, components joined by underscores map one by one, and <c>uniXXXX…</c>/<c>uXXXX</c>
 /// components stand for their values.
+/// <para>ISO 32000-2 §9.6.5.4.</para>
 /// </remarks>
 internal static partial class AdobeGlyphList
 {

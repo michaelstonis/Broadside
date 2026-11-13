@@ -1,7 +1,7 @@
 namespace Broadside.Structure;
 
 /// <summary>A structure type in a namespace: one step of a role-mapping chain, or the standard type an element resolves to.</summary>
-/// <remarks>ISO 32000-2 §14.7.3 (structure types), §14.7.4 (namespaces), §14.8.6.2 (role maps and namespaces).</remarks>
+/// <remarks>ISO 32000-2 §14.7.3 (structure types), §14.7.4 (namespaces), §14.8.6.2 (role maps and namespaces). ISO/TS 32005 §5.2 and §5.6.</remarks>
 public sealed class PdfStructureType : IEquatable<PdfStructureType>
 {
     /// <summary>Creates a structure type.</summary>

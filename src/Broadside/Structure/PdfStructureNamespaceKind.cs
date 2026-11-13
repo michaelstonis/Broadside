@@ -1,7 +1,10 @@
 namespace Broadside.Structure;
 
 /// <summary>Which namespace a structure namespace is, by its namespace name.</summary>
-/// <remarks>ISO 32000-2 §14.8.6: the two standard structure namespaces and MathML 3.0, the one other namespace §14.8.6.3 identifies.</remarks>
+/// <remarks>
+/// <para>ISO 32000-2 §14.8.6: the two standard structure namespaces and MathML 3.0, the one other namespace §14.8.6.3 identifies.</para>
+/// <para>ISO 32000-2 §14.7.4.</para>
+/// </remarks>
 public enum PdfStructureNamespaceKind
 {
     /// <summary>Any other namespace: its types are custom and reach a standard type only through its <c>RoleMapNS</c>.</summary>

@@ -12,6 +12,7 @@ namespace Broadside.Writing;
 /// <param name="ExtensionLevel">The extension level (§7.12.5).</param>
 /// <param name="Revision">The <c>ExtensionRevision</c> text, or <see langword="null"/>.</param>
 /// <param name="Url">The <c>URL</c> of the extension's documentation (§7.12.6), or <see langword="null"/>.</param>
+/// <remarks>ISO/TS 32001 §4. ISO/TS 32002 §4.</remarks>
 internal sealed record DeveloperExtensionDeclaration(CosName Prefix, PdfVersion BaseVersion, int ExtensionLevel, string? Revision, string? Url)
 {
     private static readonly CosName DeveloperExtensions = new("DeveloperExtensions");
@@ -51,6 +52,7 @@ internal sealed record DeveloperExtensionDeclaration(CosName Prefix, PdfVersion 
 /// <param name="Clause">Where the version is stated.</param>
 /// <param name="MinimumVersion">The earliest version that has the feature.</param>
 /// <param name="Extension">The developer extension an ISO/TS feature declares (§7.12), or <see langword="null"/>.</param>
+/// <remarks>ISO 32000-2 §7.5.2.</remarks>
 internal sealed record VersionedFeature(string Name, string Clause, PdfVersion MinimumVersion, DeveloperExtensionDeclaration? Extension = null)
 {
     /// <summary>Returns the feature's name with its clause, such as <c>object streams (ISO 32000-2 §7.5.7)</c>.</summary>
@@ -141,6 +143,8 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// Objects copied from another document carry the rows <see cref="CarriedFeatures"/> finds in them (issue #290); a row whose
 /// objects can be recognised by their entries should be added there too.
 /// </para>
+/// <para>ISO 19005-4 §6.1.2.</para>
+/// <para>ISO 32000-2 §7.12.4 and §12.8.3.1.</para>
 /// </remarks>
 internal static class VersionedFeatures
 {

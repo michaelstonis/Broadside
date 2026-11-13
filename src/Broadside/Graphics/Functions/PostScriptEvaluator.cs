@@ -20,6 +20,7 @@ namespace Broadside.Graphics.Functions;
 /// wrong number of results is cut to the topmost or padded with 0, and a boolean result is 1 or 0. A stack overflow or underflow, or
 /// a <c>copy</c>, <c>index</c> or <c>roll</c> outside the stack, fails the evaluation (<see cref="FunctionStatus.Failed"/>).
 /// </para>
+/// <para>ISO 32000-2 Annex B.</para>
 /// </remarks>
 internal sealed class PostScriptEvaluator : FunctionEvaluator
 {

@@ -1,7 +1,7 @@
 namespace Broadside;
 
 /// <summary>The form of an XMP property value.</summary>
-/// <remarks>ISO 16684-1 §6.3 (data model) and §7.5-7.7 (serialization).</remarks>
+/// <remarks>ISO 16684-1 §6.3 (data model) and §7.5-7.7 (serialization). ISO 32000-2 §14.3.2.</remarks>
 public enum XmpPropertyKind
 {
     /// <summary>A simple value: text, or a URI written with <c>rdf:resource</c>.</summary>

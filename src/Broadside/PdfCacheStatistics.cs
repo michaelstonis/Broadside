@@ -12,5 +12,6 @@ namespace Broadside;
 /// Spec #33 viewer capability 13 and story 8. Bytes are charged from the sizes of what an entry holds (sample buffers, path points,
 /// decoded content, operation tables), so they are the same on every run and every machine. An entry larger than the whole budget
 /// is used but never stored.
+/// <para>ISO 32000-2 §8.5.3.</para>
 /// </remarks>
 public readonly record struct PdfCacheStatistics(long Budget, long Bytes, long PeakBytes, int Count, long Hits, long Misses, long Evictions);

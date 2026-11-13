@@ -21,6 +21,7 @@ namespace Broadside.Security;
 /// "when accessing embedded files"); its embedded files then stay encrypted, each with a <c>CryptFilterNotAuthorized</c>
 /// Information diagnostic when it loads.
 /// </para>
+/// <para>ISO/TS 32003 §4.</para>
 /// </remarks>
 internal static class DocumentSecurity
 {

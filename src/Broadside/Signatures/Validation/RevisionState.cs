@@ -77,7 +77,10 @@ internal readonly record struct RoleInfo(ObjectRole Role, string? FieldName = nu
 /// first <see cref="PdfRevision.Length"/> bytes), sharing the document's decryption, with the role of every object the catalog
 /// reaches.
 /// </summary>
-/// <remarks>ISO 32000-2 §7.5.6 and §12.8.2.2.2 ("the portion of the document specified by the ByteRange ... is known to correspond to the state of the document at the time of signing").</remarks>
+/// <remarks>
+/// <para>ISO 32000-2 §7.5.6 and §12.8.2.2.2 ("the portion of the document specified by the ByteRange ... is known to correspond to the state of the document at the time of signing").</para>
+/// <para>ISO 32000-2 §12.8.2.1.</para>
+/// </remarks>
 internal sealed class RevisionState
 {
     private static readonly CosName FieldsName = FormNames.Fields;

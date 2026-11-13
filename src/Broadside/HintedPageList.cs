@@ -27,6 +27,7 @@ namespace Broadside;
 /// <see cref="FileStructureDiagnostics.LinearizationHintsInvalid"/> and the page collection reads the page tree instead. Only a first page
 /// numbered 0 (no <c>P</c>, F.3.4) is supported.
 /// </para>
+/// <para>ISO 32000-2 Annex F.4.2, Annex G.2, Annex G.3 and Annex G.4.</para>
 /// </remarks>
 internal sealed class HintedPageList
 {

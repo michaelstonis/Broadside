@@ -34,6 +34,7 @@ namespace Broadside.Fonts;
 /// runs before it plans, reduces it to the subset of the glyphs used. A program whose <c>OS/2</c> <c>fsType</c> forbids subsetting
 /// is embedded whole, without a subset tag; one whose licence restricts embedding is refused (<see cref="Create"/>).
 /// </para>
+/// <para>ISO 32000-2 §12.7.4.3.</para>
 /// </remarks>
 internal sealed class SharedFontSubset
 {

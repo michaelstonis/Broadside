@@ -35,6 +35,8 @@ internal enum IccLutKind
 /// two grid points in a dimension) and lenient about the rest: unused grid-point entries and padding bytes are not checked, and an
 /// element in a combination §10.12.1 does not list (such as A curves without a CLUT) is performed when the channel counts allow it.
 /// </para>
+/// <para>ICC.1:2022 §4.</para>
+/// <para>ISO 32000-2 §8.6.5.5.</para>
 /// </remarks>
 internal sealed class IccLut
 {

@@ -20,6 +20,7 @@ namespace Broadside.Filters.Codecs;
 /// a marker code), so BYTEIN feeds 1-bits from then on and never reads out of bounds; the codecs need not copy a segment to append
 /// them. Allocation-free: a <see langword="ref struct"/> over the segment.
 /// </para>
+/// <para>ISO 32000-2 §7.4.7 and §7.4.9.</para>
 /// </remarks>
 internal ref struct MqDecoder
 {

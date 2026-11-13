@@ -13,6 +13,7 @@ namespace Broadside.Content;
 /// parameters in effect at <c>Do</c> (blend mode, alpha, soft mask) are those of <see cref="ContentContext.State"/> during
 /// <see cref="ContentProcessor.BeginForm"/>. Declared with the content interpreter's processor surface (issue #55); reported from
 /// issue #56. Members are added, never changed.
+/// <para>ISO 32000-2 §8.3.2, §8.8, §8.10.2, §8.10.3 and §8.10.4.</para>
 /// </remarks>
 public readonly ref struct FormEvent
 {
