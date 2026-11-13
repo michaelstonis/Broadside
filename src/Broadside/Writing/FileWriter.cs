@@ -104,6 +104,12 @@ internal sealed partial class FileWriter
     /// <summary>The largest offset a classic cross-reference entry's ten digits can state (§7.5.4).</summary>
     private const long MaxTableOffset = 9_999_999_999;
 
+    /// <summary>
+    /// The most bytes of an object copied from the file that are gathered with the objects around it; longer ones (stream data) are
+    /// copied in windows of this size, so a full save holds one window of a large stream at a time, not the whole stream.
+    /// </summary>
+    private const int CopyWindow = 1 << 20;
+
     /// <summary>The most bytes of the source one chunk of an incremental update's copy holds.</summary>
     private const int PrefixChunkSize = 1 << 20;
 
@@ -312,10 +318,38 @@ internal sealed partial class FileWriter
             }
 
             entries[item.Reference.ObjectNumber] = new XrefEntry(XrefEntryKind.InUse, flushed + buffer.WrittenSpan.Length - origin, item.Reference.Generation);
-            (int bodyStart, int bodyEnd) = WriteIndirectObject(buffer, item.Reference, item, _references);
-            if (_update is not null)
+            if (CopiesInWindows(item, out ObjectSourceBytes large))
             {
-                written.Add(new WrittenObject(item.Reference, item.Value, flushed + bodyStart, bodyEnd - bodyStart));
+                // Bytes too large to gather go out as they are read: what is gathered first, then the source in bounded windows,
+                // so a stream of any length costs one window of memory (issue #237).
+                WriteObjectHeader(buffer, item.Reference);
+                long bodyOffset = flushed + buffer.WrittenSpan.Length;
+                hash.AppendData(buffer.WrittenSpan);
+                integrity?.AppendData(buffer.WrittenSpan);
+                yield return buffer.WrittenMemory;
+                flushed += buffer.WrittenSpan.Length;
+                buffer.Clear();
+                foreach (ReadOnlyMemory<byte> window in CopyFromSource(large))
+                {
+                    hash.AppendData(window.Span);
+                    integrity?.AppendData(window.Span);
+                    yield return window;
+                    flushed += window.Length;
+                }
+
+                buffer.Write("\nendobj\n"u8);
+                if (_update is not null)
+                {
+                    written.Add(new WrittenObject(item.Reference, item.Value, bodyOffset, large.Length));
+                }
+            }
+            else
+            {
+                (int bodyStart, int bodyEnd) = WriteIndirectObject(buffer, item.Reference, item, _references);
+                if (_update is not null)
+                {
+                    written.Add(new WrittenObject(item.Reference, item.Value, flushed + bodyStart, bodyEnd - bodyStart));
+                }
             }
 
             if (buffer.WrittenSpan.Length >= ChunkSize)
@@ -430,10 +464,7 @@ internal sealed partial class FileWriter
     /// <returns>Where in <paramref name="buffer"/> the object's bytes start and end.</returns>
     private (int Start, int End) WriteIndirectObject(PooledBufferWriter buffer, CosReference reference, WriterObject item, IReadOnlyDictionary<CosReference, CosReference>? references)
     {
-        WriteInteger(buffer, reference.ObjectNumber);
-        buffer.Write(" "u8);
-        WriteInteger(buffer, reference.Generation);
-        buffer.Write(" obj\n"u8);
+        WriteObjectHeader(buffer, reference);
         int start = buffer.WrittenSpan.Length;
         if (_encryption is not null)
         {
@@ -449,6 +480,58 @@ internal sealed partial class FileWriter
         int end = buffer.WrittenSpan.Length;
         buffer.Write("\nendobj\n"u8);
         return (start, end);
+    }
+
+    /// <summary>Writes <c>N G obj</c> and the end of line after it (§7.3.10).</summary>
+    private static void WriteObjectHeader(IBufferWriter<byte> buffer, CosReference reference)
+    {
+        WriteInteger(buffer, reference.ObjectNumber);
+        buffer.Write(" "u8);
+        WriteInteger(buffer, reference.Generation);
+        buffer.Write(" obj\n"u8);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="item"/> is copied from the file in windows rather than gathered whole: its bytes are in the file body,
+    /// longer than one window, and written as they are (not encrypted, not compressed on the way out).
+    /// </summary>
+    private bool CopiesInWindows(WriterObject item, out ObjectSourceBytes bytes)
+    {
+        bytes = item.Source.GetValueOrDefault();
+        return _encryption is null
+            && _source is not null
+            && item.Source is { IsInFile: true, Length: > CopyWindow }
+            && !(item.Compress && item.Value is CosStream);
+    }
+
+    /// <summary>
+    /// Reads <paramref name="bytes"/> from the file body in windows of <see cref="CopyWindow"/> bytes through one rented buffer; each
+    /// window is valid until the next is requested.
+    /// </summary>
+    private IEnumerable<ReadOnlyMemory<byte>> CopyFromSource(ObjectSourceBytes bytes)
+    {
+        byte[] window = ArrayPool<byte>.Shared.Rent(CopyWindow);
+        try
+        {
+            long position = bytes.FileOffset;
+            long end = bytes.FileOffset + bytes.Length;
+            while (position < end)
+            {
+                int length = (int)Math.Min(CopyWindow, end - position);
+                int read = _source!.Read(position, window.AsSpan(0, length));
+                if (read != length)
+                {
+                    throw new InvalidOperationException("The source file ended before the bytes of an object it holds.");
+                }
+
+                yield return window.AsMemory(0, length);
+                position += length;
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(window);
+        }
     }
 
     /// <summary>
@@ -773,18 +856,18 @@ internal sealed partial class FileWriter
     }
 
     /// <summary>The entries of a written section as <see cref="XrefSection.Entries"/> holds them: every listed number but 0.</summary>
-    private static Dictionary<int, XrefEntry> SectionEntries(List<(int Number, XrefEntry Entry)> listing)
+    private static XrefEntryMap SectionEntries(List<(int Number, XrefEntry Entry)> listing)
     {
-        var entries = new Dictionary<int, XrefEntry>(listing.Count);
+        var entries = new XrefEntryMap.Builder(listing.Count);
         foreach ((int number, XrefEntry entry) in listing)
         {
             if (number != 0)
             {
-                entries[number] = entry;
+                entries.Add(number, entry);
             }
         }
 
-        return entries;
+        return entries.Build();
     }
 
     /// <summary>The trailer: <c>Size</c>, the given entries, an update's <c>Prev</c>, then <c>ID</c> (§7.5.5, Table 15; §7.5.6).</summary>
