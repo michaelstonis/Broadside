@@ -10,6 +10,7 @@ namespace Broadside.Rendering;
 /// <remarks>
 /// ISO 32000-2 §9.4.4 (the text rendering matrix), §9.6.5 and §9.7.4.2 (selecting the glyph of a character code), §9.2.4 (glyph
 /// space). <see cref="GlyphRun.GetGlyphTransform"/> composes the members into the matrix from glyph space to user space.
+/// <para>ISO 32000-2 §9.3.6 and §9.4.3.</para>
 /// </remarks>
 public readonly record struct DisplayGlyph
 {
@@ -65,6 +66,7 @@ public readonly record struct DisplayGlyph
 /// that hit-testing sees the text, nor for a colour that is a pattern (not painted yet). Modes 4 to 7 paint like 0 to 3; adding
 /// their glyphs to the clip comes in a later ticket.
 /// </para>
+/// <para>ISO 32000-2 §9.2.3 and §9.7.4.</para>
 /// </remarks>
 public readonly ref struct GlyphRun
 {

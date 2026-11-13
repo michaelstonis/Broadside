@@ -16,6 +16,7 @@ namespace Broadside.Fonts.Resolution;
 /// The store lives where the caller says and anyone with access there could change it, so it is read as untrusted data: every
 /// count is capped, every string is checked, and nothing read throws.
 /// </para>
+/// <para>ISO 32000-2 §9.6.2.2.</para>
 /// </remarks>
 internal static class SystemFontIndexFile
 {

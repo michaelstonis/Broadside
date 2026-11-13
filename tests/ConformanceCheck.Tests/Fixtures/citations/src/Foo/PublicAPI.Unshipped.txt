@@ -1,0 +1,10 @@
+#nullable enable
+Foo.Foo
+Foo.Foo.Foo() -> void
+Foo.Foo.Nested
+Foo.Foo.Nested.Nested() -> void
+Foo.FooOptions
+Foo.FooOptions.FooOptions(int Value) -> void
+Foo.FooOptions.Value.get -> int
+Foo.Generic<T>
+Foo.Generic<T>.Generic() -> void

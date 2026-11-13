@@ -27,6 +27,7 @@ internal readonly record struct ScannedObject(int Number, int Generation, long O
 /// Matches inside stream data are found too, as in both reference engines; callers parse what they find and discard what does not
 /// parse. The result is immutable and safe to share between threads.
 /// </para>
+/// <para>ISO 32000-2 §7.3.10.</para>
 /// </remarks>
 internal sealed class FileScan
 {

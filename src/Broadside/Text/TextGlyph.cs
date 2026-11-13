@@ -16,6 +16,7 @@ namespace Broadside.Text;
 /// share one string.
 /// </para>
 /// <para>Members are added as text extraction grows; existing members never change.</para>
+/// <para>ISO 32000-2 §14.8.2.5.</para>
 /// </remarks>
 public readonly record struct TextGlyph
 {

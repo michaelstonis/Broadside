@@ -6,6 +6,7 @@ namespace Broadside.Writing;
 /// The glyph and width facts of an embedded simple font that PDF/A checks for each code the content shows (issue #229): the glyph
 /// must be in the program (veraPDF rule 6.2.11.4.1-2, never .notdef, 6.2.11.8-1) and its width the font dictionary's (6.2.11.5-1).
 /// </summary>
+/// <remarks>ISO 19005-2 §6.2.11.</remarks>
 internal static class PdfAFontGlyphs
 {
     /// <summary>The difference, in thousandths of text space, beyond which veraPDF finds a width inconsistent (6.2.11.5-1).</summary>

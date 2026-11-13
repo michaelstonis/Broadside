@@ -4,6 +4,7 @@ using Broadside.Objects;
 namespace Broadside.Graphics;
 
 /// <summary>Placing image XObjects (issue #153).</summary>
+/// <remarks>ISO 32000-2 §8.6.5.5, §8.7.3.1, §8.9.5.1 and §11.6.6.</remarks>
 public sealed partial class PdfCanvas
 {
     /// <summary>Paints an image XObject of this document into the unit square of user space (<c>Do</c>).</summary>

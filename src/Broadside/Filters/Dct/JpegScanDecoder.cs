@@ -12,6 +12,7 @@ namespace Broadside.Filters.Dct;
 /// ITU-T T.81 Annex E (decoder control: §E.2.3 to §E.2.5, Figures E.7 to E.10); §A.2.2 and §A.2.3 (MCU order); §F.2.4.4 and
 /// libjpeg-turbo <c>jpeg_resync_to_restart</c> (restart recovery). The block decoders are <see cref="JpegHuffmanDecoding"/> and
 /// <see cref="JpegArithmeticDecoding"/>.
+/// <para>ISO 32000-2 §7.4.8.</para>
 /// </remarks>
 internal static class JpegScanDecoder
 {

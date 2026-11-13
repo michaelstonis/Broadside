@@ -21,6 +21,7 @@ namespace Broadside.Graphics;
 /// or invalid TilingType reads as 1; missing Resources make the cell use the resources of the stream that paints with it. Each is
 /// recorded as a diagnostic; a pattern with neither usable steps nor a bounding box is invalid.
 /// </para>
+/// <para>ISO 32000-2 §8.7.1 and §8.7.3.2.</para>
 /// </remarks>
 public sealed class PdfTilingPattern : PdfPattern
 {

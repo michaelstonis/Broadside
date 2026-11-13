@@ -29,6 +29,7 @@ namespace Broadside.Text;
 /// Glyphs accumulate over runs until <see cref="Clear"/>; the buffers are kept, so an extractor reused for page after page
 /// allocates nothing per glyph once its buffers have grown. Not thread-safe: use one extractor per thread.
 /// </para>
+/// <para>ISO 32000-2 §14.8.2.4.</para>
 /// </remarks>
 public sealed class TextExtractor : ContentProcessor
 {

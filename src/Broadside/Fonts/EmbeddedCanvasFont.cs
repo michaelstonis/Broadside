@@ -16,6 +16,7 @@ namespace Broadside.Fonts;
 /// Glyph List); every glyph the canvas writes is recorded in the subset with the character it was written for, which
 /// the <c>ToUnicode</c> CMap maps it back to. <see cref="PdfCanvasFont.Shape"/> applies the program's <c>GSUB</c> table; the font has no
 /// kerning of its own yet (the program's <c>kern</c> and <c>GPOS</c> tables are issue #175).
+/// <para>ISO 19005-2 §6.2.11.</para>
 /// </remarks>
 internal sealed class EmbeddedCanvasFont : PdfCanvasFont
 {

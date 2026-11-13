@@ -35,6 +35,7 @@ namespace Broadside;
 /// one page, and <see cref="PdfDocument.ReadAsync{T}"/> runs any read that needs more of the file (every page, for instance),
 /// fetching what it misses.
 /// </para>
+/// <para>ISO 32000-2 Annex G.3 and Annex G.4.</para>
 /// </remarks>
 public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
 {

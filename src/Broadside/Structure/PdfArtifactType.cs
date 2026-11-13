@@ -1,7 +1,7 @@
 namespace Broadside.Structure;
 
 /// <summary>The type of an artifact: the <c>Type</c> entry of its property list.</summary>
-/// <remarks>ISO 32000-2 §14.8.2.2.2, Table 363.</remarks>
+/// <remarks>ISO 32000-2 §14.8.2.2.2, Table 363. Also §14.6.1.</remarks>
 public enum PdfArtifactType
 {
     /// <summary>Ancillary page features such as running heads, folios (page numbers) or Bates numbering.</summary>

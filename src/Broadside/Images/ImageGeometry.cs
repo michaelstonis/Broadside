@@ -16,6 +16,7 @@ namespace Broadside.Images;
 /// Which of the four a value holds depends on where it came from: a context's geometry is the image dictionary's as read, 0 where an
 /// entry is absent; a decoded image's is what was delivered, complete.
 /// </para>
+/// <para>ISO 32000-2 §8.9.2.</para>
 /// </remarks>
 public readonly record struct ImageGeometry(int Width, int Height, int Components, int BitsPerComponent)
 {

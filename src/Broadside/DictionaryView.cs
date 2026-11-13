@@ -11,6 +11,7 @@ namespace Broadside;
 /// <param name="Document">The document the dictionary belongs to.</param>
 /// <param name="Dictionary">The dictionary.</param>
 /// <param name="Reference">The object diagnostics are reported against: the dictionary's own reference, or the object holding it directly.</param>
+/// <remarks>ISO 32000-2 §7.7.2.</remarks>
 internal readonly record struct DictionaryView(PdfDocument Document, CosDictionary Dictionary, CosReference? Reference)
 {
     /// <summary>Returns the entry for <paramref name="key"/>, resolved; <see langword="null"/> when absent, null, or a reference to nothing.</summary>

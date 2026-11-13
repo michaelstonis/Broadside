@@ -12,6 +12,10 @@ namespace Broadside.Writing;
 /// <remarks>
 /// ISO 32000-2 §7.5.2 (the version is identified in the header or in the catalog's <c>Version</c> entry), §7.7.2,
 /// Table 29 (<c>Version</c>, which an incremental update uses to raise the version, §7.5.6) and §7.12 (developer extensions).
+/// <para>ISO/TS 32001 §4.</para>
+/// <para>ISO/TS 32002 §4.</para>
+/// <para>ISO/TS 32003 §4.</para>
+/// <para>ISO/TS 32004 §4.</para>
 /// </remarks>
 internal static class VersionPlan
 {

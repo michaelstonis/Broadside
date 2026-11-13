@@ -17,6 +17,7 @@ namespace Broadside.Signatures.Validation;
 /// in the browser where the platform chain engine does not, never downloads an issuer, and uses the same algorithm table as the CMS
 /// signature (<see cref="SignatureAlgorithms"/>). The revocation of each certificate of the built path (RFC 5280 §6.1.3 (a)(3)) is
 /// checked afterwards by <see cref="RevocationChecker"/>, which needs the path and its issuers.
+/// <para>ISO 32000-2 §12.8.1 and §12.8.3.3.</para>
 /// </remarks>
 internal static class CertificatePath
 {

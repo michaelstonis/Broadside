@@ -11,6 +11,7 @@ namespace Broadside.Rendering;
 /// first and the results complemented back, so storing complements lets every blend function work unchanged. §11.3.5.3: for CMYK
 /// the non-separable modes apply to the complemented C, M, Y as RGB, and K takes the backdrop's (Hue, Saturation, Color) or the
 /// source's (Luminosity): exactly what the same formulas give on a plane where all three channels hold the complement of K.
+/// <para>ISO 32000-2 §11.7.2.</para>
 /// </remarks>
 internal readonly record struct PixelModel(DeviceColorModel Model, int Pass)
 {

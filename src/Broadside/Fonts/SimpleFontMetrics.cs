@@ -9,7 +9,10 @@ namespace Broadside.Fonts;
 /// The glyph name and width of each of the 256 codes of a simple font, computed once from its font dictionary, and the COS
 /// containers they were computed from with their versions, so a change to any of them is noticed (pitfall: views are live).
 /// </summary>
-/// <remarks>Immutable once built; a font replaces it, never changes it, so concurrent readers always see a whole table.</remarks>
+/// <remarks>
+/// <para>Immutable once built; a font replaces it, never changes it, so concurrent readers always see a whole table.</para>
+/// <para>ISO 32000-2 §9.6.1 and §9.6.5.2.</para>
+/// </remarks>
 internal sealed class SimpleFontMetrics
 {
     private readonly CosObject[] _sources;

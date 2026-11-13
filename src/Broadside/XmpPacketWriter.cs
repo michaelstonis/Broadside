@@ -18,6 +18,8 @@ namespace Broadside;
 /// declared on the description. Properties named in the RDF or XML namespace are syntax, not properties, and are left out. Characters XML 1.0 cannot carry (most C0 controls, unpaired surrogates, U+FFFE, U+FFFF) are left
 /// out; a carriage return is written as a character reference so it survives end-of-line normalization.
 /// </para>
+/// <para>ISO 19005-2 §6.6.</para>
+/// <para>ISO 32000-2 §14.3.2.</para>
 /// </remarks>
 internal static class XmpPacketWriter
 {

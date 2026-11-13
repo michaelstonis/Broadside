@@ -21,6 +21,7 @@ namespace Broadside.Fonts;
 /// character is incremented as a whole scalar value (<c>&lt;0000&gt; &lt;01FF&gt; &lt;0000&gt;</c> maps 0x100 to U+0100, as
 /// pdf.js and PDFBox read it). A result past U+10FFFF or in the surrogate range is U+FFFD.
 /// </para>
+/// <para>ISO 32000-2 §9.10.2.</para>
 /// </remarks>
 internal sealed class ToUnicodeMap
 {

@@ -17,6 +17,7 @@ namespace Broadside.Parsing;
 /// <see cref="FileStructureDiagnostics.LinearizationDictionaryInvalid"/> diagnostic (pdf.js and qpdf ignore it too). The <c>L</c> check
 /// against the file length is the caller's: a mismatch is not a deviation, it is what appending an update does (G.7).
 /// </para>
+/// <para>ISO 32000-2 Annex G.2 and Annex G.7.</para>
 /// </remarks>
 internal static class LinearizationReader
 {

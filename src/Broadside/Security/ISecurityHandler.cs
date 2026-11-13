@@ -110,7 +110,10 @@ public sealed class SecurityHandlerContext
 }
 
 /// <summary>What a security handler returns when the credentials open the document.</summary>
-/// <remarks>ISO 32000-2 §7.6.3: the file encryption key the handler computes, from which every string and stream key derives.</remarks>
+/// <remarks>
+/// <para>ISO 32000-2 §7.6.3: the file encryption key the handler computes, from which every string and stream key derives.</para>
+/// <para>ISO 32000-2 §7.6.2 and §7.6.5.3.</para>
+/// </remarks>
 public sealed class SecurityHandlerResult
 {
     private readonly byte[] _fileEncryptionKey;

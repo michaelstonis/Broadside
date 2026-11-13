@@ -11,6 +11,7 @@ namespace Broadside.Fonts.Cff;
 /// Adobe Technical Note #5176 §5, Table 7 (p.12-13): <c>Card16 count</c>; when not 0, <c>OffSize offSize</c>, <c>count + 1</c>
 /// offsets of <c>offSize</c> bytes relative to the byte before the object data (so the first is 1), then the data. An empty INDEX is
 /// the two bytes of its count.
+/// <para>ISO 32000-2 §9.9.1.</para>
 /// </remarks>
 internal readonly struct CffIndex
 {

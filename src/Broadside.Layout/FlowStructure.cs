@@ -25,6 +25,8 @@ namespace Broadside.Layout.Flow;
 /// new MCID) when it ends, so artifacts never sit inside tagged content and MCIDs never nest. The layout never begins a part inside a text
 /// object that it began outside one, so the sequences nest properly with <c>BT</c>/<c>ET</c>.
 /// </para>
+/// <para>ISO 14289-2 §8.2.</para>
+/// <para>Well-Tagged PDF 1.0 §8.2.</para>
 /// </remarks>
 internal sealed class FlowStructure : IStructureSink
 {

@@ -1,0 +1,78 @@
+{
+  // Rules of the clause-citation check run by `dotnet run --project tools/ConformanceCheck -- --citations`.
+  // See .claude/skills/updating-the-conformance-map/SKILL.md, section 5, and docs/conformance/README.md.
+
+  // A public type cites a specification when its XML documentation (or that of a type enclosing it) matches one of these forms.
+  "citationForms": [
+    { "name": "ISO 32000-2 clause, annex or table", "pattern": "ISO 32000-2(?::2020)?,? (?:§ ?[A-Z0-9]|[Aa]nnex [A-Z]|Tables? [A-Z0-9]|[A-Z]\\.\\d)" },
+    { "name": "Another ISO or ISO/IEC standard, or an ISO technical specification", "pattern": "ISO(?:/IEC|/TS)? (?!32000-2\\b)\\d{4,5}(?:-\\d+)?" },
+    { "name": "ITU-T recommendation", "pattern": "ITU-T [A-Z]\\.\\d+" },
+    { "name": "Adobe technical note", "pattern": "Adobe (?:Technical Note|TN) #?\\d+" },
+    { "name": "IETF RFC", "pattern": "RFC ?\\d{3,5}" },
+    { "name": "ICC profile specification", "pattern": "ICC\\.1(?::\\d{4})?" },
+    { "name": "OpenType specification", "pattern": "OpenType (?:specification|\"[A-Za-z0-9/ ]{3,5}\" table|[Ll]ayout|Fonts? for)" },
+    { "name": "Unicode Standard or annex", "pattern": "Unicode (?:Standard|Bidirectional)|UAX ?#\\d+" },
+    { "name": "PDF Association application note", "pattern": "(?:PDF 2\\.0 )?Application Note \\d{3}" },
+    { "name": "Well-Tagged PDF", "pattern": "Well-Tagged PDF|WTPDF 1\\.0" },
+    { "name": "PDF Declarations", "pattern": "PDF Declarations §" },
+    { "name": "Adobe PostScript or font format reference", "pattern": "PostScript Language Reference|Adobe Type 1 Font Format" }
+  ],
+
+  // For each conformance map, how a citation names its document. A row's implementing types must cite the row's clause (or a
+  // sub-clause) after this name: "ISO 32000-2 §7.3.4", "ICC.1:2022 Annex F.3", "ISO/TS 32003 §5.2".
+  "maps": [
+    { "map": "iso-32000-2.md", "name": "ISO 32000-2", "document": "ISO 32000-2(?::2020)?" },
+    { "map": "iso-ts-32001.md", "name": "ISO/TS 32001", "document": "ISO/TS 32001(?::2022)?" },
+    { "map": "iso-ts-32002.md", "name": "ISO/TS 32002", "document": "ISO/TS 32002(?::2022)?" },
+    { "map": "iso-ts-32003.md", "name": "ISO/TS 32003", "document": "ISO/TS 32003(?::2023)?" },
+    { "map": "iso-ts-32004.md", "name": "ISO/TS 32004", "document": "ISO/TS 32004(?::2024)?" },
+    { "map": "iso-ts-32005.md", "name": "ISO/TS 32005", "document": "ISO/TS 32005(?::2023)?" },
+    { "map": "iso-14289-1.md", "name": "ISO 14289-1", "document": "ISO 14289-1(?::2014)?" },
+    { "map": "iso-14289-2.md", "name": "ISO 14289-2", "document": "ISO 14289-2(?::2024)?" },
+    { "map": "iso-19005-2.md", "name": "ISO 19005-2", "document": "ISO 19005-2(?::2011)?" },
+    { "map": "iso-19005-3.md", "name": "ISO 19005-3", "document": "ISO 19005-3(?::2012)?" },
+    { "map": "iso-19005-4.md", "name": "ISO 19005-4", "document": "ISO 19005-4(?::2020)?" },
+    { "map": "icc-1-2022.md", "name": "ICC.1:2022", "document": "ICC\\.1(?::2022)?" },
+    { "map": "pdf-declarations.md", "name": "PDF Declarations", "document": "PDF Declarations" },
+    { "map": "pdf20-an001.md", "name": "PDF 2.0 Application Note 001", "document": "(?:PDF 2\\.0 )?Application Note 001" },
+    { "map": "pdf20-an002.md", "name": "PDF 2.0 Application Note 002", "document": "(?:PDF 2\\.0 )?Application Note 002" },
+    { "map": "pdf20-an003.md", "name": "PDF 2.0 Application Note 003", "document": "(?:PDF 2\\.0 )?Application Note 003" },
+    { "map": "wtpdf-1.0.md", "name": "Well-Tagged PDF 1.0", "document": "Well-Tagged PDF(?: \\(WTPDF\\))? 1\\.0|WTPDF 1\\.0" }
+  ],
+
+  // Every project under src/. A checked package's public types (from its PublicAPI files) must cite or be exempt below.
+  "packages": [
+    { "name": "Broadside", "checked": true },
+    { "name": "Broadside.Fonts.Cmaps", "checked": true },
+    { "name": "Broadside.Fonts.Standard14", "checked": true },
+    { "name": "Broadside.Layout", "checked": true },
+    { "name": "Broadside.Rendering", "checked": true },
+    { "name": "Broadside.Rendering.Android", "checked": false, "reason": "Rendering backend: draws display lists through Android Canvas; the clauses are cited where the display list is produced." },
+    { "name": "Broadside.Rendering.CoreGraphics", "checked": false, "reason": "Rendering backend: draws display lists through CoreGraphics; the clauses are cited where the display list is produced." },
+    { "name": "Broadside.Rendering.Direct2D", "checked": false, "reason": "Rendering backend: draws display lists through Direct2D; the clauses are cited where the display list is produced." },
+    { "name": "Broadside.Rendering.Skia", "checked": false, "reason": "Rendering backend: draws display lists through SkiaSharp; the clauses are cited where the display list is produced." },
+    { "name": "Broadside.Rendering.WebGL", "checked": false, "reason": "Rendering backend: draws display lists through WebGL in the browser; the clauses are cited where the display list is produced." },
+    { "name": "Broadside.Viewer", "checked": false, "reason": "Viewer: page layout, scrolling, zoom, selection and input handling around rendered pages; viewer behavior is not specified by ISO 32000-2." },
+    { "name": "Broadside.Viewer.Blazor", "checked": false, "reason": "Viewer: the Blazor host of the viewer." },
+    { "name": "Broadside.Viewer.Maui", "checked": false, "reason": "Viewer: the .NET MAUI host of the viewer." }
+  ],
+
+  // Public types of checked packages that implement no specification concept. A namespace is written "Namespace.*".
+  // A nested type is covered by a citation on a type that encloses it; members are covered by their declaring type's citation.
+  "exemptions": [
+    { "symbol": "Broadside.PdfEngine", "reason": "Engine: opens and creates documents under one configuration." },
+    { "symbol": "Broadside.PdfOptions", "reason": "Options: selects implementations and sets values for an engine." },
+    { "symbol": "Broadside.PdfReadingMode", "reason": "Options: lenient or strict reading, a library policy rather than a specification concept." },
+    { "symbol": "Broadside.PdfRangeNotLoadedException", "reason": "Hosting: remote byte-range loading of a document." },
+    { "symbol": "Broadside.PdfCacheStatistics", "reason": "Engine: render cache counters." },
+    { "symbol": "Broadside.PdfDocumentCacheStatistics", "reason": "Engine: render cache counters." },
+    { "symbol": "Broadside.Diagnostics.*", "reason": "Diagnostics infrastructure: the diagnostic record, its code, severity and area, the exception thrown in strict mode, and the catalog classes listing each area's codes. Individual codes cite the clause they enforce." },
+    { "symbol": "Broadside.Layout.Flow.FlowLayoutResult", "reason": "Layout engine: the outcome of a flow layout run." },
+    { "symbol": "Broadside.Layout.Flow.PageOrientation", "reason": "Layout engine: portrait or landscape page sizing for flow layout." },
+    { "symbol": "Broadside.Rendering.DisplayListReplay", "reason": "Engine: time-sliced replay of a display list into a backend." },
+    { "symbol": "Broadside.Rendering.ProgressiveRender", "reason": "Engine: time-sliced rendering of a page." },
+    { "symbol": "Broadside.Rendering.HitTestItem", "reason": "Engine: a match of a hit-test query over rendered content." },
+    { "symbol": "Broadside.Rendering.HitTestMatches", "reason": "Engine: the matches of a hit-test query over rendered content." },
+    { "symbol": "Microsoft.Extensions.DependencyInjection.*", "reason": "Hosting: registration with a dependency-injection container." }
+  ]
+}

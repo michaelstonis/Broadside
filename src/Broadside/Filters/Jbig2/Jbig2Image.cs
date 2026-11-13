@@ -5,6 +5,7 @@ namespace Broadside.Filters.Jbig2;
 /// §8.2 step 5 b). Packed rows, 1 = black, padding bits 0. Symbols and patterns are never written after their dictionary is decoded,
 /// so dictionaries of a cached <c>JBIG2Globals</c> stream are shared across threads.
 /// </summary>
+/// <remarks>ISO 32000-2 §7.4.7.</remarks>
 internal sealed class Jbig2Image
 {
     /// <summary>The empty bitmap (a symbol of width or height 0).</summary>

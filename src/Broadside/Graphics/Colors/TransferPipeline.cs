@@ -10,6 +10,7 @@ namespace Broadside.Graphics.Colors;
 /// the result is converted back. A DeviceGray colour converted to CMYK passes only its black through the gray function; its cyan,
 /// magenta and yellow are rendered directly. The 8-bit path applies 256-entry tables built once, after the inner pipeline's own
 /// 8-bit conversion, run by run. Nothing is allocated per color.
+/// <para>ISO 32000-2 §11.7.5.</para>
 /// </remarks>
 internal sealed class TransferPipeline : ColorPipeline
 {

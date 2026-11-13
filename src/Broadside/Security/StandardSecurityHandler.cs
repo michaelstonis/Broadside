@@ -29,6 +29,7 @@ namespace Broadside.Security;
 /// first <c>n</c> bytes in step c (which PDFBox writes) is tried; a revision 6 <c>Perms</c> that disagrees with <c>P</c> wins over it
 /// (it is the tamper-resistant copy, ISO/TS 32004 §5.1.2 NOTE 2).
 /// </para>
+/// <para>ISO/TS 32003 §5.1.</para>
 /// </remarks>
 public sealed class StandardSecurityHandler : ISecurityHandler
 {

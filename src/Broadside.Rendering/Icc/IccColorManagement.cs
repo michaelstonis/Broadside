@@ -41,6 +41,7 @@ namespace Broadside.Rendering.Icc;
 /// the profile's bytes, so the same profile embedded in many spaces or documents shares them; the cache keeps at most
 /// <see cref="CacheCapacity"/> profiles. Immutable and thread-safe; the <c>With</c> methods return new instances.
 /// </para>
+/// <para>PDF 2.0 Application Note 001 §BPC-3.</para>
 /// </remarks>
 public sealed class IccColorManagement : IColorManagement
 {

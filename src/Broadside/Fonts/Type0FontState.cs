@@ -8,7 +8,7 @@ namespace Broadside.Fonts;
 /// The CMap and descendant CIDFont of a Type 0 font, resolved once from its dictionary, with the COS objects they came from and
 /// their versions so that a change is noticed.
 /// </summary>
-/// <remarks>ISO 32000-2 §9.7.6.1, Table 119. Immutable once built.</remarks>
+/// <remarks>ISO 32000-2 §9.7.6.1, Table 119. Immutable once built. Also §9.7.3.</remarks>
 internal sealed class Type0FontState
 {
     private readonly CosObject[] _sources;

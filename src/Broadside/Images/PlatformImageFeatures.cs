@@ -1,7 +1,10 @@
 namespace Broadside.Images;
 
 /// <summary>What a platform image decoder does beyond the shared rule: codings it decodes, and segments of the data it would misread.</summary>
-/// <remarks>ITU-T T.81 Annex B (frames and marker segments); the Exif APP1 segment; ICC.1 Annex B.4 (APP2 <c>ICC_PROFILE</c>).</remarks>
+/// <remarks>
+/// <para>ITU-T T.81 Annex B (frames and marker segments); the Exif APP1 segment; ICC.1 Annex B.4 (APP2 <c>ICC_PROFILE</c>).</para>
+/// <para>ISO 32000-2 §7.4.8.</para>
+/// </remarks>
 [Flags]
 public enum PlatformImageFeatures
 {

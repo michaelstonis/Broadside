@@ -31,6 +31,7 @@ internal enum JpegOutputKind
 /// Adobe Technical Note #5116 §18 (APP14). The frame parser (<see cref="JpegMarkerReader"/>), the entropy decoders
 /// (<see cref="JpegScanDecoder"/>) and the output stage (<see cref="JpegSampleWriter"/>) share it; <see cref="Reset"/> readies it
 /// for the next image, keeping the tables and component records for the thread.
+/// <para>ISO 32000-2 §7.4.8.</para>
 /// </remarks>
 internal sealed class JpegFrame
 {

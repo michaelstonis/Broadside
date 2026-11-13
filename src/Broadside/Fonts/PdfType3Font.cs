@@ -15,6 +15,7 @@ namespace Broadside.Fonts;
 /// <see cref="GetCharProc">description</see> for a processor that enters it (<see cref="Content.ContentProcessor.BeginType3Glyph"/>).
 /// Deviations in the dictionary (a malformed <c>FontMatrix</c>, a missing <c>CharProcs</c>) are recorded on the font's object when
 /// its glyph descriptions are first looked up.
+/// <para>ISO 32000-2 §9.2.4 and §9.5.</para>
 /// </remarks>
 public sealed class PdfType3Font : PdfSimpleFont
 {

@@ -1,7 +1,7 @@
 namespace Broadside.Images;
 
 /// <summary>How <see cref="PdfDocument.CreateImage(ReadOnlySpan{byte}, PdfImageLayout, PdfImageCompression)"/> compresses samples.</summary>
-/// <remarks>ISO 32000-2 §7.4.4 (FlateDecode, Table 8 predictors) and §7.4.8 (DCTDecode).</remarks>
+/// <remarks>ISO 32000-2 §7.4.4 (FlateDecode, Table 8 predictors) and §7.4.8 (DCTDecode). Also §8.9.5.1.</remarks>
 public enum PdfImageCompression
 {
     /// <summary>Lossless: <c>FlateDecode</c> with the PNG predictors chosen row by row (Predictor 15). PDF 1.2.</summary>

@@ -7,6 +7,7 @@ namespace Broadside.Filters.Dct;
 /// <remarks>
 /// ITU-T T.81 §F.2.2 (sequential Huffman decoding: Figures F.12 to F.16), §G.1.2 (progressive Huffman decoding: Table G.1 EOBn,
 /// Figure G.7). The decoders only write coefficients; the caller reports invalid codes and handles restart intervals.
+/// <para>ISO 32000-2 §7.4.8.</para>
 /// </remarks>
 internal static class JpegHuffmanDecoding
 {

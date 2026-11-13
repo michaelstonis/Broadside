@@ -9,6 +9,8 @@ namespace Broadside.Rendering.Icc;
 /// ICC.1:2022 §10.6 (curveType: no entries is the identity, one entry a u8Fixed8Number gamma, more a uniformly spaced table of
 /// uInt16Number values with linear interpolation between them) and §10.18 (parametricCurveType, the five functions of Table 68,
 /// clipped to [0, 1]). Immutable.
+/// <para>ICC.1:2022 §4.</para>
+/// <para>ISO 32000-2 §8.6.5.5.</para>
 /// </remarks>
 internal sealed class IccCurve
 {

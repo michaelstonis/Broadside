@@ -19,6 +19,7 @@ namespace Broadside.Structure;
 /// Values are the object's own, as written. The value that applies to an element, after class attributes, inheritance and
 /// defaults, comes from <see cref="PdfStructureElement.GetAttributeValue(CosName, CosName)"/>.
 /// </para>
+/// <para>ISO/TS 32005 §6.</para>
 /// </remarks>
 public class PdfAttributeObject
 {

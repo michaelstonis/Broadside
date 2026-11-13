@@ -8,6 +8,7 @@ namespace Broadside.Filters.Dct;
 /// ITU-T T.81 §F.1.4.4 and §F.2.4 (sequential arithmetic decoding: Figures F.18 to F.24, Tables F.4 and F.5), §G.1.3 (progressive
 /// arithmetic decoding: Figures G.10 and G.11, Table G.2); the QM decoder of Annex D is <see cref="ArithmeticDecoder"/>. Each
 /// decoder returns <see langword="false"/> on an impossible value; the caller reports it and abandons the restart interval.
+/// <para>ISO 32000-2 §7.4.8.</para>
 /// </remarks>
 internal static class JpegArithmeticDecoding
 {

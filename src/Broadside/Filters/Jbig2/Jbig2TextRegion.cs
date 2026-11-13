@@ -4,6 +4,7 @@ using Broadside.Filters.Codecs;
 namespace Broadside.Filters.Jbig2;
 
 /// <summary>The parameters of the text region decoding procedure (ITU-T T.88 §6.4.2, Table 9) other than the region size.</summary>
+/// <remarks>ISO 32000-2 §7.4.7.</remarks>
 internal readonly struct Jbig2TextParameters
 {
     /// <summary>Gets a value indicating whether symbol instances may be refined (SBREFINE).</summary>
@@ -95,6 +96,7 @@ internal enum Jbig2TextResult
 /// ITU-T T.88 §6.4.5 (decoding steps; CURS moves by W - 1 or H - 1 before or after the placement as the corner and TRANSPOSED say),
 /// §6.4.6-6.4.10 (the fields), §6.4.11 and Table 12 (refinement with GRREFERENCEDX = floor(RDW / 2) + RDX, GRREFERENCEDY = floor(RDH /
 /// 2) + RDY; in Huffman coding each refinement is its own MQ stream of RSIZE bytes, the GR contexts continuing across them).
+/// <para>ISO 32000-2 §7.4.7.</para>
 /// </remarks>
 internal static class Jbig2TextRegion
 {

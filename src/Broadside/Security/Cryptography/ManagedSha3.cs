@@ -17,6 +17,7 @@ namespace Broadside.Security.Cryptography;
 /// in an inline buffer, so hashing allocates nothing after construction, however much data goes through it. Not thread-safe: one
 /// instance per hashing operation. Not constant time with respect to the data length (no secret depends on it here).
 /// </para>
+/// <para>ISO/TS 32001 §5.1.1.</para>
 /// </remarks>
 internal sealed class ManagedSha3
 {

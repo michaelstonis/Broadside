@@ -15,6 +15,7 @@ namespace Broadside.Fonts.Type1;
 /// <c>dup index length RD binary NP</c> and <c>CharStrings</c> entries <c>/name length RD binary ND</c>, ended by <c>end</c>). Any
 /// executable name after the length is taken as <c>RD</c> (pdf.js does the same); the <c>CharStrings</c> count is a hint. Hybrid
 /// fonts (§9.2) carry a second <c>Subrs</c> and <c>CharStrings</c> for high resolutions: the first ones are used.
+/// <para>ISO 32000-2 §9.9.1.</para>
 /// </remarks>
 internal sealed class Type1ProgramReader
 {

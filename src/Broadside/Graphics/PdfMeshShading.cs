@@ -23,6 +23,7 @@ namespace Broadside.Graphics;
 /// the complete triangles or patches before the cut with one <c>MeshDataTruncated</c> diagnostic; see the subclasses for edge
 /// flags. Meshes larger than <see cref="PdfOptions.MaxMeshVertices"/> are cut there with a <c>MeshSizeExceeded</c> diagnostic.
 /// </para>
+/// <para>ISO 32000-2 §8.7.4.5.6 and §8.7.4.5.7.</para>
 /// </remarks>
 public abstract class PdfMeshShading : PdfShading
 {

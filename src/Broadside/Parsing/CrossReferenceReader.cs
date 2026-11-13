@@ -31,6 +31,7 @@ namespace Broadside.Parsing;
 /// the older <c>startxref</c> that is found reports <see cref="FileStructureDiagnostics.StartxrefLastDamaged"/> and rebuilds, so
 /// the newest revision is read rather than the previous one.
 /// </para>
+/// <para>ISO 32000-2 §7.5.1 and Annex G.2.</para>
 /// </remarks>
 internal static class CrossReferenceReader
 {

@@ -7,6 +7,7 @@ namespace Broadside.Security.Cryptography;
 /// <remarks>
 /// ISO/TS 32004 §6.3.3, Table 7. The base class library implements only the padded variant of RFC 5649 (a different initial value
 /// and a length prefix), so the wrap is built here on single AES blocks (<see cref="AesCipher"/>).
+/// <para>ISO/TS 32004 §6.4.</para>
 /// </remarks>
 internal static class AesKeyWrap
 {

@@ -1,7 +1,10 @@
 namespace Broadside.Annotations;
 
 /// <summary>A line ending style, as the <c>LE</c> entry of line, polyline and free text annotations names it.</summary>
-/// <remarks>ISO 32000-2 §12.5.6.7, Table 179. A name the table does not list reads as <see cref="None"/>, as viewers draw it.</remarks>
+/// <remarks>
+/// <para>ISO 32000-2 §12.5.6.7, Table 179. A name the table does not list reads as <see cref="None"/>, as viewers draw it.</para>
+/// <para>ISO 32000-2 §12.5.6.6.</para>
+/// </remarks>
 public enum PdfLineEnding
 {
     /// <summary><c>None</c>: no line ending (the default).</summary>

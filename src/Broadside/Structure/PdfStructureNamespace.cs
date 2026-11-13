@@ -15,6 +15,7 @@ namespace Broadside.Structure;
 /// A view over its dictionary: <see cref="Name"/>, <see cref="RoleMap"/> and <see cref="Schema"/> read it on every call.
 /// The <c>Schema</c> file specification is exposed as its COS object until the file specification view (issue #76) types it.
 /// </para>
+/// <para>ISO/TS 32005 §5.1, §5.2, §5.3 and §5.4.</para>
 /// </remarks>
 public sealed class PdfStructureNamespace : IEquatable<PdfStructureNamespace>
 {

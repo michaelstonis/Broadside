@@ -24,6 +24,7 @@ namespace Broadside.Rendering;
 /// Hot path (CLAUDE.md): after warm-up nothing is allocated per shape, segment, cell or scanline. Cells live in pooled arrays that
 /// grow by doubling, and are sorted in place by a 64-bit row-and-column key.
 /// </para>
+/// <para>ISO 32000-2 §10.7.1.</para>
 /// </remarks>
 internal sealed class ScanlineRasterizer : IDisposable
 {

@@ -14,6 +14,7 @@ namespace Broadside.Caching;
 /// breaks the exact allocation baselines of the benchmark gate. With one fixed lock the table grows only when the entry count passes
 /// the bucket count. Reads take no lock either way, and a write takes it once per key for a few instructions (factories run outside
 /// it), so concurrent loading does not queue on it.
+/// <para>ISO 32000-2 §7.5.3.</para>
 /// </remarks>
 internal static class DeterministicTable
 {

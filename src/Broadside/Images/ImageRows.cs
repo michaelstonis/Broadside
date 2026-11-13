@@ -12,6 +12,7 @@ namespace Broadside.Images;
 /// ISO 32000-2 §8.9.3 (sample layout), §8.9.5.2 (Decode), §8.9.6 (masks), §11.6.5.2 (Matte). Each works on one row at a time, from
 /// its byte-aligned start, so the padding bits at the end of a row are never read as samples. Spans are the caller's: these methods
 /// keep nothing.
+/// <para>ISO 32000-2 §8.9.4.</para>
 /// </remarks>
 public static class ImageRows
 {

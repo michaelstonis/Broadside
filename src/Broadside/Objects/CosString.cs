@@ -5,6 +5,7 @@ namespace Broadside.Objects;
 /// ISO 32000-2 §7.3.4. The value is the bytes; the written form is kept in <see cref="IsHexadecimal"/> only so a re-written string
 /// keeps the form it was read in, and it takes no part in equality. Whether the bytes are text, ASCII or binary depends on where
 /// the string is used (§7.9.2); <see cref="DecodeText"/> reads them as a text string.
+/// <para>ISO 32000-2 Annex D.3.</para>
 /// </remarks>
 public sealed class CosString : CosObject, IEquatable<CosString>
 {

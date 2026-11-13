@@ -25,6 +25,7 @@ namespace Broadside.Content;
 /// drops it); a <c>TJ</c> element that is neither a string nor a number is skipped. <c>d0</c>, <c>d1</c> and the glyph descriptions
 /// of Type 3 fonts are in <c>ContentInterpreter.Type3.cs</c>.
 /// </para>
+/// <para>ISO 32000-2 §8.1, §8.6.7, §9.2.2 and §11.6.7.</para>
 /// </remarks>
 internal sealed partial class ContentInterpreter
 {

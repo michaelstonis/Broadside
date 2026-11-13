@@ -126,6 +126,7 @@ internal sealed record XrefSection(long Offset, long End, XrefSectionKind Kind, 
 /// lookup misses the first-page section and the hint tables cannot place the object (<see cref="Locator"/>), or anything needs every
 /// section. The first-page section is the newest, so what it lists never changes when the rest arrives.
 /// </para>
+/// <para>ISO 32000-2 Annex F.3 and Annex G.2.</para>
 /// </remarks>
 internal sealed class CrossReference
 {

@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Foo</name>
+    </assembly>
+    <members>
+        <member name="T:Foo.Foo">
+            <summary>Parses things.</summary>
+            <remarks>ISO 32000-2 §1.2.</remarks>
+        </member>
+        <member name="T:Foo.Foo.Nested">
+            <summary>Covered by the citation of the type that encloses it.</summary>
+        </member>
+        <member name="T:Foo.Generic`1">
+            <summary>Decodes things.</summary>
+            <remarks>ITU-T T.81 §A.1.</remarks>
+        </member>
+        <member name="T:Foo.FooOptions">
+            <summary>Options, exempt in the citation policy.</summary>
+        </member>
+        <member name="T:Foo.Parser">
+            <summary>An internal type that cites its clause on a member.</summary>
+        </member>
+        <member name="M:Foo.Parser.Parse(System.String)">
+            <summary>Parses one thing.</summary>
+            <remarks>ISO 32000-2 §2.1.1 and ITU-T T.81 §3.</remarks>
+        </member>
+    </members>
+</doc>

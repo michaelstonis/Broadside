@@ -17,6 +17,7 @@ namespace Broadside.Content;
 /// Declared with the content interpreter's processor surface (issue #55); text showing reports it from issue #56, which adds the
 /// resolved font. Members are added, never changed.
 /// </para>
+/// <para>ISO 32000-2 §9.2.2, §9.2.3, §9.2.4, §9.3.2, §9.3.3, §9.3.6, §9.3.7 and §9.10.1.</para>
 /// </remarks>
 public readonly ref struct GlyphEvent
 {

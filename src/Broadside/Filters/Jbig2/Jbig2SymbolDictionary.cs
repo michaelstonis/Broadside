@@ -18,6 +18,7 @@ namespace Broadside.Filters.Jbig2;
 /// through the text region and refinement procedures, Huffman collective bitmaps uncompressed or MMR, export runs), §7.4.2 (segment
 /// syntax, the custom tables taken from referred code table segments in the order DH, DW, BMSIZE, AGGINST, SDINSYMS from the
 /// referred symbol dictionaries in referral order).
+/// <para>ISO 32000-2 §7.4.7.</para>
 /// </remarks>
 internal sealed class Jbig2SymbolDictionary
 {

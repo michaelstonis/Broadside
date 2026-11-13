@@ -1,7 +1,7 @@
 namespace Broadside.Structure;
 
 /// <summary>The page edges an artifact is logically attached to: the <c>Attached</c> entry of its property list.</summary>
-/// <remarks>ISO 32000-2 §14.8.2.2.2, Table 363: pagination and full-page background artifacts only; edges are the crop box's.</remarks>
+/// <remarks>ISO 32000-2 §14.8.2.2.2, Table 363: pagination and full-page background artifacts only; edges are the crop box's. Also §14.6.1.</remarks>
 [Flags]
 public enum PdfArtifactEdges
 {

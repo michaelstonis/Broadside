@@ -21,6 +21,7 @@ namespace Broadside;
 /// integer (a common producer error) uses it as a 0-based page index. A page that is not in the page tree has no
 /// <see cref="PageIndex"/>, with a diagnostic when it is asked for.
 /// </para>
+/// <para>ISO 32000-2 §12.3.2.1 and Annex G.4.</para>
 /// </remarks>
 public sealed class PdfExplicitDestination : PdfDestination
 {

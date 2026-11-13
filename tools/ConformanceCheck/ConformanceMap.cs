@@ -161,9 +161,9 @@ public sealed partial class CodeIndex
     private static readonly string[] SkippedDirectories = ["bin", "obj", "Fixtures"];
 
     private readonly Dictionary<string, HashSet<string>> _testClasses;
-    private readonly HashSet<string> _sourceTypes;
+    private readonly Dictionary<string, HashSet<string>> _sourceTypes;
 
-    private CodeIndex(Dictionary<string, HashSet<string>> testClasses, HashSet<string> sourceTypes)
+    private CodeIndex(Dictionary<string, HashSet<string>> testClasses, Dictionary<string, HashSet<string>> sourceTypes)
     {
         _testClasses = testClasses;
         _sourceTypes = sourceTypes;
@@ -178,10 +178,14 @@ public sealed partial class CodeIndex
             IndexTests(File.ReadLines(path), testClasses);
         }
 
-        var sourceTypes = new HashSet<string>(StringComparer.Ordinal);
-        foreach (string path in EnumerateSources(Path.Combine(repositoryRoot, "src")))
+        var sourceTypes = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        string sourceRoot = Path.Combine(repositoryRoot, "src");
+        foreach (string path in EnumerateSources(sourceRoot))
         {
-            IndexTypes(File.ReadLines(path), sourceTypes);
+            string relative = Path.GetRelativePath(sourceRoot, path);
+            int separator = relative.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]);
+            string package = separator < 0 ? string.Empty : relative[..separator];
+            IndexTypes(File.ReadLines(path), package, sourceTypes);
         }
 
         return new CodeIndex(testClasses, sourceTypes);
@@ -194,7 +198,10 @@ public sealed partial class CodeIndex
     public bool HasTestMethod(string className, string methodName) => _testClasses.TryGetValue(className, out HashSet<string>? methods) && methods.Contains(methodName);
 
     /// <summary>Whether a type with the simple name <paramref name="simpleName"/> is declared under <c>src/</c>.</summary>
-    public bool HasSourceType(string simpleName) => _sourceTypes.Contains(simpleName);
+    public bool HasSourceType(string simpleName) => _sourceTypes.ContainsKey(simpleName);
+
+    /// <summary>The projects under <c>src/</c> (directory names) that declare a type with the simple name <paramref name="simpleName"/>.</summary>
+    public IReadOnlyCollection<string> SourceTypePackages(string simpleName) => _sourceTypes.TryGetValue(simpleName, out HashSet<string>? packages) ? packages : [];
 
     private static IEnumerable<string> EnumerateSources(string directory)
     {
@@ -283,14 +290,21 @@ public sealed partial class CodeIndex
         }
     }
 
-    private static void IndexTypes(IEnumerable<string> lines, HashSet<string> types)
+    private static void IndexTypes(IEnumerable<string> lines, string package, Dictionary<string, HashSet<string>> types)
     {
         foreach (string rawLine in lines)
         {
             string line = StripComments(rawLine);
             foreach (Match match in TypeDeclaration().Matches(line))
             {
-                types.Add(match.Groups[1].Value);
+                string name = match.Groups[1].Value;
+                if (!types.TryGetValue(name, out HashSet<string>? packages))
+                {
+                    packages = new HashSet<string>(StringComparer.Ordinal);
+                    types.Add(name, packages);
+                }
+
+                packages.Add(package);
             }
         }
     }
@@ -383,7 +397,19 @@ public static partial class ConformanceChecker
     /// <param name="repositoryRoot">The directory that holds <c>docs/</c>, <c>src/</c> and <c>tests/</c>.</param>
     /// <param name="strict">Also fail <c>partial</c> rows with an empty Tests or Notes cell.</param>
     /// <exception cref="DirectoryNotFoundException"><paramref name="repositoryRoot"/> has no <c>docs/conformance</c> directory.</exception>
-    public static ConformanceReport Check(string repositoryRoot, bool strict)
+    public static ConformanceReport Check(string repositoryRoot, bool strict) => Check(repositoryRoot, strict, citations: null);
+
+    /// <summary>Checks the conformance map under <paramref name="repositoryRoot"/> and, when <paramref name="citations"/> is set, the clause citations.</summary>
+    /// <param name="repositoryRoot">The directory that holds <c>docs/</c>, <c>src/</c> and <c>tests/</c>.</param>
+    /// <param name="strict">Also fail <c>partial</c> rows with an empty Tests or Notes cell.</param>
+    /// <param name="citations">
+    /// Where the packages' XML documentation is. When set, every public type of a checked package must cite a specification and every
+    /// row's implementing types must cite the row's clause; see <see cref="CitationChecker"/>.
+    /// </param>
+    /// <exception cref="DirectoryNotFoundException"><paramref name="repositoryRoot"/> has no <c>docs/conformance</c> directory.</exception>
+    /// <exception cref="FileNotFoundException"><paramref name="citations"/> is set and the repository has no citation policy.</exception>
+    /// <exception cref="InvalidDataException"><paramref name="citations"/> is set and the citation policy is not valid.</exception>
+    public static ConformanceReport Check(string repositoryRoot, bool strict, CitationOptions? citations)
     {
         string directory = Path.Combine(repositoryRoot, "docs", "conformance");
         if (!Directory.Exists(directory))
@@ -397,6 +423,14 @@ public static partial class ConformanceChecker
         CodeIndex index = CodeIndex.Build(repositoryRoot);
         var files = new List<ConformanceFile>();
         var violations = new List<Violation>();
+        CitationPolicy? policy = null;
+        var documentation = new DocumentationIndex();
+        if (citations is not null)
+        {
+            policy = CitationPolicy.Load(repositoryRoot);
+            violations.AddRange(CitationChecker.CheckPublicTypes(repositoryRoot, policy, citations, documentation));
+        }
+
         foreach (string path in paths)
         {
             string name = Path.GetFileName(path);
@@ -408,7 +442,12 @@ public static partial class ConformanceChecker
             var fileViolations = new List<Violation>();
             ConformanceFile file = ConformanceMapParser.Parse(ConformanceDirectory + "/" + name, File.ReadAllLines(path), fileViolations);
             Validate(file, index, strict, fileViolations);
-            fileViolations.Sort(static (a, b) => a.Line.CompareTo(b.Line));
+            if (policy is not null)
+            {
+                CitationChecker.CheckRows(file, policy, index, documentation, fileViolations);
+            }
+
+            fileViolations = [.. fileViolations.OrderBy(static violation => violation.Line)];
             files.Add(file);
             violations.AddRange(fileViolations);
         }

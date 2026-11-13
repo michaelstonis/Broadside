@@ -12,6 +12,7 @@ namespace Broadside.Signatures.Validation;
 /// RFC 5280 §5.1 (structure), §5.2.4 and §5.2.5 (delta CRLs and issuing distribution point), §5.3.1 (reason code), §5.3.3
 /// (certificate issuer). Delta CRLs, indirect CRLs, CRLs partitioned by reason and CRLs with a critical extension this reader does not
 /// know are decoded but not <see cref="Complete"/>, so they never establish that a certificate is good (RFC 5280 §6.3.3).
+/// <para>ISO 32000-2 §12.8.3.3.</para>
 /// </remarks>
 internal sealed class RevocationList
 {

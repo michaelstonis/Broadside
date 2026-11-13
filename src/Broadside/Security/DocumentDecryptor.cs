@@ -9,6 +9,7 @@ using Broadside.Security.Cryptography;
 namespace Broadside.Security;
 
 /// <summary>How a crypt filter decrypts (§7.6.6, Table 25; ISO/TS 32003 Table 4).</summary>
+/// <remarks>ISO 32000-2 §7.6.6.</remarks>
 internal enum CryptMethod
 {
     /// <summary>No decryption (the <c>Identity</c> crypt filter, Table 26).</summary>
@@ -38,6 +39,7 @@ internal enum CryptMethod
 /// <param name="Name">The name it has in <c>CF</c>, or <c>Identity</c>, or the name the document's V 1-3 encryption is given.</param>
 /// <param name="Method">How it decrypts.</param>
 /// <param name="Key">The key: the file encryption key, or the filter's own.</param>
+/// <remarks>ISO 32000-2 §7.6.6.</remarks>
 internal sealed record CryptFilter(CosName Name, CryptMethod Method, byte[] Key);
 
 /// <summary>
@@ -67,6 +69,8 @@ internal sealed record CryptFilter(CosName Name, CryptMethod Method, byte[] Key)
 /// a trailing partial block is dropped, an invalid PKCS#5 pad is kept; AES-GCM data that fails authentication decrypts to nothing.
 /// Decryption never marks anything dirty. Thread-safe: the key material is immutable and every call has its own cipher.
 /// </para>
+/// <para>ISO 32000-2 §7.6.5.3.</para>
+/// <para>ISO/TS 32003 §5.1.</para>
 /// </remarks>
 internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
 {

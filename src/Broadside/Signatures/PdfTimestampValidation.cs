@@ -12,6 +12,7 @@ namespace Broadside.Signatures;
 /// RFC 3161 §2.3 (the unit's certificate), §2.4.1 and RFC 5816 (the ESS signing-certificate attribute), §2.4.2 (TSTInfo) and Appendix A
 /// (the signature time-stamp attribute); ISO 32000-2 §12.8.3.4.5 c) and §12.8.3.4.8 (the unit's path and revocation at the current
 /// time; the rules for a revoked unit).
+/// <para>ISO 32000-2 §12.8.1 and §12.8.5.2.</para>
 /// </remarks>
 public sealed class PdfTimestampValidation
 {

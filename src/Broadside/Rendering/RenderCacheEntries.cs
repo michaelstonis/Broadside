@@ -13,6 +13,7 @@ namespace Broadside.Rendering;
 /// <param name="epoch">The mutation epoch read before decoding.</param>
 /// <param name="image">The image, for a key that is not a stencil.</param>
 /// <param name="mask">The mask, for a stencil key.</param>
+/// <remarks>ISO 32000-2 §8.9.5.1.</remarks>
 internal sealed class DisplayImageEntry(long epoch, DisplayImage? image, DisplayImageMask? mask) : EpochEntry(epoch)
 {
     /// <summary>The bytes charged for an entry beyond what it holds.</summary>
@@ -39,6 +40,7 @@ internal sealed class DisplayImageEntry(long epoch, DisplayImage? image, Display
 /// document's image cache under the image and the reduction. Always current: the image is immutable, so its samples are too.
 /// </summary>
 /// <param name="samples">The samples.</param>
+/// <remarks>ISO 32000-2 §8.9.5.1.</remarks>
 internal sealed class DisplayImageSamplesEntry(DecodedImage samples) : IBudgetedEntry
 {
     /// <summary>Gets the samples.</summary>
@@ -57,6 +59,7 @@ internal sealed class DisplayImageSamplesEntry(DecodedImage samples) : IBudgeted
 /// </summary>
 /// <param name="verbs">The path's verbs.</param>
 /// <param name="points">The path's points.</param>
+/// <remarks>ISO 32000-2 §9.9.1.</remarks>
 internal sealed class GlyphOutlineEntry(PathVerb[] verbs, PathPoint[] points) : IBudgetedEntry
 {
     /// <summary>The bytes charged for an entry beyond its path.</summary>

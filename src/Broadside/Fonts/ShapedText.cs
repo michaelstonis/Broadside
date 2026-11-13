@@ -70,5 +70,8 @@ public sealed class ShapedText
 /// <param name="Advance">The glyph's advance after positioning, in thousandths of the font size (its width plus kerning and the other <c>GPOS</c> advance adjustments; 0 for a mark).</param>
 /// <param name="XOffset">How far the glyph is drawn right of its pen position, in thousandths of the font size (a mark placed on its base, a <c>GPOS</c> placement); it does not move the glyphs after it.</param>
 /// <param name="YOffset">How far the glyph is drawn above the baseline, in thousandths of the font size (a mark above or below its base, a cursive connection); it does not move the glyphs after it.</param>
-/// <remarks>OpenType specification, GSUB and GPOS (ValueRecord, mark and cursive attachment); ISO 32000-2 §9.2.4 (glyph widths in thousandths of text space).</remarks>
+/// <remarks>
+/// <para>OpenType specification, GSUB and GPOS (ValueRecord, mark and cursive attachment); ISO 32000-2 §9.2.4 (glyph widths in thousandths of text space).</para>
+/// <para>ISO 32000-2 §9.4.3.</para>
+/// </remarks>
 public readonly record struct ShapedGlyph(int Code, int Cluster, double Advance, double XOffset, double YOffset);

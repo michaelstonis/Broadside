@@ -20,6 +20,7 @@ namespace Broadside.Filters.Jpx;
 /// clamping to the integer bounds before rounding gives the same sample as rounding first. The source is BCL-only, so the Blazor
 /// sample's kernel benchmark links it.
 /// </para>
+/// <para>ISO 32000-2 §7.4.9.</para>
 /// </remarks>
 internal static partial class JpxLevelShift
 {

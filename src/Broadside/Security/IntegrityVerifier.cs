@@ -29,6 +29,7 @@ namespace Broadside.Security;
 /// file is never held in memory for this. Every digest of Table 8 is checked on every platform: SHA-3 goes through
 /// <see cref="IncrementalDigest"/>, which uses the managed implementation where the base class library has none (ISO/TS 32001 §5.1).
 /// </para>
+/// <para>ISO/TS 32004 §5.1, §6.1, §6.2, §6.3, §6.4, §6.5 and §6.6.</para>
 /// </remarks>
 internal static class IntegrityVerifier
 {

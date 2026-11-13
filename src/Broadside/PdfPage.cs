@@ -20,6 +20,7 @@ namespace Broadside;
 /// page tree root that the page was found through. A value that is missing or malformed reads as the default the specification
 /// gives; the reader records a diagnostic for it when it first walks the page tree.
 /// </para>
+/// <para>ISO 32000-2 §8.10.3.</para>
 /// </remarks>
 public sealed partial class PdfPage
 {

@@ -32,6 +32,7 @@ namespace Broadside.Parsing;
 /// hooks 1 and 2 (§7.6.2: strings in an object stream are not separately encrypted). Members publish to the cache like any object.
 /// A member reference with a generation other than 0 resolves to null (§7.5.7: members have generation 0).
 /// </para>
+/// <para>ISO 32000-2 §7.5.3.</para>
 /// </remarks>
 internal sealed class ObjectLoader
 {

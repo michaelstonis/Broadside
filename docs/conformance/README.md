@@ -54,14 +54,24 @@ A `|` inside a cell is written `\|`.
 
 The code lookups are a line-level scan of the `.cs` files (`namespace`, type and attributed method declarations), not a compile, so they run in milliseconds and need no build; `bin`, `obj` and `Fixtures` directories are skipped.
 
+## Clause citations
+
+With `--citations` the checker also reads the XML documentation of the packages and applies the rules in [citation-policy.json](./citation-policy.json). Build the checked packages first; the documentation is read from `artifacts/bin/<package>/<configuration>/<package>.xml` (`--configuration`, default `debug`).
+
+9. Every project under `src/` is listed in the policy's `packages`, either checked or unchecked with a reason (the rendering backends and the viewer are unchecked: they implement no clause).
+10. Every public type of a checked package, as its `PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt` declare it, cites a specification in its own XML documentation, in one of the policy's `citationForms` (`ISO 32000-2 §x.y.z`, an annex or table of ISO 32000-2, another ISO standard or ISO/TS, an ITU-T recommendation, an Adobe technical note, an RFC, ICC.1, the OpenType specification, the Unicode Standard, a PDF Association application note, Well-Tagged PDF, PDF Declarations), unless the policy's `exemptions` list the type or its namespace with a reason (options, engine, hosting, diagnostics infrastructure). A nested type is covered by a citation on a type that encloses it, and members by their declaring type's citation. The violation is reported at the type's line in the API file.
+11. Every exemption has a reason and matches at least one public type of a checked package.
+12. Every implementing type a row names that is declared in a checked package (public or internal) has XML documentation that cites the row's clause of the map's document, on the type or on one of its members: the document's name from the policy's `maps` (`ISO 32000-2`, `ISO/TS 32003`, `ICC.1:2022`, ...) followed, before any other document is named, by the clause (`§7.3.4`, `Annex F.3`, `clause 9`, or the clause right after the name). A citation of the clause, of one of its sub-clauses or, for a row at the third level or deeper, of its parent clause counts: `ISO 32000-2 §8.9.5` covers the row `8.9.5.1`. Clauses that are not numbered are cited by the row's key: `PDF 2.0 Application Note 003 §Explicit`. Types declared only in unchecked packages are not checked.
+
 ## Running the checker
 
 ```sh
 dotnet run --project tools/ConformanceCheck -- --summary           # from anywhere inside the checkout
 dotnet run --project tools/ConformanceCheck -- --root . --summary  # what CI runs, from the repository root
 dotnet run --project tools/ConformanceCheck -- --strict            # also require tests and notes on partial rows
+dotnet run --project tools/ConformanceCheck -- --citations         # also check clause citations (build the checked packages first)
 ```
 
 `--root` defaults to the nearest parent of the current directory that contains `Broadside.slnx`. `--summary` prints a Markdown table of row counts per status for every file plus a total. The exit code is 0 when the map is valid and 1 when any rule fails.
 
-The checker runs in three places: the `conformance` CI job runs `dotnet run --project tools/ConformanceCheck -- --root . --summary` on every pull request; `tests/ConformanceCheck.Tests` runs the same validation against the checkout as part of `dotnet test Broadside.Core.slnf`, so a wrong row also fails the test suite; and the fixture tests in that project pin the exact violation for each rule.
+The checker runs in three places: the `conformance-map` CI job builds the checked packages and runs `dotnet run --project tools/ConformanceCheck -- --root . --summary --citations` on every pull request; `tests/ConformanceCheck.Tests` runs the same validation, citations included, against the checkout as part of `dotnet test Broadside.Core.slnf` (it references the checked packages, so their XML documentation is next to it), so a wrong row or a missing citation also fails the test suite; and the fixture tests in that project pin the exact violation for each rule.

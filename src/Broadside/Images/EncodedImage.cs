@@ -22,6 +22,7 @@ namespace Broadside.Images;
 /// data is the stream's data as read when it was made (which nothing writes in place) or, after other filters, its own copy, and the
 /// parameter and image dictionaries are shallow copies taken when it was made.
 /// </para>
+/// <para>ISO 32000-2 §11.6.5.2.</para>
 /// </remarks>
 internal sealed class EncodedImage
 {

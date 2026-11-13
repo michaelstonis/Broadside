@@ -26,6 +26,7 @@ namespace Broadside.Rendering;
 /// group's compositing needs them, and only in the first pass of a CMYK group (they are the same in every pass). Buffers are kept
 /// and reused at their largest size, so a warm render allocates nothing.
 /// </para>
+/// <para>ISO 32000-2 §11.3.4, §11.4.1, §11.4.3, §11.4.4, §11.4.5, §11.4.6 and §11.6.7.</para>
 /// </remarks>
 internal sealed class GroupLayer : IDisposable
 {

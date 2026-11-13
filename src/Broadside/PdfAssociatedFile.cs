@@ -3,7 +3,7 @@ using Broadside.Objects;
 namespace Broadside;
 
 /// <summary>Where an associated file was found: the kind of object whose <c>AF</c> entry (or marked-content property list) lists it.</summary>
-/// <remarks>ISO 32000-2 §14.13.3-§14.13.9 and PDF 2.0 Application Note 002 §3.1 and §6.2 (the list of locations is open).</remarks>
+/// <remarks>ISO 32000-2 §14.13.3-§14.13.9 and PDF 2.0 Application Note 002 §3.1 and §6.2 (the list of locations is open). Also §4.2.</remarks>
 public enum PdfAssociatedFileLocation
 {
     /// <summary>The document catalog: files associated with the whole document (§14.13.3).</summary>
@@ -41,7 +41,7 @@ public enum PdfAssociatedFileLocation
 }
 
 /// <summary>An associated file together with the object it is associated with.</summary>
-/// <remarks>ISO 32000-2 §14.13 (PDF 2.0) and PDF 2.0 Application Note 002.</remarks>
+/// <remarks>ISO 32000-2 §14.13 (PDF 2.0) and PDF 2.0 Application Note 002. Also §2 and §4.2.</remarks>
 public sealed class PdfAssociatedFile
 {
     internal PdfAssociatedFile(PdfFileSpecification file, PdfAssociatedFileLocation location, CosObject owner, CosReference? ownerReference, int? pageIndex, string? propertyName)
