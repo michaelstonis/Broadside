@@ -81,13 +81,13 @@ public sealed class CffFontProgramParser : IFontProgramParser
             if (sfnt.Has(Cff2))
             {
                 context.Report(
-                    DiagnosticCodes.FontCff2Unsupported,
+                    CffDiagnostics.FontCff2Unsupported,
                     DiagnosticSeverity.Information,
                     "The OpenType program's outlines are a \"CFF2\" table (OpenType 1.8 variable CFF), which is not read; the font's glyphs are not available.");
             }
             else
             {
-                context.Report(DiagnosticCodes.FontProgramInvalid, DiagnosticSeverity.Error, "The OpenType program has neither a \"CFF \" nor a \"glyf\" table (ISO 32000-2 §9.9, Table 124); it is not usable.");
+                context.Report(FontDiagnostics.FontProgramInvalid, DiagnosticSeverity.Error, "The OpenType program has neither a \"CFF \" nor a \"glyf\" table (ISO 32000-2 §9.9, Table 124); it is not usable.");
             }
 
             return null;

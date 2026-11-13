@@ -15,7 +15,7 @@ namespace Broadside.Fonts;
 /// <see cref="Diagnostics"/> only, which is how a parser is tested or used outside a document. Inside a document, diagnostics are
 /// recorded on the document against the font file stream, once per code.
 /// </para>
-/// <para>Thread safety: <see cref="Report"/> may be called from several threads at once (concurrent renders of one document).</para>
+/// <para>Thread safety: <see cref="Report(string, DiagnosticSeverity, string)"/> may be called from several threads at once (concurrent renders of one document).</para>
 /// </remarks>
 public sealed class FontProgramContext
 {
@@ -83,7 +83,7 @@ public sealed class FontProgramContext
     /// </summary>
     public string? FaceName { get; init; }
 
-    /// <summary>Gets how deviations are treated: in <see cref="PdfReadingMode.Strict"/> mode, <see cref="Report"/> throws.</summary>
+    /// <summary>Gets how deviations are treated: in <see cref="PdfReadingMode.Strict"/> mode, <see cref="Report(string, DiagnosticSeverity, string)"/> throws.</summary>
     /// <remarks>Lenient by default: a deviation is repaired and recorded as a diagnostic; strict mode throws instead.</remarks>
     public PdfReadingMode ReadingMode { get; init; } = PdfReadingMode.Lenient;
 
@@ -125,4 +125,7 @@ public sealed class FontProgramContext
         Interlocked.Increment(ref _reportCount);
         _diagnostics.Report(code, severity, message, ReadingMode);
     }
+
+    /// <summary>Records a deviation of the catalog; see <see cref="Report(string, DiagnosticSeverity, string)"/>.</summary>
+    internal void Report(DiagnosticCode code, DiagnosticSeverity severity, string message) => Report(code.Name, severity, message);
 }

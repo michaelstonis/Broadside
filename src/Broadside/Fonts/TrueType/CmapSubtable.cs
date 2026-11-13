@@ -103,7 +103,7 @@ internal sealed class CmapSubtable : FontCharacterMap
         if (glyph >= _glyphCount)
         {
             _context.Report(
-                DiagnosticCodes.FontCmapInvalid,
+                FontDiagnostics.FontCmapInvalid,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"The ({PlatformId}, {EncodingId}) \"cmap\" subtable maps a code to glyph {glyph}, past the program's {_glyphCount} glyphs; the missing glyph is used."));
             return 0;
@@ -271,7 +271,7 @@ internal sealed class CmapSubtable : FontCharacterMap
         if (address + 2 > data.Length)
         {
             _context.Report(
-                DiagnosticCodes.FontCmapInvalid,
+                FontDiagnostics.FontCmapInvalid,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"A segment of the ({PlatformId}, {EncodingId}) format 4 \"cmap\" subtable points past its glyph id array; its codes map to the missing glyph."));
             return 0;
@@ -402,5 +402,5 @@ internal sealed class CmapSubtable : FontCharacterMap
     }
 
     private static void Report(FontProgramContext context, string problem) =>
-        context.Report(DiagnosticCodes.FontCmapInvalid, DiagnosticSeverity.Warning, $"The font program's \"cmap\" table deviates from the OpenType specification: {problem}.");
+        context.Report(FontDiagnostics.FontCmapInvalid, DiagnosticSeverity.Warning, $"The font program's \"cmap\" table deviates from the OpenType specification: {problem}.");
 }

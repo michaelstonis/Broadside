@@ -116,7 +116,7 @@ public abstract class PdfFont
         if (!FontNames.Font.Equals(type))
         {
             diagnostics.Report(
-                DiagnosticCodes.FontTypeInvalid,
+                FontDiagnostics.FontTypeInvalid,
                 DiagnosticSeverity.Warning,
                 "A font dictionary's Type shall be Font (ISO 32000-2 §9.6.2.1, Table 109); read as a font.",
                 objectReference: reference);
@@ -149,7 +149,7 @@ public abstract class PdfFont
         }
 
         diagnostics.Report(
-            DiagnosticCodes.FontSubtypeInvalid,
+            FontDiagnostics.FontSubtypeInvalid,
             DiagnosticSeverity.Warning,
             $"A font dictionary's Subtype shall be one of the font types of ISO 32000-2 §9.5 Table 108, not {(subtype is null ? "absent" : "/" + subtype.Value)}; read as a Type 1 font.",
             objectReference: reference);
@@ -229,7 +229,7 @@ public abstract class PdfFont
     internal virtual double GetHorizontalDisplacement(byte code) => 0;
 
     /// <summary>Records a deviation found in this font.</summary>
-    internal void Report(string code, DiagnosticSeverity severity, string message) =>
+    internal void Report(DiagnosticCode code, DiagnosticSeverity severity, string message) =>
         Document.DiagnosticSink.Report(code, severity, message, objectReference: Reference);
 
     /// <summary>Maps a character code to the Unicode text it stands for.</summary>
@@ -287,7 +287,7 @@ public abstract class PdfFont
         (Volatile.Read(ref _unicodeReports) & report) == 0 || (severity != DiagnosticSeverity.Information && Document.DiagnosticSink.IsStrict);
 
     /// <summary>Records a once-per-font Unicode diagnostic (<see cref="FontUnicodeReports"/>).</summary>
-    internal void ReportUnicode(int report, string code, DiagnosticSeverity severity, string message)
+    internal void ReportUnicode(int report, DiagnosticCode code, DiagnosticSeverity severity, string message)
     {
         Interlocked.Or(ref _unicodeReports, report);
         Report(code, severity, message);
@@ -300,7 +300,7 @@ public abstract class PdfFont
         {
             ReportUnicode(
                 FontUnicodeReports.Unmapped,
-                DiagnosticCodes.TextUnicodeUnmapped,
+                TextDiagnostics.TextUnicodeUnmapped,
                 DiagnosticSeverity.Information,
                 $"No method of ISO 32000-2 §9.10.2 maps code 0x{code.ToString(length == 1 ? "X2" : "X" + (2 * Math.Clamp(length, 1, 4)), System.Globalization.CultureInfo.InvariantCulture)} of the font to Unicode (no ToUnicode entry for it, no usable glyph name or character collection); its text is U+FFFD. Further codes of this font are not reported.");
         }

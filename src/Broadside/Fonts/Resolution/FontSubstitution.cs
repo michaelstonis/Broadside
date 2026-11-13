@@ -29,7 +29,7 @@ internal static class FontSubstitution
         FontQuery query,
         string? baseFont,
         CosReference? reference,
-        Action<string, DiagnosticSeverity, string> report,
+        Action<DiagnosticCode, DiagnosticSeverity, string> report,
         string clauses,
         string kept)
     {
@@ -48,7 +48,7 @@ internal static class FontSubstitution
         if (resolution is null)
         {
             report(
-                DiagnosticCodes.FontProgramNotFound,
+                FontDiagnostics.FontProgramNotFound,
                 DiagnosticSeverity.Information,
                 $"No font program was found for the font /{requested}, which is not embedded (ISO 32000-2 {clauses}){(query.IsSymbolic && similar is null && query.Standard14 is null ? "; it is symbolic, so no text font stands in for it" : string.Empty)}. Its glyphs are not drawn; {kept}. Configure the Standard 14 fonts package (PdfOptions.UseStandard14Fonts()) or a font resolver (PdfOptions.UseFontResolver).");
             return null;
@@ -58,7 +58,7 @@ internal static class FontSubstitution
         if (program is null)
         {
             report(
-                DiagnosticCodes.FontSubstituteUnreadable,
+                FontDiagnostics.FontSubstituteUnreadable,
                 DiagnosticSeverity.Information,
                 $"The font program {resolution.Name} found for the font /{requested} cannot be read by the engine's font program parsers; the font's glyphs are not drawn.");
             return null;
@@ -70,7 +70,7 @@ internal static class FontSubstitution
                 ? "a font of the same family and style"
                 : $"no font of that name or family was found; standing in for {Standard14Data.PostScriptName(similar!.Value)}, chosen as {Describe(query)} from the font descriptor and name (§9.8.2)";
             report(
-                DiagnosticCodes.FontSubstituted,
+                FontDiagnostics.FontSubstituted,
                 DiagnosticSeverity.Information,
                 $"The font /{requested} is not embedded; {resolution.Name} is used in its place ({reason}). Text keeps the font's own widths (ISO 32000-2 §9.2.4).");
         }
