@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -56,7 +57,7 @@ public sealed class PdfStructureTreeRoot
                 }
                 else if (kid.Kind != KidKind.Invalid)
                 {
-                    _context.Report(DiagnosticCodes.StructTreeRootInvalid, "The structure tree root's K holds something other than a structure element (Table 354); skipped.", Reference);
+                    _context.Report(StructureDiagnostics.StructTreeRootInvalid, "The structure tree root's K holds something other than a structure element (Table 354); skipped.", Reference);
                 }
             }
 
@@ -262,7 +263,7 @@ public sealed class PdfStructureTreeRoot
                 return new PdfStructureElement(_context, dictionary, null, null, parentKnown: false, depth: 0);
             }
 
-            _context.Report(DiagnosticCodes.IdTreeEntryInvalid, "The IDTree maps an ID to an element whose ID differs (Table 354); the element is searched through K.", Reference);
+            _context.Report(StructureDiagnostics.IdTreeEntryInvalid, "The IDTree maps an ID to an element whose ID differs (Table 354); the element is searched through K.", Reference);
         }
 
         return _context.Walk.TryGetById(id, out PdfStructureElement? element) ? element : null;
@@ -333,7 +334,7 @@ public sealed class PdfStructureTreeRoot
                 }
             }
 
-            _context.Report(DiagnosticCodes.ParentTreeEntryInvalid, $"The parent tree entry {key} of an object content item does not name an element whose K holds the object (§14.7.5.4); the element is searched through K.", contentItem as CosReference);
+            _context.Report(StructureDiagnostics.ParentTreeEntryInvalid, $"The parent tree entry {key} of an object content item does not name an element whose K holds the object (§14.7.5.4); the element is searched through K.", contentItem as CosReference);
         }
 
         return _context.Walk.TryGetObjectParent(resolved, out PdfStructureElement? found) ? found : null;

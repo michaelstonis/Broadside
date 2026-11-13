@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 
 namespace Broadside.Annotations;
@@ -28,13 +29,13 @@ public sealed class PdfPopupAnnotation : PdfAnnotation
 
                 if (parent is not PdfMarkupAnnotation)
                 {
-                    Report(Parsing.DiagnosticCodes.PopupParentInvalid, "The pop-up's Parent is not a markup annotation.");
+                    Report(AnnotationDiagnostics.PopupParentInvalid, "The pop-up's Parent is not a markup annotation.");
                 }
                 else if (parent.Dictionary.TryGetValue(AnnotationNames.Popup, out CosObject? popup)
                     && Document.Resolve(popup) is CosDictionary popupDictionary
                     && !ReferenceEquals(popupDictionary, Dictionary))
                 {
-                    Report(Parsing.DiagnosticCodes.PopupLinkMismatch, "The pop-up's Parent names another annotation as its Popup.");
+                    Report(AnnotationDiagnostics.PopupLinkMismatch, "The pop-up's Parent names another annotation as its Popup.");
                 }
 
                 return parent;

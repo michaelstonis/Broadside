@@ -27,13 +27,13 @@ internal static class JpegMarkerReader
         int start = data.IndexOf([(byte)0xFF, JpegMarkers.Soi]);
         if (start < 0)
         {
-            frame.Report(DiagnosticCodes.DctFrameInvalid, DiagnosticSeverity.Error, "The DCT data has no SOI marker; it is not decoded.");
+            frame.Report(DctDiagnostics.DctFrameInvalid, DiagnosticSeverity.Error, "The DCT data has no SOI marker; it is not decoded.");
             return false;
         }
 
         if (start > 0)
         {
-            frame.Report(DiagnosticCodes.DctLeadingJunk, DiagnosticSeverity.Warning, JpegFrame.Invariant($"{start} bytes before the SOI marker of the DCT data were skipped."));
+            frame.Report(DctDiagnostics.DctLeadingJunk, DiagnosticSeverity.Warning, JpegFrame.Invariant($"{start} bytes before the SOI marker of the DCT data were skipped."));
         }
 
         int position = start + 2;
@@ -46,11 +46,11 @@ internal static class JpegMarkerReader
                 case JpegMarkers.Eoi:
                     if (frame.FrameFound)
                     {
-                        frame.Report(DiagnosticCodes.DctTruncated, DiagnosticSeverity.Warning, "The DCT data ends before its first scan; it is not decoded.");
+                        frame.Report(DctDiagnostics.DctTruncated, DiagnosticSeverity.Warning, "The DCT data ends before its first scan; it is not decoded.");
                     }
                     else
                     {
-                        frame.Report(DiagnosticCodes.DctFrameInvalid, DiagnosticSeverity.Error, "The DCT data has no frame header; it is not decoded.");
+                        frame.Report(DctDiagnostics.DctFrameInvalid, DiagnosticSeverity.Error, "The DCT data has no frame header; it is not decoded.");
                     }
 
                     return false;
@@ -63,7 +63,7 @@ internal static class JpegMarkerReader
                         ReadOnlySpan<byte> body = ReadSegment(frame, data, ref position);
                         if (frame.FrameFound)
                         {
-                            frame.Report(DiagnosticCodes.DctFrameRepeated, DiagnosticSeverity.Warning, "A second DCT frame header was ignored.");
+                            frame.Report(DctDiagnostics.DctFrameRepeated, DiagnosticSeverity.Warning, "A second DCT frame header was ignored.");
                         }
                         else
                         {
@@ -82,14 +82,14 @@ internal static class JpegMarkerReader
                 case JpegMarkers.Exp:
                 case var sof when JpegMarkers.IsStartOfFrame((byte)sof):
                     frame.Report(
-                        DiagnosticCodes.DctProcessUnsupported,
+                        DctDiagnostics.DctProcessUnsupported,
                         DiagnosticSeverity.Error,
                         JpegFrame.Invariant($"The DCT data uses the lossless or hierarchical process (marker FF{marker:X2}), which PDF does not use; it is not decoded."));
                     return false;
                 case JpegMarkers.Sos:
                     if (!frame.FrameFound)
                     {
-                        frame.Report(DiagnosticCodes.DctFrameInvalid, DiagnosticSeverity.Error, "The DCT data has a scan before its frame header; it is not decoded.");
+                        frame.Report(DctDiagnostics.DctFrameInvalid, DiagnosticSeverity.Error, "The DCT data has a scan before its frame header; it is not decoded.");
                         return false;
                     }
 
@@ -149,9 +149,9 @@ internal static class JpegMarkerReader
 
     public static void ReportExtraneous(JpegFrame frame, int count)
     {
-        if (frame.ShouldReport(DiagnosticCodes.DctExtraneousData))
+        if (frame.ShouldReport(DctDiagnostics.DctExtraneousData))
         {
-            frame.Report(DiagnosticCodes.DctExtraneousData, DiagnosticSeverity.Warning, JpegFrame.Invariant($"{count} bytes of the DCT data that are not part of a marker segment were skipped."));
+            frame.Report(DctDiagnostics.DctExtraneousData, DiagnosticSeverity.Warning, JpegFrame.Invariant($"{count} bytes of the DCT data that are not part of a marker segment were skipped."));
         }
     }
 
@@ -161,7 +161,7 @@ internal static class JpegMarkerReader
         if (position + 2 > data.Length)
         {
             position = data.Length;
-            frame.Report(DiagnosticCodes.DctTruncated, DiagnosticSeverity.Warning, "The DCT data ends inside a marker segment.");
+            frame.Report(DctDiagnostics.DctTruncated, DiagnosticSeverity.Warning, "The DCT data ends inside a marker segment.");
             frame.Truncated = true;
             return [];
         }
@@ -169,7 +169,7 @@ internal static class JpegMarkerReader
         int length = BinaryPrimitives.ReadUInt16BigEndian(data[position..]);
         if (length < 2)
         {
-            frame.Report(DiagnosticCodes.DctSegmentInvalid, DiagnosticSeverity.Warning, "A DCT marker segment has a length below 2; the decoder looks for the next marker.");
+            frame.Report(DctDiagnostics.DctSegmentInvalid, DiagnosticSeverity.Warning, "A DCT marker segment has a length below 2; the decoder looks for the next marker.");
             position += 2;
             return [];
         }
@@ -178,7 +178,7 @@ internal static class JpegMarkerReader
         {
             ReadOnlySpan<byte> rest = data[(position + 2)..];
             position = data.Length;
-            frame.Report(DiagnosticCodes.DctTruncated, DiagnosticSeverity.Warning, "A DCT marker segment runs past the end of the data.");
+            frame.Report(DctDiagnostics.DctTruncated, DiagnosticSeverity.Warning, "A DCT marker segment runs past the end of the data.");
             frame.Truncated = true;
             return rest;
         }
@@ -203,7 +203,7 @@ internal static class JpegMarkerReader
             case JpegMarkers.Dri:
                 if (body.Length < 2)
                 {
-                    frame.Report(DiagnosticCodes.DctSegmentInvalid, DiagnosticSeverity.Warning, "A DCT DRI segment is too short; it was ignored.");
+                    frame.Report(DctDiagnostics.DctSegmentInvalid, DiagnosticSeverity.Warning, "A DCT DRI segment is too short; it was ignored.");
                 }
                 else
                 {
@@ -235,7 +235,7 @@ internal static class JpegMarkerReader
     {
         if (body.Length < 6)
         {
-            frame.Report(DiagnosticCodes.DctFrameInvalid, DiagnosticSeverity.Error, "The DCT frame header is truncated; the image is not decoded.");
+            frame.Report(DctDiagnostics.DctFrameInvalid, DiagnosticSeverity.Error, "The DCT frame header is truncated; the image is not decoded.");
             return false;
         }
 
@@ -245,7 +245,7 @@ internal static class JpegMarkerReader
         int count = body[5];
         if (precision is not (8 or 12))
         {
-            frame.Report(DiagnosticCodes.DctFrameInvalid, DiagnosticSeverity.Error, JpegFrame.Invariant($"The DCT frame has a sample precision of {precision} bits; the image is not decoded."));
+            frame.Report(DctDiagnostics.DctFrameInvalid, DiagnosticSeverity.Error, JpegFrame.Invariant($"The DCT frame has a sample precision of {precision} bits; the image is not decoded."));
             return false;
         }
 
@@ -253,21 +253,21 @@ internal static class JpegMarkerReader
         {
             if (marker == JpegMarkers.Sof0)
             {
-                frame.Report(DiagnosticCodes.DctSegmentInvalid, DiagnosticSeverity.Warning, "A baseline DCT frame declares 12-bit samples, which only the extended and progressive processes allow; it is decoded as extended.");
+                frame.Report(DctDiagnostics.DctSegmentInvalid, DiagnosticSeverity.Warning, "A baseline DCT frame declares 12-bit samples, which only the extended and progressive processes allow; it is decoded as extended.");
             }
 
-            frame.Report(DiagnosticCodes.DctPrecisionReduced, DiagnosticSeverity.Information, "The DCT data has 12-bit samples; they are delivered reduced to 8 bits, as ISO 32000-2 Table 87 requires.");
+            frame.Report(DctDiagnostics.DctPrecisionReduced, DiagnosticSeverity.Information, "The DCT data has 12-bit samples; they are delivered reduced to 8 bits, as ISO 32000-2 Table 87 requires.");
         }
 
         if (width == 0 || count is 0 or > JpegFrame.MaxComponents || body.Length < 6 + (3 * count))
         {
-            frame.Report(DiagnosticCodes.DctFrameInvalid, DiagnosticSeverity.Error, JpegFrame.Invariant($"The DCT frame header is unusable ({width} samples per line, {count} components); the image is not decoded."));
+            frame.Report(DctDiagnostics.DctFrameInvalid, DiagnosticSeverity.Error, JpegFrame.Invariant($"The DCT frame header is unusable ({width} samples per line, {count} components); the image is not decoded."));
             return false;
         }
 
         if (count == 2)
         {
-            frame.Report(DiagnosticCodes.DctComponentCountInvalid, DiagnosticSeverity.Warning, "The DCT data has two components, which PDF does not allow; they are decoded without a colour transform.");
+            frame.Report(DctDiagnostics.DctComponentCountInvalid, DiagnosticSeverity.Warning, "The DCT data has two components, which PDF does not allow; they are decoded without a colour transform.");
         }
 
         frame.EnsureComponents(count);
@@ -281,7 +281,7 @@ internal static class JpegMarkerReader
             component.QuantizationTable = entry[2];
             if (component.H is < 1 or > 4 || component.V is < 1 or > 4 || component.QuantizationTable > 3)
             {
-                frame.Report(DiagnosticCodes.DctFrameInvalid, DiagnosticSeverity.Error, "A DCT frame component has an invalid sampling factor or quantization table; the image is not decoded.");
+                frame.Report(DctDiagnostics.DctFrameInvalid, DiagnosticSeverity.Error, "A DCT frame component has an invalid sampling factor or quantization table; the image is not decoded.");
                 return false;
             }
 
@@ -298,16 +298,16 @@ internal static class JpegMarkerReader
             height = FindNumberOfLines(data, position);
             if (height > 0)
             {
-                frame.Report(DiagnosticCodes.DctLinesFromDnl, DiagnosticSeverity.Warning, "The DCT frame's number of lines is 0; the DNL segment's is used.");
+                frame.Report(DctDiagnostics.DctLinesFromDnl, DiagnosticSeverity.Warning, "The DCT frame's number of lines is 0; the DNL segment's is used.");
             }
             else if (fallbackHeight > 0)
             {
                 height = fallbackHeight;
-                frame.Report(DiagnosticCodes.DctLinesFromDnl, DiagnosticSeverity.Warning, "The DCT frame's number of lines is 0 and there is no DNL segment; the image dictionary's Height is used.");
+                frame.Report(DctDiagnostics.DctLinesFromDnl, DiagnosticSeverity.Warning, "The DCT frame's number of lines is 0 and there is no DNL segment; the image dictionary's Height is used.");
             }
             else
             {
-                frame.Report(DiagnosticCodes.DctFrameInvalid, DiagnosticSeverity.Error, "The DCT frame's number of lines is 0 and no DNL segment defines it; the image is not decoded.");
+                frame.Report(DctDiagnostics.DctFrameInvalid, DiagnosticSeverity.Error, "The DCT frame's number of lines is 0 and no DNL segment defines it; the image is not decoded.");
                 return false;
             }
         }
@@ -365,7 +365,7 @@ internal static class JpegMarkerReader
         int count = header.IsEmpty ? 0 : header[0];
         if (count is < 1 or > JpegScan.MaxComponents || header.Length < 1 + (2 * count) + 3)
         {
-            frame.Report(DiagnosticCodes.DctScanInvalid, DiagnosticSeverity.Warning, "A DCT scan header is invalid; the scan was skipped.");
+            frame.Report(DctDiagnostics.DctScanInvalid, DiagnosticSeverity.Warning, "A DCT scan header is invalid; the scan was skipped.");
             return false;
         }
 
@@ -384,7 +384,7 @@ internal static class JpegMarkerReader
 
             if (index < 0 || tables >> 4 > 3 || (tables & 15) > 3)
             {
-                frame.Report(DiagnosticCodes.DctScanInvalid, DiagnosticSeverity.Warning, "A DCT scan names a component the frame does not have, or a table destination above 3; the scan was skipped.");
+                frame.Report(DctDiagnostics.DctScanInvalid, DiagnosticSeverity.Warning, "A DCT scan names a component the frame does not have, or a table destination above 3; the scan was skipped.");
                 return false;
             }
 
@@ -403,7 +403,7 @@ internal static class JpegMarkerReader
             if (!valid)
             {
                 frame.Report(
-                    DiagnosticCodes.DctScanInvalid,
+                    DctDiagnostics.DctScanInvalid,
                     DiagnosticSeverity.Warning,
                     JpegFrame.Invariant($"A progressive DCT scan has invalid parameters (Ss {spectralStart}, Se {spectralEnd}, Ah {high}, Al {low}, {count} components); the scan was skipped."));
                 return false;
@@ -416,7 +416,7 @@ internal static class JpegMarkerReader
         {
             if (spectralStart != 0 || spectralEnd != 63 || high != 0 || low != 0)
             {
-                frame.Report(DiagnosticCodes.DctScanInvalid, DiagnosticSeverity.Warning, "A sequential DCT scan has spectral selection or approximation parameters other than 0, 63, 0; they were ignored.");
+                frame.Report(DctDiagnostics.DctScanInvalid, DiagnosticSeverity.Warning, "A sequential DCT scan has spectral selection or approximation parameters other than 0, 63, 0; they were ignored.");
             }
 
             scan.Kind = JpegScanKind.Sequential;
@@ -469,7 +469,7 @@ internal static class JpegMarkerReader
         if (bogus)
         {
             frame.Report(
-                DiagnosticCodes.DctScanInvalid,
+                DctDiagnostics.DctScanInvalid,
                 DiagnosticSeverity.Warning,
                 "A progressive DCT scan does not follow the scans before it (an AC scan before the first DC scan, or a refinement of bits not yet coded); it was decoded as given.");
         }
@@ -481,7 +481,7 @@ internal static class JpegMarkerReader
         if (!table.IsDefined)
         {
             StandardHuffmanTables.Install(table, ac, destination);
-            frame.Report(DiagnosticCodes.DctTableMissing, DiagnosticSeverity.Warning, "A DCT scan uses a Huffman table that was never defined; the typical table of ITU-T T.81 Annex K is used.");
+            frame.Report(DctDiagnostics.DctTableMissing, DiagnosticSeverity.Warning, "A DCT scan uses a Huffman table that was never defined; the typical table of ITU-T T.81 Annex K is used.");
         }
 
         return table;
@@ -502,13 +502,13 @@ internal static class JpegMarkerReader
             int destination = component.QuantizationTable;
             if (!frame.Tables.QuantizationDefined[destination])
             {
-                frame.Report(DiagnosticCodes.DctTableMissing, DiagnosticSeverity.Error, "A DCT component uses a quantization table that was never defined; the image is not decoded.");
+                frame.Report(DctDiagnostics.DctTableMissing, DiagnosticSeverity.Error, "A DCT component uses a quantization table that was never defined; the image is not decoded.");
                 return false;
             }
 
             if (frame.Tables.QuantizationWide[destination] && frame.Precision == 8)
             {
-                frame.Report(DiagnosticCodes.DctTableInvalid, DiagnosticSeverity.Warning, "An 8-bit DCT frame uses a 16-bit quantization table; its values are used.");
+                frame.Report(DctDiagnostics.DctTableInvalid, DiagnosticSeverity.Warning, "An 8-bit DCT frame uses a 16-bit quantization table; its values are used.");
             }
 
             frame.Tables.Quantization[destination].CopyTo(component.Quantization, 0);

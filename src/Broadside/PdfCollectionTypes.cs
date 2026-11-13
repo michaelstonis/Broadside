@@ -1,4 +1,5 @@
 using System.Globalization;
+using Broadside.Diagnostics;
 using Broadside.Objects;
 
 namespace Broadside;
@@ -160,7 +161,7 @@ public sealed class PdfCollectionField
 
     /// <summary>Gets the field's relative position among the columns (<c>O</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.3.5, Table 155.</remarks>
-    public int? Order => ViewReading.Int32(_document, Dictionary, FileAndLayerNames.O, new EntryReport(_document, Parsing.DiagnosticCodes.CollectionInvalid, null, "The collection field"));
+    public int? Order => ViewReading.Int32(_document, Dictionary, FileAndLayerNames.O, new EntryReport(_document, FileSpecificationDiagnostics.CollectionInvalid, null, "The collection field"));
 
     /// <summary>Gets a value indicating whether the field is shown initially (<c>V</c>, default <see langword="true"/>).</summary>
     /// <remarks>ISO 32000-2 §12.3.5, Table 155.</remarks>

@@ -355,7 +355,7 @@ public sealed class ContentContext
         if (lookup == NamedLookup.Missing)
         {
             Document.DiagnosticSink.Report(
-                DiagnosticCodes.ContentColorSpaceMissing,
+                ColorDiagnostics.ContentColorSpaceMissing,
                 DiagnosticSeverity.Warning,
                 $"The colour space /{name.Value} is not in the resources' ColorSpace dictionary; DeviceGray is used.",
                 offset: null,
@@ -364,7 +364,7 @@ public sealed class ContentContext
         else if (lookup == NamedLookup.Abbreviation)
         {
             Document.DiagnosticSink.Report(
-                DiagnosticCodes.ContentColorSpaceAbbreviated,
+                ColorDiagnostics.ContentColorSpaceAbbreviated,
                 DiagnosticSeverity.Warning,
                 $"The colour space /{name.Value} is an inline image abbreviation used outside an inline image; it is read as the device space.",
                 offset: null,

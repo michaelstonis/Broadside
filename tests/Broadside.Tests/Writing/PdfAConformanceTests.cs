@@ -64,7 +64,7 @@ public sealed class PdfAConformanceTests
 
         DiagnosticException refused = Assert.Throws<DiagnosticException>(() => Save(document, PdfA2b));
 
-        Assert.Equal(DiagnosticCodes.PdfANonConformant, refused.Diagnostic.Code);
+        Assert.Equal(SavingDiagnostics.PdfANonConformant.Name, refused.Diagnostic.Code);
         Assert.Contains("6.2.11.4.1-1", refused.Diagnostic.Message, StringComparison.Ordinal);
         Assert.Contains("Helvetica", refused.Diagnostic.Message, StringComparison.Ordinal);
         Assert.Equal(before, CosSnapshot.Of(document));
@@ -78,10 +78,10 @@ public sealed class PdfAConformanceTests
 
         byte[] saved = Save(document, PdfA2b);
 
-        Diagnostic rule = Assert.Single(document.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANonConformant);
+        Diagnostic rule = Assert.Single(document.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANonConformant.Name);
         Assert.Equal(DiagnosticSeverity.Warning, rule.Severity);
         Assert.Contains("6.2.11.4.1-1", rule.Message, StringComparison.Ordinal);
-        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANotIdentified && diagnostic.Severity == DiagnosticSeverity.Information);
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANotIdentified.Name && diagnostic.Severity == DiagnosticSeverity.Information);
         using PdfDocument reopened = PdfDocument.Open(saved);
         Assert.Empty(reopened.OutputIntents);
         Assert.DoesNotContain("pdfaid", Encoding.UTF8.GetString(reopened.DecodeStream(reopened.Metadata!.Stream).Span), StringComparison.Ordinal);
@@ -119,16 +119,16 @@ public sealed class PdfAConformanceTests
             {
                 string before = CosSnapshot.Of(document);
                 DiagnosticException refused = Assert.Throws<DiagnosticException>(() => Save(document, options));
-                Assert.Equal(DiagnosticCodes.PdfANonConformant, refused.Diagnostic.Code);
+                Assert.Equal(SavingDiagnostics.PdfANonConformant.Name, refused.Diagnostic.Code);
                 Assert.Contains($"veraPDF rule {rule},", refused.Diagnostic.Message, StringComparison.Ordinal);
                 Assert.Equal(before, CosSnapshot.Of(document));
             }
             else
             {
                 byte[] saved = Save(document, options);
-                Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANonConformant && diagnostic.Message.Contains($"veraPDF rule {rule},", StringComparison.Ordinal));
-                Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANonConformant && !diagnostic.Message.Contains($"veraPDF rule {rule},", StringComparison.Ordinal));
-                Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANotIdentified);
+                Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANonConformant.Name && diagnostic.Message.Contains($"veraPDF rule {rule},", StringComparison.Ordinal));
+                Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANonConformant.Name && !diagnostic.Message.Contains($"veraPDF rule {rule},", StringComparison.Ordinal));
+                Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANotIdentified.Name);
                 Assert.NotEmpty(saved);
             }
         }

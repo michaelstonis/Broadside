@@ -155,13 +155,13 @@ internal sealed class JpegFrame
     /// <summary>Returns whether <paramref name="code"/> would be reported now.</summary>
     /// <param name="code">The diagnostic code.</param>
     /// <returns>Whether the code was not yet reported for this image and the reporter is not silent.</returns>
-    public bool ShouldReport(string code) => Reporter.ShouldReport(code);
+    public bool ShouldReport(DiagnosticCode code) => Reporter.ShouldReport(code);
 
     /// <summary>Reports a deviation, once per code per image.</summary>
     /// <param name="code">The diagnostic code.</param>
     /// <param name="severity">The severity.</param>
     /// <param name="message">The message.</param>
-    public void Report(string code, DiagnosticSeverity severity, string message) => Reporter.Report(code, severity, message);
+    public void Report(DiagnosticCode code, DiagnosticSeverity severity, string message) => Reporter.Report(code, severity, message);
 
     /// <summary>Records that MCU row <paramref name="frameRow"/> lacks data and reports the truncation once.</summary>
     /// <param name="frameRow">The MCU row, or <see cref="int.MaxValue"/> when no row is lost.</param>
@@ -176,7 +176,7 @@ internal sealed class JpegFrame
         if (message is not null && !Truncated)
         {
             Truncated = true;
-            Report(DiagnosticCodes.DctTruncated, DiagnosticSeverity.Warning, message);
+            Report(DctDiagnostics.DctTruncated, DiagnosticSeverity.Warning, message);
         }
     }
 

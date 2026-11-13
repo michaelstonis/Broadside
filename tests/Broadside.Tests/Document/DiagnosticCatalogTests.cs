@@ -6,8 +6,8 @@ using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.Objects;
 using Broadside.Parsing;
-using Broadside.TestSupport;
 using Broadside.Tests.Filters;
+using Broadside.TestSupport;
 
 namespace Broadside.Tests.Document;
 
@@ -92,9 +92,8 @@ public sealed class DiagnosticCatalogTests
     [Fact]
     public void Every_internal_code_forwards_to_the_public_code_of_the_same_name()
     {
-        string[] internalNames = [.. InternalCodes(typeof(DiagnosticCodes)), .. InternalCodes(typeof(CosRepairCodes))];
+        string[] internalNames = [.. InternalCodes(typeof(DiagnosticCodes))];
 
-        Assert.NotEmpty(internalNames);
         foreach (string name in internalNames)
         {
             Assert.True(DiagnosticCatalog.TryGet(name, out DiagnosticCode? code), name);

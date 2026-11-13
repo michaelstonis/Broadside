@@ -54,7 +54,7 @@ internal sealed class StructureAssembly
     private readonly List<CosDictionary> _contentOrder = [];
     private readonly List<(CosDictionary Owner, CosReference Element)> _objectOwners = [];
     private readonly List<Conflict> _conflicts = [];
-    private readonly Dictionary<(string Code, string Renamed), int> _unplaced = [];
+    private readonly Dictionary<(DiagnosticCode Code, string Renamed), int> _unplaced = [];
     private PdfStructureTreeRoot? _sourceRoot;
     private PdfStructureTreeRoot? _targetRoot;
 
@@ -370,7 +370,7 @@ internal sealed class StructureAssembly
                 CosName renamed = new(FreeName(key.Value, taken));
                 renames[key.Value] = renamed;
                 AddConflict(new Conflict(
-                    DiagnosticCodes.StructureRoleConflict,
+                    StructureDiagnostics.StructureRoleConflict,
                     $"The structure type /{key.Value} is mapped to {Describe(_target.Resolve(target[key]))} in {where} of the document and to {Describe(value)} in that of the appended pages (§14.7.3); the appended elements use /{renamed.Value} instead.",
                     renamed.Value));
             }
@@ -424,7 +424,7 @@ internal sealed class StructureAssembly
             renames[key.Value] = renamed;
             target[renamed] = _copier.Copy(value);
             AddConflict(new Conflict(
-                DiagnosticCodes.StructureClassConflict,
+                StructureDiagnostics.StructureClassConflict,
                 $"The attribute class /{key.Value} has other attributes in the class map of the document than in that of the appended pages (§14.7.6.2); the appended elements use /{renamed.Value} instead.",
                 renamed.Value));
         }
@@ -472,7 +472,7 @@ internal sealed class StructureAssembly
                 byte[] renamed = FreeBytes(id.Bytes, taken);
                 renames[key] = new CosString(renamed);
                 AddConflict(new Conflict(
-                    DiagnosticCodes.StructureIdConflict,
+                    StructureDiagnostics.StructureIdConflict,
                     $"The document already has a structure element with the ID ({key}) (Table 355: IDs are unique); the appended element's is ({Key(renamed)}).",
                     Key(renamed)));
             }
@@ -513,7 +513,7 @@ internal sealed class StructureAssembly
             copy[StructureNames.S] = name;
             if (!ReferenceEquals(name, type))
             {
-                Where(DiagnosticCodes.StructureRoleConflict, name.Value, node.Reference);
+                Where(StructureDiagnostics.StructureRoleConflict, name.Value, node.Reference);
             }
         }
 
@@ -530,7 +530,7 @@ internal sealed class StructureAssembly
         if (_source.Resolve(source.GetValueOrDefault(StructureNames.ID)) is CosString id)
         {
             copy[StructureNames.ID] = ids.GetValueOrDefault(Key(id.Bytes)) ?? id;
-            Where(DiagnosticCodes.StructureIdConflict, Key(((CosString)copy[StructureNames.ID]).Bytes), node.Reference);
+            Where(StructureDiagnostics.StructureIdConflict, Key(((CosString)copy[StructureNames.ID]).Bytes), node.Reference);
         }
 
         if (source.TryGetValue(StructureNames.Ref, out CosObject? references) && _copier.Copy(references) is { } copiedReferences)
@@ -820,7 +820,7 @@ internal sealed class StructureAssembly
         switch (_target.Resolve(copied))
         {
             case CosName name when renames.TryGetValue(name.Value, out CosName? renamed):
-                Where(DiagnosticCodes.StructureClassConflict, renamed.Value, element);
+                Where(StructureDiagnostics.StructureClassConflict, renamed.Value, element);
                 return renamed;
             case CosArray array:
                 for (int index = 0; index < array.Count; index++)
@@ -828,7 +828,7 @@ internal sealed class StructureAssembly
                     if (_target.Resolve(array[index]) is CosName entry && renames.TryGetValue(entry.Value, out CosName? renamedEntry))
                     {
                         array[index] = renamedEntry;
-                        Where(DiagnosticCodes.StructureClassConflict, renamedEntry.Value, element);
+                        Where(StructureDiagnostics.StructureClassConflict, renamedEntry.Value, element);
                     }
                 }
 
@@ -863,7 +863,7 @@ internal sealed class StructureAssembly
     }
 
     /// <summary>Records the first copied element that uses a renamed name, for the rename's diagnostic.</summary>
-    private void Where(string code, string renamed, CosReference element)
+    private void Where(DiagnosticCode code, string renamed, CosReference element)
     {
         if (_unplaced.Remove((code, renamed), out int index))
         {
@@ -983,7 +983,7 @@ internal sealed class StructureAssembly
     }
 
     /// <summary>A rename to report once the copies are written: where is the first copied element using the new name.</summary>
-    private sealed record Conflict(string Code, string Message, string Renamed)
+    private sealed record Conflict(DiagnosticCode Code, string Message, string Renamed)
     {
         public CosReference? Where { get; init; }
     }

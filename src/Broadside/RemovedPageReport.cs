@@ -13,7 +13,7 @@ namespace Broadside;
 /// <remarks>
 /// ISO 32000-2 §12.3.2.2: an explicit destination's first element is the page object to show. A removed page object is a free
 /// object (§7.3.10), so the destination is written as one that shows nothing; each is reported as
-/// <see cref="DiagnosticCodes.DestinationPageRemoved"/> and left as it is. Only the <c>Dest</c> of an outline item or link and the
+/// <see cref="NavigationDiagnostics.DestinationPageRemoved"/> and left as it is. Only the <c>Dest</c> of an outline item or link and the
 /// <c>D</c> of a go-to action (§12.6.4.2) are checked, named destinations resolved; a structure destination (§12.3.2.3) and
 /// actions further down a <c>Next</c> chain are not. Nothing is read when no page was removed.
 /// </remarks>
@@ -38,7 +38,7 @@ internal static class RemovedPageReport
                 if (ShowsRemoved(item.Destination ?? (item.Action as PdfGoToAction)?.Destination, removed))
                 {
                     diagnostics.Report(
-                        DiagnosticCodes.DestinationPageRemoved,
+                        NavigationDiagnostics.DestinationPageRemoved,
                         DiagnosticSeverity.Warning,
                         string.Create(CultureInfo.InvariantCulture, $"The outline item \"{item.Title}\" shows a page that was removed from the document; it is saved showing no page."),
                         objectReference: item.Reference ?? outline.Reference);
@@ -58,7 +58,7 @@ internal static class RemovedPageReport
                 if (ShowsRemoved(link.Destination ?? (link.Action as PdfGoToAction)?.Destination, removed))
                 {
                     diagnostics.Report(
-                        DiagnosticCodes.DestinationPageRemoved,
+                        NavigationDiagnostics.DestinationPageRemoved,
                         DiagnosticSeverity.Warning,
                         "A link annotation shows a page that was removed from the document; it is saved showing no page.",
                         objectReference: link.Reference ?? page.Reference);
@@ -95,7 +95,7 @@ internal static class RemovedPageReport
         if (resolved is CosArray { Count: > 0 } array && array[0] is CosReference target && removed.Contains(target))
         {
             diagnostics.Report(
-                DiagnosticCodes.DestinationPageRemoved,
+                NavigationDiagnostics.DestinationPageRemoved,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"The named destination \"{name}\" shows a page that was removed from the document; it is saved showing no page."),
                 objectReference: value as CosReference ?? holder);

@@ -188,7 +188,7 @@ internal static class SampledCompiler
         if (data.Length < required)
         {
             compilation.Report(
-                DiagnosticCodes.FunctionSampleDataTruncated,
+                FunctionDiagnostics.FunctionSampleDataTruncated,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"The sample data has {data.Length} bytes where {required} are needed; the missing samples are 0."));
         }

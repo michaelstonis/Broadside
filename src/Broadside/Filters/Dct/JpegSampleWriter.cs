@@ -34,7 +34,7 @@ internal static class JpegSampleWriter
         if (frame.Adobe && ((frame.ComponentCount == 3 && frame.AdobeTransform > AdobeColorTransform.YCbCr) || (frame.ComponentCount == 4 && frame.AdobeTransform is AdobeColorTransform.YCbCr or > AdobeColorTransform.YCCK)))
         {
             frame.Report(
-                DiagnosticCodes.DctAdobeTransformInvalid,
+                DctDiagnostics.DctAdobeTransformInvalid,
                 DiagnosticSeverity.Warning,
                 JpegFrame.Invariant($"The APP14 transform code {(int)frame.AdobeTransform} does not fit {frame.ComponentCount} components; {(frame.ComponentCount == 3 ? "YCbCr" : "YCCK")} is assumed."));
         }
@@ -43,7 +43,7 @@ internal static class JpegSampleWriter
         if (rgbIdentifiers && !frame.Adobe && colorTransform < 0)
         {
             frame.Report(
-                DiagnosticCodes.DctColorTransformInferred,
+                DctDiagnostics.DctColorTransformInferred,
                 DiagnosticSeverity.Information,
                 "The three DCT components are identified R, G, B and there is neither an APP14 segment nor a ColorTransform parameter; they are read as RGB (as libjpeg does), not with the default ColorTransform 1 of ISO 32000-2 Table 13.");
         }

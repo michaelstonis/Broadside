@@ -310,10 +310,10 @@ public sealed class PdfExplicitDestination : PdfDestination
     }
 
     private void Report(string message) =>
-        Document.DiagnosticSink.Report(DiagnosticCodes.DestinationInvalid, DiagnosticSeverity.Warning, message, objectReference: Owner);
+        Document.DiagnosticSink.Report(NavigationDiagnostics.DestinationInvalid, DiagnosticSeverity.Warning, message, objectReference: Owner);
 
     private void ReportPageNotFound(string message) =>
-        Document.DiagnosticSink.Report(DiagnosticCodes.DestinationPageNotFound, DiagnosticSeverity.Warning, message + " It shows no page.", objectReference: Owner);
+        Document.DiagnosticSink.Report(NavigationDiagnostics.DestinationPageNotFound, DiagnosticSeverity.Warning, message + " It shows no page.", objectReference: Owner);
 
     /// <summary>A parameter of Table 149.</summary>
     private enum Slot

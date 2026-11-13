@@ -71,7 +71,7 @@ public sealed class SecurityHandlerContext
     /// <summary>Gets the credentials the reader offered, or <see langword="null"/> for none (try the default user password).</summary>
     public PdfCredentials? Credentials { get; }
 
-    /// <summary>Gets the reading mode; in strict mode <see cref="Report"/> throws.</summary>
+    /// <summary>Gets the reading mode; in strict mode <see cref="Report(string, DiagnosticSeverity, string)"/> throws.</summary>
     public PdfReadingMode ReadingMode => _diagnostics.IsStrict ? PdfReadingMode.Strict : PdfReadingMode.Lenient;
 
     /// <summary>Records a deviation found in the encryption dictionary. In strict mode, throws it as a <see cref="DiagnosticException"/>.</summary>
@@ -79,6 +79,9 @@ public sealed class SecurityHandlerContext
     /// <param name="severity">The severity.</param>
     /// <param name="message">What deviates and what was done about it.</param>
     public void Report(string code, DiagnosticSeverity severity, string message) => _diagnostics.Report(code, severity, message);
+
+    /// <inheritdoc cref="Report(string, DiagnosticSeverity, string)"/>
+    internal void Report(DiagnosticCode code, DiagnosticSeverity severity, string message) => _diagnostics.Report(code, severity, message);
 
     /// <summary>
     /// Records an encryption dictionary the handler cannot use (<c>EncryptDictionaryInvalid</c>, Error) and returns the exception to
@@ -88,7 +91,7 @@ public sealed class SecurityHandlerContext
     /// <returns>The exception.</returns>
     internal DiagnosticException Fail(string message)
     {
-        var diagnostic = new Diagnostic(DiagnosticCodes.EncryptDictionaryInvalid, DiagnosticSeverity.Error, message);
+        var diagnostic = new Diagnostic(SecurityDiagnostics.EncryptDictionaryInvalid, DiagnosticSeverity.Error, message);
         Report(diagnostic.Code, diagnostic.Severity, diagnostic.Message);
         return new DiagnosticException(diagnostic);
     }

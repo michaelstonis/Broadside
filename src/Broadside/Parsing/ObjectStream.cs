@@ -72,7 +72,7 @@ internal sealed class ObjectStream
         if (count is not CosInteger { Value: >= 0 } n || first is not CosInteger { Value: >= 0 } firstOffset || firstOffset.Value > data.Length)
         {
             diagnostics.Report(
-                DiagnosticCodes.ObjectStreamInvalid,
+                FileStructureDiagnostics.ObjectStreamInvalid,
                 DiagnosticSeverity.Error,
                 "The object stream's N and First entries shall be non-negative integers, First within the data; its objects read as null.",
                 objectReference: reference);
@@ -93,7 +93,7 @@ internal sealed class ObjectStream
             if (budget is not null && !budget.TryTake())
             {
                 diagnostics.Report(
-                    DiagnosticCodes.CrossReferenceEntryLimitExceeded,
+                    FileStructureDiagnostics.CrossReferenceEntryLimitExceeded,
                     DiagnosticSeverity.Error,
                     string.Create(CultureInfo.InvariantCulture, $"Rebuilding the cross-reference information indexes more objects than the file has bytes (at least {XrefEntryBudget.Minimum}); the object stream's pairs from index {index} on are not read."),
                     objectReference: reference);
@@ -103,7 +103,7 @@ internal sealed class ObjectStream
             if (!StructureTokens.TryReadUnsigned(ref lexer, out long number) || !StructureTokens.TryReadUnsigned(ref lexer, out long offset))
             {
                 diagnostics.Report(
-                    DiagnosticCodes.ObjectStreamHeaderInvalid,
+                    FileStructureDiagnostics.ObjectStreamHeaderInvalid,
                     DiagnosticSeverity.Warning,
                     string.Create(CultureInfo.InvariantCulture, $"The object stream's header holds {index} pairs of object number and offset where N says {n.Value}; the pairs present are used."),
                     objectReference: reference);
@@ -123,7 +123,7 @@ internal sealed class ObjectStream
         if (dropped)
         {
             diagnostics.Report(
-                DiagnosticCodes.ObjectStreamHeaderInvalid,
+                FileStructureDiagnostics.ObjectStreamHeaderInvalid,
                 DiagnosticSeverity.Warning,
                 "A pair in the object stream's header has an invalid object number or an offset past the end of the data; that object is not read.",
                 objectReference: reference);
@@ -133,7 +133,7 @@ internal sealed class ObjectStream
         if (!ordered)
         {
             diagnostics.Report(
-                DiagnosticCodes.ObjectStreamHeaderInvalid,
+                FileStructureDiagnostics.ObjectStreamHeaderInvalid,
                 DiagnosticSeverity.Warning,
                 "The offsets in the object stream's header shall increase; each object is read up to the next offset in sorted order.",
                 objectReference: reference);
@@ -173,7 +173,7 @@ internal sealed class ObjectStream
         if (position < 0)
         {
             diagnostics.Report(
-                DiagnosticCodes.ObjectStreamMemberMissing,
+                FileStructureDiagnostics.ObjectStreamMemberMissing,
                 DiagnosticSeverity.Error,
                 string.Create(CultureInfo.InvariantCulture, $"The cross-reference entry places the object in object stream {Reference.ObjectNumber}, which does not hold it; read as null."),
                 objectReference: member);
@@ -183,7 +183,7 @@ internal sealed class ObjectStream
         if (position != index)
         {
             diagnostics.Report(
-                DiagnosticCodes.ObjectStreamIndexMismatch,
+                FileStructureDiagnostics.ObjectStreamIndexMismatch,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"The cross-reference entry gives index {index} in object stream {Reference.ObjectNumber}, but the object is at index {position}; it is read from there."),
                 objectReference: member);
@@ -201,7 +201,7 @@ internal sealed class ObjectStream
         if (value is CosStream)
         {
             diagnostics.Report(
-                DiagnosticCodes.ObjectStreamMemberInvalid,
+                FileStructureDiagnostics.ObjectStreamMemberInvalid,
                 DiagnosticSeverity.Warning,
                 "A stream shall not be stored in an object stream (§7.5.7); it is read anyway.",
                 objectReference: member);

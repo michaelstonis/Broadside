@@ -206,14 +206,14 @@ public sealed class PdfImage
             double[]? matte = ReadNumbers(array, components);
             if (matte is null || array.Count != components)
             {
-                Report(DiagnosticCodes.ImageMatteInvalid, $"The soft mask's Matte has {array.Count} entries where the image's colour space has {components} components; it is ignored.");
+                Report(ImageDiagnostics.ImageMatteInvalid, $"The soft mask's Matte has {array.Count} entries where the image's colour space has {components} components; it is ignored.");
                 return null;
             }
 
             var soft = new PdfImage(_document, mask, ReadRaw(ImageNames.SMask) as CosReference, ImageRole.SoftMask, this);
             if (soft.Width != layout.Width || soft.Height != layout.Height)
             {
-                Report(DiagnosticCodes.ImageMatteInvalid, FormattableString.Invariant(
+                Report(ImageDiagnostics.ImageMatteInvalid, FormattableString.Invariant(
                     $"A soft mask with Matte shall have its image's size ({layout.Width} x {layout.Height}), not {soft.Width} x {soft.Height}; the Matte is ignored."));
                 return null;
             }
@@ -251,7 +251,7 @@ public sealed class PdfImage
                 }
                 else
                 {
-                    Report(DiagnosticCodes.ImageAlternatesInvalid, "An element of Alternates is not an alternate image dictionary with an Image stream; it is skipped.");
+                    Report(ImageDiagnostics.ImageAlternatesInvalid, "An element of Alternates is not an alternate image dictionary with an Image stream; it is skipped.");
                 }
             }
 
@@ -356,7 +356,7 @@ public sealed class PdfImage
         if (layout.BitsPerComponent > 0 && layout.Components > 0
             && layout.Geometry.CheckLimits(streams.MaxImagePixels, streams.MaxDecodedLength) is { } reason)
         {
-            Report(DiagnosticCodes.ImageTooLarge, $"The image is not decoded: {reason}.", DiagnosticSeverity.Error);
+            Report(ImageDiagnostics.ImageTooLarge, $"The image is not decoded: {reason}.", DiagnosticSeverity.Error);
             return default;
         }
 
@@ -499,7 +499,7 @@ public sealed class PdfImage
         bool isMask = ReadEntry(ImageNames.ImageMask, ImageNames.IM) is CosBoolean { Value: true };
         if (soft && isMask)
         {
-            Report(DiagnosticCodes.ImageSoftMaskInvalid, "A soft mask shall not be an image mask; it is read as a 1-bit DeviceGray image.");
+            Report(ImageDiagnostics.ImageSoftMaskInvalid, "A soft mask shall not be an image mask; it is read as a 1-bit DeviceGray image.");
             isMask = false;
         }
 
@@ -520,12 +520,12 @@ public sealed class PdfImage
         {
             if (bpcEntry is not null and not CosInteger { Value: 1 })
             {
-                Report(DiagnosticCodes.ImageMaskConflict, $"An image mask's BitsPerComponent shall be 1, not {Describe(bpcEntry)}; 1 is used.");
+                Report(ImageDiagnostics.ImageMaskConflict, $"An image mask's BitsPerComponent shall be 1, not {Describe(bpcEntry)}; 1 is used.");
             }
 
             if (colorEntry is not null || (_role is not ImageRole.ExplicitMask && (ReadRaw(ImageNames.Mask) is not null || ReadRaw(ImageNames.SMask) is not null)))
             {
-                Report(DiagnosticCodes.ImageMaskConflict, "An image mask shall have no ColorSpace, Mask or SMask entry; they are ignored.");
+                Report(ImageDiagnostics.ImageMaskConflict, "An image mask shall have no ColorSpace, Mask or SMask entry; they are ignored.");
             }
 
             bitsPerComponent = 1;
@@ -556,7 +556,7 @@ public sealed class PdfImage
         {
             if (value != Math.Floor(value))
             {
-                Report(DiagnosticCodes.ImageDimensionInvalid, string.Create(CultureInfo.InvariantCulture, $"The image's {label} {value} is not an integer; {Math.Floor(value)} is used."));
+                Report(ImageDiagnostics.ImageDimensionInvalid, string.Create(CultureInfo.InvariantCulture, $"The image's {label} {value} is not an integer; {Math.Floor(value)} is used."));
             }
 
             return (int)Math.Floor(value);
@@ -564,11 +564,11 @@ public sealed class PdfImage
 
         if (fallback > 0)
         {
-            Report(DiagnosticCodes.ImageDimensionInvalid, string.Create(CultureInfo.InvariantCulture, $"The mask's {label} is {Describe(entry)}; its image's {fallback} is used."));
+            Report(ImageDiagnostics.ImageDimensionInvalid, string.Create(CultureInfo.InvariantCulture, $"The mask's {label} is {Describe(entry)}; its image's {fallback} is used."));
             return fallback;
         }
 
-        Report(DiagnosticCodes.ImageDimensionInvalid, $"The image's {label} is {Describe(entry)}, not a positive integer; the image cannot be painted.");
+        Report(ImageDiagnostics.ImageDimensionInvalid, $"The image's {label} is {Describe(entry)}, not a positive integer; the image cannot be painted.");
         return 0;
     }
 
@@ -584,7 +584,7 @@ public sealed class PdfImage
             int value = (int)integer.Value;
             if (value is not (1 or 2 or 4 or 8 or 16) && !jpx)
             {
-                Report(DiagnosticCodes.ImageBitsPerComponentInvalid, string.Create(CultureInfo.InvariantCulture, $"BitsPerComponent {value} is not 1, 2, 4, 8 or 16; the samples are read at {value} bits."));
+                Report(ImageDiagnostics.ImageBitsPerComponentInvalid, string.Create(CultureInfo.InvariantCulture, $"BitsPerComponent {value} is not 1, 2, 4, 8 or 16; the samples are read at {value} bits."));
             }
 
             return value;
@@ -595,7 +595,7 @@ public sealed class PdfImage
             return 0;
         }
 
-        Report(DiagnosticCodes.ImageBitsPerComponentInvalid, $"The image's BitsPerComponent is {Describe(entry)}, not 1 to 16; the image cannot be painted.");
+        Report(ImageDiagnostics.ImageBitsPerComponentInvalid, $"The image's BitsPerComponent is {Describe(entry)}, not 1 to 16; the image cannot be painted.");
         return 0;
     }
 
@@ -620,7 +620,7 @@ public sealed class PdfImage
 
             if (!jpx)
             {
-                Report(DiagnosticCodes.ImageColorSpaceMissing, "The image has no ColorSpace, which only image masks and JPEG 2000 images may omit; the image cannot be painted.");
+                Report(ImageDiagnostics.ImageColorSpaceMissing, "The image has no ColorSpace, which only image masks and JPEG 2000 images may omit; the image cannot be painted.");
             }
 
             return null;
@@ -628,7 +628,7 @@ public sealed class PdfImage
 
         if (space.Family == PdfColorSpaceFamily.Pattern)
         {
-            Report(DiagnosticCodes.ImageColorSpaceInvalid, "An image's colour space shall not be a Pattern space; the image cannot be painted.");
+            Report(ImageDiagnostics.ImageColorSpaceInvalid, "An image's colour space shall not be a Pattern space; the image cannot be painted.");
             return null;
         }
 
@@ -636,11 +636,11 @@ public sealed class PdfImage
         {
             if (space.ComponentCount != 1)
             {
-                Report(DiagnosticCodes.ImageSoftMaskInvalid, $"A soft mask's colour space shall be DeviceGray, not a {space.Family} space of {space.ComponentCount} components; the soft mask cannot be used.");
+                Report(ImageDiagnostics.ImageSoftMaskInvalid, $"A soft mask's colour space shall be DeviceGray, not a {space.Family} space of {space.ComponentCount} components; the soft mask cannot be used.");
                 return null;
             }
 
-            Report(DiagnosticCodes.ImageSoftMaskInvalid, $"A soft mask's colour space shall be DeviceGray, not {space.Family}; its one component is read as gray.");
+            Report(ImageDiagnostics.ImageSoftMaskInvalid, $"A soft mask's colour space shall be DeviceGray, not {space.Family}; its one component is read as gray.");
             return PdfDeviceGrayColorSpace.Instance;
         }
 
@@ -663,13 +663,13 @@ public sealed class PdfImage
         double[]? values = entry is CosArray array ? ReadNumbers(array, 2 * components) : null;
         if (values is null)
         {
-            Report(DiagnosticCodes.ImageDecodeInvalid, string.Create(CultureInfo.InvariantCulture, $"Decode shall be an array of {2 * components} numbers; the default is used."));
+            Report(ImageDiagnostics.ImageDecodeInvalid, string.Create(CultureInfo.InvariantCulture, $"Decode shall be an array of {2 * components} numbers; the default is used."));
             return defaults;
         }
 
         if (((CosArray)entry).Count != 2 * components)
         {
-            Report(DiagnosticCodes.ImageDecodeInvalid, string.Create(CultureInfo.InvariantCulture, $"Decode has {((CosArray)entry).Count} numbers where {2 * components} are needed; the first {2 * components} are used."));
+            Report(ImageDiagnostics.ImageDecodeInvalid, string.Create(CultureInfo.InvariantCulture, $"Decode has {((CosArray)entry).Count} numbers where {2 * components} are needed; the first {2 * components} are used."));
         }
 
         if (isMask)
@@ -677,7 +677,7 @@ public sealed class PdfImage
             bool inverted = values[0] > values[1];
             if (values[0] != (inverted ? 1 : 0) || values[1] != (inverted ? 0 : 1))
             {
-                Report(DiagnosticCodes.ImageDecodeInvalid, "An image mask's Decode shall be [0 1] or [1 0]; it is read by which end is larger.");
+                Report(ImageDiagnostics.ImageDecodeInvalid, "An image mask's Decode shall be [0 1] or [1 0]; it is read by which end is larger.");
             }
 
             return inverted ? [1, 0] : [0, 1];
@@ -705,13 +705,13 @@ public sealed class PdfImage
             {
                 if (ReadRaw(ImageNames.SMask) is not null)
                 {
-                    Report(DiagnosticCodes.ImageSoftMaskInDataIgnored, "An image with SMaskInData shall have no SMask; the opacity in the JPEG 2000 data is used.");
+                    Report(ImageDiagnostics.ImageSoftMaskInDataIgnored, "An image with SMaskInData shall have no SMask; the opacity in the JPEG 2000 data is used.");
                 }
 
                 return PdfImageMaskKind.SoftInData;
             }
 
-            Report(DiagnosticCodes.ImageSoftMaskInDataIgnored, "SMaskInData applies only to JPXDecode data; it is ignored.");
+            Report(ImageDiagnostics.ImageSoftMaskInDataIgnored, "SMaskInData applies only to JPXDecode data; it is ignored.");
         }
 
         if (ReadRaw(ImageNames.SMask) is { } smask)
@@ -724,7 +724,7 @@ public sealed class PdfImage
 
             if (Resolve(smask) is not CosNull && !(smask is CosName { Value: "None" }))
             {
-                Report(DiagnosticCodes.ImageSoftMaskInvalid, $"SMask shall be a stream, not {Describe(Resolve(smask))}; it is ignored.");
+                Report(ImageDiagnostics.ImageSoftMaskInvalid, $"SMask shall be a stream, not {Describe(Resolve(smask))}; it is ignored.");
             }
         }
 
@@ -737,7 +737,7 @@ public sealed class PdfImage
                     return PdfImageMaskKind.Explicit;
                 }
 
-                Report(DiagnosticCodes.ImageMaskInvalid, "A Mask stream shall be an image mask (ImageMask true); it is ignored.");
+                Report(ImageDiagnostics.ImageMaskInvalid, "A Mask stream shall be an image mask (ImageMask true); it is ignored.");
                 return PdfImageMaskKind.None;
             case CosArray array:
                 int components = ReadLayout().Components;
@@ -745,18 +745,18 @@ public sealed class PdfImage
                 {
                     if (array.Count != 2 * components)
                     {
-                        Report(DiagnosticCodes.ImageMaskInvalid, string.Create(CultureInfo.InvariantCulture, $"A colour key Mask has {array.Count} numbers where {2 * components} are needed; the first {2 * components} are used."));
+                        Report(ImageDiagnostics.ImageMaskInvalid, string.Create(CultureInfo.InvariantCulture, $"A colour key Mask has {array.Count} numbers where {2 * components} are needed; the first {2 * components} are used."));
                     }
 
                     return PdfImageMaskKind.ColorKey;
                 }
 
-                Report(DiagnosticCodes.ImageMaskInvalid, string.Create(CultureInfo.InvariantCulture, $"A colour key Mask shall have {2 * components} numbers; it is ignored."));
+                Report(ImageDiagnostics.ImageMaskInvalid, string.Create(CultureInfo.InvariantCulture, $"A colour key Mask shall have {2 * components} numbers; it is ignored."));
                 return PdfImageMaskKind.None;
             case CosNull:
                 return PdfImageMaskKind.None;
             default:
-                Report(DiagnosticCodes.ImageMaskInvalid, "Mask shall be a stream or an array; it is ignored.");
+                Report(ImageDiagnostics.ImageMaskInvalid, "Mask shall be a stream or an array; it is ignored.");
                 return PdfImageMaskKind.None;
         }
     }
@@ -790,7 +790,7 @@ public sealed class PdfImage
             if (data.Length < needed)
             {
                 builder.DecodedRows = rows;
-                Report(DiagnosticCodes.ImageDataTruncated, string.Create(CultureInfo.InvariantCulture, $"The image data has {data.Length} bytes where {needed} are needed; {rows} of {height} rows are complete and the rest are zero."));
+                Report(ImageDiagnostics.ImageDataTruncated, string.Create(CultureInfo.InvariantCulture, $"The image data has {data.Length} bytes where {needed} are needed; {rows} of {height} rows are complete and the rest are zero."));
                 if (layout.IsImageMask && layout.Decode is not [1, 0])
                 {
                     // Missing rows of a mask paint nothing: with Decode [0 1] that is sample 1.
@@ -800,7 +800,7 @@ public sealed class PdfImage
             }
             else if (data.Length - needed >= sourceStride)
             {
-                Report(DiagnosticCodes.ImageDataTooLong, string.Create(CultureInfo.InvariantCulture, $"The image data has {data.Length} bytes where {needed} are needed; the rest is ignored."), DiagnosticSeverity.Information);
+                Report(ImageDiagnostics.ImageDataTooLong, string.Create(CultureInfo.InvariantCulture, $"The image data has {data.Length} bytes where {needed} are needed; the rest is ignored."), DiagnosticSeverity.Information);
             }
 
             return builder.Build();
@@ -875,7 +875,7 @@ public sealed class PdfImage
         if (read?.Value is { Geometry: { Width: > 0, Height: > 0 } } header
             && (header.Geometry with { Components = Math.Clamp(header.Geometry.Components, 1, ImageGeometry.MaxComponents), BitsPerComponent = Math.Clamp(header.Geometry.BitsPerComponent, 1, 16) }).CheckLimits(streams.MaxImagePixels, streams.MaxDecodedLength) is { } reason)
         {
-            Report(DiagnosticCodes.ImageTooLarge, $"The image is not decoded: its {filter.Name.Value} header declares {reason}.", DiagnosticSeverity.Error);
+            Report(ImageDiagnostics.ImageTooLarge, $"The image is not decoded: its {filter.Name.Value} header declares {reason}.", DiagnosticSeverity.Error);
             return default;
         }
 
@@ -902,7 +902,7 @@ public sealed class PdfImage
 
         if (layout.Components > 0 && decoded.Geometry.Components != layout.Components)
         {
-            Report(DiagnosticCodes.ImageComponentMismatch, FormattableString.Invariant(
+            Report(ImageDiagnostics.ImageComponentMismatch, FormattableString.Invariant(
                 $"The {filter.Name.Value} data has {decoded.Geometry.Components} components where the colour space has {layout.Components}; {(decoded.Geometry.Components > layout.Components ? "the first ones are used" : "the missing ones are 0")}."));
             using (decoded)
             {
@@ -920,7 +920,7 @@ public sealed class PdfImage
     {
         if (width != layout.Width || height != layout.Height)
         {
-            Report(DiagnosticCodes.ImageDimensionMismatch, FormattableString.Invariant(
+            Report(ImageDiagnostics.ImageDimensionMismatch, FormattableString.Invariant(
                 $"The {filter.Name.Value} data is {width} x {height} where the dictionary says {layout.Width} x {layout.Height}; the data's size is used."));
         }
     }
@@ -1052,7 +1052,7 @@ public sealed class PdfImage
 
         if (abbreviation is not null && Get(_stream.Dictionary, abbreviation) is { } abbreviated)
         {
-            Report(DiagnosticCodes.ImageKeyAbbreviated, $"The abbreviation /{abbreviation.Value} is valid only in inline images; it is read as /{key.Value}.");
+            Report(ImageDiagnostics.ImageKeyAbbreviated, $"The abbreviation /{abbreviation.Value} is valid only in inline images; it is read as /{key.Value}.");
             return abbreviated;
         }
 
@@ -1089,7 +1089,7 @@ public sealed class PdfImage
         return values;
     }
 
-    private void Report(string code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
+    private void Report(DiagnosticCode code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
         _document.DiagnosticSink.Report(code, severity, message, offset: null, _owner);
 
     /// <summary>What <see cref="Prepare"/> returns: the samples, or the image kept encoded; neither when it cannot be decoded.</summary>

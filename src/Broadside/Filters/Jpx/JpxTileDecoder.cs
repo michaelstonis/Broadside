@@ -322,7 +322,7 @@ internal sealed class JpxTileDecoder : IDisposable
         }
 
         _reporter.Report(
-            DiagnosticCodes.JpxLimitExceeded,
+            JpxDiagnostics.JpxLimitExceeded,
             DiagnosticSeverity.Error,
             $"A JPEG 2000 tile has more than {MaxStructures} precincts and code-blocks; it is not decoded.");
         return false;
@@ -633,7 +633,7 @@ internal sealed class JpxTileDecoder : IDisposable
         if (reader.Overrun)
         {
             _reporter.Report(
-                DiagnosticCodes.JpxPacketHeaderTruncated,
+                JpxDiagnostics.JpxPacketHeaderTruncated,
                 DiagnosticSeverity.Warning,
                 "A JPEG 2000 packet header runs past the end of the tile's data; decoding of the tile stops there.");
             _pendingCount = 0;
@@ -649,7 +649,7 @@ internal sealed class JpxTileDecoder : IDisposable
             }
             else
             {
-                _reporter.Report(DiagnosticCodes.JpxEphMissing, DiagnosticSeverity.Warning, "A JPEG 2000 packet header is not followed by the EPH marker COD announces; the data is read as if it were.");
+                _reporter.Report(JpxDiagnostics.JpxEphMissing, DiagnosticSeverity.Warning, "A JPEG 2000 packet header is not followed by the EPH marker COD announces; the data is read as if it were.");
             }
         }
 
@@ -826,7 +826,7 @@ internal sealed class JpxTileDecoder : IDisposable
                     if (planes > 30 || roi >= 31)
                     {
                         _reporter.Report(
-                            DiagnosticCodes.JpxPrecisionUnsupported,
+                            JpxDiagnostics.JpxPrecisionUnsupported,
                             DiagnosticSeverity.Information,
                             $"A JPEG 2000 sub-band has {planes} magnitude bit-planes (with the region-of-interest shift); more than 30 are not decoded and those code-blocks are left empty.");
                         continue;
@@ -835,7 +835,7 @@ internal sealed class JpxTileDecoder : IDisposable
                     if (top < 0)
                     {
                         _reporter.Report(
-                            DiagnosticCodes.JpxCodeBlockInvalid,
+                            JpxDiagnostics.JpxCodeBlockInvalid,
                             DiagnosticSeverity.Warning,
                             "A JPEG 2000 code-block claims more missing bit-planes than its sub-band has; it is left empty.");
                         continue;
@@ -854,7 +854,7 @@ internal sealed class JpxTileDecoder : IDisposable
                     if (!symbols)
                     {
                         _reporter.Report(
-                            DiagnosticCodes.JpxSegmentationSymbolMismatch,
+                            JpxDiagnostics.JpxSegmentationSymbolMismatch,
                             DiagnosticSeverity.Warning,
                             "A JPEG 2000 code-block's segmentation symbol is not 1010 (D.5); the data is decoded anyway.");
                     }
@@ -938,21 +938,21 @@ internal sealed class JpxTileDecoder : IDisposable
             if (item.Status == 1)
             {
                 _reporter.Report(
-                    DiagnosticCodes.JpxPrecisionUnsupported,
+                    JpxDiagnostics.JpxPrecisionUnsupported,
                     DiagnosticSeverity.Information,
                     $"A JPEG 2000 sub-band has {item.Planes} magnitude bit-planes (with the region-of-interest shift); more than 30 are not decoded and those code-blocks are left empty.");
             }
             else if (item.Status == 2)
             {
                 _reporter.Report(
-                    DiagnosticCodes.JpxCodeBlockInvalid,
+                    JpxDiagnostics.JpxCodeBlockInvalid,
                     DiagnosticSeverity.Warning,
                     "A JPEG 2000 code-block claims more missing bit-planes than its sub-band has; it is left empty.");
             }
             else if (!item.Symbols)
             {
                 _reporter.Report(
-                    DiagnosticCodes.JpxSegmentationSymbolMismatch,
+                    JpxDiagnostics.JpxSegmentationSymbolMismatch,
                     DiagnosticSeverity.Warning,
                     "A JPEG 2000 code-block's segmentation symbol is not 1010 (D.5); the data is decoded anyway.");
             }
@@ -1007,7 +1007,7 @@ internal sealed class JpxTileDecoder : IDisposable
     }
 
     private void Truncated() => _reporter.Report(
-        DiagnosticCodes.JpxCodestreamTruncated,
+        JpxDiagnostics.JpxCodestreamTruncated,
         DiagnosticSeverity.Warning,
         "The JPEG 2000 codestream ends early; what is present is decoded and the rest of the image is left empty.");
 

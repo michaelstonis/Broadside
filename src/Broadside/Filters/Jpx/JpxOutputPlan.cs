@@ -119,7 +119,7 @@ internal sealed class JpxOutputPlan
             if (colorOrder.Count < requested)
             {
                 reporter.Report(
-                    DiagnosticCodes.JpxChannelCountMismatch,
+                    JpxDiagnostics.JpxChannelCountMismatch,
                     DiagnosticSeverity.Warning,
                     $"The JPEG 2000 data has {colorOrder.Count} colour channels where the colour space needs {requested}; the missing ones are zero.");
             }
@@ -154,7 +154,7 @@ internal sealed class JpxOutputPlan
         if (skipped)
         {
             reporter.Report(
-                DiagnosticCodes.JpxColorSpecificationUnsupported,
+                JpxDiagnostics.JpxColorSpecificationUnsupported,
                 DiagnosticSeverity.Information,
                 "A JPEG 2000 colour specification is not supported; the next one, or the channel count, decides the colour space (ISO 32000-2 §7.4.9).");
         }
@@ -165,7 +165,7 @@ internal sealed class JpxOutputPlan
             // As pdf.js: three components with sub-sampled chroma and no colour specification are YCbCr.
             conversion = JpxColorConversion.Ycc;
             reporter.Report(
-                DiagnosticCodes.JpxColorSpecificationUnsupported,
+                JpxDiagnostics.JpxColorSpecificationUnsupported,
                 DiagnosticSeverity.Information,
                 "A JPEG 2000 image has no colour specification and sub-sampled second and third components; it is read as YCbCr.");
         }
@@ -243,7 +243,7 @@ internal sealed class JpxOutputPlan
             {
                 if (entry.Component >= components.Length || (entry.Type == 1 && entry.Column >= palette.Columns))
                 {
-                    reporter.Report(DiagnosticCodes.JpxBoxInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 component mapping names a component or palette column that does not exist; that channel is dropped.");
+                    reporter.Report(JpxDiagnostics.JpxBoxInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 component mapping names a component or palette column that does not exist; that channel is dropped.");
                     continue;
                 }
 
@@ -259,7 +259,7 @@ internal sealed class JpxOutputPlan
         }
         else if (file.Palette is not null || file.Mapping is not null)
         {
-            reporter.Report(DiagnosticCodes.JpxBoxInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 palette needs a component mapping box and the reverse (I.5.3.4); the components are used directly.");
+            reporter.Report(JpxDiagnostics.JpxBoxInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 palette needs a component mapping box and the reverse (I.5.3.4); the components are used directly.");
         }
 
         for (int c = 0; c < components.Length; c++)
@@ -309,7 +309,7 @@ internal sealed class JpxOutputPlan
         if (ambiguous)
         {
             reporter.Report(
-                DiagnosticCodes.JpxOpacityChannelAmbiguous,
+                JpxDiagnostics.JpxOpacityChannelAmbiguous,
                 DiagnosticSeverity.Warning,
                 "A JPEG 2000 image has more than one opacity channel, or one for a single colour; PDF uses one opacity channel for all colours, the first (ISO 32000-2 §7.4.9).");
         }
@@ -392,7 +392,7 @@ internal sealed class JpxOutputPlan
                 return (ImageColorModel.Cmyk, JpxColorConversion.Ycck, null);
             default:
                 reporter.Report(
-                    DiagnosticCodes.JpxColorSpecificationUnsupported,
+                    JpxDiagnostics.JpxColorSpecificationUnsupported,
                     DiagnosticSeverity.Information,
                     $"The JPEG 2000 enumerated colour space {specification.Enumerated} is read as RGB, its closest approximation (ISO 32000-2 §7.4.9).");
                 return (ImageColorModel.Rgb, JpxColorConversion.None, null);

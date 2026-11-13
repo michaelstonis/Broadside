@@ -301,11 +301,11 @@ internal sealed class ColorSpaceCache
     /// <param name="what">What the value was meant to be, for the message.</param>
     public void ReportFailure(CosReference? reference, ColorSpaceFailure failure, string what)
     {
-        (string code, DiagnosticSeverity severity, string message) = failure switch
+        (DiagnosticCode code, DiagnosticSeverity severity, string message) = failure switch
         {
-            ColorSpaceFailure.Cycle => (DiagnosticCodes.ColorSpaceCycle, DiagnosticSeverity.Error, $"The value of {what} refers back to the colour space being read; DeviceGray is used."),
-            ColorSpaceFailure.TooDeep => (DiagnosticCodes.ColorSpaceTooDeep, DiagnosticSeverity.Error, $"Colour spaces nest more than {MaxDepth} deep at {what}; DeviceGray is used."),
-            _ => (DiagnosticCodes.ColorSpaceInvalid, DiagnosticSeverity.Warning, $"The value of {what} is not a colour space name or array; DeviceGray is used."),
+            ColorSpaceFailure.Cycle => (ColorDiagnostics.ColorSpaceCycle, DiagnosticSeverity.Error, $"The value of {what} refers back to the colour space being read; DeviceGray is used."),
+            ColorSpaceFailure.TooDeep => (ColorDiagnostics.ColorSpaceTooDeep, DiagnosticSeverity.Error, $"Colour spaces nest more than {MaxDepth} deep at {what}; DeviceGray is used."),
+            _ => (ColorDiagnostics.ColorSpaceInvalid, DiagnosticSeverity.Warning, $"The value of {what} is not a colour space name or array; DeviceGray is used."),
         };
         Diagnostics.Report(code, severity, message, offset: null, reference);
     }
@@ -340,7 +340,7 @@ internal sealed class ColorSpaceCache
             CosReference? diagnostics = reference ?? owner;
             if (array.Count == 0 || Resolve(array[0]) is not CosName family)
             {
-                Diagnostics.Report(DiagnosticCodes.ColorSpaceInvalid, DiagnosticSeverity.Warning, "A colour space array is empty or does not start with a family name; DeviceGray is used.", offset: null, diagnostics);
+                Diagnostics.Report(ColorDiagnostics.ColorSpaceInvalid, DiagnosticSeverity.Warning, "A colour space array is empty or does not start with a family name; DeviceGray is used.", offset: null, diagnostics);
                 return PdfDeviceGrayColorSpace.Instance;
             }
 
@@ -349,7 +349,7 @@ internal sealed class ColorSpaceCache
                 // §8.6.3: a family with no parameters is named alone; [/DeviceRGB] is read anyway (CalCMYK, §8.6.5.1, silently).
                 if (!family.Equals(ColorSpaceNames.CalCmyk))
                 {
-                    Diagnostics.Report(DiagnosticCodes.ColorSpaceEntryInvalid, DiagnosticSeverity.Warning, $"The device colour space {family.Value} is written as an array; it is read as the name.", offset: null, diagnostics);
+                    Diagnostics.Report(ColorDiagnostics.ColorSpaceEntryInvalid, DiagnosticSeverity.Warning, $"The device colour space {family.Value} is written as an array; it is read as the name.", offset: null, diagnostics);
                 }
 
                 return device;
@@ -374,7 +374,7 @@ internal sealed class ColorSpaceCache
 
             if (space is null)
             {
-                Diagnostics.Report(DiagnosticCodes.ColorSpaceInvalid, DiagnosticSeverity.Warning, $"The colour space family {family.Value} is unknown, or its parameters are missing; DeviceGray is used.", offset: null, diagnostics);
+                Diagnostics.Report(ColorDiagnostics.ColorSpaceInvalid, DiagnosticSeverity.Warning, $"The colour space family {family.Value} is unknown, or its parameters are missing; DeviceGray is used.", offset: null, diagnostics);
                 return PdfDeviceGrayColorSpace.Instance;
             }
 
@@ -407,7 +407,7 @@ internal sealed class ColorSpaceCache
             }
 
             Diagnostics.Report(
-                DiagnosticCodes.DefaultColorSpaceInvalid,
+                ColorDiagnostics.DefaultColorSpaceInvalid,
                 DiagnosticSeverity.Warning,
                 $"{key.Value} is a {space.Family} space of {space.ComponentCount} components; a default colour space shall have {components} and not be Lab, Indexed or Pattern. It is ignored.",
                 offset: null,

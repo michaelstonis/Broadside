@@ -77,16 +77,16 @@ internal sealed class FunctionCompilation
     /// <param name="code">The code.</param>
     /// <param name="severity">The severity.</param>
     /// <param name="message">What was wrong and what was done.</param>
-    public void Report(string code, DiagnosticSeverity severity, string message) =>
+    public void Report(DiagnosticCode code, DiagnosticSeverity severity, string message) =>
         _diagnostics.Report(code, severity, message, offset: null, Reference);
 
-    /// <summary>Records a repaired entry (<see cref="DiagnosticCodes.FunctionEntryInvalid"/>, Warning).</summary>
+    /// <summary>Records a repaired entry (<see cref="FunctionDiagnostics.FunctionEntryInvalid"/>, Warning).</summary>
     /// <param name="message">What was wrong and what was done.</param>
-    public void Repaired(string message) => Report(DiagnosticCodes.FunctionEntryInvalid, DiagnosticSeverity.Warning, message);
+    public void Repaired(string message) => Report(FunctionDiagnostics.FunctionEntryInvalid, DiagnosticSeverity.Warning, message);
 
-    /// <summary>Records that the function cannot be used (<see cref="DiagnosticCodes.FunctionInvalid"/>, Error).</summary>
+    /// <summary>Records that the function cannot be used (<see cref="FunctionDiagnostics.FunctionInvalid"/>, Error).</summary>
     /// <param name="message">Why.</param>
-    public void Invalid(string message) => Report(DiagnosticCodes.FunctionInvalid, DiagnosticSeverity.Error, message);
+    public void Invalid(string message) => Report(FunctionDiagnostics.FunctionInvalid, DiagnosticSeverity.Error, message);
 
     /// <summary>Reads an entry that holds an array of numbers.</summary>
     /// <param name="dictionary">The function dictionary.</param>

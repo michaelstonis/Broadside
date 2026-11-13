@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -68,7 +69,7 @@ public sealed class PdfMarkInfo
         }
 
         _document.DiagnosticSink.Report(
-            DiagnosticCodes.MarkInfoInvalid,
+            StructureDiagnostics.MarkInfoInvalid,
             Diagnostics.DiagnosticSeverity.Warning,
             $"MarkInfo {key.Value} is not a boolean (Table 353); read as false.",
             offset: null,

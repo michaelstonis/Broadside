@@ -35,7 +35,7 @@ public sealed partial class PdfDocument
                     PdfAcroForm? raced = Interlocked.CompareExchange(ref _acroForm, created, cached);
                     return raced == cached ? created : (ReferenceEquals(raced!.Dictionary, dictionary) ? raced : created);
                 default:
-                    CatalogView.Report(DiagnosticCodes.AcroFormInvalid, "The catalog's AcroForm entry shall be the interactive form dictionary; it is ignored.");
+                    CatalogView.Report(FormDiagnostics.AcroFormInvalid, "The catalog's AcroForm entry shall be the interactive form dictionary; it is ignored.");
                     return null;
             }
         }
@@ -89,14 +89,14 @@ public sealed partial class PdfDocument
         }
 
         _diagnostics.Report(
-            DiagnosticCodes.XfaFormPresent,
+            FormDiagnostics.XfaFormPresent,
             DiagnosticSeverity.Information,
             "The interactive form has an XFA resource (Annex K, deprecated in PDF 2.0); it is kept but not used: the AcroForm fields are read.",
             objectReference: reference);
         if (Resolve(Catalog.TryGetValue(FormNames.NeedsRendering, out CosObject? needsRendering) ? needsRendering : null) is CosBoolean { Value: true })
         {
             _diagnostics.Report(
-                DiagnosticCodes.XfaFormDynamic,
+                FormDiagnostics.XfaFormDynamic,
                 DiagnosticSeverity.Information,
                 "The catalog's NeedsRendering is true: the document is a dynamic XFA form whose pages are placeholders; its content is not rendered.",
                 objectReference: CatalogReference);

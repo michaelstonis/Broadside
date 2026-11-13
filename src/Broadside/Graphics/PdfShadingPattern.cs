@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics.Shadings;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -20,7 +21,7 @@ public sealed class PdfShadingPattern : PdfPattern
         Shading = shading is null ? null : reader.Document.Shadings.GetShading(shading, reader.DiagnosticReference);
         if (Shading is not { IsValid: true })
         {
-            reader.Invalid(DiagnosticCodes.PatternEntryInvalid, "A shading pattern's Shading entry is missing or not a usable shading.");
+            reader.Invalid(ShadingDiagnostics.PatternEntryInvalid, "A shading pattern's Shading entry is missing or not a usable shading.");
         }
 
         ExtGState = reader.Resolve(reader.Get(ShadingNames.ExtGState)) as CosDictionary;

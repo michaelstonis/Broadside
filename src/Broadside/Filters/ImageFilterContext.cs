@@ -98,7 +98,7 @@ public sealed class ImageFilterContext
         ArgumentOutOfRangeException.ThrowIfGreaterThan(geometry.BitsPerComponent, 16, nameof(geometry));
         if (geometry.CheckLimits(MaxPixels, MaxDecodedLength) is { } reason)
         {
-            Filter.Report(DiagnosticCodes.ImageTooLarge, DiagnosticSeverity.Error, $"The image is not decoded: {reason}.");
+            Filter.Report(ImageDiagnostics.ImageTooLarge.Name, DiagnosticSeverity.Error, $"The image is not decoded: {reason}.");
             image = null;
             return false;
         }

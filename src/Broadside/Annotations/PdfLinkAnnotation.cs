@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics;
 using Broadside.Objects;
 
@@ -71,7 +72,7 @@ public sealed class PdfLinkAnnotation : PdfAnnotation
     {
         if (Dictionary.ContainsKey(AnnotationNames.A) && Dictionary.ContainsKey(AnnotationNames.Dest))
         {
-            Report(Parsing.DiagnosticCodes.LinkActionAndDest, "The link has both A and Dest, which Table 176 does not permit; the action is the one to perform.");
+            Report(AnnotationDiagnostics.LinkActionAndDest, "The link has both A and Dest, which Table 176 does not permit; the action is the one to perform.");
         }
     }
 }

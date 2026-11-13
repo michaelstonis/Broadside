@@ -125,7 +125,7 @@ public sealed partial class PdfDocument
             {
                 ViewReading.Warn(
                     this,
-                    DiagnosticCodes.UnencryptedWrapperInvalid,
+                    SecurityDiagnostics.UnencryptedWrapperInvalid,
                     $"The unencrypted wrapper deviates from ISO 32000-2 §7.6.7 ({string.Join("; ", deviations)}); its payload '{chosen.Name}' is read anyway.",
                     file.Reference ?? CatalogReference);
             }
@@ -134,7 +134,7 @@ public sealed partial class PdfDocument
             if (payload.CryptographicFilter is { } filter && !payload.IsCryptographicFilterAvailable)
             {
                 DiagnosticSink.Report(
-                    DiagnosticCodes.EncryptedPayloadFilterUnknown,
+                    SecurityDiagnostics.EncryptedPayloadFilterUnknown,
                     DiagnosticSeverity.Information,
                     $"The encrypted payload '{chosen.Name}' needs the cryptographic filter {filter.Value}, which no security handler of this engine provides; the wrapper is read, and the payload opens only if its own encryption dictionary names a handler the engine has.",
                     offset: null,
@@ -228,7 +228,7 @@ public sealed partial class PdfDocument
             {
                 // Strict mode throws here, before anything is embedded.
                 wrapper._diagnostics.Report(
-                    DiagnosticCodes.EncryptedPayloadNotEncrypted,
+                    SecurityDiagnostics.EncryptedPayloadNotEncrypted,
                     DiagnosticSeverity.Warning,
                     $"The payload '{name}' of the unencrypted wrapper is not an encrypted PDF file (ISO 32000-2 §7.6.7: the wrapper embeds an encrypted payload); it is embedded anyway.");
             }

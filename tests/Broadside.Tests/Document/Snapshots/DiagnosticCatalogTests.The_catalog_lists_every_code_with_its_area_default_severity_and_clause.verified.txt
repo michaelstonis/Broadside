@@ -17,6 +17,10 @@ FileStructure	XrefEntryInvalid	Error	ISO 32000-2 §7.5.4
 FileStructure	XrefEntryFormatInvalid	Warning	ISO 32000-2 §7.5.4
 FileStructure	XrefSubsectionNumberingInvalid	Warning	ISO 32000-2 §7.5.4
 FileStructure	XrefSubsectionHeaderInvalid	Warning	ISO 32000-2 §7.5.4
+FileStructure	XrefEntryBeyondSize	Warning	ISO 32000-2 §7.5.5
+FileStructure	XrefCommentIgnored	Warning	ISO 32000-2 §7.5.4
+FileStructure	XrefLineMalformed	Warning	ISO 32000-2 §7.5.4
+FileStructure	StartxrefLastDamaged	Warning	ISO 32000-2 §7.5.5
 FileStructure	XrefPrevLoop	Error	ISO 32000-2 §7.5.4
 FileStructure	XrefStreamTypeInvalid	Warning	ISO 32000-2 §7.5.8
 FileStructure	XrefStreamWidthsInvalid	Error	ISO 32000-2 §7.5.8
@@ -273,7 +277,6 @@ Jpx	JpxLimitExceeded	Error	ISO 32000-2 §7.4.9; ITU-T T.800 Annex I
 Jpx	JpxColorSpecificationUnsupported	Information	ISO 32000-2 §7.4.9; ITU-T T.800 Annex I
 Jpx	JpxPaletteIndexOutOfRange	Warning	ISO 32000-2 §7.4.9; ITU-T T.800 Annex I
 Jpx	JpxOpacityChannelAmbiguous	Warning	ISO 32000-2 §7.4.9; ITU-T T.800 Annex I
-Image	ImageSubtypeInvalid	Warning	ISO 32000-2 §8.9.5 Table 87
 Image	ImageDimensionInvalid	Warning	ISO 32000-2 §8.9.5 Table 87
 Image	ImageBitsPerComponentInvalid	Warning	ISO 32000-2 §8.9.5 Table 87
 Image	ImageColorSpaceMissing	Warning	ISO 32000-2 §8.9.5 Table 87
@@ -285,7 +288,6 @@ Image	ImageAlternatesInvalid	Warning	ISO 32000-2 §8.9.5 Table 87
 Image	ImageTooLarge	Error	ISO 32000-2 §8.9.3
 Image	ImageDataTruncated	Warning	ISO 32000-2 §8.9.3
 Image	ImageDataTooLong	Information	ISO 32000-2 §8.9.3
-Image	ImageFilterNotLast	Warning	ISO 32000-2 §8.9.3
 Image	ImageDimensionMismatch	Warning	ISO 32000-2 §8.9.3
 Image	ImageComponentMismatch	Warning	ISO 32000-2 §8.9.3
 Image	ImageMaskInvalid	Warning	ISO 32000-2 §8.9.6, §11.6.5.2
@@ -296,7 +298,6 @@ Image	ImageDecodedManaged	Information	ISO 32000-2 §7.4.8
 Image	PlatformImageVerified	Warning	ISO 32000-2 §7.4.8
 Image	PlatformImageMismatch	Warning	ISO 32000-2 §7.4.8
 Image	InlineImageFilterNotAllowed	Warning	ISO 32000-2 §8.9.7
-Image	InlineImageKeyInvalid	Warning	ISO 32000-2 §8.9.7
 Font	Type0EncodingMissing	Warning	ISO 32000-2 §9.7.3, §9.7.4, §9.7.6.1
 Font	Type0DescendantFontsInvalid	Warning	ISO 32000-2 §9.7.3, §9.7.4, §9.7.6.1
 Font	Type0IdentityNotEmbedded	Warning	ISO 32000-2 §9.7.3, §9.7.4, §9.7.6.1
