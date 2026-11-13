@@ -78,6 +78,10 @@ public sealed class PdfImage
     /// <summary>Gets the indirect reference to the image's stream, or <see langword="null"/> when it is direct or inline.</summary>
     public CosReference? Reference { get; }
 
+    /// <summary>Gets the files associated with the image (its <c>AF</c>).</summary>
+    /// <remarks>ISO 32000-2 Table 87 (PDF 2.0), and §14.13.7. Read on every call, as <see cref="PdfDocument.AssociatedFiles"/> is.</remarks>
+    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => AssociatedFileReader.ReadOwner(_document, Dictionary, Reference);
+
     /// <summary>Gets the document the image belongs to.</summary>
     internal PdfDocument Document => _document;
 

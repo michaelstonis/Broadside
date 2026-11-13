@@ -631,6 +631,7 @@ Broadside.Content.MarkedContentEvent.InlineProperties.get -> Broadside.Content.C
 Broadside.Content.MarkedContentEvent.IsHidden.get -> bool
 Broadside.Content.MarkedContentEvent.IsOptionalContent.get -> bool
 Broadside.Content.MarkedContentEvent.MarkedContentEvent() -> void
+Broadside.Content.MarkedContentEvent.AssociatedFiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfFileSpecification!>!
 Broadside.Content.MarkedContentEvent.Mcid.get -> int?
 Broadside.Content.MarkedContentEvent.Properties.get -> Broadside.Objects.CosDictionary?
 Broadside.Content.MarkedContentEvent.PropertiesObject.get -> Broadside.Objects.CosObject?
@@ -1202,6 +1203,7 @@ Broadside.Graphics.PdfAxialShading.TryGetParameter(double x, double y, out doubl
 Broadside.Graphics.PdfFormXObject
 Broadside.Graphics.PdfFormXObject.BoundingBox.get -> Broadside.PdfRectangle?
 Broadside.Graphics.PdfFormXObject.Decode() -> System.ReadOnlyMemory<byte>
+Broadside.Graphics.PdfFormXObject.AssociatedFiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfFileSpecification!>!
 Broadside.Graphics.PdfFormXObject.Dictionary.get -> Broadside.Objects.CosDictionary!
 Broadside.Graphics.PdfFormXObject.Group.get -> Broadside.Objects.CosDictionary?
 Broadside.Graphics.PdfFormXObject.IsForm.get -> bool
@@ -1522,6 +1524,7 @@ Broadside.Images.PdfImage.ColorSpace.get -> Broadside.Graphics.PdfColorSpace?
 Broadside.Images.PdfImage.CreateDecodeMap(Broadside.Images.DecodedImage! decoded) -> Broadside.Images.ImageDecodeMap!
 Broadside.Images.PdfImage.Decode() -> Broadside.Images.DecodedImage?
 Broadside.Images.PdfImage.DecodeArray.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Images.PdfImage.AssociatedFiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfFileSpecification!>!
 Broadside.Images.PdfImage.Dictionary.get -> Broadside.Objects.CosDictionary!
 Broadside.Images.PdfImage.Height.get -> int
 Broadside.Images.PdfImage.Intent.get -> Broadside.Graphics.RenderingIntent?
@@ -2073,8 +2076,6 @@ Broadside.PdfDocument.EnumerateAssociatedFiles(bool deep = false) -> System.Coll
 Broadside.PdfDocument.EnumerateObjectMetadata(bool deep = false) -> System.Collections.Generic.IEnumerable<Broadside.PdfObjectMetadata!>!
 Broadside.PdfDocument.GetFileSpecification(Broadside.Objects.CosObject? value) -> Broadside.PdfFileSpecification?
 Broadside.PdfDocument.OptionalContent.get -> Broadside.PdfOptionalContentProperties?
-Broadside.PdfDocument.ReadAssociatedFiles(Broadside.Objects.CosDictionary! owner, Broadside.Objects.CosReference? ownerReference = null) -> System.Collections.Generic.IReadOnlyList<Broadside.PdfFileSpecification!>!
-Broadside.PdfDocument.ReadMarkedContentAssociatedFiles(Broadside.Objects.CosObject? properties) -> System.Collections.Generic.IReadOnlyList<Broadside.PdfFileSpecification!>!
 Broadside.PdfEmbeddedFile
 Broadside.PdfEmbeddedFile.Decode() -> System.ReadOnlyMemory<byte>
 Broadside.PdfEmbeddedFile.Decode(System.Buffers.IBufferWriter<byte>! output) -> void
@@ -2110,6 +2111,7 @@ Broadside.PdfFileRelationship.Unspecified = 0 -> Broadside.PdfFileRelationship
 Broadside.PdfFileSpecification
 Broadside.PdfFileSpecification.CollectionItem.get -> Broadside.PdfCollectionItem?
 Broadside.PdfFileSpecification.Description.get -> string?
+Broadside.PdfFileSpecification.AssociatedFiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfFileSpecification!>!
 Broadside.PdfFileSpecification.Dictionary.get -> Broadside.Objects.CosDictionary?
 Broadside.PdfFileSpecification.EmbeddedFile.get -> Broadside.PdfEmbeddedFile?
 Broadside.PdfFileSpecification.EncryptedPayload.get -> Broadside.Objects.CosDictionary?
