@@ -7,7 +7,6 @@ internal static partial class DiagnosticCodes
 {
     // The CFF container (Adobe Technical Note #5176).
     public static string FontCffHeaderInvalid => CffDiagnostics.FontCffHeaderInvalid.Name;
-    public static string FontCffIndexInvalid => CffDiagnostics.FontCffIndexInvalid.Name;
     public static string FontCffDictInvalid => CffDiagnostics.FontCffDictInvalid.Name;
     public static string FontCffPrivateMissing => CffDiagnostics.FontCffPrivateMissing.Name;
     public static string FontCffMultipleFonts => CffDiagnostics.FontCffMultipleFonts.Name;

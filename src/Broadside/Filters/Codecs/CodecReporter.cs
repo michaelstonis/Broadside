@@ -68,7 +68,7 @@ internal class CodecReporter
         }
 
         _recorded.Add(new CodecDiagnostic(code, severity, message, key));
-        _context?.Report(code, severity, message);
+        _context?.Report(DiagnosticCatalog.Get(code), severity, message);
     }
 
     /// <summary>Gets the decode's token, for work on other threads that cannot throw to the caller; <c>default</c> without a context.</summary>

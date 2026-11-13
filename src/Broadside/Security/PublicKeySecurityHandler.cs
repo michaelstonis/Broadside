@@ -82,7 +82,7 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
         if (version == 0)
         {
             context.Report(
-                DiagnosticCodes.EncryptionVersionInvalid,
+                SecurityDiagnostics.EncryptionVersionInvalid,
                 DiagnosticSeverity.Warning,
                 "The public-key encryption dictionary has no usable V entry; it is read by its key length (RC4 below 256 bits, AES-256 at 256).");
         }
@@ -123,7 +123,7 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
         if (subFilter is not null && subFilter.Equals(S5) != (documentFilter is not null))
         {
             context.Report(
-                DiagnosticCodes.EncryptDictionaryInvalid,
+                SecurityDiagnostics.EncryptDictionaryInvalid,
                 DiagnosticSeverity.Warning,
                 $"With SubFilter /{subFilter.Value} the Recipients shall be in {(subFilter.Equals(S5) ? "the crypt filter dictionary (Table 27)" : "the encryption dictionary (Table 23)")}; they are read from where they are.");
         }
@@ -154,7 +154,7 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
         if (envelope.Content.Length != 24)
         {
             context.Report(
-                DiagnosticCodes.PublicKeyEnvelopeInvalid,
+                SecurityDiagnostics.PublicKeyEnvelopeInvalid,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"The enveloped data of a document-level recipient list shall be a 20-byte seed and 4 bytes of permissions (§7.6.5.3); it has {envelope.Content.Length} bytes{(envelope.Content.Length < 24 ? ", so no permission is granted" : ", the rest is ignored")}."));
         }
@@ -209,7 +209,7 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
             if (envelope is null)
             {
                 context.Report(
-                    DiagnosticCodes.CryptFilterNotAuthorized,
+                    SecurityDiagnostics.CryptFilterNotAuthorized,
                     DiagnosticSeverity.Information,
                     $"None of the certificates given is a recipient of {label}; the streams that use it stay encrypted (§7.6.6).");
                 keys[name] = ReadOnlyMemory<byte>.Empty;
@@ -219,7 +219,7 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
             if (envelope.Content.Length < 20)
             {
                 context.Report(
-                    DiagnosticCodes.PublicKeyEnvelopeInvalid,
+                    SecurityDiagnostics.PublicKeyEnvelopeInvalid,
                     DiagnosticSeverity.Error,
                     string.Create(CultureInfo.InvariantCulture, $"The enveloped data of {label} shall hold a 20-byte seed (Table 27); it has {envelope.Content.Length} bytes, so the streams that use it stay encrypted."));
                 keys[name] = ReadOnlyMemory<byte>.Empty;
@@ -284,7 +284,7 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
         if (bits is >= 5 and <= 16)
         {
             context.Report(
-                DiagnosticCodes.EncryptionKeyLengthInvalid,
+                SecurityDiagnostics.EncryptionKeyLengthInvalid,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"The Length of {label} is {bits}; public-key handlers give it in bits (Table 25), so it is read as a number of bytes."));
             bits *= 8;
@@ -294,7 +294,7 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
         if (clamped != bits)
         {
             context.Report(
-                DiagnosticCodes.EncryptionKeyLengthInvalid,
+                SecurityDiagnostics.EncryptionKeyLengthInvalid,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"The Length of {label} is {bits} bits; a SHA-1 derived key is a multiple of 8 from 40 to 128 bits (§7.6.5.3), so {clamped} bits are used."));
         }
@@ -316,7 +316,7 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
             else
             {
                 context.Report(
-                    DiagnosticCodes.PublicKeyRecipientInvalid,
+                    SecurityDiagnostics.PublicKeyRecipientInvalid,
                     DiagnosticSeverity.Warning,
                     $"An entry of the Recipients of {label} is not a string; it is ignored.");
             }
@@ -418,7 +418,7 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
             {
                 bool padding = recipient.AsSpan(consumed).IndexOfAnyExcept((byte)0) < 0;
                 context.Report(
-                    DiagnosticCodes.PublicKeyRecipientInvalid,
+                    SecurityDiagnostics.PublicKeyRecipientInvalid,
                     DiagnosticSeverity.Warning,
                     string.Create(CultureInfo.InvariantCulture, $"A CMS object in the Recipients of {label} is followed by {recipient.Length - consumed} {(padding ? "zero bytes" : "other bytes")}; they are ignored (but still digested into the key)."));
             }
@@ -430,7 +430,7 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
         catch (Exception exception) when (exception is CryptographicException or AsnContentException)
         {
             context.Report(
-                DiagnosticCodes.PublicKeyRecipientInvalid,
+                SecurityDiagnostics.PublicKeyRecipientInvalid,
                 DiagnosticSeverity.Warning,
                 $"A string in the Recipients of {label} is not a CMS enveloped-data object (RFC 5652); it is skipped: {exception.Message}");
             return null;

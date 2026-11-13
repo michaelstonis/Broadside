@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Security;
 using Broadside.Tests.Document;
@@ -67,6 +68,25 @@ public sealed class SecurityHandlerExtensionPointTests
         Assert.Equal(PdfPermissions.Print, document.Permissions);
         Assert.Empty(document.Diagnostics);
     }
+
+    [Fact]
+    public void A_handler_reports_its_own_prefixed_code_on_the_document()
+    {
+        var escrow = new KeyEscrowHandler(new CosName("Escrow"), [], Aes256FileKey) { Notice = KeyEscrowHandler.EscrowKeyAged };
+
+        using PdfDocument document = PdfDocument.Open(WithEncryption("encrypted-aes-256.pdf", "/Filter /Standard", "/Filter /Escrow"), new PdfOptions().UseSecurityHandler(escrow));
+
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Assert.Equal("Contoso.Escrow.KeyAged", diagnostic.Code);
+        Assert.Equal(DiagnosticSeverity.Information, diagnostic.Severity);
+        Assert.Same(KeyEscrowHandler.EscrowKeyAged, diagnostic.Kind);
+        Assert.Equal("Contoso.Escrow", diagnostic.Kind.Owner);
+        Assert.Equal(DiagnosticArea.None, diagnostic.Kind.Area);
+    }
+
+    [Fact]
+    public void A_handler_cannot_make_a_code_with_the_reserved_owner() =>
+        Assert.Throws<ArgumentException>(() => DiagnosticCode.Create("Broadside", "EncryptDictionaryInvalid", DiagnosticSeverity.Error));
 
     [Fact]
     public void A_handler_is_chosen_by_subfilter_when_no_handler_has_the_filter_name()
@@ -155,14 +175,23 @@ public sealed class SecurityHandlerExtensionPointTests
 
     private sealed class KeyEscrowHandler(CosName filter, IReadOnlyCollection<CosName> subFilters, byte[] key) : ISecurityHandler
     {
+        public static DiagnosticCode EscrowKeyAged { get; } = DiagnosticCode.Create("Contoso.Escrow", "KeyAged", DiagnosticSeverity.Information);
+
         public CosName Filter => filter;
 
         public IReadOnlyCollection<CosName> SubFilters => subFilters;
+
+        public DiagnosticCode? Notice { get; init; }
 
         public SecurityHandlerResult Authenticate(SecurityHandlerContext context)
         {
             Assert.NotNull(context.EncryptionDictionary);
             Assert.Equal(16, context.DocumentId.Length);
+            if (Notice is not null)
+            {
+                context.Report(Notice, DiagnosticSeverity.Information, "The escrowed key is older than a year; it still opens the document.");
+            }
+
             return new SecurityHandlerResult(key, PdfAccessLevel.User, PdfPermissions.Print, -4);
         }
     }

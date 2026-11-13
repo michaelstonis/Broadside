@@ -344,7 +344,10 @@ CharString	FontCharstringMovetoMissing	Warning	Adobe Technical Note #5177; Type 
 CharString	FontCharstringOperandInvalid	Warning	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
 CharString	FontCharstringTruncated	Error	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
 Cff	FontCffHeaderInvalid	Warning	Adobe Technical Note #5176
-Cff	FontCffIndexInvalid	Warning	Adobe Technical Note #5176
+Cff	FontCffIndexOutOfRange	Warning	Adobe Technical Note #5176 §5
+Cff	FontCffIndexTruncated	Warning	Adobe Technical Note #5176 §5
+Cff	FontCffIndexOffSizeInvalid	Warning	Adobe Technical Note #5176 §5, Table 7
+Cff	FontCffIndexOffsetsInvalid	Warning	Adobe Technical Note #5176 §5
 Cff	FontCffDictInvalid	Warning	Adobe Technical Note #5176
 Cff	FontCffPrivateMissing	Warning	Adobe Technical Note #5176
 Cff	FontCffMultipleFonts	Warning	Adobe Technical Note #5176

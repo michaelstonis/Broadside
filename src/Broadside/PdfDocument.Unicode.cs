@@ -84,7 +84,7 @@ public sealed partial class PdfDocument
         {
             case CosStream when depth >= context.MaxUseCMapDepth:
                 context.Report(
-                    DiagnosticCodes.CMapUseCMapTooDeep,
+                    CMapDiagnostics.CMapUseCMapTooDeep,
                     DiagnosticSeverity.Warning,
                     $"CMaps nest through usecmap at most {context.MaxUseCMapDepth} levels (Adobe TN 5014 §7.4); the deeper CMaps are ignored.");
                 break;
@@ -102,7 +102,7 @@ public sealed partial class PdfDocument
 
                 break;
             default:
-                context.Report(DiagnosticCodes.CMapUseCMapInvalid, DiagnosticSeverity.Warning, "UseCMap shall be a name or a CMap stream (ISO 32000-2 §9.7.5.3, Table 118); ignored.");
+                context.Report(CMapDiagnostics.CMapUseCMapInvalid, DiagnosticSeverity.Warning, "UseCMap shall be a name or a CMap stream (ISO 32000-2 §9.7.5.3, Table 118); ignored.");
                 break;
         }
 
@@ -117,7 +117,7 @@ public sealed partial class PdfDocument
         }
 
         context.Report(
-            DiagnosticCodes.CMapUseCMapInvalid,
+            CMapDiagnostics.CMapUseCMapInvalid,
             DiagnosticSeverity.Warning,
             $"A ToUnicode CMap may use only another ToUnicode CMap stream (ISO 32000-2 §9.10.3), not /{name}; read without it.");
         return null;

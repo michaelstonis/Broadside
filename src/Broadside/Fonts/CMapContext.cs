@@ -58,7 +58,7 @@ public sealed class CMapContext
 
     /// <summary>Records a deviation; only the first of each code is kept.</summary>
     /// <exception cref="DiagnosticException">In strict mode, unless the severity is <see cref="DiagnosticSeverity.Information"/>.</exception>
-    internal void Report(string code, DiagnosticSeverity severity, string message)
+    internal void Report(DiagnosticCode code, DiagnosticSeverity severity, string message)
     {
         _diagnostics.Report(code, severity, message, ReadingMode);
     }

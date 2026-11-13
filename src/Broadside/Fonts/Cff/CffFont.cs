@@ -249,13 +249,34 @@ internal sealed partial class CffFont
 
     private static CffIndex ReadIndex(ReadOnlySpan<byte> data, int offset, FontProgramContext context, string what)
     {
-        CffIndex index = CffIndex.Read(data, offset, out string? problem);
+        CffIndex index = CffIndex.Read(data, offset, out DiagnosticCode? problem);
         if (problem is not null)
         {
-            Report(context, DiagnosticCodes.FontCffIndexInvalid, DiagnosticSeverity.Warning, $"The CFF {what} INDEX {problem} (Adobe Technical Note #5176 §5); what is readable is used.");
+            Report(context, problem, DiagnosticSeverity.Warning, IndexMessage(problem, what));
         }
 
         return index;
+    }
+
+    /// <summary>Describes a damaged INDEX the way every other font diagnostic reads: the deviation, its clause, then the repair.</summary>
+    private static string IndexMessage(DiagnosticCode problem, string what)
+    {
+        if (problem == CffDiagnostics.FontCffIndexOutOfRange)
+        {
+            return $"The CFF {what} INDEX starts outside the program (Adobe Technical Note #5176 §5); it is read as empty.";
+        }
+
+        if (problem == CffDiagnostics.FontCffIndexTruncated)
+        {
+            return $"The CFF {what} INDEX is cut short by the end of the program (Adobe Technical Note #5176 §5); the objects whose offsets are readable are used.";
+        }
+
+        if (problem == CffDiagnostics.FontCffIndexOffSizeInvalid)
+        {
+            return $"The CFF {what} INDEX has an offSize outside 1 to 4 (Adobe Technical Note #5176 §5, Table 7); it is read as empty.";
+        }
+
+        return $"The CFF {what} INDEX has offsets that do not start at 1, decrease or point past the program (Adobe Technical Note #5176 §5); each object is clamped into the data.";
     }
 
     private static TopDict ReadTopDict(ReadOnlySpan<byte> dict, FontProgramContext context)
@@ -599,7 +620,9 @@ internal sealed partial class CffFont
     private static void ReportEncoding(FontProgramContext context, string problem) =>
         Report(context, DiagnosticCodes.FontCffEncodingInvalid, DiagnosticSeverity.Warning, $"The CFF encoding {problem} (Adobe Technical Note #5176 §12).");
 
-    private static void Report(FontProgramContext context, string code, DiagnosticSeverity severity, string message) => context.Report(code, severity, message);
+    private static void Report(FontProgramContext context, string code, DiagnosticSeverity severity, string message) => context.Report(DiagnosticCatalog.Get(code), severity, message);
+
+    private static void Report(FontProgramContext context, DiagnosticCode code, DiagnosticSeverity severity, string message) => context.Report(code, severity, message);
 
     /// <summary>Gets the name tables, built on first use (a benign race: every thread builds equal tables, one is kept).</summary>
     private NameTables Names => Volatile.Read(ref _names) ?? BuildNames();

@@ -64,7 +64,7 @@ public sealed partial class PdfDocument
         {
             case CosStream when depth >= context.MaxUseCMapDepth:
                 context.Report(
-                    Parsing.DiagnosticCodes.CMapUseCMapTooDeep,
+                    CMapDiagnostics.CMapUseCMapTooDeep,
                     DiagnosticSeverity.Warning,
                     $"CMaps nest through usecmap at most {context.MaxUseCMapDepth} levels (Adobe TN 5014 §7.4); the deeper CMaps are ignored.");
                 break;
@@ -73,7 +73,7 @@ public sealed partial class PdfDocument
                 if (parent is not null && file.UseCMapName is { } inFile && parent.Name is { } parentName && inFile != parentName)
                 {
                     context.Report(
-                        Parsing.DiagnosticCodes.CMapUseCMapInvalid,
+                        CMapDiagnostics.CMapUseCMapInvalid,
                         DiagnosticSeverity.Warning,
                         $"The CMap file uses /{inFile} but its UseCMap stream is /{parentName} (ISO 32000-2 §9.7.5.4 a); the UseCMap stream is used.");
                 }
@@ -91,7 +91,7 @@ public sealed partial class PdfDocument
                 break;
             default:
                 context.Report(
-                    Parsing.DiagnosticCodes.CMapUseCMapInvalid,
+                    CMapDiagnostics.CMapUseCMapInvalid,
                     DiagnosticSeverity.Warning,
                     "UseCMap shall be a name or a CMap stream (ISO 32000-2 §9.7.5.3, Table 118); ignored.");
                 break;
@@ -101,7 +101,7 @@ public sealed partial class PdfDocument
         if (file.WMode is { } fileMode && dictionaryMode is { } streamMode && fileMode != streamMode)
         {
             context.Report(
-                Parsing.DiagnosticCodes.CMapWritingModeMismatch,
+                CMapDiagnostics.CMapWritingModeMismatch,
                 DiagnosticSeverity.Warning,
                 "The CMap stream's WMode differs from its file's (ISO 32000-2 §9.7.5.3, Table 118); the file's is used.");
         }
@@ -121,7 +121,7 @@ public sealed partial class PdfDocument
         }
 
         CMap? fallback = PredefinedCMapTable.CreateFallback(name);
-        context.Report(Parsing.DiagnosticCodes.CMapUnavailable, DiagnosticSeverity.Information, UnavailableMessage(name, fallback is not null));
+        context.Report(CMapDiagnostics.CMapUnavailable, DiagnosticSeverity.Information, UnavailableMessage(name, fallback is not null));
         return fallback;
     }
 

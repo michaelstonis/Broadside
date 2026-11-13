@@ -168,12 +168,12 @@ public sealed class ScaledImageDecodeTests
             ReducingImageFilter.Page(ReducingImageFilter.Photo(256, 256, 1), 256, 256, "/DeviceGray", Paint), new PdfOptions().UseFilter(codec));
 
         DisplayList list = document.Pages[0].CreateDisplayList();
-        Assert.DoesNotContain(document.Diagnostics, static diagnostic => diagnostic.Code == "TestDecodeFailed");
+        Assert.DoesNotContain(document.Diagnostics, static diagnostic => diagnostic.Code == "Tests.TestDecodeFailed");
         using Bitmap first = RenderList(document, 0.0625, scaled: true);
         using Bitmap second = RenderList(document, 0.03125, scaled: true);
         using Bitmap full = RenderList(document, 0.0625, scaled: false);
 
-        Assert.Single(document.Diagnostics, static diagnostic => diagnostic.Code == "TestDecodeFailed");
+        Assert.Single(document.Diagnostics, static diagnostic => diagnostic.Code == "Tests.TestDecodeFailed");
         Assert.Equal(1, codec.Decodes);
         Assert.All([first, second, full], static bitmap => Assert.All(bitmap.Pixels.ToArray(), static value => Assert.Equal(byte.MaxValue, value)));
         Assert.NotNull(list);

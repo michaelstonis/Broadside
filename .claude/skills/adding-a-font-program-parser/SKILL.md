@@ -42,8 +42,16 @@ public sealed class FontProgramContext                 // public ctor = stand-al
     int MaxCompositeDepth { get; init; }   // 16;  int MaxGlyphPoints { get; init; }  // 65,536
     int MaxCharStringOperators { get; init; }   // 100,000 per glyph, subrs and seac components included (#51)
     IReadOnlyList<Diagnostic> Diagnostics { get; }     // first of each code
-    void Report(string code, DiagnosticSeverity severity, string message);   // throws in strict mode (not for Information)
+    void Report(DiagnosticCode code, DiagnosticSeverity severity, string message);   // throws in strict mode (not for Information)
 }
+
+// Codes (Broadside.Diagnostics, #248): a built-in parser passes a catalog property (FontDiagnostics.FontGlyphInvalid,
+// CffDiagnostics.FontCffIndexTruncated, ...). A third-party parser makes its own once, in a static property, with an owner
+// prefix that cannot collide with Broadside's dot-free names; the owner "Broadside" (any case, first segment) is rejected:
+public static DiagnosticCode DiagnosticCode.Create(string owner, string name, DiagnosticSeverity defaultSeverity, string? clause = null);
+//   DiagnosticCode.Create("Contoso.Fonts", "HintsDropped", DiagnosticSeverity.Information) -> "Contoso.Fonts.HintsDropped"
+// Inside a document the diagnostic lands on PdfDocument.Diagnostics against the font file stream; Kind is the code (Owner set).
+// The same typed Report is on SecurityHandlerContext (ISecurityHandler) and on the internal CMapContext.
 
 public abstract class FontProgram                      // immutable, shared across threads; lookups never throw
 {

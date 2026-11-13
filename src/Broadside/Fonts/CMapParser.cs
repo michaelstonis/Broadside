@@ -542,7 +542,7 @@ internal static class CMapParser
         public void Syntax(string message) =>
             Report(DiagnosticCodes.CMapSyntaxInvalid, $"The CMap file has {message} (Adobe TN 5014 §7).");
 
-        private void Report(string code, string message) => context.Report(code, DiagnosticSeverity.Warning, message);
+        private void Report(string code, string message) => context.Report(DiagnosticCatalog.Get(code), DiagnosticSeverity.Warning, message);
 
         private static CosObject? ParseNext(ref CosLexer lexer, CosTokenKind kind)
         {

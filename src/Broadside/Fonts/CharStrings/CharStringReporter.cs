@@ -80,7 +80,7 @@ internal sealed class CharStringReporter(FontProgramContext context, string form
         Interlocked.Or(ref _reported, bit);
         (string code, string text) = Describe(issue);
         context.Report(
-            code,
+            DiagnosticCatalog.Get(code),
             DropsGlyph(issue) ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning,
             string.Create(CultureInfo.InvariantCulture, $"Glyph {glyphId} of the {format} program: {text}"));
     }

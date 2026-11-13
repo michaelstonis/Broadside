@@ -943,7 +943,7 @@ Broadside.Fonts.FontProgramContext.MaxGlyphPoints.get -> int
 Broadside.Fonts.FontProgramContext.MaxGlyphPoints.init -> void
 Broadside.Fonts.FontProgramContext.ReadingMode.get -> Broadside.PdfReadingMode
 Broadside.Fonts.FontProgramContext.ReadingMode.init -> void
-Broadside.Fonts.FontProgramContext.Report(string! code, Broadside.Diagnostics.DiagnosticSeverity severity, string! message) -> void
+Broadside.Fonts.FontProgramContext.Report(Broadside.Diagnostics.DiagnosticCode! code, Broadside.Diagnostics.DiagnosticSeverity severity, string! message) -> void
 Broadside.Fonts.FontProgramContext.Source.get -> Broadside.Fonts.FontProgramSource
 Broadside.Fonts.FontProgramContext.Source.init -> void
 Broadside.Fonts.FontProgramContext.Subtype.get -> Broadside.Objects.CosName?
@@ -2520,7 +2520,7 @@ Broadside.Filters.FilterContext.Parameters.get -> Broadside.Objects.CosDictionar
 Broadside.Filters.FilterContext.Parameters.init -> void
 Broadside.Filters.FilterContext.ReadingMode.get -> Broadside.PdfReadingMode
 Broadside.Filters.FilterContext.ReadingMode.init -> void
-Broadside.Filters.FilterContext.Report(string! code, Broadside.Diagnostics.DiagnosticSeverity severity, string! message) -> void
+Broadside.Filters.FilterContext.Report(Broadside.Diagnostics.DiagnosticCode! code, Broadside.Diagnostics.DiagnosticSeverity severity, string! message) -> void
 Broadside.Filters.FilterContext.Resolve(Broadside.Objects.CosObject? value) -> Broadside.Objects.CosObject!
 Broadside.Filters.FilterContext.StreamDictionary.get -> Broadside.Objects.CosDictionary!
 Broadside.Filters.FilterContext.StreamDictionary.init -> void
@@ -2736,7 +2736,7 @@ Broadside.Security.SecurityHandlerContext.Credentials.get -> Broadside.Security.
 Broadside.Security.SecurityHandlerContext.DocumentId.get -> System.ReadOnlyMemory<byte>
 Broadside.Security.SecurityHandlerContext.EncryptionDictionary.get -> Broadside.Objects.CosDictionary!
 Broadside.Security.SecurityHandlerContext.ReadingMode.get -> Broadside.PdfReadingMode
-Broadside.Security.SecurityHandlerContext.Report(string! code, Broadside.Diagnostics.DiagnosticSeverity severity, string! message) -> void
+Broadside.Security.SecurityHandlerContext.Report(Broadside.Diagnostics.DiagnosticCode! code, Broadside.Diagnostics.DiagnosticSeverity severity, string! message) -> void
 Broadside.Security.SecurityHandlerContext.Resolve(Broadside.Objects.CosObject? value) -> Broadside.Objects.CosObject!
 Broadside.Security.SecurityHandlerResult
 Broadside.Security.SecurityHandlerResult.Access.get -> Broadside.PdfAccessLevel
@@ -5091,6 +5091,8 @@ Broadside.Diagnostics.DiagnosticCode.Clause.get -> string?
 Broadside.Diagnostics.DiagnosticCode.DefaultSeverity.get -> Broadside.Diagnostics.DiagnosticSeverity
 Broadside.Diagnostics.DiagnosticCode.Equals(Broadside.Diagnostics.DiagnosticCode? other) -> bool
 Broadside.Diagnostics.DiagnosticCode.Name.get -> string!
+Broadside.Diagnostics.DiagnosticCode.Owner.get -> string?
+static Broadside.Diagnostics.DiagnosticCode.Create(string! owner, string! name, Broadside.Diagnostics.DiagnosticSeverity defaultSeverity, string? clause = null) -> Broadside.Diagnostics.DiagnosticCode!
 override Broadside.Diagnostics.DiagnosticCode.Equals(object? obj) -> bool
 override Broadside.Diagnostics.DiagnosticCode.GetHashCode() -> int
 override Broadside.Diagnostics.DiagnosticCode.ToString() -> string!
@@ -5494,7 +5496,10 @@ static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringOperandInvalid.
 static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
 Broadside.Diagnostics.CffDiagnostics
 static Broadside.Diagnostics.CffDiagnostics.FontCffHeaderInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
-static Broadside.Diagnostics.CffDiagnostics.FontCffIndexInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CffDiagnostics.FontCffIndexOffsetsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CffDiagnostics.FontCffIndexOffSizeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CffDiagnostics.FontCffIndexOutOfRange.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CffDiagnostics.FontCffIndexTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.CffDiagnostics.FontCffDictInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.CffDiagnostics.FontCffPrivateMissing.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.CffDiagnostics.FontCffMultipleFonts.get -> Broadside.Diagnostics.DiagnosticCode!

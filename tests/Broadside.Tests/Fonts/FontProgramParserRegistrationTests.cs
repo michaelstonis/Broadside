@@ -41,6 +41,24 @@ public sealed class FontProgramParserRegistrationTests
     }
 
     [Fact]
+    public void A_registered_parser_reports_its_own_prefixed_code_against_the_font_file()
+    {
+        using PdfDocument document = TrueTypeCorpusTests.Open("text-truetype-embedded.pdf", new PdfOptions().UseFontProgramParser(new SquareParser { Notice = SquareParser.HintsDropped }));
+        PdfTrueTypeFont font = TrueTypeCorpusTests.Font(document, "F1");
+
+        Assert.IsType<SquareProgram>(font.Program);
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics, d => d.Code.StartsWith("Contoso.", StringComparison.Ordinal));
+        Assert.Equal("Contoso.Fonts.HintsDropped", diagnostic.Code);
+        Assert.Same(SquareParser.HintsDropped, diagnostic.Kind);
+        Assert.Equal("Contoso.Fonts", diagnostic.Kind.Owner);
+        Assert.NotNull(diagnostic.ObjectReference);
+    }
+
+    [Fact]
+    public void A_parser_cannot_make_a_code_with_the_reserved_owner() =>
+        Assert.Throws<ArgumentException>(() => DiagnosticCode.Create("Broadside.Fonts", "FontGlyphInvalid", DiagnosticSeverity.Warning));
+
+    [Fact]
     public void Another_engine_without_the_registration_still_uses_the_default()
     {
         using PdfDocument replaced = new PdfEngine(new PdfOptions().UseFontProgramParser(new SquareParser())).Open(Corpus.Bytes("text-truetype-embedded.pdf"));
@@ -104,11 +122,23 @@ public sealed class FontProgramParserRegistrationTests
 
     private sealed class SquareParser : IFontProgramParser
     {
+        public static DiagnosticCode HintsDropped { get; } = DiagnosticCode.Create("Contoso.Fonts", "HintsDropped", DiagnosticSeverity.Information);
+
         public IReadOnlyList<FontProgramFormat> Formats { get; } = [FontProgramFormat.TrueType];
+
+        public DiagnosticCode? Notice { get; init; }
 
         public bool CanParse(ReadOnlySpan<byte> data) => true;
 
-        public FontProgram? Parse(ReadOnlyMemory<byte> data, FontProgramContext context) => new SquareProgram();
+        public FontProgram? Parse(ReadOnlyMemory<byte> data, FontProgramContext context)
+        {
+            if (Notice is not null)
+            {
+                context.Report(Notice, DiagnosticSeverity.Information, "The program's hints are ignored; every glyph is drawn as a square.");
+            }
+
+            return new SquareProgram();
+        }
     }
 
     private sealed class SquareProgram : FontProgram

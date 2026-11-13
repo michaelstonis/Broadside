@@ -90,7 +90,7 @@ public sealed class Jbig2DecodeFilter : IImageFilter
         if (!TryGetSize(encoded.Span, context, out int width, out int height))
         {
             context.Filter.Report(
-                DiagnosticCodes.ImageDimensionInvalid,
+                ImageDiagnostics.ImageDimensionInvalid,
                 DiagnosticSeverity.Error,
                 "The JBIG2 image has no usable Width and Height and its stream no page information segment giving them; it is not decoded.");
             return null;
@@ -139,13 +139,13 @@ public sealed class Jbig2DecodeFilter : IImageFilter
                 return Jbig2Globals.Get(stream, () => context.DecodeStream(stream), image.MaxPixels, image.MaxDecodedLength);
             case CosStream:
                 context.Report(
-                    DiagnosticCodes.Jbig2GlobalsInvalid,
+                    Jbig2Diagnostics.Jbig2GlobalsInvalid,
                     DiagnosticSeverity.Warning,
                     "The JBIG2Globals stream is itself JBIG2Decode-encoded; it holds raw segments (ISO 32000-2 Table 12), so it is ignored.");
                 return null;
             default:
                 context.Report(
-                    DiagnosticCodes.Jbig2GlobalsInvalid,
+                    Jbig2Diagnostics.Jbig2GlobalsInvalid,
                     DiagnosticSeverity.Warning,
                     "The JBIG2Globals parameter shall be a stream (ISO 32000-2 Table 12); it is ignored and the image is decoded without global segments.");
                 return null;

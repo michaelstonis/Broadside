@@ -30,6 +30,16 @@ public static class DiagnosticCatalog
         return Index.ByName.TryGetValue(name, out code);
     }
 
+    /// <summary>
+    /// Gets the catalog's code of a name: the bridge for internal helpers that still pass a code's name to a typed report method
+    /// (until their area's report sites take <see cref="DiagnosticCode"/> themselves).
+    /// </summary>
+    /// <param name="name">The name of a code of the catalog.</param>
+    /// <returns>The code.</returns>
+    /// <exception cref="ArgumentException">The catalog has no code of that name: a library bug.</exception>
+    internal static DiagnosticCode Get(string name) =>
+        TryGet(name, out DiagnosticCode? code) ? code : throw new ArgumentException($"{name} is not a code of the diagnostic catalog.", nameof(name));
+
     // Built on first use, so reporting a diagnostic never pays for the lookup table.
     private static class Index
     {

@@ -141,7 +141,7 @@ internal sealed class EncodedImage
             || decoded.SamplesInverted
             || decoded.Alpha is not null)
         {
-            filterContext.Report(DiagnosticCodes.FilterFailed, DiagnosticSeverity.Error, FormattableString.Invariant(
+            filterContext.Report(FilterDiagnostics.FilterFailed, DiagnosticSeverity.Error, FormattableString.Invariant(
                 $"The filter /{_filter.Name.Value} decoded {decoded.Width} x {decoded.Height} x {decoded.Components} samples of {decoded.BitsPerComponent} bits at reduction {delivered} where its header promised {Header.Width} x {Header.Height} x {Header.Components} of {Header.BitsPerComponent} bits; the image is not decoded."));
             decoded.Dispose();
             return null;
