@@ -5,6 +5,6 @@ Every rule passes: a done row with a method and a class test, a partial row with
 | Clause | Title | Status | Implementing types | Tests | Notes |
 |---|---|---|---|---|---|
 | 1 | Parsing | done | `Foo`, `IFoo` | `Foo.Tests.FooTests.Parses`, `Foo.Tests.FooTests` | |
-| 2 | Rejecting | partial | `FooOptions` | `Foo.Tests.FooTests.Rejects` | Only integers are rejected. |
+| 2 | Rejecting | partial | `FooOptions` | `Foo.Tests.FooTests.Rejects` | Only integers are rejected. Tracked by #1. |
 | 3 | Scripting | n/a | | | JavaScript execution is out of scope. |
-| 4 | Later | not started | | | |
+| 4 | Later | not started | | | Tracked by #2. |

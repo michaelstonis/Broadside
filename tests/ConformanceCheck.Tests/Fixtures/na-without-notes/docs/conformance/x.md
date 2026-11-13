@@ -3,4 +3,4 @@
 | Clause | Title | Status | Implementing types | Tests | Notes |
 |---|---|---|---|---|---|
 | 1 | Scripting | n/a | | | |
-| 2 | Later | not started | | | |
+| 2 | Later | not started | | | Tracked by #1. |

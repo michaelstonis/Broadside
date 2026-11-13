@@ -103,6 +103,11 @@ public sealed class FullRewriteTests
     [InlineData("actions-all.pdf", "Action", "S", "RichMediaExecute")]
     [InlineData("actions-all.pdf", "Action", "S", "Rendition")]
     [InlineData("acroform-xfa.pdf", "AcroForm", "XFA", null)]
+    [InlineData("annotations-subtypes.pdf", "Annot", "Subtype", "Sound")]
+    [InlineData("annotations-subtypes.pdf", "3D stream", "Type", "3D")]
+    [InlineData("actions-all.pdf", "Action", "S", "Sound")]
+    [InlineData("actions-all.pdf", "Media clip", "Type", "MediaClip")]
+    [InlineData("actions-all.pdf", "Transition", "Type", "Trans")]
     public void Objects_the_library_does_not_interpret_survive_a_compact_rewrite_unchanged(string fileName, string kind, string key, string? value)
     {
         using PdfDocument source = PdfDocument.Open(Corpus.Path(fileName));
@@ -116,6 +121,59 @@ public sealed class FullRewriteTests
         for (int index = 0; index < expected.Length; index++)
         {
             CosGraph.AssertIsomorphic(source, expected[index], saved, actual[index]);
+        }
+    }
+
+    /// <summary>
+    /// Alternate presentations (ISO 32000-2 §13.5), a portable collection's navigator (§12.3.6) and page templates (§12.7.7) are
+    /// parse-and-preserve: nothing reads them, and a compact rewrite keeps each one as it was.
+    /// </summary>
+    [Fact]
+    public void Alternate_presentations_navigators_and_page_templates_survive_a_compact_rewrite_unchanged()
+    {
+        using PdfDocument source = PdfDocument.Open(Corpus.Path("empty-page.pdf"));
+        CosReference slide = source.AddObject(new CosStream(new CosDictionary { [Type] = new CosName("SlideFrame") }, "slide"u8.ToArray()));
+        CosReference template = source.AddObject(new CosDictionary
+        {
+            [Type] = new CosName("Template"),
+            [new CosName("MediaBox")] = new CosArray([new CosInteger(0), new CosInteger(0), new CosInteger(200), new CosInteger(100)]),
+        });
+        source.Catalog[new CosName("Names")] = new CosDictionary
+        {
+            [new CosName("AlternatePresentations")] = new CosDictionary
+            {
+                [new CosName("Names")] = new CosArray(
+                [
+                    new CosString("show"u8),
+                    new CosDictionary
+                    {
+                        [Type] = new CosName("SlideShow"),
+                        [Subtype] = new CosName("Embedded"),
+                        [new CosName("Resources")] = new CosDictionary { [new CosName("Names")] = new CosArray([new CosString("frame"u8), slide]) },
+                        [new CosName("StartResource")] = new CosString("frame"u8),
+                    },
+                ]),
+            },
+            [new CosName("Templates")] = new CosDictionary { [new CosName("Names")] = new CosArray([new CosString("invoice"u8), template]) },
+        };
+        source.Catalog[new CosName("Collection")] = new CosDictionary
+        {
+            [Type] = new CosName("Collection"),
+            [new CosName("Navigator")] = new CosDictionary
+            {
+                [Type] = new CosName("Navigator"),
+                [new CosName("Layout")] = new CosName("Tile"),
+                [new CosName("Name")] = new CosString("Tiles"u8),
+            },
+        };
+
+        using PdfDocument saved = PdfDocument.Open(Save(source, Rewrite()));
+
+        foreach ((string key, string? value) in new (string, string?)[] { ("Type", "SlideShow"), ("Type", "SlideFrame"), ("Navigator", null), ("Templates", null) })
+        {
+            CosObject expected = Assert.Single(Find(source, key, value));
+            CosObject actual = Assert.Single(Find(saved, key, value));
+            CosGraph.AssertIsomorphic(source, expected, saved, actual);
         }
     }
 
