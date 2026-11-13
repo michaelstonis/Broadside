@@ -93,7 +93,7 @@ public sealed class DemoTests(BrowserHost host)
         IDownload download = await page.RunAndWaitForDownloadAsync(() => page.Locator("[data-action=download]").ClickAsync());
         Assert.Equal("acroform-fields.pdf", download.SuggestedFilename);
         byte[] saved = await ReadAsync(download);
-        using (PdfDocument document = PdfDocument.Open(saved))
+        using (PdfDocument document = await PdfDocument.OpenAsync(saved, TestContext.Current.CancellationToken))
         {
             PdfTextField field = Assert.IsType<PdfTextField>(document.AcroForm!.TerminalFields.Single(f => f.FullyQualifiedName == "name"));
             Assert.Equal("Filled in the demo", field.Value);
@@ -119,7 +119,7 @@ public sealed class DemoTests(BrowserHost host)
         await WaitForDocumentAsync(page, "created.pdf", Normal);
         await ScreenshotAsync(page, screenshots, "create");
         IDownload created = await page.RunAndWaitForDownloadAsync(() => page.Locator("[data-action=download-created]").ClickAsync());
-        using (PdfDocument document = PdfDocument.Open(await ReadAsync(created)))
+        using (PdfDocument document = await PdfDocument.OpenAsync(await ReadAsync(created), TestContext.Current.CancellationToken))
         {
             Assert.Equal(1, document.Metadata!.Packet!.PdfUAPart);
             Assert.Equal(2, document.Metadata.Packet.PdfAPart);

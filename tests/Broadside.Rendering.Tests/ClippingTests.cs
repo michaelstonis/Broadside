@@ -182,7 +182,7 @@ public sealed class ClippingTests
     [Fact]
     public async Task Clipping_paths_pdf_matches_its_reviewed_snapshot()
     {
-        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("clipping-paths.pdf"));
+        using PdfDocument document = await PdfDocument.OpenAsync(Corpus.Bytes("clipping-paths.pdf"), TestContext.Current.CancellationToken);
         using var rasterizer = new SoftwareRasterizer();
         using Bitmap bitmap = rasterizer.Render(document.Pages[0]);
         using MemoryStream png = PngSnapshots.Encode(bitmap);

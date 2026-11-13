@@ -242,8 +242,8 @@ public sealed class IncrementalSaveTests
     public async Task An_incremental_save_writes_the_same_bytes_to_a_stream_asynchronously_and_to_a_path()
     {
         byte[] file = Corpus.Bytes("hybrid-xref.pdf");
-        using PdfDocument first = PdfDocument.Open(file);
-        using PdfDocument second = PdfDocument.Open(file);
+        using PdfDocument first = await PdfDocument.OpenAsync(file, TestContext.Current.CancellationToken);
+        using PdfDocument second = await PdfDocument.OpenAsync(file, TestContext.Current.CancellationToken);
         first.Catalog[PageLayout] = new CosName("SinglePage");
         second.Catalog[PageLayout] = new CosName("SinglePage");
         // Undated: the three saves are compared byte for byte, and a save dates a changed document by default (#162).
@@ -257,9 +257,9 @@ public sealed class IncrementalSaveTests
         string path = Path.Combine(Path.GetTempPath(), $"broadside-{Guid.NewGuid():N}.pdf");
         try
         {
-            using PdfDocument third = PdfDocument.Open(file);
+            using PdfDocument third = await PdfDocument.OpenAsync(file, TestContext.Current.CancellationToken);
             third.Catalog[PageLayout] = new CosName("SinglePage");
-            third.Save(path, Undated.WithIncrementalUpdate(true));
+            await third.SaveAsync(path, Undated.WithIncrementalUpdate(true), TestContext.Current.CancellationToken);
             Assert.Equal(synchronous, await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken));
             Assert.False(third.Catalog.IsDirty);
         }

@@ -1,3 +1,6 @@
+// RS0026: the open and save entry points follow one rule (every asynchronous overload mirrors a synchronous one and ends in a
+// defaulted cancellation token), so several overloads of a name carry an optional parameter. Options are overloads, never optional.
+#pragma warning disable RS0026
 using Broadside.IO;
 using Broadside.Security;
 using Microsoft.Extensions.Logging;
@@ -89,18 +92,6 @@ public sealed class PdfEngine
     /// The stream. It is not disposed. A seekable stream is read in place as objects are used: keep it open and unchanged until the
     /// document is disposed. A non-seekable stream is read to its end, asynchronously, before the file is parsed.
     /// </param>
-    /// <returns>The document. Dispose it when done.</returns>
-    /// <exception cref="Diagnostics.DiagnosticException">
-    /// The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.
-    /// </exception>
-    /// <remarks>ISO 32000-2 §7.5. As <see cref="OpenAsync(Stream, CancellationToken)"/>, without cancellation.</remarks>
-    public Task<PdfDocument> OpenAsync(Stream stream) => OpenAsync(stream, CancellationToken.None);
-
-    /// <summary>Opens the PDF file held by <paramref name="stream"/>, from its current position, reading a non-seekable stream asynchronously.</summary>
-    /// <param name="stream">
-    /// The stream. It is not disposed. A seekable stream is read in place as objects are used: keep it open and unchanged until the
-    /// document is disposed. A non-seekable stream is read to its end, asynchronously, before the file is parsed.
-    /// </param>
     /// <param name="cancellationToken">Cancels reading a non-seekable stream.</param>
     /// <returns>The document. Dispose it when done.</returns>
     /// <exception cref="Diagnostics.DiagnosticException">
@@ -111,24 +102,12 @@ public sealed class PdfEngine
     /// ISO 32000-2 §7.5. Reading is synchronous once the bytes are available (spec #33: <c>Async</c> only at the open and save
     /// boundaries), so this differs from <see cref="Open(Stream)"/> only in how a non-seekable stream is copied.
     /// </remarks>
-    public async Task<PdfDocument> OpenAsync(Stream stream, CancellationToken cancellationToken)
+    public async Task<PdfDocument> OpenAsync(Stream stream, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
         PdfSource source = await PdfSource.FromStreamAsync(stream, _configuration.StreamBufferLimit, cancellationToken).ConfigureAwait(false);
         return PdfDocument.Read(source, _configuration);
     }
-
-    /// <summary>Opens the remote PDF file at <paramref name="uri"/> through HTTP range requests.</summary>
-    /// <param name="httpClient">The client the requests go through; not disposed. It stays in use until the document is disposed.</param>
-    /// <param name="uri">The file's address.</param>
-    /// <returns>The document. Dispose it when done.</returns>
-    /// <exception cref="Diagnostics.DiagnosticException">
-    /// The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.
-    /// </exception>
-    /// <exception cref="HttpRequestException">The server answered with an error status, or could not be reached.</exception>
-    /// <exception cref="IOException">The server's answers are inconsistent: the file changed while it was read, for instance.</exception>
-    /// <remarks>Spec #33, viewer capability 5. As <see cref="OpenAsync(HttpClient, Uri, CancellationToken)"/>, without cancellation.</remarks>
-    public Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri) => OpenAsync(httpClient, uri, CancellationToken.None);
 
     /// <summary>
     /// Opens the remote PDF file at <paramref name="uri"/> through HTTP range requests: the end of the file first, then only the byte
@@ -153,7 +132,7 @@ public sealed class PdfEngine
     /// of <see cref="PdfOptions.RangeBlockSize"/> and kept up to <see cref="PdfOptions.RangeCacheLimit"/>. Credentials for an
     /// encrypted file are taken from the options.
     /// </remarks>
-    public Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri, CancellationToken cancellationToken)
+    public Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(httpClient);
         ArgumentNullException.ThrowIfNull(uri);
@@ -220,6 +199,101 @@ public sealed class PdfEngine
     {
         ArgumentNullException.ThrowIfNull(credentials);
         return PdfDocument.Read(PdfSource.FromMemory(bytes), _configuration, credentials);
+    }
+
+    /// <summary>Opens the PDF file at <paramref name="path"/>; the asynchronous counterpart of <see cref="Open(string)"/>.</summary>
+    /// <param name="path">The file path.</param>
+    /// <param name="cancellationToken">Checked before the file is opened.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">
+    /// The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.
+    /// </exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.5. The file is memory-mapped, so nothing waits on I/O and the task is complete when it is returned; it exists so
+    /// that every synchronous open has an asynchronous counterpart of the same parameters plus a trailing cancellation token.
+    /// </remarks>
+    public Task<PdfDocument> OpenAsync(string path, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(Open(path));
+    }
+
+    /// <summary>Opens the PDF file held in <paramref name="bytes"/>; the asynchronous counterpart of <see cref="Open(ReadOnlyMemory{byte})"/>.</summary>
+    /// <param name="bytes">The file. Not copied: do not change it until the document is disposed.</param>
+    /// <param name="cancellationToken">Checked before the file is opened.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">
+    /// The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.
+    /// </exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>ISO 32000-2 §7.5. The bytes are already in memory, so the task is complete when it is returned.</remarks>
+    public Task<PdfDocument> OpenAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(Open(bytes));
+    }
+
+    /// <summary>Opens the encrypted PDF file at <paramref name="path"/> with <paramref name="credentials"/>; the asynchronous counterpart of <see cref="Open(string, PdfCredentials)"/>.</summary>
+    /// <param name="path">The file path.</param>
+    /// <param name="credentials">The credentials, such as a <see cref="PdfPassword"/>; they override those set on the options.</param>
+    /// <param name="cancellationToken">Checked before the file is opened.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">
+    /// The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.
+    /// </exception>
+    /// <exception cref="PdfPasswordException">The document is encrypted with a password and the credentials do not open it.</exception>
+    /// <exception cref="PdfCertificateException">The document is encrypted for certificate recipients and the credentials do not open it.</exception>
+    /// <exception cref="PdfEncryptionNotSupportedException">The document is encrypted in a way this engine cannot decrypt.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>ISO 32000-2 §7.5 and §7.6. For an unencrypted file the credentials are ignored.</remarks>
+    public Task<PdfDocument> OpenAsync(string path, PdfCredentials credentials, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(Open(path, credentials));
+    }
+
+    /// <summary>
+    /// Opens the encrypted PDF file held by <paramref name="stream"/>, from its current position, with <paramref name="credentials"/>,
+    /// reading a non-seekable stream asynchronously; the asynchronous counterpart of <see cref="Open(Stream, PdfCredentials)"/>.
+    /// </summary>
+    /// <param name="stream">The stream. It is not disposed; a seekable stream must stay open and unchanged until the document is disposed.</param>
+    /// <param name="credentials">The credentials, such as a <see cref="PdfPassword"/>; they override those set on the options.</param>
+    /// <param name="cancellationToken">Cancels reading a non-seekable stream.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">
+    /// The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.
+    /// </exception>
+    /// <exception cref="PdfPasswordException">The document is encrypted with a password and the credentials do not open it.</exception>
+    /// <exception cref="PdfCertificateException">The document is encrypted for certificate recipients and the credentials do not open it.</exception>
+    /// <exception cref="PdfEncryptionNotSupportedException">The document is encrypted in a way this engine cannot decrypt.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>ISO 32000-2 §7.5 and §7.6. For an unencrypted file the credentials are ignored.</remarks>
+    public async Task<PdfDocument> OpenAsync(Stream stream, PdfCredentials credentials, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        ArgumentNullException.ThrowIfNull(credentials);
+        PdfSource source = await PdfSource.FromStreamAsync(stream, _configuration.StreamBufferLimit, cancellationToken).ConfigureAwait(false);
+        return PdfDocument.Read(source, _configuration, credentials);
+    }
+
+    /// <summary>Opens the encrypted PDF file held in <paramref name="bytes"/> with <paramref name="credentials"/>; the asynchronous counterpart of <see cref="Open(ReadOnlyMemory{byte}, PdfCredentials)"/>.</summary>
+    /// <param name="bytes">The file. Not copied: do not change it until the document is disposed.</param>
+    /// <param name="credentials">The credentials, such as a <see cref="PdfPassword"/>; they override those set on the options.</param>
+    /// <param name="cancellationToken">Checked before the file is opened.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">
+    /// The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.
+    /// </exception>
+    /// <exception cref="PdfPasswordException">The document is encrypted with a password and the credentials do not open it.</exception>
+    /// <exception cref="PdfCertificateException">The document is encrypted for certificate recipients and the credentials do not open it.</exception>
+    /// <exception cref="PdfEncryptionNotSupportedException">The document is encrypted in a way this engine cannot decrypt.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>ISO 32000-2 §7.5 and §7.6. For an unencrypted file the credentials are ignored.</remarks>
+    public Task<PdfDocument> OpenAsync(ReadOnlyMemory<byte> bytes, PdfCredentials credentials, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(Open(bytes, credentials));
     }
 
     /// <summary>Creates a new document with one empty US Letter page (612 by 792 points).</summary>

@@ -44,7 +44,7 @@ public sealed class RenderingSnapshotTests
     [InlineData("jpx-smask-in-data.pdf")]
     public async Task Image_files_match_their_reviewed_snapshots(string fileName)
     {
-        using PdfDocument document = PdfDocument.Open(Corpus.Bytes(fileName));
+        using PdfDocument document = await PdfDocument.OpenAsync(Corpus.Bytes(fileName), TestContext.Current.CancellationToken);
         using var rasterizer = new SoftwareRasterizer();
         using Bitmap bitmap = rasterizer.Render(document.Pages[0]);
         using MemoryStream png = PngSnapshots.Encode(bitmap);
@@ -53,7 +53,7 @@ public sealed class RenderingSnapshotTests
 
     private static async Task VerifyPage(string fileName, int page)
     {
-        using PdfDocument document = PdfDocument.Open(Corpus.Bytes(fileName));
+        using PdfDocument document = await PdfDocument.OpenAsync(Corpus.Bytes(fileName), TestContext.Current.CancellationToken);
         using var rasterizer = new SoftwareRasterizer();
         using Bitmap bitmap = rasterizer.Render(document.Pages[page]);
         using MemoryStream png = PngSnapshots.Encode(bitmap);

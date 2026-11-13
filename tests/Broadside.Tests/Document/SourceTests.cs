@@ -156,7 +156,7 @@ public sealed class SourceTests
         using var stream = new ProbeStream(file, seekable: false, synchronous: false);
 
         using PdfDocument document = await PdfDocument.OpenAsync(stream, TestContext.Current.CancellationToken);
-        using PdfDocument expected = PdfDocument.Open(file);
+        using PdfDocument expected = await PdfDocument.OpenAsync(file, TestContext.Current.CancellationToken);
 
         Assert.Equal(DocumentProjection.Of(expected), DocumentProjection.Of(document));
     }
