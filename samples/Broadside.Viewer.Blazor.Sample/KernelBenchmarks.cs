@@ -48,6 +48,7 @@ public static partial class KernelBenchmarks
         new("over-row", 8, 4, OverRowScalar, OverRowVector),
         new("fill-row", 4, 4, FillRowScalar, FillRowVector),
         new("box-filter-4x4", 64, 4, BoxFilterScalar, BoxFilterVector),
+        new("box-filter-run-2x2", 16, 4, BoxFilterRunScalar, BoxFilterRunVector),
         new("idct-8x8", 128, 64, IdctScalar, IdctVector),
         new("cmyk-to-rgb", 4, 12, CmykToRgbScalar, CmykToRgbVector),
         new("jpx-lift-53", 12, 4, Lift53Scalar, Lift53Vector),
@@ -61,6 +62,11 @@ public static partial class KernelBenchmarks
 
     /// <summary>The CMYK components of <c>cmyk-to-rgb</c>'s items, filled from the bytes by both methods alike.</summary>
     private static readonly float[] CmykComponents = new float[4 * Items];
+
+    // The box filter run case's columns and weights, built for the longest run it has been given.
+    private static int[] RunStarts = [];
+    private static int[] RunColumns = [];
+    private static double[] RunWeights = [];
 
     /// <summary>
     /// Runs every case and returns one line each:
@@ -175,6 +181,44 @@ public static partial class KernelBenchmarks
                 _ = BoxFilter.AverageScalar(footprint, rows, rowWeights, columns, columnWeights, out averages[i]);
             }
         }
+    }
+
+    // The box filter's run of pixels that share their rows: each item is one device pixel averaging a 2 × 2 footprint (the item's 4
+    // pixels, two rows of two) with fractional weights, as an image drawn at about two thirds of its size; the output is the averaged
+    // pixel.
+    private static void BoxFilterRunScalar(ReadOnlySpan<byte> footprints, Span<byte> pixels) => BoxFilterRun(footprints, pixels, vector: false);
+
+    private static void BoxFilterRunVector(ReadOnlySpan<byte> footprints, Span<byte> pixels) => BoxFilterRun(footprints, pixels, vector: true);
+
+    private static void BoxFilterRun(ReadOnlySpan<byte> footprints, Span<byte> pixels, bool vector)
+    {
+        ReadOnlySpan<uint> samples = MemoryMarshal.Cast<byte, uint>(footprints);
+        Span<uint> averages = MemoryMarshal.Cast<byte, uint>(pixels);
+        int count = averages.Length;
+        if (RunStarts.Length < count + 1)
+        {
+            RunStarts = new int[count + 1];
+            RunColumns = new int[2 * count];
+            RunWeights = new double[2 * count];
+            for (int i = 0; i < count; i++)
+            {
+                RunStarts[i] = 2 * i;
+                RunColumns[2 * i] = 4 * i;
+                RunColumns[(2 * i) + 1] = (4 * i) + 1;
+                RunWeights[2 * i] = 0.25 + ((i % 7) / 10.0);
+                RunWeights[(2 * i) + 1] = 0.9 - ((i % 5) / 10.0);
+            }
+        }
+
+        RunStarts[count] = 2 * count;
+        ReadOnlySpan<int> rows = [0, 2];
+        ReadOnlySpan<double> rowWeights = [0.65, 0.35];
+        ReadOnlySpan<int> starts = RunStarts.AsSpan(0, count + 1);
+        ReadOnlySpan<int> columns = RunColumns.AsSpan(0, 2 * count);
+        ReadOnlySpan<double> weights = RunWeights.AsSpan(0, 2 * count);
+        _ = vector
+            ? BoxFilter.AverageRunVector(samples, rows, rowWeights, starts, columns, weights, averages)
+            : BoxFilter.AverageRunScalar(samples, rows, rowWeights, starts, columns, weights, averages);
     }
 
     // The CMYK characterization (#476): each item is one 8-bit CMYK color (b / 255 per component, as an image's samples reach it), the

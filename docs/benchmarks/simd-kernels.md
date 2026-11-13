@@ -271,6 +271,40 @@ first; the best of three runs of the base and the run of the final head, interle
 Pixels: the goldens and snapshots (`Broadside.Rendering.Tests`, 1,442 tests) pass, and page 0 of every pdf.js corpus file (989
 files, 976 render) at 72 DPI hashes (SHA-256 of the pixels) the same before and after.
 
+### Runs of pixels (`BoxFilter.AverageRun`, #511)
+
+After #509 kept each span's columns, `ImagePainter.SpanKept` called `BoxFilter.Average` once per device pixel. For an image drawn a
+little smaller than its resolution (1 × 2 to 3 × 3 samples a pixel) the fixed cost of each call (five spans passed and sliced, the
+loops set up, a test of every weight, a scalar tail) outweighed the samples. `AverageRun` averages a run of up to 256 pixels that share
+their rows in one call, reading each pixel's columns by its start. It skips no sample: the painter's weights are finite and never
+negative, and a sample of weight 0 adds +0 to sums that start at +0 and never go below it. The vector path also rounds in the lanes
+(clamp to 0..255 with NaN to 0, `Floor`, plus 2^52, one byte shuffle per vector). Both are bit-exact with `AverageScalar` per pixel
+(`BoxFilterKernelTests`, every channel value and random runs with zero, underflowing and overflowing weights).
+
+Footprints as `ImagePainter` works them out for a 1,000-pixel span over 64 rows (box weights), JIT, M4 Max, ns per pixel:
+
+| Reduction (footprint) | per-pixel scalar | per-pixel vector | run, scalar | run, vector |
+|---|---:|---:|---:|---:|
+| 1.05 × 0.9 (1 × 2) | 4.52 | 5.07 | 3.53 | 2.95 |
+| 1.25 (2 × 2) | 6.48 | 5.99 | 5.14 | 4.31 |
+| 2.2 (3 × 3) | 10.41 | 9.59 | 9.68 | 7.57 |
+| 3.3 (4 × 4) | 17.84 | 17.35 | 17.60 | 13.43 |
+| 4.2 (5 × 5) | 23.19 | 22.30 | 21.18 | 19.53 |
+
+`BoxFilterBenchmarks`, `--job short`, JIT: `AverageRun` 10.72 µs against `Average` 12.39 µs (`Allocated` `-`).
+
+Unrolled paths for 2 and 3 columns measured no faster and were dropped. Painting page 1 (document open, image decoded and cached),
+best of 9 (browser AOT best of 5, interpreter best of 3), two interleaved rounds, ms:
+
+| File | Width | JIT | Native AOT | Browser AOT (Node 22) | Browser interpreter (Node 22) |
+|---|---:|---:|---:|---:|---:|
+| pdfium 123 | 390 | 3.70 → 3.54 (-4%) | 3.96 → 3.80 (-4%) | 7.39 → 6.49 (-12%) | 100.9 → 68.3 (-32%) |
+| pdfium 123 | 1206 | 11.79 → 10.88 (-8%) | 15.07 → 10.25 (-32%) | 29.50 → 23.13 (-22%) | 478.7 → 300.6 (-37%) |
+| pdf.js issue5567 | 390 | 2.46 → 2.38 (-3%) | 2.61 → 2.57 (-2%) | 4.52 → 4.10 (-9%) | 56.4 → 39.4 (-30%) |
+| pdf.js issue5567 | 1206 | 8.22 → 7.77 (-5%) | 10.41 → 7.91 (-24%) | 19.70 → 15.88 (-19%) | 305.2 → 191.7 (-37%) |
+
+The JIT gains least: there, dynamic PGO already inlined the per-pixel call into the span loop.
+
 ## CMYK characterization (`CmykCharacterization`, #476)
 
 DeviceCMYK to RGB through the SWOP polynomial (1 plus 34 monomials per channel, `double`), the default CMYK conversion. The vector
