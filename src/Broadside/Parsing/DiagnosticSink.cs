@@ -68,18 +68,6 @@ internal sealed class DiagnosticSink(bool strict, Action<Diagnostic>? observer =
         Publish(diagnostic, added);
     }
 
-    /// <inheritdoc cref="Report(string, DiagnosticSeverity, string, long?, CosReference?)"/>
-    public void Report(DiagnosticCode code, DiagnosticSeverity severity, string message, long? offset = null, CosReference? objectReference = null)
-    {
-        var diagnostic = new Diagnostic(code, severity, message, offset, objectReference);
-        bool added;
-        lock (_gate)
-        {
-            added = Record(diagnostic, perObject: false);
-        }
-
-        Publish(diagnostic, added);
-    }
 
     /// <summary>
     /// Records a deviation unless one with the same code is already recorded for <paramref name="objectReference"/>; in strict mode,
@@ -115,18 +103,6 @@ internal sealed class DiagnosticSink(bool strict, Action<Diagnostic>? observer =
         Publish(diagnostic, added);
     }
 
-    /// <inheritdoc cref="ReportOnce(string, DiagnosticSeverity, string, long?, CosReference?)"/>
-    public void ReportOnce(DiagnosticCode code, DiagnosticSeverity severity, string message, long? offset = null, CosReference? objectReference = null)
-    {
-        var diagnostic = new Diagnostic(code, severity, message, offset, objectReference);
-        bool added;
-        lock (_gate)
-        {
-            added = Record(diagnostic, perObject: true);
-        }
-
-        Publish(diagnostic, added);
-    }
 
     /// <summary>Records a deviation the reader cannot repair, and throws it in either mode.</summary>
     /// <param name="code">The diagnostic code.</param>
@@ -163,24 +139,6 @@ internal sealed class DiagnosticSink(bool strict, Action<Diagnostic>? observer =
         throw new DiagnosticException(diagnostic);
     }
 
-    /// <inheritdoc cref="Fail(string, string, long?)"/>
-    [DoesNotReturn]
-    public void Fail(DiagnosticCode code, string message, long? offset = null)
-    {
-        var diagnostic = new Diagnostic(code, DiagnosticSeverity.Error, message, offset);
-        bool added;
-        lock (_gate)
-        {
-            added = Record(diagnostic, perObject: false);
-        }
-
-        if (added)
-        {
-            observer?.Invoke(diagnostic);
-        }
-
-        throw new DiagnosticException(diagnostic);
-    }
 
     /// <summary>Returns the diagnostics recorded so far, in the order they were reported.</summary>
     /// <returns>A snapshot; later reports do not change it.</returns>
