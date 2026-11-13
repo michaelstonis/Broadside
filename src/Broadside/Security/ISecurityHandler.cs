@@ -71,17 +71,24 @@ public sealed class SecurityHandlerContext
     /// <summary>Gets the credentials the reader offered, or <see langword="null"/> for none (try the default user password).</summary>
     public PdfCredentials? Credentials { get; }
 
-    /// <summary>Gets the reading mode; in strict mode <see cref="Report(string, DiagnosticSeverity, string)"/> throws.</summary>
+    /// <summary>Gets the reading mode; in strict mode <see cref="Report"/> throws.</summary>
     public PdfReadingMode ReadingMode => _diagnostics.IsStrict ? PdfReadingMode.Strict : PdfReadingMode.Lenient;
 
     /// <summary>Records a deviation found in the encryption dictionary. In strict mode, throws it as a <see cref="DiagnosticException"/>.</summary>
-    /// <param name="code">A PascalCase code.</param>
+    /// <param name="code">
+    /// The kind of deviation: a code of Broadside's catalog, such as <see cref="SecurityDiagnostics.EncryptDictionaryInvalid"/>, or a
+    /// third-party handler's own code made with <see cref="DiagnosticCode.Create"/>.
+    /// </param>
     /// <param name="severity">The severity.</param>
     /// <param name="message">What deviates and what was done about it.</param>
-    public void Report(string code, DiagnosticSeverity severity, string message) => _diagnostics.Report(code, severity, message);
-
-    /// <inheritdoc cref="Report(string, DiagnosticSeverity, string)"/>
-    internal void Report(DiagnosticCode code, DiagnosticSeverity severity, string message) => _diagnostics.Report(code, severity, message);
+    /// <exception cref="ArgumentNullException"><paramref name="code"/> or <paramref name="message"/> is <see langword="null"/>.</exception>
+    /// <remarks>ISO 32000-2 §7.6.2. The diagnostic is recorded on the document being opened.</remarks>
+    public void Report(DiagnosticCode code, DiagnosticSeverity severity, string message)
+    {
+        ArgumentNullException.ThrowIfNull(code);
+        ArgumentNullException.ThrowIfNull(message);
+        _diagnostics.Report(code, severity, message);
+    }
 
     /// <summary>
     /// Records an encryption dictionary the handler cannot use (<c>EncryptDictionaryInvalid</c>, Error) and returns the exception to
@@ -92,7 +99,7 @@ public sealed class SecurityHandlerContext
     internal DiagnosticException Fail(string message)
     {
         var diagnostic = new Diagnostic(SecurityDiagnostics.EncryptDictionaryInvalid, DiagnosticSeverity.Error, message);
-        Report(diagnostic.Code, diagnostic.Severity, diagnostic.Message);
+        Report(diagnostic.Kind, diagnostic.Severity, diagnostic.Message);
         return new DiagnosticException(diagnostic);
     }
 

@@ -85,7 +85,7 @@ public sealed class DctDecodeFilter : IImageFilter
             if (size > context.MaxDecodedLength)
             {
                 context.Report(
-                    ImageDiagnostics.ImageTooLarge.Name,
+                    ImageDiagnostics.ImageTooLarge,
                     DiagnosticSeverity.Error,
                     FormattableString.Invariant($"The DCT image is not decoded: its {size} bytes of samples are more than the {context.MaxDecodedLength} allowed."));
                 return;

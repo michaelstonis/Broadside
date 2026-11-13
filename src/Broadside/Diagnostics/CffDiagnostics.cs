@@ -10,9 +10,27 @@ public static class CffDiagnostics
     /// <remarks>Adobe Technical Note #5176</remarks>
     public static DiagnosticCode FontCffHeaderInvalid { get; } = new(nameof(FontCffHeaderInvalid), DiagnosticArea.Cff, DiagnosticSeverity.Warning, "Adobe Technical Note #5176");
 
-    /// <summary>Gets the <c>FontCffIndexInvalid</c> code.</summary>
-    /// <remarks>Adobe Technical Note #5176</remarks>
-    public static DiagnosticCode FontCffIndexInvalid { get; } = new(nameof(FontCffIndexInvalid), DiagnosticArea.Cff, DiagnosticSeverity.Warning, "Adobe Technical Note #5176");
+    /// <summary>Gets the <c>FontCffIndexOutOfRange</c> code: an INDEX starts outside the program; it is read as empty.</summary>
+    /// <remarks>Adobe Technical Note #5176 §5</remarks>
+    public static DiagnosticCode FontCffIndexOutOfRange { get; } = new(nameof(FontCffIndexOutOfRange), DiagnosticArea.Cff, DiagnosticSeverity.Warning, "Adobe Technical Note #5176 §5");
+
+    /// <summary>
+    /// Gets the <c>FontCffIndexTruncated</c> code: the program ends inside an INDEX's header or offset array; the objects whose offsets
+    /// are readable are kept.
+    /// </summary>
+    /// <remarks>Adobe Technical Note #5176 §5</remarks>
+    public static DiagnosticCode FontCffIndexTruncated { get; } = new(nameof(FontCffIndexTruncated), DiagnosticArea.Cff, DiagnosticSeverity.Warning, "Adobe Technical Note #5176 §5");
+
+    /// <summary>Gets the <c>FontCffIndexOffSizeInvalid</c> code: an INDEX's offSize is not 1 to 4; it is read as empty.</summary>
+    /// <remarks>Adobe Technical Note #5176 §5, Table 7</remarks>
+    public static DiagnosticCode FontCffIndexOffSizeInvalid { get; } = new(nameof(FontCffIndexOffSizeInvalid), DiagnosticArea.Cff, DiagnosticSeverity.Warning, "Adobe Technical Note #5176 §5, Table 7");
+
+    /// <summary>
+    /// Gets the <c>FontCffIndexOffsetsInvalid</c> code: an INDEX's offsets do not start at 1, decrease or point past the program;
+    /// each object is clamped into the data.
+    /// </summary>
+    /// <remarks>Adobe Technical Note #5176 §5</remarks>
+    public static DiagnosticCode FontCffIndexOffsetsInvalid { get; } = new(nameof(FontCffIndexOffsetsInvalid), DiagnosticArea.Cff, DiagnosticSeverity.Warning, "Adobe Technical Note #5176 §5");
 
     /// <summary>Gets the <c>FontCffDictInvalid</c> code.</summary>
     /// <remarks>Adobe Technical Note #5176</remarks>
@@ -50,7 +68,10 @@ public static class CffDiagnostics
     internal static DiagnosticCode[] Codes { get; } =
     [
         FontCffHeaderInvalid,
-        FontCffIndexInvalid,
+        FontCffIndexOutOfRange,
+        FontCffIndexTruncated,
+        FontCffIndexOffSizeInvalid,
+        FontCffIndexOffsetsInvalid,
         FontCffDictInvalid,
         FontCffPrivateMissing,
         FontCffMultipleFonts,

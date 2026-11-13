@@ -40,7 +40,7 @@ internal static class Predictor
 
         if (predictor is not (2 or (>= 10 and <= 15)))
         {
-            context.Report(FilterDiagnostics.PredictorInvalid.Name, DiagnosticSeverity.Error, "The Predictor parameter shall be 1, 2 or 10 to 15; the data is passed through unpredicted.");
+            context.Report(FilterDiagnostics.PredictorInvalid, DiagnosticSeverity.Error, "The Predictor parameter shall be 1, 2 or 10 to 15; the data is passed through unpredicted.");
             output.Write(data);
             return;
         }
@@ -49,7 +49,7 @@ internal static class Predictor
         int bitsPerComponent = (int)context.ReadInteger(FilterNames.BitsPerComponent, 8, 1, 16);
         if (bitsPerComponent is not (1 or 2 or 4 or 8 or 16))
         {
-            context.Report(FilterDiagnostics.DecodeParmsInvalid.Name, DiagnosticSeverity.Warning, "The BitsPerComponent parameter shall be 1, 2, 4, 8 or 16; the default 8 is used.");
+            context.Report(FilterDiagnostics.DecodeParmsInvalid, DiagnosticSeverity.Warning, "The BitsPerComponent parameter shall be 1, 2, 4, 8 or 16; the default 8 is used.");
             bitsPerComponent = 8;
         }
 
@@ -57,7 +57,7 @@ internal static class Predictor
         long rowLength = ((colors * bitsPerComponent * columns) + 7) / 8;
         if (rowLength > Math.Min(context.MaxDecodedLength, Array.MaxLength - 1))
         {
-            context.Report(FilterDiagnostics.PredictorInvalid.Name, DiagnosticSeverity.Error, "The predictor's rows are longer than the decoded-length limit; the data is passed through unpredicted.");
+            context.Report(FilterDiagnostics.PredictorInvalid, DiagnosticSeverity.Error, "The predictor's rows are longer than the decoded-length limit; the data is passed through unpredicted.");
             output.Write(data);
             return;
         }
@@ -68,7 +68,7 @@ internal static class Predictor
             // Not one whole row: Columns, not the data, would size the row buffers and the zero padding of the last row, so a few
             // bytes with a huge Columns would decode to up to the decoded-length limit (fuzzing finding, issue #48). The data is one
             // partial row: decode it sized to the data, without padding.
-            context.Report(FilterDiagnostics.PredictorInvalid.Name, DiagnosticSeverity.Warning, "The predicted data is shorter than one row; it is decoded as one partial row, not padded.");
+            context.Report(FilterDiagnostics.PredictorInvalid, DiagnosticSeverity.Warning, "The predicted data is shorter than one row; it is decoded as one partial row, not padded.");
             rowLength = Math.Max(dataRow, 0);
             columns = rowLength * 8 / (colors * bitsPerComponent);
         }
@@ -154,12 +154,12 @@ internal static class Predictor
 
         if (unknownTag)
         {
-            context.Report(FilterDiagnostics.PredictorInvalid.Name, DiagnosticSeverity.Warning, "A PNG predictor row has an algorithm tag above 4; such rows are read unpredicted.");
+            context.Report(FilterDiagnostics.PredictorInvalid, DiagnosticSeverity.Warning, "A PNG predictor row has an algorithm tag above 4; such rows are read unpredicted.");
         }
 
         if (partialRow)
         {
-            context.Report(FilterDiagnostics.PredictorInvalid.Name, DiagnosticSeverity.Warning, "The predicted data ends in the middle of a row; the row is padded with zeros.");
+            context.Report(FilterDiagnostics.PredictorInvalid, DiagnosticSeverity.Warning, "The predicted data ends in the middle of a row; the row is padded with zeros.");
         }
     }
 
@@ -218,7 +218,7 @@ internal static class Predictor
 
         if (partialRow)
         {
-            context.Report(FilterDiagnostics.PredictorInvalid.Name, DiagnosticSeverity.Warning, "The predicted data ends in the middle of a row; the row is padded with zeros.");
+            context.Report(FilterDiagnostics.PredictorInvalid, DiagnosticSeverity.Warning, "The predicted data ends in the middle of a row; the row is padded with zeros.");
         }
     }
 

@@ -730,6 +730,18 @@ internal static class FuzzTargets
         }
     }
 
+    /// <summary>Every deviation a parser reports carries a code of the diagnostic catalog (issue #248), never free text.</summary>
+    private static void CheckCatalogCodes(IReadOnlyList<Diagnostic> diagnostics)
+    {
+        foreach (Diagnostic diagnostic in diagnostics)
+        {
+            if (diagnostic.Kind.Area == DiagnosticArea.None)
+            {
+                throw new InvalidOperationException($"{diagnostic.Code} is not a code of the diagnostic catalog.");
+            }
+        }
+    }
+
     /// <summary>A glyph outline must be contours of moveto, segments and close, with the points its verbs take, all finite.</summary>
     /// <summary>
     /// Parses the input as a CFF or OpenType-CFF program (issue #51) and reads all of it: every glyph's outline and advance (up to
@@ -760,8 +772,10 @@ internal static class FuzzTargets
         byte[] bytes = data.ToArray();
         var parser = new CffFontProgramParser();
         _ = parser.CanParse(bytes);
-        if (parser.Parse(bytes, new FontProgramContext { MaxCharStringOperators = 10_000 }) is not { } program)
+        var context = new FontProgramContext { MaxCharStringOperators = 10_000 };
+        if (parser.Parse(bytes, context) is not { } program)
         {
+            CheckCatalogCodes(context.Diagnostics);
             return;
         }
 
@@ -781,6 +795,9 @@ internal static class FuzzTargets
                 throw new InvalidOperationException($"Glyph {glyph} is named {name}, but the name finds glyph {named}.");
             }
         }
+
+        // Issue #248: damaged INDEXes and every other deviation report codes of the catalog, never free text.
+        CheckCatalogCodes(context.Diagnostics);
 
         if (program.BuiltInEncoding is { } encoding)
         {

@@ -15,7 +15,7 @@ namespace Broadside.Fonts;
 /// <see cref="Diagnostics"/> only, which is how a parser is tested or used outside a document. Inside a document, diagnostics are
 /// recorded on the document against the font file stream, once per code.
 /// </para>
-/// <para>Thread safety: <see cref="Report(string, DiagnosticSeverity, string)"/> may be called from several threads at once (concurrent renders of one document).</para>
+/// <para>Thread safety: <see cref="Report"/> may be called from several threads at once (concurrent renders of one document).</para>
 /// </remarks>
 public sealed class FontProgramContext
 {
@@ -83,7 +83,7 @@ public sealed class FontProgramContext
     /// </summary>
     public string? FaceName { get; init; }
 
-    /// <summary>Gets how deviations are treated: in <see cref="PdfReadingMode.Strict"/> mode, <see cref="Report(string, DiagnosticSeverity, string)"/> throws.</summary>
+    /// <summary>Gets how deviations are treated: in <see cref="PdfReadingMode.Strict"/> mode, <see cref="Report"/> throws.</summary>
     /// <remarks>Lenient by default: a deviation is repaired and recorded as a diagnostic; strict mode throws instead.</remarks>
     public PdfReadingMode ReadingMode { get; init; } = PdfReadingMode.Lenient;
 
@@ -113,19 +113,19 @@ public sealed class FontProgramContext
     public IReadOnlyList<Diagnostic> Diagnostics => _diagnostics.Items;
 
     /// <summary>Records a deviation found in the program and what the parser did about it. Only the first of each code is kept.</summary>
-    /// <param name="code">A stable PascalCase identifier of the kind of deviation, such as <c>FontGlyphInvalid</c>.</param>
+    /// <param name="code">
+    /// The kind of deviation: a code of Broadside's catalog, such as <see cref="FontDiagnostics.FontGlyphInvalid"/>, or a third-party
+    /// parser's own code made with <see cref="DiagnosticCode.Create"/>.
+    /// </param>
     /// <param name="severity">Whether the repair kept the glyphs (<see cref="DiagnosticSeverity.Warning"/>) or lost some.</param>
     /// <param name="message">What was wrong and what the parser did.</param>
     /// <exception cref="DiagnosticException">In strict mode, unless the severity is <see cref="DiagnosticSeverity.Information"/>.</exception>
-    /// <remarks>Inside a document the diagnostic is recorded on the document, against the font file stream.</remarks>
-    public void Report(string code, DiagnosticSeverity severity, string message)
+    /// <remarks>ISO 32000-2 §9.9. Inside a document the diagnostic is recorded on the document, against the font file stream.</remarks>
+    public void Report(DiagnosticCode code, DiagnosticSeverity severity, string message)
     {
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(message);
         Interlocked.Increment(ref _reportCount);
         _diagnostics.Report(code, severity, message, ReadingMode);
     }
-
-    /// <summary>Records a deviation of the catalog; see <see cref="Report(string, DiagnosticSeverity, string)"/>.</summary>
-    internal void Report(DiagnosticCode code, DiagnosticSeverity severity, string message) => Report(code.Name, severity, message);
 }

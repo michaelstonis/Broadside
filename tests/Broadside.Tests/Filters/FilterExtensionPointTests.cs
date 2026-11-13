@@ -132,11 +132,11 @@ public sealed class FilterExtensionPointTests
 
         Assert.Equal("A@", Encoding.Latin1.GetString(context.DecodeStream(stream).Span));
         Assert.Same(CosNull.Instance, context.Resolve(new CosReference(1, 0)));
-        context.Report("Custom", DiagnosticSeverity.Warning, "Recorded.");
-        Assert.Equal("Custom", Assert.Single(context.Diagnostics).Code);
+        context.Report(DiagnosticCode.Create("Tests", "Custom", DiagnosticSeverity.Warning), DiagnosticSeverity.Warning, "Recorded.");
+        Assert.Equal("Tests.Custom", Assert.Single(context.Diagnostics).Code);
 
         var strict = new FilterContext { ReadingMode = PdfReadingMode.Strict };
-        Assert.Throws<DiagnosticException>(() => strict.Report("Custom", DiagnosticSeverity.Warning, "Thrown."));
+        Assert.Throws<DiagnosticException>(() => strict.Report(DiagnosticCode.Create("Tests", "Custom", DiagnosticSeverity.Warning), DiagnosticSeverity.Warning, "Thrown."));
     }
 
     private sealed class CountingFilter(IStreamFilter inner) : IStreamFilter

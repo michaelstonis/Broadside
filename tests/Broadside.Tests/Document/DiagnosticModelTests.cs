@@ -31,7 +31,7 @@ public sealed class DiagnosticModelTests
 
         Assert.Equal("data"u8.ToArray(), decoded.ToArray());
         Diagnostic diagnostic = Assert.Single(document.Diagnostics);
-        Assert.Equal("FeatureNoted", diagnostic.Code);
+        Assert.Equal("Tests.FeatureNoted", diagnostic.Code);
         Assert.Equal(DiagnosticSeverity.Information, diagnostic.Severity);
     }
 
@@ -84,7 +84,7 @@ public sealed class DiagnosticModelTests
         _ = document.DecodeStream((CosStream)document.Resolve(FilterTesting.StreamReference));
 
         Diagnostic diagnostic = Assert.Single(document.Diagnostics);
-        Assert.Equal("FeatureEscalated", diagnostic.Code);
+        Assert.Equal("Tests.FeatureEscalated", diagnostic.Code);
         Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
     }
 
@@ -106,7 +106,7 @@ public sealed class DiagnosticModelTests
 
         public void Decode(ReadOnlyMemory<byte> encoded, IBufferWriter<byte> output, FilterContext context)
         {
-            context.Report("FeatureNoted", DiagnosticSeverity.Information, "The stream uses a feature that is read and preserved but not supported.");
+            context.Report(DiagnosticCode.Create("Tests", "FeatureNoted", DiagnosticSeverity.Information), DiagnosticSeverity.Information, "The stream uses a feature that is read and preserved but not supported.");
             output.Write(encoded.Span);
         }
     }
@@ -114,14 +114,16 @@ public sealed class DiagnosticModelTests
     /// <summary>A pass-through filter that reports one code twice, as Information and as Error, in the order chosen.</summary>
     private sealed class EscalatingFilter(bool reverse = false) : IStreamFilter
     {
+        private static readonly DiagnosticCode Escalated = DiagnosticCode.Create("Tests", "FeatureEscalated", DiagnosticSeverity.Warning);
+
         public CosName Name { get; } = new("EscalatingDecode");
 
         public void Decode(ReadOnlyMemory<byte> encoded, IBufferWriter<byte> output, FilterContext context)
         {
             DiagnosticSeverity first = reverse ? DiagnosticSeverity.Error : DiagnosticSeverity.Information;
             DiagnosticSeverity second = reverse ? DiagnosticSeverity.Information : DiagnosticSeverity.Error;
-            context.Report("FeatureEscalated", first, "First report.");
-            context.Report("FeatureEscalated", second, "Second report.");
+            context.Report(Escalated, first, "First report.");
+            context.Report(Escalated, second, "Second report.");
             output.Write(encoded.Span);
         }
     }

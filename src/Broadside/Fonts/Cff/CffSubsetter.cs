@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Globalization;
 using System.Text;
+using Broadside.Diagnostics;
 using Broadside.Fonts.CharStrings;
 using Broadside.Graphics;
 
@@ -130,7 +131,7 @@ internal static class CffSubsetter
         byte[][] fontDictBytes;
         if (font.IsCidKeyed)
         {
-            CffIndex fdArray = CffIndex.Read(data, Value(top, OpFdArray, 0), out string? problem);
+            CffIndex fdArray = CffIndex.Read(data, Value(top, OpFdArray, 0), out DiagnosticCode? problem);
             if (problem is not null || fdArray.Count == 0)
             {
                 return null;

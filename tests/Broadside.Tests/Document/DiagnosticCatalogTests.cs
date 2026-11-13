@@ -42,12 +42,12 @@ public sealed class DiagnosticCatalogTests
         _ = document.DecodeStream((CosStream)document.Resolve(FilterTesting.StreamReference));
 
         Diagnostic diagnostic = Assert.Single(document.Diagnostics);
-        Assert.Equal("FeatureNoted", diagnostic.Code);
-        Assert.Equal("FeatureNoted", diagnostic.Kind.Name);
+        Assert.Equal("Tests.FeatureNoted", diagnostic.Code);
+        Assert.Equal("Tests.FeatureNoted", diagnostic.Kind.Name);
         Assert.Equal(DiagnosticArea.None, diagnostic.Kind.Area);
         Assert.Equal(DiagnosticSeverity.Information, diagnostic.Kind.DefaultSeverity);
         Assert.Null(diagnostic.Kind.Clause);
-        Assert.False(DiagnosticCatalog.TryGet("FeatureNoted", out _));
+        Assert.False(DiagnosticCatalog.TryGet("Tests.FeatureNoted", out _));
     }
 
     [Fact]
@@ -152,7 +152,7 @@ public sealed class DiagnosticCatalogTests
 
         public void Decode(ReadOnlyMemory<byte> encoded, IBufferWriter<byte> output, FilterContext context)
         {
-            context.Report("FeatureNoted", DiagnosticSeverity.Information, "The stream uses a feature that is read and preserved but not supported.");
+            context.Report(DiagnosticCode.Create("Tests", "FeatureNoted", DiagnosticSeverity.Information), DiagnosticSeverity.Information, "The stream uses a feature that is read and preserved but not supported.");
             output.Write(encoded.Span);
         }
     }

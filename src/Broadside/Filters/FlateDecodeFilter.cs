@@ -41,7 +41,7 @@ public sealed class FlateDecodeFilter : IStreamFilter
         }
         else
         {
-            context.Report(FilterDiagnostics.FilterDataInvalid.Name, DiagnosticSeverity.Warning, "FlateDecode data does not start with a zlib header (RFC 1950); it is read as raw deflate data.");
+            context.Report(FilterDiagnostics.FilterDataInvalid, DiagnosticSeverity.Warning, "FlateDecode data does not start with a zlib header (RFC 1950); it is read as raw deflate data.");
         }
 
         using var source = new MemorySource(deflate);
@@ -66,13 +66,13 @@ public sealed class FlateDecodeFilter : IStreamFilter
         catch (InvalidDataException)
         {
             RecoverBeforeError(deflate, inflated, output);
-            context.Report(FilterDiagnostics.FilterDataInvalid.Name, DiagnosticSeverity.Error, "FlateDecode data is corrupt; the bytes inflated before the error are kept.");
+            context.Report(FilterDiagnostics.FilterDataInvalid, DiagnosticSeverity.Error, "FlateDecode data is corrupt; the bytes inflated before the error are kept.");
             return;
         }
 
         if (source.ReadPastEnd)
         {
-            context.Report(FilterDiagnostics.FilterDataTruncated.Name, DiagnosticSeverity.Warning, "FlateDecode data ends before its final deflate block; everything inflated is kept.");
+            context.Report(FilterDiagnostics.FilterDataTruncated, DiagnosticSeverity.Warning, "FlateDecode data ends before its final deflate block; everything inflated is kept.");
         }
     }
 

@@ -37,10 +37,16 @@ public sealed class FilterContext
     public PdfReadingMode ReadingMode { get; init; }     // Strict => Report throws
     public long MaxDecodedLength { get; init; }          // check header-declared sizes against this before allocating
     public IReadOnlyList<Diagnostic> Diagnostics { get; }// what was reported through this context
-    public void Report(string code, DiagnosticSeverity severity, string message); // lenient: record; strict: throw DiagnosticException
+    public void Report(DiagnosticCode code, DiagnosticSeverity severity, string message); // lenient: record; strict: throw DiagnosticException
     public CosObject Resolve(CosObject? value);          // indirect references of the document (CosNull outside one)
     public ReadOnlyMemory<byte> DecodeStream(CosStream stream); // another stream through the same pipeline (JBIG2Globals)
 }
+
+// Codes (namespace Broadside.Diagnostics, #242/#248): Broadside's are static properties of the catalog classes
+// (FilterDiagnostics.FilterDataTruncated, DctDiagnostics..., names never contain a dot). A third-party filter makes its own once,
+// in a static property, with an owner prefix; the reserved owner "Broadside" (any case, as the first segment) throws:
+public static DiagnosticCode DiagnosticCode.Create(string owner, string name, DiagnosticSeverity defaultSeverity, string? clause = null);
+//   DiagnosticCode.Create("Contoso", "TileSkipped", DiagnosticSeverity.Warning) -> Name "Contoso.TileSkipped", Owner "Contoso", Area None
 
 // Registration, per engine (no static registry):
 new PdfOptions().UseFilter(IStreamFilter filter);     // replaces the default of filter.Name or adds a name; later wins

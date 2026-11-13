@@ -68,7 +68,7 @@ public sealed class ReducingImageFilter(int maxReduction = 3, string? name = nul
         _decodes.AddOrUpdate(context.Reduction, 1, static (_, count) => count + 1);
         if (Fails)
         {
-            context.Filter.Report("TestDecodeFailed", DiagnosticSeverity.Error, "The test codec was told to fail.");
+            context.Filter.Report(DiagnosticCode.Create("Tests", "TestDecodeFailed", DiagnosticSeverity.Error), DiagnosticSeverity.Error, "The test codec was told to fail.");
             return null;
         }
 
