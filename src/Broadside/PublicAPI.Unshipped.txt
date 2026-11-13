@@ -5151,6 +5151,10 @@ static Broadside.Diagnostics.FileStructureDiagnostics.XrefEntryInvalid.get -> Br
 static Broadside.Diagnostics.FileStructureDiagnostics.XrefEntryFormatInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.FileStructureDiagnostics.XrefSubsectionNumberingInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.FileStructureDiagnostics.XrefSubsectionHeaderInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.StartxrefLastDamaged.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.XrefLineMalformed.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.XrefCommentIgnored.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FileStructureDiagnostics.XrefEntryBeyondSize.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.FileStructureDiagnostics.XrefPrevLoop.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.FileStructureDiagnostics.XrefStreamTypeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.FileStructureDiagnostics.XrefStreamWidthsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!

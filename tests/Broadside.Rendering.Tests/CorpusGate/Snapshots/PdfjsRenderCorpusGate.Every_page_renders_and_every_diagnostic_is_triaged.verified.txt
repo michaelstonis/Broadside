@@ -1,6 +1,6 @@
 ﻿corpus: pdfjs @ c53f395e4057b501f478a7e98ed03d47c7c62a04
 files: 989
-well-formed files: 717
+well-formed files: 657
 outcomes:
   Rendered: 976
   PasswordRequired: 11
@@ -9,16 +9,15 @@ outcomes:
   Rejected: 2
   Crash: 0
   Timeout: 0
-pages rendered: 1831
+pages rendered: 1830
 render diagnostics on well-formed files (files, total):
   AppearanceResourcesMissing: 8, 61
   CMapCodeInvalid: 1, 1
-  CMapEntryInvalid: 3, 3
+  CMapEntryInvalid: 2, 2
   CMapOperatorNotAllowed: 1, 1
-  CMapUseCMapInvalid: 1, 1
-  CidSystemInfoInvalid: 2, 2
+  CidSystemInfoInvalid: 1, 1
   CidSystemInfoMismatch: 1, 1
-  CidToGidMapMissing: 20, 24
+  CidToGidMapMissing: 19, 23
   ColorSpaceEntryInvalid: 1, 3
   ColorSpaceInvalid: 1, 1
   ContentColorOperatorMismatch: 19, 90
@@ -27,39 +26,36 @@ render diagnostics on well-formed files (files, total):
   ContentGraphicsStateRange: 1, 1
   ContentMarkedContentUnbalanced: 3, 3
   ContentNoCurrentPoint: 1, 1
-  ContentOperandCount: 5, 5
+  ContentOperandCount: 4, 4
   ContentOperandType: 1, 1
   ContentPropertiesMissing: 1, 1
   ContentStackUnderflow: 3, 5
-  ContentSyntaxInvalid: 2, 2
+  ContentSyntaxInvalid: 1, 1
   ContentTextObjectUnbalanced: 3, 3
-  ContentType3GlyphMetricsMissing: 1, 1
   ContentUnbalancedSave: 4, 4
-  ContentUnknownOperator: 4, 4
+  ContentUnknownOperator: 3, 3
   ContentXObjectInvalid: 1, 1
   ContentXObjectMissing: 1, 1
   DctLeadingJunk: 1, 1
   FontBaseFontMissing: 1, 2
-  FontCffDictInvalid: 2, 2
+  FontCffDictInvalid: 1, 1
   FontCffFdSelectInvalid: 1, 1
-  FontCffHeaderInvalid: 1, 1
   FontCffPrivateMissing: 1, 2
   FontCharstringArgumentCount: 1, 11
   FontCharstringUnknownOperator: 1, 1
-  FontCmapInvalid: 5, 5
-  FontDescriptorInvalid: 20, 180
+  FontCmapInvalid: 3, 3
+  FontDescriptorInvalid: 18, 178
   FontDescriptorMissing: 3, 3
-  FontEncodingInvalid: 3, 3
+  FontEncodingInvalid: 2, 2
   FontGlyphInvalid: 6, 6
-  FontProgramFormatMismatch: 6, 6
+  FontProgramFormatMismatch: 4, 4
   FontProgramInvalid: 1, 1
-  FontProgramTruncated: 3, 3
+  FontProgramTruncated: 2, 2
   FontStandard14EntriesIncomplete: 3, 3
-  FontTableInvalid: 22, 31
-  FontType1HexEexec: 2, 2
+  FontTableInvalid: 18, 27
+  FontType1HexEexec: 1, 1
   FontType1Length1Repaired: 3, 3
-  FontType1Length2Repaired: 3, 4
-  FontType1PfbWrapped: 2, 2
+  FontType1Length2Repaired: 2, 3
   FontTypeInvalid: 2, 2
   FontWidthsInvalid: 1, 4
   FontWidthsMissing: 3, 3
@@ -70,9 +66,9 @@ render diagnostics on well-formed files (files, total):
   ImageMaskConflict: 4, 18
   ImageMaskInvalid: 1, 1
   ShadingFunctionInvalid: 1, 16
-  ToUnicodeBfRangeOverflow: 14, 17
+  ToUnicodeBfRangeOverflow: 13, 16
   ToUnicodeCidMapping: 2, 2
-  ToUnicodeCodeLengthMismatch: 2, 2
-  ToUnicodeDestinationInvalid: 9, 10
+  ToUnicodeCodeLengthMismatch: 1, 1
+  ToUnicodeDestinationInvalid: 8, 9
   ToUnicodeIdentityName: 7, 11
-  Type0IdentityNotEmbedded: 20, 29
+  Type0IdentityNotEmbedded: 13, 22

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Broadside.Diagnostics;
 using Broadside.Objects;
 
@@ -13,6 +14,13 @@ namespace Broadside.Parsing;
 /// <para>
 /// An in-use entry with offset 0 is read as free (as pdf.js does) with a diagnostic, and object number 0 is always free (§7.5.4)
 /// and never appears in <see cref="XrefSection.Entries"/>.
+/// </para>
+/// <para>
+/// Repairs, each recorded once per section: a comment between tokens of the table is skipped
+/// (<see cref="FileStructureDiagnostics.XrefCommentIgnored"/>); a line that is neither a subsection header nor an entry is skipped
+/// (<see cref="FileStructureDiagnostics.XrefLineMalformed"/>); an entry numbered like the trailer's <c>Size</c> or more is
+/// dropped, because Size is the number of entries in the table (§7.5.5, Table 15;
+/// <see cref="FileStructureDiagnostics.XrefEntryBeyondSize"/>).
 /// </para>
 /// </remarks>
 internal static class XrefTableReader
@@ -61,7 +69,81 @@ internal static class XrefTableReader
             return null;
         }
 
+        DropEntriesBeyondSize(entries, dictionary, sectionOffset, diagnostics);
         return new XrefSection(sectionOffset, sectionOffset + parser.Position, XrefSectionKind.Table, entries, dictionary);
+    }
+
+    /// <summary>
+    /// Removes the entries numbered <c>Size</c> or more: Size is "the total number of entries in the file's cross-reference table"
+    /// (§7.5.5, Table 15), so they are not part of it. A missing or unusable Size drops nothing.
+    /// </summary>
+    private static void DropEntriesBeyondSize(Dictionary<int, XrefEntry> entries, CosDictionary trailer, long sectionOffset, DiagnosticSink diagnostics)
+    {
+        if (!trailer.TryGetValue(KnownNames.Size, out CosObject? size) || size is not CosInteger { Value: >= 0 } stated)
+        {
+            return;
+        }
+
+        int first = -1;
+        int dropped = 0;
+        foreach (int number in entries.Keys)
+        {
+            if (number >= stated.Value)
+            {
+                dropped++;
+                first = first < 0 || number < first ? number : first;
+            }
+        }
+
+        if (dropped == 0)
+        {
+            return;
+        }
+
+        foreach (int number in entries.Keys.Where(number => number >= stated.Value).ToArray())
+        {
+            _ = entries.Remove(number);
+        }
+
+        diagnostics.Report(
+            FileStructureDiagnostics.XrefEntryBeyondSize,
+            DiagnosticSeverity.Warning,
+            string.Create(CultureInfo.InvariantCulture, $"The table lists {dropped} entries numbered {stated.Value} or more (the first is object {first}), but the trailer's Size is {stated.Value}, the total number of entries; they are ignored."),
+            sectionOffset);
+    }
+
+    /// <summary>Reports the first comment in the gap between two tokens, once per section.</summary>
+    private static void ReportComment(ReadOnlySpan<byte> source, int gapStart, int gapEnd, long sectionOffset, DiagnosticSink diagnostics, ref bool reported)
+    {
+        if (reported || gapEnd <= gapStart)
+        {
+            return;
+        }
+
+        int comment = source[gapStart..gapEnd].IndexOf((byte)'%');
+        if (comment < 0)
+        {
+            return;
+        }
+
+        reported = true;
+        diagnostics.Report(
+            FileStructureDiagnostics.XrefCommentIgnored,
+            DiagnosticSeverity.Warning,
+            "A cross-reference table has a comment between its tokens; a table is subsections of entries (7.5.4), so the comment is skipped.",
+            sectionOffset + gapStart + comment);
+    }
+
+    /// <summary>Reports a line that is neither a subsection header nor an entry and moves the lexer to the end of that line.</summary>
+    private static void SkipMalformedLine(ref CosLexer lexer, CosToken token, long sectionOffset, DiagnosticSink diagnostics)
+    {
+        diagnostics.Report(
+            FileStructureDiagnostics.XrefLineMalformed,
+            DiagnosticSeverity.Warning,
+            "A line of the cross-reference table is neither a subsection header nor an entry; the line is skipped.",
+            sectionOffset + token.Start);
+        int end = lexer.Source[token.Start..].IndexOfAny((byte)'\r', (byte)'\n');
+        lexer.Position = end < 0 ? lexer.Source.Length : token.Start + end;
     }
 
     /// <summary>Reads subsections up to and including the <c>trailer</c> keyword.</summary>
@@ -70,13 +152,22 @@ internal static class XrefTableReader
     {
         bool formatReported = false;
         bool headerReported = false;
+        bool commentReported = false;
         while (true)
         {
+            int gapStart = lexer.Position;
             CosToken next = lexer.Peek();
+            ReportComment(lexer.Source, gapStart, next.Start, sectionOffset, diagnostics, ref commentReported);
             if (StructureTokens.IsKeyword(lexer.Source, next, "trailer"u8))
             {
                 lexer.Position = next.End;
                 return true;
+            }
+
+            if (next.Kind is not (CosTokenKind.Integer or CosTokenKind.EndOfInput))
+            {
+                SkipMalformedLine(ref lexer, next, sectionOffset, diagnostics);
+                continue;
             }
 
             long subsectionStart = sectionOffset + next.Start;
@@ -107,7 +198,18 @@ internal static class XrefTableReader
 
             for (long index = 0; index < count; index++)
             {
-                int entryPosition = lexer.Peek().Start;
+                int entryGap = lexer.Position;
+                CosToken entryToken = lexer.Peek();
+                int entryPosition = entryToken.Start;
+                ReportComment(lexer.Source, entryGap, entryPosition, sectionOffset, diagnostics, ref commentReported);
+                if (entryToken.Kind is not (CosTokenKind.Integer or CosTokenKind.EndOfInput) && !StructureTokens.IsKeyword(lexer.Source, entryToken, "trailer"u8))
+                {
+                    // A line that is not an entry: skip it and read the entry that is still due.
+                    SkipMalformedLine(ref lexer, entryToken, sectionOffset, diagnostics);
+                    index--;
+                    continue;
+                }
+
                 long entryStart = sectionOffset + entryPosition;
                 if (!TryReadEntry(ref lexer, out XrefEntry entry) || first + index > int.MaxValue)
                 {

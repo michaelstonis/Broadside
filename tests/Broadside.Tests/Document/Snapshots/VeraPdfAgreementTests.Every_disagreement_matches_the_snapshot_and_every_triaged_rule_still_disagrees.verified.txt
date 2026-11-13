@@ -1,4 +1,4 @@
-﻿171 files, 73 agree, 98 disagree
+﻿171 files, 71 agree, 100 disagree
 PdfAOnly | Isartor 6-1-12-t01 | veraPDF fail, strict pass | verapdf-corpus/Isartor test files/PDFA-1b/6.1 File structure/6.1.12 Implementation Limits/isartor-6-1-12-t01-fail-a.pdf
 PdfAOnly | Isartor 6-1-12-t01 | veraPDF fail, strict pass | verapdf-corpus/Isartor test files/PDFA-1b/6.1 File structure/6.1.12 Implementation Limits/isartor-6-1-12-t01-fail-b.pdf
 PdfAOnly | Isartor 6-1-12-t01 | veraPDF fail, strict pass | verapdf-corpus/Isartor test files/PDFA-1b/6.1 File structure/6.1.12 Implementation Limits/isartor-6-1-12-t01-fail-c.pdf
@@ -80,6 +80,8 @@ PdfAOnly | PDF_A-4 6-1-3-t04 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-
 PdfAOnly | PDF_A-4 6-1-3-t05 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-4/6.1 File structure/6.1.3 File trailer/veraPDF test suite 6-1-3-t05-fail-a.pdf
 PdfAOnly | PDF_A-4 6-1-4-t01 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-4/6.1 File structure/6.1.4 Cross reference table/veraPDF test suite 6-1-4-t01-fail-a.pdf
 PdfAOnly | PDF_A-4 6-1-4-t01 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-4/6.1 File structure/6.1.4 Cross reference table/veraPDF test suite 6-1-4-t01-fail-b.pdf
+VeraPdfIssue | PDF_A-4 6-1-4-t02 | veraPDF pass, strict fail | verapdf-corpus/PDF_A-4/6.1 File structure/6.1.4 Cross reference table/veraPDF test suite 6-1-4-t02-pass-a.pdf
+VeraPdfIssue | PDF_A-4 6-1-4-t02 | veraPDF pass, strict fail | verapdf-corpus/PDF_A-4/6.1 File structure/6.1.4 Cross reference table/veraPDF test suite 6-1-4-t02-pass-b.pdf
 PdfAOnly | PDF_A-4 6-1-5-t01 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-4/6.1 File structure/6.1.5 String objects/veraPDF test suite 6-1-5-t01-fail-a.pdf
 StrictTooLenient | PDF_A-4 6-1-5-t02 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-4/6.1 File structure/6.1.5 String objects/veraPDF test suite 6-1-5-t02-fail-a.pdf
 PdfAOnly | PDF_A-4 6-1-6-1-t02 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-4/6.1 File structure/6.1.6 Stream objects/6.1.6.1 General/veraPDF test suite 6-1-6-1-t02-fail-a.pdf

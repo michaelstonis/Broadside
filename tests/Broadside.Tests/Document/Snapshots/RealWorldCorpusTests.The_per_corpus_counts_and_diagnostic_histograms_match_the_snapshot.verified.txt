@@ -1,6 +1,6 @@
 ﻿pdfjs: 989 files
-  Clean: 717
-  Diagnostics: 259
+  Clean: 657
+  Diagnostics: 319
   PasswordRequired: 11
   CertificateRequired: 0
   EncryptionUnsupported: 0
@@ -8,8 +8,9 @@
   Crash: 0
   Timeout: 0
   files with each diagnostic code:
+    RootMissing: 175
     XrefEntryInvalid: 112
-    RootMissing: 110
+    XrefEntryBeyondSize: 68
     XrefEntryOffsetInvalid: 26
     StreamLengthInvalid: 24
     StartxrefInvalid: 21
@@ -24,9 +25,9 @@
     DestinationInvalid: 6
     FilterDataInvalid: 6
     FilterDataTruncated: 6
+    PageTreeCountMismatch: 6
     DictionaryKeyNotName: 5
     HeaderInvalid: 5
-    PageTreeCountMismatch: 5
     AnnotationRectInvalid: 4
     CatalogTypeInvalid: 4
     DictionaryDuplicateKey: 4
@@ -55,6 +56,7 @@
     InfoTrappedInvalid: 2
     Jbig2CombinationOperatorMismatch: 2
     LinearizationHintsInvalid: 2
+    PageTreeKidInvalid: 2
     PageTreeKidsInvalid: 2
     PageTreeParentMismatch: 2
     StreamKeywordEndOfLine: 2
@@ -101,7 +103,6 @@
     PageModeInvalid: 1
     PageResourcesInvalid: 1
     PageTreeCycle: 1
-    PageTreeKidInvalid: 1
     PageTreeKidNotIndirect: 1
     PopupLinkMismatch: 1
     PopupParentInvalid: 1
@@ -109,6 +110,7 @@
     StringUnterminated: 1
     TrailerEntryFromOlderRevision: 1
     TrailerXRefStmInvalid: 1
+    XrefCommentIgnored: 1
     XrefStreamDataTruncated: 1
     XrefStreamSizeInvalid: 1
     XrefSubsectionNumberingInvalid: 1
@@ -150,7 +152,7 @@ qpdf: 639 files
   Timeout: 0
   files with each diagnostic code:
     ButtonValueStateMismatch: 33
-    MissingEndobj: 18
+    MissingEndobj: 19
     FilterDataInvalid: 17
     XrefEntryOffsetInvalid: 15
     StartxrefInvalid: 14
@@ -158,19 +160,19 @@ qpdf: 639 files
     UnexpectedToken: 11
     DictionaryKeyNotName: 10
     StreamLengthInvalid: 10
-    RootMissing: 9
     DefaultAppearanceFontMissing: 8
     DestinationInvalid: 8
     FilterUnsupported: 8
     PopupLinkMismatch: 8
     CatalogTypeInvalid: 7
     ObjectStreamIndexMismatch: 7
-    PagesMissing: 7
     WidgetNotInFieldTree: 7
     XrefEntryInvalid: 7
     FieldNameMissing: 6
     FieldParentMissing: 6
     PageTreeCountMismatch: 6
+    PagesMissing: 6
+    RootMissing: 6
     XrefEntryFormatInvalid: 6
     DecodeParmsInvalid: 5
     DictionaryUnterminated: 5
@@ -179,10 +181,12 @@ qpdf: 639 files
     PageTreeCycle: 5
     PageTreeNodeTypeInvalid: 5
     PageTreeParentMismatch: 5
+    TrailerMissing: 5
     DeveloperExtensionInvalid: 4
     EncryptionEntryLengthInvalid: 4
     PageMediaBoxMissing: 4
     PredictorInvalid: 4
+    XrefLineMalformed: 4
     AnnotationSharedAcrossPages: 3
     DefaultAppearanceInvalid: 3
     EndOfFileMarkerNotLast: 3
@@ -209,9 +213,8 @@ qpdf: 639 files
     PageLabelsMissingZeroKey: 2
     RootNotIndirect: 2
     StreamKeywordEndOfLine: 2
-    TrailerMissing: 2
     XrefPrevLoop: 2
-    XrefSectionInvalid: 2
+    XrefSubsectionHeaderInvalid: 2
     AcroFormFieldsMissing: 1
     AnnotationEntryInvalid: 1
     AnnotationNotIndirect: 1
@@ -242,10 +245,10 @@ qpdf: 639 files
     StringUnterminated: 1
     TrailerEntryFromOlderRevision: 1
     TrailerIdMissing: 1
+    XrefSectionInvalid: 1
     XrefStreamSizeInvalid: 1
     XrefStreamTypeInvalid: 1
     XrefStreamWidthsInvalid: 1
-    XrefSubsectionHeaderInvalid: 1
 pdfium-tests: 840 files
   Clean: 302
   Diagnostics: 533
@@ -260,7 +263,7 @@ pdfium-tests: 840 files
     RootMissing: 151
     StartxrefInvalid: 99
     StreamLengthInvalid: 92
-    XrefSectionInvalid: 84
+    XrefSectionInvalid: 83
     AppearanceNotForm: 82
     PredictorInvalid: 74
     DateInvalid: 56
@@ -278,6 +281,7 @@ pdfium-tests: 840 files
     DestinationInvalid: 11
     UnexpectedToken: 10
     ActionInvalid: 7
+    TrailerMissing: 6
     CatalogTypeInvalid: 5
     DictionaryDuplicateKey: 5
     FileIdentifierInvalid: 5
@@ -285,6 +289,7 @@ pdfium-tests: 840 files
     PageResourcesMissing: 5
     PageTreeNodeTypeInvalid: 5
     PageTreeParentMismatch: 5
+    XrefLineMalformed: 5
     AnnotationRequiredEntryMissing: 4
     DictionaryUnterminated: 4
     FieldNotRoot: 4
@@ -306,7 +311,6 @@ pdfium-tests: 840 files
     FieldNameMissing: 2
     FieldTypeMissing: 2
     NamedDestinationNotFound: 2
-    TrailerMissing: 2
     ViewerPreferenceInvalid: 2
     XrefSubsectionHeaderInvalid: 2
     AcroFormEntryInvalid: 1

@@ -15,7 +15,7 @@ namespace Broadside.Parsing;
 /// optional observer sees each recorded diagnostic before strict mode throws (issue #46 logs through it).
 /// </para>
 /// <para>
-/// Each repair is recorded once. <see cref="Report"/> drops a diagnostic equal in code, offset and object to one already recorded
+/// Each repair is recorded once. <see cref="Report(string, DiagnosticSeverity, string, long?, CosReference?)"/> drops a diagnostic equal in code, offset and object to one already recorded
 /// (the same object loaded on two threads, a lazy value computed twice, a structure validated before and after reconstruction).
 /// <see cref="ReportOnce"/> keeps only the first diagnostic of a code per object, whatever its offset: for deviations that can
 /// repeat many times inside one object, such as an operator error in every line of a page's content. A dropped duplicate is not
@@ -45,6 +45,25 @@ internal sealed class DiagnosticSink(bool strict, Action<Diagnostic>? observer =
     /// <param name="objectReference">The object the deviation is in, when known.</param>
     /// <exception cref="DiagnosticException">The sink is strict and the severity is not <see cref="DiagnosticSeverity.Information"/>.</exception>
     public void Report(string code, DiagnosticSeverity severity, string message, long? offset = null, CosReference? objectReference = null)
+    {
+        var diagnostic = new Diagnostic(code, severity, message, offset, objectReference);
+        bool added;
+        lock (_gate)
+        {
+            added = Record(diagnostic, perObject: false);
+        }
+
+        Publish(diagnostic, added);
+    }
+
+    /// <summary>Records a deviation by its catalog code, unless an equal one is already recorded; in strict mode, throws it.</summary>
+    /// <param name="code">The catalog code.</param>
+    /// <param name="severity">How much the repair may have changed the document.</param>
+    /// <param name="message">What was wrong and what the reader did.</param>
+    /// <param name="offset">The absolute byte offset in the file, when known.</param>
+    /// <param name="objectReference">The object the deviation is in, when known.</param>
+    /// <exception cref="DiagnosticException">The sink is strict and the severity is not <see cref="DiagnosticSeverity.Information"/>.</exception>
+    public void Report(DiagnosticCode code, DiagnosticSeverity severity, string message, long? offset = null, CosReference? objectReference = null)
     {
         var diagnostic = new Diagnostic(code, severity, message, offset, objectReference);
         bool added;
