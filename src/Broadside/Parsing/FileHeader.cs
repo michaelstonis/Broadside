@@ -10,8 +10,8 @@ namespace Broadside.Parsing;
 /// percent sign of the header, and arbitrary bytes may precede it (NOTE 1), so every offset the file states is relative to
 /// <see cref="Offset"/>. A file whose writer counted from byte 0 anyway is repaired by the loader's object search and the
 /// nearest-section search for <c>startxref</c> (issue #41). A version followed by anything but an end-of-line marker is read with
-/// <see cref="DiagnosticCodes.HeaderInvalid"/> (issue #47). The comment line of at least four bytes of 128 or more that shall follow
-/// the header of a file with binary data is checked in strict mode only (<see cref="DiagnosticCodes.HeaderBinaryCommentMissing"/>):
+/// <see cref="FileStructureDiagnostics.HeaderInvalid"/> (issue #47). The comment line of at least four bytes of 128 or more that shall follow
+/// the header of a file with binary data is checked in strict mode only (<see cref="FileStructureDiagnostics.HeaderBinaryCommentMissing"/>):
 /// when it is missing, deciding whether the file holds binary data can take a scan of the whole file, a cost lenient reading does
 /// not pay for a deviation that needs no repair.
 /// </remarks>
@@ -39,7 +39,7 @@ internal readonly record struct FileHeader(long Offset, PdfVersion? Version)
         if (marker < 0)
         {
             diagnostics.Report(
-                DiagnosticCodes.HeaderMissing,
+                FileStructureDiagnostics.HeaderMissing,
                 DiagnosticSeverity.Warning,
                 "The file does not start with a %PDF- header; offsets are counted from byte 0 and the version is taken from the catalog.",
                 offset: 0);
@@ -55,7 +55,7 @@ internal readonly record struct FileHeader(long Offset, PdfVersion? Version)
             if (end >= 0 && afterMarker[end] is not ((byte)'\r' or (byte)'\n'))
             {
                 diagnostics.Report(
-                    DiagnosticCodes.HeaderInvalid,
+                    FileStructureDiagnostics.HeaderInvalid,
                     DiagnosticSeverity.Warning,
                     "The header's version shall be followed by an end-of-line marker; the version is read and the rest of the line is ignored.",
                     offset: marker);
@@ -70,7 +70,7 @@ internal readonly record struct FileHeader(long Offset, PdfVersion? Version)
         }
 
         diagnostics.Report(
-            DiagnosticCodes.HeaderVersionInvalid,
+            FileStructureDiagnostics.HeaderVersionInvalid,
             DiagnosticSeverity.Warning,
             "The header does not state a version of the form 1.n or 2.n; the version is taken from the catalog.",
             offset: marker);
@@ -101,7 +101,7 @@ internal readonly record struct FileHeader(long Offset, PdfVersion? Version)
         if (source.IsLocal && HoldsBinaryData(source, marker))
         {
             diagnostics.Report(
-                DiagnosticCodes.HeaderBinaryCommentMissing,
+                FileStructureDiagnostics.HeaderBinaryCommentMissing,
                 DiagnosticSeverity.Warning,
                 "The file holds binary data, so the header line shall be immediately followed by a comment line with at least four bytes of 128 or more; it is not.",
                 offset: marker);

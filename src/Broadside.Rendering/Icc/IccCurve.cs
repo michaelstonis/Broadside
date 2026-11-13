@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
+using Broadside.Numerics;
 
 namespace Broadside.Rendering.Icc;
 
@@ -231,7 +232,7 @@ internal sealed class IccCurve
                 return x;
             case 1:
                 // A u8Fixed8Number gamma: Y = X^gamma, not the inverse (§10.6).
-                return Math.Pow(x, samples[0] / 256.0);
+                return DeterministicMath.Pow(x, samples[0] / 256.0);
             default:
                 double position = x * (samples.Length - 1);
                 int index = Math.Min((int)position, samples.Length - 2);
@@ -248,15 +249,15 @@ internal sealed class IccCurve
         switch (_function)
         {
             case 0:
-                return Math.Pow(x, g);
+                return DeterministicMath.Pow(x, g);
             case 1:
-                return x >= -p[2] / p[1] ? Math.Pow((p[1] * x) + p[2], g) : 0;
+                return x >= -p[2] / p[1] ? DeterministicMath.Pow((p[1] * x) + p[2], g) : 0;
             case 2:
-                return x >= -p[2] / p[1] ? Math.Pow((p[1] * x) + p[2], g) + p[3] : p[3];
+                return x >= -p[2] / p[1] ? DeterministicMath.Pow((p[1] * x) + p[2], g) + p[3] : p[3];
             case 3:
-                return x >= p[4] ? Math.Pow((p[1] * x) + p[2], g) : p[3] * x;
+                return x >= p[4] ? DeterministicMath.Pow((p[1] * x) + p[2], g) : p[3] * x;
             default:
-                return x >= p[4] ? Math.Pow((p[1] * x) + p[2], g) + p[5] : (p[3] * x) + p[6];
+                return x >= p[4] ? DeterministicMath.Pow((p[1] * x) + p[2], g) + p[5] : (p[3] * x) + p[6];
         }
     }
 }

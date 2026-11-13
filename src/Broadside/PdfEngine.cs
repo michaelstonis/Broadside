@@ -303,4 +303,30 @@ public sealed class PdfEngine
     /// page with empty resources and no content, and reads like a file of those three objects.
     /// </remarks>
     public PdfDocument Create() => PdfDocument.CreateNew(_configuration);
+
+    /// <summary>Creates an unencrypted wrapper document around <paramref name="payload"/>, an encrypted PDF file, with one blank cover page.</summary>
+    /// <param name="payload">The encrypted PDF file's bytes, embedded unchanged; copied.</param>
+    /// <returns>The wrapper, not yet saved; dispose it when done.</returns>
+    /// <exception cref="ArgumentException">The payload is not encrypted, so names no cryptographic filter.</exception>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, when the payload is not encrypted (<c>EncryptedPayloadNotEncrypted</c>).</exception>
+    /// <remarks>ISO 32000-2 §7.6.7 (PDF 2.0). As <see cref="CreateUnencryptedWrapper(ReadOnlySpan{byte}, PdfUnencryptedWrapperOptions)"/> with default options.</remarks>
+    public PdfDocument CreateUnencryptedWrapper(ReadOnlySpan<byte> payload) => CreateUnencryptedWrapper(payload, new PdfUnencryptedWrapperOptions());
+
+    /// <summary>
+    /// Creates an unencrypted wrapper document around <paramref name="payload"/>, an encrypted PDF file: a PDF 2.0 document whose
+    /// collection presents the payload to readers that have its cryptographic filter, and whose pages, the cover, are shown by readers
+    /// that do not.
+    /// </summary>
+    /// <param name="payload">The encrypted PDF file's bytes, embedded unchanged; copied.</param>
+    /// <param name="options">The cover, the cryptographic filter, and the payload's name, description and date.</param>
+    /// <returns>The wrapper, not yet saved; dispose it when done.</returns>
+    /// <exception cref="ArgumentException">
+    /// The payload is not encrypted, so names no cryptographic filter, and <see cref="PdfUnencryptedWrapperOptions.CryptographicFilter"/>
+    /// is not set.
+    /// </exception>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, when the payload is not encrypted (<c>EncryptedPayloadNotEncrypted</c>).</exception>
+    /// <exception cref="NotSupportedException">The cover is encrypted and its streams cannot be copied (see <see cref="PdfDocument.AppendPages(PdfDocument)"/>).</exception>
+    /// <remarks>ISO 32000-2 §7.6.7 (PDF 2.0) and Table 28. See <see cref="PdfDocument.CreateUnencryptedWrapper(ReadOnlySpan{byte}, PdfUnencryptedWrapperOptions)"/>.</remarks>
+    public PdfDocument CreateUnencryptedWrapper(ReadOnlySpan<byte> payload, PdfUnencryptedWrapperOptions options) =>
+        PdfDocument.CreateUnencryptedWrapper(_configuration, payload, options);
 }

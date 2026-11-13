@@ -152,7 +152,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
                     if (version == 3)
                     {
                         diagnostics.Report(
-                            DiagnosticCodes.EncryptionVersionInvalid,
+                            SecurityDiagnostics.EncryptionVersionInvalid,
                             DiagnosticSeverity.Warning,
                             "V 3 (an unpublished algorithm) shall not appear in a conforming file; it is read as V 2, RC4 with the Length key.");
                     }
@@ -213,7 +213,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
                         }
 
                         diagnostics.Report(
-                            DiagnosticCodes.CryptFilterMissing,
+                            SecurityDiagnostics.CryptFilterMissing,
                             DiagnosticSeverity.Error,
                             $"{key.Value} names the crypt filter /{name.Value}, which the CF dictionary does not define; that data is left as it is.");
                         return identity;
@@ -307,7 +307,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
         if (method.Equals(None))
         {
             diagnostics.Report(
-                DiagnosticCodes.CryptFilterMethodInvalid,
+                SecurityDiagnostics.CryptFilterMethodInvalid,
                 DiagnosticSeverity.Warning,
                 $"The crypt filter /{name.Value} has the method None, which leaves decryption to the security handler; this handler has no method of its own, so the data is left as it is.");
             return new CryptFilter(name, CryptMethod.Identity, []);
@@ -323,7 +323,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
             if (version >= 5)
             {
                 diagnostics.Report(
-                    DiagnosticCodes.CryptFilterMethodInvalid,
+                    SecurityDiagnostics.CryptFilterMethodInvalid,
                     DiagnosticSeverity.Warning,
                     $"The crypt filter /{name.Value} uses AESV2 with a 256-bit file key (V {version}); it is read as AESV3, as other readers do.");
                 return Aes256(name, CryptMethod.AesV3, key, out problem);
@@ -342,7 +342,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
             if (version < 6)
             {
                 diagnostics.Report(
-                    DiagnosticCodes.CryptFilterMethodInvalid,
+                    SecurityDiagnostics.CryptFilterMethodInvalid,
                     DiagnosticSeverity.Warning,
                     string.Create(CultureInfo.InvariantCulture, $"The crypt filter /{name.Value} uses AESV4, which goes with V 6 (ISO/TS 32003); the dictionary has V {version}. It is read as AES-GCM."));
             }
@@ -374,7 +374,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
         }
 
         diagnostics.Report(
-            DiagnosticCodes.EncryptionKeyLengthInvalid,
+            SecurityDiagnostics.EncryptionKeyLengthInvalid,
             DiagnosticSeverity.Warning,
             string.Create(CultureInfo.InvariantCulture, $"The crypt filter /{name.Value} needs a {length * 8}-bit key; the {key.Length * 8}-bit key is {(key.Length < length ? "padded with zeros" : "truncated")}."));
         byte[] fitted = new byte[length];
@@ -484,7 +484,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
         if (metadata && data.Span.StartsWith("<?xpacket "u8))
         {
             _diagnostics.Report(
-                DiagnosticCodes.MetadataNotEncrypted,
+                SecurityDiagnostics.MetadataNotEncrypted,
                 DiagnosticSeverity.Warning,
                 "The metadata stream is plaintext XMP although EncryptMetadata is true; it is read as it is.",
                 objectReference: id);
@@ -524,7 +524,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
     /// <summary>Records, once per object, that data encrypted with a locked crypt filter stays encrypted.</summary>
     private void ReportLocked(CryptFilter filter, CosReference id) =>
         _diagnostics.ReportOnce(
-            DiagnosticCodes.CryptFilterNotAuthorized,
+            SecurityDiagnostics.CryptFilterNotAuthorized,
             DiagnosticSeverity.Information,
             $"The data is encrypted with the crypt filter /{filter.Name.Value}, which the credentials given do not unlock: a public-key filter that does not name the reader (§7.6.6), or one whose AuthEvent is EFOpen, which needs the user password when an embedded file is accessed (Table 25); it stays encrypted.",
             objectReference: id);
@@ -687,7 +687,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
         if (!AesGcmCipher.TryDecrypt(key, data[..AesGcmCipher.NonceSize], data[AesGcmCipher.NonceSize..^AesGcmCipher.TagSize], data[^AesGcmCipher.TagSize..], plain))
         {
             _diagnostics.Report(
-                DiagnosticCodes.EncryptedDataAuthenticationFailed,
+                SecurityDiagnostics.EncryptedDataAuthenticationFailed,
                 DiagnosticSeverity.Error,
                 "The AES-GCM authentication tag does not match: the data was changed or damaged after it was encrypted; it decrypts to nothing.",
                 objectReference: id);
@@ -701,7 +701,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
     {
         if (problem is not null)
         {
-            _diagnostics.Report(DiagnosticCodes.EncryptedDataInvalid, DiagnosticSeverity.Warning, problem, objectReference: id);
+            _diagnostics.Report(SecurityDiagnostics.EncryptedDataInvalid, DiagnosticSeverity.Warning, problem, objectReference: id);
         }
     }
 }

@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -15,13 +16,13 @@ namespace Broadside;
 internal sealed class NameTreeReader : TreeReader<CosString>
 {
     private static readonly TreeCodes NameTreeCodes = new(
-        DiagnosticCodes.NameTreeNodeInvalid,
-        DiagnosticCodes.NameTreeLimitsInvalid,
-        DiagnosticCodes.NameTreeKeysUnsorted,
-        DiagnosticCodes.NameTreeDuplicateKey,
-        DiagnosticCodes.NameTreeKeyInvalid,
-        DiagnosticCodes.NameTreeCycle,
-        DiagnosticCodes.NameTreeTooDeep);
+        NavigationDiagnostics.NameTreeNodeInvalid,
+        NavigationDiagnostics.NameTreeLimitsInvalid,
+        NavigationDiagnostics.NameTreeKeysUnsorted,
+        NavigationDiagnostics.NameTreeDuplicateKey,
+        NavigationDiagnostics.NameTreeKeyInvalid,
+        NavigationDiagnostics.NameTreeCycle,
+        NavigationDiagnostics.NameTreeTooDeep);
 
     /// <summary>Initializes a new instance of the <see cref="NameTreeReader"/> class.</summary>
     /// <param name="root">The root node dictionary.</param>

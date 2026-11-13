@@ -1,10 +1,14 @@
+using System.Text;
 using Broadside.Diagnostics;
+using Broadside.Filters;
+using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
+using Broadside.Writing;
 
 namespace Broadside;
 
-/// <summary>Unencrypted wrapper documents: reading the encrypted payload a wrapper carries (issue #234).</summary>
+/// <summary>Unencrypted wrapper documents: reading the encrypted payload a wrapper carries (issue #234) and writing one (issue #235).</summary>
 public sealed partial class PdfDocument
 {
     /// <summary>
@@ -121,7 +125,7 @@ public sealed partial class PdfDocument
             {
                 ViewReading.Warn(
                     this,
-                    DiagnosticCodes.UnencryptedWrapperInvalid,
+                    SecurityDiagnostics.UnencryptedWrapperInvalid,
                     $"The unencrypted wrapper deviates from ISO 32000-2 §7.6.7 ({string.Join("; ", deviations)}); its payload '{chosen.Name}' is read anyway.",
                     file.Reference ?? CatalogReference);
             }
@@ -130,7 +134,7 @@ public sealed partial class PdfDocument
             if (payload.CryptographicFilter is { } filter && !payload.IsCryptographicFilterAvailable)
             {
                 DiagnosticSink.Report(
-                    DiagnosticCodes.EncryptedPayloadFilterUnknown,
+                    SecurityDiagnostics.EncryptedPayloadFilterUnknown,
                     DiagnosticSeverity.Information,
                     $"The encrypted payload '{chosen.Name}' needs the cryptographic filter {filter.Value}, which no security handler of this engine provides; the wrapper is read, and the payload opens only if its own encryption dictionary names a handler the engine has.",
                     offset: null,
@@ -164,4 +168,150 @@ public sealed partial class PdfDocument
 
         return ReferenceEquals(value, file);
     }
+
+    /// <summary>
+    /// Creates an unencrypted wrapper document around <paramref name="payload"/>, an encrypted PDF file, with one blank cover page,
+    /// on an engine with default options.
+    /// </summary>
+    /// <param name="payload">The encrypted PDF file's bytes, embedded unchanged; copied.</param>
+    /// <returns>The wrapper, not yet saved; dispose it when done.</returns>
+    /// <exception cref="ArgumentException">The payload is not encrypted, so names no cryptographic filter, and none is given.</exception>
+    /// <remarks>ISO 32000-2 §7.6.7 (PDF 2.0). As <see cref="CreateUnencryptedWrapper(ReadOnlySpan{byte}, PdfUnencryptedWrapperOptions)"/> with default options.</remarks>
+    public static PdfDocument CreateUnencryptedWrapper(ReadOnlySpan<byte> payload) => PdfEngine.Default.CreateUnencryptedWrapper(payload);
+
+    /// <summary>
+    /// Creates an unencrypted wrapper document around <paramref name="payload"/>, an encrypted PDF file, on an engine with default
+    /// options: a PDF 2.0 document whose collection presents the payload to readers that have its cryptographic filter, and whose
+    /// pages, the cover, are shown by readers that do not.
+    /// </summary>
+    /// <param name="payload">The encrypted PDF file's bytes, embedded unchanged; copied.</param>
+    /// <param name="options">The cover, the cryptographic filter, and the payload's name, description and date.</param>
+    /// <returns>The wrapper, not yet saved; dispose it when done.</returns>
+    /// <exception cref="ArgumentException">
+    /// The payload is not encrypted, so names no cryptographic filter, and <see cref="PdfUnencryptedWrapperOptions.CryptographicFilter"/>
+    /// is not set.
+    /// </exception>
+    /// <exception cref="NotSupportedException">The cover is encrypted and its streams cannot be copied (see <see cref="AppendPages(PdfDocument)"/>).</exception>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §7.6.7 (PDF 2.0) and Table 28. The payload is embedded (<c>application/pdf</c>, with <c>Params</c> <c>ModDate</c>,
+    /// §14.13.2) under a file specification with <c>AFRelationship</c> <c>EncryptedPayload</c> and an encrypted payload dictionary
+    /// (<c>EP</c>: <c>Type</c> <c>EncryptedPayload</c>, <c>Subtype</c> the cryptographic filter, <c>Version</c> when given); the
+    /// specification is the one entry of the <c>EmbeddedFiles</c> name tree and is listed in the catalog's <c>AF</c> array; the
+    /// catalog's <c>Collection</c> names it as the initial document (<c>D</c>) with <c>View</c> <c>H</c>. <c>F</c> and <c>UF</c> name
+    /// the filter, never the payload's own file name (Table 43). The wrapper reads back clean through <see cref="EncryptedPayload"/>.
+    /// </para>
+    /// <para>
+    /// The wrapper uses PDF 2.0 features, so a save declares PDF 2.0 (the version raising every save does). A payload that is not
+    /// encrypted (its trailer has no <c>Encrypt</c> entry, or it cannot be read as a PDF file) is an <c>EncryptedPayloadNotEncrypted</c>
+    /// warning, and refused in strict mode (<see cref="PdfOptions.UseStrict"/>, through <see cref="PdfEngine.CreateUnencryptedWrapper(ReadOnlySpan{byte}, PdfUnencryptedWrapperOptions)"/>).
+    /// </para>
+    /// </remarks>
+    public static PdfDocument CreateUnencryptedWrapper(ReadOnlySpan<byte> payload, PdfUnencryptedWrapperOptions options) =>
+        PdfEngine.Default.CreateUnencryptedWrapper(payload, options);
+
+    /// <summary>Creates an unencrypted wrapper on the engine whose configuration is <paramref name="configuration"/> (issue #235).</summary>
+    internal static PdfDocument CreateUnencryptedWrapper(EngineConfiguration configuration, ReadOnlySpan<byte> payload, PdfUnencryptedWrapperOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        byte[] contents = payload.ToArray();
+        CosName? encryptedBy = ReadEncryptionFilter(contents, configuration, out bool encrypted);
+        string filter = options.CryptographicFilter ?? encryptedBy?.Value ?? throw new ArgumentException(
+            "The payload names no cryptographic filter (it is not encrypted); give one with PdfUnencryptedWrapperOptions.WithCryptographicFilter (ISO 32000-2 §7.6.7, Table 28: Subtype is required).",
+            nameof(payload));
+        string name = options.Name ?? $"{filter} Protected PDF.pdf";
+
+        PdfDocument wrapper = options.Cover is null ? CreateNew(configuration) : CreateEmpty(configuration);
+        try
+        {
+            if (!encrypted)
+            {
+                // Strict mode throws here, before anything is embedded.
+                wrapper._diagnostics.Report(
+                    SecurityDiagnostics.EncryptedPayloadNotEncrypted,
+                    DiagnosticSeverity.Warning,
+                    $"The payload '{name}' of the unencrypted wrapper is not an encrypted PDF file (ISO 32000-2 §7.6.7: the wrapper embeds an encrypted payload); it is embedded anyway.");
+            }
+
+            if (options.Cover is { } cover)
+            {
+                wrapper.AppendPages(cover);
+            }
+
+            PdfFileSpecification file = wrapper.CreateEmbeddedFile(
+                name,
+                contents,
+                new PdfEmbeddedFileOptions()
+                    .WithMediaType("application/pdf")
+                    .WithDescription(options.Description ?? $"This embedded file is encrypted using the {filter} cryptographic filter.")
+                    .WithModificationDate(options.ModificationDate ?? wrapper.TimeProvider.GetUtcNow())
+                    .WithRelationship(PdfFileRelationship.EncryptedPayload));
+            var description = new CosDictionary
+            {
+                [KnownNames.Type] = FileAndLayerNames.EncryptedPayload,
+                [FileAndLayerNames.Subtype] = new CosName(filter),
+            };
+            if (options.CryptographicFilterVersion is { } version)
+            {
+                description[KnownNames.Version] = new CosName(version);
+            }
+
+            file.Dictionary![FileAndLayerNames.EP] = description;
+            wrapper.AddEmbeddedFile(name, file);
+            wrapper.AddAssociatedFile(wrapper.Catalog, file);
+            wrapper.Catalog[FileAndLayerNames.Collection] = new CosDictionary
+            {
+                [KnownNames.Type] = FileAndLayerNames.Collection,
+                [FileAndLayerNames.D] = new CosString(TextStringEncoder.Encode(name)),
+                [FileAndLayerNames.View] = HiddenView,
+            };
+            wrapper.RequireFeature(VersionedFeatures.UnencryptedWrapper);
+            return wrapper;
+        }
+        catch
+        {
+            wrapper.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Reads the security handler that encrypts <paramref name="file"/> from its trailer's <c>Encrypt</c> dictionary (§7.6.1,
+    /// Table 20 <c>Filter</c>) without authenticating; <paramref name="encrypted"/> is whether it has one. A file that cannot be read
+    /// is not encrypted; deviations met on the way are not reported (the payload is the caller's, and is embedded as it is).
+    /// </summary>
+    private static CosName? ReadEncryptionFilter(byte[] file, EngineConfiguration configuration, out bool encrypted)
+    {
+        encrypted = false;
+        using PdfSource source = PdfSource.FromMemory(file);
+        try
+        {
+            var diagnostics = new DiagnosticSink(strict: false, observer: null);
+            FileHeader header = FileHeader.Locate(source, diagnostics);
+            ObjectLoader? loader = null;
+            var streams = new StreamDecoder(
+                configuration.Filters,
+                configuration.MaxDecodedStreamLength,
+                diagnostics,
+                value => loader is not null ? loader.Resolve(value) : value is null or CosReference ? CosNull.Instance : value);
+            var scan = new Lazy<FileScan>(() => FileScan.Run(source), LazyThreadSafetyMode.None);
+            CrossReference crossReference = CrossReferenceReader.Read(source, header, streams, diagnostics, scan)
+                ?? Reconstruct(source, header, scan.Value, streams, diagnostics, reportMissingTrailer: false);
+            loader = new ObjectLoader(source, header, crossReference, diagnostics, new ObjectLoaderHooks(), streams) { Scan = scan };
+            if (!crossReference.Trailer.TryGetValue(KnownNames.Encrypt, out CosObject? entry) || loader.Resolve(entry) is not CosDictionary encryption)
+            {
+                return null;
+            }
+
+            encrypted = true;
+            CosName? filter = loader.Resolve(encryption.TryGetValue(FilterNames.Filter, out CosObject? named) ? named : null) as CosName;
+            return filter ?? (encryption.ContainsKey(KnownNames.R) ? KnownNames.Standard : null);
+        }
+        catch (DiagnosticException)
+        {
+            return null;
+        }
+    }
+
+    private static readonly CosName HiddenView = new("H");
 }

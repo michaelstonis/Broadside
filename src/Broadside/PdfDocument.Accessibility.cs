@@ -109,7 +109,7 @@ public sealed partial class PdfDocument
         {
             string name = Describe(options.PdfUAConformance);
             _diagnostics.Report(
-                DiagnosticCodes.PdfUANotIdentified,
+                SavingDiagnostics.PdfUANotIdentified,
                 DiagnosticSeverity.Information,
                 $"The file is saved without the {name} identification or other PDF/UA changes: the document cannot conform (see the PdfUANonConformant diagnostics).");
         }
@@ -117,7 +117,7 @@ public sealed partial class PdfDocument
         foreach (PdfWellTaggedConformance level in Levels(options.WellTaggedConformance & ~accessible.WellTagged))
         {
             _diagnostics.Report(
-                DiagnosticCodes.WellTaggedNotDeclared,
+                SavingDiagnostics.WellTaggedNotDeclared,
                 DiagnosticSeverity.Information,
                 $"The file is saved without the PDF Declaration of {Describe(level)}: the document cannot conform (see the WellTaggedNonConformant diagnostics).");
         }
@@ -125,14 +125,14 @@ public sealed partial class PdfDocument
 
     private void ReportAccessibilityNonConformance(PdfUAConformance conformance, PdfAViolation violation) =>
         _diagnostics.Report(
-            DiagnosticCodes.PdfUANonConformant,
+            SavingDiagnostics.PdfUANonConformant,
             DiagnosticSeverity.Warning,
             $"The file cannot conform to {Describe(conformance)}: {violation.Message} (veraPDF rule {violation.Rule}, {Clause(conformance == PdfUAConformance.PdfUA2 ? "ISO 14289-2" : "ISO 14289-1", violation.Rule)}).",
             objectReference: violation.Reference);
 
     private void ReportWellTaggedNonConformance(PdfWellTaggedConformance level, PdfAViolation violation) =>
         _diagnostics.Report(
-            DiagnosticCodes.WellTaggedNonConformant,
+            SavingDiagnostics.WellTaggedNonConformant,
             DiagnosticSeverity.Warning,
             $"The file cannot conform to {Describe(level)}: {violation.Message} (veraPDF rule {violation.Rule}, {Clause("WTPDF 1.0", violation.Rule)}).",
             objectReference: violation.Reference);

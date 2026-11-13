@@ -195,5 +195,5 @@ internal sealed class PostTable
     }
 
     private static void Report(FontProgramContext context, string problem) =>
-        context.Report(DiagnosticCodes.FontTableInvalid, DiagnosticSeverity.Warning, $"The font program's \"post\" table deviates from the OpenType specification: {problem}.");
+        context.Report(FontDiagnostics.FontTableInvalid, DiagnosticSeverity.Warning, $"The font program's \"post\" table deviates from the OpenType specification: {problem}.");
 }

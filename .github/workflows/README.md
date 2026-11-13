@@ -46,6 +46,15 @@ On `pull_request_target` `labeled` with `perf` only (every other label skips its
 
 It is `pull_request_target` so that it also works for a fork's pull request, whose `pull_request` token is read-only. That is safe because the job is metadata-only: it checks out and runs nothing from the pull request, takes only the label name (in `if:`) and the head SHA (through an environment variable) from the event, and its token has `actions: write` and `pull-requests: read` only (the file's header comment has the reasoning; keep it that way). `pull_request_target` runs the base branch's copy of the file, so it works for pull requests into a branch once the file is on that branch.
 
+## `render-determinism.yml`: the software rasterizer's bytes on every platform
+
+The software rasterizer must draw the same bytes on every platform (issue #233). Runs on every pull request whose diff touches `src/Broadside/**`, `src/Broadside.Rendering/**`, the Standard 14 and CMap packages, `tests/Corpus/**`, the golden-image harness, `tests/Broadside.TestSupport/**`, `tests/Broadside.Rendering.Tests/**`, `global.json`, the shared props or the workflow; on pushes to `main`; and on the "Run workflow" button.
+
+| Job | Runs on | What it does |
+|---|---|---|
+| `render (<leg>)` | `linux-x64` (ubuntu), `windows-x64` (windows), `macos-arm64` (macos), `linux-x64-no-intrinsics` (ubuntu, `DOTNET_EnableHWIntrinsic=0`) | Builds `tests/Broadside.Rendering.Tests` and runs the `RenderHash` trait with `BROADSIDE_RENDER_HASH_OUTPUT` set: every page of every hand-written corpus file at 72 and 150 DPI, rendered twice (the warm render must equal the cold one), hashed into `render-hashes.txt` with each render saved as a PNG. Uploads them as `render-hashes-<leg>`. |
+| `compare` | ubuntu | Downloads the four runs and runs the `RenderHashComparison` trait with `BROADSIDE_RENDER_HASH_COMPARE` pointing at them: fails listing every render whose hash differs (or is missing) per runner, and uploads diff images (the first runner's render against each differing one, red where pixels differ) as `render-hash-differences`. |
+
 ## `corpus.yml`: weekly (Monday 04:17 UTC) and the "Run workflow" button
 
 | Job | Runs on | What it does |

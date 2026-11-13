@@ -70,7 +70,7 @@ internal static class DocumentSecurity
             }
 
             diagnostics.Report(
-                DiagnosticCodes.EncryptDictionaryInvalid,
+                SecurityDiagnostics.EncryptDictionaryInvalid,
                 DiagnosticSeverity.Error,
                 "The trailer's Encrypt entry is not a dictionary; the document is read as not encrypted.");
             return null;
@@ -81,7 +81,7 @@ internal static class DocumentSecurity
         if (filter is null && encryption.ContainsKey(KnownNames.R))
         {
             diagnostics.Report(
-                DiagnosticCodes.EncryptDictionaryInvalid,
+                SecurityDiagnostics.EncryptDictionaryInvalid,
                 DiagnosticSeverity.Warning,
                 "The encryption dictionary has no Filter entry; its R entry marks it as the standard security handler's.");
             filter = KnownNames.Standard;
@@ -259,7 +259,7 @@ internal static class DocumentSecurity
         }
 
         diagnostics.Report(
-            DiagnosticCodes.EncryptionExtensionMissing,
+            SecurityDiagnostics.EncryptionExtensionMissing,
             DiagnosticSeverity.Warning,
             string.Create(CultureInfo.InvariantCulture, $"The document uses ISO/TS {level} but its catalog's Extensions dictionary has no ISO_ entry with ExtensionLevel {level} (clause 4); it is read anyway."));
     }
@@ -273,7 +273,7 @@ internal static class DocumentSecurity
         }
 
         diagnostics.Report(
-            DiagnosticCodes.EncryptionIdMissing,
+            SecurityDiagnostics.EncryptionIdMissing,
             DiagnosticSeverity.Warning,
             "The trailer of an encrypted document shall have an ID array of two strings; an empty identifier is used.");
         return ReadOnlyMemory<byte>.Empty;

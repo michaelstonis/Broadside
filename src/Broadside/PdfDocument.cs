@@ -166,7 +166,7 @@ public sealed partial class PdfDocument : IDisposable
             }
 
             _diagnostics.Report(
-                DiagnosticCodes.NameDictionaryInvalid,
+                NavigationDiagnostics.NameDictionaryInvalid,
                 DiagnosticSeverity.Warning,
                 "The catalog's Names entry is not a dictionary; the document is read as having no name dictionary.",
                 objectReference: entry as CosReference);
@@ -196,7 +196,7 @@ public sealed partial class PdfDocument : IDisposable
                     return null;
                 default:
                     _diagnostics.Report(
-                        DiagnosticCodes.OutlineInvalid,
+                        NavigationDiagnostics.OutlineInvalid,
                         DiagnosticSeverity.Warning,
                         "The catalog's Outlines entry is not a dictionary; the document is read as having no outline.",
                         objectReference: entry as CosReference);
@@ -858,7 +858,7 @@ public sealed partial class PdfDocument : IDisposable
                 return null;
             default:
                 _diagnostics.Report(
-                    DiagnosticCodes.DestinationInvalid,
+                    NavigationDiagnostics.DestinationInvalid,
                     DiagnosticSeverity.Warning,
                     "A named destination's SD entry is not a destination array; it is ignored and D is used.",
                     objectReference: reference);
@@ -905,7 +905,7 @@ public sealed partial class PdfDocument : IDisposable
         }
 
         _diagnostics.Report(
-            DiagnosticCodes.DestinationInvalid,
+            NavigationDiagnostics.DestinationInvalid,
             DiagnosticSeverity.Warning,
             "A named destination's value is neither a destination array nor a dictionary with a D entry; the name shows no page.",
             objectReference: reference);
@@ -926,7 +926,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <param name="root">The root node or a reference to it.</param>
     /// <returns>The reader; <see langword="null"/> when the root does not resolve to a dictionary.</returns>
     internal NameTreeReader? GetNameTreeReader(CosObject? root) =>
-        ResolveTreeRoot(root, DiagnosticCodes.NameTreeNodeInvalid, "name tree") is { } node
+        ResolveTreeRoot(root, NavigationDiagnostics.NameTreeNodeInvalid, "name tree") is { } node
             ? _nameTrees.GetValue(node, dictionary => new NameTreeReader(dictionary, root as CosReference, Resolve, _diagnostics, () => ObjectsVersion))
             : null;
 
@@ -934,7 +934,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <param name="root">The root node or a reference to it.</param>
     /// <returns>The reader; <see langword="null"/> when the root does not resolve to a dictionary.</returns>
     internal NumberTreeReader? GetNumberTreeReader(CosObject? root) =>
-        ResolveTreeRoot(root, DiagnosticCodes.NumberTreeNodeInvalid, "number tree") is { } node
+        ResolveTreeRoot(root, NavigationDiagnostics.NumberTreeNodeInvalid, "number tree") is { } node
             ? _numberTrees.GetValue(node, dictionary => new NumberTreeReader(dictionary, root as CosReference, Resolve, _diagnostics, () => ObjectsVersion))
             : null;
 
@@ -1005,7 +1005,7 @@ public sealed partial class PdfDocument : IDisposable
                 }
                 else
                 {
-                    ViewReading.Warn(this, DiagnosticCodes.FileSpecificationInvalid, $"The EmbeddedFiles entry '{entry.Key.DecodeText()}' is not a file specification; it is skipped.", tree.RootReference);
+                    ViewReading.Warn(this, FileSpecificationDiagnostics.FileSpecificationInvalid, $"The EmbeddedFiles entry '{entry.Key.DecodeText()}' is not a file specification; it is skipped.", tree.RootReference);
                 }
             }
 
@@ -1025,34 +1025,11 @@ public sealed partial class PdfDocument : IDisposable
     public IReadOnlyList<PdfDeclaration> Declarations => PdfDeclaration.Read(Metadata?.Packet);
 
     /// <summary>Gets the files associated with the whole document (the catalog's <c>AF</c>).</summary>
-    /// <remarks>ISO 32000-2 §7.7.2, Table 29 (PDF 2.0), and §14.13.3. Read on every call.</remarks>
-    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => ReadAssociatedFiles(Catalog, CatalogReference);
-
-    /// <summary>Returns the associated files listed in the <c>AF</c> entry of <paramref name="owner"/>.</summary>
-    /// <param name="owner">Any dictionary or stream dictionary of this document: a structure element, an annotation, a form field.</param>
-    /// <param name="ownerReference">The owner's indirect reference, for diagnostics.</param>
-    /// <returns>The file specifications, in order.</returns>
-    /// <remarks>
-    /// ISO 32000-2 §14.13.2 (PDF 2.0): <c>AF</c> is an array of file specification dictionaries. A single dictionary is read as an
-    /// array of one and a file specification string is accepted, both with an <c>AssociatedFilesInvalid</c> diagnostic. An embedded
-    /// associated file without <c>Subtype</c>, or with <c>Params</c> but no <c>ModDate</c>, is reported. A missing
-    /// <c>AFRelationship</c> means Unspecified and is not reported.
-    /// </remarks>
-    public IReadOnlyList<PdfFileSpecification> ReadAssociatedFiles(CosDictionary owner, CosReference? ownerReference = null)
-    {
-        ArgumentNullException.ThrowIfNull(owner);
-        return owner.TryGetValue(FileAndLayerNames.AF, out CosObject? value) ? AssociatedFileReader.Read(this, value, ownerReference) : [];
-    }
-
-    /// <summary>Returns the associated files of a marked-content sequence, from the property list of its <c>/AF</c> tag.</summary>
-    /// <param name="properties">The property list operand of <c>/AF ... BDC</c>, resolved from the <c>Properties</c> resource, or a reference to it.</param>
-    /// <returns>The file specifications.</returns>
-    /// <remarks>
-    /// ISO 32000-2 §14.13.5 and errata Table 409a: a property list dictionary whose <c>MCAF</c> array lists the files (each shall
-    /// have <c>AFRelationship</c>), or, as in the original text's Example 2, a resource that is the array itself. Both are accepted.
-    /// </remarks>
-    public IReadOnlyList<PdfFileSpecification> ReadMarkedContentAssociatedFiles(CosObject? properties) =>
-        AssociatedFileReader.ReadMarkedContent(this, properties, properties as CosReference);
+    /// <remarks>ISO 32000-2 §7.7.2, Table 29 (PDF 2.0), and §14.13.3. Read on every call: a live view over the catalog's <c>AF</c> array.
+    /// A single dictionary is read as an array of one and a file specification string is accepted, both with an <c>AssociatedFilesInvalid</c>
+    /// diagnostic (§14.13.2). An embedded associated file without <c>Subtype</c>, or with <c>Params</c> but no <c>ModDate</c>, is reported.
+    /// A missing <c>AFRelationship</c> means Unspecified and is not reported.</remarks>
+    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => AssociatedFileReader.ReadOwner(this, Catalog, CatalogReference);
 
     /// <summary>Enumerates every associated file of the document with the object it is associated with.</summary>
     /// <param name="deep">
@@ -1320,7 +1297,7 @@ public sealed partial class PdfDocument : IDisposable
         return ColorSpaces.GetConverter(source, conversion, defaults ?? PdfDefaultColorSpaces.None);
     }
 
-    private CosDictionary? ResolveTreeRoot(CosObject? root, string code, string kind)
+    private CosDictionary? ResolveTreeRoot(CosObject? root, DiagnosticCode code, string kind)
     {
         switch (Resolve(root))
         {
@@ -1513,7 +1490,7 @@ public sealed partial class PdfDocument : IDisposable
         if (deprecated is not null)
         {
             _diagnostics.Report(
-                DiagnosticCodes.EncryptionDeprecated,
+                SecurityDiagnostics.EncryptionDeprecated,
                 DiagnosticSeverity.Warning,
                 $"The saved file is encrypted with {deprecated}, which is deprecated in PDF 2.0 (ISO 32000-2 §7.6.2, Table 20; RC4 offers little protection); AES-256 is the PDF 2.0 algorithm.");
         }
@@ -1547,7 +1524,7 @@ public sealed partial class PdfDocument : IDisposable
         if (IsLinearized)
         {
             _diagnostics.Report(
-                DiagnosticCodes.LinearizationDropped,
+                FileStructureDiagnostics.LinearizationDropped,
                 DiagnosticSeverity.Information,
                 "The incremental update leaves the linearized file unlinearized: its linearization dictionary's L entry no longer matches the file length (ISO 32000-2 F.1, G.7). Save with Linearize to linearize it again.",
                 objectReference: Linearization!.Reference);
@@ -1620,7 +1597,7 @@ public sealed partial class PdfDocument : IDisposable
                 // not, the cross-reference information is not trusted either: rebuild it by scanning, which also finds a catalog no
                 // trailer names.
                 diagnostics.Report(
-                    encryptUnusable ? DiagnosticCodes.EncryptDictionaryInvalid : DiagnosticCodes.RootMissing,
+                    encryptUnusable ? SecurityDiagnostics.EncryptDictionaryInvalid : FileStructureDiagnostics.RootMissing,
                     DiagnosticSeverity.Warning,
                     encryptUnusable
                         ? "The trailer's Encrypt entry does not resolve to the encryption dictionary; the cross-reference information is rebuilt by scanning the file."
@@ -1673,7 +1650,7 @@ public sealed partial class PdfDocument : IDisposable
             if (security is null && document.Version >= Pdf20 && !loader.CrossReference.Trailer.ContainsKey(KnownNames.ID))
             {
                 diagnostics.Report(
-                    DiagnosticCodes.TrailerIdMissing,
+                    FileStructureDiagnostics.TrailerIdMissing,
                     DiagnosticSeverity.Warning,
                     "The document is PDF 2.0, whose trailer shall have an ID entry; it has none.");
             }
@@ -1747,7 +1724,7 @@ public sealed partial class PdfDocument : IDisposable
         if (crossReference is null)
         {
             diagnostics.Fail(
-                DiagnosticCodes.CatalogNotFound,
+                FileStructureDiagnostics.CatalogNotFound,
                 "The cross-reference information cannot be read, and scanning the file finds no catalog dictionary: the file cannot be read.");
         }
 
@@ -1763,7 +1740,7 @@ public sealed partial class PdfDocument : IDisposable
         if (root is CosDictionary)
         {
             diagnostics.Report(
-                DiagnosticCodes.RootNotIndirect,
+                FileStructureDiagnostics.RootNotIndirect,
                 DiagnosticSeverity.Warning,
                 "The trailer's Root entry shall be an indirect reference; it is a direct dictionary.");
         }
@@ -1772,7 +1749,7 @@ public sealed partial class PdfDocument : IDisposable
         {
             if (reportUnusableRoot)
             {
-                diagnostics.Fail(DiagnosticCodes.RootMissing, "The trailer has no Root entry that resolves to the catalog dictionary.");
+                diagnostics.Fail(FileStructureDiagnostics.RootMissing, "The trailer has no Root entry that resolves to the catalog dictionary.");
             }
 
             return null;
@@ -1781,7 +1758,7 @@ public sealed partial class PdfDocument : IDisposable
         if (!catalog.TryGetValue(KnownNames.Type, out CosObject? type) || !KnownNames.Catalog.Equals(type))
         {
             diagnostics.Report(
-                DiagnosticCodes.CatalogTypeInvalid,
+                DocumentDiagnostics.CatalogTypeInvalid,
                 DiagnosticSeverity.Warning,
                 "The catalog dictionary's Type entry shall be /Catalog.",
                 objectReference: root as CosReference);
@@ -1807,7 +1784,7 @@ public sealed partial class PdfDocument : IDisposable
         if (entry is CosNumber number && PdfVersion.TryFromNumber(number, out version))
         {
             diagnostics?.Report(
-                DiagnosticCodes.CatalogVersionNotName,
+                DocumentDiagnostics.CatalogVersionNotName,
                 DiagnosticSeverity.Warning,
                 "The catalog's Version entry shall be a name such as /1.7; it is a number, read as that version.",
                 objectReference: catalogReference);
@@ -1815,7 +1792,7 @@ public sealed partial class PdfDocument : IDisposable
         }
 
         diagnostics?.Report(
-            DiagnosticCodes.CatalogVersionInvalid,
+            DocumentDiagnostics.CatalogVersionInvalid,
             DiagnosticSeverity.Warning,
             "The catalog's Version entry is not a version name such as /1.7; it is ignored.",
             objectReference: catalogReference);

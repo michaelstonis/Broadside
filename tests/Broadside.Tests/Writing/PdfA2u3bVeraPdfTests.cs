@@ -23,7 +23,7 @@ public sealed class PdfA2u3bVeraPdfTests
 
         byte[] saved = PdfA2u3bConformanceTests.Save(document, conformance);
 
-        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code is DiagnosticCodes.PdfANonConformant or DiagnosticCodes.PdfANotIdentified);
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.PdfANonConformant || diagnostic.Kind == SavingDiagnostics.PdfANotIdentified);
         Assert.Empty(VeraPdf.FailedRules(saved, flavour));
     }
 
@@ -36,7 +36,7 @@ public sealed class PdfA2u3bVeraPdfTests
         PdfA2u3bConformanceTests.Save(document, PdfAConformance.PdfA2u);
         byte[] asLevelB = PdfA2u3bConformanceTests.Save(document, PdfAConformance.PdfA2b);
 
-        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANonConformant && diagnostic.Message.Contains("6.2.11.7.2-1", StringComparison.Ordinal));
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANonConformant.Name && diagnostic.Message.Contains("6.2.11.7.2-1", StringComparison.Ordinal));
         Assert.Empty(VeraPdf.FailedRules(asLevelB, "2b"));
         Assert.Contains(VeraPdf.FailedRules(asLevelB, "2u"), rule => rule.StartsWith("6.2.11.7.2-1:", StringComparison.Ordinal));
     }
@@ -53,7 +53,7 @@ public sealed class PdfA2u3bVeraPdfTests
 
         byte[] saved = PdfA2u3bConformanceTests.Save(document, conformance);
 
-        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code is DiagnosticCodes.PdfANonConformant or DiagnosticCodes.PdfANotIdentified);
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.PdfANonConformant || diagnostic.Kind == SavingDiagnostics.PdfANotIdentified);
         Assert.Empty(VeraPdf.FailedRules(saved, flavour));
     }
 

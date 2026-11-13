@@ -54,14 +54,14 @@ internal static class XrefStreamReader
         CosDictionary dictionary = stream.Dictionary;
         if (!dictionary.TryGetValue(KnownNames.Type, out CosObject? type) || !KnownNames.XRef.Equals(type))
         {
-            Report(diagnostics, DiagnosticCodes.XrefStreamTypeInvalid, DiagnosticSeverity.Warning, "The cross-reference stream's Type entry shall be /XRef; the stream is read as one.", offset, reference);
+            Report(diagnostics, FileStructureDiagnostics.XrefStreamTypeInvalid, DiagnosticSeverity.Warning, "The cross-reference stream's Type entry shall be /XRef; the stream is read as one.", offset, reference);
         }
 
         if (!TryReadWidths(dictionary, out int[] widths))
         {
             Report(
                 diagnostics,
-                DiagnosticCodes.XrefStreamWidthsInvalid,
+                FileStructureDiagnostics.XrefStreamWidthsInvalid,
                 DiagnosticSeverity.Error,
                 $"The cross-reference stream's W entry shall be an array of three direct integers from 0 to {MaxFieldWidth} with a positive sum; the section cannot be read.",
                 offset,
@@ -155,7 +155,7 @@ internal static class XrefStreamReader
                 return false;
             }
 
-            Report(diagnostics, DiagnosticCodes.XrefSectionInvalid, DiagnosticSeverity.Error, "Expected the xref keyword or the header of a cross-reference stream object.", offset, null);
+            Report(diagnostics, FileStructureDiagnostics.XrefSectionInvalid, DiagnosticSeverity.Error, "Expected the xref keyword or the header of a cross-reference stream object.", offset, null);
             return true;
         }
 
@@ -177,7 +177,7 @@ internal static class XrefStreamReader
 
         if (value is not CosStream parsedStream)
         {
-            Report(diagnostics, DiagnosticCodes.XrefSectionInvalid, DiagnosticSeverity.Error, "The object at the cross-reference offset is not a stream.", offset, reference);
+            Report(diagnostics, FileStructureDiagnostics.XrefSectionInvalid, DiagnosticSeverity.Error, "The object at the cross-reference offset is not a stream.", offset, reference);
             return true;
         }
 
@@ -189,7 +189,7 @@ internal static class XrefStreamReader
         }
         else
         {
-            diagnostics.Report(DiagnosticCodes.MissingEndobj, DiagnosticSeverity.Warning, "The object is not followed by the endobj keyword; it ends here.", offset + endobj.Start, reference);
+            diagnostics.Report(FileStructureDiagnostics.MissingEndobj, DiagnosticSeverity.Warning, "The object is not followed by the endobj keyword; it ends here.", offset + endobj.Start, reference);
             end = offset + parser.Position;
         }
 
@@ -230,7 +230,7 @@ internal static class XrefStreamReader
 
         Report(
             diagnostics,
-            DiagnosticCodes.XrefStreamSizeInvalid,
+            FileStructureDiagnostics.XrefStreamSizeInvalid,
             DiagnosticSeverity.Warning,
             "The cross-reference stream's Size entry shall be a direct, non-negative integer; the entries are read as far as the data goes.",
             offset,
@@ -269,7 +269,7 @@ internal static class XrefStreamReader
 
         Report(
             diagnostics,
-            DiagnosticCodes.XrefStreamIndexInvalid,
+            FileStructureDiagnostics.XrefStreamIndexInvalid,
             DiagnosticSeverity.Warning,
             "The cross-reference stream's Index entry shall be an array of pairs of direct, non-negative integers; the default [0 Size] is used.",
             offset,
@@ -301,7 +301,7 @@ internal static class XrefStreamReader
                 {
                     Report(
                         diagnostics,
-                        DiagnosticCodes.XrefStreamDataTruncated,
+                        FileStructureDiagnostics.XrefStreamDataTruncated,
                         DiagnosticSeverity.Warning,
                         "The cross-reference stream's data ends before the last entry its Index and W entries describe; the entries after it are missing.",
                         offset,
@@ -322,7 +322,7 @@ internal static class XrefStreamReader
                 {
                     Report(
                         diagnostics,
-                        DiagnosticCodes.CrossReferenceEntryLimitExceeded,
+                        FileStructureDiagnostics.CrossReferenceEntryLimitExceeded,
                         DiagnosticSeverity.Error,
                         string.Create(CultureInfo.InvariantCulture, $"The cross-reference streams describe more objects than the file has bytes (at least {XrefEntryBudget.Minimum}); the entries from object {number} on are not read."),
                         offset,
@@ -331,7 +331,7 @@ internal static class XrefStreamReader
                 }
 
                 beyondSize |= number >= size;
-                string? problem = DecodeEntry(row, widths, out XrefEntry entry);
+                DiagnosticCode? problem = DecodeEntry(row, widths, out XrefEntry entry);
                 if (problem is not null)
                 {
                     Report(
@@ -351,7 +351,7 @@ internal static class XrefStreamReader
         {
             Report(
                 diagnostics,
-                DiagnosticCodes.XrefStreamSizeInvalid,
+                FileStructureDiagnostics.XrefStreamSizeInvalid,
                 DiagnosticSeverity.Warning,
                 "The cross-reference stream has entries for object numbers at or beyond its Size entry; they are kept.",
                 offset,
@@ -361,7 +361,7 @@ internal static class XrefStreamReader
 
     /// <summary>Decodes one row (Table 18): fields big-endian, absent fields take their defaults, an unknown type is the null object.</summary>
     /// <returns>The diagnostic code of the problem when the row is unusable (the entry is then free), else <see langword="null"/>.</returns>
-    private static string? DecodeEntry(ReadOnlySpan<byte> row, int[] widths, out XrefEntry entry)
+    private static DiagnosticCode? DecodeEntry(ReadOnlySpan<byte> row, int[] widths, out XrefEntry entry)
     {
         long type = widths[0] == 0 ? 1 : Field(row[..widths[0]]);
         long field2 = Field(row.Slice(widths[0], widths[1]));
@@ -380,7 +380,7 @@ internal static class XrefStreamReader
                 entry = new XrefEntry(XrefEntryKind.Compressed, field2, (int)field3);
                 return null;
             case 1 or 2:
-                return DiagnosticCodes.XrefEntryInvalid;
+                return FileStructureDiagnostics.XrefEntryInvalid;
             default:
                 // Table 18: "Any other value shall be interpreted as a reference to the null object", which a free entry reads as.
                 return null;
@@ -399,6 +399,6 @@ internal static class XrefStreamReader
         return value;
     }
 
-    private static void Report(DiagnosticSink diagnostics, string code, DiagnosticSeverity severity, string message, long offset, CosReference? reference) =>
+    private static void Report(DiagnosticSink diagnostics, DiagnosticCode code, DiagnosticSeverity severity, string message, long offset, CosReference? reference) =>
         diagnostics.Report(code, severity, message, offset, reference);
 }

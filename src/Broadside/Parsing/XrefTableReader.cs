@@ -7,7 +7,7 @@ namespace Broadside.Parsing;
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §7.5.4 and §7.5.5. Entries are read as tokens, not as fixed 20-byte records, so a table with wrong line endings or
-/// padding still reads (as pdf.js and PDFBox do), with one <see cref="DiagnosticCodes.XrefEntryFormatInvalid"/> per section. A
+/// padding still reads (as pdf.js and PDFBox do), with one <see cref="FileStructureDiagnostics.XrefEntryFormatInvalid"/> per section. A
 /// subsection numbered from 1 whose first entry is the head of the free list is renumbered from 0, as pdf.js does.
 /// </para>
 /// <para>
@@ -36,7 +36,7 @@ internal static class XrefTableReader
             if (trailerKeyword < 0)
             {
                 diagnostics.Report(
-                    DiagnosticCodes.TrailerMissing,
+                    FileStructureDiagnostics.TrailerMissing,
                     DiagnosticSeverity.Error,
                     "The cross-reference section has no trailer keyword.",
                     sectionOffset);
@@ -57,7 +57,7 @@ internal static class XrefTableReader
         if (trailer is not CosDictionary dictionary)
         {
             diagnostics.Report(
-                DiagnosticCodes.TrailerMissing,
+                FileStructureDiagnostics.TrailerMissing,
                 DiagnosticSeverity.Error,
                 "The trailer keyword is not followed by a dictionary.",
                 sectionOffset + lexer.Position);
@@ -89,7 +89,7 @@ internal static class XrefTableReader
             if (!readFirst || !StructureTokens.TryReadUnsigned(ref lexer, out long count))
             {
                 diagnostics.Report(
-                    DiagnosticCodes.XrefSectionInvalid,
+                    FileStructureDiagnostics.XrefSectionInvalid,
                     DiagnosticSeverity.Error,
                     "Expected a subsection header (first object number and entry count) or the trailer keyword.",
                     subsectionStart);
@@ -102,7 +102,7 @@ internal static class XrefTableReader
                 // terminated by an end-of-line marker". Read as tokens anyway.
                 headerReported = true;
                 diagnostics.Report(
-                    DiagnosticCodes.XrefSubsectionHeaderInvalid,
+                    FileStructureDiagnostics.XrefSubsectionHeaderInvalid,
                     DiagnosticSeverity.Warning,
                     "A subsection header is not a line of exactly two integers separated by one space; it is read as tokens.",
                     subsectionStart);
@@ -118,7 +118,7 @@ internal static class XrefTableReader
                 if (!TryReadEntry(ref lexer, out XrefEntry entry) || first + index > int.MaxValue)
                 {
                     diagnostics.Report(
-                        DiagnosticCodes.XrefEntryInvalid,
+                        FileStructureDiagnostics.XrefEntryInvalid,
                         DiagnosticSeverity.Error,
                         "Expected a cross-reference entry: a 10-digit offset, a 5-digit generation and n or f.",
                         entryStart);
@@ -130,7 +130,7 @@ internal static class XrefTableReader
                     // §7.5.4: "each entry shall be exactly 20 bytes long, including the end-of-line marker". Read as tokens anyway.
                     formatReported = true;
                     diagnostics.Report(
-                        DiagnosticCodes.XrefEntryFormatInvalid,
+                        FileStructureDiagnostics.XrefEntryFormatInvalid,
                         DiagnosticSeverity.Warning,
                         "A cross-reference entry is not 20 bytes long (10-digit offset, space, 5-digit generation, space, n or f, two-byte end of line); the section is read entry by entry.",
                         entryStart);
@@ -142,7 +142,7 @@ internal static class XrefTableReader
                     // entry by one. Renumber from 0, as pdf.js does.
                     first = 0;
                     diagnostics.Report(
-                        DiagnosticCodes.XrefSubsectionNumberingInvalid,
+                        FileStructureDiagnostics.XrefSubsectionNumberingInvalid,
                         DiagnosticSeverity.Warning,
                         "The subsection starts at object 1, but its first entry is the head of the free list, which is object 0; the subsection is read as starting at 0.",
                         subsectionStart);
