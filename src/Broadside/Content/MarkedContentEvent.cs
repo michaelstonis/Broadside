@@ -28,6 +28,17 @@ public readonly ref struct MarkedContentEvent
     /// </summary>
     public CosObject? PropertiesObject { get; internal init; }
 
+    /// <summary>
+    /// Gets the files associated with the sequence: those of its property list's <c>MCAF</c> array, or the bare array a named
+    /// <c>AF</c> resource is. Empty when the sequence has no named property list. Read on every access.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §14.13.5 and errata Table 409a. Allocates only when read; the event itself stays allocation-free.</remarks>
+    public IReadOnlyList<PdfFileSpecification> AssociatedFiles =>
+        Document is { } document ? AssociatedFileReader.ReadMarkedContent(document, PropertiesObject, PropertiesObject as CosReference) : [];
+
+    /// <summary>The document the sequence is in, for <see cref="AssociatedFiles"/>.</summary>
+    internal PdfDocument? Document { get; init; }
+
     /// <summary>Gets the marked-content identifier <c>MCID</c> (§14.7.5.2), or <see langword="null"/>.</summary>
     public int? Mcid { get; internal init; }
 
