@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Globalization;
+using Broadside.Diagnostics;
 
 namespace Broadside.Objects;
 
@@ -70,7 +71,7 @@ internal ref struct CosParser
     {
         if (!IsAtEnd())
         {
-            Report(CosRepairCodes.TrailingContent, _lexer.Position, "Expected the end of the input after the object.");
+            Report(ObjectSyntaxDiagnostics.TrailingContent, _lexer.Position, "Expected the end of the input after the object.");
         }
     }
 
@@ -83,7 +84,7 @@ internal ref struct CosParser
         switch (token.Kind)
         {
             case CosTokenKind.EndOfInput:
-                Report(CosRepairCodes.UnexpectedEndOfInput, token.Start, "Expected an object.");
+                Report(ObjectSyntaxDiagnostics.UnexpectedEndOfInput, token.Start, "Expected an object.");
                 return CosNull.Instance;
             case CosTokenKind.Integer:
                 return ParseIntegerOrReference(token);
@@ -145,7 +146,7 @@ internal ref struct CosParser
                 }
 
                 Report(
-                    CosRepairCodes.ReferenceInvalid,
+                    ObjectSyntaxDiagnostics.ReferenceInvalid,
                     first.Start,
                     "An indirect reference needs a positive object number and a generation number from 0 to 65535; read as null.");
                 return CosNull.Instance;
@@ -166,7 +167,7 @@ internal ref struct CosParser
 
         if (!IsWellFormedNumber(text))
         {
-            Report(CosRepairCodes.NumberMalformed, token.Start, "A number must be digits with an optional sign and at most one period.");
+            Report(ObjectSyntaxDiagnostics.NumberMalformed, token.Start, "A number must be digits with an optional sign and at most one period.");
             Span<byte> scratch = text.Length < 256 ? stackalloc byte[256] : new byte[text.Length + 2];
             ReadOnlySpan<byte> prefix = WellFormedPrefix(text, scratch);
             return !prefix.Contains((byte)'.') && TryParseStrictInteger(prefix, out integer)
@@ -183,7 +184,7 @@ internal ref struct CosParser
         double value = double.Parse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture);
         if (!double.IsFinite(value))
         {
-            Report(CosRepairCodes.NumberOutOfRange, token.Start, "The number is too large for a double; clamped to the largest finite value.");
+            Report(ObjectSyntaxDiagnostics.NumberOutOfRange, token.Start, "The number is too large for a double; clamped to the largest finite value.");
             value = double.IsNegative(value) ? double.MinValue : double.MaxValue;
         }
 
@@ -235,7 +236,7 @@ internal ref struct CosParser
 
         if (depth != 0)
         {
-            Report(CosRepairCodes.StringUnterminated, token.Start, "The literal string has no closing parenthesis; it runs to the end of the input.");
+            Report(ObjectSyntaxDiagnostics.StringUnterminated, token.Start, "The literal string has no closing parenthesis; it runs to the end of the input.");
         }
 
         var result = CosString.FromOwnedBytes(output[..written].ToArray(), hexadecimal: false);
@@ -317,7 +318,7 @@ internal ref struct CosParser
             {
                 if (!CosLexer.IsWhitespace(character) && !reportedInvalid)
                 {
-                    Report(CosRepairCodes.HexStringInvalidDigit, token.Start, "The hexadecimal string contains a byte that is neither a hexadecimal digit nor white-space; ignored.");
+                    Report(ObjectSyntaxDiagnostics.HexStringInvalidDigit, token.Start, "The hexadecimal string contains a byte that is neither a hexadecimal digit nor white-space; ignored.");
                     reportedInvalid = true;
                 }
 
@@ -343,7 +344,7 @@ internal ref struct CosParser
 
         if (!terminated)
         {
-            Report(CosRepairCodes.HexStringUnterminated, token.Start, "The hexadecimal string has no closing angle bracket; it runs to the end of the input.");
+            Report(ObjectSyntaxDiagnostics.HexStringUnterminated, token.Start, "The hexadecimal string has no closing angle bracket; it runs to the end of the input.");
         }
 
         return CosString.FromOwnedBytes(written == output.Length ? output : output[..written], hexadecimal: true);
@@ -368,7 +369,7 @@ internal ref struct CosParser
                 int low = index + 2 < text.Length ? HexValue(text[index + 2]) : -1;
                 if (high < 0 || low < 0)
                 {
-                    Report(CosRepairCodes.NameInvalidEscape, token.Start, "A number sign in a name is not followed by two hexadecimal digits; read as a literal number sign.");
+                    Report(ObjectSyntaxDiagnostics.NameInvalidEscape, token.Start, "A number sign in a name is not followed by two hexadecimal digits; read as a literal number sign.");
                 }
                 else
                 {
@@ -376,7 +377,7 @@ internal ref struct CosParser
                     current = (byte)((high << 4) | low);
                     if (current == 0)
                     {
-                        Report(CosRepairCodes.NameContainsNull, token.Start, "A name cannot contain the byte 0 (#00); dropped.");
+                        Report(ObjectSyntaxDiagnostics.NameContainsNull, token.Start, "A name cannot contain the byte 0 (#00); dropped.");
                         continue;
                     }
                 }
@@ -400,10 +401,10 @@ internal ref struct CosParser
                     _lexer.Position = next.End;
                     return CosArray.FromOwnedList(items);
                 case CosTokenKind.EndOfInput or CosTokenKind.DictionaryEnd:
-                    Report(CosRepairCodes.ArrayUnterminated, start.Start, "The array has no closing bracket; it ends here.");
+                    Report(ObjectSyntaxDiagnostics.ArrayUnterminated, start.Start, "The array has no closing bracket; it ends here.");
                     return CosArray.FromOwnedList(items);
                 case CosTokenKind.Keyword when IsStructuralKeyword(Bytes(next)):
-                    Report(CosRepairCodes.ArrayUnterminated, start.Start, "The array has no closing bracket; it ends at the next keyword.");
+                    Report(ObjectSyntaxDiagnostics.ArrayUnterminated, start.Start, "The array has no closing bracket; it ends at the next keyword.");
                     return CosArray.FromOwnedList(items);
                 case CosTokenKind.Invalid:
                     _lexer.Position = next.End;
@@ -437,13 +438,13 @@ internal ref struct CosParser
 
             if (EndsContainer(next))
             {
-                Report(CosRepairCodes.DictionaryUnterminated, start.Start, "The dictionary has no closing angle brackets; it ends here.");
+                Report(ObjectSyntaxDiagnostics.DictionaryUnterminated, start.Start, "The dictionary has no closing angle brackets; it ends here.");
                 return CosDictionary.FromOwnedEntries(entries);
             }
 
             if (next.Kind != CosTokenKind.Name)
             {
-                Report(CosRepairCodes.DictionaryKeyNotName, next.Start, "A dictionary key must be a name; the object is skipped.");
+                Report(ObjectSyntaxDiagnostics.DictionaryKeyNotName, next.Start, "A dictionary key must be a name; the object is skipped.");
                 if (next.Kind is CosTokenKind.Invalid or CosTokenKind.Keyword)
                 {
                     _lexer.Position = next.End;
@@ -461,14 +462,14 @@ internal ref struct CosParser
             CosToken valueToken = _lexer.Peek();
             if (valueToken.Kind == CosTokenKind.DictionaryEnd || EndsContainer(valueToken))
             {
-                Report(CosRepairCodes.DictionaryValueMissing, next.Start, "The last dictionary key has no value; the key is dropped.");
+                Report(ObjectSyntaxDiagnostics.DictionaryValueMissing, next.Start, "The last dictionary key has no value; the key is dropped.");
                 continue;
             }
 
             CosObject value = ParseObject(depth);
             if (entries.Remove(key))
             {
-                Report(CosRepairCodes.DictionaryDuplicateKey, next.Start, "The dictionary has two entries with the same key; the last one is kept.");
+                Report(ObjectSyntaxDiagnostics.DictionaryDuplicateKey, next.Start, "The dictionary has two entries with the same key; the last one is kept.");
             }
 
             // §7.3.7: an entry whose value is null is the same as an absent entry.
@@ -513,7 +514,7 @@ internal ref struct CosParser
             if (lengthEntry is not CosReference || _lengthResolver is not null)
             {
                 Report(
-                    CosRepairCodes.StreamLengthInvalid,
+                    ObjectSyntaxDiagnostics.StreamLengthInvalid,
                     keyword.Start,
                     string.Create(CultureInfo.InvariantCulture, $"The stream's Length is missing or wrong; the data runs to endstream ({dataEnd - dataStart} bytes)."));
             }
@@ -531,7 +532,7 @@ internal ref struct CosParser
             end -= EndOfLineLengthBefore(source, dataStart, end);
         }
 
-        Report(CosRepairCodes.EndstreamMissing, keyword.Start, "The stream has no endstream keyword.");
+        Report(ObjectSyntaxDiagnostics.EndstreamMissing, keyword.Start, "The stream has no endstream keyword.");
         _lexer.Position = end;
         return CreateStream(dictionary, source, dataStart, end - dataStart);
     }
@@ -572,7 +573,7 @@ internal ref struct CosParser
             position++;
         }
 
-        Report(CosRepairCodes.StreamKeywordEndOfLine, keyword.Start, "The stream keyword must be followed by CRLF or LF.");
+        Report(ObjectSyntaxDiagnostics.StreamKeywordEndOfLine, keyword.Start, "The stream keyword must be followed by CRLF or LF.");
         return position;
     }
 
@@ -599,7 +600,7 @@ internal ref struct CosParser
     /// <summary>Skips an array or dictionary nested deeper than <see cref="MaxDepth"/>, without recursion, and reads it as null.</summary>
     private CosNull SkipTooDeep(CosToken start)
     {
-        Report(CosRepairCodes.NestingTooDeep, start.Start, string.Create(CultureInfo.InvariantCulture, $"Arrays and dictionaries nest deeper than {MaxDepth} levels; the inner container is read as null."));
+        Report(ObjectSyntaxDiagnostics.NestingTooDeep, start.Start, string.Create(CultureInfo.InvariantCulture, $"Arrays and dictionaries nest deeper than {MaxDepth} levels; the inner container is read as null."));
         int depth = 1;
         while (depth > 0)
         {
@@ -635,9 +636,9 @@ internal ref struct CosParser
         || keyword.SequenceEqual("startxref"u8);
 
     private readonly void ReportUnexpected(CosToken token) =>
-        Report(CosRepairCodes.UnexpectedToken, token.Start, "This token cannot start an object; skipped.");
+        Report(ObjectSyntaxDiagnostics.UnexpectedToken, token.Start, "This token cannot start an object; skipped.");
 
-    private readonly void Report(string code, int offset, string message) => _repairs?.Report(code, offset, message);
+    private readonly void Report(DiagnosticCode code, int offset, string message) => _repairs?.Report(code, offset, message);
 
     private readonly ReadOnlySpan<byte> Bytes(CosToken token) => _lexer.Source.Slice(token.Start, token.Length);
 

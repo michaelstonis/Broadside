@@ -83,7 +83,7 @@ internal static class RevisionReader
         if (reportMissing)
         {
             diagnostics.Report(
-                DiagnosticCodes.EndOfFileMarkerMissing,
+                FileStructureDiagnostics.EndOfFileMarkerMissing,
                 DiagnosticSeverity.Warning,
                 "The trailer of an earlier revision is not followed by startxref, its offset and the %%EOF marker; the revision ends here.",
                 trailerEnd + position);
