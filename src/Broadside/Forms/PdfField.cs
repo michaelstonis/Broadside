@@ -134,7 +134,7 @@ public abstract class PdfField
 
             if (text is null && value is null && Kind != PdfFieldKind.NonTerminal && FieldType is PdfFieldType.Text or PdfFieldType.Choice)
             {
-                Report(DiagnosticCodes.DefaultAppearanceMissing, "The field contains variable text but neither it, its ancestors nor the interactive form has a DA entry, which Table 228 requires.");
+                Report(FormDiagnostics.DefaultAppearanceMissing, "The field contains variable text but neither it, its ancestors nor the interactive form has a DA entry, which Table 228 requires.");
             }
 
             return text;
@@ -169,7 +169,7 @@ public abstract class PdfField
             PdfDefaultAppearance parsed = PdfDefaultAppearance.Parse(System.Text.Encoding.Latin1.GetBytes(text));
             if (!parsed.IsValid)
             {
-                Report(DiagnosticCodes.DefaultAppearanceInvalid, $"The field's default appearance string departs from §12.7.4.3 ({parsed.Problems}); what was readable is used.");
+                Report(FormDiagnostics.DefaultAppearanceInvalid, $"The field's default appearance string departs from §12.7.4.3 ({parsed.Problems}); what was readable is used.");
             }
 
             if (parsed.FontName is not { } name)
@@ -188,7 +188,7 @@ public abstract class PdfField
                 }
             }
 
-            Report(DiagnosticCodes.DefaultAppearanceFontMissing, $"The font /{name.Value} of the field's default appearance string is in no default resources (DR), where §12.7.4.3 requires it.");
+            Report(FormDiagnostics.DefaultAppearanceFontMissing, $"The font /{name.Value} of the field's default appearance string is in no default resources (DR), where §12.7.4.3 requires it.");
             return parsed;
         }
     }
@@ -210,7 +210,7 @@ public abstract class PdfField
                 return (PdfTextJustification)(int)integer.Value;
             }
 
-            Report(DiagnosticCodes.FieldEntryInvalid, "The field's Q entry shall be 0, 1 or 2; it reads as 0 (left).");
+            Report(FormDiagnostics.FieldEntryInvalid, "The field's Q entry shall be 0, 1 or 2; it reads as 0 (left).");
             return PdfTextJustification.Left;
         }
     }
@@ -305,7 +305,7 @@ public abstract class PdfField
     internal CosObject? Own(CosName key) => FieldTree.Get(Document, Dictionary, key);
 
     /// <summary>Reports a deviation in this field.</summary>
-    internal void Report(string code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
+    internal void Report(DiagnosticCode code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
         Document.DiagnosticSink.Report(code, severity, message, objectReference: DiagnosticReference);
 
     /// <summary>Reads an <c>Ff</c> value: an unsigned 32-bit integer; reports what it repairs when <paramref name="report"/> is set.</summary>
@@ -323,7 +323,7 @@ public abstract class PdfField
                 bits = (uint)(int)integer.Value;
                 if (report)
                 {
-                    Report(DiagnosticCodes.FieldFlagsInvalid, "The field's Ff entry is negative; it reads as its 32-bit pattern.");
+                    Report(FormDiagnostics.FieldFlagsInvalid, "The field's Ff entry is negative; it reads as its 32-bit pattern.");
                 }
 
                 break;
@@ -331,14 +331,14 @@ public abstract class PdfField
                 bits = (long)real.Value;
                 if (report)
                 {
-                    Report(DiagnosticCodes.FieldFlagsInvalid, "The field's Ff entry shall be an integer; it is a real number, truncated.");
+                    Report(FormDiagnostics.FieldFlagsInvalid, "The field's Ff entry shall be an integer; it is a real number, truncated.");
                 }
 
                 break;
             default:
                 if (report)
                 {
-                    Report(DiagnosticCodes.FieldFlagsInvalid, "The field's Ff entry shall be an integer; it reads as 0.");
+                    Report(FormDiagnostics.FieldFlagsInvalid, "The field's Ff entry shall be an integer; it reads as 0.");
                 }
 
                 return 0;
@@ -347,7 +347,7 @@ public abstract class PdfField
         // Bits 1-3 (Table 227) and 13-27 (Tables 229, 231, 233) are defined; every other bit shall be 0.
         if (report && (bits & ~0x7FFF007L) != 0)
         {
-            Report(DiagnosticCodes.FieldFlagsInvalid, "The field's Ff entry sets bits no field type defines, which shall be 0; they are kept.");
+            Report(FormDiagnostics.FieldFlagsInvalid, "The field's Ff entry sets bits no field type defines, which shall be 0; they are kept.");
         }
 
         return (uint)bits;
@@ -405,12 +405,12 @@ public abstract class PdfField
 
     /// <summary>Reports a value (<c>V</c> or <c>DV</c>) of the wrong type.</summary>
     private protected void ReportValueType(CosName key, string what) =>
-        Report(DiagnosticCodes.FieldValueTypeInvalid, $"The field's {key.Value} entry shall be {what}.");
+        Report(FormDiagnostics.FieldValueTypeInvalid, $"The field's {key.Value} entry shall be {what}.");
 
     /// <summary>Reports an entry of the wrong type and returns the default.</summary>
     private protected T? InvalidEntry<T>(CosName key, string expected)
     {
-        Report(DiagnosticCodes.FieldEntryInvalid, $"The field's {key.Value} entry shall be {expected}; it is ignored.");
+        Report(FormDiagnostics.FieldEntryInvalid, $"The field's {key.Value} entry shall be {expected}; it is ignored.");
         return default;
     }
 }

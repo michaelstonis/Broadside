@@ -66,10 +66,10 @@ internal sealed class FieldTree
                 // An empty interactive form dictionary is how many writers say "no form"; it is read as a form without fields.
                 break;
             case CosNull:
-                form.Report(DiagnosticCodes.AcroFormFieldsMissing, "The interactive form dictionary has no Fields array, which Table 224 requires; the form has no fields.");
+                form.Report(FormDiagnostics.AcroFormFieldsMissing, "The interactive form dictionary has no Fields array, which Table 224 requires; the form has no fields.");
                 break;
             default:
-                form.Report(DiagnosticCodes.AcroFormFieldsMissing, "The interactive form dictionary's Fields entry shall be an array; the form has no fields.");
+                form.Report(FormDiagnostics.AcroFormFieldsMissing, "The interactive form dictionary's Fields entry shall be an array; the form has no fields.");
                 break;
         }
 
@@ -169,24 +169,24 @@ internal sealed class FieldTree
                 CosObject element = fields[index];
                 if (_document.Resolve(element) is not CosDictionary dictionary)
                 {
-                    form.Report(DiagnosticCodes.FieldReferenceInvalid, $"Element {index} of the interactive form's Fields array is not a field dictionary; it is skipped.");
+                    form.Report(FormDiagnostics.FieldReferenceInvalid, $"Element {index} of the interactive form's Fields array is not a field dictionary; it is skipped.");
                     continue;
                 }
 
                 if (element is not CosReference)
                 {
-                    form.Report(DiagnosticCodes.FieldNotIndirect, $"Element {index} of the interactive form's Fields array is a direct dictionary; field dictionaries shall be indirect objects (§12.7.4.1). It is read anyway.");
+                    form.Report(FormDiagnostics.FieldNotIndirect, $"Element {index} of the interactive form's Fields array is a direct dictionary; field dictionaries shall be indirect objects (§12.7.4.1). It is read anyway.");
                 }
 
                 if (!_visited.Add(dictionary))
                 {
-                    Report(DiagnosticCodes.FieldTreeCycle, "The field dictionary appears more than once in the field tree; only its first occurrence is read.", element, null);
+                    Report(FormDiagnostics.FieldTreeCycle, "The field dictionary appears more than once in the field tree; only its first occurrence is read.", element, null);
                     continue;
                 }
 
                 if (Get(_document, dictionary, FormNames.Parent) is not null)
                 {
-                    Report(DiagnosticCodes.FieldNotRoot, "A field in the interactive form's Fields array has a Parent entry, but Fields shall hold only root fields (Table 224); it is read as a root.", element, null);
+                    Report(FormDiagnostics.FieldNotRoot, "A field in the interactive form's Fields array has a Parent entry, but Fields shall hold only root fields (Table 224); it is read as a root.", element, null);
                 }
 
                 if (dictionary.ContainsKey(FormNames.T))
@@ -195,7 +195,7 @@ internal sealed class FieldTree
                 }
                 else if (Get(_document, dictionary, FormNames.Kids) is not null)
                 {
-                    Report(DiagnosticCodes.FieldNameMissing, "A dictionary in the field tree has kids but no partial name (T); its kids are read as kids of the field above it.", element, null);
+                    Report(FormDiagnostics.FieldNameMissing, "A dictionary in the field tree has kids but no partial name (T); its kids are read as kids of the field above it.", element, null);
                     tree.Track(dictionary);
                     var fieldKids = new List<Kid>();
                     var widgetKids = new List<Kid>();
@@ -207,12 +207,12 @@ internal sealed class FieldTree
 
                     if (widgetKids.Count > 0)
                     {
-                        Report(DiagnosticCodes.FieldNameMissing, "Widget annotations under an unnamed root dictionary belong to no field; they are ignored.", element, null);
+                        Report(FormDiagnostics.FieldNameMissing, "Widget annotations under an unnamed root dictionary belong to no field; they are ignored.", element, null);
                     }
                 }
                 else
                 {
-                    Report(DiagnosticCodes.FieldNameMissing, "A dictionary in the interactive form's Fields array has no partial name (T), so it is a widget annotation, not a field (§12.7.4.2); it is skipped.", element, null);
+                    Report(FormDiagnostics.FieldNameMissing, "A dictionary in the interactive form's Fields array has no partial name (T), so it is a widget annotation, not a field (§12.7.4.2); it is skipped.", element, null);
                 }
             }
         }
@@ -248,7 +248,7 @@ internal sealed class FieldTree
                 {
                     if (!Same(first.FieldTypeName, other.FieldTypeName) || !Same(first.ValueObject, other.ValueObject) || !Same(first.DefaultValueObject, other.DefaultValueObject))
                     {
-                        other.Report(DiagnosticCodes.FieldNameDuplicateInconsistent, $"Fields named {name} shall have the same FT, V and DV (§12.7.4.2); they differ.");
+                        other.Report(FormDiagnostics.FieldNameDuplicateInconsistent, $"Fields named {name} shall have the same FT, V and DV (§12.7.4.2); they differ.");
                         break;
                     }
                 }
@@ -269,7 +269,7 @@ internal sealed class FieldTree
             tree.Track(dictionary);
             if (item.Depth > MaxDepth)
             {
-                Report(DiagnosticCodes.FieldTreeTooDeep, $"The field tree is nested more than {MaxDepth} levels deep; deeper fields are not read.", item.Element, item.Parent);
+                Report(FormDiagnostics.FieldTreeTooDeep, $"The field tree is nested more than {MaxDepth} levels deep; deeper fields are not read.", item.Element, item.Parent);
                 return;
             }
 
@@ -286,7 +286,7 @@ internal sealed class FieldTree
                 var container = new PdfNonTerminalField(info);
                 if (widgetKids.Count > 0)
                 {
-                    container.Report(DiagnosticCodes.FieldKidsMixed, "The field's Kids array holds both fields and widget annotations (§12.7.2); the widgets are ignored.");
+                    container.Report(FormDiagnostics.FieldKidsMixed, "The field's Kids array holds both fields and widget annotations (§12.7.2); the widgets are ignored.");
                 }
 
                 for (int index = fieldKids.Count - 1; index >= 0; index--)
@@ -317,7 +317,7 @@ internal sealed class FieldTree
 
                 if (terminal is PdfSignatureField && widgets.Length > 1)
                 {
-                    terminal.Report(DiagnosticCodes.SignatureFieldMultipleWidgets, "A signature field shall never refer to more than one annotation (§12.7.5.5); all its widgets are kept.");
+                    terminal.Report(FormDiagnostics.SignatureFieldMultipleWidgets, "A signature field shall never refer to more than one annotation (§12.7.5.5); all its widgets are kept.");
                 }
 
                 field = terminal;
@@ -353,7 +353,7 @@ internal sealed class FieldTree
 
             if (value is not CosArray kids)
             {
-                ReportOn(containerReference, DiagnosticCodes.FieldEntryInvalid, "The field's Kids entry shall be an array; it is ignored.");
+                ReportOn(containerReference, FormDiagnostics.FieldEntryInvalid, "The field's Kids entry shall be an array; it is ignored.");
                 return false;
             }
 
@@ -363,28 +363,28 @@ internal sealed class FieldTree
                 CosObject element = kids[index];
                 if (_document.Resolve(element) is not CosDictionary kid)
                 {
-                    ReportOn(containerReference, DiagnosticCodes.FieldReferenceInvalid, $"Element {index} of the field's Kids array is not a dictionary; it is skipped.");
+                    ReportOn(containerReference, FormDiagnostics.FieldReferenceInvalid, $"Element {index} of the field's Kids array is not a dictionary; it is skipped.");
                     continue;
                 }
 
                 if (element is not CosReference)
                 {
-                    ReportOn(containerReference, DiagnosticCodes.FieldNotIndirect, $"Element {index} of the field's Kids array is a direct dictionary; Table 226 requires indirect references. It is read anyway.");
+                    ReportOn(containerReference, FormDiagnostics.FieldNotIndirect, $"Element {index} of the field's Kids array is a direct dictionary; Table 226 requires indirect references. It is read anyway.");
                 }
 
                 if (!_visited.Add(kid))
                 {
-                    ReportOn(containerReference, DiagnosticCodes.FieldTreeCycle, $"Element {index} of the field's Kids array appears elsewhere in the field tree too (a cycle, or a kid of two parents); only its first occurrence is read.");
+                    ReportOn(containerReference, FormDiagnostics.FieldTreeCycle, $"Element {index} of the field's Kids array appears elsewhere in the field tree too (a cycle, or a kid of two parents); only its first occurrence is read.");
                     continue;
                 }
 
                 switch (Get(_document, kid, FormNames.Parent))
                 {
                     case null:
-                        ReportAt(element, containerReference, DiagnosticCodes.FieldParentMissing, "A kid in the field tree has no Parent entry, which Table 226 requires; the dictionary whose Kids holds it is used.");
+                        ReportAt(element, containerReference, FormDiagnostics.FieldParentMissing, "A kid in the field tree has no Parent entry, which Table 226 requires; the dictionary whose Kids holds it is used.");
                         break;
                     case var parent when !ReferenceEquals(parent, container):
-                        ReportAt(element, containerReference, DiagnosticCodes.FieldParentMismatch, "A kid's Parent entry does not name the dictionary whose Kids array holds it; the tree is followed.");
+                        ReportAt(element, containerReference, FormDiagnostics.FieldParentMismatch, "A kid's Parent entry does not name the dictionary whose Kids array holds it; the tree is followed.");
                         break;
                 }
 
@@ -394,11 +394,11 @@ internal sealed class FieldTree
                 }
                 else if (Get(_document, kid, FormNames.Kids) is not null)
                 {
-                    ReportAt(element, containerReference, DiagnosticCodes.FieldNameMissing, "A dictionary in the field tree has kids but no partial name (T); its kids are read as kids of the field above it.");
+                    ReportAt(element, containerReference, FormDiagnostics.FieldNameMissing, "A dictionary in the field tree has kids but no partial name (T); its kids are read as kids of the field above it.");
                     tree.Track(kid);
                     if (depth + intermediates.Length + 1 > MaxDepth)
                     {
-                        ReportAt(element, containerReference, DiagnosticCodes.FieldTreeTooDeep, $"The field tree is nested more than {MaxDepth} levels deep; deeper fields are not read.");
+                        ReportAt(element, containerReference, FormDiagnostics.FieldTreeTooDeep, $"The field tree is nested more than {MaxDepth} levels deep; deeper fields are not read.");
                         continue;
                     }
 
@@ -421,16 +421,16 @@ internal sealed class FieldTree
                     string name = text.DecodeText();
                     if (name.Contains('.', StringComparison.Ordinal))
                     {
-                        Report(DiagnosticCodes.FieldNameHasPeriod, "A partial field name shall not contain a period (§12.7.4.2); it is kept, so looking the field up by name may be ambiguous.", item.Element, item.Parent);
+                        Report(FormDiagnostics.FieldNameHasPeriod, "A partial field name shall not contain a period (§12.7.4.2); it is kept, so looking the field up by name may be ambiguous.", item.Element, item.Parent);
                     }
 
                     return name;
                 case CosName nameObject:
-                    Report(DiagnosticCodes.FieldEntryInvalid, "The field's T entry shall be a text string; it is a name, read as its text.", item.Element, item.Parent);
+                    Report(FormDiagnostics.FieldEntryInvalid, "The field's T entry shall be a text string; it is a name, read as its text.", item.Element, item.Parent);
                     return nameObject.Value;
 
                 default:
-                    Report(DiagnosticCodes.FieldEntryInvalid, "The field's T entry shall be a text string; the field's partial name reads as empty.", item.Element, item.Parent);
+                    Report(FormDiagnostics.FieldEntryInvalid, "The field's T entry shall be a text string; the field's partial name reads as empty.", item.Element, item.Parent);
                     return string.Empty;
             }
         }
@@ -450,7 +450,7 @@ internal sealed class FieldTree
                         : radio ? new PdfRadioButtonField(info, widgets) : new PdfCheckBoxField(info, widgets);
                     if (push && radio)
                     {
-                        button.Report(DiagnosticCodes.ButtonFlagsConflict, "The button field sets both Pushbutton and Radio; Radio may be set only if Pushbutton is clear (Table 229). It is read as a push button.");
+                        button.Report(FormDiagnostics.ButtonFlagsConflict, "The button field sets both Pushbutton and Radio; Radio may be set only if Pushbutton is clear (Table 229). It is read as a push button.");
                     }
 
                     return button;
@@ -463,7 +463,7 @@ internal sealed class FieldTree
                 default:
                     var unknown = new PdfUnknownField(info, widgets);
                     unknown.Report(
-                        DiagnosticCodes.FieldTypeMissing,
+                        FormDiagnostics.FieldTypeMissing,
                         type is null
                             ? "The terminal field has no FT entry, of its own or inherited, which Table 226 requires; its type is unknown."
                             : $"The terminal field's type {type.Value} is not one Table 226 defines; its type is unknown.");
@@ -490,13 +490,13 @@ internal sealed class FieldTree
             return info.Parent?.Inherited(key);
         }
 
-        private void Report(string code, string message, CosObject element, PdfField? parent) =>
+        private void Report(DiagnosticCode code, string message, CosObject element, PdfField? parent) =>
             _document.DiagnosticSink.Report(code, DiagnosticSeverity.Warning, message, objectReference: element as CosReference ?? parent?.DiagnosticReference ?? form.Reference);
 
-        private void ReportAt(CosObject element, CosReference? containerReference, string code, string message) =>
+        private void ReportAt(CosObject element, CosReference? containerReference, DiagnosticCode code, string message) =>
             _document.DiagnosticSink.Report(code, DiagnosticSeverity.Warning, message, objectReference: element as CosReference ?? containerReference);
 
-        private void ReportOn(CosReference? containerReference, string code, string message) =>
+        private void ReportOn(CosReference? containerReference, DiagnosticCode code, string message) =>
             _document.DiagnosticSink.Report(code, DiagnosticSeverity.Warning, message, objectReference: containerReference);
     }
 }

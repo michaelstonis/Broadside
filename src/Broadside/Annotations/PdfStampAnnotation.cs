@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -27,7 +28,7 @@ public sealed class PdfStampAnnotation : PdfMarkupAnnotation
             {
                 if (name is not null)
                 {
-                    Report(DiagnosticCodes.AnnotationValueInvalid, "The stamp annotation has a Name entry, which Table 184 forbids when IT is present and not Stamp; it is ignored.");
+                    Report(AnnotationDiagnostics.AnnotationValueInvalid, "The stamp annotation has a Name entry, which Table 184 forbids when IT is present and not Stamp; it is ignored.");
                 }
 
                 return null;

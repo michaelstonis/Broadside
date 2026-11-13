@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -47,7 +48,7 @@ internal sealed class MarkedContentIndex
             if (fromWalk is { Count: > 0 })
             {
                 context.Report(
-                    DiagnosticCodes.ParentTreeEntryInvalid,
+                    StructureDiagnostics.ParentTreeEntryInvalid,
                     key is null
                         ? "A content stream holds content items but has no StructParents entry (Table 359); its MCIDs are mapped through K."
                         : $"The parent tree entry {key} of a content stream is missing or not an array of elements (§14.7.5.4); its MCIDs are mapped through K.",
@@ -77,7 +78,7 @@ internal sealed class MarkedContentIndex
             }
 
             context.Report(
-                DiagnosticCodes.ParentTreeEntryInvalid,
+                StructureDiagnostics.ParentTreeEntryInvalid,
                 $"The parent tree names an element for MCID {mcid} whose K does not hold that MCID (§14.7.5.4); the element whose K holds it is used.",
                 entry as CosReference);
             if (context.Walk.MarkedContent(owner) is { } fromWalk && fromWalk.TryGetValue(mcid, out PdfStructureElement? element))

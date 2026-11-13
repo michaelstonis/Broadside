@@ -805,7 +805,7 @@ internal sealed class AutoTagger : ContentEditor
                 element.AlternateDescription = _options.FigureAlternateText;
                 _figures.Add(element);
                 _diagnostics.Add(new Diagnostic(
-                    DiagnosticCodes.FigureAlternateTextPlaceholder,
+                    StructureDiagnostics.FigureAlternateTextPlaceholder,
                     DiagnosticSeverity.Warning,
                     "Auto-tagging gave a figure placeholder alternate text (ISO 32000-2 §14.9.3); replace it with a description of the figure.",
                     objectReference: element.Reference));

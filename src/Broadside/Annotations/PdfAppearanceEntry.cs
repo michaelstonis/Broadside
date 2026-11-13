@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -82,7 +83,7 @@ public sealed class PdfAppearanceEntry
             case CosStream:
                 return true;
             default:
-                _owner.Report(DiagnosticCodes.AppearanceEntryInvalid, $"The appearance state {state.Value} is not a stream; it is skipped.");
+                _owner.Report(AnnotationDiagnostics.AppearanceEntryInvalid, $"The appearance state {state.Value} is not a stream; it is skipped.");
                 return false;
         }
     }

@@ -82,10 +82,10 @@ internal static class AnnotationEntryReaders
             case DateParseOutcome.Valid:
                 return date;
             case DateParseOutcome.Repaired:
-                annotation.Report(DocumentDiagnostics.DateInvalid.Name, $"The annotation's {key.Value} entry does not follow the date format of §7.9.4; it is read with the deviating fields repaired.");
+                annotation.Report(DocumentDiagnostics.DateInvalid, $"The annotation's {key.Value} entry does not follow the date format of §7.9.4; it is read with the deviating fields repaired.");
                 return date;
             default:
-                annotation.Report(DocumentDiagnostics.DateUnreadable.Name, $"The annotation's {key.Value} entry is not a date (§7.9.4).");
+                annotation.Report(DocumentDiagnostics.DateUnreadable, $"The annotation's {key.Value} entry is not a date (§7.9.4).");
                 return null;
         }
     }
@@ -217,7 +217,7 @@ internal static class AnnotationEntryReaders
         List<double>? numbers = AnnotationValues.ReadNumbers(annotation.Document, value, out bool complete);
         if (numbers is null || !complete || numbers.Count % 8 != 0 || numbers.Count == 0)
         {
-            annotation.Report(DiagnosticCodes.QuadPointsInvalid, "The annotation's QuadPoints entry is not an array of 8n numbers; only its complete quadrilaterals are read.");
+            annotation.Report(AnnotationDiagnostics.QuadPointsInvalid, "The annotation's QuadPoints entry is not an array of 8n numbers; only its complete quadrilaterals are read.");
             if (numbers is null)
             {
                 return [];
@@ -303,7 +303,7 @@ internal static class AnnotationEntryReaders
         double intensity = AnnotationValues.ReadNumber(annotation.Document, view.Get(AnnotationNames.I)) ?? 0;
         if (intensity is < 0 or > 2)
         {
-            annotation.Report(DiagnosticCodes.AnnotationValueInvalid, "The border effect's intensity I shall be from 0 to 2; it is clamped.");
+            annotation.Report(AnnotationDiagnostics.AnnotationValueInvalid, "The border effect's intensity I shall be from 0 to 2; it is clamped.");
             intensity = Math.Clamp(intensity, 0, 2);
         }
 
@@ -314,10 +314,10 @@ internal static class AnnotationEntryReaders
     internal static string GetIconName(this PdfAnnotation annotation, string fallback) =>
         EntryReader.Typed<CosName>(annotation.Entry(AnnotationNames.Name), AnnotationNames.Name, "a name", Issue(annotation))?.Value ?? fallback;
 
-    private static EntryReport Issue(PdfAnnotation annotation) => new(annotation.Document, DiagnosticCodes.AnnotationValueInvalid, annotation.DiagnosticReference, "The annotation");
+    private static EntryReport Issue(PdfAnnotation annotation) => new(annotation.Document, AnnotationDiagnostics.AnnotationValueInvalid, annotation.DiagnosticReference, "The annotation");
 
     private static void Missing(PdfAnnotation annotation, CosName key, string table) =>
-        annotation.Report(DiagnosticCodes.AnnotationRequiredEntryMissing, $"The {annotation.Kind} annotation has no {key.Value} entry, which {table} requires.");
+        annotation.Report(AnnotationDiagnostics.AnnotationRequiredEntryMissing, $"The {annotation.Kind} annotation has no {key.Value} entry, which {table} requires.");
 
     private static void Invalid(PdfAnnotation annotation, CosName key, string expected) => Issue(annotation).Ignored(key, expected);
 }
