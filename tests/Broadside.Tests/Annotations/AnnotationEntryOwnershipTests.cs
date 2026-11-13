@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Text.RegularExpressions;
 using Broadside.Annotations;
 using Broadside.Graphics;
 using Broadside.TestSupport;
@@ -13,10 +12,10 @@ namespace Broadside.Tests.Annotations;
 public sealed class AnnotationEntryOwnershipTests
 {
     /// <summary>
-    /// The base-class readers the subtypes no longer use, kept until the contraction ticket deletes them. All are
-    /// <c>private protected</c>, so no caller outside the annotation class hierarchy can use them.
+    /// Readers for entries only some subtypes define; they live in <c>AnnotationEntryReaders</c> and must not return to the base
+    /// class, which keeps only the readers of the entries every annotation has.
     /// </summary>
-    private static readonly string[] RetiredBaseMembers =
+    private static readonly string[] SubtypeReaders =
     [
         "ReadByteString", "ReadTextOrStream", "ReadChoice", "ReadAction", "ReadForm", "ReadDate", "ReadPoints", "ReadPointLists",
         "ReadPath", "ReadQuadPoints", "ReadRectangleDifferences", "ParseLineEnding", "ReadLineEndings", "ReadBorderEffect",
@@ -75,41 +74,12 @@ public sealed class AnnotationEntryOwnershipTests
     }
 
     [Fact]
-    public void The_retired_base_members_exist_and_no_internal_caller_uses_them()
+    public void The_base_class_declares_no_reader_for_an_entry_that_only_some_subtypes_define()
     {
-        // The retired members are still declared, so callers outside this repository's tickets keep compiling.
-        const BindingFlags nonPublic = BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
-        string[] declared = [.. typeof(PdfAnnotation).GetMethods(nonPublic).Select(method => method.Name)];
-        Assert.Empty(RetiredBaseMembers.Except(declared));
-        Assert.All(
-            RetiredBaseMembers,
-            name => Assert.All(
-                typeof(PdfAnnotation).GetMethods(nonPublic).Where(method => method.Name == name),
-                method => Assert.NotNull(method.GetCustomAttribute<ObsoleteAttribute>())));
+        const BindingFlags members = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
+        MethodInfo[] methods = typeof(PdfAnnotation).GetMethods(members);
 
-        // No source file other than the base class itself calls one. PdfAppearanceCharacteristics and PdfDocumentInformation have
-        // readers of their own that happen to share a name; neither derives from PdfAnnotation. The replacement readers are
-        // extension methods under other names, and AnnotationEntryReaders declares ParseLineEnding as a static helper.
-        var call = new Regex(@"(?<![\w.])(" + string.Join('|', RetiredBaseMembers) + @")\s*[<(]", RegexOptions.CultureInvariant);
-        string source = Path.GetFullPath(Path.Combine(Corpus.Directory, "..", "..", "src", "Broadside"));
-        var offenders = new List<string>();
-        foreach (string file in Directory.EnumerateFiles(source, "*.cs", SearchOption.AllDirectories))
-        {
-            string name = Path.GetFileName(file);
-            if (name is "PdfAnnotation.cs" or "PdfAppearanceCharacteristics.cs" or "AnnotationEntryReaders.cs" or "PdfDocumentInformation.cs" || file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
-            {
-                continue;
-            }
-
-            foreach ((string line, int number) in File.ReadLines(file).Select((line, index) => (line, index + 1)))
-            {
-                if (!line.TrimStart().StartsWith("//", StringComparison.Ordinal) && call.IsMatch(line))
-                {
-                    offenders.Add($"{name}:{number}: {line.Trim()}");
-                }
-            }
-        }
-
-        Assert.Empty(offenders);
+        Assert.DoesNotContain(methods, method => SubtypeReaders.Contains(method.Name));
+        Assert.DoesNotContain(methods, method => method.GetCustomAttribute<ObsoleteAttribute>() is not null);
     }
 }
