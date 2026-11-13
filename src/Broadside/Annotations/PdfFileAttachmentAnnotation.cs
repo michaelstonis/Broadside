@@ -29,5 +29,5 @@ public sealed class PdfFileAttachmentAnnotation : PdfMarkupAnnotation
 
     /// <summary>Gets the name of the icon (<c>Name</c>): <c>Graph</c>, <c>PushPin</c> (the default), <c>Paperclip</c>, <c>Tag</c> or another name.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.15, Table 187.</remarks>
-    public string IconName => ReadIconName("PushPin");
+    public string IconName => this.GetIconName("PushPin");
 }
