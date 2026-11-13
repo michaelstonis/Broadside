@@ -1,13 +1,17 @@
+using System.Buffers;
 using System.Globalization;
 using System.IO.Compression;
 using System.Text;
+using Broadside.Filters;
+using Broadside.Objects;
 
 namespace Broadside.TestSupport;
 
 /// <summary>
 /// Pages for the scaled image decode tests of every backend (issues #362, #428): one large image (1024 x 1024, Flate, decoded when the
 /// list is built and reduced from that decode) painted into a 512-point square, in the depths and with the masks a backend handles differently, and
-/// the page tolerance a reduced render must keep against a full-resolution one.
+/// the page tolerance a reduced render must keep against a full-resolution one. <c>soft-mask-dct</c> gives the image a soft mask of
+/// its size kept encoded (DCTDecode, issue #513), which reduces in its codec as far as it can and caps the image's reduction.
 /// </summary>
 public static class ScaledImagePages
 {
@@ -16,9 +20,13 @@ public static class ScaledImagePages
 
     /// <summary>Gets the names <see cref="Page"/> knows.</summary>
     public static IReadOnlyList<string> Names { get; } =
-        ["gray", "rgb16", "one-bit", "stencil", "soft-mask-same-size", "soft-mask-own-size", "explicit-mask", "colour-key"];
+        ["gray", "rgb16", "one-bit", "stencil", "soft-mask-same-size", "soft-mask-own-size", "soft-mask-dct", "explicit-mask", "colour-key"];
 
-    /// <summary>Returns the page called <paramref name="name"/> (one of <see cref="Names"/>).</summary>
+    /// <summary>
+    /// Returns the page called <paramref name="name"/>: one of <see cref="Names"/>, or <c>small-soft-mask</c>, a 400 x 400 JPEG (kept
+    /// encoded) with a soft mask of its size decoded at build, under the size from which such images reduce, which must reduce with
+    /// the image (issue #513).
+    /// </summary>
     /// <param name="name">The page.</param>
     /// <returns>The file.</returns>
     public static byte[] Page(string name)
@@ -32,6 +40,13 @@ public static class ScaledImagePages
             "stencil" => File("0.8 0.1 0.1 rg " + Paint, Stream(Dither(gray, 1024, 1024), "/Width 1024 /Height 1024 /ImageMask true")),
             "soft-mask-same-size" => File(Paint, Stream(Samples(1024, 1024, 3, 8), "/Width 1024 /Height 1024 /ColorSpace /DeviceRGB /BitsPerComponent 8 /SMask 6 0 R"), Stream(gray, "/Width 1024 /Height 1024 /ColorSpace /DeviceGray /BitsPerComponent 8")),
             "soft-mask-own-size" => File(Paint, Stream(Samples(1024, 1024, 3, 8), "/Width 1024 /Height 1024 /ColorSpace /DeviceRGB /BitsPerComponent 8 /SMask 6 0 R"), Stream(Samples(700, 500, 1, 8), "/Width 700 /Height 500 /ColorSpace /DeviceGray /BitsPerComponent 8")),
+            "small-soft-mask" => File(
+                Paint,
+                ContentSamples.Stream(
+                    Encoding.Latin1.GetString(CatalogueSamples.Jpeg(400, 400)),
+                    "/Type /XObject /Subtype /Image /Filter /DCTDecode /Width 400 /Height 400 /ColorSpace /DeviceRGB /BitsPerComponent 8 /SMask 6 0 R"),
+                Stream(Samples(400, 400, 1, 8), "/Width 400 /Height 400 /ColorSpace /DeviceGray /BitsPerComponent 8")),
+            "soft-mask-dct" => File(Paint, Stream(Samples(1024, 1024, 3, 8), "/Width 1024 /Height 1024 /ColorSpace /DeviceRGB /BitsPerComponent 8 /SMask 6 0 R"), Jpeg(gray, 1024, 1024)),
             "explicit-mask" => File(Paint, Stream(Samples(1024, 1024, 3, 8), "/Width 1024 /Height 1024 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Mask 6 0 R"), Stream(Dither(Samples(900, 600, 1, 8), 900, 600), "/Width 900 /Height 600 /ImageMask true")),
             "colour-key" => Image(gray, "/DeviceGray", 8, "/Mask [100 140]"),
             _ => throw new ArgumentOutOfRangeException(nameof(name), name, null),
@@ -107,6 +122,20 @@ public static class ScaledImagePages
         }
 
         return ContentSamples.Stream(Encoding.Latin1.GetString(compressed.ToArray()), "/Type /XObject /Subtype /Image /Filter /FlateDecode " + entries);
+    }
+
+    /// <summary>A gray soft-mask image compressed with DCTDecode.</summary>
+    private static string Jpeg(byte[] gray, int width, int height)
+    {
+        var output = new ArrayBufferWriter<byte>();
+        var context = new StreamEncoderContext
+        {
+            StreamDictionary = new CosDictionary { [new CosName("Width")] = new CosInteger(width), [new CosName("Height")] = new CosInteger(height) },
+        };
+        new DctEncoder(90).Encode(gray, output, context);
+        return ContentSamples.Stream(
+            Encoding.Latin1.GetString(output.WrittenSpan),
+            FormattableString.Invariant($"/Type /XObject /Subtype /Image /Filter /DCTDecode /Width {width} /Height {height} /ColorSpace /DeviceGray /BitsPerComponent 8"));
     }
 
     private static byte[] Samples(int width, int height, int components, int bits)

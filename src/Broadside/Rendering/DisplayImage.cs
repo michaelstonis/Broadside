@@ -32,7 +32,8 @@ namespace Broadside.Rendering;
 /// is drawn: <see cref="GetSamplesAt(int)"/> decodes it at the reduction asked for, once per reduction however many tiles ask at the same
 /// time, and the document's image cache keeps the result within its budget. A decode that fails then records its diagnostics on
 /// the document when the image is first drawn, not when the list is built, and the image paints nothing. A finer reduction already
-/// decoded serves a coarser request. The encoded data lives in the list, so a backend still never reads the file.
+/// decoded serves a coarser request. The encoded data lives in the list, so a backend still never reads the file. A
+/// <see cref="SoftMask"/> in such a codec is kept encoded the same way (§11.6.5.2), and one of its image's size reduces with it.
 /// </para>
 /// </remarks>
 public sealed class DisplayImage
@@ -53,11 +54,12 @@ public sealed class DisplayImage
     private readonly float[] _matte = [];
     private readonly byte[] _colorTable = [];
 
-    internal DisplayImage(DecodedImage samples, PdfColorSpace colorSpace, ImageDecodeMap decodeMap, bool interpolate, ByteBudgetCache<(object Source, int Slot), IBudgetedEntry>? cache = null)
+    internal DisplayImage(DecodedImage samples, PdfColorSpace colorSpace, ImageDecodeMap decodeMap, bool interpolate, ByteBudgetCache<(object Source, int Slot), IBudgetedEntry>? cache = null, bool reducible = false)
     {
         // Issue #362: a large image decoded when the list was built is reduced from its full decode, by a box average, when drawn
-        // small (Flate, LZW, raw samples, CCITT, JBIG2); a small one is converted whole.
-        _source = cache is not null && (long)samples.Width * samples.Height >= MinimumReducedPixels
+        // small (Flate, LZW, raw samples, CCITT, JBIG2); a small one is converted whole, unless it is the soft mask of an image of
+        // its size that reduces (issue #513), which must reduce alike.
+        _source = cache is not null && (reducible || (long)samples.Width * samples.Height >= MinimumReducedPixels)
             ? new DecodedReductions(samples, cache)
             : samples;
         ColorSpace = colorSpace;
@@ -372,6 +374,8 @@ public sealed class DisplayImage
     /// s satisfies s ≤ 1 / (k · σmax(A)), σmax the larger singular value, which handles rotation and skew conservatively. The
     /// region drawn does not matter: the choice depends on scale alone, so every tile of a page agrees. An image with a colour key
     /// (§8.9.6.4, compared with raw samples) or a Matte (§11.6.5.2, removed with its soft mask at the image's size) is not reduced.
+    /// An image with a <see cref="SoftMask"/> of its own size reduces no further than the soft mask can, so that a backend folds the
+    /// two on the same grid (§11.6.5.2).
     /// </remarks>
     public int GetReduction(in Matrix transform, double samplesPerPixel, PdfColorConverter? converter)
     {
@@ -384,6 +388,12 @@ public sealed class DisplayImage
         if (cap == 0 || !ColorKey.IsEmpty || !Matte.IsEmpty)
         {
             return 0;
+        }
+
+        if (SoftMask is { } soft && soft.Width == Width && soft.Height == Height)
+        {
+            // Issue #513: a soft mask of the image's size folds into its pixels only at the same reduction.
+            cap = Math.Min(cap, soft.MaxReduction);
         }
 
         if (converter is not null)
@@ -490,7 +500,9 @@ public sealed class DisplayImage
     /// ISO 32000-2 §11.6.5.2 (a soft-mask image, <c>SMask</c>, Table 143) or §7.4.9 and §8.9.5.1 Table 87 (<c>SMaskInData</c>:
     /// the opacity channel of JPEG 2000 data). It maps onto the unit square like the image, at its own width and height, which may
     /// differ from the image's; a backend resamples it to the device, never to the image's size. It overrides any soft mask in the
-    /// graphics state for this image (§11.6.4.3).
+    /// graphics state for this image (§11.6.4.3). One of the image's size reduces whenever the image does, at the same reduction
+    /// (<see cref="GetReduction"/> keeps the image within the soft mask's <see cref="MaxReduction"/>), so that the two fold on one
+    /// grid; one of another size reduces by its own rule.
     /// </remarks>
     public DisplayImage? SoftMask { get; internal init; }
 

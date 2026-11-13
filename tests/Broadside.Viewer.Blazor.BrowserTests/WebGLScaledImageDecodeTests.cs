@@ -51,6 +51,21 @@ public sealed class WebGLScaledImageDecodeTests(BrowserHost host)
     }
 
     [Fact]
+    public async Task A_small_soft_mask_of_its_image_size_is_uploaded_at_the_images_reduction()
+    {
+        // Issue #513: a 400 x 400 JPEG whose 400 x 400 soft mask was decoded at build. The mask reduces with the image, so at an eighth
+        // (400 samples over 64 pixels) both fold into one texture at a half, still on the GPU, instead of the image's own resolution.
+        host.Serve("small-soft-mask.pdf", ScaledImagePages.Page("small-soft-mask"));
+
+        (long reducedBytes, string reducedCodes, byte[] reduced) = await RenderAsync("small-soft-mask.pdf", 0.125, 2);
+        (long fullBytes, _, byte[] full) = await RenderAsync("small-soft-mask.pdf", 0.125, 0);
+
+        Assert.DoesNotContain("Rasterized", reducedCodes, StringComparison.Ordinal);
+        Assert.True(reducedBytes * 3 < fullBytes, $"{reducedBytes} texture bytes reduced, {fullBytes} in full");
+        ScaledImagePages.AssertWithinTolerance(full, reduced, "WebGL small soft mask");
+    }
+
+    [Fact]
     public async Task The_render_worker_decodes_images_as_the_pages_options_say()
     {
         // 2550 samples over about 580 pixels: two samples per pixel keep a half, one a quarter. The worker used to keep two whatever
