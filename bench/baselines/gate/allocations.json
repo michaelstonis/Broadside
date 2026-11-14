@@ -49,6 +49,8 @@
     "Broadside.Benchmarks.ColorConversionBenchmarks.ConvertFloats(Space: \"Rgb\")": 0,
     "Broadside.Benchmarks.ColorConversionBenchmarks.ConvertFloats(Space: \"RgbTransfer\")": 0,
     "Broadside.Benchmarks.ColorConversionBenchmarks.ConvertFloats(Space: \"Separation\")": 0,
+    "Broadside.Benchmarks.ColorFilterBenchmarks.ReplayDark(Page: \"images\")": 0,
+    "Broadside.Benchmarks.ColorFilterBenchmarks.ReplayDark(Page: \"paths\")": 0,
     "Broadside.Benchmarks.CompositingBenchmarks.Replay(Dpi: 300)": 0,
     "Broadside.Benchmarks.CompositingBenchmarks.Replay(Dpi: 72)": 0,
     "Broadside.Benchmarks.CompositingRowBenchmarks.FillRow": 0,

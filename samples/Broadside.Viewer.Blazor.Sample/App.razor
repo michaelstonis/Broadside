@@ -49,6 +49,7 @@
       {
         <PdfViewer @ref="_viewer" Class="viewer" Session="Demo.Session" Label="@Demo.Name" LayoutOptions="_layout"
                    ShowAnnotations="_showAnnotations" AllowAnnotationEditing="_editAnnotations"
+                   ColorFilter="(_darkMode ? Broadside.Rendering.ColorFilter.DarkMode : Broadside.Rendering.ColorFilter.None)"
                    OnStateChanged="OnStateChanged" OnAction="OnAction" OnError="OnError" TileObserver="RenderStats.Observe" />
       }
       else
@@ -93,7 +94,7 @@
               <SignaturesPanel />
               break;
             case Panel.View:
-              <ViewPanel Layout="_layout" LayoutChanged="layout => _layout = layout" />
+              <ViewPanel Layout="_layout" LayoutChanged="layout => _layout = layout" @bind-DarkMode="_darkMode" />
               break;
             case Panel.Create:
               <CreatePanel />
@@ -129,6 +130,7 @@
   private PageLayoutOptions _layout = new();
   private bool _showAnnotations = true;
   private bool _editAnnotations;
+  private bool _darkMode;
 
   private static string Title(Panel panel) => panel switch
   {

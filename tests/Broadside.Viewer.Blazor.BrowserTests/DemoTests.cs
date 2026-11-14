@@ -105,6 +105,13 @@ public sealed class DemoTests(BrowserHost host)
         await page.Locator("[data-rotation='90']").WaitForAsync();
         await page.WaitForFunctionAsync(Viewer.CountDarkPixels.Replace("return n;", "return n > 0;", StringComparison.Ordinal), null, Normal);
 
+        // Smart dark mode (#219): the paper and its surroundings turn dark, most of the canvas; turning it off brings the white back.
+        await page.Locator("[data-action=dark-mode]").ClickAsync();
+        await page.WaitForFunctionAsync(Viewer.CountDarkPixels.Replace("return n;", "return n * 8 > d.length;", StringComparison.Ordinal), null, Normal);
+        await ScreenshotAsync(page, screenshots, "dark-mode");
+        await page.Locator("[data-action=dark-mode]").ClickAsync();
+        await page.WaitForFunctionAsync(Viewer.CountDarkPixels.Replace("return n;", "return n * 8 < d.length;", StringComparison.Ordinal), null, Normal);
+
         // Signatures: validated where the runtime has X.509 support, otherwise the signature dictionary is shown unchecked.
         await OpenGalleryAsync(page, "documents/signed.pdf", "signed.pdf");
         await OpenPanelAsync(page, "signatures");

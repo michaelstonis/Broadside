@@ -15,7 +15,8 @@ namespace Broadside.Viewer.Maui;
 /// display, so images are decoded at the resolution they are drawn at unless the constructor says otherwise
 /// (<see cref="RenderOptions.ScaledImageDecode"/>; never for printing or export). The backends of a session's pool draw tiles at
 /// the same time and share the images they convert (<see cref="SkiaBackend.ShareConvertedImages"/>): each image is converted once,
-/// within the document's image cache budget, whichever backend draws it.
+/// within the document's image cache budget, whichever backend draws it. A tile with a color filter (smart dark mode,
+/// <see cref="DocumentSession.ColorFilter"/>) falls back to the software path: the software rasterizer draws it, filter included.
 /// </remarks>
 public sealed class SkiaTileBackend : ITileBackend
 {

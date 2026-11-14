@@ -13,6 +13,14 @@
 </section>
 
 <section class="panel-section">
+  <h3>Appearance</h3>
+  <label class="check"><input type="checkbox" checked="@DarkMode" @onchange="e => DarkModeChanged.InvokeAsync((bool)e.Value!)" data-action="dark-mode" />
+    Dark mode</label>
+  <p class="hint">Smart dark mode inverts the lightness of text and drawings and keeps their hue; images keep their colors. The
+    tiles are redrawn from the cached display lists; the file is not changed.</p>
+</section>
+
+<section class="panel-section">
   <h3>Renderer</h3>
   <div class="segmented" role="radiogroup" aria-label="Renderer">
     <button role="radio" class="@(Renderers.UseWebGL ? "" : "active")" aria-checked="@(Renderers.UseWebGL ? "false" : "true")"
@@ -60,6 +68,10 @@
   [Parameter, EditorRequired] public PageLayoutOptions Layout { get; set; } = default!;
 
   [Parameter] public EventCallback<PageLayoutOptions> LayoutChanged { get; set; }
+
+  [Parameter] public bool DarkMode { get; set; }
+
+  [Parameter] public EventCallback<bool> DarkModeChanged { get; set; }
 
   private PageLayoutOptions Copy() =>
     new PageLayoutOptions().WithMode(Layout.Mode).WithCover(Layout.ShowCover).WithGap(Layout.Gap).WithPadding(Layout.Padding).WithRotation(Layout.Rotation);

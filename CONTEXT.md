@@ -87,6 +87,10 @@ _Avoid_: Platform renderer, OS renderer
 A platform's own image codec (a browser's WebCodecs, an operating system codec) that decodes the images a viewer is about to draw, asynchronously and before the tile is replayed, behind one eligibility rule in the core; the managed codec stays the fallback and the only decoder for extraction and export.
 _Avoid_: Native filter, hardware decoder, image plugin
 
+**Color filter**:
+A display-only transform a render runs over its finished pixels, outside the pixels images cover; smart dark mode inverts the lightness of text and vector colors while keeping their hue. It never changes the page or its display list.
+_Avoid_: Theme, night mode, invert (which would invert images and hue too)
+
 ### Viewer
 
 **Document session**:
