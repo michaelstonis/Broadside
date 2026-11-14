@@ -64,6 +64,30 @@ public sealed class ContentAllocationTests
     }
 
     [Fact]
+    public void Saving_and_restoring_the_graphics_state_allocates_nothing_once_warm()
+    {
+        // Issue #257: q copies the whole state (§8.4.2), both colors included; nesting deeper than the initial stack makes it grow.
+        string content = "0.2 0.4 0.6 RG 0 0.5 1 0 k " + string.Concat(Enumerable.Repeat("q 1 0 0 rg q q q 0 0 1 1 re f Q Q Q Q\n", 2_000))
+            + string.Concat(Enumerable.Repeat("q ", 40)) + "0 0 1 1 re f" + string.Concat(Enumerable.Repeat(" Q", 40));
+        using PdfDocument document = PdfDocument.Open(ContentPdf.Build(content));
+        PdfPage page = document.Pages[0];
+        var processor = new CountingProcessor();
+
+        long allocated = Allocations.Measure(
+            () =>
+            {
+                processor.Reset();
+                page.ProcessContent(processor);
+            },
+            WarmUp);
+
+        Assert.Equal(2_001, processor.Paints);
+        Assert.Equal(8_040, processor.Saves);
+        Assert.Equal(0, allocated);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
     public void Showing_text_allocates_nothing_per_glyph_once_warm()
     {
         string content = System.Text.Encoding.ASCII.GetString(ContentSamples.TextHeavy(10_000));

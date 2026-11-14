@@ -6,7 +6,8 @@ using Broadside.Objects;
 namespace Broadside.Content;
 
 /// <summary>What a nested content stream needs to run inside the current run: a tiling pattern's cell (issue #79), and forms,
-/// Type 3 glyphs and soft masks as they come.</summary>
+/// Type 3 glyphs and soft masks as they come. The state it starts with is passed beside it, by reference, so that the 800-byte
+/// graphics state is not copied into and out of this description (issue #257).</summary>
 internal readonly struct NestedRun
 {
     /// <summary>Gets what kind of stream it is.</summary>
@@ -23,9 +24,6 @@ internal readonly struct NestedRun
 
     /// <summary>Gets the resources names resolve against.</summary>
     public CosDictionary? Resources { get; init; }
-
-    /// <summary>Gets the state the stream starts with, its CTM already the stream's base matrix.</summary>
-    public required GraphicsState InitialState { get; init; }
 
     /// <summary>Gets a rectangle, in the stream's space, intersected with the clip before the content runs (a cell's or form's BBox).</summary>
     public PdfRectangle? ClipBox { get; init; }
@@ -69,19 +67,25 @@ internal sealed partial class ContentInterpreter
     /// </remarks>
     internal ref readonly GraphicsState StartStateFor(Matrix baseMatrix)
     {
-        for (int i = _frames.Count - 1; i >= 0; i--)
+        Span<RunFrame> frames = CollectionsMarshal.AsSpan(_frames);
+        for (int i = frames.Length - 1; i >= 0; i--)
         {
-            if (_frames[i].BaseMatrix == baseMatrix)
+            if (frames[i].BaseMatrix == baseMatrix)
             {
-                return ref CollectionsMarshal.AsSpan(_frames)[i].StartState;
+                return ref frames[i].StartState;
             }
         }
 
-        return ref CollectionsMarshal.AsSpan(_frames)[^1].StartState;
+        return ref frames[^1].StartState;
     }
 
     /// <summary>Runs a nested content stream; see <see cref="NestedRun"/>.</summary>
-    internal NestedRunResult RunNested(in NestedRun run)
+    /// <param name="run">The stream and how it runs.</param>
+    /// <param name="initialState">
+    /// The state the stream starts with, its CTM already the stream's base matrix: the caller's own copy, never a reference into the
+    /// state stack or the frames, which this run may grow.
+    /// </param>
+    internal NestedRunResult RunNested(in NestedRun run, in GraphicsState initialState)
     {
         if (CanNest(run.Identity) is not NestedRunResult.Ran and var refused)
         {
@@ -119,14 +123,14 @@ internal sealed partial class ContentInterpreter
             _context.RunKind = run.Kind;
             _context.Depth = depth + 1;
             _context.Resources = run.Resources;
-            _context.StreamBaseMatrix = run.InitialState.Ctm;
+            _context.StreamBaseMatrix = initialState.Ctm;
             _context.ContentStream = run.Identity as CosStream;
             _context.StructParents = run.StructParents;
             _textMatricesValid = false;
             _textClipStart = _clipGlyphCount;
             _pendingAdjustment = 0;
             _markedFloor = _markedCount;
-            PushNestedState(run.InitialState);
+            PushNestedState(initialState);
             pushed = true;
             _floor = _depth;
             if (run.ClipBox is { } box)
@@ -134,13 +138,13 @@ internal sealed partial class ContentInterpreter
                 IntersectBox(box);
             }
 
-            _frames.Add(new RunFrame(run.Identity, run.InitialState.Ctm, State));
+            PushFrame(run.Identity, initialState.Ctm);
             Execute(run.Content.Span);
             FinishStream();
         }
         finally
         {
-            if (_frames.Count > 1 && ReferenceEquals(_frames[^1].Identity, run.Identity))
+            if (_frames.Count > 1 && ReferenceEquals(CollectionsMarshal.AsSpan(_frames)[^1].Identity, run.Identity))
             {
                 _frames.RemoveAt(_frames.Count - 1);
             }
@@ -171,7 +175,7 @@ internal sealed partial class ContentInterpreter
             return NestedRunResult.TooDeep;
         }
 
-        foreach (RunFrame frame in _frames)
+        foreach (ref readonly RunFrame frame in CollectionsMarshal.AsSpan(_frames))
         {
             if (ReferenceEquals(frame.Identity, identity))
             {
@@ -228,14 +232,33 @@ internal sealed partial class ContentInterpreter
         _path.Accumulate = accumulate;
     }
 
-    /// <summary>A running stream: what it is, the base matrix patterns selected in it are relative to, and its initial state.</summary>
-    private struct RunFrame(CosObject? identity, Matrix baseMatrix, in GraphicsState startState)
+    /// <summary>Adds the frame of a stream that starts running now, with the current state as its start state.</summary>
+    private void PushFrame(CosObject? identity, Matrix baseMatrix)
     {
-        public readonly CosObject? Identity = identity;
+        // Grown in place and filled by reference: building a frame and adding it would copy its graphics state twice more (#257).
+        CollectionsMarshal.SetCount(_frames, _frames.Count + 1);
+        SetFrame(ref CollectionsMarshal.AsSpan(_frames)[^1], identity, baseMatrix);
+    }
 
-        public readonly Matrix BaseMatrix = baseMatrix;
+    /// <summary>Fills a frame with the current state as its start state; the state is copied once.</summary>
+    private void SetFrame(ref RunFrame frame, CosObject? identity, Matrix baseMatrix)
+    {
+        frame.Identity = identity;
+        frame.BaseMatrix = baseMatrix;
+        frame.StartState = State;
+    }
 
-        public GraphicsState StartState = startState;
+    /// <summary>
+    /// A running stream: what it is, the base matrix patterns selected in it are relative to, and its initial state. Only ever
+    /// reached by reference into <see cref="_frames"/>: a copy of a frame copies its graphics state.
+    /// </summary>
+    private struct RunFrame
+    {
+        public CosObject? Identity;
+
+        public Matrix BaseMatrix;
+
+        public GraphicsState StartState;
     }
 
     /// <summary>The operand, path and part buffers of one nesting level, allocated once per interpreter and reused.</summary>

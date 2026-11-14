@@ -215,7 +215,7 @@ internal sealed partial class ContentInterpreter
         _states[0].OutputIntent = document.GetOutputIntent(page);
         _maxNestingDepth = options.MaxNestingDepth;
         _frames.Clear();
-        _frames.Add(new RunFrame(null, Matrix.Identity, _states[0]));
+        PushFrame(null, Matrix.Identity);
         _parts.Clear();
         _context.RunKind = ContentRunKind.Page;
         _context.Depth = 0;

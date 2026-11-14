@@ -45,11 +45,10 @@ internal sealed partial class ContentInterpreter
                 Reference = reference,
                 Content = _context.GetContent(procedure),
                 Resources = font.Resources ?? _context.Resources,
-                InitialState = initial,
                 Processor = processor,
             };
             _glyphHeadPending = true;
-            NestedRunResult result = RunNested(run);
+            NestedRunResult result = RunNested(run, initial);
             _glyphHeadPending = false;
             if (result == NestedRunResult.Recursive)
             {
