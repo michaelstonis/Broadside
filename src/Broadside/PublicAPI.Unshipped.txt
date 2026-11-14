@@ -5459,6 +5459,7 @@ static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringNoEndchar.get -
 static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringMovetoMissing.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringOperandInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringCoordinateOverflow.get -> Broadside.Diagnostics.DiagnosticCode!
 Broadside.Diagnostics.CffDiagnostics
 static Broadside.Diagnostics.CffDiagnostics.FontCffHeaderInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.CffDiagnostics.FontCffIndexOffsetsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!

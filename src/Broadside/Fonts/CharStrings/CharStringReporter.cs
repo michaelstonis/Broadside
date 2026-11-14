@@ -51,6 +51,9 @@ internal enum CharStringIssue
 
     /// <summary>Type 1 only: a glyph has more points than <see cref="FontProgramContext.MaxGlyphPoints"/> or its coordinates overflow; the glyph is dropped.</summary>
     GlyphTooComplex,
+
+    /// <summary>Type 2 only: the path arithmetic of a glyph overflows, so a coordinate is not finite; the glyph is dropped.</summary>
+    CoordinateOverflow,
 }
 
 /// <summary>
@@ -87,7 +90,7 @@ internal sealed class CharStringReporter(FontProgramContext context, string form
 
     /// <summary>Whether an issue drops the glyph (its outline is <see cref="GlyphOutlineStatus.Invalid"/>).</summary>
     private static bool DropsGlyph(CharStringIssue issue) => issue is CharStringIssue.StackOverflow or CharStringIssue.SubroutineDepth
-        or CharStringIssue.BudgetExceeded or CharStringIssue.Truncated or CharStringIssue.GlyphTooComplex;
+        or CharStringIssue.BudgetExceeded or CharStringIssue.Truncated or CharStringIssue.GlyphTooComplex or CharStringIssue.CoordinateOverflow;
 
     private static (DiagnosticCode Code, string Text) Describe(CharStringIssue issue) => issue switch
     {
@@ -105,6 +108,7 @@ internal sealed class CharStringReporter(FontProgramContext context, string form
         CharStringIssue.BlendUnavailable => (Type1Diagnostics.FontType1BlendUnavailable, "a multiple master blend has no matching WeightVector (TN 5015 §3.13); the first master's values are used."),
         CharStringIssue.NoWidth => (Type1Diagnostics.FontType1NoWidth, "the charstring does not start with hsbw or sbw (Type 1 Font Format §6.4); its side bearing and width are 0."),
         CharStringIssue.GlyphTooComplex => (Type1Diagnostics.FontType1GlyphTooComplex, "the glyph has more points than the limit (FontProgramContext.MaxGlyphPoints) or its coordinates overflow; the glyph is dropped."),
+        CharStringIssue.CoordinateOverflow => (CharStringDiagnostics.FontCharstringCoordinateOverflow, "the arithmetic of its path overflows, so a coordinate is not a finite number (Adobe Technical Note #5177 §4.1, §4.4); the glyph is dropped."),
         _ => (CharStringDiagnostics.FontCharstringTruncated, "the charstring ends inside an operand or a hint mask (Adobe Technical Note #5177 §3.2, §4.3; Type 1 Font Format §6.2); the glyph is dropped."),
     };
 }

@@ -97,6 +97,16 @@ internal sealed class CffFontProgram : FontProgram
         if (_font.TryGetMatrixAdjustment(glyphId, out Matrix adjustment))
         {
             outline.Transform(adjustment);
+            foreach (PathPoint point in outline.Path.Points)
+            {
+                if (!double.IsFinite(point.X) || !double.IsFinite(point.Y))
+                {
+                    // The Font DICT's matrix scaled a coordinate past the largest double: the glyph is dropped like any other overflow.
+                    _reporter.Report(CharStringIssue.CoordinateOverflow, glyphId);
+                    outline.Clear();
+                    return GlyphOutlineStatus.Invalid;
+                }
+            }
         }
 
         return outline.IsEmpty ? GlyphOutlineStatus.Empty : GlyphOutlineStatus.Complete;
@@ -118,6 +128,10 @@ internal sealed class CffFontProgram : FontProgram
         if (_font.TryGetMatrixAdjustment(glyphId, out Matrix adjustment))
         {
             width = adjustment.TransformVector(width, 0).X;
+            if (!double.IsFinite(width))
+            {
+                width = 0;
+            }
         }
 
         return new GlyphMetrics(width, 0);

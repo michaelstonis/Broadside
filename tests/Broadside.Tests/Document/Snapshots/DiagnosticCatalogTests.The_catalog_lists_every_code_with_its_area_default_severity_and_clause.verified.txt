@@ -344,6 +344,7 @@ CharString	FontCharstringNoEndchar	Warning	Adobe Technical Note #5177; Type 1 Fo
 CharString	FontCharstringMovetoMissing	Warning	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
 CharString	FontCharstringOperandInvalid	Warning	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
 CharString	FontCharstringTruncated	Error	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
+CharString	FontCharstringCoordinateOverflow	Error	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
 Cff	FontCffHeaderInvalid	Warning	Adobe Technical Note #5176
 Cff	FontCffIndexOutOfRange	Warning	Adobe Technical Note #5176 §5
 Cff	FontCffIndexTruncated	Warning	Adobe Technical Note #5176 §5
