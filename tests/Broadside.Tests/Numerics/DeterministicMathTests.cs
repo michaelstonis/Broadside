@@ -12,7 +12,7 @@ public sealed class DeterministicMathTests
 {
     private const int Samples = 20_000;
 
-    private const string Fingerprint = "113D30C96E0120B710F0BEA83E9012ECBEAAEDB236153AF463924E9600D441FC";
+    private const string Fingerprint = "F7571C6FD4DE0A38D18330E3C45BE0E61FCDBADC311B9580E2D2FF68652F4A28";
 
     [Fact]
     public void Pow_stays_within_a_few_units_in_the_last_place_of_the_platform_library()
@@ -32,6 +32,41 @@ public sealed class DeterministicMathTests
                 double x = sample / 65535.0;
                 AssertClose(Math.Pow(x, gamma), DeterministicMath.Pow(x, gamma), MaxPowUlps(x, gamma), $"Pow({x:R}, {gamma:R})");
             }
+        }
+    }
+
+    [Fact]
+    public void Pow_stays_close_to_the_platform_library_at_the_edges_of_the_double_range()
+    {
+        // Subnormal bases, results that overflow or underflow (through the subnormals), exponents near ±1024·ln 2 / ln x, and bases
+        // next to 1, where the logarithm is tiny.
+        var inputs = new Inputs(4);
+        for (int i = 0; i < Samples; i++)
+        {
+            double subnormal = Math.ScaleB(inputs.Next(1, 2), (int)inputs.Next(-1074, -1023));
+            double y = inputs.Next(-2, 2) + 0.25;
+            AssertClose(Math.Pow(subnormal, y), DeterministicMath.Pow(subnormal, y), MaxPowUlps(subnormal, y), $"Pow({subnormal:R}, {y:R})");
+
+            double x = inputs.Next(0.001, 1000);
+            double edge = (inputs.Next(-1080, 1030) / Math.Log2(x)) + 0.125;
+            AssertClose(Math.Pow(x, edge), DeterministicMath.Pow(x, edge), MaxPowUlps(x, edge), $"Pow({x:R}, {edge:R})");
+
+            double nearOne = 1 + Math.ScaleB(inputs.Next(-1, 1), -(int)inputs.Next(1, 52));
+            double z = inputs.Next(-1000, 1000) + 0.5;
+            AssertClose(Math.Pow(nearOne, z), DeterministicMath.Pow(nearOne, z), MaxPowUlps(nearOne, z), $"Pow({nearOne:R}, {z:R})");
+        }
+    }
+
+    [Fact]
+    public void Sine_and_cosine_in_degrees_alone_are_the_bits_of_both_together()
+    {
+        var inputs = new Inputs(5);
+        double[] edges = [0, -0.0, 45, -45, 90, 135, 180, 270, 359.99999999999994, 360, -360, 1e300, -1e17, 9007199254740993.0 * 90];
+        foreach (double degrees in edges.Concat(Enumerable.Range(0, Samples).Select(_ => inputs.Next(-1000, 1000))))
+        {
+            (double sin, double cos) = DeterministicMath.SinCosDegrees(degrees);
+            Assert.Equal(BitConverter.DoubleToInt64Bits(sin), BitConverter.DoubleToInt64Bits(DeterministicMath.SinDegrees(degrees)));
+            Assert.Equal(BitConverter.DoubleToInt64Bits(cos), BitConverter.DoubleToInt64Bits(DeterministicMath.CosDegrees(degrees)));
         }
     }
 
@@ -187,6 +222,9 @@ public sealed class DeterministicMathTests
             (sin, cos) = DeterministicMath.SinCosDegrees(y * 100);
             Add(sin);
             Add(cos);
+            Add(DeterministicMath.SinDegrees(x * 1000));
+            Add(DeterministicMath.CosDegrees(x * 1000));
+            Add(DeterministicMath.Pow(x, y * 0.1));
             Add(DeterministicMath.Atan2(y, x - 2));
             Add(DeterministicMath.Acos(y / 8));
             Add(DeterministicMath.Cbrt(y));

@@ -233,8 +233,8 @@ internal sealed class PostScriptEvaluator : FunctionEvaluator
                         double result = instruction.OpCode switch
                         {
                             PostScriptOpCode.Sqrt => x >= 0 ? Math.Sqrt(x) : double.NaN,
-                            PostScriptOpCode.Sin => DeterministicMath.SinCosDegrees(x).Sin,
-                            PostScriptOpCode.Cos => DeterministicMath.SinCosDegrees(x).Cos,
+                            PostScriptOpCode.Sin => DeterministicMath.SinDegrees(x),
+                            PostScriptOpCode.Cos => DeterministicMath.CosDegrees(x),
                             PostScriptOpCode.Ln => x > 0 ? DeterministicMath.Log(x) : double.NaN,
                             PostScriptOpCode.Log => x > 0 ? DeterministicMath.Log10(x) : double.NaN,
                             _ => x,
