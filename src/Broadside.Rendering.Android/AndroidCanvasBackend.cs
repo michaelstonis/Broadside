@@ -63,6 +63,12 @@ namespace Broadside.Rendering.Android;
 /// Not drawn yet: transparency groups and soft masks (#136), drawn as their content and reported.
 /// </para>
 /// <para>
+/// Color filters (<see cref="RenderOptions.ColorFilter"/>, smart dark mode): a page render with a filter falls back to the software
+/// path. <see cref="SoftwareRasterizer"/> renders the page, filter included, and the result is drawn onto the canvas as a bitmap, so
+/// <see cref="Diagnostics"/> is empty. A display list drawn onto a canvas is never filtered; a viewer's tile backend draws filtered
+/// tiles through the software rasterizer.
+/// </para>
+/// <para>
 /// Reuse one instance for many renders: its Android path, paints and matrix are created once and kept, so a warm replay allocates
 /// nothing per operation. An instance renders one page at a time; use one per thread to render in parallel (a document is safe for
 /// concurrent renders while nobody changes it). Dispose it to release its Android objects.
@@ -75,6 +81,7 @@ public sealed partial class AndroidCanvasBackend : IDisposable
 
     private readonly Backend _backend = new();
     private double _imageSamplesPerPixel = RenderOptions.DefaultImageSamplesPerPixel;
+    private SoftwareRasterizer? _filtered;
     private bool _disposed;
 
     /// <summary>Renders <paramref name="page"/> at 72 DPI into a new ARGB_8888 bitmap, on white.</summary>
@@ -125,6 +132,12 @@ public sealed partial class AndroidCanvasBackend : IDisposable
         ArgumentNullException.ThrowIfNull(options);
         ObjectDisposedException.ThrowIf(_disposed, this);
         PixelSize size = options.GetPixelSize(page);
+        if (options.ColorFilter != ColorFilter.None && !options.OverprintPreview)
+        {
+            DrawFiltered(page, canvas, options, size);
+            return;
+        }
+
         Matrix device = options.GetDeviceTransform(page);
         DisplayList list = page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions);
         int count = canvas.Save();
@@ -270,7 +283,25 @@ public sealed partial class AndroidCanvasBackend : IDisposable
         {
             _disposed = true;
             _backend.Dispose();
+            _filtered?.Dispose();
         }
+    }
+
+    /// <summary>
+    /// The software path of a page render with a color filter (spec #33 viewer capability 9): the rasterizer renders the page with the
+    /// options, filter included, and the pixels are drawn at the canvas's origin under its matrix and clip.
+    /// </summary>
+    private void DrawFiltered(PdfPage page, AndroidCanvas canvas, RenderOptions options, PixelSize size)
+    {
+        _backend.Diagnostics.Clear();
+        byte[] pixels = new byte[size.Width * size.Height * 4];
+        using (var bitmap = new Bitmap(pixels, size.Width, size.Height, size.Width * 4))
+        {
+            (_filtered ??= new SoftwareRasterizer()).Render(page, bitmap, options);
+        }
+
+        using PixelImage image = PixelImage.Own(pixels, size.Width, size.Height, 4);
+        canvas.DrawBitmap(image.Bitmap, 0, 0, null);
     }
 
     /// <summary>The backend the display list replays through: graphics state, path building, paints and colour.</summary>

@@ -404,6 +404,35 @@ public sealed class RenderOptions
         return this;
     }
 
+    /// <summary>
+    /// Gets or sets the color filter the render applies to what it shows, such as <see cref="Rendering.ColorFilter.DarkMode"/>;
+    /// <see cref="Rendering.ColorFilter.None"/> by default.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Spec #33 viewer capability 9 (smart dark mode). For display only: viewers turn it on, and it must stay off for printing, export
+    /// and anything that keeps the pixels as a faithful render. The page is rendered as usual and the filter runs over the finished
+    /// pixels, the background included (white paper becomes black; a <see cref="TransparentBackground"/> stays transparent), leaving
+    /// the pixels images cover as they were (see <see cref="Rendering.ColorFilter.DarkMode"/>). The display list does not depend on
+    /// it, so a viewer toggles it by drawing its cached lists again (<see cref="SoftwareRasterizer.ColorFilter"/>).
+    /// </para>
+    /// <para>
+    /// ISO 32000-2 §10.7.1 and §8.9. Ignored with <see cref="OverprintPreview"/>, a print preview. The software rasterizer applies it;
+    /// the SkiaSharp, CoreGraphics, Direct2D, Android and WebGL backends render a page with a filter through the software rasterizer,
+    /// as their own documentation says.
+    /// </para>
+    /// </remarks>
+    public ColorFilter ColorFilter { get; set; }
+
+    /// <summary>Sets <see cref="ColorFilter"/>.</summary>
+    /// <param name="colorFilter">The color filter, or <see cref="Rendering.ColorFilter.None"/>.</param>
+    /// <returns>This instance.</returns>
+    public RenderOptions WithColorFilter(ColorFilter colorFilter)
+    {
+        ColorFilter = colorFilter;
+        return this;
+    }
+
     /// <summary>Returns <paramref name="value"/> when it is a valid <see cref="ImageSamplesPerPixel"/>.</summary>
     internal static double CheckSamplesPerPixel(double value) =>
         double.IsFinite(value) && value >= 1

@@ -1246,7 +1246,7 @@ public sealed class TileScheduler : IDisposable
 
         try
         {
-            job.Rendering = job.Backend.Begin(list, job.Target, transform, token);
+            job.Rendering = job.Backend.Begin(list, job.Target, transform, _session.ColorFilter, token);
         }
 #pragma warning disable CA1031 // reported as a failed tile
         catch (Exception)
@@ -1507,7 +1507,7 @@ public sealed class TileScheduler : IDisposable
         }
     }
 
-    private bool IsRemote(TileJob job) => _remote is { } remote && remote.CanRender(job.Tile);
+    private bool IsRemote(TileJob job) => _remote is { } remote && remote.CanRender(job.Tile, _session.ColorFilter);
 
     /// <summary>Starts a tile the remote renderer draws: counted like a background render until it is presented or stops.</summary>
     private void StartRemote(TileJob job, long bytes)
@@ -1530,7 +1530,7 @@ public sealed class TileScheduler : IDisposable
         try
         {
             await (job.IsRemote
-                ? _remote!.RenderAsync(job.Tile, job, job.Cancellation!.Token)
+                ? _remote!.RenderAsync(job.Tile, _session.ColorFilter, job, job.Cancellation!.Token)
                 : _session.RenderTileAsync(job.Tile, job, job.Cancellation!.Token)).ConfigureAwait(false);
         }
         catch (OperationCanceledException)

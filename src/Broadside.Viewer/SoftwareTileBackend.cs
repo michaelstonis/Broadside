@@ -38,15 +38,46 @@ public sealed class SoftwareTileBackend : ITileBackend
 
     /// <inheritdoc/>
     public ITileRender Begin(DisplayList list, Bitmap target, in Matrix deviceTransform, CancellationToken cancellationToken) =>
-        new Rendering(_rasterizer.BeginRender(list, target, deviceTransform, cancellationToken, null));
+        Begin(list, target, deviceTransform, ColorFilter.None, cancellationToken);
+
+    /// <inheritdoc/>
+    /// <remarks>Spec #33 viewer capability 9: the rasterizer runs the filter itself (<see cref="SoftwareRasterizer.ColorFilter"/>).</remarks>
+    public ITileRender Begin(DisplayList list, Bitmap target, in Matrix deviceTransform, ColorFilter colorFilter, CancellationToken cancellationToken)
+    {
+        _rasterizer.ColorFilter = colorFilter;
+        return new Rendering(_rasterizer.BeginRender(list, target, deviceTransform, cancellationToken, null));
+    }
+
+    /// <summary>
+    /// The software path of a backend that cannot draw a color filter: a rasterizer of the tile's own draws it, filter included, and
+    /// is released with the render.
+    /// </summary>
+    internal static ITileRender BeginFallback(DisplayList list, Bitmap target, in Matrix deviceTransform, ColorFilter colorFilter, CancellationToken cancellationToken)
+    {
+        SoftwareRasterizer? rasterizer = new() { ScaledImageDecode = true, ColorFilter = colorFilter };
+        try
+        {
+            var rendering = new Rendering(rasterizer.BeginRender(list, target, deviceTransform, cancellationToken, null), rasterizer);
+            rasterizer = null; // the render owns it now
+            return rendering;
+        }
+        finally
+        {
+            rasterizer?.Dispose();
+        }
+    }
 
     /// <summary>Releases the rasterizer and its pooled scratch buffers.</summary>
     public void Dispose() => _rasterizer.Dispose();
 
-    private sealed class Rendering(ProgressiveRender render) : ITileRender
+    private sealed class Rendering(ProgressiveRender render, SoftwareRasterizer? owned = null) : ITileRender
     {
         public bool RenderSlice(TimeSpan budget) => render.Continue(budget);
 
-        public void Dispose() => render.Dispose();
+        public void Dispose()
+        {
+            render.Dispose();
+            owned?.Dispose();
+        }
     }
 }
