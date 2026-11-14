@@ -50,6 +50,10 @@ public static class CharStringDiagnostics
     /// <remarks>Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8</remarks>
     public static DiagnosticCode FontCharstringTruncated { get; } = new(nameof(FontCharstringTruncated), DiagnosticArea.CharString, DiagnosticSeverity.Error, "Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8");
 
+    /// <summary>Gets the <c>FontCharstringCoordinateOverflow</c> code.</summary>
+    /// <remarks>Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8</remarks>
+    public static DiagnosticCode FontCharstringCoordinateOverflow { get; } = new(nameof(FontCharstringCoordinateOverflow), DiagnosticArea.CharString, DiagnosticSeverity.Error, "Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8");
+
     /// <summary>Gets every code of this area, in declaration order.</summary>
     internal static DiagnosticCode[] Codes { get; } =
     [
@@ -64,5 +68,6 @@ public static class CharStringDiagnostics
         FontCharstringMovetoMissing,
         FontCharstringOperandInvalid,
         FontCharstringTruncated,
+        FontCharstringCoordinateOverflow,
     ];
 }

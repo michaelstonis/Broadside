@@ -52,12 +52,23 @@ internal struct CharStringPath
     /// <summary>Gets a value indicating whether a segment was drawn with no moveto before it (the builder started a contour anyway).</summary>
     public bool MovetoMissing { get; private set; }
 
+    /// <summary>
+    /// Gets a value indicating whether the current point or a point to write stopped being finite (the arithmetic of the charstring
+    /// overflowed a double). The point is not written; the interpreter drops the glyph.
+    /// </summary>
+    public bool Overflowed { get; private set; }
+
     /// <summary>Closes the open contour, if any, and moves the current point by a delta.</summary>
     public void MoveTo(double dx, double dy)
     {
         Close();
         X += dx;
         Y += dy;
+        if (!double.IsFinite(X + OffsetX + Y + OffsetY))
+        {
+            Overflowed = true;
+        }
+
         _startX = X;
         _startY = Y;
         _moved = true;
@@ -69,6 +80,12 @@ internal struct CharStringPath
         Begin();
         X += dx;
         Y += dy;
+        if (!double.IsFinite(X + OffsetX + Y + OffsetY))
+        {
+            Overflowed = true;
+            return;
+        }
+
         _outline?.LineTo(X + OffsetX, Y + OffsetY);
     }
 
@@ -82,6 +99,12 @@ internal struct CharStringPath
         double y2 = y1 + dy2;
         X = x2 + dx3;
         Y = y2 + dy3;
+        if (!double.IsFinite(x1 + y1 + x2 + y2 + X + Y + OffsetX + OffsetY))
+        {
+            Overflowed = true;
+            return;
+        }
+
         _outline?.CubicTo(x1 + OffsetX, y1 + OffsetY, x2 + OffsetX, y2 + OffsetY, X + OffsetX, Y + OffsetY);
     }
 
@@ -107,6 +130,12 @@ internal struct CharStringPath
             MovetoMissing = true;
             _startX = X;
             _startY = Y;
+        }
+
+        if (!double.IsFinite(_startX + OffsetX + _startY + OffsetY))
+        {
+            Overflowed = true;
+            return;
         }
 
         _outline?.MoveTo(_startX + OffsetX, _startY + OffsetY);

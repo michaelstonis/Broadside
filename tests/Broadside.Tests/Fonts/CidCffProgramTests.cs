@@ -88,6 +88,26 @@ public sealed class CidCffProgramTests
     }
 
     [Fact]
+    public void A_font_dictionary_matrix_that_scales_a_coordinate_past_the_largest_double_drops_the_glyph_with_a_diagnostic()
+    {
+        CffBuilder builder = TwoFontDicts([0, 0, 0, 1]);
+        builder.FontMatrix = [1, 0, 0, 1, 0, 0];
+        builder.FontDicts[0].FontMatrix = [0.001, 0, 0, 0.001, 0, 0];
+        builder.FontDicts[1].FontMatrix = [1e305, 0, 0, 1e305, 0, 0];
+        var context = new FontProgramContext();
+
+        FontProgram program = Parse(builder.Build(), context);
+        var outline = new GlyphOutline();
+
+        Assert.Equal(FirstBox, OutlineText.Of(program, 1));
+        Assert.Equal(GlyphOutlineStatus.Invalid, program.GetOutline(2, outline));
+        Assert.True(outline.IsEmpty);
+        Assert.True(double.IsFinite(program.GetMetrics(2).AdvanceWidth));
+        Diagnostic diagnostic = Assert.Single(context.Diagnostics, d => d.Code == "FontCharstringCoordinateOverflow");
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+    }
+
+    [Fact]
     public void An_FDSelect_entry_past_the_FDArray_selects_the_first_font_dictionary_with_a_diagnostic()
     {
         var context = new FontProgramContext();
