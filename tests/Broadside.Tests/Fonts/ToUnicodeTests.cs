@@ -218,6 +218,21 @@ public sealed class ToUnicodeTests
     }
 
     [Fact]
+    public void A_ToUnicode_filter_removed_as_an_object_is_seen_by_the_font_read_before()
+    {
+        string cmap = "/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapName /Test-UCS def /CMapType 2 def\n"
+            + "1 begincodespacerange <0000> <FFFF> endcodespacerange\n1 beginbfchar\n<0001> <0041>\nendbfchar\nendcmap CMapName currentdict /CMap defineresource pop end end";
+        string hex = Convert.ToHexString(System.Text.Encoding.ASCII.GetBytes(cmap)) + ">";
+        using PdfDocument document = OpenType0(Stream("/Type /CMap /CMapName /Test-UCS /Filter 7 0 R", hex), extra: "/ASCIIHexDecode");
+        Assert.Equal("A", Map(FontPdf.Font(document), 1).Text);
+
+        // §7.3.10: Filter now resolves to null, so the stream's data is read as stored and holds no CMap; the stream is unchanged.
+        Assert.True(document.RemoveObject(new CosReference(7, 0)));
+
+        Assert.NotEqual("A", Map(FontPdf.Font(document), 1).Text);
+    }
+
+    [Fact]
     public void Overlapping_entries_take_the_later_one()
     {
         using PdfDocument document = OpenType0(ToUnicode("1 beginbfrange\n<0001> <0003> <0061>\nendbfrange\n1 beginbfchar\n<0002> <0058>\nendbfchar"));

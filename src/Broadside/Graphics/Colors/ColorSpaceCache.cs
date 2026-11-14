@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
 using Broadside.Caching;
 using Broadside.Diagnostics;
 using Broadside.Graphics.Functions;
@@ -51,6 +52,13 @@ internal enum NamedLookup
 /// detected as a cycle. Names (<c>/CS0</c>) are never keys: the same name means different spaces in different resources.
 /// </para>
 /// <para>
+/// A view is live, but which view a space gets (its family, or DeviceGray when it cannot be used) is decided when it is built, from
+/// what its references resolve to then (§7.3.10): <c>[/ICCBased 6 0 R]</c> is an ICCBased space only while object 6 is a stream.
+/// Each view records the references resolved while it was built (its own and those of the spaces it reads), with their targets.
+/// After an object is added or removed, a view whose references all still resolve to the same objects is kept, the same instance,
+/// so converters and renders keyed on it still hit; one whose references now resolve elsewhere is built again (issue #305).
+/// </para>
+/// <para>
 /// Converters are keyed by source space, conversion and default spaces, and rebuilt when any container they were built from has
 /// changed. Default colour spaces and converters are also read again after an object is added or removed (§7.3.10), replacing the
 /// stale entry.
@@ -64,7 +72,16 @@ internal sealed class ColorSpaceCache
     [ThreadStatic]
     private static int _depth;
 
-    private readonly OnceCache<Key, PdfColorSpace?> _spaces = new();
+    /// <summary>How many spaces this thread is building that record the references they resolve.</summary>
+    [ThreadStatic]
+    private static int _recording;
+
+    /// <summary>The references resolved by the spaces this thread is building, innermost last; reused between builds.</summary>
+    [ThreadStatic]
+    private static List<ResolvedReference>? _recorded;
+
+    /// <summary>The views: a <see cref="PdfColorSpace"/> built without resolving a reference, else a <see cref="BuiltSpace"/>.</summary>
+    private readonly OnceCache<Key, object?> _spaces = new();
     private readonly OnceCache<Key, PdfDefaultColorSpaces> _defaults = new();
     private readonly ConcurrentDictionary<ConverterKey, PdfColorConverter> _converters = DeterministicTable.Create<ConverterKey, PdfColorConverter>();
 
@@ -91,7 +108,20 @@ internal sealed class ColorSpaceCache
     /// <summary>Resolves an object through the document.</summary>
     /// <param name="value">The object.</param>
     /// <returns>The direct object; the null object for <see langword="null"/>.</returns>
-    public CosObject Resolve(CosObject? value) => Document.Resolve(value);
+    /// <remarks>
+    /// While a space is being built, each reference resolved is recorded with what it resolved to: the space is built again only
+    /// once one of them resolves to something else (ISO 32000-2 §7.3.10, issue #305).
+    /// </remarks>
+    public CosObject Resolve(CosObject? value)
+    {
+        CosObject resolved = Document.Resolve(value);
+        if (value is CosReference reference && _recording > 0)
+        {
+            _recorded!.Add(new ResolvedReference(reference, resolved));
+        }
+
+        return resolved;
+    }
 
     /// <summary>Returns the colour space a value describes; DeviceGray, with a diagnostic, when it describes none.</summary>
     /// <param name="value">A family name, a colour space array, or a reference to one.</param>
@@ -144,11 +174,30 @@ internal sealed class ColorSpaceCache
                 }
 
                 var key = new Key((object?)reference ?? array, array.Version);
-                PdfColorSpace? space = _spaces.GetOrCreate(
+                object? built = _spaces.GetOrCreate(
                     key,
+                    Document.ObjectsVersion,
                     (Cache: this, Array: array, Reference: reference, Owner: owner),
-                    static (_, state) => new Created<PdfColorSpace?>(state.Cache.Create(state.Array, state.Reference, state.Owner, inline: false)),
-                    static (_, _) => null);
+                    static (_, state) => new Created<object?>(state.Cache.CreateRecorded(state.Array, state.Reference, state.Owner)),
+                    static (_, _) => null,
+                    static (_, built, state) => built is not BuiltSpace recorded || state.Cache.StillResolves(recorded.References));
+
+                PdfColorSpace? space;
+                if (built is BuiltSpace withReferences)
+                {
+                    // A space read while another is being built: what it read decides the outer space too (an Indexed base, an alternate).
+                    if (_recording > 0)
+                    {
+                        _recorded!.AddRange(withReferences.References);
+                    }
+
+                    space = withReferences.Space;
+                }
+                else
+                {
+                    space = (PdfColorSpace?)built;
+                }
+
                 failure = space is null ? ColorSpaceFailure.Cycle : ColorSpaceFailure.None;
                 return space;
             default:
@@ -386,6 +435,44 @@ internal sealed class ColorSpaceCache
         }
     }
 
+    /// <summary>
+    /// Builds the view of a colour space array as <see cref="Create"/> does, recording every reference resolved on the way (by this
+    /// space and by the spaces it reads). The reference the array itself was reached through is part of the key: once it resolves to
+    /// another object, the array found there is another key.
+    /// </summary>
+    /// <returns>The view alone when no reference was resolved (nothing more is allocated); else a <see cref="BuiltSpace"/>.</returns>
+    private object CreateRecorded(CosArray array, CosReference? reference, CosReference? owner)
+    {
+        List<ResolvedReference> recorded = _recorded ??= [];
+        int start = recorded.Count;
+        _recording++;
+        try
+        {
+            PdfColorSpace space = Create(array, reference, owner, inline: false);
+            return recorded.Count > start ? new BuiltSpace(space, [.. CollectionsMarshal.AsSpan(recorded)[start..]]) : space;
+        }
+        finally
+        {
+            // The space that asked for this one adds these references back when it gets the result (Find), whether built or cached.
+            recorded.RemoveRange(start, recorded.Count - start);
+            _recording--;
+        }
+    }
+
+    /// <summary>Returns whether every recorded reference still resolves to the object it resolved to when the space was built.</summary>
+    private bool StillResolves(ResolvedReference[] references)
+    {
+        foreach (ResolvedReference reference in references)
+        {
+            if (!ReferenceEquals(Document.Resolve(reference.Reference), reference.Target))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private PdfDefaultColorSpaces CreateDefaults(CosDictionary spaces, CosReference? owner)
     {
         return new PdfDefaultColorSpaces(
@@ -418,6 +505,15 @@ internal sealed class ColorSpaceCache
 
     /// <summary>A colour space object's identity (its reference, else the direct container) and the container's version.</summary>
     private readonly record struct Key(object Identity, int Version);
+
+    /// <summary>An indirect reference a space resolved while it was built, and the object it resolved to then.</summary>
+    private readonly record struct ResolvedReference(CosReference Reference, CosObject Target);
+
+    /// <summary>
+    /// A space's view and the references it resolved while it was built: the view stays while they resolve to the same objects,
+    /// whatever else is added or removed. Spaces that resolved none are cached as the view alone.
+    /// </summary>
+    private sealed record BuiltSpace(PdfColorSpace Space, ResolvedReference[] References);
 
     /// <summary>
     /// What a converter is built from: the default spaces themselves rather than the defaults instance, so defaults read again with

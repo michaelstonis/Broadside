@@ -314,6 +314,91 @@ public sealed class ColorSpaceFamilyTests
     }
 
     [Fact]
+    public void An_ICCBased_stream_removed_as_an_object_is_seen_by_the_space_read_before()
+    {
+        using PdfDocument document = PdfDocument.Open(Page("<< >>", string.Empty, IccProfiles.Stream(IccProfiles.Header("mntr", "RGB "), "/N 3")));
+        var array = (CosArray)Cos("[/ICCBased 5 0 R]");
+        Assert.IsType<PdfIccBasedColorSpace>(document.GetColorSpace(array));
+
+        // §7.3.10: the stream reference now resolves to null, so the array names no ICC profile stream (§8.6.5.5) and the space is
+        // read as DeviceGray; the array is unchanged.
+        Assert.True(document.RemoveObject(Five));
+
+        Assert.Same(PdfDeviceGrayColorSpace.Instance, document.GetColorSpace(array));
+        Assert.Equal(["ColorSpaceInvalid"], document.Diagnostics.Select(d => d.Code));
+    }
+
+    [Fact]
+    public void An_Indexed_lookup_stream_removed_as_an_object_is_seen_by_the_space_read_before()
+    {
+        using PdfDocument document = PdfDocument.Open(Page("<< >>", string.Empty, "<< /Length 6 >>\nstream\n\xFF\x00\x00\x00\x00\xFF\nendstream"));
+        var array = (CosArray)Cos("[/Indexed /DeviceRGB 1 5 0 R]");
+        Assert.IsType<PdfIndexedColorSpace>(document.GetColorSpace(array));
+
+        // §7.3.10: the lookup now resolves to null, which is neither a string nor a stream (§8.6.6.3).
+        Assert.True(document.RemoveObject(Five));
+
+        Assert.Same(PdfDeviceGrayColorSpace.Instance, document.GetColorSpace(array));
+        Assert.Equal(["IndexedLookupInvalid"], document.Diagnostics.Select(d => d.Code));
+    }
+
+    [Fact]
+    public void An_ICC_profile_filter_removed_as_an_object_is_seen_by_the_profile_header_read_before()
+    {
+        using PdfDocument document = PdfDocument.Open(Page("<< >>", string.Empty, IccProfiles.Stream(IccProfiles.Header("mntr", "RGB "), "/N 3")));
+        CosReference hex = document.AddObject(new CosName("ASCIIHexDecode"));
+        ((CosStream)document.Resolve(Five)).Dictionary[new CosName("Filter")] = hex;
+        var array = (CosArray)Cos("[/ICCBased 5 0 R]");
+        var space = (PdfIccBasedColorSpace)document.GetColorSpace(array);
+        Assert.NotNull(space.ProfileHeader);
+
+        // §7.3.10: Filter now resolves to null, so the profile is read as stored, hexadecimal text that is no ICC profile; the stream
+        // and the array are unchanged, so the view is too.
+        Assert.True(document.RemoveObject(hex));
+
+        Assert.Same(space, document.GetColorSpace(array));
+        Assert.Null(space.ProfileHeader);
+    }
+
+    [Fact]
+    public void Spaces_whose_references_still_resolve_alike_keep_their_views_when_objects_are_added_or_removed()
+    {
+        using PdfDocument document = PdfDocument.Open(Page("<< >>", string.Empty, IccProfiles.Stream(IccProfiles.Header("mntr", "RGB "), "/N 3"), "[/CalGray << /WhitePoint [0.9505 1 1.089] >>]"));
+        var icc = (CosArray)Cos("[/ICCBased 5 0 R]");
+        var direct = (CosArray)Cos("[/CalRGB << /WhitePoint [0.9505 1 1.089] >>]");
+        var indexed = (CosArray)Cos("[/Indexed 6 0 R 1 <0080>]");
+        PdfColorSpace iccView = document.GetColorSpace(icc);
+        PdfColorSpace directView = document.GetColorSpace(direct);
+        PdfColorSpace indexedView = document.GetColorSpace(indexed);
+        PdfColorSpace referenced = document.GetColorSpace(new CosReference(6, 0));
+
+        CosReference added = document.AddObject(Cos("<< /Unrelated true >>"));
+        Assert.True(document.RemoveObject(added));
+
+        Assert.Same(iccView, document.GetColorSpace(icc));
+        Assert.Same(directView, document.GetColorSpace(direct));
+        Assert.Same(indexedView, document.GetColorSpace(indexed));
+        Assert.Same(referenced, document.GetColorSpace(new CosReference(6, 0)));
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void A_space_reading_a_nested_space_through_a_removed_object_is_read_again()
+    {
+        using PdfDocument document = PdfDocument.Open(Page("<< >>", string.Empty, "[/Indexed /DeviceGray 1 <0080>]"));
+        var pattern = (CosArray)Cos("[/Pattern 5 0 R]");
+        var before = (PdfPatternColorSpace)document.GetColorSpace(pattern);
+        Assert.Equal(PdfColorSpaceFamily.Indexed, before.Underlying?.Family);
+
+        // §7.3.10: the underlying space now resolves to null, which is not a colour space (§8.6.6.2).
+        Assert.True(document.RemoveObject(Five));
+
+        var after = (PdfPatternColorSpace)document.GetColorSpace(pattern);
+        Assert.NotSame(before, after);
+        Assert.Null(after.Underlying);
+    }
+
+    [Fact]
     public void Views_read_their_entries_live()
     {
         using PdfDocument document = PdfDocument.Create();

@@ -1210,7 +1210,8 @@ public sealed partial class PdfDocument : IDisposable
     /// <remarks>ISO 32000-2 §9.9.</remarks>
     internal FontProgram? GetFontProgram(CosStream stream, CosReference? reference, FontProgramSource source, bool isCidFont, PdfFont font) =>
         _fontPrograms.GetOrCreate(
-            new FontFileKey(stream, stream.Version),
+            new FontFileKey(stream, stream.Version, stream.Dictionary.Version),
+            DecodeStamp.Of(this, stream),
             (Document: this, Reference: reference, Source: source, IsCidFont: isCidFont, Font: font),
             static (key, state) => new Created<FontProgram?>(state.Document.ParseFontProgram(key.Stream, state.Reference, state.Source, state.IsCidFont, state.Font.FaceName)),
             static (_, _) => null);
