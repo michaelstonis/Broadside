@@ -42,8 +42,16 @@ public sealed class FontProgramContext                 // public ctor = stand-al
     int MaxCompositeDepth { get; init; }   // 16;  int MaxGlyphPoints { get; init; }  // 65,536
     int MaxCharStringOperators { get; init; }   // 100,000 per glyph, subrs and seac components included (#51)
     IReadOnlyList<Diagnostic> Diagnostics { get; }     // first of each code
-    void Report(string code, DiagnosticSeverity severity, string message);   // throws in strict mode (not for Information)
+    void Report(DiagnosticCode code, DiagnosticSeverity severity, string message);   // throws in strict mode (not for Information)
 }
+
+// Codes (Broadside.Diagnostics, #248): a built-in parser passes a catalog property (FontDiagnostics.FontGlyphInvalid,
+// CffDiagnostics.FontCffIndexTruncated, ...). A third-party parser makes its own once, in a static property, with an owner
+// prefix that cannot collide with Broadside's dot-free names; the owner "Broadside" (any case, first segment) is rejected:
+public static DiagnosticCode DiagnosticCode.Create(string owner, string name, DiagnosticSeverity defaultSeverity, string? clause = null);
+//   DiagnosticCode.Create("Contoso.Fonts", "HintsDropped", DiagnosticSeverity.Information) -> "Contoso.Fonts.HintsDropped"
+// Inside a document the diagnostic lands on PdfDocument.Diagnostics against the font file stream; Kind is the code (Owner set).
+// The same typed Report is on SecurityHandlerContext (ISecurityHandler) and on the internal CMapContext.
 
 public abstract class FontProgram                      // immutable, shared across threads; lookups never throw
 {
@@ -83,7 +91,7 @@ Registration and use:
 - Glyph selection belongs to the PDF font: `PdfTrueTypeFont.GetGlyphId(byte)` implements §9.6.5.4 (`TrueTypeGlyphSelector`). #51/#52 supply a simple font's built-in encoding through `PdfSimpleFont.GetProgramEncoding()` (internal virtual, #49) and add the lookups their format has as new virtual members of `FontProgram` (built-in encoding, CID to GID, FDSelect): adding a virtual member with a "not available" default does not break other parsers.
 - The sfnt container (`Fonts/TrueType/SfntFile`: table directory, TTC face selection, "name") is internal and meant to be shared with the OpenType-CFF parser (#51); "cmap" (`CmapSubtable`) and "post" (`PostTable`) readers likewise.
 - Simple Type 1 fonts select glyphs through `PdfType1Font.GetGlyphId(byte)` (§9.6.5.2): the encoding's glyph name (whose base is `FontProgram.BuiltInEncoding` for an embedded font, through #49's `GetProgramEncoding`) looked up with `FontProgram.TryGetGlyphId`. A Type 1 or CFF program implements `BuiltInEncoding`, `TryGetGlyphId` and `GetGlyphName`. The Type 1 interpreter (`Fonts/Type1/Type1CharStringInterpreter`, #52) and the Type 2 one (`Fonts/Cff/Type2CharStringInterpreter`, #51) keep their own decoders but share `src/Broadside/Fonts/CharStrings/`: `CharStringLimits` (48 operands, 10 subroutine levels), the per-glyph budget `FontProgramContext.MaxCharStringOperators`, and `CharStringReporter` (shared FontCharstring* codes with the glyph id, once per kind per program in lenient mode; Error when the glyph is dropped, Warning for a repair). Type 2 also uses `CharStringPath`, `CharStringStack` and `StandardEncodingNames`. A later interpreter reuses these instead of its own limits and codes.
-- Diagnostic codes (`Parsing/DiagnosticCodes.Fonts.cs`): `FontProgramUnsupported`, `FontProgramFormatMismatch`, `FontProgramInvalid`, `FontProgramTruncated`, `FontTableInvalid`, `FontGlyphInvalid`, `FontCmapInvalid`, `FontGlyphMappingFallback`. Glyph-level problems are reported when the glyph is asked for, so strict mode throws from `GetOutline`.
+- Diagnostic codes live in the public catalog, `FontDiagnostics` (`src/Broadside/Diagnostics/FontDiagnostics.cs`; charstring codes in `CharStringDiagnostics`, CFF in `CffDiagnostics`, Type 1 in `Type1Diagnostics`): `FontProgramUnsupported`, `FontProgramFormatMismatch`, `FontProgramInvalid`, `FontProgramTruncated`, `FontTableInvalid`, `FontGlyphInvalid`, `FontCmapInvalid`, `FontGlyphMappingFallback`. Glyph-level problems are reported when the glyph is asked for, so strict mode throws from `GetOutline`. A new code is added only to the public catalog class of its area (property with docs, default severity and clause, plus an entry in the class's `Codes` list); the architecture test `DiagnosticCatalogArchitectureTests` fails if a code is declared anywhere else.
 - Hot path: `GetOutline` into a reused `GlyphOutline` allocates nothing once warm (pooled point buffers, stack-allocated ancestor stack): prove it with an allocation test and `<Format>Benchmarks.Outlines` (`Allocated` = `-`).
 
 ### Responsibilities

@@ -17,10 +17,6 @@ namespace Broadside.Layout.Tests;
 /// </summary>
 public sealed class PdfUA2FlowTests
 {
-    private const string NonConformant = "PdfUANonConformant";
-    private const string NotIdentified = "PdfUANotIdentified";
-    private const string WellTaggedNonConformant = "WellTaggedNonConformant";
-    private const string WellTaggedNotDeclared = "WellTaggedNotDeclared";
     private const PdfWellTaggedConformance BothLevels = PdfWellTaggedConformance.Reuse | PdfWellTaggedConformance.Accessibility;
 
     private static readonly ReadOnlyMemory<byte> Sans = Standard14FontResolver.GetProgram(Standard14Font.Helvetica);
@@ -79,8 +75,8 @@ public sealed class PdfUA2FlowTests
 
         byte[] saved = PdfUAFlowTests.Saved(document, new PdfSaveOptions().WithWellTaggedConformance(BothLevels));
 
-        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == WellTaggedNonConformant && diagnostic.Message.Contains("accessibility", StringComparison.Ordinal) && diagnostic.Message.Contains("veraPDF rule 8.2.5.28.2-1,", StringComparison.Ordinal));
-        Diagnostic notDeclared = Assert.Single(document.Diagnostics, diagnostic => diagnostic.Code == WellTaggedNotDeclared);
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.WellTaggedNonConformant && diagnostic.Message.Contains("accessibility", StringComparison.Ordinal) && diagnostic.Message.Contains("veraPDF rule 8.2.5.28.2-1,", StringComparison.Ordinal));
+        Diagnostic notDeclared = Assert.Single(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.WellTaggedNotDeclared);
         Assert.Contains("accessibility", notDeclared.Message, StringComparison.Ordinal);
         using PdfDocument reopened = PdfDocument.Open(saved);
         Assert.Equal([PdfDeclaration.WellTaggedReuse], reopened.Declarations.Select(declaration => declaration.ConformsTo));
@@ -98,7 +94,7 @@ public sealed class PdfUA2FlowTests
 
         byte[] saved = PdfUAFlowTests.Saved(document, new PdfSaveOptions().WithPdfUAConformance(PdfUAConformance.PdfUA2).WithWellTaggedConformance(BothLevels));
 
-        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code is NonConformant or NotIdentified or WellTaggedNonConformant or WellTaggedNotDeclared);
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.PdfUANonConformant || diagnostic.Kind == SavingDiagnostics.PdfUANotIdentified || diagnostic.Kind == SavingDiagnostics.WellTaggedNonConformant || diagnostic.Kind == SavingDiagnostics.WellTaggedNotDeclared);
         using PdfDocument reopened = PdfDocument.Open(saved);
         Assert.Equal(2, reopened.Metadata!.Packet!.PdfUAPart);
         Assert.Equal(2024, reopened.Metadata.Packet.PdfUARevision);
@@ -141,7 +137,7 @@ public sealed class PdfUA2FlowTests
 
         Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "PdfANonConformant" && diagnostic.Message.Contains("veraPDF rule 6.1.2-1,", StringComparison.Ordinal));
         Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "PdfANotIdentified");
-        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code is NonConformant or NotIdentified);
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.PdfUANonConformant || diagnostic.Kind == SavingDiagnostics.PdfUANotIdentified);
         using PdfDocument reopened = PdfDocument.Open(saved);
         Assert.Equal(2, reopened.Metadata!.Packet!.PdfUAPart);
         Assert.Null(reopened.Metadata.Packet.PdfAPart);
@@ -170,10 +166,10 @@ public sealed class PdfUA2FlowTests
 
         byte[] saved = PdfUAFlowTests.Saved(document, new PdfSaveOptions().WithPdfUAConformance(PdfUAConformance.PdfUA2).WithWellTaggedConformance(PdfWellTaggedConformance.Accessibility));
 
-        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == NonConformant && diagnostic.Message.Contains($"PDF/UA-2: ", StringComparison.Ordinal) && diagnostic.Message.Contains($"veraPDF rule {rule},", StringComparison.Ordinal));
-        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == WellTaggedNonConformant && diagnostic.Message.Contains($"veraPDF rule {rule},", StringComparison.Ordinal));
-        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == NotIdentified);
-        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == WellTaggedNotDeclared);
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.PdfUANonConformant && diagnostic.Message.Contains($"PDF/UA-2: ", StringComparison.Ordinal) && diagnostic.Message.Contains($"veraPDF rule {rule},", StringComparison.Ordinal));
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.WellTaggedNonConformant && diagnostic.Message.Contains($"veraPDF rule {rule},", StringComparison.Ordinal));
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.PdfUANotIdentified);
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.WellTaggedNotDeclared);
         using PdfDocument reopened = PdfDocument.Open(saved);
         Assert.Null(reopened.Metadata?.Packet?.PdfUAPart);
         Assert.Empty(reopened.Declarations);
@@ -190,7 +186,7 @@ public sealed class PdfUA2FlowTests
 
         DiagnosticException refused = Assert.Throws<DiagnosticException>(() => PdfUAFlowTests.Saved(document, new PdfSaveOptions().WithPdfUAConformance(PdfUAConformance.PdfUA2)));
 
-        Assert.Equal(NonConformant, refused.Diagnostic.Code);
+        Assert.Equal(SavingDiagnostics.PdfUANonConformant, refused.Diagnostic.Kind);
         Assert.Contains($"veraPDF rule {rule},", refused.Diagnostic.Message, StringComparison.Ordinal);
         Assert.Equal(before, CosSnapshot.Of(document));
     }
@@ -259,7 +255,7 @@ public sealed class PdfUA2FlowTests
 
         byte[] saved = PdfUAFlowTests.Saved(document, new PdfSaveOptions().WithPdfUAConformance(PdfUAConformance.PdfUA2));
 
-        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == NonConformant && diagnostic.Message.Contains($"veraPDF rule {rule},", StringComparison.Ordinal));
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.PdfUANonConformant && diagnostic.Message.Contains($"veraPDF rule {rule},", StringComparison.Ordinal));
         using PdfDocument reopened = PdfDocument.Open(saved);
         Assert.Null(reopened.Metadata?.Packet?.PdfUAPart);
     }

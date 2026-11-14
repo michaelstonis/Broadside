@@ -18,7 +18,10 @@
 namespace Broadside.Fonts;
 
 /// <summary>Glyph names the built-in encodings and the Standard 14 metrics use, and the built-in encodings as name indexes.</summary>
-/// <remarks>ISO 32000-2 Annex D (Tables D.2, D.4, D.5, D.6) and §9.6.5.4 Table 113; PostScript Language Reference Appendix E.7 (ISOLatin1Encoding).</remarks>
+/// <remarks>
+/// <para>ISO 32000-2 Annex D (Tables D.2, D.4, D.5, D.6) and §9.6.5.4 Table 113; PostScript Language Reference Appendix E.7 (ISOLatin1Encoding).</para>
+/// <para>ISO 32000-2 §9.6.5.1, Annex D.1, Annex D.2, Annex D.4, Annex D.5 and Annex D.6.</para>
+/// </remarks>
 internal static partial class GlyphNameTable
 {
     /// <summary>Every glyph name, in ordinal order.</summary>

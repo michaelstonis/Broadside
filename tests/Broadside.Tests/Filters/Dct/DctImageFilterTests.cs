@@ -23,9 +23,9 @@ public sealed class DctImageFilterTests
 
         using DecodedImage decoded = image.Decode()!;
 
-        Assert.Equal((227, 149, 3, 8), (decoded.Width, decoded.Height, decoded.Components, decoded.BitsPerComponent));
+        Assert.Equal((227, 149, 3, 8), (decoded.Geometry.Width, decoded.Geometry.Height, decoded.Geometry.Components, decoded.Geometry.BitsPerComponent));
         AssertWithinOne(Golden("testorig"), decoded.Samples);
-        Assert.Equal((ImageColorModel.Rgb, true, (int?)null, 149), (decoded.ColorModel, decoded.ColorTransformApplied, decoded.AdobeTransform, decoded.DecodedRows));
+        Assert.Equal((ImageColorModel.Rgb, true, (AdobeColorTransform?)null, 149), (decoded.ColorModel, decoded.ColorTransformApplied, decoded.AdobeTransform, decoded.DecodedRows));
         Assert.Empty(document.Diagnostics);
     }
 
@@ -81,7 +81,7 @@ public sealed class DctImageFilterTests
         // The DNL vector's frame says 0 lines: the header still gives the 43 of its DNL segment, and reports nothing yet.
         Assert.True(new DctDecodeFilter().TryReadHeader(Jpeg("dnl"), context, out ImageHeader header));
 
-        Assert.Equal(new ImageHeader(75, 43, 3, 8) { ColorModel = ImageColorModel.Rgb, MaxReduction = 3 }, header);
+        Assert.Equal(new ImageHeader(new ImageGeometry(75, 43, 3, 8)) { ColorModel = ImageColorModel.Rgb, MaxReduction = 3 }, header);
         Assert.Empty(context.Filter.Diagnostics);
     }
 
@@ -93,7 +93,7 @@ public sealed class DctImageFilterTests
 
         using DecodedImage decoded = new DctDecodeFilter().DecodeImage(jpeg.AsMemory(0, jpeg.Length / 2), context)!;
 
-        Assert.Equal(149, decoded.Height);
+        Assert.Equal(149, decoded.Geometry.Height);
         Assert.InRange(decoded.DecodedRows, 16, 148);
         Assert.Equal(0, decoded.DecodedRows % 16);
         DctGolden golden = Golden("testorig");
@@ -110,7 +110,7 @@ public sealed class DctImageFilterTests
         using DecodedImage decoded = new DctDecodeFilter().DecodeImage(Jpeg("rgb"), context)!;
 
         AssertWithinOne(Golden("rgb"), decoded.Samples);
-        Assert.Equal((0, false), (decoded.AdobeTransform, decoded.ColorTransformApplied));
+        Assert.Equal((AdobeColorTransform.Unknown, false), (decoded.AdobeTransform, decoded.ColorTransformApplied));
         Assert.Empty(context.Filter.Diagnostics);
     }
 

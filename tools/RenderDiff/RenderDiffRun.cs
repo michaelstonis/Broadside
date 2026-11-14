@@ -89,7 +89,7 @@ public static class RenderDiffRun
         {
             try
             {
-                document = PdfDocument.Open(file.Path);
+                document = await PdfDocument.OpenAsync(file.Path, cancellationToken);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

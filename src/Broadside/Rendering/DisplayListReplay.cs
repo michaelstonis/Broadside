@@ -21,6 +21,7 @@ namespace Broadside.Rendering;
 /// Cancelling the token stops the replay before its next operation; <see cref="Continue"/> then throws
 /// <see cref="OperationCanceledException"/>, now and on every later call until the replay is complete. Not thread-safe: one thread at a time continues a replay.
 /// </para>
+/// <para>ISO 32000-2 §10.7.1.</para>
 /// </remarks>
 public sealed class DisplayListReplay
 {

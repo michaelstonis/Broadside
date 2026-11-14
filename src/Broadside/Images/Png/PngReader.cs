@@ -25,6 +25,7 @@ namespace Broadside.Images.Png;
 /// concatenated IDAT data row by row into two pooled rows (plus one pooled image for an interlaced file) and allocates nothing
 /// per row: the BCL inflater is per file, and the IDAT copy is pooled unless it passes through.
 /// </para>
+/// <para>ISO 32000-2 §7.4.4 and §8.9.6.4.</para>
 /// </remarks>
 internal static class PngReader
 {

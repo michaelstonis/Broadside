@@ -22,6 +22,7 @@ namespace Broadside.Rendering;
 /// Compositing goes through a <see cref="Compositor"/> (§11.3: constant alpha and blend mode) by the coverage of the painted shape. It is a coverage sink of
 /// <see cref="ScanlineRasterizer.Paint"/>, so the runs it receives are already cut by the clipping path (§8.5.4).
 /// </para>
+/// <para>ISO 32000-2 §8.7.4.1.</para>
 /// </remarks>
 internal readonly ref struct ShadingPainter : ICoverageSink
 {

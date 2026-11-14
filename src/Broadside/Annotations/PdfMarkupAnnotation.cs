@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -52,7 +53,7 @@ public abstract class PdfMarkupAnnotation : PdfAnnotation
                 && Document.Resolve(parent) is CosDictionary parentDictionary
                 && !ReferenceEquals(parentDictionary, Dictionary))
             {
-                Report(DiagnosticCodes.PopupLinkMismatch, "The annotation's pop-up names another annotation as its Parent.");
+                Report(AnnotationDiagnostics.PopupLinkMismatch, "The annotation's pop-up names another annotation as its Parent.");
             }
 
             return popup;
@@ -61,11 +62,11 @@ public abstract class PdfMarkupAnnotation : PdfAnnotation
 
     /// <summary>Gets the rich text shown in the pop-up window (<c>RC</c>, PDF 1.5), as stored (XHTML), or <see langword="null"/>. Not parsed.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.2, Table 172, and §12.7.4.4: a text string or a text stream.</remarks>
-    public string? RichText => ReadTextOrStream(AnnotationNames.RC);
+    public string? RichText => this.GetTextOrStream(AnnotationNames.RC);
 
     /// <summary>Gets the date and time the annotation was created (<c>CreationDate</c>, PDF 1.5), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.2, Table 172, and §7.9.4.</remarks>
-    public PdfDate? CreationDate => ReadDate(AnnotationNames.CreationDate);
+    public PdfDate? CreationDate => this.GetDate(AnnotationNames.CreationDate);
 
     /// <summary>Gets the annotation this one is a reply to or grouped with (<c>IRT</c>, PDF 1.5), or <see langword="null"/>.</summary>
     /// <remarks>
@@ -84,13 +85,13 @@ public abstract class PdfMarkupAnnotation : PdfAnnotation
             PdfAnnotation? target = Document.AnnotationIndex.Find(value, this);
             if (target is null || ReferenceEquals(target, this))
             {
-                Report(DiagnosticCodes.InReplyToInvalid, "The annotation's IRT entry is not another annotation's dictionary; it is ignored.");
+                Report(AnnotationDiagnostics.InReplyToInvalid, "The annotation's IRT entry is not another annotation's dictionary; it is ignored.");
                 return null;
             }
 
             if (Page is not null && !ReferenceEquals(target.Page, Page))
             {
-                Report(DiagnosticCodes.InReplyToOtherPage, "The annotation replies to an annotation that is not on its page, which IRT shall name.");
+                Report(AnnotationDiagnostics.InReplyToOtherPage, "The annotation replies to an annotation that is not on its page, which IRT shall name.");
             }
 
             return target;
@@ -117,10 +118,10 @@ public abstract class PdfMarkupAnnotation : PdfAnnotation
         {
             if (Dictionary.ContainsKey(AnnotationNames.RT) && !Dictionary.ContainsKey(AnnotationNames.IRT))
             {
-                Report(DiagnosticCodes.ReplyTypeWithoutInReplyTo, "The annotation has an RT entry but no IRT entry, which Table 172 requires with it.");
+                Report(AnnotationDiagnostics.ReplyTypeWithoutInReplyTo, "The annotation has an RT entry but no IRT entry, which Table 172 requires with it.");
             }
 
-            return ReadChoice(AnnotationNames.RT, PdfReplyType.Reply, ("R", PdfReplyType.Reply), ("Group", PdfReplyType.Group));
+            return this.GetChoice(AnnotationNames.RT, PdfReplyType.Reply, ("R", PdfReplyType.Reply), ("Group", PdfReplyType.Group));
         }
     }
 

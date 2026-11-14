@@ -50,6 +50,7 @@ internal enum SignatureCheck
 /// <see cref="CryptographyBackend.UseManaged"/>). ECDSA and DSA always use the platform; where it lacks them (the browser) the result
 /// is <see cref="SignatureCheck.Unsupported"/>.
 /// </para>
+/// <para>ISO/TS 32002 §5.1.3.</para>
 /// </remarks>
 internal static class SignatureAlgorithms
 {

@@ -20,6 +20,7 @@ namespace Broadside.Graphics;
 /// of the content stream that named it (<see cref="PatternMatrix"/>), the space the pattern matrix maps into (§8.7.2); for an
 /// uncoloured tiling pattern the components are in the underlying colour space (§8.7.3.3).
 /// </para>
+/// <para>ISO 32000-2 §8.6.1.</para>
 /// </remarks>
 public readonly struct PdfColor : IEquatable<PdfColor>
 {

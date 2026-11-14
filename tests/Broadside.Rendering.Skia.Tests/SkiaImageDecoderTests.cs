@@ -166,7 +166,7 @@ public sealed class SkiaImageDecoderTests
             (new PdfOptions().UseSkiaImageDecoder().WithPlatformImageDecoder(SkiaImageDecoder.DecoderName, false), false),
             (new PdfOptions().UseSkiaImageDecoder().UseManagedImageDecoding(), false)])
         {
-            using PdfDocument document = PdfDocument.Open(Page(jpeg, 320, 240, "/DeviceRGB"), options.WithPlatformImageVerification(true));
+            using PdfDocument document = await PdfDocument.OpenAsync(Page(jpeg, 320, 240, "/DeviceRGB"), options.WithPlatformImageVerification(true), TestContext.Current.CancellationToken);
             DisplayList list = document.Pages[0].CreateDisplayList();
 
             await list.PrefetchImagesAsync(Device(0), null, 1, Token);
@@ -200,7 +200,7 @@ public sealed class SkiaImageDecoderTests
 
         async Task<byte[]> RenderAsync(PdfOptions options)
         {
-            using PdfDocument document = PdfDocument.Open(bytes, options.WithDisplayListCacheBudget(0));
+            using PdfDocument document = await PdfDocument.OpenAsync(bytes, options.WithDisplayListCacheBudget(0), TestContext.Current.CancellationToken);
             PdfPage page = document.Pages[0];
             RenderOptions render = new RenderOptions().WithScale(scale);
             PixelSize size = render.GetPixelSize(page);
@@ -254,7 +254,7 @@ public sealed class SkiaImageDecoderTests
     {
         byte[] jpeg = CatalogueSamples.Jpeg(1320, 948, DctChromaSubsampling.None);
         var counting = new CountingDecoder();
-        using PdfDocument document = PdfDocument.Open(Page(jpeg, 1320, 948, "/DeviceRGB"), new PdfOptions().UsePlatformImageDecoder(counting));
+        using PdfDocument document = await PdfDocument.OpenAsync(Page(jpeg, 1320, 948, "/DeviceRGB"), new PdfOptions().UsePlatformImageDecoder(counting), TestContext.Current.CancellationToken);
         DisplayList list = document.Pages[0].CreateDisplayList();
         using var start = new ManualResetEventSlim();
 

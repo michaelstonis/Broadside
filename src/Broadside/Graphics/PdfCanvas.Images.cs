@@ -4,6 +4,7 @@ using Broadside.Objects;
 namespace Broadside.Graphics;
 
 /// <summary>Placing image XObjects (issue #153).</summary>
+/// <remarks>ISO 32000-2 §8.6.5.5, §8.7.3.1, §8.9.5.1 and §11.6.6.</remarks>
 public sealed partial class PdfCanvas
 {
     /// <summary>Paints an image XObject of this document into the unit square of user space (<c>Do</c>).</summary>
@@ -59,7 +60,7 @@ public sealed partial class PdfCanvas
             throw new ArgumentException("An image painted with Do shall be an image XObject, an indirect stream (ISO 32000-2 §8.9.5).", nameof(image));
         }
 
-        if (_stencil && !image.IsStencil)
+        if (_stencil && !image.IsImageMask)
         {
             throw new InvalidOperationException(
                 "An uncoloured tiling pattern's cell shall paint only image masks, not images with colours of their own (ISO 32000-2 §8.7.3.3).");

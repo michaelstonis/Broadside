@@ -12,6 +12,7 @@ namespace Broadside.Content;
 /// <remarks>
 /// ISO 32000-2 §7.8.2 (content stream syntax: operands, then the operator) and §7.3 (operand syntax; reals are written without
 /// exponents, §7.3.3). Clearing keeps the buffer, so a writer reused for the next stream allocates nothing once it is large enough.
+/// <para>ISO 32000-2 §12.7.4.3.</para>
 /// </remarks>
 internal sealed class ContentWriter : IBufferWriter<byte>
 {

@@ -24,6 +24,7 @@ public enum PdfSoftMaskType
 /// Properties read the dictionary on every call and fall back to the table's defaults when an entry is absent or malformed; the
 /// content interpreter reports a malformed mask when <c>gs</c> sets it.
 /// </para>
+/// <para>ISO 32000-2 §8.4.1 and §8.4.5.</para>
 /// </remarks>
 public sealed class PdfSoftMask
 {

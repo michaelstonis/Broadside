@@ -10,15 +10,15 @@ namespace Broadside.Tests.StructureTree;
 public sealed partial class TaggedStructureCorpusTests
 {
     [Fact]
-    public Task The_tagged_file_yields_the_expected_tree()
+    public async Task The_tagged_file_yields_the_expected_tree()
     {
-        using PdfDocument document = PdfDocument.Open(Corpus.Path("tagged-structure.pdf"));
+        using PdfDocument document = await PdfDocument.OpenAsync(Corpus.Path("tagged-structure.pdf"), TestContext.Current.CancellationToken);
 
         PdfStructureTreeRoot root = Assert.IsType<PdfStructureTreeRoot>(document.StructureTree);
         string tree = StructureProjection.Of(document, root);
 
         Assert.Empty(document.Diagnostics);
-        return Verify(tree);
+        await Verify(tree);
     }
 
     [Fact]

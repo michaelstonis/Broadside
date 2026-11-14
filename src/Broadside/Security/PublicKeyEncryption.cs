@@ -14,6 +14,7 @@ namespace Broadside.Security;
 /// <remarks>
 /// The inverse of <see cref="PublicKeySecurityHandler"/>: <c>adbe.pkcs7.s5</c>, <c>V</c> 5, one crypt filter <c>DefaultCryptFilter</c>
 /// (<c>AESV3</c>, 256 bits) holding the recipient lists, which <c>StmF</c> and <c>StrF</c> name.
+/// <para>ISO 32000-2 §7.6.5.1, §7.6.5.2 and §7.6.6.</para>
 /// </remarks>
 internal sealed record PublicKeyEncryption(CosDictionary Dictionary, CryptFilter Filter, bool EncryptMetadata, byte[]? KdfSalt)
 {

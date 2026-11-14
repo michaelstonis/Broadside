@@ -13,6 +13,7 @@ namespace Broadside.Fonts.TrueType;
 /// <remarks>
 /// OpenType specification, "OpenType font file": table directory and TTC header. Table checksums are not verified (real files carry
 /// wrong ones and no reader checks them). Offsets are from the start of the file, also inside a collection.
+/// <para>ISO 32000-2 §9.9.1.</para>
 /// </remarks>
 internal sealed class SfntFile
 {
@@ -121,7 +122,7 @@ internal sealed class SfntFile
         ReadOnlySpan<byte> span = data.Span;
         if (span.Length < 12)
         {
-            context.Report(DiagnosticCodes.FontProgramInvalid, DiagnosticSeverity.Error, "The font program is shorter than an sfnt table directory (OpenType \"Organization of an OpenType font\"); it is not usable.");
+            context.Report(FontDiagnostics.FontProgramInvalid, DiagnosticSeverity.Error, "The font program is shorter than an sfnt table directory (OpenType \"Organization of an OpenType font\"); it is not usable.");
             return null;
         }
 
@@ -131,7 +132,7 @@ internal sealed class SfntFile
             if (!IsKnownVersion(version))
             {
                 context.Report(
-                    DiagnosticCodes.FontTableInvalid,
+                    FontDiagnostics.FontTableInvalid,
                     DiagnosticSeverity.Warning,
                     string.Create(CultureInfo.InvariantCulture, $"The font program's sfnt version 0x{version:X8} is not 0x00010000, 'true' or 'OTTO'; its table directory is read anyway."));
             }
@@ -144,7 +145,7 @@ internal sealed class SfntFile
         int available = (int)Math.Min(fonts, (uint)((span.Length - 12) / 4));
         if (available == 0)
         {
-            context.Report(DiagnosticCodes.FontProgramInvalid, DiagnosticSeverity.Error, "The font collection lists no fonts; the program is not usable.");
+            context.Report(FontDiagnostics.FontProgramInvalid, DiagnosticSeverity.Error, "The font collection lists no fonts; the program is not usable.");
             return null;
         }
 
@@ -168,7 +169,7 @@ internal sealed class SfntFile
             if (chosen < 0 || chosen >= available)
             {
                 context.Report(
-                    DiagnosticCodes.FontTableInvalid,
+                    FontDiagnostics.FontTableInvalid,
                     DiagnosticSeverity.Warning,
                     string.Create(CultureInfo.InvariantCulture, $"The font collection has {available} fonts; font {context.FaceIndex} does not exist and font 0 is read."));
                 chosen = 0;
@@ -178,7 +179,7 @@ internal sealed class SfntFile
         uint start = BinaryPrimitives.ReadUInt32BigEndian(span[(12 + (4 * chosen))..]);
         if (start > (uint)(span.Length - 12))
         {
-            context.Report(DiagnosticCodes.FontProgramInvalid, DiagnosticSeverity.Error, "The font collection's offset to the chosen font lies outside the program; it is not usable.");
+            context.Report(FontDiagnostics.FontProgramInvalid, DiagnosticSeverity.Error, "The font collection's offset to the chosen font lies outside the program; it is not usable.");
             return null;
         }
 
@@ -254,7 +255,7 @@ internal sealed class SfntFile
         ReadOnlySpan<byte> span = data.Span;
         if (start + 12 > span.Length)
         {
-            context?.Report(DiagnosticCodes.FontProgramInvalid, DiagnosticSeverity.Error, "The font's table directory lies outside the program; it is not usable.");
+            context?.Report(FontDiagnostics.FontProgramInvalid, DiagnosticSeverity.Error, "The font's table directory lies outside the program; it is not usable.");
             return null;
         }
 
@@ -264,7 +265,7 @@ internal sealed class SfntFile
         if (count < declared)
         {
             context?.Report(
-                DiagnosticCodes.FontTableInvalid,
+                FontDiagnostics.FontTableInvalid,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"The table directory lists {declared} tables but the program holds records for {count}; the others are ignored."));
         }
@@ -284,7 +285,7 @@ internal sealed class SfntFile
             if (offset >= (uint)span.Length)
             {
                 context?.Report(
-                    DiagnosticCodes.FontTableInvalid,
+                    FontDiagnostics.FontTableInvalid,
                     DiagnosticSeverity.Warning,
                     $"The \"{TagText(tag)}\" table starts past the end of the font program; it is ignored.");
                 continue;
@@ -293,7 +294,7 @@ internal sealed class SfntFile
             if (length > (uint)span.Length - offset)
             {
                 context?.Report(
-                    DiagnosticCodes.FontTableInvalid,
+                    FontDiagnostics.FontTableInvalid,
                     DiagnosticSeverity.Warning,
                     $"The \"{TagText(tag)}\" table runs past the end of the font program; it is read up to the end.");
                 length = (uint)span.Length - offset;
@@ -302,7 +303,7 @@ internal sealed class SfntFile
             if (tables.Exists(table => table.Tag == tag))
             {
                 context?.Report(
-                    DiagnosticCodes.FontTableInvalid,
+                    FontDiagnostics.FontTableInvalid,
                     DiagnosticSeverity.Warning,
                     $"The table directory lists the \"{TagText(tag)}\" table twice; the first is used.");
                 continue;
@@ -357,7 +358,7 @@ internal sealed class SfntFile
         if (moved is not null)
         {
             context?.Report(
-                DiagnosticCodes.FontTableInvalid,
+                FontDiagnostics.FontTableInvalid,
                 DiagnosticSeverity.Warning,
                 $"The table directory gives offsets one byte away from where these tables start: {string.Join(", ", moved.Select(tag => $"\"{tag}\""))}; they are read where they start.");
         }

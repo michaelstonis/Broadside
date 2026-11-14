@@ -85,7 +85,7 @@ public sealed class DctDecodeFilter : IImageFilter
             if (size > context.MaxDecodedLength)
             {
                 context.Report(
-                    DiagnosticCodes.ImageTooLarge,
+                    ImageDiagnostics.ImageTooLarge,
                     DiagnosticSeverity.Error,
                     FormattableString.Invariant($"The DCT image is not decoded: its {size} bytes of samples are more than the {context.MaxDecodedLength} allowed."));
                 return;
@@ -112,13 +112,13 @@ public sealed class DctDecodeFilter : IImageFilter
         JpegDecoder decoder = JpegDecoder.Rent();
         try
         {
-            if (!decoder.ReadHeaders(encoded, context.Filter, silent: true, context.Height))
+            if (!decoder.ReadHeaders(encoded, context.Filter, silent: true, context.Geometry.Height))
             {
                 header = default;
                 return false;
             }
 
-            header = new ImageHeader(decoder.Width, decoder.Height, decoder.ComponentCount, 8) { ColorModel = decoder.ColorModel, MaxReduction = 3 };
+            header = new ImageHeader(new ImageGeometry(decoder.Width, decoder.Height, decoder.ComponentCount, 8)) { ColorModel = decoder.ColorModel, MaxReduction = 3 };
             return true;
         }
         finally
@@ -142,14 +142,14 @@ public sealed class DctDecodeFilter : IImageFilter
         try
         {
             ReadOnlySpan<byte> data = encoded.Span;
-            if (!decoder.ReadHeaders(data, context.Filter, silent: false, context.Height))
+            if (!decoder.ReadHeaders(data, context.Filter, silent: false, context.Geometry.Height))
             {
                 return null;
             }
 
             decoder.SelectColorTransform(ReadColorTransform(context.Filter));
             decoder.SetReduction(context.Reduction);
-            if (!context.TryCreateImage(decoder.OutputWidth, decoder.OutputHeight, decoder.ComponentCount, 8, out image))
+            if (!context.TryCreateImage(new ImageGeometry(decoder.OutputWidth, decoder.OutputHeight, decoder.ComponentCount, 8), out image))
             {
                 return null;
             }

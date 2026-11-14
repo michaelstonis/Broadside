@@ -66,7 +66,7 @@ public sealed partial class PdfDocument
                 return result;
             }
 
-            CatalogView.Report(DiagnosticCodes.CatalogEntryInvalid, "The catalog's URI dictionary's Base shall be an absolute URI string; it is ignored.");
+            CatalogView.Report(DocumentDiagnostics.CatalogEntryInvalid, "The catalog's URI dictionary's Base shall be an absolute URI string; it is ignored.");
             return null;
         }
     }
@@ -110,7 +110,7 @@ public sealed partial class PdfDocument
         if (value is not (CosNull or CosArray or CosDictionary))
         {
             _diagnostics.Report(
-                DiagnosticCodes.OpenActionInvalid,
+                ActionDiagnostics.OpenActionInvalid,
                 DiagnosticSeverity.Warning,
                 value is CosName or CosString
                     ? "The catalog's OpenAction shall be a destination array or an action dictionary; it is a name or string, read as a named destination."

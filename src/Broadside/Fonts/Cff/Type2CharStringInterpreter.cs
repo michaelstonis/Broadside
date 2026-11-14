@@ -12,6 +12,7 @@ namespace Broadside.Fonts.Cff;
 /// Adobe Technical Note #5177 (Type 2 Charstring Format): §3 (encoding, grammar, width rule), §4.1 path, §4.2 endchar, §4.3 hints,
 /// §4.4 arithmetic, §4.5 storage, §4.6 conditional, §4.7 subroutines, Appendix B limits, Appendix C endchar seac. Hostile programs
 /// are bounded by the 48-entry stack, the 10-level subroutine nesting and an operator budget per glyph.
+/// <para>ISO 32000-2 §9.9.1.</para>
 /// </remarks>
 internal ref struct Type2CharStringInterpreter
 {

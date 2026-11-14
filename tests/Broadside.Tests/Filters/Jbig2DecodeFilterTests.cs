@@ -16,7 +16,7 @@ public sealed class Jbig2DecodeFilterTests
     {
         using DecodedImage image = Jbig2Testing.DecodeImage(Jbig2Samples.AnnexHMmrGeneric, 64, 56, out string[] codes);
 
-        Assert.Equal((64, 56, 1, 1, false), (image.Width, image.Height, image.Components, image.BitsPerComponent, image.SamplesInverted));
+        Assert.Equal((64, 56, 1, 1, false), (image.Geometry.Width, image.Geometry.Height, image.Geometry.Components, image.Geometry.BitsPerComponent, image.SamplesInverted));
         Assert.Equal(Jbig2Samples.AnnexHGenericPageSha256, Jbig2Testing.Sha256(image.Samples));
         Assert.Empty(codes);
     }
@@ -172,7 +172,7 @@ public sealed class Jbig2DecodeFilterTests
         var context = new ImageFilterContext(new FilterContext());
 
         Assert.True(filter.TryReadHeader(Jbig2Samples.AnnexHMmrGeneric, context, out ImageHeader header));
-        Assert.Equal(new ImageHeader(64, 56, 1, 1) { ColorModel = ImageColorModel.Gray }, header);
+        Assert.Equal(new ImageHeader(new ImageGeometry(64, 56, 1, 1)) { ColorModel = ImageColorModel.Gray }, header);
         using DecodedImage image = filter.DecodeImage(Jbig2Samples.AnnexHMmrGeneric, context)!;
         Assert.Equal(Jbig2Samples.AnnexHGenericPageSha256, Jbig2Testing.Sha256(image.Samples));
     }

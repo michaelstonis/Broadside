@@ -51,9 +51,9 @@ internal static class PngTarget
     private static void Check(PdfImage image)
     {
         using DecodedImage decoded = image.Decode() ?? throw new InvalidOperationException("A made image does not decode.");
-        if (decoded.Width != image.Width || decoded.DecodedRows != image.Height || decoded.Width <= 0)
+        if (decoded.Geometry.Width != image.Width || decoded.DecodedRows != image.Height || decoded.Geometry.Width <= 0)
         {
-            throw new InvalidOperationException($"A made {image.Width} x {image.Height} image decodes to {decoded.Width} x {decoded.DecodedRows}.");
+            throw new InvalidOperationException($"A made {image.Width} x {image.Height} image decodes to {decoded.Geometry.Width} x {decoded.DecodedRows}.");
         }
     }
 

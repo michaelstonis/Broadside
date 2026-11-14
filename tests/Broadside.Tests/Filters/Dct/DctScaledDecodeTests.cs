@@ -33,7 +33,7 @@ public sealed class DctScaledDecodeTests
 
         using DecodedImage image = Decode(File.ReadAllBytes(Path.Combine(DctVectors.Directory, name)), reduction, out _);
 
-        Assert.Equal((reference.Width, reference.Height, reference.Components, reduction), (image.Width, image.Height, image.Components, image.Reduction));
+        Assert.Equal((reference.Width, reference.Height, reference.Components, reduction), (image.Geometry.Width, image.Geometry.Height, image.Geometry.Components, image.Reduction));
         Assert.Equal(reference.Sha256, Convert.ToHexStringLower(SHA256.HashData(image.Samples)));
     }
 
@@ -67,7 +67,7 @@ public sealed class DctScaledDecodeTests
 
         // More than an eighth asks for what the codec can do: an eighth.
         using DecodedImage most = Decode(Jpeg("testorig"), 5, out _);
-        Assert.Equal((29, 19, 3), (most.Width, most.Height, most.Reduction));
+        Assert.Equal((29, 19, 3), (most.Geometry.Width, most.Geometry.Height, most.Reduction));
     }
 
     [Theory]
@@ -80,8 +80,8 @@ public sealed class DctScaledDecodeTests
         using DecodedImage whole = Decode(jpeg, 0, out _);
         using DecodedImage cut = Decode(jpeg.AsSpan(0, jpeg.Length / 2).ToArray(), reduction, out _);
 
-        int expected = (int)Math.Ceiling(whole.Height / (double)(1 << reduction));
-        Assert.Equal(expected, cut.Height);
+        int expected = (int)Math.Ceiling(whole.Geometry.Height / (double)(1 << reduction));
+        Assert.Equal(expected, cut.Geometry.Height);
         Assert.InRange(cut.DecodedRows, 1, expected - 1);
         Assert.Equal(0, cut.DecodedRows % (16 >> reduction));
     }

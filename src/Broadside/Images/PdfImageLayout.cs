@@ -14,6 +14,7 @@ namespace Broadside.Images;
 /// ISO 32000-2 §8.9.2 and §8.9.3: the samples are stored row by row from the top, each row starting on a byte boundary, the
 /// components of a pixel together, MSB first; a 16-bit sample takes two bytes, high byte first. A row is therefore
 /// ceil(Width × components × BitsPerComponent / 8) bytes.
+/// <para>ISO 32000-2 §8.9.5.1.</para>
 /// </remarks>
 public readonly record struct PdfImageLayout(int Width, int Height, PdfColorSpace ColorSpace, int BitsPerComponent = 8)
 {

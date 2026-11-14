@@ -16,6 +16,8 @@ namespace Broadside.Graphics;
 /// <see cref="Decode"/> returns the content's bytes through the document's filters; <see cref="RewriteContent(ContentEditor)"/> runs it
 /// through an editor and stores the edited content.
 /// </para>
+/// <para>ISO 32000-2 §8.10.2.</para>
+/// <para>PDF 2.0 Application Note 002 §2.</para>
 /// </remarks>
 public sealed class PdfFormXObject
 {
@@ -40,6 +42,10 @@ public sealed class PdfFormXObject
 
     /// <summary>The document the form belongs to.</summary>
     internal PdfDocument Document => _document;
+
+    /// <summary>Gets the files associated with the form (its <c>AF</c>).</summary>
+    /// <remarks>ISO 32000-2 Table 93 (PDF 2.0), and §14.13.7. Read on every call, as <see cref="PdfDocument.AssociatedFiles"/> is.</remarks>
+    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => AssociatedFileReader.ReadOwner(_document, Dictionary, Reference);
 
     /// <summary>Gets a value indicating whether the stream's <c>Subtype</c> is <c>Form</c>, as Table 93 requires.</summary>
     /// <remarks>ISO 32000-2 §8.10.1, Table 93 (<c>Subtype</c>, required).</remarks>

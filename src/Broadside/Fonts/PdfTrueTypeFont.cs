@@ -8,6 +8,7 @@ namespace Broadside.Fonts;
 /// what §9.6.5.4 maps through the font program's "cmap" table for a nonsymbolic font; a non-embedded TrueType font named after a
 /// Standard 14 font (such as <c>Arial</c>) takes that font's metrics. <see cref="GetGlyphId"/> selects the glyph of a character
 /// code in the embedded program (<see cref="PdfFont.Program"/>).
+/// <para>ISO 32000-2 §9.5.</para>
 /// </remarks>
 public sealed class PdfTrueTypeFont : PdfSimpleFont
 {

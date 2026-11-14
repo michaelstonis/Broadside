@@ -167,13 +167,13 @@ internal sealed partial class CffFont
 
             if (shift > window)
             {
-                Report(context, DiagnosticCodes.FontCffHeaderInvalid, DiagnosticSeverity.Error, span.Length >= 1 && span[0] == 2
+                Report(context, CffDiagnostics.FontCffHeaderInvalid, DiagnosticSeverity.Error, span.Length >= 1 && span[0] == 2
                     ? "The program is CFF2 (major version 2), not CFF; CFF2 outlines are not supported."
                     : "The program does not start with a CFF header (Adobe Technical Note #5176 §6: major version 1, hdrSize, offSize); it is not usable.");
                 return null;
             }
 
-            Report(context, DiagnosticCodes.FontCffHeaderInvalid, DiagnosticSeverity.Warning, string.Create(CultureInfo.InvariantCulture, $"The CFF header is preceded by {shift} bytes that are not part of it (Adobe Technical Note #5176 §6); they are skipped."));
+            Report(context, CffDiagnostics.FontCffHeaderInvalid, DiagnosticSeverity.Warning, string.Create(CultureInfo.InvariantCulture, $"The CFF header is preceded by {shift} bytes that are not part of it (Adobe Technical Note #5176 §6); they are skipped."));
             data = data[shift..];
             span = data.Span;
         }
@@ -185,27 +185,27 @@ internal sealed partial class CffFont
         CffIndex globals = ReadIndex(span, strings.End, context, "Global Subr");
         if (tops.Count == 0)
         {
-            Report(context, DiagnosticCodes.FontProgramInvalid, DiagnosticSeverity.Error, "The CFF program has no Top DICT (Adobe Technical Note #5176 §8); it is not usable.");
+            Report(context, FontDiagnostics.FontProgramInvalid, DiagnosticSeverity.Error, "The CFF program has no Top DICT (Adobe Technical Note #5176 §8); it is not usable.");
             return null;
         }
 
         if (tops.Count > 1 || names.Count > 1)
         {
-            Report(context, DiagnosticCodes.FontCffMultipleFonts, DiagnosticSeverity.Warning, "The CFF program holds more than one font; an embedded CFF program shall hold exactly one (ISO 32000-2 §9.9). The first is read.");
+            Report(context, CffDiagnostics.FontCffMultipleFonts, DiagnosticSeverity.Warning, "The CFF program holds more than one font; an embedded CFF program shall hold exactly one (ISO 32000-2 §9.9). The first is read.");
         }
 
         string? name = names.Count > 0 ? Encoding.Latin1.GetString(names.Get(span, 0)) : null;
         TopDict top = ReadTopDict(tops.Get(span, 0), context);
         if (top.CharStrings < 0)
         {
-            Report(context, DiagnosticCodes.FontProgramInvalid, DiagnosticSeverity.Error, "The CFF Top DICT has no CharStrings offset (Adobe Technical Note #5176 §9, Table 9); the program is not usable.");
+            Report(context, FontDiagnostics.FontProgramInvalid, DiagnosticSeverity.Error, "The CFF Top DICT has no CharStrings offset (Adobe Technical Note #5176 §9, Table 9); the program is not usable.");
             return null;
         }
 
         CffIndex charStrings = ReadIndex(span, top.CharStrings, context, "CharStrings");
         if (charStrings.Count == 0)
         {
-            Report(context, DiagnosticCodes.FontProgramInvalid, DiagnosticSeverity.Error, "The CFF CharStrings INDEX holds no glyph (Adobe Technical Note #5176 §14); the program is not usable.");
+            Report(context, FontDiagnostics.FontProgramInvalid, DiagnosticSeverity.Error, "The CFF CharStrings INDEX holds no glyph (Adobe Technical Note #5176 §14); the program is not usable.");
             return null;
         }
 
@@ -216,7 +216,7 @@ internal sealed partial class CffFont
             : null;
         if (unsupported is not null)
         {
-            Report(context, DiagnosticCodes.FontProgramUnsupported, DiagnosticSeverity.Information, $"The CFF program's outlines are not read: {unsupported}.");
+            Report(context, FontDiagnostics.FontProgramUnsupported, DiagnosticSeverity.Information, $"The CFF program's outlines are not read: {unsupported}.");
         }
 
         ushort[] charset = ReadCharset(span, top.Charset, charStrings.Count, top.IsCid, context);
@@ -249,13 +249,34 @@ internal sealed partial class CffFont
 
     private static CffIndex ReadIndex(ReadOnlySpan<byte> data, int offset, FontProgramContext context, string what)
     {
-        CffIndex index = CffIndex.Read(data, offset, out string? problem);
+        CffIndex index = CffIndex.Read(data, offset, out DiagnosticCode? problem);
         if (problem is not null)
         {
-            Report(context, DiagnosticCodes.FontCffIndexInvalid, DiagnosticSeverity.Warning, $"The CFF {what} INDEX {problem} (Adobe Technical Note #5176 §5); what is readable is used.");
+            Report(context, problem, DiagnosticSeverity.Warning, IndexMessage(problem, what));
         }
 
         return index;
+    }
+
+    /// <summary>Describes a damaged INDEX the way every other font diagnostic reads: the deviation, its clause, then the repair.</summary>
+    private static string IndexMessage(DiagnosticCode problem, string what)
+    {
+        if (problem == CffDiagnostics.FontCffIndexOutOfRange)
+        {
+            return $"The CFF {what} INDEX starts outside the program (Adobe Technical Note #5176 §5); it is read as empty.";
+        }
+
+        if (problem == CffDiagnostics.FontCffIndexTruncated)
+        {
+            return $"The CFF {what} INDEX is cut short by the end of the program (Adobe Technical Note #5176 §5); the objects whose offsets are readable are used.";
+        }
+
+        if (problem == CffDiagnostics.FontCffIndexOffSizeInvalid)
+        {
+            return $"The CFF {what} INDEX has an offSize outside 1 to 4 (Adobe Technical Note #5176 §5, Table 7); it is read as empty.";
+        }
+
+        return $"The CFF {what} INDEX has offsets that do not start at 1, decrease or point past the program (Adobe Technical Note #5176 §5); each object is clamped into the data.";
     }
 
     private static TopDict ReadTopDict(ReadOnlySpan<byte> dict, FontProgramContext context)
@@ -316,7 +337,7 @@ internal sealed partial class CffFont
 
         if (reader.Problem is { } problem)
         {
-            Report(context, DiagnosticCodes.FontCffDictInvalid, DiagnosticSeverity.Warning, $"The CFF Top DICT {problem} (Adobe Technical Note #5176 §4).");
+            Report(context, CffDiagnostics.FontCffDictInvalid, DiagnosticSeverity.Warning, $"The CFF Top DICT {problem} (Adobe Technical Note #5176 §4).");
         }
 
         return top;
@@ -326,7 +347,7 @@ internal sealed partial class CffFont
     {
         if (offset < 0 || size < 0 || offset > data.Length)
         {
-            Report(context, DiagnosticCodes.FontCffPrivateMissing, DiagnosticSeverity.Warning, offset < 0
+            Report(context, CffDiagnostics.FontCffPrivateMissing, DiagnosticSeverity.Warning, offset < 0
                 ? $"The CFF {owner} has no Private entry, which a CFF font shall have (Adobe Technical Note #5176 §9, Table 9, and §18); the Private DICT defaults are used."
                 : "The CFF Private DICT lies outside the program (Adobe Technical Note #5176 §15); the Private DICT defaults are used.");
             return new CffPrivate(default, Bias(0), 0, 0, 0);
@@ -334,7 +355,7 @@ internal sealed partial class CffFont
 
         if (size > data.Length - offset)
         {
-            Report(context, DiagnosticCodes.FontCffPrivateMissing, DiagnosticSeverity.Warning, "The CFF Private DICT runs past the end of the program (Adobe Technical Note #5176 §15); the part present is read.");
+            Report(context, CffDiagnostics.FontCffPrivateMissing, DiagnosticSeverity.Warning, "The CFF Private DICT runs past the end of the program (Adobe Technical Note #5176 §15); the part present is read.");
             size = data.Length - offset;
         }
 
@@ -364,7 +385,7 @@ internal sealed partial class CffFont
 
         if (reader.Problem is { } problem)
         {
-            Report(context, DiagnosticCodes.FontCffDictInvalid, DiagnosticSeverity.Warning, $"The CFF Private DICT {problem} (Adobe Technical Note #5176 §4).");
+            Report(context, CffDiagnostics.FontCffDictInvalid, DiagnosticSeverity.Warning, $"The CFF Private DICT {problem} (Adobe Technical Note #5176 §4).");
         }
 
         CffIndex local = default;
@@ -594,12 +615,12 @@ internal sealed partial class CffFont
     private static int Offset(double value) => value is >= 0 and <= int.MaxValue ? (int)value : -1;
 
     private static void ReportCharset(FontProgramContext context, string problem) =>
-        Report(context, DiagnosticCodes.FontCffCharsetInvalid, DiagnosticSeverity.Warning, $"The CFF charset {problem}.");
+        Report(context, CffDiagnostics.FontCffCharsetInvalid, DiagnosticSeverity.Warning, $"The CFF charset {problem}.");
 
     private static void ReportEncoding(FontProgramContext context, string problem) =>
-        Report(context, DiagnosticCodes.FontCffEncodingInvalid, DiagnosticSeverity.Warning, $"The CFF encoding {problem} (Adobe Technical Note #5176 §12).");
+        Report(context, CffDiagnostics.FontCffEncodingInvalid, DiagnosticSeverity.Warning, $"The CFF encoding {problem} (Adobe Technical Note #5176 §12).");
 
-    private static void Report(FontProgramContext context, string code, DiagnosticSeverity severity, string message) => context.Report(code, severity, message);
+    private static void Report(FontProgramContext context, DiagnosticCode code, DiagnosticSeverity severity, string message) => context.Report(code, severity, message);
 
     /// <summary>Gets the name tables, built on first use (a benign race: every thread builds equal tables, one is kept).</summary>
     private NameTables Names => Volatile.Read(ref _names) ?? BuildNames();

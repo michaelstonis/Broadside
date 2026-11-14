@@ -321,13 +321,13 @@ jobs:
             fi
           } >> "${GITHUB_STEP_SUMMARY}"
 
-  # Checks docs/conformance/ with tools/ConformanceCheck (issue #7). The tool is written in parallel with this
-  # workflow, so the steps are skipped until tools/ConformanceCheck/ConformanceCheck.csproj exists on the branch.
-  # (hashFiles() only sees the workspace after checkout, so the guard is on the steps, not on the job.)
+  # Checks docs/conformance/ with tools/ConformanceCheck (issue #7) and, with --citations, the clause citations in the XML
+  # documentation of the packages docs/conformance/citation-policy.json checks (issue #240), so those are built first, and the
+  # per-specification counts generated into site/articles/conformance.md (issue #241).
   conformance-map:
     name: conformance-map
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Check out
         uses: actions/checkout@v7
@@ -335,33 +335,27 @@ jobs:
           fetch-depth: 0
 
       - name: Set up .NET
-        if: hashFiles('tools/ConformanceCheck/ConformanceCheck.csproj') != ''
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
       - name: Cache NuGet packages
-        if: hashFiles('tools/ConformanceCheck/ConformanceCheck.csproj') != ''
         uses: actions/cache@v6
         with:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
           restore-keys: nuget-${{ runner.os }}-
 
-      - name: Check the conformance map
-        if: hashFiles('tools/ConformanceCheck/ConformanceCheck.csproj') != ''
-        shell: bash
-        run: dotnet run --project tools/ConformanceCheck -- --root . --summary >> "${GITHUB_STEP_SUMMARY}"
-
-      - name: Report that the checker is not on this branch yet
-        if: hashFiles('tools/ConformanceCheck/ConformanceCheck.csproj') == ''
+      - name: Build the packages whose citations are checked
         shell: bash
         run: |
-          {
-            echo "## Conformance map"
-            echo
-            echo "Skipped: \`tools/ConformanceCheck\` is not on this branch yet (issue #7)."
-          } >> "${GITHUB_STEP_SUMMARY}"
+          for package in Broadside Broadside.Fonts.Cmaps Broadside.Fonts.Standard14 Broadside.Layout Broadside.Rendering; do
+            dotnet build "src/${package}/${package}.csproj" -warnaserror
+          done
+
+      - name: Check the conformance map and clause citations
+        shell: bash
+        run: dotnet run --project tools/ConformanceCheck -- --root . --summary --citations --site-page site/articles/conformance.md >> "${GITHUB_STEP_SUMMARY}"
 
   # Checks the formatting of everything dotnet format can see: the core solution filter, and the fuzz, benchmark and Windows-only
   # Direct2D test and benchmark projects, which are outside it.

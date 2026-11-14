@@ -1,0 +1,2 @@
+<!-- Fixture for tools/ConformanceCheck: marks src/Foo as a package. Never built. -->
+<Project />

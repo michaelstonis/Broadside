@@ -97,9 +97,9 @@ public sealed class PdfA4ConformanceTests
         {
             byte[] updated = PdfA2u3bConformanceTests.Save(lenient, PdfAConformance.PdfA4, incremental: true);
 
-            Diagnostic reported = Assert.Single(lenient.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANonConformant);
+            Diagnostic reported = Assert.Single(lenient.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANonConformant.Name);
             Assert.Contains("veraPDF rule 6.1.2-1, ISO 19005-4 clause 6.1.2", reported.Message, StringComparison.Ordinal);
-            Assert.Contains(lenient.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANotIdentified);
+            Assert.Contains(lenient.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANotIdentified.Name);
             using PdfDocument reopened = PdfDocument.Open(updated);
             Assert.Empty(reopened.OutputIntents);
         }
@@ -122,7 +122,7 @@ public sealed class PdfA4ConformanceTests
 
         byte[] asPdfA4 = PdfA2u3bConformanceTests.Save(document, PdfAConformance.PdfA4);
 
-        Diagnostic reported = Assert.Single(document.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANonConformant);
+        Diagnostic reported = Assert.Single(document.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANonConformant.Name);
         Assert.Contains("veraPDF rule 6.9-3,", reported.Message, StringComparison.Ordinal);
         using (PdfDocument reopened = PdfDocument.Open(asPdfA4))
         {
@@ -144,7 +144,7 @@ public sealed class PdfA4ConformanceTests
 
         PdfA2u3bConformanceTests.Save(document, PdfAConformance.PdfA4f);
 
-        Diagnostic reported = Assert.Single(document.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANonConformant);
+        Diagnostic reported = Assert.Single(document.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANonConformant.Name);
         Assert.Contains("veraPDF rule 6.9-5,", reported.Message, StringComparison.Ordinal);
         Assert.Contains("PDF/A-4f", reported.Message, StringComparison.Ordinal);
     }
@@ -159,9 +159,9 @@ public sealed class PdfA4ConformanceTests
 
             PdfA2u3bConformanceTests.Save(lenient, PdfAConformance.PdfA4f);
 
-            Diagnostic reported = Assert.Single(lenient.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANonConformant);
+            Diagnostic reported = Assert.Single(lenient.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANonConformant.Name);
             Assert.Contains($"veraPDF rule {rule},", reported.Message, StringComparison.Ordinal);
-            Assert.Contains(lenient.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANotIdentified);
+            Assert.Contains(lenient.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANotIdentified.Name);
         }
 
         using PdfDocument strict = PdfDocument.Create(new PdfOptions().UseStrict());
@@ -192,7 +192,7 @@ public sealed class PdfA4ConformanceTests
 
         PdfA2u3bConformanceTests.Save(document, conformance);
 
-        Diagnostic reported = Assert.Single(document.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANonConformant);
+        Diagnostic reported = Assert.Single(document.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANonConformant.Name);
         Assert.Contains($"veraPDF rule {rule}, ISO 19005-{conformance.ToString()[4]} clause {rule[..rule.LastIndexOf('-')]}", reported.Message, StringComparison.Ordinal);
     }
 
@@ -208,7 +208,7 @@ public sealed class PdfA4ConformanceTests
 
             PdfA2u3bConformanceTests.Save(document, PdfAConformance.PdfA4);
 
-            Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code is DiagnosticCodes.PdfANonConformant or DiagnosticCodes.PdfANotIdentified);
+            Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.PdfANonConformant || diagnostic.Kind == SavingDiagnostics.PdfANotIdentified);
         }
 
         using PdfDocument asPdfA2 = PdfDocument.Create();
@@ -216,7 +216,7 @@ public sealed class PdfA4ConformanceTests
 
         PdfA2u3bConformanceTests.Save(asPdfA2, PdfAConformance.PdfA2b);
 
-        Diagnostic reported = Assert.Single(asPdfA2.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANonConformant);
+        Diagnostic reported = Assert.Single(asPdfA2.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANonConformant.Name);
         Assert.Contains($"veraPDF rule {pdfA2Rule},", reported.Message, StringComparison.Ordinal);
     }
 

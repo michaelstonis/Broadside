@@ -81,6 +81,7 @@ internal sealed class RevocationSources
 /// nextUpdate (§12.8.3.4.7 for CRLs at the current time; RFC 6960 §4.2.2.1). Five minutes of clock skew are allowed. A revoked entry
 /// applies whenever it was produced: the certificate counts as revoked at T when its revocation time is at or before T.
 /// </para>
+/// <para>ISO 32000-2 §12.8.1, §12.8.3.3 and §12.8.4.3.</para>
 /// </remarks>
 internal static class RevocationChecker
 {

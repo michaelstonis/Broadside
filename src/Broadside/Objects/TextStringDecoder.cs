@@ -3,7 +3,7 @@ using System.Text;
 namespace Broadside.Objects;
 
 /// <summary>Decodes the bytes of a text string: UTF-16BE or UTF-8 with a byte order marker, otherwise PDFDocEncoding.</summary>
-/// <remarks>ISO 32000-2 §7.9.2.2 and Annex D, Table D.3.</remarks>
+/// <remarks>ISO 32000-2 §7.9.2.2 and Annex D, Table D.3. Also Annex D.3.</remarks>
 internal static class TextStringDecoder
 {
     private const char Escape = '\u001B';

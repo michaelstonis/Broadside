@@ -123,7 +123,7 @@ public sealed class CMap
             {
                 parent = PredefinedCMapTable.CreateFallback(name);
                 context.Report(
-                    DiagnosticCodes.CMapUnavailable,
+                    CMapDiagnostics.CMapUnavailable,
                     DiagnosticSeverity.Information,
                     parent is null
                         ? $"The CMap uses /{name}, which is not available (Adobe TN 5014 §7.4, usecmap); read without it."
@@ -271,7 +271,7 @@ public sealed class CMap
         {
             DeriveCodespace(file, codespace);
             context.Report(
-                DiagnosticCodes.CMapCodespaceMissing,
+                CMapDiagnostics.CMapCodespaceMissing,
                 DiagnosticSeverity.Warning,
                 "The CMap defines no codespace range (Adobe TN 5014 §7.4, begincodespacerange); codes take the lengths its mappings use.");
         }

@@ -131,7 +131,7 @@ internal sealed unsafe partial class Direct2DBackend : IDisposable
                 PaintMask(mask, SampleUse.Clip, clipEdges: false, 1);
             }
 
-            var grid = new SampleGrid(pixels.Width, pixels.Height, image.Width, image.Height, delivered);
+            var grid = new SampleGrid(pixels.Width, pixels.Height, image.Geometry.Width, image.Geometry.Height, delivered);
             PaintSamples(pixels, entry, grid, image.Interpolate, SampleUse.Draw, clipEdges: true, _compositing.FillAlpha / 255f);
         }
         finally
@@ -395,7 +395,7 @@ internal sealed unsafe partial class Direct2DBackend : IDisposable
     {
         var soft = mask as DisplayImage;
         var stencil = mask as DisplayImageMask;
-        (int width, int height, bool interpolate) = soft is not null ? (soft.Width, soft.Height, soft.Interpolate) : (stencil!.Width, stencil.Height, stencil.Interpolate);
+        (int width, int height, bool interpolate) = soft is not null ? (soft.Geometry.Width, soft.Geometry.Height, soft.Interpolate) : (stencil!.Width, stencil.Height, stencil.Interpolate);
         int reduction = 0;
         if (TryGetImageSamplesPerPixel(out double samplesPerPixel))
         {

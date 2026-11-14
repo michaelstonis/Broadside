@@ -7,6 +7,7 @@ using Broadside.Parsing;
 namespace Broadside.Fonts.Cff;
 
 /// <summary>CID-keyed CFF fonts: FDArray, per-Font-DICT Private DICTs and matrices, FDSelect, and CID to glyph id lookup (issue #54).</summary>
+/// <remarks>ISO 32000-2 §9.6.5.2.</remarks>
 internal sealed partial class CffFont
 {
     /// <summary>FDSelect values are Card8, so at most 256 Font DICTs are reachable (5176 §19).</summary>
@@ -87,7 +88,7 @@ internal sealed partial class CffFont
         CffIndex fontDicts = top.FdArray >= 0 ? ReadIndex(data, top.FdArray, context, "FDArray") : default;
         if (fontDicts.Count == 0)
         {
-            Report(context, DiagnosticCodes.FontCffFdArrayMissing, DiagnosticSeverity.Warning, top.FdArray < 0
+            Report(context, CffDiagnostics.FontCffFdArrayMissing, DiagnosticSeverity.Warning, top.FdArray < 0
                 ? "The CID-keyed CFF font has no FDArray, which it shall have (Adobe Technical Note #5176 §18); its glyphs are read with the Private DICT defaults."
                 : "The CID-keyed CFF font's FDArray holds no Font DICT (Adobe Technical Note #5176 §18); its glyphs are read with the Private DICT defaults.");
             Matrix only = Combine(topMatrix, null);
@@ -131,7 +132,7 @@ internal sealed partial class CffFont
 
         if (reader.Problem is { } problem)
         {
-            Report(context, DiagnosticCodes.FontCffDictInvalid, DiagnosticSeverity.Warning, $"A CFF Font DICT {problem} (Adobe Technical Note #5176 §4).");
+            Report(context, CffDiagnostics.FontCffDictInvalid, DiagnosticSeverity.Warning, $"A CFF Font DICT {problem} (Adobe Technical Note #5176 §4).");
         }
 
         return (size, offset, matrix);
@@ -263,7 +264,7 @@ internal sealed partial class CffFont
     }
 
     private static void ReportFdSelect(FontProgramContext context, string problem) =>
-        Report(context, DiagnosticCodes.FontCffFdSelectInvalid, DiagnosticSeverity.Warning, $"The CID-keyed CFF font's FDSelect {problem} (Adobe Technical Note #5176 §19); the glyphs it does not assign use the first Font DICT.");
+        Report(context, CffDiagnostics.FontCffFdSelectInvalid, DiagnosticSeverity.Warning, $"The CID-keyed CFF font's FDSelect {problem} (Adobe Technical Note #5176 §19); the glyphs it does not assign use the first Font DICT.");
 
     /// <summary>The per-Font-DICT tables of a CID-keyed font: Private DICT values, matrices and each glyph's Font DICT.</summary>
     private sealed class CidTables

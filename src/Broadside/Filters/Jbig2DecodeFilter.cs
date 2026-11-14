@@ -54,9 +54,7 @@ public sealed class Jbig2DecodeFilter : IImageFilter
         ArgumentNullException.ThrowIfNull(context);
         var imageContext = new ImageFilterContext(context)
         {
-            Width = ReadDimension(context, ImageNames.Width),
-            Height = ReadDimension(context, ImageNames.Height),
-            BitsPerComponent = 1,
+            Geometry = new ImageGeometry(ReadDimension(context, ImageNames.Width), ReadDimension(context, ImageNames.Height), 0, 1),
         };
         using DecodedImage? image = DecodeImage(encoded, imageContext);
         if (image is not null)
@@ -78,7 +76,7 @@ public sealed class Jbig2DecodeFilter : IImageFilter
             return false;
         }
 
-        header = new ImageHeader(width, height, 1, 1) { ColorModel = ImageColorModel.Gray };
+        header = new ImageHeader(new ImageGeometry(width, height, 1, 1)) { ColorModel = ImageColorModel.Gray };
         return true;
     }
 
@@ -90,7 +88,7 @@ public sealed class Jbig2DecodeFilter : IImageFilter
         if (!TryGetSize(encoded.Span, context, out int width, out int height))
         {
             context.Filter.Report(
-                DiagnosticCodes.ImageDimensionInvalid,
+                ImageDiagnostics.ImageDimensionInvalid,
                 DiagnosticSeverity.Error,
                 "The JBIG2 image has no usable Width and Height and its stream no page information segment giving them; it is not decoded.");
             return null;
@@ -102,8 +100,8 @@ public sealed class Jbig2DecodeFilter : IImageFilter
 
     private static bool TryGetSize(ReadOnlySpan<byte> encoded, ImageFilterContext context, out int width, out int height)
     {
-        width = context.Width;
-        height = context.Height;
+        width = context.Geometry.Width;
+        height = context.Geometry.Height;
         if (width > 0 && height > 0)
         {
             return true;
@@ -139,13 +137,13 @@ public sealed class Jbig2DecodeFilter : IImageFilter
                 return Jbig2Globals.Get(stream, () => context.DecodeStream(stream), image.MaxPixels, image.MaxDecodedLength);
             case CosStream:
                 context.Report(
-                    DiagnosticCodes.Jbig2GlobalsInvalid,
+                    Jbig2Diagnostics.Jbig2GlobalsInvalid,
                     DiagnosticSeverity.Warning,
                     "The JBIG2Globals stream is itself JBIG2Decode-encoded; it holds raw segments (ISO 32000-2 Table 12), so it is ignored.");
                 return null;
             default:
                 context.Report(
-                    DiagnosticCodes.Jbig2GlobalsInvalid,
+                    Jbig2Diagnostics.Jbig2GlobalsInvalid,
                     DiagnosticSeverity.Warning,
                     "The JBIG2Globals parameter shall be a stream (ISO 32000-2 Table 12); it is ignored and the image is decoded without global segments.");
                 return null;

@@ -1,4 +1,4 @@
-﻿pdfjs: 989 files, 89 with a structure tree, 36996 elements
+﻿pdfjs: 989 files, 90 with a structure tree, 37000 elements
   ParentTreeMissing: 2
   StructElemPageMissing: 2
   NamespaceNotDeclared: 1

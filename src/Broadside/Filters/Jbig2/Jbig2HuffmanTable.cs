@@ -31,7 +31,10 @@ internal readonly record struct Jbig2HuffmanLine(int PrefixLength, int RangeLeng
 /// line indices (the symbol ID tables of §7.4.3.1.7 and the run-code table that codes them). Immutable once built, so the standard
 /// tables and the tables of a cached <c>JBIG2Globals</c> stream are shared across threads.
 /// </summary>
-/// <remarks>ITU-T T.88 Annex B.2 (code table structure), B.3 (assigning the prefix codes), B.4 (using a table), B.5 (standard tables).</remarks>
+/// <remarks>
+/// <para>ITU-T T.88 Annex B.2 (code table structure), B.3 (assigning the prefix codes), B.4 (using a table), B.5 (standard tables).</para>
+/// <para>ISO 32000-2 §7.4.7.</para>
+/// </remarks>
 internal sealed class Jbig2HuffmanTable
 {
     /// <summary>The value <see cref="Decode"/> returns for the out-of-band line.</summary>

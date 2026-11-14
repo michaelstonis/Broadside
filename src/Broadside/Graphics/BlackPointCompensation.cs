@@ -6,6 +6,7 @@ namespace Broadside.Graphics;
 /// the processor; Broadside compensates by default. CalGray, CalRGB and Lab colours already reach the display's black, so only
 /// conversions through ICC profiles change with it. With the <c>AbsoluteColorimetric</c> intent black
 /// point compensation is never applied.
+/// <para>PDF 2.0 Application Note 001 §BPC-3.</para>
 /// </remarks>
 public enum BlackPointCompensation
 {

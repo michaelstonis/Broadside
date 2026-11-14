@@ -12,6 +12,7 @@ namespace Broadside.Fonts;
 /// <remarks>
 /// ISO 32000-2 §9.7.4.1 (Table 115) and §9.7.4.3. <c>W</c> and <c>W2</c> become interval tables (a range costs one entry however
 /// many CIDs it spans); where a CID is given twice, the first specification is used (§9.7.4.3). Immutable once built.
+/// <para>ISO 32000-2 §9.8.3.</para>
 /// </remarks>
 internal sealed class CidFontMetrics
 {
@@ -183,7 +184,7 @@ internal sealed class CidFontMetrics
                     DefaultWidth = number.ToDouble();
                     break;
                 default:
-                    Report(DiagnosticCodes.CidFontWidthsInvalid, "DW shall be a number (ISO 32000-2 §9.7.4.1, Table 115); 1000 is used.");
+                    Report(FontDiagnostics.CidFontWidthsInvalid, "DW shall be a number (ISO 32000-2 §9.7.4.1, Table 115); 1000 is used.");
                     break;
             }
         }
@@ -200,7 +201,7 @@ internal sealed class CidFontMetrics
                     DefaultVerticalAdvance = advance;
                     break;
                 default:
-                    Report(DiagnosticCodes.CidFontVerticalMetricsInvalid, "DW2 shall be an array of two numbers (ISO 32000-2 §9.7.4.1, Table 115); [880 -1000] is used.");
+                    Report(FontDiagnostics.CidFontVerticalMetricsInvalid, "DW2 shall be an array of two numbers (ISO 32000-2 §9.7.4.1, Table 115); [880 -1000] is used.");
                     break;
             }
         }
@@ -215,13 +216,13 @@ internal sealed class CidFontMetrics
 
             if (value is not CosArray array)
             {
-                Report(DiagnosticCodes.CidFontWidthsInvalid, "W shall be an array (ISO 32000-2 §9.7.4.1, Table 115); DW is used for every CID.");
+                Report(FontDiagnostics.CidFontWidthsInvalid, "W shall be an array (ISO 32000-2 §9.7.4.1, Table 115); DW is used for every CID.");
                 return;
             }
 
             Sources.Add(array);
             var entries = new List<IntervalTable.Interval>();
-            ReadGroups(array, 1, entries, WidthValues, CidFontWidthsMessage, DiagnosticCodes.CidFontWidthsInvalid);
+            ReadGroups(array, 1, entries, WidthValues, CidFontWidthsMessage, FontDiagnostics.CidFontWidthsInvalid);
             Widths = IntervalTable.Build(entries, increment: false, laterWins: false);
         }
 
@@ -235,13 +236,13 @@ internal sealed class CidFontMetrics
 
             if (value is not CosArray array)
             {
-                Report(DiagnosticCodes.CidFontVerticalMetricsInvalid, "W2 shall be an array (ISO 32000-2 §9.7.4.1, Table 115); DW2 is used for every CID.");
+                Report(FontDiagnostics.CidFontVerticalMetricsInvalid, "W2 shall be an array (ISO 32000-2 §9.7.4.1, Table 115); DW2 is used for every CID.");
                 return;
             }
 
             Sources.Add(array);
             var entries = new List<IntervalTable.Interval>();
-            ReadGroups(array, 3, entries, VerticalValues, CidFontVerticalMessage, DiagnosticCodes.CidFontVerticalMetricsInvalid);
+            ReadGroups(array, 3, entries, VerticalValues, CidFontVerticalMessage, FontDiagnostics.CidFontVerticalMetricsInvalid);
             Vertical = IntervalTable.Build(entries, increment: false, laterWins: false);
         }
 
@@ -249,7 +250,7 @@ internal sealed class CidFontMetrics
         private const string CidFontVerticalMessage = "The W2 array is malformed (ISO 32000-2 §9.7.4.3)";
 
         /// <summary>Reads the groups of a <c>W</c> (<paramref name="size"/> 1) or <c>W2</c> (3) array into intervals whose values index <paramref name="values"/>.</summary>
-        private void ReadGroups(CosArray array, int size, List<IntervalTable.Interval> entries, List<double> values, string problem, string code)
+        private void ReadGroups(CosArray array, int size, List<IntervalTable.Interval> entries, List<double> values, string problem, DiagnosticCode code)
         {
             int index = 0;
             while (index < array.Count)
@@ -411,7 +412,7 @@ internal sealed class CidFontMetrics
 
             if (problems.Count > 0)
             {
-                Report(DiagnosticCodes.FontDescriptorInvalid, $"The CIDFont's font descriptor deviates from ISO 32000-2 §9.8.3, Table 122: {string.Join("; ", problems)}. Those entries are ignored.");
+                Report(FontDiagnostics.FontDescriptorInvalid, $"The CIDFont's font descriptor deviates from ISO 32000-2 §9.8.3, Table 122: {string.Join("; ", problems)}. Those entries are ignored.");
             }
 
             CosObject? Entry(CosDictionary dictionary, CosName key) =>
@@ -435,16 +436,16 @@ internal sealed class CidFontMetrics
                     ReadOnlyMemory<byte> data = font.Document.DecodeStream(stream);
                     if (data.Length % 2 == 1)
                     {
-                        Report(DiagnosticCodes.CidToGidMapInvalid, "A CIDToGIDMap stream has an odd number of bytes (ISO 32000-2 §9.7.4.1, Table 115); the last byte is ignored.");
+                        Report(FontDiagnostics.CidToGidMapInvalid, "A CIDToGIDMap stream has an odd number of bytes (ISO 32000-2 §9.7.4.1, Table 115); the last byte is ignored.");
                     }
 
                     GlyphMap = data[..(data.Length & ~1)].ToArray();
                     break;
                 case null:
-                    Report(DiagnosticCodes.CidToGidMapMissing, "An embedded CIDFontType2 shall have a CIDToGIDMap (ISO 32000-2 §9.7.4.1, Table 115); CIDs are used as glyph ids.");
+                    Report(FontDiagnostics.CidToGidMapMissing, "An embedded CIDFontType2 shall have a CIDToGIDMap (ISO 32000-2 §9.7.4.1, Table 115); CIDs are used as glyph ids.");
                     break;
                 default:
-                    Report(DiagnosticCodes.CidToGidMapInvalid, "CIDToGIDMap shall be a stream or /Identity (ISO 32000-2 §9.7.4.1, Table 115); CIDs are used as glyph ids.");
+                    Report(FontDiagnostics.CidToGidMapInvalid, "CIDToGIDMap shall be a stream or /Identity (ISO 32000-2 §9.7.4.1, Table 115); CIDs are used as glyph ids.");
                     break;
             }
         }
@@ -453,6 +454,6 @@ internal sealed class CidFontMetrics
 
         private double? Number(CosObject value) => font.Document.Resolve(value) is CosNumber number ? number.ToDouble() : null;
 
-        private void Report(string code, string message) => font.Report(code, DiagnosticSeverity.Warning, message);
+        private void Report(DiagnosticCode code, string message) => font.Report(code, DiagnosticSeverity.Warning, message);
     }
 }

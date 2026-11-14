@@ -77,10 +77,10 @@ internal static class WicSamples
     /// <returns><see langword="false"/> when the planes do not fit the image (another subsampling than 1, 2 or 4).</returns>
     public static bool ConvertPlanes(DecodedImageBuilder image, ReadOnlySpan<byte> y, Plane luma, ReadOnlySpan<byte> cb, ReadOnlySpan<byte> cr, Plane chroma, Span<byte> scratch)
     {
-        int width = image.Width;
+        int width = image.Geometry.Width;
         int shiftX = ChromaShift(luma.Width, chroma.Width);
         int shiftY = ChromaShift(luma.Height, chroma.Height);
-        if (image.Components != 3 || shiftX < 0 || shiftY < 0 || !luma.Covers(width, image.Height) || scratch.Length < 3 * width)
+        if (image.Geometry.Components != 3 || shiftX < 0 || shiftY < 0 || !luma.Covers(width, image.Geometry.Height) || scratch.Length < 3 * width)
         {
             return false;
         }
@@ -88,7 +88,7 @@ internal static class WicSamples
         Span<byte> cbRow = scratch[..width];
         Span<byte> crRow = scratch.Slice(width, width);
         Span<byte> lumaRow = width == luma.Width ? default : scratch.Slice(2 * width, width);
-        for (int row = 0; row < image.Height; row++)
+        for (int row = 0; row < image.Geometry.Height; row++)
         {
             int ly = Math.Min(row, luma.Height - 1);
             int cy = Math.Min(ly >> shiftY, chroma.Height - 1);
@@ -131,14 +131,14 @@ internal static class WicSamples
     /// <returns><see langword="false"/> when the pixels do not fit the image.</returns>
     public static bool CopyPixels(DecodedImageBuilder image, ReadOnlySpan<byte> pixels, Plane source)
     {
-        int components = image.Components;
-        int width = image.Width;
-        if (components is not (1 or 3) || !source.Covers(width, image.Height))
+        int components = image.Geometry.Components;
+        int width = image.Geometry.Width;
+        if (components is not (1 or 3) || !source.Covers(width, image.Geometry.Height))
         {
             return false;
         }
 
-        for (int row = 0; row < image.Height; row++)
+        for (int row = 0; row < image.Geometry.Height; row++)
         {
             ReadOnlySpan<byte> from = pixels.Slice(Math.Min(row, source.Height - 1) * source.Stride, source.Width * components);
             Span<byte> to = image.GetRow(row)[..(width * components)];

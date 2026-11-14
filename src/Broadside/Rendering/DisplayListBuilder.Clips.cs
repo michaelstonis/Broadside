@@ -3,6 +3,7 @@ using Broadside.Content;
 namespace Broadside.Rendering;
 
 /// <summary>Clipping paths (ISO 32000-2 §8.5.4) and form bounding boxes (§8.10.1).</summary>
+/// <remarks>ISO 32000-2 §9.2.3 and §11.7.2.</remarks>
 internal sealed partial class DisplayListBuilder
 {
     /// <inheritdoc/>

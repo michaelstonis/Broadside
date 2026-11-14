@@ -299,7 +299,7 @@ public sealed class CountingContentProcessor : ContentProcessor
     {
         ArgumentNullException.ThrowIfNull(context);
         Counts.Add(image.IsInline ? ContentCounter.ImagesInline : ContentCounter.ImagesXObject);
-        if (image.IsStencil)
+        if (image.IsImageMask)
         {
             Counts.Add(ContentCounter.ImagesStencil);
             UsePaint(context.State.FillColor, context);
@@ -313,10 +313,10 @@ public sealed class CountingContentProcessor : ContentProcessor
         {
             // Resolve the image dictionary (§8.9.5, §8.9.6) as a renderer would before decoding: geometry, colour space, Decode
             // and masks. Samples are not decoded; the codec benchmarks and the image sweeps own that.
-            _ = (model.Width, model.Height, model.BitsPerComponent, model.IsStencil, model.ColorSpace, model.DecodeArray, model.MaskKind, model.Intent);
+            _ = (model.Width, model.Height, model.BitsPerComponent, model.IsImageMask, model.ColorSpace, model.DecodeArray, model.MaskKind, model.Intent);
             if (model.Mask is { } mask)
             {
-                _ = (mask.Width, mask.Height, mask.IsStencil, mask.DecodeArray);
+                _ = (mask.Width, mask.Height, mask.IsImageMask, mask.DecodeArray);
             }
         }
 

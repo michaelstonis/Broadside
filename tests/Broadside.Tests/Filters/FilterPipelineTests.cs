@@ -179,7 +179,7 @@ public sealed class FilterPipelineTests
     {
         byte[] file = FilterTesting.FileWithStream("/Filter /FlateDecode", FilterEncoders.Zlib(new byte[100_000]));
 
-        (byte[] decoded, string[] codes) = FilterTesting.DecodeWithCodes(file, new PdfOptions().WithMaxDecodedStreamLength(1000));
+        (byte[] decoded, string[] codes) = FilterTesting.DecodeWithCodes(file, new PdfOptions().WithMaxDecodedLength(1000));
 
         Assert.Equal(new byte[1000], decoded);
         Assert.Equal(["StreamDecodedLengthExceeded"], codes);
@@ -214,7 +214,7 @@ public sealed class FilterPipelineTests
     [Fact]
     public void The_maximum_decoded_length_must_be_positive()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new PdfOptions().WithMaxDecodedStreamLength(0));
-        Assert.Equal(PdfOptions.DefaultMaxDecodedStreamLength, new PdfOptions().MaxDecodedStreamLength);
+        Assert.Throws<ArgumentOutOfRangeException>(() => new PdfOptions().WithMaxDecodedLength(0));
+        Assert.Equal(PdfOptions.DefaultMaxDecodedLength, new PdfOptions().MaxDecodedLength);
     }
 }

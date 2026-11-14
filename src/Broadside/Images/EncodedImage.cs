@@ -22,6 +22,7 @@ namespace Broadside.Images;
 /// data is the stream's data as read when it was made (which nothing writes in place) or, after other filters, its own copy, and the
 /// parameter and image dictionaries are shallow copies taken when it was made.
 /// </para>
+/// <para>ISO 32000-2 §11.6.5.2.</para>
 /// </remarks>
 internal sealed class EncodedImage
 {
@@ -30,10 +31,7 @@ internal sealed class EncodedImage
     private readonly StreamDecoder _streams;
     private readonly CosDictionary? _parameters;
     private readonly CosDictionary _dictionary;
-    private readonly int _dictionaryWidth;
-    private readonly int _dictionaryHeight;
-    private readonly int _dictionaryBits;
-    private readonly int _colorComponents;
+    private readonly ImageGeometry _dictionaryGeometry;
 
     /// <summary>Initializes a new instance of the <see cref="EncodedImage"/> class.</summary>
     /// <param name="data">The data the codec decodes, which nothing writes from now on.</param>
@@ -42,14 +40,12 @@ internal sealed class EncodedImage
     /// <param name="parameters">The codec's <c>DecodeParms</c>, or <see langword="null"/>.</param>
     /// <param name="dictionary">The image dictionary.</param>
     /// <param name="header">The codestream's header.</param>
-    /// <param name="width">The dictionary's width.</param>
-    /// <param name="height">The dictionary's height.</param>
-    /// <param name="bitsPerComponent">The dictionary's bits per component.</param>
-    /// <param name="colorComponents">
-    /// The dictionary's colour space's component count, or 0 without a colour space (JPXDecode, §7.4.9): what the decode at build
-    /// would have asked the codec for, so every reduction delivers the same channels and colours.
+    /// <param name="dictionaryGeometry">
+    /// The dictionary's width, height and bits per component, and its colour space's component count, or 0 without a colour space
+    /// (JPXDecode, §7.4.9): what the decode at build would have asked the codec for, so every reduction delivers the same channels
+    /// and colours.
     /// </param>
-    public EncodedImage(ReadOnlyMemory<byte> data, IImageFilter filter, StreamDecoder streams, CosDictionary? parameters, CosDictionary dictionary, in ImageHeader header, int width, int height, int bitsPerComponent, int colorComponents)
+    public EncodedImage(ReadOnlyMemory<byte> data, IImageFilter filter, StreamDecoder streams, CosDictionary? parameters, CosDictionary dictionary, in ImageHeader header, ImageGeometry dictionaryGeometry)
     {
         _data = data;
         _filter = filter;
@@ -57,10 +53,7 @@ internal sealed class EncodedImage
         _parameters = parameters is null ? null : Copy(parameters);
         _dictionary = Copy(dictionary);
         Header = header;
-        _dictionaryWidth = width;
-        _dictionaryHeight = height;
-        _dictionaryBits = bitsPerComponent;
-        _colorComponents = colorComponents;
+        _dictionaryGeometry = dictionaryGeometry;
     }
 
     /// <summary>Gets the codestream's header: the size, components and depth every decode delivers at reduction 0.</summary>
@@ -90,7 +83,7 @@ internal sealed class EncodedImage
             colorTransform = value is 0 or 1 ? (int)value : -1;
         }
 
-        return PlatformImageEligibility.TryCreateRequest(_data.Span, colorTransform, _dictionaryWidth, _dictionaryHeight, out request, out _);
+        return PlatformImageEligibility.TryCreateRequest(_data.Span, colorTransform, _dictionaryGeometry.Width, _dictionaryGeometry.Height, out request, out _);
     }
 
     /// <summary>Records a diagnostic of this image on its document.</summary>
@@ -98,7 +91,7 @@ internal sealed class EncodedImage
     /// <param name="severity">The severity.</param>
     /// <param name="message">The message.</param>
     /// <param name="reference">The image stream's reference, which makes the diagnostic the image's own; <see langword="null"/> when direct.</param>
-    public void Report(string code, DiagnosticSeverity severity, string message, CosReference? reference) =>
+    public void Report(DiagnosticCode code, DiagnosticSeverity severity, string message, CosReference? reference) =>
         _streams.Report(new Diagnostic(code, severity, message, null, reference));
 
     /// <summary>Gets the bytes the encoded data keeps.</summary>
@@ -117,10 +110,7 @@ internal sealed class EncodedImage
         var filterContext = new FilterContext(_streams, 0) { Parameters = _parameters, StreamDictionary = _dictionary, CancellationToken = cancellationToken };
         var context = new ImageFilterContext(filterContext)
         {
-            Width = _dictionaryWidth,
-            Height = _dictionaryHeight,
-            BitsPerComponent = _dictionaryBits,
-            ColorComponents = _colorComponents,
+            Geometry = _dictionaryGeometry,
             MaxPixels = _streams.MaxImagePixels,
             MaxDecodedLength = _streams.MaxDecodedLength,
             Reduction = Math.Clamp(reduction, 0, Header.MaxReduction),
@@ -134,15 +124,12 @@ internal sealed class EncodedImage
 
         int delivered = decoded.Reduction;
         if (delivered > context.Reduction
-            || decoded.Width != ImageGeometry.Reduce(Header.Width, delivered)
-            || decoded.Height != ImageGeometry.Reduce(Header.Height, delivered)
-            || decoded.Components != Header.Components
-            || decoded.BitsPerComponent != Header.BitsPerComponent
+            || decoded.Geometry != Header.Geometry.AtReduction(delivered)
             || decoded.SamplesInverted
             || decoded.Alpha is not null)
         {
-            filterContext.Report(DiagnosticCodes.FilterFailed, DiagnosticSeverity.Error, FormattableString.Invariant(
-                $"The filter /{_filter.Name.Value} decoded {decoded.Width} x {decoded.Height} x {decoded.Components} samples of {decoded.BitsPerComponent} bits at reduction {delivered} where its header promised {Header.Width} x {Header.Height} x {Header.Components} of {Header.BitsPerComponent} bits; the image is not decoded."));
+            filterContext.Report(FilterDiagnostics.FilterFailed, DiagnosticSeverity.Error, FormattableString.Invariant(
+                $"The filter /{_filter.Name.Value} decoded {decoded.Geometry.Width} x {decoded.Geometry.Height} x {decoded.Geometry.Components} samples of {decoded.Geometry.BitsPerComponent} bits at reduction {delivered} where its header promised {Header.Geometry.Width} x {Header.Geometry.Height} x {Header.Geometry.Components} of {Header.Geometry.BitsPerComponent} bits; the image is not decoded."));
             decoded.Dispose();
             return null;
         }

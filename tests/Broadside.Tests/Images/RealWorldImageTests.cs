@@ -76,7 +76,7 @@ public sealed class RealWorldImageTests(ITestOutputHelper output)
 
     private static bool Read(PdfImage image, string file)
     {
-        _ = (image.Width, image.Height, image.BitsPerComponent, image.IsStencil, image.ColorSpace, image.DecodeArray, image.Interpolate, image.Intent);
+        _ = (image.Width, image.Height, image.BitsPerComponent, image.IsImageMask, image.ColorSpace, image.DecodeArray, image.Interpolate, image.Intent);
         _ = (image.MaskKind, image.ColorKey, image.Matte, image.SoftMaskInData, image.Alternates, image.OptionalContent, image.Metadata, image.StructParent, image.Name);
         bool any = Check(image, file);
         if (image.Mask is { } mask)
@@ -95,11 +95,11 @@ public sealed class RealWorldImageTests(ITestOutputHelper output)
             return false;
         }
 
-        Assert.True(samples.Samples.Length == samples.Stride * samples.Height, file);
-        Assert.True(samples.DecodedRows <= samples.Height, file);
-        Assert.True(samples.Stride == ((samples.Width * samples.Components * samples.StorageBits) + 7) / 8, file);
+        Assert.True(samples.Samples.Length == samples.Stride * samples.Geometry.Height, file);
+        Assert.True(samples.DecodedRows <= samples.Geometry.Height, file);
+        Assert.True(samples.Stride == ((samples.Geometry.Width * samples.Geometry.Components * samples.StorageBits) + 7) / 8, file);
         ImageDecodeMap map = image.CreateDecodeMap(samples);
-        Assert.Equal(samples.Components, map.Components);
+        Assert.Equal(samples.Geometry.Components, map.Components);
         return true;
     }
 

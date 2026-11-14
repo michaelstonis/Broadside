@@ -101,7 +101,7 @@ internal sealed class StructureContext
     {
         if (walk.HasContentItems && !Root.ContainsKey(StructureNames.ParentTree))
         {
-            Report(DiagnosticCodes.ParentTreeMissing, "The structure tree root has no ParentTree although elements have content items (Table 354); content is mapped to elements through K.", RootReference);
+            Report(StructureDiagnostics.ParentTreeMissing, "The structure tree root has no ParentTree although elements have content items (Table 354); content is mapped to elements through K.", RootReference);
         }
     }
 
@@ -163,7 +163,7 @@ internal sealed class StructureContext
         return pages;
     }
 
-    public void Report(string code, string message, CosReference? reference) =>
+    public void Report(DiagnosticCode code, string message, CosReference? reference) =>
         Diagnostics.Report(code, DiagnosticSeverity.Warning, message, offset: null, reference);
 
     /// <summary>Finds the page whose page object <paramref name="value"/> resolves to, or <see langword="null"/>.</summary>

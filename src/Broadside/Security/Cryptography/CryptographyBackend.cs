@@ -12,6 +12,8 @@ namespace Broadside.Security.Cryptography;
 /// <see cref="IncrementalDigest"/>), which use the base class library where the platform supports it and the managed implementation
 /// elsewhere. SHA-3 (FIPS 202) is missing from the base class library on macOS, iOS and the browser, so <see cref="IncrementalDigest"/>
 /// falls back to <see cref="ManagedSha3"/> there. SHA-2, HMAC and HKDF are available on every platform and are called directly.
+/// <para>ISO 32000-2 §7.6.3.</para>
+/// <para>ISO/TS 32001 §5.1.1.</para>
 /// </remarks>
 internal static class CryptographyBackend
 {

@@ -44,6 +44,7 @@ internal static class Jbig2SegmentType
 /// Whether the header gave the length 0xFFFFFFFF (§7.2.7) and the data part was found to end with its terminator and four-byte row
 /// count (§7.4.6.4), which <see cref="DataLength"/> includes.
 /// </param>
+/// <remarks>ISO 32000-2 §7.4.7.</remarks>
 internal readonly record struct Jbig2Segment(
     uint Number,
     int Type,

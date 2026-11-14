@@ -4,7 +4,7 @@ namespace Broadside.Filters.Dct;
 /// One Huffman encoding table: the code and code length of every symbol, derived from BITS and HUFFVAL lists. The encoder uses the
 /// four typical tables of Annex K, built once for the process.
 /// </summary>
-/// <remarks>ITU-T T.81 Annex C (Figures C.1 to C.3: HUFFSIZE, HUFFCODE, and EHUFCO / EHUFSI ordered by symbol), §K.3.</remarks>
+/// <remarks>ITU-T T.81 Annex C (Figures C.1 to C.3: HUFFSIZE, HUFFCODE, and EHUFCO / EHUFSI ordered by symbol), §K.3. ISO 32000-2 §7.4.8.</remarks>
 internal sealed class HuffmanEncodingTable
 {
     /// <summary>Table K.3: the luminance DC table.</summary>

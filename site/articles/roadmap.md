@@ -36,9 +36,4 @@ These are on the integration branch since `0.1.0-preview.1`:
 
 ## Known issues
 
-- `AddObject`, and the edits built on it, throws on a file that already holds object number 2147483647 (#387). Saving a damaged RC4-encrypted input can write a file that cannot be reopened (#390).
-- Large images are decoded at full resolution and slowly, above all in the browser: #362, #365, #352 and the platform image decoders #372 to #377.
-- Rendering is slower than PDFium on the pinned real-world pages (#336). Stroking got slower after the overlap fix (#335). The software rasterizer has no glyph cache yet (#370).
-- Unencrypted wrapper documents (#234, #235), order 3 sampled functions (#236) and bounded memory on multi-gigabyte files (#237) are not implemented yet.
-
-The [open issues](https://github.com/michaelstonis/Broadside/issues) are the complete list.
+The [known limitations of v1](https://github.com/michaelstonis/Broadside/blob/main/docs/known-limitations.md) are one list, each item with the open issue that tracks it. The [open issues](https://github.com/michaelstonis/Broadside/issues) are the complete list.

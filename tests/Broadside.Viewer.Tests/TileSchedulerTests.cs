@@ -147,7 +147,7 @@ public sealed class TileSchedulerTests
         Assert.All(page0.Skip(1), t => Assert.Equal(1.5, t.Tile.Scale));
         Assert.True(page0.Length > 2);
 
-        using PdfDocument reference = PdfDocument.Open(file);
+        using PdfDocument reference = await PdfDocument.OpenAsync(file, TestContext.Current.CancellationToken);
         using var rasterizer = new SoftwareRasterizer();
         using Bitmap whole = rasterizer.Render(reference.Pages[0], new RenderOptions().WithScale(1.5));
         Assert.All(page0.Skip(1), t => Assert.InRange(ViewerTestSupport.MaxDifference(whole, t), 0, 1));

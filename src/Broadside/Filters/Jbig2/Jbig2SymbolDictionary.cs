@@ -18,6 +18,7 @@ namespace Broadside.Filters.Jbig2;
 /// through the text region and refinement procedures, Huffman collective bitmaps uncompressed or MMR, export runs), §7.4.2 (segment
 /// syntax, the custom tables taken from referred code table segments in the order DH, DW, BMSIZE, AGGINST, SDINSYMS from the
 /// referred symbol dictionaries in referral order).
+/// <para>ISO 32000-2 §7.4.7.</para>
 /// </remarks>
 internal sealed class Jbig2SymbolDictionary
 {
@@ -133,7 +134,7 @@ internal sealed class Jbig2SymbolDictionary
         if (inputTotal + newCount > MaxSymbols)
         {
             reporter.Report(
-                DiagnosticCodes.Jbig2LimitExceeded,
+                Jbig2Diagnostics.Jbig2LimitExceeded,
                 DiagnosticSeverity.Error,
                 string.Create(CultureInfo.InvariantCulture, $"The JBIG2 symbol dictionary segment {number} would hold {inputTotal + newCount} symbols, more than the {MaxSymbols} allowed; it is not decoded."));
             return null;
@@ -155,7 +156,7 @@ internal sealed class Jbig2SymbolDictionary
             if (!ok)
             {
                 reporter.Report(
-                    DiagnosticCodes.Jbig2TableInvalid,
+                    Jbig2Diagnostics.Jbig2TableInvalid,
                     DiagnosticSeverity.Error,
                     string.Create(CultureInfo.InvariantCulture, $"The JBIG2 symbol dictionary segment {number} selects a reserved Huffman table or a custom table it does not refer to (ITU-T T.88 §7.4.2.1.6); it is not decoded."));
                 return null;
@@ -172,7 +173,7 @@ internal sealed class Jbig2SymbolDictionary
             if (contextUsed)
             {
                 reporter.Report(
-                    DiagnosticCodes.Jbig2ContextReuseInvalid,
+                    Jbig2Diagnostics.Jbig2ContextReuseInvalid,
                     DiagnosticSeverity.Warning,
                     string.Create(CultureInfo.InvariantCulture, $"The JBIG2 symbol dictionary segment {number} reuses the coding statistics of its last referred symbol dictionary, which did not retain them or differs in its coding parameters (ITU-T T.88 §7.4.2.2 step 3); the statistics are reset."));
             }
@@ -239,7 +240,7 @@ internal sealed class Jbig2SymbolDictionary
 
                 if (decoded == newCount || coder.IsExhausted)
                 {
-                    context.Report(DiagnosticCodes.Jbig2RegionDataInvalid, DiagnosticSeverity.Error, "has more symbols in a height class than its SDNUMNEWSYMS, or data that ends inside one (ITU-T T.88 §6.5.5 step 4 c)");
+                    context.Report(Jbig2Diagnostics.Jbig2RegionDataInvalid, DiagnosticSeverity.Error, "has more symbols in a height class than its SDNUMNEWSYMS, or data that ends inside one (ITU-T T.88 §6.5.5 step 4 c)");
                     return decoded;
                 }
 
@@ -247,7 +248,7 @@ internal sealed class Jbig2SymbolDictionary
                 totalWidth += width;
                 if (width < 0 || height < 0 || width > int.MaxValue - 7 || height > int.MaxValue)
                 {
-                    context.Report(DiagnosticCodes.Jbig2RegionDataInvalid, DiagnosticSeverity.Error, "decodes a symbol of negative or impossible size (ITU-T T.88 §6.5.5)");
+                    context.Report(Jbig2Diagnostics.Jbig2RegionDataInvalid, DiagnosticSeverity.Error, "decodes a symbol of negative or impossible size (ITU-T T.88 §6.5.5)");
                     return decoded;
                 }
 
@@ -446,7 +447,7 @@ internal sealed class Jbig2SymbolDictionary
                 MmrResult result = Jbig2GenericRegion.DecodeMmr(remaining[..(int)Math.Min(size, remaining.Length)], collective.View);
                 if (result.Status == MmrStatus.Invalid)
                 {
-                    context.Report(DiagnosticCodes.Jbig2RegionDataInvalid, DiagnosticSeverity.Error, "has a height class collective bitmap with an invalid MMR code (ITU-T T.88 §6.5.9)");
+                    context.Report(Jbig2Diagnostics.Jbig2RegionDataInvalid, DiagnosticSeverity.Error, "has a height class collective bitmap with an invalid MMR code (ITU-T T.88 §6.5.9)");
                 }
                 else if (result.Rows < height && result.Status != MmrStatus.EndOfBlock)
                 {
@@ -492,7 +493,7 @@ internal sealed class Jbig2SymbolDictionary
 
             if (index + run > declaredTotal)
             {
-                context.Report(DiagnosticCodes.Jbig2ExportRunOverflow, DiagnosticSeverity.Warning, "has an export run past its last symbol (ITU-T T.88 §6.5.10); the run is cut there");
+                context.Report(Jbig2Diagnostics.Jbig2ExportRunOverflow, DiagnosticSeverity.Warning, "has an export run past its last symbol (ITU-T T.88 §6.5.10); the run is cut there");
                 run = declaredTotal - index;
             }
 
@@ -511,7 +512,7 @@ internal sealed class Jbig2SymbolDictionary
         if (exported.Count != expected)
         {
             context.Report(
-                DiagnosticCodes.Jbig2SymbolCountMismatch,
+                Jbig2Diagnostics.Jbig2SymbolCountMismatch,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"exports {exported.Count} symbols where its SDNUMEXSYMS says {expected} (ITU-T T.88 §6.5.10); the flagged symbols are exported"));
         }
@@ -566,7 +567,7 @@ internal sealed class Jbig2SymbolDictionary
     }
 
     private static void Invalid(Jbig2Reporter reporter, uint number, string what) => reporter.Report(
-        DiagnosticCodes.Jbig2SegmentInvalid,
+        Jbig2Diagnostics.Jbig2SegmentInvalid,
         DiagnosticSeverity.Error,
         string.Create(CultureInfo.InvariantCulture, $"The JBIG2 symbol dictionary segment {number} {what}; it is not decoded."));
 
@@ -591,16 +592,16 @@ internal sealed class Jbig2SymbolDictionary
 
         public int SymbolCodeLength => symbolCodeLength;
 
-        public void Report(string code, DiagnosticSeverity severity, string what) => reporter.Report(
+        public void Report(DiagnosticCode code, DiagnosticSeverity severity, string what) => reporter.Report(
             code,
             severity,
             string.Create(CultureInfo.InvariantCulture, $"The JBIG2 symbol dictionary segment {number} {what}."));
 
-        public void Truncated() => Report(DiagnosticCodes.Jbig2RegionDataTruncated, DiagnosticSeverity.Warning, "has data that ends or becomes invalid before its last symbol; the symbols decoded so far are kept");
+        public void Truncated() => Report(Jbig2Diagnostics.Jbig2RegionDataTruncated, DiagnosticSeverity.Warning, "has data that ends or becomes invalid before its last symbol; the symbols decoded so far are kept");
 
-        public void LimitExceeded() => Report(DiagnosticCodes.Jbig2LimitExceeded, DiagnosticSeverity.Error, "holds more symbol pixels than the image limits allow; the symbols decoded so far are kept");
+        public void LimitExceeded() => Report(Jbig2Diagnostics.Jbig2LimitExceeded, DiagnosticSeverity.Error, "holds more symbol pixels than the image limits allow; the symbols decoded so far are kept");
 
-        public void SymbolIdOutOfRange() => Report(DiagnosticCodes.Jbig2SymbolIdOutOfRange, DiagnosticSeverity.Error, "refers to a symbol ID beyond its symbols (ITU-T T.88 §6.5.8.2.2); an empty symbol is used");
+        public void SymbolIdOutOfRange() => Report(Jbig2Diagnostics.Jbig2SymbolIdOutOfRange, DiagnosticSeverity.Error, "refers to a symbol ID beyond its symbols (ITU-T T.88 §6.5.8.2.2); an empty symbol is used");
 
         public void Report(Jbig2TextResult result)
         {

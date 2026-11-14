@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -13,13 +14,13 @@ namespace Broadside;
 internal sealed class NumberTreeReader : TreeReader<int>
 {
     private static readonly TreeCodes NumberTreeCodes = new(
-        DiagnosticCodes.NumberTreeNodeInvalid,
-        DiagnosticCodes.NumberTreeLimitsInvalid,
-        DiagnosticCodes.NumberTreeKeysUnsorted,
-        DiagnosticCodes.NumberTreeDuplicateKey,
-        DiagnosticCodes.NumberTreeKeyInvalid,
-        DiagnosticCodes.NumberTreeCycle,
-        DiagnosticCodes.NumberTreeTooDeep);
+        NavigationDiagnostics.NumberTreeNodeInvalid,
+        NavigationDiagnostics.NumberTreeLimitsInvalid,
+        NavigationDiagnostics.NumberTreeKeysUnsorted,
+        NavigationDiagnostics.NumberTreeDuplicateKey,
+        NavigationDiagnostics.NumberTreeKeyInvalid,
+        NavigationDiagnostics.NumberTreeCycle,
+        NavigationDiagnostics.NumberTreeTooDeep);
 
     /// <summary>Initializes a new instance of the <see cref="NumberTreeReader"/> class.</summary>
     /// <param name="root">The root node dictionary.</param>

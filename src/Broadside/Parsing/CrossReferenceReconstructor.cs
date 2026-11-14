@@ -24,7 +24,7 @@ namespace Broadside.Parsing;
 /// catalog with a <c>Pages</c> dictionary (both engines take the oldest, which loses updates). <c>Encrypt</c> and <c>ID</c> come
 /// from any trailer that has them when the chosen one does not (PDFBox's fallback loses them, so encrypted files fail).</item>
 /// <item>With no usable trailer, the catalog is the newest object of type <c>/Catalog</c> whose <c>Pages</c> resolves, and a
-/// <see cref="DiagnosticCodes.TrailerMissing"/> or <see cref="DiagnosticCodes.RootMissing"/> diagnostic says so.</item>
+/// <see cref="FileStructureDiagnostics.TrailerMissing"/> or <see cref="FileStructureDiagnostics.RootMissing"/> diagnostic says so.</item>
 /// </list>
 /// <para>The result has one synthetic section, marked <see cref="XrefSection.IsReconstructed"/>, that spans the whole file.</para>
 /// </remarks>
@@ -103,7 +103,7 @@ internal static class CrossReferenceReconstructor
             if (trailers.Count == 0 || reportMissingTrailer)
             {
                 diagnostics.Report(
-                    trailers.Count == 0 ? DiagnosticCodes.TrailerMissing : DiagnosticCodes.RootMissing,
+                    trailers.Count == 0 ? FileStructureDiagnostics.TrailerMissing : FileStructureDiagnostics.RootMissing,
                     DiagnosticSeverity.Warning,
                     trailers.Count == 0
                         ? string.Create(CultureInfo.InvariantCulture, $"The file has no trailer dictionary; the catalog is object {catalog.ObjectNumber} {catalog.Generation}, found by scanning the file.")

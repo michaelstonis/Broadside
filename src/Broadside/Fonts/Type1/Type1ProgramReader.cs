@@ -15,6 +15,7 @@ namespace Broadside.Fonts.Type1;
 /// <c>dup index length RD binary NP</c> and <c>CharStrings</c> entries <c>/name length RD binary ND</c>, ended by <c>end</c>). Any
 /// executable name after the length is taken as <c>RD</c> (pdf.js does the same); the <c>CharStrings</c> count is a hint. Hybrid
 /// fonts (§9.2) carry a second <c>Subrs</c> and <c>CharStrings</c> for high resolutions: the first ones are used.
+/// <para>ISO 32000-2 §9.9.1.</para>
 /// </remarks>
 internal sealed class Type1ProgramReader
 {
@@ -85,7 +86,7 @@ internal sealed class Type1ProgramReader
         if (!_charStringsRead || _charStrings.Count == 0)
         {
             _context.Report(
-                DiagnosticCodes.FontType1CharStringsMissing,
+                Type1Diagnostics.FontType1CharStringsMissing,
                 DiagnosticSeverity.Error,
                 "The Type 1 program has no CharStrings dictionary (Type 1 Font Format §2.6); none of its glyphs are available.");
             return false;
@@ -94,7 +95,7 @@ internal sealed class Type1ProgramReader
         if (!_privateSeen)
         {
             _context.Report(
-                DiagnosticCodes.FontType1PrivateMissing,
+                Type1Diagnostics.FontType1PrivateMissing,
                 DiagnosticSeverity.Warning,
                 "The Type 1 program has no Private dictionary (Type 1 Font Format §2.5); its CharStrings are read with the default lenIV of 4.");
         }
@@ -123,7 +124,7 @@ internal sealed class Type1ProgramReader
         if (!notdef)
         {
             _context.Report(
-                DiagnosticCodes.FontType1NotdefMissing,
+                Type1Diagnostics.FontType1NotdefMissing,
                 DiagnosticSeverity.Warning,
                 "The Type 1 program's CharStrings has no .notdef glyph, which it shall have (Type 1 Font Format §2.6); an empty one stands in for it.");
         }
@@ -162,7 +163,7 @@ internal sealed class Type1ProgramReader
         if (truncated)
         {
             _context.Report(
-                DiagnosticCodes.FontType1CharstringTruncated,
+                Type1Diagnostics.FontType1CharstringTruncated,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"A Type 1 charstring is shorter than lenIV ({_lenIV}) random bytes (Type 1 Font Format §7.3); it is empty."));
         }
@@ -237,7 +238,7 @@ internal sealed class Type1ProgramReader
                 if (FontMatrix is null)
                 {
                     _context.Report(
-                        DiagnosticCodes.FontType1FontMatrixInvalid,
+                        Type1Diagnostics.FontType1FontMatrixInvalid,
                         DiagnosticSeverity.Warning,
                         "The Type 1 program's FontMatrix is not an array of six numbers (Type 1 Font Format §2.3); [0.001 0 0 0.001 0 0] is used.");
                     FontMatrix = [];
@@ -328,7 +329,7 @@ internal sealed class Type1ProgramReader
             else if (!name.SequenceEqual("StandardEncoding"u8))
             {
                 _context.Report(
-                    DiagnosticCodes.FontType1EncodingInvalid,
+                    Type1Diagnostics.FontType1EncodingInvalid,
                     DiagnosticSeverity.Information,
                     $"The Type 1 program's Encoding is the named encoding {NameOf(name)}, which is not read; StandardEncoding is used.");
             }
@@ -379,7 +380,7 @@ internal sealed class Type1ProgramReader
                 {
                     reported = true;
                     _context.Report(
-                        DiagnosticCodes.FontType1EncodingInvalid,
+                        Type1Diagnostics.FontType1EncodingInvalid,
                         DiagnosticSeverity.Warning,
                         "An entry of the Type 1 program's Encoding has a code that is not an integer from 0 to 255 (Type 1 Font Format §2.3); it is ignored.");
                 }
@@ -547,7 +548,7 @@ internal sealed class Type1ProgramReader
         || name.SequenceEqual("readonly"u8) || name.SequenceEqual("executeonly"u8);
 
     private void ReportEntry(string problem) => _context.Report(
-        DiagnosticCodes.FontType1EntryInvalid,
+        Type1Diagnostics.FontType1EntryInvalid,
         DiagnosticSeverity.Warning,
         $"The Type 1 program's private dictionary deviates from Type 1 Font Format §10.4-10.5: {problem}.");
 }

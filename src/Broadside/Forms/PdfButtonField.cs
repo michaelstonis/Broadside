@@ -1,5 +1,6 @@
 using System.Globalization;
 using Broadside.Annotations;
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -96,13 +97,13 @@ public abstract class PdfToggleButtonField : PdfButtonField
                         else
                         {
                             options[index] = string.Empty;
-                            Report(DiagnosticCodes.FieldEntryInvalid, $"Element {index} of the button field's Opt array is not a text string; it reads as empty.");
+                            Report(FormDiagnostics.FieldEntryInvalid, $"Element {index} of the button field's Opt array is not a text string; it reads as empty.");
                         }
                     }
 
                     if (options.Length != WidgetElements.Count)
                     {
-                        Report(DiagnosticCodes.ButtonOptLengthMismatch, "The button field's Opt array shall have one entry per widget in Kids (Table 230); its length differs.");
+                        Report(FormDiagnostics.ButtonOptLengthMismatch, "The button field's Opt array shall have one entry per widget in Kids (Table 230); its length differs.");
                     }
 
                     return options;
@@ -189,12 +190,12 @@ public abstract class PdfToggleButtonField : PdfButtonField
         switch (on.Length)
         {
             case 0:
-                Report(DiagnosticCodes.ButtonOnStateMissing, "A widget of the button field has appearance states but none other than Off, so it has no on state.");
+                Report(FormDiagnostics.ButtonOnStateMissing, "A widget of the button field has appearance states but none other than Off, so it has no on state.");
                 return null;
             case 1:
                 return on[0];
             default:
-                Report(DiagnosticCodes.ButtonStatesAmbiguous, "A widget of the button field has more than one on state in its normal appearance; the one equal to the value, else the first, is used.");
+                Report(FormDiagnostics.ButtonStatesAmbiguous, "A widget of the button field has more than one on state in its normal appearance; the one equal to the value, else the first, is used.");
                 CosName? value = ReadState(ValueObject, FormNames.V);
                 return on.FirstOrDefault(state => state.Equals(value)) ?? on[0];
         }
@@ -442,13 +443,13 @@ public abstract class PdfToggleButtonField : PdfButtonField
                 && widgets.Any(other => !ReferenceEquals(other.Dictionary, widget.Dictionary) && value.Equals(other.AppearanceState) && value.Equals(GetOnState(other)));
             if (on is not null && widget.AppearanceState is { } state && !state.Equals(isOn ? on : FormNames.Off) && !sharedOff)
             {
-                Report(DiagnosticCodes.ButtonValueStateMismatch, "A widget's AS entry differs from the button field's value, which it shall equal (§12.7.5.2.3); AS decides the appearance.");
+                Report(FormDiagnostics.ButtonValueStateMismatch, "A widget's AS entry differs from the button field's value, which it shall equal (§12.7.5.2.3); AS decides the appearance.");
             }
         }
 
         if (!known && anyStates)
         {
-            Report(DiagnosticCodes.ButtonValueUnknownState, $"The button field's value {value.Value} is not the on state of any of its widgets; nothing is shown selected.");
+            Report(FormDiagnostics.ButtonValueUnknownState, $"The button field's value {value.Value} is not the on state of any of its widgets; nothing is shown selected.");
         }
     }
 }

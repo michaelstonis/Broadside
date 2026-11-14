@@ -56,10 +56,10 @@ public sealed class PdfA2u3bConformanceTests
 
             byte[] saved = Save(lenient, conformance);
 
-            Diagnostic reported = Assert.Single(lenient.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANonConformant);
+            Diagnostic reported = Assert.Single(lenient.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANonConformant.Name);
             Assert.Contains("veraPDF rule 6.2.11.7.2-1,", reported.Message, StringComparison.Ordinal);
             Assert.Contains("T3", reported.Message, StringComparison.Ordinal);
-            Assert.Contains(lenient.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANotIdentified);
+            Assert.Contains(lenient.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANotIdentified.Name);
             using PdfDocument reopened = PdfDocument.Open(saved);
             Assert.Empty(reopened.OutputIntents);
         }
@@ -84,7 +84,7 @@ public sealed class PdfA2u3bConformanceTests
 
         Save(document, conformance);
 
-        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code is DiagnosticCodes.PdfANonConformant or DiagnosticCodes.PdfANotIdentified);
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.PdfANonConformant || diagnostic.Kind == SavingDiagnostics.PdfANotIdentified);
     }
 
     [Theory]
@@ -98,7 +98,7 @@ public sealed class PdfA2u3bConformanceTests
 
         Save(document, PdfAConformance.PdfA2u);
 
-        Diagnostic reported = Assert.Single(document.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANonConformant);
+        Diagnostic reported = Assert.Single(document.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANonConformant.Name);
         Assert.Contains("veraPDF rule 6.2.11.7.2-2,", reported.Message, StringComparison.Ordinal);
     }
 
@@ -110,7 +110,7 @@ public sealed class PdfA2u3bConformanceTests
 
         Save(document, PdfAConformance.PdfA2u);
 
-        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code is DiagnosticCodes.PdfANonConformant or DiagnosticCodes.PdfANotIdentified);
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Kind == SavingDiagnostics.PdfANonConformant || diagnostic.Kind == SavingDiagnostics.PdfANotIdentified);
     }
 
     [Theory]
@@ -158,7 +158,7 @@ public sealed class PdfA2u3bConformanceTests
 
         Save(document, PdfAConformance.PdfA2b);
 
-        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANonConformant && diagnostic.Message.Contains("veraPDF rule 6.8-5,", StringComparison.Ordinal));
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANonConformant.Name && diagnostic.Message.Contains("veraPDF rule 6.8-5,", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -180,10 +180,10 @@ public sealed class PdfA2u3bConformanceTests
             else
             {
                 Save(document, PdfAConformance.PdfA3b);
-                Diagnostic reported = Assert.Single(document.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANonConformant);
+                Diagnostic reported = Assert.Single(document.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANonConformant.Name);
                 Assert.Contains($"veraPDF rule {rule},", reported.Message, StringComparison.Ordinal);
                 Assert.Contains("PDF/A-3b", reported.Message, StringComparison.Ordinal);
-                Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == DiagnosticCodes.PdfANotIdentified);
+                Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == SavingDiagnostics.PdfANotIdentified.Name);
             }
         }
     }

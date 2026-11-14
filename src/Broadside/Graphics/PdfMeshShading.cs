@@ -1,4 +1,5 @@
 using System.Globalization;
+using Broadside.Diagnostics;
 using Broadside.Graphics.Shadings;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -22,6 +23,7 @@ namespace Broadside.Graphics;
 /// the complete triangles or patches before the cut with one <c>MeshDataTruncated</c> diagnostic; see the subclasses for edge
 /// flags. Meshes larger than <see cref="PdfOptions.MaxMeshVertices"/> are cut there with a <c>MeshSizeExceeded</c> diagnostic.
 /// </para>
+/// <para>ISO 32000-2 §8.7.4.5.6 and §8.7.4.5.7.</para>
 /// </remarks>
 public abstract class PdfMeshShading : PdfShading
 {
@@ -48,13 +50,13 @@ public abstract class PdfMeshShading : PdfShading
         if (_decode.Length < 4 + (2 * values))
         {
             reader.Invalid(
-                DiagnosticCodes.ShadingDecodeInvalid,
+                ShadingDiagnostics.ShadingDecodeInvalid,
                 string.Create(CultureInfo.InvariantCulture, $"The mesh's Decode entry is missing or has fewer than {4 + (2 * values)} numbers."));
         }
 
         if (reader.CosObject is not CosStream stream)
         {
-            reader.Invalid(DiagnosticCodes.ShadingNotStream, "A mesh shading (Types 4 to 7) shall be a stream; it is a dictionary.");
+            reader.Invalid(ShadingDiagnostics.ShadingNotStream, "A mesh shading (Types 4 to 7) shall be a stream; it is a dictionary.");
             stream = null!;
         }
 
@@ -108,13 +110,13 @@ public abstract class PdfMeshShading : PdfShading
         int? bits = reader.Integer(key);
         if (bits is not (>= 1 and <= 32))
         {
-            reader.Invalid(DiagnosticCodes.ShadingBitsInvalid, $"The mesh's {key.Value} entry is missing or not an integer from 1 to 32.");
+            reader.Invalid(ShadingDiagnostics.ShadingBitsInvalid, $"The mesh's {key.Value} entry is missing or not an integer from 1 to 32.");
             return 0;
         }
 
         if (Array.IndexOf(allowed, bits.Value) < 0)
         {
-            reader.Report(DiagnosticCodes.ShadingBitsInvalid, $"The mesh's {key.Value} entry is not one of the values its table allows; it is read as given.");
+            reader.Report(ShadingDiagnostics.ShadingBitsInvalid, $"The mesh's {key.Value} entry is not one of the values its table allows; it is read as given.");
         }
 
         return bits.Value;
@@ -125,7 +127,7 @@ public abstract class PdfMeshShading : PdfShading
         int? perRow = reader.Integer(ShadingNames.VerticesPerRow);
         if (perRow is not >= 2)
         {
-            reader.Invalid(DiagnosticCodes.ShadingEntryInvalid, "A lattice's VerticesPerRow is missing or less than 2.");
+            reader.Invalid(ShadingDiagnostics.ShadingEntryInvalid, "A lattice's VerticesPerRow is missing or less than 2.");
             return 0;
         }
 
@@ -165,29 +167,29 @@ public abstract class PdfMeshShading : PdfShading
     {
         if ((issues & MeshIssues.Truncated) != 0)
         {
-            Diagnostics.Report(DiagnosticCodes.MeshDataTruncated, "The mesh data ends inside a vertex, triangle or patch; the complete ones before it are kept.");
+            Diagnostics.Report(ShadingDiagnostics.MeshDataTruncated, "The mesh data ends inside a vertex, triangle or patch; the complete ones before it are kept.");
         }
 
         if ((issues & MeshIssues.FlagInvalid) != 0)
         {
-            Diagnostics.Report(DiagnosticCodes.MeshEdgeFlagInvalid, "An edge flag is not allowed or continues a triangle or patch that does not exist; the data it covers is skipped.");
+            Diagnostics.Report(ShadingDiagnostics.MeshEdgeFlagInvalid, "An edge flag is not allowed or continues a triangle or patch that does not exist; the data it covers is skipped.");
         }
 
         if ((issues & MeshIssues.LatticeIncomplete) != 0)
         {
-            Diagnostics.Report(DiagnosticCodes.MeshLatticeIncomplete, "The lattice's last row is incomplete, or it has fewer than two rows; the incomplete row is dropped.");
+            Diagnostics.Report(ShadingDiagnostics.MeshLatticeIncomplete, "The lattice's last row is incomplete, or it has fewer than two rows; the incomplete row is dropped.");
         }
 
         if ((issues & MeshIssues.LimitExceeded) != 0)
         {
-            Diagnostics.Report(DiagnosticCodes.MeshSizeExceeded, "The mesh has more vertices than the limit; the rest is dropped.");
+            Diagnostics.Report(ShadingDiagnostics.MeshSizeExceeded, "The mesh has more vertices than the limit; the rest is dropped.");
         }
 
         if ((issues & MeshIssues.PatchesUnpadded) != 0)
         {
             // pdf.js and PDFBox write and read patches this way; the reading is recorded, nothing is lost.
             Diagnostics.Report(
-                DiagnosticCodes.MeshPatchesUnpadded,
+                ShadingDiagnostics.MeshPatchesUnpadded,
                 "The patches are not padded to whole bytes (each set of data shall occupy a whole number of bytes, §8.7.4.5.5); they are read back to back.",
                 Broadside.Diagnostics.DiagnosticSeverity.Information);
         }

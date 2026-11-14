@@ -18,9 +18,9 @@ public sealed class TextCorpusTests
 
     [Theory]
     [MemberData(nameof(TextFiles))]
-    public Task Every_text_corpus_file_extracts_glyphs_matching_the_snapshot(string file)
+    public async Task Every_text_corpus_file_extracts_glyphs_matching_the_snapshot(string file)
     {
-        using PdfDocument document = PdfDocument.Open(Corpus.Path(file));
+        using PdfDocument document = await PdfDocument.OpenAsync(Corpus.Path(file), TestContext.Current.CancellationToken);
         var output = new StringBuilder();
         for (int index = 0; index < document.Pages.Count; index++)
         {
@@ -47,7 +47,7 @@ public sealed class TextCorpusTests
             }
         }
 
-        return Verify(output.ToString()).UseParameters(file);
+        await Verify(output.ToString()).UseParameters(file);
     }
 
     private static string Point(PathPoint point) => $"({Number(point.X)}, {Number(point.Y)})";

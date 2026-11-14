@@ -54,6 +54,7 @@ internal readonly record struct ReadOperator(ContentOperatorCode Code, int Start
 /// a byte range that is never tokenized. The end of the data is found by <see cref="InlineImageEnd"/>: from the dictionary's
 /// <c>L</c>/<c>Length</c>, the length of unfiltered data, the first filter's end-of-data marker, or an <c>EI</c> followed by content.
 /// </para>
+/// <para>ISO 32000-2 §8.1.</para>
 /// </remarks>
 internal ref struct ContentReader
 {

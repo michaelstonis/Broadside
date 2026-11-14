@@ -15,6 +15,7 @@ namespace Broadside.Fonts;
 /// whatever version the document is saved as. A character maps to the lowest code whose glyph name the Adobe Glyph List gives it, so
 /// the text re-reads as written (§9.10.2); U+00A0 and U+00AD are written as the codes Annex D gives the space and the hyphen a
 /// second time (0xA0, 0xAD), which re-read as U+0020 and U+002D.
+/// <para>ISO 32000-2 Annex D.5 and Annex D.6.</para>
 /// </remarks>
 internal sealed class Standard14CanvasFont : PdfCanvasFont
 {

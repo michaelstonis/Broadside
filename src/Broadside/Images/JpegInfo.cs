@@ -20,7 +20,7 @@ namespace Broadside.Images;
 /// (embedding in JPEG). ISO 32000-2 §7.4.8 allows baseline and (PDF 1.3) progressive Huffman-coded frames of 8-bit samples with 1,
 /// 3 or 4 components.
 /// </remarks>
-internal sealed record JpegInfo(int Width, int Height, int Components, bool Progressive, int? AdobeTransform, bool RgbIdentifiers, bool Photoshop, byte[]? IccProfile)
+internal sealed record JpegInfo(int Width, int Height, int Components, bool Progressive, AdobeColorTransform? AdobeTransform, bool RgbIdentifiers, bool Photoshop, byte[]? IccProfile)
 {
     /// <summary>Reads the markers up to the first scan; never throws.</summary>
     /// <param name="jpeg">The JPEG file (JFIF, Exif or Adobe).</param>
@@ -36,7 +36,7 @@ internal sealed record JpegInfo(int Width, int Height, int Components, bool Prog
         }
 
         int position = 2;
-        int? transform = null;
+        AdobeColorTransform? transform = null;
         bool photoshop = false;
         (int Width, int Height, int Components, bool Progressive, bool Rgb)? frame = null;
         List<(int Sequence, int Count, int Start, int Length)>? profile = null;
@@ -101,7 +101,7 @@ internal sealed record JpegInfo(int Width, int Height, int Components, bool Prog
 
             if (marker == 0xEE && segment.Length >= 12 && segment.StartsWith("Adobe"u8))
             {
-                transform = segment[11];
+                transform = (AdobeColorTransform)segment[11];
             }
             else if (marker == 0xED && segment.StartsWith("Photoshop 3.0\0"u8))
             {

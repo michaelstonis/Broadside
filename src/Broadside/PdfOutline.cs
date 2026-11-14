@@ -20,6 +20,7 @@ namespace Broadside;
 /// <c>A</c>, an item with children but no non-zero <c>Count</c> (read as closed), a negative outline <c>Count</c>, and the
 /// diagnostics of each item's destination and action, once per walk. In strict mode the walk throws the first of these.
 /// </para>
+/// <para>ISO 32000-2 §7.7.2.</para>
 /// </remarks>
 public sealed class PdfOutline
 {

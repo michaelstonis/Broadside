@@ -15,7 +15,7 @@ public enum PdfPatternType
 }
 
 /// <summary>How a tiling pattern's colour is specified, its <c>PaintType</c> entry.</summary>
-/// <remarks>ISO 32000-2 §8.7.3.1, Table 74.</remarks>
+/// <remarks>ISO 32000-2 §8.7.3.1, Table 74. Also §8.7.3.2 and §8.7.3.3.</remarks>
 [SuppressMessage("Design", "CA1008:Enums should have zero value", Justification = "The values are the numbers the PDF entry holds; 0 is not one of them.")]
 public enum PdfTilingPaintType
 {

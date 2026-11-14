@@ -32,12 +32,12 @@ internal sealed class ContextDiagnostics(DiagnosticSink? sink, CosReference? obj
 
     /// <summary>Records a deviation.</summary>
     /// <exception cref="DiagnosticException">In strict mode, unless the severity is <see cref="DiagnosticSeverity.Information"/>.</exception>
-    public void Report(string code, DiagnosticSeverity severity, string message, PdfReadingMode readingMode)
+    public void Report(DiagnosticCode code, DiagnosticSeverity severity, string message, PdfReadingMode readingMode)
     {
         var diagnostic = new Diagnostic(code, severity, message, objectReference: objectReference);
         lock (_diagnostics)
         {
-            if (_codes.Add(code))
+            if (_codes.Add(code.Name))
             {
                 _diagnostics.Add(diagnostic);
             }

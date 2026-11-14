@@ -20,7 +20,7 @@ public sealed class JpxDecodeFilterTests
     {
         using DecodedImage image = JpxTesting.DecodeImage(JpxSamples.WorkedExample, out string[] codes);
 
-        Assert.Equal((1, 9, 1, 8), (image.Width, image.Height, image.Components, image.BitsPerComponent));
+        Assert.Equal((1, 9, 1, 8), (image.Geometry.Width, image.Geometry.Height, image.Geometry.Components, image.Geometry.BitsPerComponent));
         Assert.Equal(JpxSamples.WorkedExampleSamples, image.Samples.ToArray());
         Assert.Empty(codes);
     }
@@ -33,7 +33,7 @@ public sealed class JpxDecodeFilterTests
 
         using DecodedImage image = JpxTesting.DecodeImage(vector.Data, out string[] codes);
 
-        Assert.Equal((vector.Width, vector.Height, vector.Components, vector.Depth), (image.Width, image.Height, image.Components, image.BitsPerComponent));
+        Assert.Equal((vector.Width, vector.Height, vector.Components, vector.Depth), (image.Geometry.Width, image.Geometry.Height, image.Geometry.Components, image.Geometry.BitsPerComponent));
         Assert.Equal(vector.Expected(), JpxTesting.Raw(image));
         Assert.Empty(codes);
     }
@@ -57,7 +57,7 @@ public sealed class JpxDecodeFilterTests
         using DecodedImage image = JpxTesting.DecodeImage(truncated, out string[] codes);
 
         Assert.Equal(["JpxCodestreamTruncated"], codes);
-        Assert.Equal(9, image.Height);
+        Assert.Equal(9, image.Geometry.Height);
         Assert.Equal(JpxSamples.WorkedExampleSamples.Length, image.Samples.Length);
     }
 
@@ -79,7 +79,7 @@ public sealed class JpxDecodeFilterTests
 
         using DecodedImage image = JpxTesting.DecodeImage(vector.Data, out string[] codes);
 
-        Assert.Equal((vector.Width, vector.Height, vector.Components, 8), (image.Width, image.Height, image.Components, image.BitsPerComponent));
+        Assert.Equal((vector.Width, vector.Height, vector.Components, 8), (image.Geometry.Width, image.Geometry.Height, image.Geometry.Components, image.Geometry.BitsPerComponent));
         JpxTesting.AssertWithinTolerance(vector.ReferenceSamples(), JpxTesting.Raw(image), vector.Components, peak: 4, meanSquare: 1);
         Assert.Empty(codes);
     }
@@ -148,7 +148,7 @@ public sealed class JpxDecodeFilterTests
 
         using DecodedImage image = JpxTesting.DecodeImage(data[..(data.Length * 2 / 3)], out string[] codes);
 
-        Assert.Equal((45, 34, 3), (image.Width, image.Height, image.Components));
+        Assert.Equal((45, 34, 3), (image.Geometry.Width, image.Geometry.Height, image.Geometry.Components));
         Assert.Contains("JpxCodestreamTruncated", codes);
     }
 
@@ -162,7 +162,7 @@ public sealed class JpxDecodeFilterTests
 
         using DecodedImage image = JpxTesting.DecodeImage(data, out _);
 
-        Assert.Equal((19, 10, 3), (image.Width, image.Height, image.Components));
+        Assert.Equal((19, 10, 3), (image.Geometry.Width, image.Geometry.Height, image.Geometry.Components));
         Assert.All(JpxTesting.Raw(image).Where((_, i) => i % 3 == 2), value => Assert.Equal(0, value));
     }
 
@@ -173,7 +173,7 @@ public sealed class JpxDecodeFilterTests
 
         using DecodedImage image = JpxTesting.DecodeImage(vector.Data, out string[] codes, colorComponents: 1);
 
-        Assert.Equal(1, image.Components);
+        Assert.Equal(1, image.Geometry.Components);
         Assert.Equal(vector.Expected().Where((_, i) => i % 3 == 0), JpxTesting.Raw(image));
         Assert.Empty(codes);
     }
@@ -214,12 +214,12 @@ public sealed class JpxDecodeFilterTests
     [Fact]
     public void The_header_reports_the_codestream_size_components_precision_and_colour_model()
     {
-        var context = new ImageFilterContext(new FilterContext()) { Width = 99, Height = 99 };
+        var context = new ImageFilterContext(new FilterContext()) { Geometry = new ImageGeometry(99, 99, 0, 0) };
 
         Assert.True(new JpxDecodeFilter().TryReadHeader(JpxSamples.Vector("Tiled").Data, context, out ImageHeader header));
-        Assert.Equal(new ImageHeader(21, 17, 3, 8) { ColorModel = ImageColorModel.Rgb }, header);
+        Assert.Equal(new ImageHeader(new ImageGeometry(21, 17, 3, 8)) { ColorModel = ImageColorModel.Rgb }, header);
         Assert.True(new JpxDecodeFilter().TryReadHeader(JpxSamples.Vector("Signed12").Data, context, out header));
-        Assert.Equal(new ImageHeader(11, 6, 1, 12) { ColorModel = ImageColorModel.Gray, MaxReduction = 1 }, header);
+        Assert.Equal(new ImageHeader(new ImageGeometry(11, 6, 1, 12)) { ColorModel = ImageColorModel.Gray, MaxReduction = 1 }, header);
     }
 
     [Fact]

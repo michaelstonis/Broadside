@@ -13,6 +13,7 @@ namespace Broadside.Fonts.CharStrings;
 /// </para>
 /// <para>With no outline the builder only follows the current point (for measuring). <see cref="OffsetX"/>/<see cref="OffsetY"/>
 /// translate every point written (the accent of an accented character, §C of 5177).</para>
+/// <para>ISO 32000-2 §9.9.1.</para>
 /// </remarks>
 internal struct CharStringPath
 {

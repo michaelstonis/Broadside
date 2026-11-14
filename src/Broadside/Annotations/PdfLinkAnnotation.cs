@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics;
 using Broadside.Objects;
 
@@ -19,7 +20,7 @@ public sealed class PdfLinkAnnotation : PdfAnnotation
         get
         {
             CheckActionAndDest();
-            return ReadAction(AnnotationNames.A);
+            return this.GetAction(AnnotationNames.A);
         }
     }
 
@@ -36,15 +37,15 @@ public sealed class PdfLinkAnnotation : PdfAnnotation
 
     /// <summary>Gets the visual effect when the link is activated (<c>H</c>, PDF 1.2); default invert.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.5, Table 176.</remarks>
-    public PdfHighlightMode HighlightMode => ReadChoice(AnnotationNames.H, PdfHighlightMode.Invert, ("N", PdfHighlightMode.None), ("I", PdfHighlightMode.Invert), ("O", PdfHighlightMode.Outline), ("P", PdfHighlightMode.Push));
+    public PdfHighlightMode HighlightMode => this.GetChoice(AnnotationNames.H, PdfHighlightMode.Invert, ("N", PdfHighlightMode.None), ("I", PdfHighlightMode.Invert), ("O", PdfHighlightMode.Outline), ("P", PdfHighlightMode.Push));
 
     /// <summary>Gets the URI action formerly associated with the link, for reordering the actions of a link (<c>PA</c>, PDF 1.3), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.5, Table 176.</remarks>
-    public PdfAction? PreviousUriAction => ReadAction(AnnotationNames.PA);
+    public PdfAction? PreviousUriAction => this.GetAction(AnnotationNames.PA);
 
     /// <summary>Gets the quadrilaterals of the link's region (<c>QuadPoints</c>, PDF 1.6), as stored; empty when absent.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.5, Table 176.</remarks>
-    public IReadOnlyList<PdfQuadrilateral> QuadPoints => ReadQuadPoints(required: false, "Table 176");
+    public IReadOnlyList<PdfQuadrilateral> QuadPoints => this.GetQuadrilaterals(required: false, "Table 176");
 
     /// <summary>Gets the region that activates the link: <see cref="QuadPoints"/> when present and inside the rectangle, else the rectangle as one quadrilateral.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.5, Table 176: when QuadPoints is absent or any of its coordinates lie outside Rect, Rect is used.</remarks>
@@ -71,7 +72,7 @@ public sealed class PdfLinkAnnotation : PdfAnnotation
     {
         if (Dictionary.ContainsKey(AnnotationNames.A) && Dictionary.ContainsKey(AnnotationNames.Dest))
         {
-            Report(Parsing.DiagnosticCodes.LinkActionAndDest, "The link has both A and Dest, which Table 176 does not permit; the action is the one to perform.");
+            Report(AnnotationDiagnostics.LinkActionAndDest, "The link has both A and Dest, which Table 176 does not permit; the action is the one to perform.");
         }
     }
 }

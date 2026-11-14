@@ -47,17 +47,17 @@ public sealed class LzwDecodeFilter : IStreamFilter
             Outcome outcome = Decode(encoded.Span, output, earlyChange, prefixes, lengths, suffixes, firsts);
             if ((outcome & Outcome.InvalidCode) != 0)
             {
-                context.Report(DiagnosticCodes.FilterDataInvalid, DiagnosticSeverity.Error, "LZWDecode data holds a code that is not in the table; the data ends there.");
+                context.Report(FilterDiagnostics.FilterDataInvalid, DiagnosticSeverity.Error, "LZWDecode data holds a code that is not in the table; the data ends there.");
             }
 
             if ((outcome & Outcome.TableFull) != 0)
             {
-                context.Report(DiagnosticCodes.FilterDataInvalid, DiagnosticSeverity.Warning, "LZWDecode data fills the table without a clear-table code; no more entries are added.");
+                context.Report(FilterDiagnostics.FilterDataInvalid, DiagnosticSeverity.Warning, "LZWDecode data fills the table without a clear-table code; no more entries are added.");
             }
 
             if ((outcome & Outcome.Truncated) != 0)
             {
-                context.Report(DiagnosticCodes.FilterDataTruncated, DiagnosticSeverity.Warning, "LZWDecode data ends without the end-of-data code 257; it is decoded to its end.");
+                context.Report(FilterDiagnostics.FilterDataTruncated, DiagnosticSeverity.Warning, "LZWDecode data ends without the end-of-data code 257; it is decoded to its end.");
             }
         }
         finally
@@ -77,7 +77,7 @@ public sealed class LzwDecodeFilter : IStreamFilter
             return (int)value;
         }
 
-        context.Report(DiagnosticCodes.DecodeParmsInvalid, DiagnosticSeverity.Warning, "The EarlyChange parameter shall be 0 or 1; it is read as 1.");
+        context.Report(FilterDiagnostics.DecodeParmsInvalid, DiagnosticSeverity.Warning, "The EarlyChange parameter shall be 0 or 1; it is read as 1.");
         return 1;
     }
 

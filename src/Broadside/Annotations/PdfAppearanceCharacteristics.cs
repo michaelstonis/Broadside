@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -5,7 +6,10 @@ using Broadside.Parsing;
 namespace Broadside.Annotations;
 
 /// <summary>An appearance characteristics dictionary: what a processor needs to construct a widget's or screen's appearance. A live view over <c>MK</c>.</summary>
-/// <remarks>ISO 32000-2 §12.5.6.19, Table 192. Captions and icons apply to button fields; the colours and rotation to any widget.</remarks>
+/// <remarks>
+/// <para>ISO 32000-2 §12.5.6.19, Table 192. Captions and icons apply to button fields; the colours and rotation to any widget.</para>
+/// <para>ISO 32000-2 §12.5.6.18.</para>
+/// </remarks>
 public sealed class PdfAppearanceCharacteristics
 {
     private readonly PdfAnnotation _owner;
@@ -37,7 +41,7 @@ public sealed class PdfAppearanceCharacteristics
                 return ((degrees % 360) + 360) % 360;
             }
 
-            _owner.Report(DiagnosticCodes.AnnotationValueInvalid, "The appearance characteristics' rotation R is not a multiple of 90; it reads as 0.");
+            _owner.Report(AnnotationDiagnostics.AnnotationValueInvalid, "The appearance characteristics' rotation R is not a multiple of 90; it reads as 0.");
             return 0;
         }
     }
@@ -95,7 +99,7 @@ public sealed class PdfAppearanceCharacteristics
                 return position;
             }
 
-            _owner.Report(DiagnosticCodes.AnnotationValueInvalid, "The appearance characteristics' TP is not an integer from 0 to 6; it reads as 0.");
+            _owner.Report(AnnotationDiagnostics.AnnotationValueInvalid, "The appearance characteristics' TP is not an integer from 0 to 6; it reads as 0.");
             return 0;
         }
     }
@@ -107,14 +111,14 @@ public sealed class PdfAppearanceCharacteristics
         PdfDeviceColor? color = AnnotationValues.ReadColor(_owner.Document, Get(key), out bool valid);
         if (!valid)
         {
-            _owner.Report(DiagnosticCodes.ColorArrayInvalid, $"The appearance characteristics' {key.Value} entry is not an array of 0, 1, 3 or 4 numbers; it reads as absent.");
+            _owner.Report(AnnotationDiagnostics.ColorArrayInvalid, $"The appearance characteristics' {key.Value} entry is not an array of 0, 1, 3 or 4 numbers; it reads as absent.");
         }
 
         return color;
     }
 
     private string? ReadText(CosName key) =>
-        EntryReader.Text(Get(key), key, new EntryReport(_owner.Document, DiagnosticCodes.AnnotationValueInvalid, _owner.DiagnosticReference, "The appearance characteristics"));
+        EntryReader.Text(Get(key), key, new EntryReport(_owner.Document, AnnotationDiagnostics.AnnotationValueInvalid, _owner.DiagnosticReference, "The appearance characteristics"));
 
     private PdfFormXObject? ReadForm(CosName key)
     {
@@ -125,7 +129,7 @@ public sealed class PdfAppearanceCharacteristics
             case CosStream:
                 return PdfFormXObject.Create(_owner.Document, Dictionary[key]);
             default:
-                _owner.Report(DiagnosticCodes.AnnotationValueInvalid, $"The appearance characteristics' {key.Value} entry shall be a form XObject; it is ignored.");
+                _owner.Report(AnnotationDiagnostics.AnnotationValueInvalid, $"The appearance characteristics' {key.Value} entry shall be a form XObject; it is ignored.");
                 return null;
         }
     }

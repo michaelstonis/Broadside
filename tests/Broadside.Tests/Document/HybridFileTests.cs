@@ -67,7 +67,9 @@ public sealed class HybridFileTests
     [Fact]
     public void An_XRefStm_offset_that_names_no_stream_is_reported_and_the_table_is_still_read()
     {
-        byte[] file = Hybrid(object4InTable: null, streamEntries: string.Empty, xrefStm: "13");
+        // No object of the file is a cross-reference stream (the nearest-stream repair has nothing to read), and the offset names none.
+        byte[] file = Encoding.Latin1.GetBytes(
+            Encoding.Latin1.GetString(Hybrid(object4InTable: null, streamEntries: string.Empty, xrefStm: "13")).Replace("/Type /XRef", "/Type /XRex", StringComparison.Ordinal));
 
         using PdfDocument document = PdfDocument.Open(file);
 

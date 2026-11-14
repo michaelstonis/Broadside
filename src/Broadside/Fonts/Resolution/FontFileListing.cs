@@ -19,6 +19,7 @@ namespace Broadside.Fonts.Resolution;
 /// letters outside ASCII (the Japanese names of the macOS Hiragino fonts) or fewer than three ASCII letters and digits says nothing
 /// about its family, and is read for every family.
 /// </para>
+/// <para>ISO 32000-2 §9.6.2.2.</para>
 /// </remarks>
 internal sealed class FontFileListing
 {

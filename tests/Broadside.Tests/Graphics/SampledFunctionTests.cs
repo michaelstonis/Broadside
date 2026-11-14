@@ -169,17 +169,138 @@ public sealed class SampledFunctionTests
         Assert.Equal(new PdfVersion(1, 2), function.MinimumVersion);
     }
 
+    [Theory]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(9)]
+    public void Order_3_interpolates_one_input_with_a_cubic_spline_through_the_samples(int count)
+    {
+        // 16-bit samples over Range [0 1]: the table is exact to 1.5e-5 of a level, so the 1e-5 comparison is about the spline.
+        ulong[] raw = [.. Enumerable.Range(0, count).Select(static k => (ulong)((k * 40503) % 65536))];
+        double[] samples = [.. raw.Select(static r => r / 65535.0)];
+        using PdfDocument document = PdfDocument.Create();
+        PdfFunction function = document.Function(Stream(
+            string.Create(CultureInfo.InvariantCulture, $"<< /FunctionType 0 /Domain [0 1] /Range [0 1] /Size [{count}] /Order 3 /BitsPerSample 16 >>"),
+            Pack(raw, 16)));
+
+        // Every grid point, both domain edges, every cell's quarter points, and a point just inside each end.
+        List<double> points = [0, 1, 0.0001, 0.9999];
+        for (int k = 0; k <= 4 * (count - 1); k++)
+        {
+            points.Add(k / (4.0 * (count - 1)));
+        }
+
+        double fromLinear = 0;
+        foreach (double x in points)
+        {
+            float input = (float)x;
+            Near([(float)Spline(samples, input * (count - 1))], function.At(input));
+            double position = input * (count - 1);
+            int cell = Math.Min((int)position, count - 2);
+            double linear = samples[cell] + ((position - cell) * (samples[cell + 1] - samples[cell]));
+            fromLinear = Math.Max(fromLinear, Math.Abs(linear - function.At(input)[0]));
+        }
+
+        // Order 3 changes the answer between samples (linear interpolation would give another) and nothing is noted.
+        Assert.True(fromLinear > 1e-3, $"The spline stays within {fromLinear} of linear interpolation.");
+        Assert.Empty(document.Diagnostics);
+    }
+
     [Fact]
-    public void Order_3_is_evaluated_linearly_and_noted_once()
+    public void Order_3_follows_a_quadratic_exactly_between_interior_samples()
+    {
+        // 8-bit samples of 40 + 10x + 4x^2 for x = 0..4 over Range [0 255]: the spline reproduces a quadratic in the interior cells.
+        using PdfDocument document = PdfDocument.Create();
+        PdfFunction function = document.Function(Stream(
+            "<< /FunctionType 0 /Domain [0 4] /Range [0 255] /Size [5] /Order 3 /BitsPerSample 8 >>",
+            [.. Enumerable.Range(0, 5).Select(static x => (byte)(40 + (10 * x) + (4 * x * x)))]));
+
+        foreach (float x in (float[])[1.25f, 1.5f, 2.5f, 2.75f])
+        {
+            Near([40 + (10 * x) + (4 * x * x)], function.At(x), 2e-4);
+        }
+    }
+
+    [Fact]
+    public void Order_3_with_several_inputs_applies_the_spline_along_each_input_in_turn()
+    {
+        // Size [5 6], one output: the tensor product of the one-input spline (separable, so the order of the axes does not matter).
+        ulong[] raw = [.. Enumerable.Range(0, 30).Select(static k => (ulong)((k * 28657) % 65536))];
+        using PdfDocument document = PdfDocument.Create();
+        PdfFunction function = document.Function(Stream(
+            "<< /FunctionType 0 /Domain [0 1 0 1] /Range [0 1] /Size [5 6] /Order 3 /BitsPerSample 16 >>",
+            Pack(raw, 16)));
+
+        foreach ((float x, float y) in ((float, float)[])[(0f, 0f), (1f, 1f), (0f, 1f), (0.3f, 0.7f), (0.9f, 0.1f), (0.125f, 0.5f), (0.5f, 0.3f), (0.999f, 0.001f)])
+        {
+            double[] rows = new double[6];
+            for (int row = 0; row < 6; row++)
+            {
+                rows[row] = Spline([.. Enumerable.Range(0, 5).Select(column => raw[(row * 5) + column] / 65535.0)], x * 4);
+            }
+
+            Near([(float)Spline(rows, y * 5)], function.At(x, y));
+        }
+
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void Order_3_applies_per_input_and_a_dimension_of_fewer_than_4_samples_stays_linear()
+    {
+        // Size [6 3]: cubic along the first input, linear along the second (which has too few samples for a spline).
+        ulong[] raw = [.. Enumerable.Range(0, 18).Select(static k => (ulong)((k * 40503) % 65536))];
+        using PdfDocument document = PdfDocument.Create();
+        PdfFunction function = document.Function(Stream(
+            "<< /FunctionType 0 /Domain [0 1 0 1] /Range [0 1] /Size [6 3] /Order 3 /BitsPerSample 16 >>",
+            Pack(raw, 16)));
+
+        foreach ((float x, float y) in ((float, float)[])[(0.3f, 0.25f), (0.7f, 0.75f), (0.5f, 0.5f), (1f, 0.9f)])
+        {
+            double[] rows = new double[3];
+            for (int row = 0; row < 3; row++)
+            {
+                rows[row] = Spline([.. Enumerable.Range(0, 6).Select(column => raw[(row * 6) + column] / 65535.0)], x * 5);
+            }
+
+            double e = y * 2;
+            int cell = Math.Min((int)e, 1);
+            Near([(float)(rows[cell] + ((e - cell) * (rows[cell + 1] - rows[cell])))], function.At(x, y));
+        }
+
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void Order_3_honors_encode_and_the_overshoot_of_the_spline_is_clipped_to_the_range()
     {
         using PdfDocument document = PdfDocument.Create();
         PdfFunction function = document.Function(Stream(
-            "<< /FunctionType 0 /Domain [0 1] /Range [0 255] /Size [4] /Order 3 /BitsPerSample 8 >>",
-            [0, 30, 60, 90]));
+            "<< /FunctionType 0 /Domain [0 1] /Range [0 200] /Decode [0 255] /Size [5] /Encode [4 0] /Order 3 /BitsPerSample 8 >>",
+            [0, 0, 255, 0, 0]));
 
-        Near([45f], function.At(0.5f));
-        Assert.Equal(Broadside.Diagnostics.DiagnosticSeverity.Information, DiagnosticSeverityOf(document, "FunctionOrderUnsupported"));
-        Assert.Single(document.Diagnostics);
+        double[] samples = [0, 0, 255, 0, 0];
+        Near([(float)Math.Clamp(Spline(samples, 4 * (1 - 0.3)), 0, 200)], function.At(0.3f), 1e-4);
+        Near([200f], function.At(0.5f));
+        Near([0f], function.At(1f));
+    }
+
+    /// <summary>
+    /// An independent computation of the spline the function is documented to evaluate: the cubic Hermite spline through the samples
+    /// whose tangent at an interior sample is half the difference of its neighbors and at an end is the difference to its one neighbor.
+    /// </summary>
+    private static double Spline(double[] samples, double position)
+    {
+        int last = samples.Length - 1;
+        position = Math.Clamp(position, 0, last);
+        int cell = Math.Min((int)position, last - 1);
+        double t = position - cell;
+        double Tangent(int i) => i == 0 ? samples[1] - samples[0] : i == last ? samples[last] - samples[last - 1] : (samples[i + 1] - samples[i - 1]) / 2;
+        double h00 = ((2 * t * t * t) - (3 * t * t)) + 1;
+        double h10 = (t * t * t) - (2 * t * t) + t;
+        double h01 = (-2 * t * t * t) + (3 * t * t);
+        double h11 = (t * t * t) - (t * t);
+        return (h00 * samples[cell]) + (h10 * Tangent(cell)) + (h01 * samples[cell + 1]) + (h11 * Tangent(cell + 1));
     }
 
     [Fact]
@@ -257,9 +378,6 @@ public sealed class SampledFunctionTests
         Assert.Null(function.Stream);
         Assert.Equal(["FunctionInvalid"], document.Codes());
     }
-
-    private static Broadside.Diagnostics.DiagnosticSeverity DiagnosticSeverityOf(PdfDocument document, string code) =>
-        Assert.Single(document.Diagnostics, d => d.Code == code).Severity;
 
     private static Broadside.Objects.CosStream Sampled(int[] size, int outputs, int bits, ulong[] raw)
     {

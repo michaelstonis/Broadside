@@ -11,6 +11,7 @@ namespace Broadside.Graphics;
 /// <c>ExtGState</c> and <c>XObject</c> subdictionaries of the current resource dictionary. New names are the category's prefix and a
 /// number (<c>CS1</c>, <c>GS1</c>, <c>Fm1</c>), the first one the subdictionary does not have. Objects are matched by their indirect
 /// reference (a direct object by identity), so drawing one colour space twice adds one entry.
+/// <para>ISO 32000-2 §8.4.5.</para>
 /// </remarks>
 internal sealed class CanvasResources(PdfDocument document, CosDictionary resources)
 {

@@ -82,7 +82,7 @@ internal static class Type1Layout
             if (found < 0)
             {
                 context.Report(
-                    DiagnosticCodes.FontType1NoEexec,
+                    Type1Diagnostics.FontType1NoEexec,
                     DiagnosticSeverity.Warning,
                     "The Type 1 program has no \"currentfile eexec\" (Type 1 Font Format §2.3, ISO 32000-2 §9.9 Table 125); the whole program is read as clear text.");
                 clear = data;
@@ -93,7 +93,7 @@ internal static class Type1Layout
             if (length1 is not null || inDocument)
             {
                 context.Report(
-                    DiagnosticCodes.FontType1Length1Repaired,
+                    Type1Diagnostics.FontType1Length1Repaired,
                     DiagnosticSeverity.Warning,
                     length1 is { } wrong
                         ? string.Create(CultureInfo.InvariantCulture, $"The font file stream's Length1 is {wrong}, but its clear text ends after \"eexec\" at byte {found} (ISO 32000-2 §9.9, Table 125); the clear text is taken up to there.")
@@ -113,7 +113,7 @@ internal static class Type1Layout
         else if (length2 is not null || inDocument)
         {
             context.Report(
-                DiagnosticCodes.FontType1Length2Repaired,
+                Type1Diagnostics.FontType1Length2Repaired,
                 DiagnosticSeverity.Warning,
                 length2 is { } wrong
                     ? string.Create(CultureInfo.InvariantCulture, $"The font file stream's Length2 is {wrong}, but {rest.Length} bytes follow the clear text (ISO 32000-2 §9.9, Table 125); all of them are decrypted.")
@@ -176,7 +176,7 @@ internal static class Type1Layout
         if (inDocument || problem is not null)
         {
             context.Report(
-                DiagnosticCodes.FontType1PfbWrapped,
+                Type1Diagnostics.FontType1PfbWrapped,
                 DiagnosticSeverity.Warning,
                 problem is null
                     ? "The font file stream holds a PFB file (TN 5040 §3.3), not the program itself (ISO 32000-2 §9.9, Table 125); its segment headers are removed."
@@ -203,7 +203,7 @@ internal static class Type1Layout
             if (inDocument)
             {
                 context.Report(
-                    DiagnosticCodes.FontType1HexEexec,
+                    Type1Diagnostics.FontType1HexEexec,
                     DiagnosticSeverity.Warning,
                     "The Type 1 program's encrypted portion is hexadecimal text; ISO 32000-2 §9.9 allows only the binary form (Type 1 Font Format §7.2). It is decoded.");
             }

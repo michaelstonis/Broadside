@@ -37,11 +37,11 @@ public readonly struct DisplayImageSamples : IEquatable<DisplayImageSamples>
 
     /// <summary>Gets the width in samples: ⌈<see cref="SourceWidth"/> / 2^<see cref="Reduction"/>⌉.</summary>
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87 (Width), reduced.</remarks>
-    public int Width => _samples.Width;
+    public int Width => _samples.Geometry.Width;
 
     /// <summary>Gets the height in samples: ⌈<see cref="SourceHeight"/> / 2^<see cref="Reduction"/>⌉.</summary>
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87 (Height), reduced.</remarks>
-    public int Height => _samples.Height;
+    public int Height => _samples.Geometry.Height;
 
     /// <summary>Gets the image's width in samples at its own resolution.</summary>
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87 (Width), or what the codec reported (§7.4.9).</remarks>
@@ -57,11 +57,11 @@ public readonly struct DisplayImageSamples : IEquatable<DisplayImageSamples>
 
     /// <summary>Gets the number of colour components per sample.</summary>
     /// <remarks>ISO 32000-2 §8.9.3.</remarks>
-    public int Components => _samples.Components;
+    public int Components => _samples.Geometry.Components;
 
     /// <summary>Gets the logical bits per component n: raw values run from 0 to 2^n − 1.</summary>
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87 (BitsPerComponent).</remarks>
-    public int BitsPerComponent => _samples.BitsPerComponent;
+    public int BitsPerComponent => _samples.Geometry.BitsPerComponent;
 
     /// <summary>Gets the bits each component occupies in <see cref="Samples"/>: 1, 2, 4, 8 or 16.</summary>
     /// <remarks>ISO 32000-2 §8.9.3.</remarks>

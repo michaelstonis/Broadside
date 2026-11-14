@@ -119,7 +119,7 @@ internal sealed class ImageSource : IDisposable
     /// folded into the converted pixels; a mask of a reduced image is resampled on its own grid (#362).
     /// </summary>
     public static bool FoldsSoftMask(DisplayImage image, DisplayImageSamples samples, DisplayImageSamples? soft) =>
-        soft is { } folded && image.SoftMask is { } mask && mask.Width == image.Width && mask.Height == image.Height && folded.Reduction == samples.Reduction;
+        soft is { } folded && image.SoftMask is { } mask && mask.Geometry.Width == image.Geometry.Width && mask.Geometry.Height == image.Geometry.Height && folded.Reduction == samples.Reduction;
 
     /// <summary>Whether the image's explicit mask has the size of the samples painted, at the image's own resolution, so that it is folded into the converted pixels.</summary>
     public static bool FoldsMask(DisplayImage image, DisplayImageSamples samples) =>

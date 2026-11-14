@@ -70,7 +70,7 @@ public sealed class TrueTypeFontProgramParser : IFontProgramParser
         if (context.Length1 is { } length1 && length1 > data.Length)
         {
             context.Report(
-                DiagnosticCodes.FontProgramTruncated,
+                FontDiagnostics.FontProgramTruncated,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"The font file stream's Length1 is {length1}, but its data is {data.Length} bytes (ISO 32000-2 §9.9, Table 125); the bytes present are read."));
         }
@@ -83,7 +83,7 @@ public sealed class TrueTypeFontProgramParser : IFontProgramParser
         if (!sfnt.TryGetTable(Glyf, out ReadOnlyMemory<byte> glyf) || !sfnt.TryGetTable(Loca, out ReadOnlyMemory<byte> loca))
         {
             context.Report(
-                DiagnosticCodes.FontProgramInvalid,
+                FontDiagnostics.FontProgramInvalid,
                 DiagnosticSeverity.Error,
                 sfnt.Has(Cff)
                     ? "The font program has CFF outlines, not the \"glyf\" and \"loca\" tables of TrueType outlines (ISO 32000-2 §9.9, Table 124); it is not usable as TrueType."

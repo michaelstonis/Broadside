@@ -1,7 +1,7 @@
 namespace Broadside;
 
 /// <summary>The action types of ISO 32000-2 Table 201, as named by an action dictionary's <c>S</c> entry.</summary>
-/// <remarks>ISO 32000-2 §12.6.4.1, Table 201. The version in each member's remarks is the version that introduced the type.</remarks>
+/// <remarks>ISO 32000-2 §12.6.4.1, Table 201. The version in each member's remarks is the version that introduced the type. Also §12.6.2.</remarks>
 public enum PdfActionKind
 {
     /// <summary>A type Table 201 does not list; the action is kept as it is and never performed.</summary>

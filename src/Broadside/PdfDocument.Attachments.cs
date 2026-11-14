@@ -222,7 +222,7 @@ public sealed partial class PdfDocument
 
     /// <summary>Removes <paramref name="file"/> from <paramref name="owner"/>'s <c>AF</c> array.</summary>
     /// <param name="owner">The dictionary the file is associated with.</param>
-    /// <param name="file">The associated file, as read from <see cref="ReadAssociatedFiles"/> or created by <see cref="CreateEmbeddedFile"/>.</param>
+    /// <param name="file">The associated file, as read from <see cref="AssociatedFiles"/> or any owner's <c>AssociatedFiles</c> or created by <see cref="CreateEmbeddedFile"/>.</param>
     /// <returns><see langword="true"/> when the file was associated with the owner and is no longer.</returns>
     /// <remarks>
     /// ISO 32000-2 §14.13. An <c>AF</c> left empty is removed. The file specification stays an object of the document (see

@@ -35,7 +35,7 @@ internal static partial class GlyphNameTable
 }
 
 /// <summary>The encodings PDF predefines or uses as a default, and the built-in encodings of the two symbolic Standard 14 fonts.</summary>
-/// <remarks>ISO 32000-2 §9.6.5.1 and Annex D.</remarks>
+/// <remarks>ISO 32000-2 §9.6.5.1 and Annex D. Also §9.6.5.4 and Annex D.1.</remarks>
 internal enum BuiltInEncoding : byte
 {
     /// <summary>StandardEncoding, the Adobe standard Latin encoding (Annex D.2, STD column).</summary>

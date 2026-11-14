@@ -44,7 +44,7 @@ public sealed class AutoTaggingPdfUARealWorldTests
         int conforming = 0;
         foreach (string file in files)
         {
-            using PdfDocument document = PdfDocument.Open(RealWorldCorpus.PathOf(file));
+            using PdfDocument document = await PdfDocument.OpenAsync(RealWorldCorpus.PathOf(file), TestContext.Current.CancellationToken);
             AutoTaggingResult result = document.AutoTag(new AutoTaggingOptions().WithLanguage("en-US"));
             if (!result.IsTagged)
             {

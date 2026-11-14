@@ -6,6 +6,16 @@ using Broadside.Writing;
 namespace Broadside;
 
 /// <summary>Writing graphics (issue #154): soft-mask dictionaries a <see cref="PdfCanvas"/> sets in the graphics state.</summary>
+/// <remarks>
+/// <para>ISO 14289-1 §6.2, §7.1 and §7.18.</para>
+/// <para>ISO 14289-2 §6.1, §6.2, §7.2, §8.9 and §8.11.</para>
+/// <para>ISO 19005-2 §6.1.2 and §6.2.3.</para>
+/// <para>ISO 19005-3 §6.1.2 and §6.6.</para>
+/// <para>ISO 19005-4 §6.1.2, §6.1.3, §6.1.12, §6.2.3 and §6.7.</para>
+/// <para>ISO 32000-2 §9.10.2, §12.8.4.1, §12.8.4.2, §12.8.4.5, Annex F.3, Annex G.2, Annex G.4 and Annex G.7.</para>
+/// <para>PDF 2.0 Application Note 002 §3.1 and §4.1.</para>
+/// <para>Well-Tagged PDF 1.0 §6.2, §7, §8.9 and §8.11.</para>
+/// </remarks>
 public sealed partial class PdfDocument
 {
     private static readonly CosName MaskType = new("Mask");

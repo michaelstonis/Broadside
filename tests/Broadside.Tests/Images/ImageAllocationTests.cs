@@ -52,7 +52,7 @@ public sealed class ImageAllocationTests
                 map16.Map(values, colours, componentRanges);
                 map8.MapToIndices(values, bytes, 255);
                 ImageRows.ColorKey(values, 3, ranges, coverage);
-                ImageRows.Stencil(row, Width, inverted: true, coverage);
+                ImageRows.ImageMask(row, Width, inverted: true, coverage);
                 ImageRows.Unpremultiply(colours, 3, alpha, matte, componentRanges);
                 _ = ImageRows.MaskIndex(y, Rows, 77);
             }

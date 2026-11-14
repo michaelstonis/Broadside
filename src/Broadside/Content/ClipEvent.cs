@@ -7,6 +7,7 @@ namespace Broadside.Content;
 /// ISO 32000-2 §8.5.4: reported after the painting operator that ends a path object with <c>W</c> or <c>W*</c> (also <c>n</c>);
 /// for text, at the <c>ET</c> of a text object with a clipping rendering mode (§9.3.6); for a form XObject, its bounding box
 /// (§8.10.1). <see cref="ContentContext.State"/> already holds the new <see cref="Handle"/>.
+/// <para>ISO 32000-2 §9.2.3.</para>
 /// </remarks>
 public readonly ref struct ClipEvent
 {

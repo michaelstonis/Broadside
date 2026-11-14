@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -64,7 +65,7 @@ public sealed class PdfAppearanceDictionary
                 return null;
             default:
                 _owner.Report(
-                    DiagnosticCodes.AppearanceEntryInvalid,
+                    AnnotationDiagnostics.AppearanceEntryInvalid,
                     $"The appearance dictionary's {key.Value} entry is {(raw is null ? "missing" : "neither a stream nor a dictionary")}; it gives no appearance.");
                 return null;
         }

@@ -23,6 +23,7 @@ namespace Broadside.Writing;
 /// The byte range's three offsets are written with leading zeros to a fixed width (at least ten digits, as the classic
 /// cross-reference table's offsets, §7.5.4), so filling them in moves no byte. All entries are direct objects (Table 6).
 /// </para>
+/// <para>ISO/TS 32004 §6.6.</para>
 /// </remarks>
 internal sealed class AuthCodePlaceholder
 {

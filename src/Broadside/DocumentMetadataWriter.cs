@@ -60,6 +60,9 @@ internal enum MetadataEntry
 /// only in unencoded data), with <c>Type</c> <c>Metadata</c> and <c>Subtype</c> <c>XML</c>; whether it is encrypted on save is the
 /// security handler's decision (<c>EncryptMetadata</c>, §7.6.3.2).
 /// </para>
+/// <para>ISO 19005-2 §6.6.</para>
+/// <para>ISO 19005-3 §6.6.</para>
+/// <para>ISO 19005-4 §6.1.3 and §6.7.</para>
 /// </remarks>
 internal sealed class DocumentMetadataWriter
 {

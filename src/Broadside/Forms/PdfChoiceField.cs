@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -64,7 +65,7 @@ public abstract class PdfChoiceField : PdfTerminalField
             CosObject? value = Own(FormNames.Opt);
             if (value is null && Inherited(FormNames.Opt) is { } inherited)
             {
-                Report(DiagnosticCodes.ChoiceOptionsInherited, "The choice field has no Opt entry, which is not inheritable (Table 234); its ancestor's is used.");
+                Report(FormDiagnostics.ChoiceOptionsInherited, "The choice field has no Opt entry, which is not inheritable (Table 234); its ancestor's is used.");
                 value = inherited;
             }
 
@@ -130,7 +131,7 @@ public abstract class PdfChoiceField : PdfTerminalField
                 }
                 else if (!AllowsFreeText)
                 {
-                    Report(DiagnosticCodes.ChoiceValueNotInOptions, "A value of the choice field is none of its options.");
+                    Report(FormDiagnostics.ChoiceValueNotInOptions, "A value of the choice field is none of its options.");
                 }
             }
 
@@ -166,12 +167,12 @@ public abstract class PdfChoiceField : PdfTerminalField
 
                     if (invalid)
                     {
-                        Report(DiagnosticCodes.ChoiceIndicesInvalid, "The choice field's I array shall hold ascending indices into Opt; the entries that do not are ignored.");
+                        Report(FormDiagnostics.ChoiceIndicesInvalid, "The choice field's I array shall hold ascending indices into Opt; the entries that do not are ignored.");
                     }
 
                     return indices;
                 default:
-                    Report(DiagnosticCodes.ChoiceIndicesInvalid, "The choice field's I entry shall be an array of integers; it is ignored.");
+                    Report(FormDiagnostics.ChoiceIndicesInvalid, "The choice field's I entry shall be an array of integers; it is ignored.");
                     return [];
             }
         }
@@ -388,7 +389,7 @@ public abstract class PdfChoiceField : PdfTerminalField
             case CosArray { Count: 2 } pair when Document.Resolve(pair[0]) is CosString export && Document.Resolve(pair[1]) is CosString display:
                 return new PdfChoiceOption(export.DecodeText(), display.DecodeText());
             default:
-                Report(DiagnosticCodes.ChoiceOptionInvalid, $"Element {index} of the choice field's Opt array is neither a text string nor a pair of them; it reads as an empty option.");
+                Report(FormDiagnostics.ChoiceOptionInvalid, $"Element {index} of the choice field's Opt array is neither a text string nor a pair of them; it reads as an empty option.");
                 return new PdfChoiceOption(string.Empty, string.Empty);
         }
     }

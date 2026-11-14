@@ -25,6 +25,7 @@ namespace Broadside.Rendering;
 /// cut by the clip.
 /// </para>
 /// <para>Immutable once built: any number of threads may query it at once.</para>
+/// <para>ISO 32000-2 §12.5.3.</para>
 /// </remarks>
 public sealed class HitTestIndex
 {

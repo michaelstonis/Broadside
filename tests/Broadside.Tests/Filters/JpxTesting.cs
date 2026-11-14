@@ -26,7 +26,7 @@ internal static class JpxTesting
     {
         var filter = new JpxDecodeFilter();
         var context = new FilterContext { ReadingMode = mode };
-        var imageContext = new ImageFilterContext(context) { ColorComponents = colorComponents };
+        var imageContext = new ImageFilterContext(context) { Geometry = new ImageGeometry(0, 0, colorComponents, 0) };
         DecodedImage? image = filter.DecodeImage(encoded, imageContext);
         codes = Codes(context);
         return image;
@@ -47,10 +47,10 @@ internal static class JpxTesting
     /// <summary>Unpacks every sample of an image into raw values, row by row, component by component.</summary>
     public static int[] Raw(DecodedImage image)
     {
-        int count = image.Width * image.Components;
-        int[] values = new int[count * image.Height];
+        int count = image.Geometry.Width * image.Geometry.Components;
+        int[] values = new int[count * image.Geometry.Height];
         ushort[] row = new ushort[count];
-        for (int y = 0; y < image.Height; y++)
+        for (int y = 0; y < image.Geometry.Height; y++)
         {
             ImageRows.Unpack(image.GetRow(y), image.StorageBits, count, row);
             for (int i = 0; i < count; i++)

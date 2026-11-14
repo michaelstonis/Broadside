@@ -244,7 +244,7 @@ public sealed class DocumentSessionTests
             objects.Add($"<< /Length {content.Length} >>\nstream\n{content}\nendstream");
         }
 
-        using PdfDocument source = PdfDocument.Open(new TestPdf().Build([.. objects]));
+        using PdfDocument source = await PdfDocument.OpenAsync(new TestPdf().Build([.. objects]), TestContext.Current.CancellationToken);
         using var linearized = new MemoryStream();
         await source.SaveAsync(linearized, new PdfSaveOptions().WithLinearize(true).WithStreamCompression(PdfStreamCompression.None), Token);
         using var server = new RangeServer(linearized.ToArray());

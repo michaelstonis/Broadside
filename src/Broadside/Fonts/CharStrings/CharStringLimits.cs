@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 namespace Broadside.Fonts.CharStrings;
 
 /// <summary>The implementation limits of charstring interpreters.</summary>
-/// <remarks>Adobe Technical Note #5177 (Type 2 Charstring Format), Appendix B (p.33).</remarks>
+/// <remarks>Adobe Technical Note #5177 (Type 2 Charstring Format), Appendix B (p.33). ISO 32000-2 §9.9.1.</remarks>
 internal static class CharStringLimits
 {
     /// <summary>The argument stack depth.</summary>

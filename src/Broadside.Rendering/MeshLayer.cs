@@ -28,6 +28,7 @@ internal readonly record struct MeshVertex(double X, double Y, float C0, float C
 /// Hot path: one pooled buffer, grown as needed and returned by <see cref="Release"/>; drawing a triangle allocates nothing and
 /// costs a few multiply-adds per covered pixel.
 /// </para>
+/// <para>ISO 32000-2 §8.7.4.5.7 and §8.7.4.5.8.</para>
 /// </remarks>
 internal sealed class MeshLayer
 {

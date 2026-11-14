@@ -14,6 +14,7 @@ namespace Broadside.Forms;
 /// ISO 32000-2 §12.7.5.2.3 (example 1: <c>/ZaDb 12 Tf</c> ... <c>(4) Tj</c>), §12.7.5.2.4 and §12.5.6.19, Table 192 (<c>CA</c>: the
 /// normal caption, which "may be used with any type of button field"). The caption's characters are ZapfDingbats character codes
 /// (Annex D.6); the background, border and rotation are drawn as for variable text (<see cref="TextFieldAppearance.BuildStream"/>).
+/// <para>ISO 32000-2 §12.7.4.3.</para>
 /// </remarks>
 internal sealed class ToggleButtonAppearance
 {

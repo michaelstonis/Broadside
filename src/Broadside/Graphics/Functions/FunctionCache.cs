@@ -19,7 +19,7 @@ namespace Broadside.Graphics.Functions;
 /// <para>
 /// Consumers (tint transforms, transfer functions, shadings) call <see cref="GetEvaluator"/> once per content run and evaluate the
 /// result per sample; the evaluator reports nothing, so the consumer reports one
-/// <see cref="DiagnosticCodes.FunctionEvaluationRepaired"/> per function and page when an evaluation's status is not
+/// <see cref="FunctionDiagnostics.FunctionEvaluationRepaired"/> per function and page when an evaluation's status is not
 /// <see cref="FunctionStatus.Ok"/>.
 /// </para>
 /// </remarks>
@@ -55,7 +55,7 @@ internal sealed class FunctionCache
         if (FunctionCompiler.ReadType(resolved, _resolve) is not { } type)
         {
             string what = FunctionCompiler.DictionaryOf(resolved) is null ? "is not a dictionary or a stream" : "has no FunctionType 0, 2, 3 or 4";
-            _diagnostics.Report(DiagnosticCodes.FunctionInvalid, DiagnosticSeverity.Error, $"The function {what}.", offset: null, reference);
+            _diagnostics.Report(FunctionDiagnostics.FunctionInvalid, DiagnosticSeverity.Error, $"The function {what}.", offset: null, reference);
             return null;
         }
 
@@ -87,7 +87,7 @@ internal sealed class FunctionCache
                 return new IdentityEvaluator(Math.Clamp(expectedInputs > 0 ? expectedInputs : expectedOutputs, 1, FunctionEvaluator.MaxArity));
             }
 
-            _diagnostics.Report(DiagnosticCodes.FunctionInvalid, DiagnosticSeverity.Error, "Identity is not allowed here; a function is required.", offset: null, reference);
+            _diagnostics.Report(FunctionDiagnostics.FunctionInvalid, DiagnosticSeverity.Error, "Identity is not allowed here; a function is required.", offset: null, reference);
             return null;
         }
 
@@ -130,7 +130,7 @@ internal sealed class FunctionCache
             ? "The function could not be evaluated; its outputs are 0, clipped to its range."
             : "The function's evaluation met an error (an undefined result, an operand of the wrong type or the wrong number of results); it was repaired.";
         _diagnostics.Report(
-            DiagnosticCodes.FunctionEvaluationRepaired,
+            FunctionDiagnostics.FunctionEvaluationRepaired,
             DiagnosticSeverity.Warning,
             string.Create(CultureInfo.InvariantCulture, $"Type {(int)function.FunctionType}: {message}"),
             offset: null,
@@ -173,7 +173,7 @@ internal sealed class FunctionCache
 
     private ArrayEvaluator? ReportNotAllowed(CosReference? reference, string message)
     {
-        _diagnostics.Report(DiagnosticCodes.FunctionInvalid, DiagnosticSeverity.Error, message, offset: null, reference);
+        _diagnostics.Report(FunctionDiagnostics.FunctionInvalid, DiagnosticSeverity.Error, message, offset: null, reference);
         return null;
     }
 

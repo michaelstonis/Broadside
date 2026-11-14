@@ -33,29 +33,23 @@ public sealed class ImageFilterContext
     /// <summary>Gets the filter context: <see cref="FilterContext.Parameters"/>, <see cref="FilterContext.StreamDictionary"/>, diagnostics.</summary>
     public FilterContext Filter { get; }
 
-    /// <summary>Gets the image dictionary's <c>Width</c>, or 0.</summary>
-    /// <remarks>ISO 32000-2 §8.9.5.1, Table 87.</remarks>
-    public int Width { get; init; }
+    /// <summary>
+    /// Gets the image dictionary's geometry: its <c>Width</c>, <c>Height</c> and <c>BitsPerComponent</c> (1 for an image mask), and
+    /// the number of components of its <c>ColorSpace</c> (1 for an image mask); each 0 when the dictionary has no such entry.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §8.9.5.1, Table 87; §7.4.9 (a JPEG 2000 image may omit the <c>ColorSpace</c>, its components then 0).</remarks>
+    public ImageGeometry Geometry { get; init; }
 
-    /// <summary>Gets the image dictionary's <c>Height</c>, or 0.</summary>
-    /// <remarks>ISO 32000-2 §8.9.5.1, Table 87.</remarks>
-    public int Height { get; init; }
-
-    /// <summary>Gets the image dictionary's <c>BitsPerComponent</c> (1 for an image mask), or 0.</summary>
-    /// <remarks>ISO 32000-2 §8.9.5.1, Table 87.</remarks>
-    public int BitsPerComponent { get; init; }
-
-    /// <summary>Gets the number of components of the dictionary's <c>ColorSpace</c> (1 for an image mask), or 0 when it has none.</summary>
-    /// <remarks>ISO 32000-2 §8.9.5.1, Table 87; §7.4.9 (a JPEG 2000 image may omit it).</remarks>
-    public int ColorComponents { get; init; }
-
-    /// <summary>Gets a value indicating whether the image is a stencil mask (<c>ImageMask true</c>, as <see cref="Images.PdfImage.IsStencil"/>): one component, one bit.</summary>
+    /// <summary>Gets a value indicating whether the image is an image mask (<c>ImageMask true</c>, as <see cref="PdfImage.IsImageMask"/>): one component, one bit.</summary>
     /// <remarks>ISO 32000-2 §8.9.6.2; §7.4.9 (a JPEG 2000 image mask has one 1-bit channel).</remarks>
-    public bool IsStencil { get; init; }
+    public bool IsImageMask { get; init; }
 
-    /// <summary>Gets a value indicating whether the dictionary's <c>SMaskInData</c> asks for the codestream's opacity channel; without it a codec may skip that work.</summary>
+    /// <summary>
+    /// Gets the dictionary's <c>SMaskInData</c>: whether the codestream's opacity channel is wanted, and whether the colors are
+    /// premultiplied by it. Without it (<see cref="PdfSoftMaskInData.None"/>) a codec may skip that work.
+    /// </summary>
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87.</remarks>
-    public bool WantsAlpha { get; init; }
+    public PdfSoftMaskInData SoftMaskInData { get; init; }
 
     /// <summary>
     /// Gets the reduction asked for, as a power of two: 0 (the default) for the full resolution, 1 for half, 2 for a quarter, 3 for
@@ -88,31 +82,28 @@ public sealed class ImageFilterContext
     /// Creates the builder an image is decoded into, after checking its size against <see cref="MaxPixels"/> and
     /// <see cref="MaxDecodedLength"/>; reports <c>ImageTooLarge</c> instead when it is too large.
     /// </summary>
-    /// <param name="width">The number of samples in each row, at least 1.</param>
-    /// <param name="height">The number of rows, at least 1.</param>
-    /// <param name="components">The number of components, 1 to 32.</param>
-    /// <param name="bitsPerComponent">The logical bits per component, 1 to 16.</param>
+    /// <param name="geometry">The geometry of the samples to decode: at least 1 sample per row and 1 row, 1 to 32 components of 1 to 16 bits.</param>
     /// <param name="image">The builder, with zeroed pooled memory.</param>
     /// <returns><see langword="false"/> when the image is larger than the limits allow.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">A size is out of range.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A part of <paramref name="geometry"/> is out of range.</exception>
     /// <exception cref="DiagnosticException">In strict mode, when the image is too large.</exception>
     /// <remarks>ISO 32000-2 §8.9.3. Rejecting before renting is what stops a few header bytes from claiming gigabytes.</remarks>
-    public bool TryCreateImage(int width, int height, int components, int bitsPerComponent, [NotNullWhen(true)] out DecodedImageBuilder? image)
+    public bool TryCreateImage(ImageGeometry geometry, [NotNullWhen(true)] out DecodedImageBuilder? image)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(width, 1);
-        ArgumentOutOfRangeException.ThrowIfLessThan(height, 1);
-        ArgumentOutOfRangeException.ThrowIfLessThan(components, 1);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(components, ImageGeometry.MaxComponents);
-        ArgumentOutOfRangeException.ThrowIfLessThan(bitsPerComponent, 1);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitsPerComponent, 16);
-        if (ImageGeometry.CheckLimits(width, height, components, bitsPerComponent, MaxPixels, MaxDecodedLength) is { } reason)
+        ArgumentOutOfRangeException.ThrowIfLessThan(geometry.Width, 1, nameof(geometry));
+        ArgumentOutOfRangeException.ThrowIfLessThan(geometry.Height, 1, nameof(geometry));
+        ArgumentOutOfRangeException.ThrowIfLessThan(geometry.Components, 1, nameof(geometry));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(geometry.Components, ImageGeometry.MaxComponents, nameof(geometry));
+        ArgumentOutOfRangeException.ThrowIfLessThan(geometry.BitsPerComponent, 1, nameof(geometry));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(geometry.BitsPerComponent, 16, nameof(geometry));
+        if (geometry.CheckLimits(MaxPixels, MaxDecodedLength) is { } reason)
         {
-            Filter.Report(DiagnosticCodes.ImageTooLarge, DiagnosticSeverity.Error, $"The image is not decoded: {reason}.");
+            Filter.Report(ImageDiagnostics.ImageTooLarge, DiagnosticSeverity.Error, $"The image is not decoded: {reason}.");
             image = null;
             return false;
         }
 
-        image = new DecodedImageBuilder(width, height, components, bitsPerComponent);
+        image = new DecodedImageBuilder(geometry);
         return true;
     }
 }

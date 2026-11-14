@@ -19,6 +19,7 @@ namespace Broadside.Filters.Jpx;
 /// The 9/7 steps are single precision in the order the scalar methods write them, a multiply then a subtract (never fused): every
 /// lane gives the scalar bits. The source is BCL-only, so the Blazor sample's kernel benchmark links it.
 /// </para>
+/// <para>ISO 32000-2 §7.4.9.</para>
 /// </remarks>
 internal static partial class JpxLifting
 {

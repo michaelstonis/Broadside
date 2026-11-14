@@ -18,7 +18,8 @@ adb install -r "$apk"
 adb logcat -c
 start=$SECONDS
 adb shell am start -W -n "$package/.MainActivity" --ez smoke true
-pid=$(adb shell pidof "$package" | tr -d '\r')
+# pidof fails when the process is already gone; let the loop below report that with the log instead of set -e aborting here.
+pid=$(adb shell pidof "$package" | tr -d '\r' || true)
 
 while (( SECONDS - start < timeout )); do
   log=$(adb logcat -d)
@@ -35,7 +36,7 @@ while (( SECONDS - start < timeout )); do
     exit 1
   fi
 
-  if [[ -z "$(adb shell pidof "$package" | tr -d '\r')" ]]; then
+  if [[ -z "$(adb shell pidof "$package" | tr -d '\r' || true)" ]]; then
     echo "The app exited after $(( SECONDS - start )) s without a smoke verdict."
     dump_log
     exit 1

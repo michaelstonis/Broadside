@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics.Colors;
 using Broadside.Graphics.Functions;
 using Broadside.Objects;
@@ -10,6 +11,7 @@ namespace Broadside.Graphics;
 /// ISO 32000-2 §8.6.5.3, Table 63: <c>[/CalRGB dictionary]</c>. X = XA·A^GR + XB·B^GG + XC·C^GB, and likewise Y and Z, with
 /// <c>Matrix</c> = [XA YA ZA XB YB ZB XC YC ZC]. Missing or invalid entries read as their defaults (a white point as D65), each
 /// recorded once.
+/// <para>ISO 32000-2 §8.6.5.1.</para>
 /// </remarks>
 public sealed class PdfCalRgbColorSpace : PdfColorSpace
 {
@@ -58,12 +60,12 @@ public sealed class PdfCalRgbColorSpace : PdfColorSpace
         CieChecks.WhiteAndBlack(this, Cache!, dictionary, "CalRGB");
         if (dictionary.ContainsKey(ColorSpaceNames.Gamma) && ColorEntries.Numbers(Cache!, dictionary, ColorSpaceNames.Gamma) is not [> 0, > 0, > 0])
         {
-            Report(DiagnosticCodes.ColorSpaceEntryInvalid, "A CalRGB Gamma is not three positive numbers; [1 1 1] is used.");
+            Report(ColorDiagnostics.ColorSpaceEntryInvalid, "A CalRGB Gamma is not three positive numbers; [1 1 1] is used.");
         }
 
         if (dictionary.ContainsKey(ColorSpaceNames.Matrix) && ColorEntries.Numbers(Cache!, dictionary, ColorSpaceNames.Matrix) is not { Length: 9 })
         {
-            Report(DiagnosticCodes.ColorSpaceEntryInvalid, "A CalRGB Matrix is not nine numbers; the identity is used.");
+            Report(ColorDiagnostics.ColorSpaceEntryInvalid, "A CalRGB Matrix is not nine numbers; the identity is used.");
         }
 
         return true;

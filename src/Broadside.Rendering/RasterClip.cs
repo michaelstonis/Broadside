@@ -25,6 +25,7 @@ namespace Broadside.Rendering;
 /// Coverage composes by multiplication: a shape's edge coverage times the clip's at the same pixel, the usual estimate of the area
 /// of their intersection.
 /// </para>
+/// <para>ISO 32000-2 §8.7.4.2 and §11.4.6.</para>
 /// </remarks>
 internal sealed class RasterClip : IDisposable
 {

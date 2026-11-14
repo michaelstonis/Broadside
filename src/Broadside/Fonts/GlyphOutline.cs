@@ -17,6 +17,7 @@ namespace Broadside.Fonts;
 /// One instance is meant to be reused for many glyphs: <see cref="FontProgram.GetOutline"/> clears it first, and the buffers grow to
 /// the largest glyph and stay, so extracting outlines allocates nothing once warm. Not thread-safe: use one per thread.
 /// </para>
+/// <para>ISO 32000-2 §9.9.1.</para>
 /// </remarks>
 public sealed class GlyphOutline
 {

@@ -4,6 +4,7 @@ namespace Broadside.Content;
 /// <remarks>
 /// ISO 32000-2 Annex A, Table A.1 (73 operators), described in the clause tables cited on each value. Table A.1's own cross
 /// references contain errata (<c>BMC</c>, <c>BT</c> and <c>c</c>); the clause tables are authoritative.
+/// <para>ISO 32000-2 §7.8.2.</para>
 /// </remarks>
 public enum ContentOperatorCode
 {

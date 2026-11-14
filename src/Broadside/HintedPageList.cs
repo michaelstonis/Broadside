@@ -24,9 +24,10 @@ namespace Broadside;
 /// Each page is checked before it is used: its page object's <c>N 0 obj</c> header shall be at the hinted offset (for the first
 /// page, the offset the first-page cross-reference section gives), and the object shall be a page dictionary with its own
 /// <c>MediaBox</c> and <c>Resources</c>, as pushing attributes down makes it. A page that fails is reported as
-/// <see cref="DiagnosticCodes.LinearizationHintsInvalid"/> and the page collection reads the page tree instead. Only a first page
+/// <see cref="FileStructureDiagnostics.LinearizationHintsInvalid"/> and the page collection reads the page tree instead. Only a first page
 /// numbered 0 (no <c>P</c>, F.3.4) is supported.
 /// </para>
+/// <para>ISO 32000-2 Annex F.4.2, Annex G.2, Annex G.3 and Annex G.4.</para>
 /// </remarks>
 internal sealed class HintedPageList
 {
@@ -172,7 +173,7 @@ internal sealed class HintedPageList
         }
 
         _diagnostics.Report(
-            DiagnosticCodes.LinearizationHintsInvalid,
+            FileStructureDiagnostics.LinearizationHintsInvalid,
             DiagnosticSeverity.Warning,
             string.Create(CultureInfo.InvariantCulture, $"The page offset hint table does not locate page {index + 1}'s page object (object {number} at offset {hint.Offset}, with its own MediaBox and Resources); the pages are read from the page tree instead."),
             objectReference: _linearization.Reference);

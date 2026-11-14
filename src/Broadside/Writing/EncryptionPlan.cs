@@ -8,6 +8,8 @@ namespace Broadside.Writing;
 /// <summary>What a save does about encryption: keep the document's, write new encryption, write it unencrypted, or nothing.</summary>
 /// <remarks>
 /// ISO 32000-2 §7.6. Decided before anything is written, so a save that cannot keep its promise throws without writing a byte.
+/// <para>ISO 32000-2 §7.6.5.1.</para>
+/// <para>ISO/TS 32004 §5.1.</para>
 /// </remarks>
 internal sealed class EncryptionPlan
 {

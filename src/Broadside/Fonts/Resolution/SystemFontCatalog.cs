@@ -17,6 +17,7 @@ namespace Broadside.Fonts.Resolution;
 /// Safe for concurrent use: each file's faces are read at most once per catalog in the common case (two threads may both read a
 /// file the first time; the first result is published and both are equal), published whole and never changed.
 /// </para>
+/// <para>ISO 32000-2 §9.6.2.2.</para>
 /// </remarks>
 internal sealed class SystemFontCatalog
 {

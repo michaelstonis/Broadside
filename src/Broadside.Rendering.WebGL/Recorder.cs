@@ -232,7 +232,7 @@ internal sealed class Recorder : IRenderingBackend
         _color[1] = a;
         _color[2] = a;
         _color[3] = a;
-        DrawUnitSquare(CommandList.Image, texture, grid.ExtentU(image.Width), grid.ExtentV(image.Height));
+        DrawUnitSquare(CommandList.Image, texture, grid.ExtentU(image.Geometry.Width), grid.ExtentV(image.Geometry.Height));
     }
 
     public void FillImageMask(DisplayImageMask mask, in DisplayColor color)

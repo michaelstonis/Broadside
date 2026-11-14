@@ -19,6 +19,7 @@ namespace Broadside.Rendering;
 /// undercolour removal and the transfer function with each colour, in its <see cref="ColorConversion"/>; flatness and smoothness are
 /// the backend's tolerances; stroke adjustment with each stroke (<see cref="StrokeStyle"/>).
 /// </para>
+/// <para>ISO 32000-2 §11.7.4 and §11.7.5.</para>
 /// </remarks>
 public readonly record struct DisplayDeviceParameters
 {

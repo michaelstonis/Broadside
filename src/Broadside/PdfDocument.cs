@@ -1,3 +1,6 @@
+// RS0026: the open and save entry points follow one rule (every asynchronous overload mirrors a synchronous one and ends in a
+// defaulted cancellation token), so several overloads of a name carry an optional parameter. Options are overloads, never optional.
+#pragma warning disable RS0026
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -163,7 +166,7 @@ public sealed partial class PdfDocument : IDisposable
             }
 
             _diagnostics.Report(
-                DiagnosticCodes.NameDictionaryInvalid,
+                NavigationDiagnostics.NameDictionaryInvalid,
                 DiagnosticSeverity.Warning,
                 "The catalog's Names entry is not a dictionary; the document is read as having no name dictionary.",
                 objectReference: entry as CosReference);
@@ -193,7 +196,7 @@ public sealed partial class PdfDocument : IDisposable
                     return null;
                 default:
                     _diagnostics.Report(
-                        DiagnosticCodes.OutlineInvalid,
+                        NavigationDiagnostics.OutlineInvalid,
                         DiagnosticSeverity.Warning,
                         "The catalog's Outlines entry is not a dictionary; the document is read as having no outline.",
                         objectReference: entry as CosReference);
@@ -275,7 +278,7 @@ public sealed partial class PdfDocument : IDisposable
             {
                 if (Resolve(value) is not CosNull)
                 {
-                    _diagnostics.Report(DiagnosticCodes.StructTreeRootInvalid, DiagnosticSeverity.Warning, "The catalog's StructTreeRoot is not a dictionary (Table 29); the document is read without a structure tree.", offset: null, reference);
+                    _diagnostics.Report(StructureDiagnostics.StructTreeRootInvalid, DiagnosticSeverity.Warning, "The catalog's StructTreeRoot is not a dictionary (Table 29); the document is read without a structure tree.", offset: null, reference);
                 }
 
                 return null;
@@ -286,7 +289,7 @@ public sealed partial class PdfDocument : IDisposable
             {
                 if (root.TryGetValue(KnownNames.Type, out CosObject? type) && !StructureNames.StructTreeRoot.Equals(Resolve(type)))
                 {
-                    _diagnostics.Report(DiagnosticCodes.StructTreeRootInvalid, DiagnosticSeverity.Warning, "The structure tree root's Type is not StructTreeRoot (Table 354); read as the root.", offset: null, reference);
+                    _diagnostics.Report(StructureDiagnostics.StructTreeRootInvalid, DiagnosticSeverity.Warning, "The structure tree root's Type is not StructTreeRoot (Table 354); read as the root.", offset: null, reference);
                 }
 
                 var created = new StructureContext(this, root, reference);
@@ -332,19 +335,12 @@ public sealed partial class PdfDocument : IDisposable
 
     /// <summary>Opens the PDF file held by <paramref name="stream"/>, from its current position, with default options; a non-seekable stream is read asynchronously.</summary>
     /// <param name="stream">The stream. It is not disposed; a seekable stream must stay open and unchanged until the document is disposed.</param>
-    /// <returns>The document. Dispose it when done.</returns>
-    /// <exception cref="DiagnosticException">The file cannot be read at all.</exception>
-    /// <remarks>ISO 32000-2 §7.5. The same as <see cref="PdfEngine.OpenAsync(Stream, CancellationToken)"/> on an engine with default options.</remarks>
-    public static Task<PdfDocument> OpenAsync(Stream stream) => PdfEngine.Default.OpenAsync(stream, CancellationToken.None);
-
-    /// <summary>Opens the PDF file held by <paramref name="stream"/>, from its current position, with default options; a non-seekable stream is read asynchronously.</summary>
-    /// <param name="stream">The stream. It is not disposed; a seekable stream must stay open and unchanged until the document is disposed.</param>
     /// <param name="cancellationToken">Cancels reading a non-seekable stream.</param>
     /// <returns>The document. Dispose it when done.</returns>
     /// <exception cref="DiagnosticException">The file cannot be read at all.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
     /// <remarks>ISO 32000-2 §7.5. The same as <see cref="PdfEngine.OpenAsync(Stream, CancellationToken)"/> on an engine with default options.</remarks>
-    public static Task<PdfDocument> OpenAsync(Stream stream, CancellationToken cancellationToken) =>
+    public static Task<PdfDocument> OpenAsync(Stream stream, CancellationToken cancellationToken = default) =>
         PdfEngine.Default.OpenAsync(stream, cancellationToken);
 
     /// <summary>Opens the PDF file held by <paramref name="stream"/>, from its current position; a non-seekable stream is read asynchronously.</summary>
@@ -355,16 +351,8 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="DiagnosticException">The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
     /// <remarks>ISO 32000-2 §7.5. The same as <see cref="PdfEngine.OpenAsync(Stream, CancellationToken)"/> on an engine built from <paramref name="options"/>.</remarks>
-    public static Task<PdfDocument> OpenAsync(Stream stream, PdfOptions options, CancellationToken cancellationToken) =>
+    public static Task<PdfDocument> OpenAsync(Stream stream, PdfOptions options, CancellationToken cancellationToken = default) =>
         new PdfEngine(options).OpenAsync(stream, cancellationToken);
-
-    /// <summary>Opens the PDF file held by <paramref name="stream"/>, from its current position; a non-seekable stream is read asynchronously.</summary>
-    /// <param name="stream">The stream. It is not disposed; a seekable stream must stay open and unchanged until the document is disposed.</param>
-    /// <param name="options">The options.</param>
-    /// <returns>The document. Dispose it when done.</returns>
-    /// <exception cref="DiagnosticException">The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.</exception>
-    /// <remarks>ISO 32000-2 §7.5. As <see cref="OpenAsync(Stream, PdfOptions, CancellationToken)"/>, without cancellation.</remarks>
-    public static Task<PdfDocument> OpenAsync(Stream stream, PdfOptions options) => new PdfEngine(options).OpenAsync(stream, CancellationToken.None);
 
     /// <summary>Opens the PDF file held by <paramref name="stream"/>, from its current position.</summary>
     /// <param name="stream">The stream. It is not disposed; keep it open and unchanged until the document is disposed.</param>
@@ -377,23 +365,13 @@ public sealed partial class PdfDocument : IDisposable
     /// <summary>Opens the remote PDF file at <paramref name="uri"/> through HTTP range requests.</summary>
     /// <param name="httpClient">The client the requests go through; not disposed. It stays in use until the document is disposed.</param>
     /// <param name="uri">The file's address.</param>
-    /// <returns>The document. Dispose it when done.</returns>
-    /// <remarks>
-    /// Spec #33, viewer capability 5. The same as <see cref="PdfEngine.OpenAsync(HttpClient, Uri, CancellationToken)"/> on an engine
-    /// with default options.
-    /// </remarks>
-    public static Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri) => PdfEngine.Default.OpenAsync(httpClient, uri, CancellationToken.None);
-
-    /// <summary>Opens the remote PDF file at <paramref name="uri"/> through HTTP range requests.</summary>
-    /// <param name="httpClient">The client the requests go through; not disposed. It stays in use until the document is disposed.</param>
-    /// <param name="uri">The file's address.</param>
     /// <param name="cancellationToken">Cancels the requests made while opening.</param>
     /// <returns>The document. Dispose it when done.</returns>
     /// <remarks>
     /// Spec #33, viewer capability 5. The same as <see cref="PdfEngine.OpenAsync(HttpClient, Uri, CancellationToken)"/> on an engine
     /// with default options.
     /// </remarks>
-    public static Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri, CancellationToken cancellationToken) =>
+    public static Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri, CancellationToken cancellationToken = default) =>
         PdfEngine.Default.OpenAsync(httpClient, uri, cancellationToken);
 
     /// <summary>Opens the remote PDF file at <paramref name="uri"/> through HTTP range requests.</summary>
@@ -406,17 +384,8 @@ public sealed partial class PdfDocument : IDisposable
     /// Spec #33, viewer capability 5. The same as <see cref="PdfEngine.OpenAsync(HttpClient, Uri, CancellationToken)"/> on an engine
     /// built from <paramref name="options"/>.
     /// </remarks>
-    public static Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri, PdfOptions options, CancellationToken cancellationToken) =>
+    public static Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri, PdfOptions options, CancellationToken cancellationToken = default) =>
         new PdfEngine(options).OpenAsync(httpClient, uri, cancellationToken);
-
-    /// <summary>Opens the remote PDF file at <paramref name="uri"/> through HTTP range requests.</summary>
-    /// <param name="httpClient">The client the requests go through; not disposed. It stays in use until the document is disposed.</param>
-    /// <param name="uri">The file's address.</param>
-    /// <param name="options">The options, such as the range block size, cache limit and whether synchronous reads may fetch.</param>
-    /// <returns>The document. Dispose it when done.</returns>
-    /// <remarks>Spec #33, viewer capability 5. As <see cref="OpenAsync(HttpClient, Uri, PdfOptions, CancellationToken)"/>, without cancellation.</remarks>
-    public static Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri, PdfOptions options) =>
-        new PdfEngine(options).OpenAsync(httpClient, uri, CancellationToken.None);
 
     /// <summary>Opens the PDF file held in <paramref name="bytes"/> with default options.</summary>
     /// <param name="bytes">
@@ -434,6 +403,48 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="DiagnosticException">The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.</exception>
     /// <remarks>ISO 32000-2 §7.5.</remarks>
     public static PdfDocument Open(ReadOnlyMemory<byte> bytes, PdfOptions options) => new PdfEngine(options).Open(bytes);
+
+    /// <summary>Opens the PDF file at <paramref name="path"/> with default options; the asynchronous counterpart of <see cref="Open(string)"/>.</summary>
+    /// <param name="path">The file path. The file is memory-mapped and shared for reading: do not change it until the document is disposed.</param>
+    /// <param name="cancellationToken">Checked before the file is opened.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="DiagnosticException">The file cannot be read at all.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>ISO 32000-2 §7.5. The same as <see cref="PdfEngine.OpenAsync(string, CancellationToken)"/> on an engine with default options.</remarks>
+    public static Task<PdfDocument> OpenAsync(string path, CancellationToken cancellationToken = default) =>
+        PdfEngine.Default.OpenAsync(path, cancellationToken);
+
+    /// <summary>Opens the PDF file at <paramref name="path"/>; the asynchronous counterpart of <see cref="Open(string, PdfOptions)"/>.</summary>
+    /// <param name="path">The file path.</param>
+    /// <param name="options">The options.</param>
+    /// <param name="cancellationToken">Checked before the file is opened.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="DiagnosticException">The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>ISO 32000-2 §7.5. The same as <see cref="PdfEngine.OpenAsync(string, CancellationToken)"/> on an engine built from <paramref name="options"/>.</remarks>
+    public static Task<PdfDocument> OpenAsync(string path, PdfOptions options, CancellationToken cancellationToken = default) =>
+        new PdfEngine(options).OpenAsync(path, cancellationToken);
+
+    /// <summary>Opens the PDF file held in <paramref name="bytes"/> with default options; the asynchronous counterpart of <see cref="Open(ReadOnlyMemory{byte})"/>.</summary>
+    /// <param name="bytes">The file. Not copied: do not change it while the document or any of its objects is in use.</param>
+    /// <param name="cancellationToken">Checked before the file is opened.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="DiagnosticException">The file cannot be read at all.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>ISO 32000-2 §7.5. The same as <see cref="PdfEngine.OpenAsync(ReadOnlyMemory{byte}, CancellationToken)"/> on an engine with default options.</remarks>
+    public static Task<PdfDocument> OpenAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken = default) =>
+        PdfEngine.Default.OpenAsync(bytes, cancellationToken);
+
+    /// <summary>Opens the PDF file held in <paramref name="bytes"/>; the asynchronous counterpart of <see cref="Open(ReadOnlyMemory{byte}, PdfOptions)"/>.</summary>
+    /// <param name="bytes">The file. Not copied: do not change it while the document or any of its objects is in use.</param>
+    /// <param name="options">The options.</param>
+    /// <param name="cancellationToken">Checked before the file is opened.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="DiagnosticException">The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>ISO 32000-2 §7.5. The same as <see cref="PdfEngine.OpenAsync(ReadOnlyMemory{byte}, CancellationToken)"/> on an engine built from <paramref name="options"/>.</remarks>
+    public static Task<PdfDocument> OpenAsync(ReadOnlyMemory<byte> bytes, PdfOptions options, CancellationToken cancellationToken = default) =>
+        new PdfEngine(options).OpenAsync(bytes, cancellationToken);
 
     /// <summary>Creates a new document with one empty US Letter page (612 by 792 points), with default options.</summary>
     /// <returns>The document. Dispose it when done.</returns>
@@ -572,10 +583,9 @@ public sealed partial class PdfDocument : IDisposable
         Rebase(writer);
     }
 
-    /// <summary>Writes the document to <paramref name="stream"/> as a complete file, writing asynchronously.</summary>
+    /// <summary>Writes the document to <paramref name="stream"/> as a complete file with a classic cross-reference table, writing asynchronously.</summary>
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
-    /// <param name="options">How to lay the file out; <see langword="null"/> for the defaults (a classic cross-reference table).</param>
-    /// <param name="cancellationToken">Cancels the writes.</param>
+    /// <param name="cancellationToken">Cancels the writes; checked before each chunk is written.</param>
     /// <returns>A task that completes when the file is written.</returns>
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
@@ -585,17 +595,94 @@ public sealed partial class PdfDocument : IDisposable
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled; nothing more is written and the document is left as it was.</exception>
     /// <remarks>
-    /// ISO 32000-2 §7.5. Writes exactly the bytes <see cref="Save(Stream, PdfSaveOptions)"/> writes, from the same writer; only the
-    /// writes to <paramref name="stream"/> are asynchronous.
+    /// ISO 32000-2 §7.5. The asynchronous counterpart of <see cref="Save(Stream)"/>.
     /// </remarks>
-    public async Task SaveAsync(Stream stream, PdfSaveOptions? options = null, CancellationToken cancellationToken = default)
+    public Task SaveAsync(Stream stream, CancellationToken cancellationToken = default) => SaveAsync(stream, new PdfSaveOptions(), cancellationToken);
+
+    /// <summary>Writes the document to <paramref name="stream"/> as a complete file, writing asynchronously.</summary>
+    /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
+    /// <param name="options">How to lay the file out.</param>
+    /// <param name="cancellationToken">Cancels the writes; checked before each chunk is written.</param>
+    /// <returns>A task that completes when the file is written.</returns>
+    /// <exception cref="NotSupportedException">
+    /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
+    /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
+    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
+    /// or a linearized save would carry an integrity MAC.
+    /// </exception>
+    /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled; nothing more is written and the document is left as it was.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.5. The asynchronous counterpart of <see cref="Save(Stream, PdfSaveOptions)"/>: it writes exactly the same bytes, from the same writer;
+    /// only the writes to <paramref name="stream"/> are asynchronous. A canceled save may leave a partial file in <paramref name="stream"/>; save to a path for an all-or-nothing write.
+    /// </remarks>
+    public async Task SaveAsync(Stream stream, PdfSaveOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        FileWriter writer = PlanSave(options ?? new PdfSaveOptions());
-        foreach (ReadOnlyMemory<byte> chunk in writer.Write())
+        FileWriter writer = PlanSave(options);
+        await WriteToAsync(writer, stream, cancellationToken).ConfigureAwait(false);
+        Rebase(writer);
+    }
+
+    /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it, with a classic cross-reference table, writing asynchronously.</summary>
+    /// <param name="path">The file path. Do not name the file the document was opened from.</param>
+    /// <param name="cancellationToken">Cancels the writes; checked before each chunk is written.</param>
+    /// <returns>A task that completes when the file is written.</returns>
+    /// <exception cref="NotSupportedException">
+    /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
+    /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
+    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
+    /// or a linearized save would carry an integrity MAC.
+    /// </exception>
+    /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled; nothing more is written and the document is left as it was.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.5. The asynchronous counterpart of <see cref="Save(string)"/>. The file is written to a temporary file beside <paramref name="path"/> and moved over it only once complete, so a canceled or failed save leaves an existing file at <paramref name="path"/> as it was and creates no file there.
+    /// </remarks>
+    public Task SaveAsync(string path, CancellationToken cancellationToken = default) => SaveAsync(path, new PdfSaveOptions(), cancellationToken);
+
+    /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it, writing asynchronously.</summary>
+    /// <param name="path">The file path. Do not name the file the document was opened from.</param>
+    /// <param name="options">How to lay the file out.</param>
+    /// <param name="cancellationToken">Cancels the writes; checked before each chunk is written.</param>
+    /// <returns>A task that completes when the file is written.</returns>
+    /// <exception cref="NotSupportedException">
+    /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
+    /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
+    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
+    /// or a linearized save would carry an integrity MAC.
+    /// </exception>
+    /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled; nothing more is written and the document is left as it was.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.5. The asynchronous counterpart of <see cref="Save(string, PdfSaveOptions)"/>. The file is written to a temporary file beside <paramref name="path"/> and moved over it only once complete, so a canceled or failed save leaves an existing file at <paramref name="path"/> as it was and creates no file there.
+    /// </remarks>
+    public async Task SaveAsync(string path, PdfSaveOptions options, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+
+        // Planned before any file is created, so a document that cannot be saved leaves an existing file alone.
+        FileWriter writer = PlanSave(options);
+        string temporary = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))!, $".{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
+        try
         {
-            await stream.WriteAsync(chunk, cancellationToken).ConfigureAwait(false);
+            FileStream stream = new(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, bufferSize: 1, useAsync: true);
+            await using (stream.ConfigureAwait(false))
+            {
+                await WriteToAsync(writer, stream, cancellationToken).ConfigureAwait(false);
+            }
+
+            File.Move(temporary, path, overwrite: true);
+        }
+        catch
+        {
+            TryDelete(temporary);
+            throw;
         }
 
         Rebase(writer);
@@ -771,7 +858,7 @@ public sealed partial class PdfDocument : IDisposable
                 return null;
             default:
                 _diagnostics.Report(
-                    DiagnosticCodes.DestinationInvalid,
+                    NavigationDiagnostics.DestinationInvalid,
                     DiagnosticSeverity.Warning,
                     "A named destination's SD entry is not a destination array; it is ignored and D is used.",
                     objectReference: reference);
@@ -818,7 +905,7 @@ public sealed partial class PdfDocument : IDisposable
         }
 
         _diagnostics.Report(
-            DiagnosticCodes.DestinationInvalid,
+            NavigationDiagnostics.DestinationInvalid,
             DiagnosticSeverity.Warning,
             "A named destination's value is neither a destination array nor a dictionary with a D entry; the name shows no page.",
             objectReference: reference);
@@ -839,7 +926,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <param name="root">The root node or a reference to it.</param>
     /// <returns>The reader; <see langword="null"/> when the root does not resolve to a dictionary.</returns>
     internal NameTreeReader? GetNameTreeReader(CosObject? root) =>
-        ResolveTreeRoot(root, DiagnosticCodes.NameTreeNodeInvalid, "name tree") is { } node
+        ResolveTreeRoot(root, NavigationDiagnostics.NameTreeNodeInvalid, "name tree") is { } node
             ? _nameTrees.GetValue(node, dictionary => new NameTreeReader(dictionary, root as CosReference, Resolve, _diagnostics, () => ObjectsVersion))
             : null;
 
@@ -847,7 +934,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <param name="root">The root node or a reference to it.</param>
     /// <returns>The reader; <see langword="null"/> when the root does not resolve to a dictionary.</returns>
     internal NumberTreeReader? GetNumberTreeReader(CosObject? root) =>
-        ResolveTreeRoot(root, DiagnosticCodes.NumberTreeNodeInvalid, "number tree") is { } node
+        ResolveTreeRoot(root, NavigationDiagnostics.NumberTreeNodeInvalid, "number tree") is { } node
             ? _numberTrees.GetValue(node, dictionary => new NumberTreeReader(dictionary, root as CosReference, Resolve, _diagnostics, () => ObjectsVersion))
             : null;
 
@@ -918,7 +1005,7 @@ public sealed partial class PdfDocument : IDisposable
                 }
                 else
                 {
-                    ViewReading.Warn(this, DiagnosticCodes.FileSpecificationInvalid, $"The EmbeddedFiles entry '{entry.Key.DecodeText()}' is not a file specification; it is skipped.", tree.RootReference);
+                    ViewReading.Warn(this, FileSpecificationDiagnostics.FileSpecificationInvalid, $"The EmbeddedFiles entry '{entry.Key.DecodeText()}' is not a file specification; it is skipped.", tree.RootReference);
                 }
             }
 
@@ -938,34 +1025,11 @@ public sealed partial class PdfDocument : IDisposable
     public IReadOnlyList<PdfDeclaration> Declarations => PdfDeclaration.Read(Metadata?.Packet);
 
     /// <summary>Gets the files associated with the whole document (the catalog's <c>AF</c>).</summary>
-    /// <remarks>ISO 32000-2 §7.7.2, Table 29 (PDF 2.0), and §14.13.3. Read on every call.</remarks>
-    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => ReadAssociatedFiles(Catalog, CatalogReference);
-
-    /// <summary>Returns the associated files listed in the <c>AF</c> entry of <paramref name="owner"/>.</summary>
-    /// <param name="owner">Any dictionary or stream dictionary of this document: a structure element, an annotation, a form field.</param>
-    /// <param name="ownerReference">The owner's indirect reference, for diagnostics.</param>
-    /// <returns>The file specifications, in order.</returns>
-    /// <remarks>
-    /// ISO 32000-2 §14.13.2 (PDF 2.0): <c>AF</c> is an array of file specification dictionaries. A single dictionary is read as an
-    /// array of one and a file specification string is accepted, both with an <c>AssociatedFilesInvalid</c> diagnostic. An embedded
-    /// associated file without <c>Subtype</c>, or with <c>Params</c> but no <c>ModDate</c>, is reported. A missing
-    /// <c>AFRelationship</c> means Unspecified and is not reported.
-    /// </remarks>
-    public IReadOnlyList<PdfFileSpecification> ReadAssociatedFiles(CosDictionary owner, CosReference? ownerReference = null)
-    {
-        ArgumentNullException.ThrowIfNull(owner);
-        return owner.TryGetValue(FileAndLayerNames.AF, out CosObject? value) ? AssociatedFileReader.Read(this, value, ownerReference) : [];
-    }
-
-    /// <summary>Returns the associated files of a marked-content sequence, from the property list of its <c>/AF</c> tag.</summary>
-    /// <param name="properties">The property list operand of <c>/AF ... BDC</c>, resolved from the <c>Properties</c> resource, or a reference to it.</param>
-    /// <returns>The file specifications.</returns>
-    /// <remarks>
-    /// ISO 32000-2 §14.13.5 and errata Table 409a: a property list dictionary whose <c>MCAF</c> array lists the files (each shall
-    /// have <c>AFRelationship</c>), or, as in the original text's Example 2, a resource that is the array itself. Both are accepted.
-    /// </remarks>
-    public IReadOnlyList<PdfFileSpecification> ReadMarkedContentAssociatedFiles(CosObject? properties) =>
-        AssociatedFileReader.ReadMarkedContent(this, properties, properties as CosReference);
+    /// <remarks>ISO 32000-2 §7.7.2, Table 29 (PDF 2.0), and §14.13.3. Read on every call: a live view over the catalog's <c>AF</c> array.
+    /// A single dictionary is read as an array of one and a file specification string is accepted, both with an <c>AssociatedFilesInvalid</c>
+    /// diagnostic (§14.13.2). An embedded associated file without <c>Subtype</c>, or with <c>Params</c> but no <c>ModDate</c>, is reported.
+    /// A missing <c>AFRelationship</c> means Unspecified and is not reported.</remarks>
+    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => AssociatedFileReader.ReadOwner(this, Catalog, CatalogReference);
 
     /// <summary>Enumerates every associated file of the document with the object it is associated with.</summary>
     /// <param name="deep">
@@ -1233,7 +1297,7 @@ public sealed partial class PdfDocument : IDisposable
         return ColorSpaces.GetConverter(source, conversion, defaults ?? PdfDefaultColorSpaces.None);
     }
 
-    private CosDictionary? ResolveTreeRoot(CosObject? root, string code, string kind)
+    private CosDictionary? ResolveTreeRoot(CosObject? root, DiagnosticCode code, string kind)
     {
         switch (Resolve(root))
         {
@@ -1304,6 +1368,27 @@ public sealed partial class PdfDocument : IDisposable
         foreach (ReadOnlyMemory<byte> chunk in writer.Write())
         {
             stream.Write(chunk.Span);
+        }
+    }
+
+    private static async Task WriteToAsync(FileWriter writer, Stream stream, CancellationToken cancellationToken)
+    {
+        foreach (ReadOnlyMemory<byte> chunk in writer.Write())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await stream.WriteAsync(chunk, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // The save's own failure is the one to report; a temporary file that cannot be removed is left behind.
         }
     }
 
@@ -1405,7 +1490,7 @@ public sealed partial class PdfDocument : IDisposable
         if (deprecated is not null)
         {
             _diagnostics.Report(
-                DiagnosticCodes.EncryptionDeprecated,
+                SecurityDiagnostics.EncryptionDeprecated,
                 DiagnosticSeverity.Warning,
                 $"The saved file is encrypted with {deprecated}, which is deprecated in PDF 2.0 (ISO 32000-2 §7.6.2, Table 20; RC4 offers little protection); AES-256 is the PDF 2.0 algorithm.");
         }
@@ -1439,7 +1524,7 @@ public sealed partial class PdfDocument : IDisposable
         if (IsLinearized)
         {
             _diagnostics.Report(
-                DiagnosticCodes.LinearizationDropped,
+                FileStructureDiagnostics.LinearizationDropped,
                 DiagnosticSeverity.Information,
                 "The incremental update leaves the linearized file unlinearized: its linearization dictionary's L entry no longer matches the file length (ISO 32000-2 F.1, G.7). Save with Linearize to linearize it again.",
                 objectReference: Linearization!.Reference);
@@ -1486,7 +1571,7 @@ public sealed partial class PdfDocument : IDisposable
             ObjectLoader? loader = null;
             var streams = new StreamDecoder(
                 configuration.Filters,
-                configuration.MaxDecodedStreamLength,
+                configuration.MaxDecodedLength,
                 diagnostics,
                 value => loader is not null ? loader.Resolve(value) : value is null or CosReference ? CosNull.Instance : value)
             {
@@ -1512,7 +1597,7 @@ public sealed partial class PdfDocument : IDisposable
                 // not, the cross-reference information is not trusted either: rebuild it by scanning, which also finds a catalog no
                 // trailer names.
                 diagnostics.Report(
-                    encryptUnusable ? DiagnosticCodes.EncryptDictionaryInvalid : DiagnosticCodes.RootMissing,
+                    encryptUnusable ? SecurityDiagnostics.EncryptDictionaryInvalid : FileStructureDiagnostics.RootMissing,
                     DiagnosticSeverity.Warning,
                     encryptUnusable
                         ? "The trailer's Encrypt entry does not resolve to the encryption dictionary; the cross-reference information is rebuilt by scanning the file."
@@ -1565,7 +1650,7 @@ public sealed partial class PdfDocument : IDisposable
             if (security is null && document.Version >= Pdf20 && !loader.CrossReference.Trailer.ContainsKey(KnownNames.ID))
             {
                 diagnostics.Report(
-                    DiagnosticCodes.TrailerIdMissing,
+                    FileStructureDiagnostics.TrailerIdMissing,
                     DiagnosticSeverity.Warning,
                     "The document is PDF 2.0, whose trailer shall have an ID entry; it has none.");
             }
@@ -1639,7 +1724,7 @@ public sealed partial class PdfDocument : IDisposable
         if (crossReference is null)
         {
             diagnostics.Fail(
-                DiagnosticCodes.CatalogNotFound,
+                FileStructureDiagnostics.CatalogNotFound,
                 "The cross-reference information cannot be read, and scanning the file finds no catalog dictionary: the file cannot be read.");
         }
 
@@ -1655,7 +1740,7 @@ public sealed partial class PdfDocument : IDisposable
         if (root is CosDictionary)
         {
             diagnostics.Report(
-                DiagnosticCodes.RootNotIndirect,
+                FileStructureDiagnostics.RootNotIndirect,
                 DiagnosticSeverity.Warning,
                 "The trailer's Root entry shall be an indirect reference; it is a direct dictionary.");
         }
@@ -1664,7 +1749,7 @@ public sealed partial class PdfDocument : IDisposable
         {
             if (reportUnusableRoot)
             {
-                diagnostics.Fail(DiagnosticCodes.RootMissing, "The trailer has no Root entry that resolves to the catalog dictionary.");
+                diagnostics.Fail(FileStructureDiagnostics.RootMissing, "The trailer has no Root entry that resolves to the catalog dictionary.");
             }
 
             return null;
@@ -1673,7 +1758,7 @@ public sealed partial class PdfDocument : IDisposable
         if (!catalog.TryGetValue(KnownNames.Type, out CosObject? type) || !KnownNames.Catalog.Equals(type))
         {
             diagnostics.Report(
-                DiagnosticCodes.CatalogTypeInvalid,
+                DocumentDiagnostics.CatalogTypeInvalid,
                 DiagnosticSeverity.Warning,
                 "The catalog dictionary's Type entry shall be /Catalog.",
                 objectReference: root as CosReference);
@@ -1699,7 +1784,7 @@ public sealed partial class PdfDocument : IDisposable
         if (entry is CosNumber number && PdfVersion.TryFromNumber(number, out version))
         {
             diagnostics?.Report(
-                DiagnosticCodes.CatalogVersionNotName,
+                DocumentDiagnostics.CatalogVersionNotName,
                 DiagnosticSeverity.Warning,
                 "The catalog's Version entry shall be a name such as /1.7; it is a number, read as that version.",
                 objectReference: catalogReference);
@@ -1707,7 +1792,7 @@ public sealed partial class PdfDocument : IDisposable
         }
 
         diagnostics?.Report(
-            DiagnosticCodes.CatalogVersionInvalid,
+            DocumentDiagnostics.CatalogVersionInvalid,
             DiagnosticSeverity.Warning,
             "The catalog's Version entry is not a version name such as /1.7; it is ignored.",
             objectReference: catalogReference);

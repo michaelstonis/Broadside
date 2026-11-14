@@ -167,7 +167,7 @@ public sealed partial class AndroidCanvasBackend
             AndroidCanvas canvas = _canvas!;
             try
             {
-                var grid = new SampleGrid(pixels.Width, pixels.Height, image.Width, image.Height, entry.Delivered);
+                var grid = new SampleGrid(pixels.Width, pixels.Height, image.Geometry.Width, image.Geometry.Height, entry.Delivered);
                 _imagePaint.Alpha = _compositing.FillAlpha;
                 SetBlendMode(_imagePaint, ref _imageBlendMode);
                 object? mask = entry.Folded ? null : (object?)image.SoftMask ?? image.Mask;
@@ -430,7 +430,7 @@ public sealed partial class AndroidCanvasBackend
         {
             var soft = mask as DisplayImage;
             var stencil = mask as DisplayImageMask;
-            (int width, int height, bool interpolate) = soft is not null ? (soft.Width, soft.Height, soft.Interpolate) : (stencil!.Width, stencil.Height, stencil.Interpolate);
+            (int width, int height, bool interpolate) = soft is not null ? (soft.Geometry.Width, soft.Geometry.Height, soft.Interpolate) : (stencil!.Width, stencil.Height, stencil.Interpolate);
             int reduction = MaskReduction(soft, stencil);
             ImageCache cache = _images;
             ImageCache.Entry entry = cache.Find(mask);

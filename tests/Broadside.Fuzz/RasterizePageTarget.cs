@@ -24,7 +24,7 @@ internal static class RasterizePageTarget
     private const int Size = 48;
 
     // Small limits keep a mutated image, stream or mesh from costing gigabytes.
-    private static readonly PdfEngine Engine = new(new PdfOptions().WithMaxImagePixels(1 << 16).WithMaxDecodedStreamLength(1 << 20).WithMaxMeshVertices(1 << 14).WithDisplayListCacheBudget(0));
+    private static readonly PdfEngine Engine = new(new PdfOptions().WithMaxImagePixels(1 << 16).WithMaxDecodedLength(1 << 20).WithMaxMeshVertices(1 << 14).WithDisplayListCacheBudget(0));
     private static readonly Content.ContentOptions Options = new();
 
     public static void Target(ReadOnlySpan<byte> data)

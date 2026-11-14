@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using Broadside.Diagnostics;
 using Broadside.Filters.Codecs;
 using Broadside.Images;
+using Broadside.Numerics;
 using Broadside.Parsing;
 
 namespace Broadside.Filters.Jpx;
@@ -147,10 +148,10 @@ internal static class JpxComposer
 {
     public static void Compose(JpxImageSize size, JpxOutputPlan plan, JpxPlane?[] planes, DecodedImageBuilder builder, DecodedImageBuilder? alpha, CodecReporter reporter)
     {
-        int width = builder.Width;
-        int height = builder.Height;
-        int channels = builder.Components;
-        int bits = builder.BitsPerComponent;
+        int width = builder.Geometry.Width;
+        int height = builder.Geometry.Height;
+        int channels = builder.Geometry.Components;
+        int bits = builder.Geometry.BitsPerComponent;
         int[] row = ArrayPool<int>.Shared.Rent(Math.Max(1, width * channels));
         int[][] columns = new int[planes.Length][];
         try
@@ -216,7 +217,7 @@ internal static class JpxComposer
 
             if (clamped)
             {
-                reporter.Report(DiagnosticCodes.JpxPaletteIndexOutOfRange, DiagnosticSeverity.Warning, "A JPEG 2000 component holds palette indices past the palette's last entry; they take the last entry.");
+                reporter.Report(JpxDiagnostics.JpxPaletteIndexOutOfRange, DiagnosticSeverity.Warning, "A JPEG 2000 component holds palette indices past the palette's last entry; they take the last entry.");
             }
         }
         finally
@@ -237,8 +238,8 @@ internal static class JpxComposer
     {
         if (alpha is not null && plan.Alpha is { } opacity && planes[opacity.Component] is { } alphaPlane)
         {
-            Span<int> alphaValues = row.AsSpan(0, alpha.Width);
-            clamped |= ReadChannel(alphaPlane, opacity, plan.Palette, columns[opacity.Component], y, size.OriginY, alpha.BitsPerComponent, alphaValues, 0, 1);
+            Span<int> alphaValues = row.AsSpan(0, alpha.Geometry.Width);
+            clamped |= ReadChannel(alphaPlane, opacity, plan.Palette, columns[opacity.Component], y, size.OriginY, alpha.Geometry.BitsPerComponent, alphaValues, 0, 1);
             Store(alpha.GetRow(y), alphaValues, alpha.StorageBits);
         }
     }
@@ -428,7 +429,7 @@ internal static class JpxComposer
         static double Encode(double v)
         {
             v = Math.Clamp(v, 0, 1);
-            return v <= 0.0031308 ? 12.92 * v : (1.055 * Math.Pow(v, 1 / 2.4)) - 0.055;
+            return v <= 0.0031308 ? 12.92 * v : (1.055 * DeterministicMath.Pow(v, 1 / 2.4)) - 0.055;
         }
     }
 

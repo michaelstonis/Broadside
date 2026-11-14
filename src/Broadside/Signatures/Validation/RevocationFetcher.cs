@@ -15,6 +15,7 @@ namespace Broadside.Signatures.Validation;
 /// RFC 6960 §4.1 (OCSPRequest, with the nonce of §4.4.1 per RFC 8954 §2.1) and Appendix A.1 (HTTP POST,
 /// <c>application/ocsp-request</c>); RFC 5280 §4.2.1.13 (CRL distribution points) and §4.2.2.1 (authority information access).
 /// Only <c>http</c> and <c>https</c> addresses are used.
+/// <para>ISO 32000-2 §12.8.1.</para>
 /// </remarks>
 internal sealed class RevocationFetcher(HttpClient client)
 {

@@ -29,6 +29,7 @@ namespace Broadside.Security;
 /// first <c>n</c> bytes in step c (which PDFBox writes) is tried; a revision 6 <c>Perms</c> that disagrees with <c>P</c> wins over it
 /// (it is the tamper-resistant copy, ISO/TS 32004 §5.1.2 NOTE 2).
 /// </para>
+/// <para>ISO/TS 32003 §5.1.</para>
 /// </remarks>
 public sealed class StandardSecurityHandler : ISecurityHandler
 {
@@ -106,7 +107,7 @@ public sealed class StandardSecurityHandler : ISecurityHandler
         if (revision == 5)
         {
             context.Report(
-                DiagnosticCodes.EncryptionRevisionInvalid,
+                SecurityDiagnostics.EncryptionRevisionInvalid,
                 DiagnosticSeverity.Warning,
                 "Revision 5 of the standard security handler shall not be used (Table 21: a deprecated Adobe extension); it is read as such.");
         }
@@ -209,7 +210,7 @@ public sealed class StandardSecurityHandler : ISecurityHandler
             if (TryLegacyPasswords(context, longer, password, revision, rawPermissions) is { } repaired)
             {
                 context.Report(
-                    DiagnosticCodes.EncryptionKeyLengthInvalid,
+                    SecurityDiagnostics.EncryptionKeyLengthInvalid,
                     DiagnosticSeverity.Warning,
                     "The encryption dictionary has no Length entry, so the key is 40 bits long (Table 20), but only a 128-bit key authenticates; it is read as 128 bits.");
                 return repaired;
@@ -349,7 +350,7 @@ public sealed class StandardSecurityHandler : ISecurityHandler
         if (!block.Slice(9, 3).SequenceEqual("adb"u8))
         {
             context.Report(
-                DiagnosticCodes.EncryptionPermissionsMismatch,
+                SecurityDiagnostics.EncryptionPermissionsMismatch,
                 DiagnosticSeverity.Warning,
                 "The Perms entry does not decrypt to a permissions block (bytes 9-11 are not \"adb\"); the P entry is used.");
             return rawPermissions;
@@ -359,7 +360,7 @@ public sealed class StandardSecurityHandler : ISecurityHandler
         if (permissions != rawPermissions)
         {
             context.Report(
-                DiagnosticCodes.EncryptionPermissionsMismatch,
+                SecurityDiagnostics.EncryptionPermissionsMismatch,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"The permissions in Perms ({permissions}) shall match the P entry ({rawPermissions}); the value in Perms is used."));
         }
@@ -367,7 +368,7 @@ public sealed class StandardSecurityHandler : ISecurityHandler
         if (block[8] != (encryptMetadata ? (byte)'T' : (byte)'F'))
         {
             context.Report(
-                DiagnosticCodes.EncryptionPermissionsMismatch,
+                SecurityDiagnostics.EncryptionPermissionsMismatch,
                 DiagnosticSeverity.Warning,
                 "Byte 8 of Perms does not match EncryptMetadata (Algorithm 13); EncryptMetadata is used.");
         }
@@ -397,14 +398,14 @@ public sealed class StandardSecurityHandler : ISecurityHandler
                 return bits.Value / 8;
             case >= 5 and <= 16:
                 context.Report(
-                    DiagnosticCodes.EncryptionKeyLengthInvalid,
+                    SecurityDiagnostics.EncryptionKeyLengthInvalid,
                     DiagnosticSeverity.Warning,
                     string.Create(CultureInfo.InvariantCulture, $"The Length entry shall be a bit count from 40 to 128; {bits} is read as a byte count."));
                 return bits.Value;
             default:
                 int clamped = Math.Clamp(bits.Value, 40, 128) / 8;
                 context.Report(
-                    DiagnosticCodes.EncryptionKeyLengthInvalid,
+                    SecurityDiagnostics.EncryptionKeyLengthInvalid,
                     DiagnosticSeverity.Warning,
                     string.Create(CultureInfo.InvariantCulture, $"The Length entry shall be a multiple of 8 from 40 to 128; {bits} is read as {clamped * 8}."));
                 return clamped;
@@ -415,7 +416,7 @@ public sealed class StandardSecurityHandler : ISecurityHandler
     {
         int version = revision switch { 2 => 1, 3 => 2, 4 => 4, 7 => 6, _ => 5 };
         context.Report(
-            DiagnosticCodes.EncryptDictionaryInvalid,
+            SecurityDiagnostics.EncryptDictionaryInvalid,
             DiagnosticSeverity.Warning,
             string.Create(CultureInfo.InvariantCulture, $"The encryption dictionary has no V entry; it is read as {version}, the value revision {revision} goes with."));
         return version;
@@ -435,7 +436,7 @@ public sealed class StandardSecurityHandler : ISecurityHandler
                 return unchecked((int)integer.Value);
             case CosReal real:
                 context.Report(
-                    DiagnosticCodes.EncryptDictionaryInvalid,
+                    SecurityDiagnostics.EncryptDictionaryInvalid,
                     DiagnosticSeverity.Warning,
                     $"The encryption dictionary's {key.Value} entry shall be an integer; the real number is truncated.");
                 return (int)real.Value;
@@ -464,7 +465,7 @@ public sealed class StandardSecurityHandler : ISecurityHandler
         }
 
         context.Report(
-            DiagnosticCodes.EncryptionEntryLengthInvalid,
+            SecurityDiagnostics.EncryptionEntryLengthInvalid,
             DiagnosticSeverity.Warning,
             string.Create(CultureInfo.InvariantCulture, $"The {key.Value} entry shall be {length} bytes long; it has {bytes.Length}, read as its first {length} bytes{(bytes.Length < length ? " padded with zeros" : string.Empty)}."));
         byte[] fixedLength = new byte[length];
@@ -522,7 +523,7 @@ public sealed class StandardSecurityHandler : ISecurityHandler
             }
 
             context.Report(
-                DiagnosticCodes.OwnerPasswordKeyVariant,
+                SecurityDiagnostics.OwnerPasswordKeyVariant,
                 DiagnosticSeverity.Warning,
                 "The O entry was computed by rehashing only the first n bytes in Algorithm 3 step c, not the whole digest; the owner password is accepted.");
             return variantKey;

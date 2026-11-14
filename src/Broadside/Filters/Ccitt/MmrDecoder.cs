@@ -33,6 +33,7 @@ internal readonly record struct MmrResult(MmrStatus Status, int Rows, int BytesC
 /// rows, EOFB optional when the byte count is known (running out of data while looking for it is normal), extension codes
 /// (uncompressed mode included: "must not be present in the MMR-encoded data") invalid, consumption rounded up to a byte so several
 /// bitmaps can be read back to back.
+/// <para>ISO 32000-2 §7.4.6 and §7.4.7.</para>
 /// </remarks>
 internal static class MmrDecoder
 {

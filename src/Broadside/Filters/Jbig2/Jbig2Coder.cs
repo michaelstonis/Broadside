@@ -7,6 +7,7 @@ namespace Broadside.Filters.Jbig2;
 /// Huffman tables (= 1). Every procedure a segment invokes (aggregate text regions inside a symbol dictionary, single refinements,
 /// collective bitmaps) takes the coder by reference, so they continue the same decoder and contexts (ITU-T T.88 §7.4.2.2, §7.4.3.2).
 /// </summary>
+/// <remarks>ISO 32000-2 §7.4.7.</remarks>
 internal ref struct Jbig2Coder
 {
     /// <summary>The marker bytes an MQ decoder may meet before a counting loop stops as over damaged data.</summary>

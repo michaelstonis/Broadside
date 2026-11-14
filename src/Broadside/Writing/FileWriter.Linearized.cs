@@ -9,6 +9,7 @@ using Broadside.Parsing;
 namespace Broadside.Writing;
 
 /// <summary>The linearized layout of a full save (ISO 32000-2 Annex F).</summary>
+/// <remarks>ISO 19005-2 §6.1.2 and §6.1.3. ISO 32000-2 §7.5.3, Annex C and Annex F.3.</remarks>
 internal sealed partial class FileWriter
 {
     /// <summary>The width every offset in the linearization parameter dictionary and the first-page trailer is padded to.</summary>

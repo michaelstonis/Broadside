@@ -1,0 +1,26 @@
+﻿Appendix D, starts outside the program
+  Warning FontCffIndexOutOfRange: The CFF Name INDEX starts outside the program (Adobe Technical Note #5176 §5); it is read as empty.
+  Error FontProgramInvalid: The CFF program has no Top DICT (Adobe Technical Note #5176 §8); it is not usable.
+Appendix D, count larger than the program
+  Warning FontCffIndexTruncated: The CFF Name INDEX is cut short by the end of the program (Adobe Technical Note #5176 §5); the objects whose offsets are readable are used.
+  Warning FontCffIndexOutOfRange: The CFF Top DICT INDEX starts outside the program (Adobe Technical Note #5176 §5); it is read as empty.
+  Error FontProgramInvalid: The CFF program has no Top DICT (Adobe Technical Note #5176 §8); it is not usable.
+Appendix D, offSize 5
+  Warning FontCffIndexOffSizeInvalid: The CFF Name INDEX has an offSize outside 1 to 4 (Adobe Technical Note #5176 §5, Table 7); it is read as empty.
+  Warning FontCffIndexOutOfRange: The CFF Top DICT INDEX starts outside the program (Adobe Technical Note #5176 §5); it is read as empty.
+  Error FontProgramInvalid: The CFF program has no Top DICT (Adobe Technical Note #5176 §8); it is not usable.
+Appendix D, first offset 2
+  Warning FontCffIndexOffsetsInvalid: The CFF Name INDEX has offsets that do not start at 1, decrease or point past the program (Adobe Technical Note #5176 §5); each object is clamped into the data.
+text-cff-embedded.pdf, starts outside the program
+  Warning FontCffIndexOutOfRange: The CFF Name INDEX starts outside the program (Adobe Technical Note #5176 §5); it is read as empty.
+  Error FontProgramInvalid: The CFF program has no Top DICT (Adobe Technical Note #5176 §8); it is not usable.
+text-cff-embedded.pdf, count larger than the program
+  Warning FontCffIndexTruncated: The CFF Name INDEX is cut short by the end of the program (Adobe Technical Note #5176 §5); the objects whose offsets are readable are used.
+  Warning FontCffIndexOutOfRange: The CFF Top DICT INDEX starts outside the program (Adobe Technical Note #5176 §5); it is read as empty.
+  Error FontProgramInvalid: The CFF program has no Top DICT (Adobe Technical Note #5176 §8); it is not usable.
+text-cff-embedded.pdf, offSize 5
+  Warning FontCffIndexOffSizeInvalid: The CFF Name INDEX has an offSize outside 1 to 4 (Adobe Technical Note #5176 §5, Table 7); it is read as empty.
+  Warning FontCffIndexOutOfRange: The CFF Top DICT INDEX starts outside the program (Adobe Technical Note #5176 §5); it is read as empty.
+  Error FontProgramInvalid: The CFF program has no Top DICT (Adobe Technical Note #5176 §8); it is not usable.
+text-cff-embedded.pdf, first offset 2
+  Warning FontCffIndexOffsetsInvalid: The CFF Name INDEX has offsets that do not start at 1, decrease or point past the program (Adobe Technical Note #5176 §5); each object is clamped into the data.

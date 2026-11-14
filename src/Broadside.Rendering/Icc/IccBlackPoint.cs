@@ -38,6 +38,8 @@ namespace Broadside.Rendering.Icc;
 /// Little CMS 2.19.1 omits the a* = b* = 0 step for the darkest-colorant case (restored after that release); it is applied here, as
 /// the method requires a neutral black point.
 /// </para>
+/// <para>ISO 32000-2 §10.3.</para>
+/// <para>PDF 2.0 Application Note 001 §BPC-1.</para>
 /// </remarks>
 internal static class IccBlackPoint
 {

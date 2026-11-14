@@ -6,7 +6,7 @@ namespace Broadside.Filters.Dct;
 /// One image component of a frame: its frame-header parameters, geometry, the tables bound to it, and the per-image buffers it
 /// decodes into (quantized coefficients, then IDCT samples).
 /// </summary>
-/// <remarks>ITU-T T.81 §A.1.1 (component dimensions), §A.2 (MCUs and block order), §B.2.2 Table B.2 (Ci, Hi, Vi, Tqi).</remarks>
+/// <remarks>ITU-T T.81 §A.1.1 (component dimensions), §A.2 (MCUs and block order), §B.2.2 Table B.2 (Ci, Hi, Vi, Tqi). ISO 32000-2 §7.4.8.</remarks>
 internal sealed class JpegComponent
 {
     /// <summary>The quantization values latched at the first scan of the component, natural order.</summary>

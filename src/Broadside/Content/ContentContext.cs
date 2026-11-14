@@ -13,7 +13,10 @@ namespace Broadside.Content;
 /// The run a processor is called from: the current graphics state, what is being interpreted, and how to resolve clip handles.
 /// One instance serves a whole run; it is valid only during the run's callbacks.
 /// </summary>
-/// <remarks>ISO 32000-2 §7.8.2 (content streams), §7.8.3 (resources), §8.4 (graphics state), §8.3.2 (coordinate spaces).</remarks>
+/// <remarks>
+/// <para>ISO 32000-2 §7.8.2 (content streams), §7.8.3 (resources), §8.4 (graphics state), §8.3.2 (coordinate spaces).</para>
+/// <para>ISO 32000-2 §8.5.1, §9.4.1 and §11.5.</para>
+/// </remarks>
 public sealed class ContentContext
 {
     private readonly ContentInterpreter _interpreter;
@@ -355,7 +358,7 @@ public sealed class ContentContext
         if (lookup == NamedLookup.Missing)
         {
             Document.DiagnosticSink.Report(
-                DiagnosticCodes.ContentColorSpaceMissing,
+                ColorDiagnostics.ContentColorSpaceMissing,
                 DiagnosticSeverity.Warning,
                 $"The colour space /{name.Value} is not in the resources' ColorSpace dictionary; DeviceGray is used.",
                 offset: null,
@@ -364,7 +367,7 @@ public sealed class ContentContext
         else if (lookup == NamedLookup.Abbreviation)
         {
             Document.DiagnosticSink.Report(
-                DiagnosticCodes.ContentColorSpaceAbbreviated,
+                ColorDiagnostics.ContentColorSpaceAbbreviated,
                 DiagnosticSeverity.Warning,
                 $"The colour space /{name.Value} is an inline image abbreviation used outside an inline image; it is read as the device space.",
                 offset: null,

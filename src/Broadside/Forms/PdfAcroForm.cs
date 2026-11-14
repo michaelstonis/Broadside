@@ -64,7 +64,7 @@ public sealed class PdfAcroForm
                 case CosBoolean value:
                     return value.Value;
                 default:
-                    Report(DiagnosticCodes.AcroFormEntryInvalid, "The interactive form's NeedAppearances entry shall be a boolean; it reads as false.");
+                    Report(FormDiagnostics.AcroFormEntryInvalid, "The interactive form's NeedAppearances entry shall be a boolean; it reads as false.");
                     return false;
             }
         }
@@ -83,12 +83,12 @@ public sealed class PdfAcroForm
                 case CosInteger { Value: >= 0 and <= uint.MaxValue } integer:
                     if ((integer.Value & ~3L) != 0)
                     {
-                        Report(DiagnosticCodes.AcroFormEntryInvalid, "The interactive form's SigFlags sets bits Table 225 does not define, which shall be 0; they are kept.");
+                        Report(FormDiagnostics.AcroFormEntryInvalid, "The interactive form's SigFlags sets bits Table 225 does not define, which shall be 0; they are kept.");
                     }
 
                     return (PdfSignatureFlags)(int)(uint)integer.Value;
                 default:
-                    Report(DiagnosticCodes.AcroFormEntryInvalid, "The interactive form's SigFlags entry shall be an unsigned integer; it reads as 0.");
+                    Report(FormDiagnostics.AcroFormEntryInvalid, "The interactive form's SigFlags entry shall be an unsigned integer; it reads as 0.");
                     return PdfSignatureFlags.None;
             }
         }
@@ -110,7 +110,7 @@ public sealed class PdfAcroForm
 
             if (value is not CosArray array)
             {
-                Report(DiagnosticCodes.AcroFormEntryInvalid, "The interactive form's CO entry shall be an array of field references; it is ignored.");
+                Report(FormDiagnostics.AcroFormEntryInvalid, "The interactive form's CO entry shall be an array of field references; it is ignored.");
                 return [];
             }
 
@@ -123,7 +123,7 @@ public sealed class PdfAcroForm
                 }
                 else
                 {
-                    Report(DiagnosticCodes.AcroFormEntryInvalid, "An element of the interactive form's CO array is not a field of the form; it is skipped.");
+                    Report(FormDiagnostics.AcroFormEntryInvalid, "An element of the interactive form's CO array is not a field of the form; it is skipped.");
                 }
             }
 
@@ -144,7 +144,7 @@ public sealed class PdfAcroForm
                 case CosDictionary resources:
                     return resources;
                 default:
-                    Report(DiagnosticCodes.AcroFormEntryInvalid, "The interactive form's DR entry shall be a resource dictionary; it is ignored.");
+                    Report(FormDiagnostics.AcroFormEntryInvalid, "The interactive form's DR entry shall be a resource dictionary; it is ignored.");
                     return null;
             }
         }
@@ -163,7 +163,7 @@ public sealed class PdfAcroForm
                 case CosString value:
                     return System.Text.Encoding.Latin1.GetString(value.Bytes);
                 default:
-                    Report(DiagnosticCodes.AcroFormEntryInvalid, "The interactive form's DA entry shall be a string; it is ignored.");
+                    Report(FormDiagnostics.AcroFormEntryInvalid, "The interactive form's DA entry shall be a string; it is ignored.");
                     return null;
             }
         }
@@ -182,7 +182,7 @@ public sealed class PdfAcroForm
                 case CosInteger { Value: >= 0 and <= 2 } value:
                     return (PdfTextJustification)(int)value.Value;
                 default:
-                    Report(DiagnosticCodes.AcroFormEntryInvalid, "The interactive form's Q entry shall be 0, 1 or 2; it reads as 0 (left).");
+                    Report(FormDiagnostics.AcroFormEntryInvalid, "The interactive form's Q entry shall be 0, 1 or 2; it reads as 0 (left).");
                     return PdfTextJustification.Left;
             }
         }
@@ -422,7 +422,7 @@ public sealed class PdfAcroForm
         PdfTerminalField? outside = tree.FindOutside(this, widget.Dictionary, widget.Reference);
 
         widget.Report(
-            DiagnosticCodes.WidgetNotInFieldTree,
+            FormDiagnostics.WidgetNotInFieldTree,
             outside is null
                 ? "The widget annotation belongs to no terminal field: neither it nor a dictionary up its Parent chain is a terminal field with a partial name (T)."
 
@@ -440,14 +440,14 @@ public sealed class PdfAcroForm
         if (Xfa is not null)
         {
             Report(
-                DiagnosticCodes.XfaDataNotUpdated,
+                FormDiagnostics.XfaDataNotUpdated,
                 $"The field {fieldName} was filled in the AcroForm only: the form's XFA resource (Annex K, deprecated in PDF 2.0) is kept unchanged, so its datasets still hold the old value and an XFA processor shows that one.",
                 DiagnosticSeverity.Information);
         }
     }
 
     /// <summary>Reports a deviation in the interactive form dictionary.</summary>
-    internal void Report(string code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
+    internal void Report(DiagnosticCode code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
         Document.DiagnosticSink.Report(code, severity, message, objectReference: Reference ?? Document.CatalogReference);
 
     private static List<PdfChoiceOption> Choices(IEnumerable<PdfChoiceOption> choices)

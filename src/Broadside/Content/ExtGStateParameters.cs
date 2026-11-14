@@ -24,6 +24,7 @@ namespace Broadside.Content;
 /// unknown blend mode is Normal and the first recognised name of a blend-mode array is used; a malformed soft mask, function,
 /// font entry or other value leaves its parameter unchanged.
 /// </para>
+/// <para>ISO 32000-2 §8.6.7, §10.5, §10.6, §11.3.5, §11.6.3 and §11.6.5.1.</para>
 /// </remarks>
 internal sealed class ExtGStateParameters
 {

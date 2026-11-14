@@ -185,17 +185,17 @@ public sealed class LongTermValidationTests
     {
         using Pki pki = new();
         byte[] signed = pki.Sign(Corpus.Bytes("empty-page.pdf"));
-        using PdfDocument offline = PdfDocument.Open(signed);
+        using PdfDocument offline = await PdfDocument.OpenAsync(signed, TestContext.Current.CancellationToken);
         using var withoutClient = new MemoryStream();
         await offline.AddValidationDataAsync(withoutClient, pki.Offline().WithOcspResponses(pki.TimestampRevocation.Ocsp(TestTimestampAuthority.Unit)), TestContext.Current.CancellationToken);
         Assert.Empty(pki.Network.Requests);
 
-        using PdfDocument document = PdfDocument.Open(signed);
+        using PdfDocument document = await PdfDocument.OpenAsync(signed, TestContext.Current.CancellationToken);
         using var output = new MemoryStream();
         await document.AddValidationDataAsync(output, pki.Collecting(), TestContext.Current.CancellationToken);
 
         Assert.NotEmpty(pki.Network.Requests);
-        using PdfDocument reopened = PdfDocument.Open(output.ToArray());
+        using PdfDocument reopened = await PdfDocument.OpenAsync(output.ToArray(), TestContext.Current.CancellationToken);
         Assert.Equal(PdfSignatureStatus.Valid, Assert.Single(await reopened.ValidateSignaturesAsync(pki.Offline(), TestContext.Current.CancellationToken)).Status);
     }
 

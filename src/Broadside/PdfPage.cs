@@ -20,6 +20,7 @@ namespace Broadside;
 /// page tree root that the page was found through. A value that is missing or malformed reads as the default the specification
 /// gives; the reader records a diagnostic for it when it first walks the page tree.
 /// </para>
+/// <para>ISO 32000-2 §8.10.3.</para>
 /// </remarks>
 public sealed partial class PdfPage
 {
@@ -184,8 +185,8 @@ public sealed partial class PdfPage
             : null;
     }
     /// <summary>Gets the files associated with the page (<c>AF</c>).</summary>
-    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31 (PDF 2.0), and §14.13.4. Read on every call; see <see cref="PdfDocument.ReadAssociatedFiles"/>.</remarks>
-    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => _document.ReadAssociatedFiles(Dictionary, Reference);
+    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31 (PDF 2.0), and §14.13.4. Read on every call, as <see cref="PdfDocument.AssociatedFiles"/> is.</remarks>
+    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => AssociatedFileReader.ReadOwner(_document, Dictionary, Reference);
 
     /// <summary>Gets the page's annotations, in the order of its <c>Annots</c> array, each typed by its subtype.</summary>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the <c>Annots</c> array.</exception>

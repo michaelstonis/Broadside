@@ -7,6 +7,7 @@ namespace Broadside.Filters.Jbig2;
 /// <remarks>
 /// Past the end it reads 0 bits and counts them, so a caller decoding a count of items from damaged data can stop
 /// (<see cref="IsExhausted"/>). Allocates nothing.
+/// <para>ISO 32000-2 §7.4.7.</para>
 /// </remarks>
 internal ref struct Jbig2BitReader
 {

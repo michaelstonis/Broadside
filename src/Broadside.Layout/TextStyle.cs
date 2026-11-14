@@ -11,6 +11,7 @@ namespace Broadside.Layout.Flow;
 /// ISO 32000-2 §9.3 (text state parameters: <c>Tf</c> selects the font and size) and §8.6.8 (the fill colour, set with the colour
 /// operators, paints the glyphs of the default text rendering mode). Underline and strike-through are not text state: they are
 /// filled rectangles (§8.5.3.3) drawn in the run's colour after the line's text object, as wide as the run on that line.
+/// <para>ISO 32000-2 §9.4.3.</para>
 /// </remarks>
 public sealed class TextStyle
 {

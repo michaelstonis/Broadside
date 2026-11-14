@@ -2,13 +2,13 @@ using Broadside.Images;
 
 namespace Broadside.Filters;
 
-/// <summary>An image codestream's header: its size, components and precision as the codestream declares them.</summary>
-/// <param name="Width">The number of samples in each row.</param>
-/// <param name="Height">The number of rows.</param>
-/// <param name="Components">The number of colour components (without an opacity channel).</param>
-/// <param name="BitsPerComponent">The precision of the components; the greatest when they differ.</param>
-/// <remarks>ISO 32000-2 §7.4.9 and §8.9.2. Returned by <see cref="IImageFilter.TryReadHeader"/>.</remarks>
-public readonly record struct ImageHeader(int Width, int Height, int Components, int BitsPerComponent)
+/// <summary>An image codestream's header: its geometry as the codestream declares it, and what else it says about the samples.</summary>
+/// <param name="Geometry">
+/// The size, components and precision the codestream declares: the number of samples in each row and of rows, the number of color
+/// components (without an opacity channel), and the precision of the components (the greatest when they differ).
+/// </param>
+/// <remarks>ISO 32000-2 §7.4.9 and §8.9.2. Returned by <see cref="IImageFilter.TryReadHeader"/>. Also §8.9.5.1.</remarks>
+public readonly record struct ImageHeader(ImageGeometry Geometry)
 {
     /// <summary>Gets a value indicating whether the codestream also has an opacity channel.</summary>
     /// <remarks>ISO 32000-2 §7.4.9 (<c>SMaskInData</c>).</remarks>

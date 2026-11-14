@@ -60,7 +60,7 @@ internal sealed class Jbig2SegmentList : IDisposable
             sequential = (flags & 1) != 0;
             position = Math.Min(data.Length, 9 + ((flags & 2) == 0 ? 4 : 0));
             reporter.Report(
-                DiagnosticCodes.Jbig2FileHeaderPresent,
+                Jbig2Diagnostics.Jbig2FileHeaderPresent,
                 DiagnosticSeverity.Warning,
                 $"The JBIG2 {source} stream starts with a JBIG2 file header (ITU-T T.88 D.4), which ISO 32000-2 §7.4.7 does not allow; it is skipped{(sequential ? string.Empty : " and the segments are read in the random-access organisation it announces")}.");
         }
@@ -191,7 +191,7 @@ internal sealed class Jbig2SegmentList : IDisposable
             else
             {
                 reporter.Report(
-                    DiagnosticCodes.Jbig2SegmentTruncated,
+                    Jbig2Diagnostics.Jbig2SegmentTruncated,
                     DiagnosticSeverity.Error,
                     $"The generic region segment at {Describe(source, headerStart)} has an unknown length and no end marker with a row count (ITU-T T.88 §7.4.6.4); its data runs to the end of the stream.");
                 length = available;
@@ -201,7 +201,7 @@ internal sealed class Jbig2SegmentList : IDisposable
         if (length > available)
         {
             reporter.Report(
-                DiagnosticCodes.Jbig2SegmentTruncated,
+                Jbig2Diagnostics.Jbig2SegmentTruncated,
                 DiagnosticSeverity.Error,
                 string.Create(CultureInfo.InvariantCulture, $"The segment {segment.Number} at {Describe(source, headerStart)} declares {length} data bytes but only {available} remain; what is present is decoded."));
             length = available;
@@ -280,7 +280,7 @@ internal sealed class Jbig2SegmentList : IDisposable
         else
         {
             reporter.Report(
-                DiagnosticCodes.Jbig2SegmentHeaderInvalid,
+                Jbig2Diagnostics.Jbig2SegmentHeaderInvalid,
                 DiagnosticSeverity.Error,
                 string.Create(CultureInfo.InvariantCulture, $"The segment header at {Describe(source, start)} has the referred-to segment count {countField}, which ITU-T T.88 §7.2.4 does not allow; it and the rest of the stream are ignored."));
             return false;
@@ -313,7 +313,7 @@ internal sealed class Jbig2SegmentList : IDisposable
         if (length == uint.MaxValue && type != Jbig2SegmentType.ImmediateGenericRegion)
         {
             reporter.Report(
-                DiagnosticCodes.Jbig2SegmentHeaderInvalid,
+                Jbig2Diagnostics.Jbig2SegmentHeaderInvalid,
                 DiagnosticSeverity.Error,
                 string.Create(CultureInfo.InvariantCulture, $"The segment {number} at {Describe(source, start)} has type {type} and an unknown data length, which ITU-T T.88 §7.2.7 allows only for immediate generic regions; it and the rest of the stream are ignored."));
             _referredCount = referredStart;
@@ -327,7 +327,7 @@ internal sealed class Jbig2SegmentList : IDisposable
     private static bool Truncated(Jbig2Reporter reporter, string source, int start)
     {
         reporter.Report(
-            DiagnosticCodes.Jbig2SegmentTruncated,
+            Jbig2Diagnostics.Jbig2SegmentTruncated,
             DiagnosticSeverity.Error,
             $"The segment header at {Describe(source, start)} runs past the end of the stream; the bytes from there are ignored.");
         return false;

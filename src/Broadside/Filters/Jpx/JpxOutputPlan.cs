@@ -81,17 +81,17 @@ internal sealed class JpxOutputPlan
     public static JpxOutputPlan Create(JpxImageSize size, JpxFileHeader file, ImageFilterContext context, CodecReporter reporter)
     {
         JpxComponentInfo[] components = size.Components;
-        if (context.IsStencil || IsIndexed(context))
+        if (context.IsImageMask || IsIndexed(context))
         {
             return Finish([Direct(components, 0)], null, false, ImageColorModel.Unknown, null, JpxColorConversion.None, [], null, components.Length);
         }
 
         List<JpxChannelSource> channels = Channels(components, file, reporter);
-        int smaskInData = SoftMaskInData(context);
-        bool wantsAlpha = context.WantsAlpha || smaskInData != 0;
+        PdfSoftMaskInData smaskInData = SoftMaskInData(context);
+        bool wantsAlpha = smaskInData != PdfSoftMaskInData.None;
         List<int> colorOrder;
         int alphaIndex = -1;
-        bool premultiplied = smaskInData == 2;
+        bool premultiplied = smaskInData == PdfSoftMaskInData.PremultipliedAlpha;
         if (file.Channels is { } definitions)
         {
             (colorOrder, alphaIndex, bool typePremultiplied) = Classify(definitions, channels.Count, reporter);
@@ -102,7 +102,7 @@ internal sealed class JpxOutputPlan
             colorOrder = [.. Enumerable.Range(0, channels.Count)];
         }
 
-        int requested = context.ColorComponents;
+        int requested = context.Geometry.Components;
         if (requested > 0)
         {
             if (file.Channels is null && wantsAlpha && channels.Count > requested)
@@ -119,7 +119,7 @@ internal sealed class JpxOutputPlan
             if (colorOrder.Count < requested)
             {
                 reporter.Report(
-                    DiagnosticCodes.JpxChannelCountMismatch,
+                    JpxDiagnostics.JpxChannelCountMismatch,
                     DiagnosticSeverity.Warning,
                     $"The JPEG 2000 data has {colorOrder.Count} colour channels where the colour space needs {requested}; the missing ones are zero.");
             }
@@ -154,7 +154,7 @@ internal sealed class JpxOutputPlan
         if (skipped)
         {
             reporter.Report(
-                DiagnosticCodes.JpxColorSpecificationUnsupported,
+                JpxDiagnostics.JpxColorSpecificationUnsupported,
                 DiagnosticSeverity.Information,
                 "A JPEG 2000 colour specification is not supported; the next one, or the channel count, decides the colour space (ISO 32000-2 §7.4.9).");
         }
@@ -165,7 +165,7 @@ internal sealed class JpxOutputPlan
             // As pdf.js: three components with sub-sampled chroma and no colour specification are YCbCr.
             conversion = JpxColorConversion.Ycc;
             reporter.Report(
-                DiagnosticCodes.JpxColorSpecificationUnsupported,
+                JpxDiagnostics.JpxColorSpecificationUnsupported,
                 DiagnosticSeverity.Information,
                 "A JPEG 2000 image has no colour specification and sub-sampled second and third components; it is read as YCbCr.");
         }
@@ -243,7 +243,7 @@ internal sealed class JpxOutputPlan
             {
                 if (entry.Component >= components.Length || (entry.Type == 1 && entry.Column >= palette.Columns))
                 {
-                    reporter.Report(DiagnosticCodes.JpxBoxInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 component mapping names a component or palette column that does not exist; that channel is dropped.");
+                    reporter.Report(JpxDiagnostics.JpxBoxInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 component mapping names a component or palette column that does not exist; that channel is dropped.");
                     continue;
                 }
 
@@ -259,7 +259,7 @@ internal sealed class JpxOutputPlan
         }
         else if (file.Palette is not null || file.Mapping is not null)
         {
-            reporter.Report(DiagnosticCodes.JpxBoxInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 palette needs a component mapping box and the reverse (I.5.3.4); the components are used directly.");
+            reporter.Report(JpxDiagnostics.JpxBoxInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 palette needs a component mapping box and the reverse (I.5.3.4); the components are used directly.");
         }
 
         for (int c = 0; c < components.Length; c++)
@@ -309,7 +309,7 @@ internal sealed class JpxOutputPlan
         if (ambiguous)
         {
             reporter.Report(
-                DiagnosticCodes.JpxOpacityChannelAmbiguous,
+                JpxDiagnostics.JpxOpacityChannelAmbiguous,
                 DiagnosticSeverity.Warning,
                 "A JPEG 2000 image has more than one opacity channel, or one for a single colour; PDF uses one opacity channel for all colours, the first (ISO 32000-2 §7.4.9).");
         }
@@ -392,7 +392,7 @@ internal sealed class JpxOutputPlan
                 return (ImageColorModel.Cmyk, JpxColorConversion.Ycck, null);
             default:
                 reporter.Report(
-                    DiagnosticCodes.JpxColorSpecificationUnsupported,
+                    JpxDiagnostics.JpxColorSpecificationUnsupported,
                     DiagnosticSeverity.Information,
                     $"The JPEG 2000 enumerated colour space {specification.Enumerated} is read as RGB, its closest approximation (ISO 32000-2 §7.4.9).");
                 return (ImageColorModel.Rgb, JpxColorConversion.None, null);
@@ -410,9 +410,11 @@ internal sealed class JpxOutputPlan
         return context.Filter.Resolve(value) is CosArray { Count: > 0 } array && context.Filter.Resolve(array[0]) is CosName { Value: "Indexed" or "I" };
     }
 
-    private static int SoftMaskInData(ImageFilterContext context) =>
-        context.Filter.StreamDictionary is { } dictionary && dictionary.TryGetValue(SoftMaskInDataKey, out CosObject? value)
+    // The context's value when it has one; a standalone context may carry only the dictionary.
+    private static PdfSoftMaskInData SoftMaskInData(ImageFilterContext context) =>
+        context.SoftMaskInData != PdfSoftMaskInData.None ? context.SoftMaskInData
+        : context.Filter.StreamDictionary is { } dictionary && dictionary.TryGetValue(SoftMaskInDataKey, out CosObject? value)
             && context.Filter.Resolve(value) is CosInteger { Value: 1 or 2 } number
-            ? (int)number.Value
-            : 0;
+            ? (PdfSoftMaskInData)(int)number.Value
+            : PdfSoftMaskInData.None;
 }

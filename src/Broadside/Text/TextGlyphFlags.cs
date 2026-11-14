@@ -1,7 +1,7 @@
 namespace Broadside.Text;
 
 /// <summary>What sets an extracted glyph apart from ordinary visible page text.</summary>
-/// <remarks>ISO 32000-2 §9.3.6, §8.11.3.1, §14.8.2.2 and §14.9.4.</remarks>
+/// <remarks>ISO 32000-2 §9.3.6, §8.11.3.1, §14.8.2.2 and §14.9.4. Also §14.8.2.4.</remarks>
 [Flags]
 public enum TextGlyphFlags
 {

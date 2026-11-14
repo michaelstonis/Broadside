@@ -10,6 +10,7 @@ namespace Broadside.Filters.Dct;
 /// ITU-T T.81 §B.1.1.5 (byte stuffing), §F.2.2.5 (Figure F.18, NEXTBIT, which detects markers), §F.2.2.1 and §F.2.2.4 (Figures F.12
 /// and F.17: RECEIVE and EXTEND), §F.2.2.3 (Figure F.16: DECODE). Feeding zeros at a marker is libjpeg's behaviour; a decoder
 /// that consumed one of them has run out of data (<see cref="Overread"/>).
+/// <para>ISO 32000-2 §7.4.8.</para>
 /// </remarks>
 internal ref struct JpegBitReader
 {

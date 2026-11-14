@@ -14,19 +14,19 @@ public sealed class PdfPolyLineAnnotation : PdfMarkupAnnotation
 
     /// <summary>Gets the vertices in default user space (<c>Vertices</c>); empty when absent. Ignored when <see cref="Path"/> is present.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.9, Table 181: required unless <c>Path</c> is present, and then it shall not be present.</remarks>
-    public IReadOnlyList<PathPoint> Vertices => ReadPoints(AnnotationNames.Vertices, required: !Dictionary.ContainsKey(AnnotationNames.Path), "Table 181");
+    public IReadOnlyList<PathPoint> Vertices => this.GetPointPairs(AnnotationNames.Vertices, required: !Dictionary.ContainsKey(AnnotationNames.Path), "Table 181");
 
     /// <summary>Gets the path (<c>Path</c>, PDF 2.0): arrays of 2 numbers (the start point, then straight segments) or 6 (a cubic Bézier curve's two control points and end point); <see langword="null"/> when absent.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.9, Table 181.</remarks>
-    public IReadOnlyList<IReadOnlyList<double>>? Path => ReadPath();
+    public IReadOnlyList<IReadOnlyList<double>>? Path => this.GetCurvePath();
 
     /// <summary>Gets the line ending at the first point (<c>LE</c>, PDF 1.4); default none.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.9, Table 181, and Table 179.</remarks>
-    public PdfLineEnding StartLineEnding => ReadLineEndings().Start;
+    public PdfLineEnding StartLineEnding => this.GetLineEndings().Start;
 
     /// <summary>Gets the line ending at the last point (<c>LE</c>, PDF 1.4); default none.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.9, Table 181, and Table 179.</remarks>
-    public PdfLineEnding EndLineEnding => ReadLineEndings().End;
+    public PdfLineEnding EndLineEnding => this.GetLineEndings().End;
 
     /// <summary>Gets or sets the interior colour (<c>IC</c>, PDF 1.4), or <see langword="null"/> for none; setting <see langword="null"/> removes it, and the appearance is kept until <see cref="PdfAnnotation.RegenerateAppearance"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.9, Table 181: it fills the line endings.</remarks>
