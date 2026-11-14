@@ -1,6 +1,7 @@
 using Broadside.Caching;
 using Broadside.Diagnostics;
 using Broadside.Fonts;
+using Broadside.Fonts.Resolution;
 using Broadside.Objects;
 
 namespace Broadside;
@@ -132,8 +133,8 @@ public sealed partial class PdfDocument
 
     /// <summary>
     /// Returns a predefined CMap by name (§9.7.5.2, Table 116): Identity-H and Identity-V are built in; any other comes from the
-    /// engine's font resolvers (issue #59, <see cref="FontResourceKind.CMap"/>), parsed once per document, with the CMap its
-    /// <c>usecmap</c> names found the same way.
+    /// engine's font resolvers (issue #59, <see cref="FontResourceKind.CMap"/>), parsed once per engine (shared by every document it opens),
+    /// with the CMap its <c>usecmap</c> names found the same way.
     /// </summary>
     /// <param name="name">The CMap's name.</param>
     /// <param name="depth">How many CMaps use this one through <c>usecmap</c> on the way here.</param>
@@ -165,18 +166,19 @@ public sealed partial class PdfDocument
             });
     }
 
-    /// <summary>Reads a predefined CMap a font resolver supplies (TN 5014 text syntax) and the CMap it uses.</summary>
+    /// <summary>
+    /// Takes a predefined CMap a font resolver supplies (TN 5014 text syntax) and the CMap it uses from the engine's cache, where it
+    /// is parsed once for every document, and records here what its parse found.
+    /// </summary>
     private CMap? LoadPredefinedCMap(string name, int depth)
     {
-        if (!FontResolvers.TryResolveResource(FontResourceKind.CMap, name, out ReadOnlyMemory<byte> data))
+        SharedFontResource<CMap> resource = FontResolvers.Resources.GetCMap(FontResolvers, name, depth);
+        foreach (Diagnostic diagnostic in resource.Diagnostics)
         {
-            return null;
+            _diagnostics.Report(diagnostic.Code, diagnostic.Severity, diagnostic.Message);
         }
 
-        var context = new CMapContext(_diagnostics, objectReference: null);
-        CMapFile file = Fonts.CMapParser.Parse(data.Span, context);
-        CMap? parent = file.UseCMapName is { } used ? FindPredefinedCMap(used, context, depth) : null;
-        return CMap.Create(file, parent, file.WMode ?? 0, context);
+        return resource.Value;
     }
 
     /// <summary>
