@@ -265,6 +265,7 @@ Jpx	JpxPocInvalid	Warning	ITU-T T.800 Annex I, Annex A
 Jpx	JpxPpmInvalid	Warning	ITU-T T.800 Annex I, Annex A
 Jpx	JpxCodestreamRaw	Information	ITU-T T.800 Annex I, Annex A
 Jpx	JpxCodestreamsIgnored	Warning	ITU-T T.800 Annex I, Annex A
+Jpx	JpxFragmentExternal	Error	ISO 32000-2 §7.4.9; ISO/IEC 15444-2 fragment table box
 Jpx	JpxHighThroughputUnsupported	Error	ITU-T T.800 Annex I, Annex A
 Jpx	JpxPacketHeaderTruncated	Warning	ITU-T T.800 Annex B, Annex D, Annex G
 Jpx	JpxEphMissing	Warning	ITU-T T.800 Annex B, Annex D, Annex G

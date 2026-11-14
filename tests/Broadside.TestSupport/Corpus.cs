@@ -136,6 +136,7 @@ public static class Corpus
         "jpx-lossless.pdf",
         "jpx-subsampled.pdf",
         "jpx-smask-in-data.pdf",
+        "jpx-fragmented.pdf",
         "inline-image-filters.pdf",
         "inline-image-ei-in-data.pdf",
         "dct-baseline.pdf",

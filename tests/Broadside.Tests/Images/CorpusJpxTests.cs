@@ -27,6 +27,21 @@ public sealed class CorpusJpxTests
     }
 
     [Fact]
+    public void A_codestream_stored_in_fragments_decodes_to_the_samples_of_the_unfragmented_image()
+    {
+        // jpx-fragmented.pdf: the codestream of jpx-lossless.pdf in three pieces held out of order, listed by a fragment table box
+        // that is the file's only codestream (ISO 32000-2 §7.4.9; ISO/IEC 15444-2 fragment table box).
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("jpx-fragmented.pdf"));
+        PdfImage image = document.Pages[0].GetImage("Im0")!;
+
+        using DecodedImage decoded = image.Decode()!;
+
+        Assert.Equal((17, 13, 3, 8), (decoded.Geometry.Width, decoded.Geometry.Height, decoded.Geometry.Components, decoded.Geometry.BitsPerComponent));
+        Assert.Equal(Source(17, 13), decoded.Samples.ToArray());
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
     public void The_stream_decodes_to_the_same_samples_as_bytes()
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Path("jpx-lossless.pdf"));

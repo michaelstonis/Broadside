@@ -5377,6 +5377,7 @@ static Broadside.Diagnostics.JpxDiagnostics.JpxPocInvalid.get -> Broadside.Diagn
 static Broadside.Diagnostics.JpxDiagnostics.JpxPpmInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.JpxDiagnostics.JpxCodestreamRaw.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.JpxDiagnostics.JpxCodestreamsIgnored.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxFragmentExternal.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.JpxDiagnostics.JpxHighThroughputUnsupported.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.JpxDiagnostics.JpxPacketHeaderTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.JpxDiagnostics.JpxEphMissing.get -> Broadside.Diagnostics.DiagnosticCode!

@@ -31,21 +31,31 @@ internal static class JpxCodestreamReader
 
     private const uint ContiguousCodestreamBox = 0x6A703263; // 'jp2c'
     private const uint FragmentTableBox = 0x6674626C; // 'ftbl'
+    private const uint FragmentListBox = 0x666C7374; // 'flst'
+    private const int FragmentEntrySize = 14; // OFF (8) + LEN (4) + DR (2)
     private const uint HighThroughputCapability = 0x0002_0000; // Pcap15
     private const int HighThroughputBlockStyle = 0x40;
     private const int MaxTiles = 65535;
 
     private static ReadOnlySpan<byte> Signature => [0x00, 0x00, 0x00, 0x0C, 0x6A, 0x50, 0x20, 0x20, 0x0D, 0x0A, 0x87, 0x0A];
 
-    /// <summary>Returns the range of the codestream inside <paramref name="data"/>: the data itself, or the first <c>jp2c</c> box.</summary>
-    /// <returns>(offset, length), or <see langword="null"/> when no codestream is found.</returns>
+    /// <summary>
+    /// Returns the range of the codestream inside <paramref name="data"/>, or inside <paramref name="assembled"/> when the file stores
+    /// it in fragments: the data itself, the first <c>jp2c</c> box, or the fragments of the first fragment table box joined.
+    /// </summary>
+    /// <param name="data">The JPXDecode data.</param>
+    /// <param name="reporter">Receives the deviations found.</param>
+    /// <param name="assembled">The fragments of a fragmented codestream joined, in the order the fragment list gives; <see langword="null"/> when the codestream lies in <paramref name="data"/>.</param>
+    /// <returns>(offset, length) in <paramref name="assembled"/> when it is not <see langword="null"/>, else in <paramref name="data"/>; <see langword="null"/> when no codestream is found.</returns>
     /// <remarks>
     /// ISO 32000-2 §7.4.9: "The JPXDecode filter shall expect to read a full JPX file structure". Bare codestreams occur in practice
-    /// and are read, with an Information diagnostic. A JPX file's other codestreams and fragment tables (ISO/IEC 15444-2 composition,
-    /// animation and fragmented codestreams, which §7.4.9 says are not supported in PDF files) are not read, with a diagnostic.
+    /// and are read, with an Information diagnostic. A JPX file's first codestream is read, whether a <c>jp2c</c> box or a fragment
+    /// table (ISO/IEC 15444-2); its other codestreams and fragment tables (composition, animation, which §7.4.9 says are not
+    /// supported in PDF files) are not read, with a diagnostic.
     /// </remarks>
-    public static (int Offset, int Length)? Locate(ReadOnlySpan<byte> data, CodecReporter reporter)
+    public static (int Offset, int Length)? Locate(ReadOnlySpan<byte> data, CodecReporter reporter, out byte[]? assembled)
     {
+        assembled = null;
         if (data.Length >= 4 && BinaryPrimitives.ReadUInt16BigEndian(data) == Soc && BinaryPrimitives.ReadUInt16BigEndian(data[2..]) == Siz)
         {
             reporter.Report(
@@ -57,9 +67,16 @@ internal static class JpxCodestreamReader
 
         if (data.StartsWith(Signature))
         {
-            if (FindBox(data, ContiguousCodestreamBox, reporter) is { } box)
+            (int Offset, int Length)? box = FindBox(data, ContiguousCodestreamBox, reporter);
+            (int Offset, int Length)? table = ReportIgnoredCodestreams(data, reporter, box?.Offset);
+            if (table is { } fragments)
             {
-                ReportIgnoredCodestreams(data, reporter);
+                assembled = Reassemble(data, fragments, reporter);
+                return assembled is null ? null : (0, assembled.Length);
+            }
+
+            if (box is not null)
+            {
                 return box;
             }
 
@@ -74,16 +91,43 @@ internal static class JpxCodestreamReader
         return Scan(data);
     }
 
-    /// <summary>Reports the top-level boxes of a JPX file the decoder does not read: contiguous codestreams after the first, and fragment tables.</summary>
+    /// <summary>
+    /// Reports the top-level codestream boxes of a JPX file the decoder does not read (contiguous codestreams after the first, and
+    /// fragment tables after the first codestream) and returns the contents of the fragment table that holds the first codestream.
+    /// </summary>
+    /// <param name="data">The file.</param>
+    /// <param name="reporter">Receives the diagnostics.</param>
+    /// <param name="contiguousOffset">The content offset of the first <c>jp2c</c> box, if any.</param>
+    /// <returns>(offset, length) of the first fragment table box when no contiguous codestream box comes before it; else <see langword="null"/>.</returns>
     /// <remarks>ITU-T T.801 | ISO/IEC 15444-2 (multiple codestreams, fragment tables); ISO 32000-2 §7.4.9.</remarks>
-    private static void ReportIgnoredCodestreams(ReadOnlySpan<byte> data, CodecReporter reporter)
+    private static (int Offset, int Length)? ReportIgnoredCodestreams(ReadOnlySpan<byte> data, CodecReporter reporter, int? contiguousOffset)
     {
         int codestreams = 0;
         bool fragmented = false;
-        foreach ((uint type, int _, int _) in JpxFileHeader.Boxes(data, 0, data.Length, reporter))
+        (int Offset, int Length)? firstTable = null;
+        foreach ((uint type, int offset, int length) in JpxFileHeader.Boxes(data, 0, data.Length, reporter))
         {
             codestreams += type == ContiguousCodestreamBox ? 1 : 0;
-            fragmented |= type == FragmentTableBox;
+            if (type == FragmentTableBox)
+            {
+                fragmented = true;
+                firstTable ??= (offset, length);
+            }
+        }
+
+        bool tableFirst = firstTable is { } table && (contiguousOffset is not { } contiguous || table.Offset < contiguous);
+        if (tableFirst)
+        {
+            codestreams++;
+            if (codestreams > 1)
+            {
+                reporter.Report(
+                    JpxDiagnostics.JpxCodestreamsIgnored,
+                    DiagnosticSeverity.Warning,
+                    $"The JPX file holds {codestreams} codestreams (ISO/IEC 15444-2 composition or animation, not supported in PDF files by ISO 32000-2 §7.4.9); only the first, a fragmented one, is decoded.");
+            }
+
+            return firstTable;
         }
 
         if (codestreams > 1)
@@ -98,8 +142,98 @@ internal static class JpxCodestreamReader
             reporter.Report(
                 JpxDiagnostics.JpxCodestreamsIgnored,
                 DiagnosticSeverity.Warning,
-                "The JPX file holds a fragment table (an ISO/IEC 15444-2 fragmented codestream), which is not read; only the contiguous codestream is decoded.");
+                "The JPX file holds a fragment table (an ISO/IEC 15444-2 fragmented codestream) after its contiguous codestream, which is not read; only the contiguous codestream is decoded.");
         }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Joins the fragments a fragment table lists into the codestream they hold, in list order. Only fragments in this file are read:
+    /// one that references another file or a URL (data reference not 0) is refused with <see cref="JpxDiagnostics.JpxFragmentExternal"/>
+    /// and the codestream is not read at all, and no file or network is ever opened.
+    /// </summary>
+    /// <param name="data">The file; fragment offsets count from its first byte.</param>
+    /// <param name="table">The contents of the fragment table box.</param>
+    /// <param name="reporter">Receives the diagnostics.</param>
+    /// <returns>The joined codestream, or <see langword="null"/> when nothing usable is listed or a fragment is external.</returns>
+    /// <remarks>
+    /// ISO/IEC 15444-2 (ITU-T T.801) fragment table box <c>ftbl</c> holding a fragment list box <c>flst</c>: NF (2 bytes), then per
+    /// fragment OFF (8 bytes, from the start of the file), LEN (4 bytes) and DR (2 bytes, 0 for this file; otherwise an index into the
+    /// data reference box). The standard is not in <c>Specs/</c>; the layout is the published one. A fragment past the end of the file
+    /// is cut there and ends the list, the joined bytes never exceed the file's length, and a zero-length fragment adds nothing.
+    /// </remarks>
+    private static byte[]? Reassemble(ReadOnlySpan<byte> data, (int Offset, int Length) table, CodecReporter reporter)
+    {
+        var joined = new List<byte>();
+        bool stop = false;
+        foreach ((uint type, int offset, int length) in JpxFileHeader.Boxes(data, table.Offset, table.Offset + table.Length, reporter))
+        {
+            if (type != FragmentListBox || stop)
+            {
+                continue;
+            }
+
+            ReadOnlySpan<byte> list = data.Slice(offset, length);
+            if (list.Length < 2)
+            {
+                reporter.Report(JpxDiagnostics.JpxBoxInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 fragment list box is too short to hold its fragment count; it is not read.");
+                continue;
+            }
+
+            int count = BinaryPrimitives.ReadUInt16BigEndian(list);
+            if (list.Length < 2 + (FragmentEntrySize * count))
+            {
+                reporter.Report(JpxDiagnostics.JpxBoxInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 fragment list box holds fewer entries than its fragment count says; the complete entries are read.");
+                count = (list.Length - 2) / FragmentEntrySize;
+            }
+
+            for (int i = 0; i < count && !stop; i++)
+            {
+                ReadOnlySpan<byte> entry = list.Slice(2 + (FragmentEntrySize * i), FragmentEntrySize);
+                ulong start = BinaryPrimitives.ReadUInt64BigEndian(entry);
+                uint size = BinaryPrimitives.ReadUInt32BigEndian(entry[8..]);
+                int reference = BinaryPrimitives.ReadUInt16BigEndian(entry[12..]);
+                if (reference != 0)
+                {
+                    reporter.Report(
+                        JpxDiagnostics.JpxFragmentExternal,
+                        DiagnosticSeverity.Error,
+                        $"The JPX fragment table lists a fragment in another file or at a URL (data reference {reference}); external fragments are never opened or fetched, so the fragmented codestream is not read.");
+                    return null;
+                }
+
+                if (size == 0)
+                {
+                    continue;
+                }
+
+                if (start >= (ulong)data.Length)
+                {
+                    reporter.Report(JpxDiagnostics.JpxBoxInvalid, DiagnosticSeverity.Warning, "A JPX fragment starts past the end of the file; it and the fragments after it are not read.");
+                    stop = true;
+                    break;
+                }
+
+                long take = Math.Min(size, data.Length - (long)start);
+                take = Math.Min(take, data.Length - joined.Count);
+                if (take < size)
+                {
+                    reporter.Report(JpxDiagnostics.JpxBoxInvalid, DiagnosticSeverity.Warning, "A JPX fragment runs past the end of the file, or the fragments hold more than the file does; the list ends there.");
+                    stop = true;
+                }
+
+                joined.AddRange(data.Slice((int)start, (int)take).ToArray());
+            }
+        }
+
+        if (joined.Count == 0)
+        {
+            reporter.Report(JpxDiagnostics.JpxBoxInvalid, DiagnosticSeverity.Error, "The JPX fragment table lists no readable fragment of this file.");
+            return null;
+        }
+
+        return [.. joined];
     }
 
     /// <summary>Reads the SIZ marker segment only.</summary>

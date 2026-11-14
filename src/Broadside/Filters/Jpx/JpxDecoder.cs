@@ -32,15 +32,20 @@ internal static class JpxDecoder
     {
         header = default;
         var reporter = new CodecReporter(context.Filter);
-        if (JpxCodestreamReader.Locate(data, reporter) is not { } range
-            || JpxCodestreamReader.ReadSize(data.Slice(range.Offset, range.Length), reporter) is not { } size)
+        if (JpxCodestreamReader.Locate(data, reporter, out byte[]? assembled) is not { } range)
+        {
+            return false;
+        }
+
+        ReadOnlySpan<byte> source = assembled is null ? data : assembled;
+        if (JpxCodestreamReader.ReadSize(source.Slice(range.Offset, range.Length), reporter) is not { } size)
         {
             return false;
         }
 
         var quiet = new CodecReporter(context.Filter, silent: true);
         JpxOutputPlan plan = JpxOutputPlan.Create(size, JpxFileHeader.Read(data, quiet), context, quiet);
-        int maxReduction = OnReducedGrid(size, JpxCodestreamReader.ReadMainHeaderLevels(data.Slice(range.Offset, range.Length), size.Components.Length));
+        int maxReduction = OnReducedGrid(size, JpxCodestreamReader.ReadMainHeaderLevels(source.Slice(range.Offset, range.Length), size.Components.Length));
         header = new ImageHeader(new ImageGeometry(
             (int)Math.Min(size.Width - size.OriginX, int.MaxValue),
             (int)Math.Min(size.Height - size.OriginY, int.MaxValue),
@@ -114,14 +119,14 @@ internal static class JpxDecoder
     public static DecodedImage? Decode(ReadOnlySpan<byte> data, ImageFilterContext context)
     {
         var reporter = new CodecReporter(context.Filter);
-        if (JpxCodestreamReader.Locate(data, reporter) is not { } range)
+        if (JpxCodestreamReader.Locate(data, reporter, out byte[]? assembled) is not { } range)
         {
             reporter.Report(JpxDiagnostics.JpxSignatureInvalid, DiagnosticSeverity.Error, "The JPXDecode data holds no JPEG 2000 codestream.");
             return null;
         }
 
         JpxFileHeader file = JpxFileHeader.Read(data, reporter);
-        ReadOnlySpan<byte> codestream = data.Slice(range.Offset, range.Length);
+        ReadOnlySpan<byte> codestream = (assembled is null ? data : assembled).Slice(range.Offset, range.Length);
         if (JpxCodestreamReader.Read(codestream, reporter) is not { } stream)
         {
             return null;
