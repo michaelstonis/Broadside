@@ -79,6 +79,17 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
     public bool AllowAnnotationEditing { get; set; }
 
     /// <summary>
+    /// Gets or sets the color filter the pages are drawn with, such as <see cref="Broadside.Rendering.ColorFilter.DarkMode"/> for smart dark
+    /// mode; <see langword="null"/> (the default) keeps the session's own (<see cref="ViewerOptions.ColorFilter"/>).
+    /// </summary>
+    /// <remarks>
+    /// Spec #33 viewer capability 9. Changing it redraws every tile from the cached display lists (none is built again), and the
+    /// paper shown before a page's tiles arrive turns black with it. See <see cref="DocumentSession.ColorFilter"/>.
+    /// </remarks>
+    [Parameter]
+    public Broadside.Rendering.ColorFilter? ColorFilter { get; set; }
+
+    /// <summary>
     /// Gets or sets an observer of the tile scheduler's events (tiles started, presented, cancelled, evicted, failed), applied when a
     /// document opens: for instrumentation such as time to the first sharp page (#353's measurements).
     /// </summary>
@@ -190,6 +201,7 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
         _controller.AllowAnnotationEditing = AllowAnnotationEditing;
         _controller.TileObserver = TileObserver;
         _controller.SetShowAnnotations(ShowAnnotations);
+        _controller.SetColorFilter(ColorFilter);
         _controller.SetLayoutOptions(LayoutOptions);
         if (_attached)
         {

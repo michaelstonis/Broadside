@@ -94,3 +94,5 @@ static Broadside.Viewer.Blazor.BrowserImageDecoder.Shared.get -> Broadside.Viewe
 static Broadside.Viewer.Blazor.BrowserImageDecoderExtensions.UseBrowserImageDecoder(this Broadside.PdfOptions! options, Broadside.Viewer.Blazor.BrowserImageDecoderOptions? decoderOptions = null) -> Broadside.PdfOptions!
 Broadside.Viewer.Blazor.WebGLTileBackend.WebGLTileBackend(bool scaledImageDecode, double imageSamplesPerPixel) -> void
 Broadside.Viewer.Blazor.PdfViewer.Search.get -> Broadside.Viewer.DocumentSearch?
+Broadside.Viewer.Blazor.PdfViewer.ColorFilter.get -> Broadside.Rendering.ColorFilter?
+Broadside.Viewer.Blazor.PdfViewer.ColorFilter.set -> void

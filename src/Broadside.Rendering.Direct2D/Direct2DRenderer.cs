@@ -50,6 +50,11 @@ namespace Broadside.Rendering.Direct2D;
 /// #377).
 /// </para>
 /// <para>
+/// Color filters (<see cref="RenderOptions.ColorFilter"/>, smart dark mode): a page render with a filter falls back to the software
+/// path: <see cref="SoftwareRasterizer"/> draws the page and the filter into the bitmap, and <see cref="Diagnostics"/> is empty. A
+/// display list drawn into a bitmap is never filtered; a viewer's tile backend draws filtered tiles through the software rasterizer.
+/// </para>
+/// <para>
 /// Reuse one instance for many renders: its device, device context and target bitmaps are created once (the targets again when the
 /// size changes) and released on <see cref="Dispose"/>, and a warm render allocates nothing managed per operation. An instance renders
 /// one page at a time; use one per thread to render in parallel (a document is safe for concurrent renders while nobody changes it).
@@ -118,6 +123,12 @@ public sealed class Direct2DRenderer : IDisposable
         ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(options);
         ObjectDisposedException.ThrowIf(_disposed, this);
+        if (IsFiltered(options))
+        {
+            _backend.ClearDiagnostics();
+            return Rasterizer.Render(page, options);
+        }
+
         PixelSize size = options.GetPixelSize(page);
         Matrix device = options.GetDeviceTransform(page);
         DisplayList list = page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions);
@@ -153,6 +164,13 @@ public sealed class Direct2DRenderer : IDisposable
         if (target.Width < size.Width || target.Height < size.Height)
         {
             throw new ArgumentException($"The page needs {size.Width} x {size.Height} pixels; the bitmap has {target.Width} x {target.Height}.", nameof(target));
+        }
+
+        if (IsFiltered(options))
+        {
+            _backend.ClearDiagnostics();
+            Rasterizer.Render(page, target, options);
+            return;
         }
 
         Draw(page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions), target, options.GetDeviceTransform(page), size.Width, size.Height, white: true, options.ForceOutlines, PageImageSamples(options));
@@ -237,6 +255,12 @@ public sealed class Direct2DRenderer : IDisposable
             ? value
             : throw new ArgumentOutOfRangeException(nameof(value), value, "The samples per pixel must be a finite number of at least 1.");
     }
+
+    /// <summary>Gets the software rasterizer of the pages and groups this renderer falls back to.</summary>
+    private SoftwareRasterizer Rasterizer => _rasterizer ??= new SoftwareRasterizer();
+
+    /// <summary>Whether a page render takes the software path for its color filter (spec #33 viewer capability 9).</summary>
+    private static bool IsFiltered(RenderOptions options) => options.ColorFilter != ColorFilter.None && !options.OverprintPreview;
 
     /// <summary>Releases the Direct2D device, its device context and bitmaps, and the DirectWrite font faces; the renderer renders no more after this.</summary>
     public void Dispose()

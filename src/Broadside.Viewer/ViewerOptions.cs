@@ -152,6 +152,23 @@ public sealed class ViewerOptions
         }
     }
 
+    /// <summary>
+    /// Gets or sets the color filter the session's tiles are drawn with at first, such as <see cref="Rendering.ColorFilter.DarkMode"/>
+    /// for smart dark mode; <see cref="Rendering.ColorFilter.None"/> by default. The session changes it later through
+    /// <see cref="DocumentSession.ColorFilter"/>.
+    /// </summary>
+    /// <remarks>Spec #33 viewer capability 9; see <see cref="RenderOptions.ColorFilter"/>.</remarks>
+    public ColorFilter ColorFilter { get; set; }
+
+    /// <summary>Sets <see cref="ColorFilter"/>.</summary>
+    /// <param name="colorFilter">The color filter, or <see cref="Rendering.ColorFilter.None"/>.</param>
+    /// <returns>These options.</returns>
+    public ViewerOptions WithColorFilter(ColorFilter colorFilter)
+    {
+        ColorFilter = colorFilter;
+        return this;
+    }
+
     /// <summary>Sets <see cref="ScaledImageDecode"/>.</summary>
     /// <param name="scaledImageDecode">Whether images are decoded at the resolution they are drawn at.</param>
     /// <returns>These options.</returns>

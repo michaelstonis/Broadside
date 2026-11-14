@@ -61,6 +61,7 @@ internal sealed class ViewerController : IAsyncDisposable
     private AnnotationLayer? _annotations;
     private AccessibilityBridge? _bridge;
     private bool _showAnnotations = true;
+    private ColorFilter? _colorFilter;
 
     private TaskCompletionSource? _wake;
     private bool _needsFrame = true;
@@ -140,6 +141,10 @@ internal sealed class ViewerController : IAsyncDisposable
 
         _session = session;
         _ownsSession = ownsSession;
+        if (_colorFilter is { } filter)
+        {
+            session.ColorFilter = filter;
+        }
         if (session.PageCount == 0)
         {
             SetState(_state with { IsLoading = false });
@@ -222,6 +227,20 @@ internal sealed class ViewerController : IAsyncDisposable
         }
 
         Wake();
+    }
+
+    /// <summary>
+    /// Sets the color filter of the open document and of those opened later; null keeps each session's own. A change redraws every
+    /// tile from the cached display lists (spec #33 viewer capability 9).
+    /// </summary>
+    public void SetColorFilter(ColorFilter? filter)
+    {
+        _colorFilter = filter;
+        if (filter is { } value && _session is { } session && session.ColorFilter != value)
+        {
+            session.ColorFilter = value;
+            Redraw();
+        }
     }
 
     /// <summary>Shows or hides the annotation and form-field layers.</summary>
@@ -998,6 +1017,7 @@ internal sealed class ViewerController : IAsyncDisposable
         header[2] = _input!.CurrentPage;
         header[3] = viewport.Zoom / _input.ActualSize;
         header[4] = _surface.Presented;
+        header[5] = _session?.ColorFilter == ColorFilter.DarkMode ? 1 : 0; // dark paper and surroundings
         ViewerInterop.Draw(Id, _commands.AsSpan(0, (records + 1) * Stride));
     }
 

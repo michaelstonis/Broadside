@@ -17,7 +17,9 @@ namespace Broadside.Viewer.Blazor;
 /// <remarks>
 /// ISO 32000-2 §10.7.1 through the display list. The WebGL backend is opt-in and falls back to the software rasterizer. A viewer's
 /// tiles are for display, so images are uploaded at the resolution they are drawn at unless the constructor says otherwise
-/// (<see cref="RenderOptions.ScaledImageDecode"/>; never for printing or export).
+/// (<see cref="RenderOptions.ScaledImageDecode"/>; never for printing or export). A tile with a color filter (smart dark mode,
+/// <see cref="DocumentSession.ColorFilter"/>) falls back to the software path: the software rasterizer draws it, filter included,
+/// into the tile's pixels.
 /// </remarks>
 [SupportedOSPlatform("browser")]
 public sealed class WebGLTileBackend : ITileBackend

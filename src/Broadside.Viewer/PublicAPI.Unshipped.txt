@@ -773,3 +773,12 @@ Broadside.Viewer.TextSearchOptions.WholeWord.set -> void
 Broadside.Viewer.TextSearchOptions.WithMatchCase(bool matchCase = true) -> Broadside.Viewer.TextSearchOptions!
 Broadside.Viewer.TextSearchOptions.WithMatchDiacritics(bool matchDiacritics = true) -> Broadside.Viewer.TextSearchOptions!
 Broadside.Viewer.TextSearchOptions.WithWholeWord(bool wholeWord = true) -> Broadside.Viewer.TextSearchOptions!
+Broadside.Viewer.DocumentSession.ColorFilter.get -> Broadside.Rendering.ColorFilter
+Broadside.Viewer.DocumentSession.ColorFilter.set -> void
+Broadside.Viewer.IRemoteTileRenderer.CanRender(in Broadside.Viewer.Tile tile, Broadside.Rendering.ColorFilter colorFilter) -> bool
+Broadside.Viewer.IRemoteTileRenderer.RenderAsync(Broadside.Viewer.Tile tile, Broadside.Rendering.ColorFilter colorFilter, Broadside.Viewer.IRenderSurface! surface, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Broadside.Viewer.ITileBackend.Begin(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, Broadside.Rendering.ColorFilter colorFilter, System.Threading.CancellationToken cancellationToken) -> Broadside.Viewer.ITileRender!
+Broadside.Viewer.SoftwareTileBackend.Begin(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, Broadside.Rendering.ColorFilter colorFilter, System.Threading.CancellationToken cancellationToken) -> Broadside.Viewer.ITileRender!
+Broadside.Viewer.ViewerOptions.ColorFilter.get -> Broadside.Rendering.ColorFilter
+Broadside.Viewer.ViewerOptions.ColorFilter.set -> void
+Broadside.Viewer.ViewerOptions.WithColorFilter(Broadside.Rendering.ColorFilter colorFilter) -> Broadside.Viewer.ViewerOptions!

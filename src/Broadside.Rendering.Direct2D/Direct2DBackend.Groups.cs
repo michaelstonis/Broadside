@@ -88,6 +88,9 @@ internal sealed unsafe partial class Direct2DBackend
         }
     }
 
+    /// <summary>Forgets the diagnostics of the last render, for a page the software rasterizer draws with a color filter.</summary>
+    public void ClearDiagnostics() => _diagnostics.Clear();
+
     /// <summary>Replaces the diagnostics of the replay, which drew nothing that is kept, by the one of a page the software rasterizer drew.</summary>
     public void ReportPageRasterized()
     {

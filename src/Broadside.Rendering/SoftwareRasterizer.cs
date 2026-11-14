@@ -85,7 +85,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         var bitmap = new Bitmap(geometry.PixelWidth, geometry.PixelHeight);
         try
         {
-            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, options.TransparentBackground ? null : White, options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, ImageSamples(options), options.CancellationToken, DrawingProgress(options));
+            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, options.TransparentBackground ? null : White, options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, ImageSamples(options), options.ColorFilter, DrawingProgress(options), options.CancellationToken);
         }
         catch
         {
@@ -114,7 +114,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(options);
         ThrowIfBusy();
         PageGeometry geometry = CheckTarget(page, target, options);
-        Draw(Build(page, options), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, Background(options), options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, ImageSamples(options), options.CancellationToken, DrawingProgress(options));
+        Draw(Build(page, options), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, Background(options), options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, ImageSamples(options), options.ColorFilter, DrawingProgress(options), options.CancellationToken);
     }
     /// <summary>
     /// Builds <paramref name="page"/>'s display list and starts drawing it into the top-left <see cref="RenderOptions.GetPixelSize"/>
@@ -143,7 +143,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         PageGeometry geometry = CheckTarget(page, target, options);
         DisplayList list = Build(page, options);
         Fill(target, geometry.PixelWidth, geometry.PixelHeight, Background(options));
-        return Begin(list, target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, ImageSamples(options), options.CancellationToken, DrawingProgress(options));
+        return Begin(list, target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, ImageSamples(options), options.ColorFilter, DrawingProgress(options), options.CancellationToken);
     }
 
     /// <summary>
@@ -163,7 +163,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
         ThrowIfBusy();
-        return Begin(list, target, deviceTransform, target.Width, target.Height, AntiAliasing.All, cull: true, preview: false, ListImageSamples, cancellationToken, progress);
+        return Begin(list, target, deviceTransform, target.Width, target.Height, AntiAliasing.All, cull: true, preview: false, ListImageSamples, ColorFilter, progress, cancellationToken);
     }
 
     /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, without a background.</summary>
@@ -184,7 +184,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
         ThrowIfBusy();
-        Draw(list, target, deviceTransform, target.Width, target.Height, background: null, AntiAliasing.All, cull: true, preview: false, ListImageSamples, CancellationToken.None, progress: null);
+        Draw(list, target, deviceTransform, target.Width, target.Height, background: null, AntiAliasing.All, cull: true, preview: false, ListImageSamples, ColorFilter, progress: null, CancellationToken.None);
     }
 
     /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, anti-aliasing only the kinds of painting given.</summary>
@@ -198,7 +198,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
         ThrowIfBusy();
-        Draw(list, target, deviceTransform, target.Width, target.Height, background: null, antiAliasing, cull: true, preview: false, ListImageSamples, CancellationToken.None, progress: null);
+        Draw(list, target, deviceTransform, target.Width, target.Height, background: null, antiAliasing, cull: true, preview: false, ListImageSamples, ColorFilter, progress: null, CancellationToken.None);
     }
 
     /// <summary>
@@ -266,6 +266,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             if (render.IsCompleted)
             {
                 _backend.FinishPreview(); // As Draw does after the replay: a completed overprint preview is converted for display.
+                _backend.FinishColorFilter(); // and the color filter runs over the finished pixels.
             }
 
             _backend.End();
@@ -280,6 +281,19 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// </summary>
     /// <remarks>For viewers only, never for printing or export: see <see cref="RenderOptions.ScaledImageDecode"/>.</remarks>
     public bool ScaledImageDecode { get; set; }
+
+    /// <summary>
+    /// Gets or sets the color filter the renders of a display list given to this rasterizer apply when they finish
+    /// (<see cref="Render(DisplayList, Bitmap, in Matrix)"/> and
+    /// <see cref="BeginRender(DisplayList, Bitmap, in Matrix, CancellationToken, IProgress{double})"/>);
+    /// <see cref="Rendering.ColorFilter.None"/> by default. Page renders take <see cref="RenderOptions.ColorFilter"/> instead.
+    /// </summary>
+    /// <remarks>
+    /// Spec #33 viewer capability 9. The filter runs over the whole bitmap the list is drawn into, the pixels it held before (a tile's
+    /// white paper) included, so a viewer switches dark mode on and off by redrawing its tiles from the same display lists. For display
+    /// only, never for printing or export: see <see cref="Rendering.ColorFilter.DarkMode"/>. ISO 32000-2 §10.7.1.
+    /// </remarks>
+    public ColorFilter ColorFilter { get; set; }
 
     /// <summary>
     /// Gets or sets the fewest decoded samples per device pixel a reduced image keeps when <see cref="ScaledImageDecode"/> is on: 2
@@ -392,9 +406,9 @@ public sealed partial class SoftwareRasterizer : IDisposable
         }
     }
 
-    private ProgressiveRender Begin(DisplayList list, Bitmap target, in Matrix device, int width, int height, AntiAliasing antiAliasing, bool cull, bool preview, double imageSamplesPerPixel, CancellationToken cancellationToken, IProgress<double>? progress)
+    private ProgressiveRender Begin(DisplayList list, Bitmap target, in Matrix device, int width, int height, AntiAliasing antiAliasing, bool cull, bool preview, double imageSamplesPerPixel, ColorFilter colorFilter, IProgress<double>? progress, CancellationToken cancellationToken)
     {
-        _backend.Begin(list.Document, target, device, width, height, preview, antiAliasing, imageSamplesPerPixel, cancellationToken);
+        _backend.Begin(list.Document, target, device, width, height, preview, antiAliasing, imageSamplesPerPixel, colorFilter, cancellationToken);
         DisplayListReplay replay = cull && TryGetRegion(device, width, height, out PdfRectangle region)
             ? list.BeginReplay(_backend, region, cancellationToken, progress)
             : list.BeginReplay(_backend, cancellationToken, progress);
@@ -402,14 +416,14 @@ public sealed partial class SoftwareRasterizer : IDisposable
         return new ProgressiveRender(this, replay, target);
     }
 
-    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, uint? background, AntiAliasing antiAliasing, bool cull, bool preview, double imageSamplesPerPixel, CancellationToken cancellationToken, IProgress<double>? progress)
+    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, uint? background, AntiAliasing antiAliasing, bool cull, bool preview, double imageSamplesPerPixel, ColorFilter colorFilter, IProgress<double>? progress, CancellationToken cancellationToken)
     {
         if (background is { } pixel)
         {
             Fill(target, width, height, pixel);
         }
 
-        _backend.Begin(list.Document, target, device, width, height, preview, antiAliasing, imageSamplesPerPixel, cancellationToken);
+        _backend.Begin(list.Document, target, device, width, height, preview, antiAliasing, imageSamplesPerPixel, colorFilter, cancellationToken);
         try
         {
             PdfRectangle region = default;
@@ -436,6 +450,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             }
 
             _backend.FinishPreview();
+            _backend.FinishColorFilter();
         }
         finally
         {
@@ -517,9 +532,10 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
         public Backend() => _stroker = new Stroker(_scan);
 
-        public void Begin(PdfDocument document, Bitmap target, in Matrix device, int width, int height, bool preview, AntiAliasing antiAliasing = AntiAliasing.All, double imageSamplesPerPixel = 0, CancellationToken cancellationToken = default)
+        public void Begin(PdfDocument document, Bitmap target, in Matrix device, int width, int height, bool preview, AntiAliasing antiAliasing = AntiAliasing.All, double imageSamplesPerPixel = 0, ColorFilter colorFilter = ColorFilter.None, CancellationToken cancellationToken = default)
         {
             SetAntiAliasing(antiAliasing);
+            BeginColorFilter(preview ? ColorFilter.None : colorFilter, width, height);
             _imageSamplesPerPixel = preview ? 0 : imageSamplesPerPixel;
             _cancellationToken = cancellationToken;
             _document = document;
@@ -554,6 +570,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             EndPreview();
             EndGroups();
             EndSoftMasks();
+            EndColorFilter();
         }
 
         public void SaveState()
@@ -697,6 +714,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             DisposeSoftMasks();
             DisposeMeshes();
             DisposePreview();
+            DisposeColorFilter();
         }
 
         /// <summary>

@@ -298,15 +298,15 @@ export function workerClose(doc) {
   worker?.postMessage({ type: "close", doc });
 }
 
-export function workerRender(job, doc, page, scale, rotation, x, y, width, height, layers, samples) {
-  worker?.postMessage({ type: "render", job, doc, page, scale, rotation, x, y, width, height, layers, samples });
+export function workerRender(job, doc, page, scale, rotation, x, y, width, height, layers, samples, filter) {
+  worker?.postMessage({ type: "render", job, doc, page, scale, rotation, x, y, width, height, layers, samples, filter });
 }
 
 export function workerCancel(job) {
   worker?.postMessage({ type: "cancel", job });
 }
 
-// Header: [records, pageCount, currentPage, zoom, tilesPresented, 0, 0, 0, 0]; then records of 9 numbers:
+// Header: [records, pageCount, currentPage, zoom, tilesPresented, dark, 0, 0, 0]; then records of 9 numbers:
 // 1 paper (x, y, w, h) | 2 tile (key, x, y, w, h) | 3 selection quad (x1, y1 ... x4, y4) | 4 text layer (page, a, b, c, d, e, f) |
 // 5 live link or field (x, y, w, h, 1 hover | 2 pressed) | 6 search match quad | 7 current search match quad (x1, y1 ... x4, y4).
 export function draw(id, commands) {
@@ -339,13 +339,15 @@ function paint(v, c) {
   let link = "";
   v.searchHighlights = 0;
   const g = v.context;
-  g.fillStyle = "#e6e6e6";
+  // Dark mode (header 5, #219): the paper a page shows before its tiles arrive is black, as the filtered tiles' paper is.
+  const dark = c[5] === 1;
+  g.fillStyle = dark ? "#2b2b2b" : "#e6e6e6";
   g.fillRect(0, 0, v.canvas.width, v.canvas.height);
   const records = c[0];
   for (let i = 0, o = 9; i < records; i++, o += 9) {
     switch (c[o]) {
       case 1:
-        g.fillStyle = "#ffffff";
+        g.fillStyle = dark ? "#000000" : "#ffffff";
         g.shadowColor = "rgba(0,0,0,0.25)";
         g.shadowBlur = 4;
         g.fillRect(c[o + 1], c[o + 2], c[o + 3], c[o + 4]);

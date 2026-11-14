@@ -123,7 +123,7 @@ public sealed partial class SoftwareRasterizer
                 mask.ScaleU,
                 mask.ScaleV,
                 _footprints ??= new ImageFootprints());
-            PaintImage(ref painter);
+            PaintImage(ref painter, coversImage: true);
         }
 
         /// <summary>
@@ -226,12 +226,21 @@ public sealed partial class SoftwareRasterizer
         private bool Averages => _imageRule == CoverageRule.Exact;
 
         /// <summary>Paints the unit square's outline with the image coverage rule (§10.7.4: pixel centres inside, without anti-aliasing).</summary>
-        private void PaintImage(ref ImagePainter painter)
+        /// <remarks>
+        /// With a color filter (<see cref="ColorFilter.DarkMode"/>) an image's shape is also recorded as covered by an image, which
+        /// the filter leaves as it is; a stencil mask (<paramref name="coversImage"/> false) paints a color and is filtered.
+        /// </remarks>
+        private void PaintImage(ref ImagePainter painter, bool coversImage = false)
         {
             _scan.Rule = _imageRule;
             try
             {
-                _scan.Paint(FillRule.NonZero, ref painter);
+                bool covers = coversImage && _colorFilter != ColorFilter.None;
+                _scan.Paint(FillRule.NonZero, ref painter, keep: covers);
+                if (covers)
+                {
+                    CoverImage();
+                }
             }
             finally
             {

@@ -54,6 +54,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     private long _presented;
     private long _cancelled;
     private int _liveBackends;
+    private volatile ColorFilter _colorFilter;
 
     private DocumentSession(PdfDocument document, ViewerOptions options, bool remote)
     {
@@ -71,6 +72,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         _metrics = new PageMetrics?[document.Pages.Count];
         _reads = _cooperative ? null : new DocumentGate();
         RemoteRenderer = options.RemoteRenderer;
+        _colorFilter = options.ColorFilter;
     }
 
     /// <summary>Gets the document. The session owns it and disposes it when it closes.</summary>
@@ -103,6 +105,31 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
 
     /// <summary>Gets the number of pages.</summary>
     public int PageCount => _metrics.Length;
+
+    /// <summary>
+    /// Gets or sets the color filter tiles are drawn with from now on, such as <see cref="Rendering.ColorFilter.DarkMode"/>; the
+    /// options' <see cref="ViewerOptions.ColorFilter"/> at first.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Spec #33 viewer capability 9 (smart dark mode). The filter runs over each finished tile, its paper included, and leaves the
+    /// pixels images cover as they are (see <see cref="Rendering.ColorFilter.DarkMode"/>). It never changes a display list: changing it
+    /// builds nothing again. Tiles already drawn keep their pixels, so redraw them after a change
+    /// (<see cref="TileScheduler.Invalidate(int, DisplayLayers)"/> for every page; the old pixels stay on screen until the new ones
+    /// replace them).
+    /// </para>
+    /// <para>
+    /// The backend draws the filter itself when it can (<see cref="SoftwareTileBackend"/>) and otherwise through the software
+    /// rasterizer (<see cref="ITileBackend.Begin(DisplayList, Bitmap, in Matrix, Rendering.ColorFilter, CancellationToken)"/>); a remote
+    /// renderer that cannot draw it leaves the tiles to the session (<see cref="IRemoteTileRenderer.CanRender(in Tile, Rendering.ColorFilter)"/>).
+    /// Safe to set from any thread; a tile takes the filter in force when its drawing starts.
+    /// </para>
+    /// </remarks>
+    public ColorFilter ColorFilter
+    {
+        get => _colorFilter;
+        set => _colorFilter = value;
+    }
 
     /// <summary>Gets a value indicating whether the session has been closed.</summary>
     public bool IsClosed
@@ -489,6 +516,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
 
     private async Task DrawAndPresentAsync(Tile tile, IRenderSurface surface, ITileBackend backend, DisplayList list, Matrix transform, CancellationToken token)
     {
+        ColorFilter filter = _colorFilter;
         using var target = new Bitmap(tile.Region.Width, tile.Region.Height);
         long bytes = (long)target.Stride * target.Height;
         Interlocked.Add(ref _pixelBytes, bytes);
@@ -505,7 +533,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
             {
                 // The render outlives the presentation: a tile its backend left on the device (ADR 0012) is read back for a surface
                 // that reads pixels, and dropped by the render's disposal before the bitmap is released (#380).
-                using ITileRender rendering = backend.Begin(list, target, transform, token);
+                using ITileRender rendering = backend.Begin(list, target, transform, filter, token);
                 while (!rendering.RenderSlice(_sliceBudget))
                 {
                     await _yield(token).ConfigureAwait(true);
@@ -525,7 +553,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
                 await Task.Run(
                     () =>
                     {
-                        using ITileRender rendering = backend.Begin(list, target, transform, token);
+                        using ITileRender rendering = backend.Begin(list, target, transform, filter, token);
                         rendering.RenderSlice(Timeout.InfiniteTimeSpan);
                         rendering.ReadBack(); // the render ends before the tile is presented
                     },
