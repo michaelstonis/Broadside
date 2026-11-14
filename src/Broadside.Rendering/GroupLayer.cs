@@ -195,10 +195,7 @@ internal sealed class GroupLayer : IDisposable
                 composited.CopyTo(line);
             }
 
-            for (int i = 0; i < count; i++)
-            {
-                line[i] = Compositor.KnockOut(previous[i], line[i], backdrop[i], coverage);
-            }
+            CompositingRows.KnockOutRow(previous, line, backdrop, coverage);
         }
         else if (alpha)
         {
