@@ -57,6 +57,7 @@ internal sealed class ViewerController : IAsyncDisposable
     private ProgressiveZoom? _zoom;
     private InputModel? _input;
     private TextSelection? _selection;
+    private DocumentSearch? _search;
     private AnnotationLayer? _annotations;
     private AccessibilityBridge? _bridge;
     private bool _showAnnotations = true;
@@ -191,6 +192,8 @@ internal sealed class ViewerController : IAsyncDisposable
 
         _selection = new TextSelection(session);
         _selection.Changed += (_, _) => Wake();
+        _search = new DocumentSearch(session);
+        _search.Changed += (_, _) => Wake();
         _annotations = new AnnotationLayer(session, _scheduler);
         _annotations.ActionRequested += OnActionRequested;
         _annotations.Changed += (_, _) => Wake();
@@ -264,6 +267,9 @@ internal sealed class ViewerController : IAsyncDisposable
 
     /// <summary>Gets the text selection of the open document.</summary>
     public TextSelection? Selection => _selection;
+
+    /// <summary>Gets the find-in-document search of the open document.</summary>
+    public DocumentSearch? Search => _search;
 
     /// <summary>Gets the annotation layer of the open document.</summary>
     public AnnotationLayer? Annotations => _annotations;
@@ -914,6 +920,34 @@ internal sealed class ViewerController : IAsyncDisposable
             }
         }
 
+        // Search matches are an overlay over the tiles (#215): highlighting them draws no page again.
+        if (_search!.MatchCount > 0)
+        {
+            SearchMatch? current = _search.Current;
+            int visible = Math.Min(layout.GetVisiblePages(viewport, _visible), _visible.Length);
+            foreach (VisiblePage page in _visible.AsSpan(0, visible))
+            {
+                int quads = _search.GetQuads(page.PageIndex, _quads);
+                if (quads > _quads.Length)
+                {
+                    _quads = new Quad[quads * 2];
+                    quads = _search.GetQuads(page.PageIndex, _quads);
+                }
+
+                AddQuads(ref records, 6, layout, viewport, page.PageIndex, _quads.AsSpan(0, quads));
+            }
+
+            if (current is not null)
+            {
+                IReadOnlyList<Quad> quads = current.Quads;
+                for (int i = 0; i < quads.Count; i++)
+                {
+                    Quad quad = quads[i];
+                    AddQuads(ref records, 7, layout, viewport, current.PageIndex, new ReadOnlySpan<Quad>(in quad));
+                }
+            }
+        }
+
         if (!_selection!.IsEmpty)
         {
             int visible = Math.Min(layout.GetVisiblePages(viewport, _visible), _visible.Length);
@@ -965,6 +999,18 @@ internal sealed class ViewerController : IAsyncDisposable
         header[3] = viewport.Zoom / _input.ActualSize;
         header[4] = _surface.Presented;
         ViewerInterop.Draw(Id, _commands.AsSpan(0, (records + 1) * Stride));
+    }
+
+    private void AddQuads(ref int records, double op, PageLayout layout, in Viewport viewport, int pageIndex, ReadOnlySpan<Quad> quads)
+    {
+        foreach (Quad quad in quads)
+        {
+            PathPoint a = layout.PageToViewport(viewport, pageIndex, quad.BottomLeft.X, quad.BottomLeft.Y);
+            PathPoint b = layout.PageToViewport(viewport, pageIndex, quad.BottomRight.X, quad.BottomRight.Y);
+            PathPoint c = layout.PageToViewport(viewport, pageIndex, quad.TopRight.X, quad.TopRight.Y);
+            PathPoint e = layout.PageToViewport(viewport, pageIndex, quad.TopLeft.X, quad.TopLeft.Y);
+            Add(ref records, op, a.X, a.Y, b.X, b.Y, c.X, c.Y, e.X, e.Y);
+        }
     }
 
     private void Add(ref int records, double op, double a = 0, double b = 0, double c = 0, double d = 0, double e = 0, double f = 0, double g = 0, double h = 0)
@@ -1021,6 +1067,8 @@ internal sealed class ViewerController : IAsyncDisposable
         _zoom = null;
         _input = null;
         _selection = null;
+        _search?.Dispose();
+        _search = null;
         _annotations?.ActionRequested -= OnActionRequested;
         _annotations = null;
         _bridge = null;

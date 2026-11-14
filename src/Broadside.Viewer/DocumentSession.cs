@@ -89,6 +89,9 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     /// <summary>Gets the longest piece of drawing work run between yields in cooperative mode.</summary>
     internal TimeSpan SliceBudget => _sliceBudget;
 
+    /// <summary>Yields between cooperative slices of work (the options' yield): what background work in the browser waits on.</summary>
+    internal ValueTask PauseAsync(CancellationToken cancellationToken) => _yield(cancellationToken);
+
     /// <summary>Gets the most tiles drawn at once.</summary>
     internal int MaxConcurrency { get; }
 
