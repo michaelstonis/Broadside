@@ -72,8 +72,9 @@ public sealed class DeterministicMathTests
             double nearOne = 1 - Math.ScaleB(inputs.Next(0, 1), -(int)inputs.Next(1, 50));
             AssertClose(Math.Acos(nearOne), DeterministicMath.Acos(nearOne), 2, $"Acos({nearOne:R})");
             double cube = Math.ScaleB(inputs.Next(-2, 2), (int)inputs.Next(-1070, 1020));
-            // The platform cbrt is not correctly rounded on glibc or Windows (about 1 ulp each way), so allow 2 like the others.
-            AssertClose(Math.Cbrt(cube), DeterministicMath.Cbrt(cube), 2, $"Cbrt({cube:R})");
+            // The platform cbrt is the wrong oracle: glibc and Windows are up to 3 ulps from the correctly rounded root. Check exactly
+            // that the true root lies strictly between the neighbors of the result, which is within 1 ulp.
+            AssertCbrtWithinOneUlp(cube, DeterministicMath.Cbrt(cube));
         }
     }
 
@@ -212,6 +213,44 @@ public sealed class DeterministicMathTests
 
         long distance = Math.Abs(BitConverter.DoubleToInt64Bits(expected) - BitConverter.DoubleToInt64Bits(actual));
         Assert.True(distance <= maxUlps, $"{call}: expected {expected:R}, got {actual:R} ({distance} units in the last place apart)");
+    }
+
+    private static void AssertCbrtWithinOneUlp(double x, double root)
+    {
+        if (x == 0 || double.IsNaN(x) || double.IsInfinity(x))
+        {
+            Assert.True(x.Equals(root), $"Cbrt({x:R}): expected {x:R}, got {root:R}");
+            return;
+        }
+
+        Assert.True(Math.Sign(root) == Math.Sign(x), $"Cbrt({x:R}): got {root:R}, of the wrong sign");
+        double a = Math.Abs(x);
+        double r = Math.Abs(root);
+        double below = Math.BitDecrement(r);
+        double above = Math.BitIncrement(r);
+        Assert.True(
+            CompareCube(below, a) < 0 && CompareCube(above, a) > 0,
+            $"Cbrt({x:R}): got {root:R}, more than one unit in the last place from the true root");
+    }
+
+    /// <summary>Compares <paramref name="r"/>³ with <paramref name="a"/> exactly (both finite and positive).</summary>
+    private static int CompareCube(double r, double a)
+    {
+        (System.Numerics.BigInteger rm, int re) = Exact(r);
+        (System.Numerics.BigInteger am, int ae) = Exact(a);
+        System.Numerics.BigInteger cube = rm * rm * rm;
+        int ce = 3 * re;
+        int shift = ce - ae;
+        return shift >= 0 ? (cube << shift).CompareTo(am) : cube.CompareTo(am << -shift);
+    }
+
+    /// <summary>Splits a finite positive double into an integer mantissa and a power-of-two exponent.</summary>
+    private static (System.Numerics.BigInteger Mantissa, int Exponent) Exact(double value)
+    {
+        long bits = BitConverter.DoubleToInt64Bits(value);
+        int exponent = (int)((bits >> 52) & 0x7FF);
+        long fraction = bits & 0xFFFFFFFFFFFFFL;
+        return exponent == 0 ? (fraction, -1074) : (fraction | (1L << 52), exponent - 1075);
     }
 
     private static void AssertCloseAbsolute(double expected, double actual, string call, double tolerance = 4e-16) =>
