@@ -80,6 +80,8 @@ internal sealed class Stroker
     private Matrix _userToPen;
     private Matrix _penToDevice;
     private double _arcScale;
+    private double _arcStep;
+    private double _arcStepCosine;
     private double _radius;
     private LineCap _cap;
     private LineJoin _join;
@@ -228,6 +230,11 @@ internal sealed class Stroker
                 _radius = double.IsFinite(_arcScale) && _arcScale > 0 ? CoordinateLimit / _arcScale : 0;
             }
         }
+
+        // The largest angle per arc segment depends only on the device radius, which is fixed for the stroke: one Acos per stroke.
+        double arcRadius = _radius * _arcScale;
+        _arcStep = arcRadius > Tolerance && double.IsFinite(arcRadius) ? 2 * DeterministicMath.Acos(1 - (Tolerance / arcRadius)) : double.NaN;
+        _arcStepCosine = _arcStep > 0 ? DeterministicMath.Cos(_arcStep) : double.PositiveInfinity;
 
         _dashLength = 0;
         ReadOnlySpan<double> dash = style.DashArray;
@@ -729,7 +736,11 @@ internal sealed class Stroker
 
         if (smooth || _join == LineJoin.Round)
         {
-            Arc(vertex, a, DeterministicMath.Atan2(Math.Abs(cross), dot));
+            // A turn no wider than one arc segment emits no interior points; skip the angle and the rotation for it.
+            if (!(dot >= _arcStepCosine))
+            {
+                Arc(vertex, a, DeterministicMath.Atan2(Math.Abs(cross), dot));
+            }
         }
         else if (_join == LineJoin.Miter)
         {
@@ -791,12 +802,16 @@ internal sealed class Stroker
     /// </summary>
     private void Arc(Vec center, Vec from, double sweep)
     {
-        double deviceRadius = _radius * _arcScale;
         int n = 1;
-        if (deviceRadius > Tolerance && double.IsFinite(deviceRadius))
+        double step = _arcStep;
+        if (!double.IsNaN(step))
         {
-            double step = 2 * DeterministicMath.Acos(1 - (Tolerance / deviceRadius));
             n = step > 0 ? (int)Math.Clamp(Math.Ceiling(sweep / step), 1, MaxSegments) : MaxSegments;
+        }
+
+        if (n == 1)
+        {
+            return;
         }
 
         double angle = -sweep / n;
