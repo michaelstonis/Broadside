@@ -732,3 +732,44 @@ Broadside.Viewer.ViewerOptions.WithImageSamplesPerPixel(double samplesPerPixel) 
 Broadside.Viewer.ViewerOptions.WithScaledImageDecode(bool scaledImageDecode) -> Broadside.Viewer.ViewerOptions!
 Broadside.Viewer.ITileBackend.PrefetchImagesAsync(Broadside.Rendering.DisplayList! list, in Broadside.Graphics.Matrix deviceTransform, int width, int height, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
 Broadside.Viewer.SoftwareTileBackend.PrefetchImagesAsync(Broadside.Rendering.DisplayList! list, in Broadside.Graphics.Matrix deviceTransform, int width, int height, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Broadside.Viewer.DocumentSearch
+Broadside.Viewer.DocumentSearch.Changed -> System.EventHandler?
+Broadside.Viewer.DocumentSearch.Clear() -> void
+Broadside.Viewer.DocumentSearch.Current.get -> Broadside.Viewer.SearchMatch?
+Broadside.Viewer.DocumentSearch.CurrentIndex.get -> int
+Broadside.Viewer.DocumentSearch.Dispose() -> void
+Broadside.Viewer.DocumentSearch.DocumentSearch(Broadside.Viewer.DocumentSession! session) -> void
+Broadside.Viewer.DocumentSearch.FailedPageCount.get -> int
+Broadside.Viewer.DocumentSearch.GetQuads(int pageIndex, System.Span<Broadside.Graphics.Quad> destination) -> int
+Broadside.Viewer.DocumentSearch.IndexedPageCount.get -> int
+Broadside.Viewer.DocumentSearch.IsIndexComplete.get -> bool
+Broadside.Viewer.DocumentSearch.IsIndexing.get -> bool
+Broadside.Viewer.DocumentSearch.IsSearchComplete.get -> bool
+Broadside.Viewer.DocumentSearch.MatchCount.get -> int
+Broadside.Viewer.DocumentSearch.Matches.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.SearchMatch!>!
+Broadside.Viewer.DocumentSearch.MoveTo(int index) -> Broadside.Viewer.SearchMatch!
+Broadside.Viewer.DocumentSearch.Next() -> Broadside.Viewer.SearchMatch?
+Broadside.Viewer.DocumentSearch.Options.get -> Broadside.Viewer.TextSearchOptions!
+Broadside.Viewer.DocumentSearch.Previous() -> Broadside.Viewer.SearchMatch?
+Broadside.Viewer.DocumentSearch.Query.get -> string!
+Broadside.Viewer.DocumentSearch.Search(string! query, Broadside.Viewer.TextSearchOptions? options = null, int startPage = 0) -> void
+Broadside.Viewer.DocumentSearch.SearchedPageCount.get -> int
+Broadside.Viewer.DocumentSearch.Session.get -> Broadside.Viewer.DocumentSession!
+Broadside.Viewer.DocumentSearch.StartIndexing() -> void
+Broadside.Viewer.SearchMatch
+Broadside.Viewer.SearchMatch.Bounds.get -> Broadside.PdfRectangle
+Broadside.Viewer.SearchMatch.Context.get -> string!
+Broadside.Viewer.SearchMatch.PageIndex.get -> int
+Broadside.Viewer.SearchMatch.Quads.get -> System.Collections.Generic.IReadOnlyList<Broadside.Graphics.Quad>!
+Broadside.Viewer.SearchMatch.Text.get -> string!
+Broadside.Viewer.TextSearchOptions
+Broadside.Viewer.TextSearchOptions.MatchCase.get -> bool
+Broadside.Viewer.TextSearchOptions.MatchCase.set -> void
+Broadside.Viewer.TextSearchOptions.MatchDiacritics.get -> bool
+Broadside.Viewer.TextSearchOptions.MatchDiacritics.set -> void
+Broadside.Viewer.TextSearchOptions.TextSearchOptions() -> void
+Broadside.Viewer.TextSearchOptions.WholeWord.get -> bool
+Broadside.Viewer.TextSearchOptions.WholeWord.set -> void
+Broadside.Viewer.TextSearchOptions.WithMatchCase(bool matchCase = true) -> Broadside.Viewer.TextSearchOptions!
+Broadside.Viewer.TextSearchOptions.WithMatchDiacritics(bool matchDiacritics = true) -> Broadside.Viewer.TextSearchOptions!
+Broadside.Viewer.TextSearchOptions.WithWholeWord(bool wholeWord = true) -> Broadside.Viewer.TextSearchOptions!

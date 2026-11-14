@@ -115,6 +115,13 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
     public TextSelection? Selection => _controller?.Selection;
 
     /// <summary>
+    /// Gets the find-in-document search of the open document, or null while nothing is open: every match of its query is highlighted
+    /// over the pages (the current one distinctly) without drawing any page again; scroll a match into view with <see cref="Reveal"/>.
+    /// </summary>
+    /// <remarks>Spec #33 viewer capability 7.</remarks>
+    public DocumentSearch? Search => _controller?.Search;
+
+    /// <summary>
     /// Gets the annotation layer of the open document, or null while nothing is open: annotations added, edited or removed and form
     /// fields filled through it are redrawn at once.
     /// </summary>

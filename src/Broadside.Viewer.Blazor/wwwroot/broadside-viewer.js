@@ -308,7 +308,7 @@ export function workerCancel(job) {
 
 // Header: [records, pageCount, currentPage, zoom, tilesPresented, 0, 0, 0, 0]; then records of 9 numbers:
 // 1 paper (x, y, w, h) | 2 tile (key, x, y, w, h) | 3 selection quad (x1, y1 ... x4, y4) | 4 text layer (page, a, b, c, d, e, f) |
-// 5 live link or field (x, y, w, h, 1 hover | 2 pressed).
+// 5 live link or field (x, y, w, h, 1 hover | 2 pressed) | 6 search match quad | 7 current search match quad (x1, y1 ... x4, y4).
 export function draw(id, commands) {
   const v = viewers.get(id);
   if (!v) return;
@@ -331,11 +331,13 @@ export function draw(id, commands) {
   d.meanFrameMs = (v.sum / v.frames).toFixed(2);
   d.longFrames = v.long;
   d.linkState = link;
+  d.searchHighlights = v.searchHighlights;
 }
 
 // Returns the state of the link or field drawn live: "pressed", "hover" or "".
 function paint(v, c) {
   let link = "";
+  v.searchHighlights = 0;
   const g = v.context;
   g.fillStyle = "#e6e6e6";
   g.fillRect(0, 0, v.canvas.width, v.canvas.height);
@@ -356,7 +358,10 @@ function paint(v, c) {
         break;
       }
       case 3:
-        g.fillStyle = "rgba(26,115,232,0.3)";
+      case 6:
+      case 7:
+        g.fillStyle = c[o] === 3 ? "rgba(26,115,232,0.3)" : c[o] === 6 ? "rgba(255,200,0,0.4)" : "rgba(255,120,0,0.55)";
+        if (c[o] === 6) v.searchHighlights++;
         g.beginPath();
         g.moveTo(c[o + 1], c[o + 2]);
         g.lineTo(c[o + 3], c[o + 4]);
