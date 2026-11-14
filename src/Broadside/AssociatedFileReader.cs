@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -61,8 +62,12 @@ internal static class AssociatedFileReader
             files.Add(file);
         }
 
-        void Warn(string message) => ViewReading.Warn(document, DiagnosticCodes.AssociatedFilesInvalid, message, owner);
+        void Warn(string message) => ViewReading.Warn(document, FileSpecificationDiagnostics.AssociatedFilesInvalid, message, owner);
     }
+
+    /// <summary>Reads the <c>AF</c> entry of <paramref name="owner"/>, if it has one.</summary>
+    public static IReadOnlyList<PdfFileSpecification> ReadOwner(PdfDocument document, CosDictionary owner, CosReference? reference) =>
+        owner.TryGetValue(FileAndLayerNames.AF, out CosObject? value) ? Read(document, value, reference) : [];
 
     /// <summary>Reads the associated files of a marked-content property list (§14.13.5): an <c>MCAF</c> entry, or the array itself.</summary>
     public static IReadOnlyList<PdfFileSpecification> ReadMarkedContent(PdfDocument document, CosObject? properties, CosReference? owner) =>
@@ -185,12 +190,12 @@ internal static class AssociatedFileReader
                 if (!ViewReading.HasType(document, stream.Dictionary, FileAndLayerNames.Metadata)
                     || ViewReading.Name(document, stream.Dictionary, FileAndLayerNames.Subtype) is not { Value: "XML" })
                 {
-                    ViewReading.Warn(document, DiagnosticCodes.MetadataStreamInvalid, "A metadata stream shall have Type Metadata and Subtype XML; it is read as XMP anyway.", reference ?? ownerReference);
+                    ViewReading.Warn(document, DocumentDiagnostics.MetadataStreamInvalid, "A metadata stream shall have Type Metadata and Subtype XML; it is read as XMP anyway.", reference ?? ownerReference);
                 }
 
                 return (stream, reference);
             default:
-                ViewReading.Warn(document, DiagnosticCodes.MetadataStreamInvalid, "A Metadata entry is not a stream; it is ignored.", ownerReference);
+                ViewReading.Warn(document, DocumentDiagnostics.MetadataStreamInvalid, "A Metadata entry is not a stream; it is ignored.", ownerReference);
                 return null;
         }
     }
@@ -211,7 +216,7 @@ internal static class AssociatedFileReader
         CosReference? where = file.Reference ?? owner;
         if (requireRelationship && file.Dictionary is { } dictionary && !dictionary.ContainsKey(FileAndLayerNames.AFRelationship))
         {
-            ViewReading.Warn(document, DiagnosticCodes.AssociatedFilesInvalid, "A file specification in a marked-content MCAF array shall have an AFRelationship entry; Unspecified is used.", where);
+            ViewReading.Warn(document, FileSpecificationDiagnostics.AssociatedFilesInvalid, "A file specification in a marked-content MCAF array shall have an AFRelationship entry; Unspecified is used.", where);
         }
 
         if (file.EmbeddedFile is not { } embedded)
@@ -221,12 +226,12 @@ internal static class AssociatedFileReader
 
         if (embedded.Subtype is null)
         {
-            ViewReading.Warn(document, DiagnosticCodes.EmbeddedFileSubtypeMissing, "An embedded file used as an associated file shall have a Subtype (MIME type); application/octet-stream is assumed.", embedded.Reference ?? where);
+            ViewReading.Warn(document, FileSpecificationDiagnostics.EmbeddedFileSubtypeMissing, "An embedded file used as an associated file shall have a Subtype (MIME type); application/octet-stream is assumed.", embedded.Reference ?? where);
         }
 
         if (embedded.Parameters is { } parameters && !parameters.Dictionary.ContainsKey(FileAndLayerNames.ModDate))
         {
-            ViewReading.Warn(document, DiagnosticCodes.EmbeddedFileParamsInvalid, "The parameters of an embedded file used as an associated file shall have a ModDate.", embedded.Reference ?? where);
+            ViewReading.Warn(document, FileSpecificationDiagnostics.EmbeddedFileParamsInvalid, "The parameters of an embedded file used as an associated file shall have a ModDate.", embedded.Reference ?? where);
         }
     }
 

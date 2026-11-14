@@ -61,7 +61,7 @@ public sealed class FilterContext
     /// Guards against decompression bombs. A filter that must allocate for its output up front (an image codec sizing a buffer from
     /// its header) checks the size against this first.
     /// </remarks>
-    public long MaxDecodedLength { get; init; } = PdfOptions.DefaultMaxDecodedStreamLength;
+    public long MaxDecodedLength { get; init; } = PdfOptions.DefaultMaxDecodedLength;
 
     /// <summary>
     /// Gets the token that cancels the decode: a filter that runs long (an image codec, an inflater) checks it between units of work
@@ -78,13 +78,18 @@ public sealed class FilterContext
     public IReadOnlyList<Diagnostic> Diagnostics => (IReadOnlyList<Diagnostic>?)_diagnostics ?? [];
 
     /// <summary>Records a deviation the filter found in its data and what it did about it.</summary>
-    /// <param name="code">A stable PascalCase identifier of the kind of deviation, such as <c>FilterDataTruncated</c>.</param>
+    /// <param name="code">
+    /// The kind of deviation: a code of Broadside's catalog, such as <see cref="FilterDiagnostics.FilterDataTruncated"/>, or a
+    /// third-party filter's own code made with <see cref="DiagnosticCode.Create"/>.
+    /// </param>
     /// <param name="severity">Whether the repair kept all content (<see cref="DiagnosticSeverity.Warning"/>) or probably lost some.</param>
     /// <param name="message">What was wrong and what the filter did.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="code"/> or <paramref name="message"/> is <see langword="null"/>.</exception>
     /// <exception cref="DiagnosticException">In strict mode, always: the decode ends here.</exception>
-    /// <remarks>Inside a document the diagnostic is also recorded on the document.</remarks>
-    public void Report(string code, DiagnosticSeverity severity, string message)
+    /// <remarks>ISO 32000-2 §7.4. Inside a document the diagnostic is also recorded on the document.</remarks>
+    public void Report(DiagnosticCode code, DiagnosticSeverity severity, string message)
     {
+        ArgumentNullException.ThrowIfNull(code);
         var diagnostic = new Diagnostic(code, severity, message);
         (_diagnostics ??= []).Add(diagnostic);
         Decoder.Report(diagnostic);
@@ -131,7 +136,7 @@ public sealed class FilterContext
                 return value;
             default:
                 Report(
-                    DiagnosticCodes.DecodeParmsInvalid,
+                    FilterDiagnostics.DecodeParmsInvalid,
                     DiagnosticSeverity.Warning,
                     string.Create(
                         CultureInfo.InvariantCulture,

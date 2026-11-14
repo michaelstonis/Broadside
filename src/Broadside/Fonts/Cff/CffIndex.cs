@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using Broadside.Diagnostics;
 
 namespace Broadside.Fonts.Cff;
 
@@ -10,6 +11,7 @@ namespace Broadside.Fonts.Cff;
 /// Adobe Technical Note #5176 §5, Table 7 (p.12-13): <c>Card16 count</c>; when not 0, <c>OffSize offSize</c>, <c>count + 1</c>
 /// offsets of <c>offSize</c> bytes relative to the byte before the object data (so the first is 1), then the data. An empty INDEX is
 /// the two bytes of its count.
+/// <para>ISO 32000-2 §9.9.1.</para>
 /// </remarks>
 internal readonly struct CffIndex
 {
@@ -37,14 +39,17 @@ internal readonly struct CffIndex
     /// <summary>Reads the INDEX at an offset; a damaged one is cut down to what is readable, and <paramref name="problem"/> says why.</summary>
     /// <param name="data">The CFF program.</param>
     /// <param name="offset">The INDEX's offset.</param>
-    /// <param name="problem">A description of the damage, or <see langword="null"/>.</param>
+    /// <param name="problem">
+    /// The damage, as a <see cref="CffDiagnostics"/> code (<c>FontCffIndexOutOfRange</c>, <c>FontCffIndexTruncated</c>,
+    /// <c>FontCffIndexOffSizeInvalid</c>, <c>FontCffIndexOffsetsInvalid</c>), or <see langword="null"/>.
+    /// </param>
     /// <returns>The INDEX; empty (at the end of the data) when not even its header is readable.</returns>
-    public static CffIndex Read(ReadOnlySpan<byte> data, int offset, out string? problem)
+    public static CffIndex Read(ReadOnlySpan<byte> data, int offset, out DiagnosticCode? problem)
     {
         problem = null;
         if (offset < 0 || offset > data.Length - 2)
         {
-            problem = "lies outside the program";
+            problem = CffDiagnostics.FontCffIndexOutOfRange;
             return new CffIndex(0, 0, 1, 0, 0, data.Length);
         }
 
@@ -56,14 +61,14 @@ internal readonly struct CffIndex
 
         if (offset + 3 > data.Length)
         {
-            problem = "is cut short after its count";
+            problem = CffDiagnostics.FontCffIndexTruncated;
             return new CffIndex(0, 0, 1, 0, 0, data.Length);
         }
 
         int offSize = data[offset + 2];
         if (offSize is < 1 or > 4)
         {
-            problem = $"has offSize {offSize}, not 1 to 4";
+            problem = CffDiagnostics.FontCffIndexOffSizeInvalid;
             return new CffIndex(0, 0, 1, 0, 0, data.Length);
         }
 
@@ -71,7 +76,7 @@ internal readonly struct CffIndex
         long fitting = ((long)(data.Length - offsets) / offSize) - 1;
         if (count > fitting)
         {
-            problem = "has more offsets than the program holds";
+            problem = CffDiagnostics.FontCffIndexTruncated;
             count = (int)Math.Max(0, fitting);
             if (count == 0)
             {
@@ -85,7 +90,7 @@ internal readonly struct CffIndex
         uint first = index.ReadOffset(data, 0);
         if (first != 1)
         {
-            problem ??= "does not start its offsets at 1";
+            problem ??= CffDiagnostics.FontCffIndexOffsetsInvalid;
         }
 
         uint previous = first;
@@ -94,7 +99,7 @@ internal readonly struct CffIndex
             uint current = index.ReadOffset(data, item);
             if (current < previous || current > (uint)maxOffset)
             {
-                problem ??= "has offsets that decrease or point past the program";
+                problem ??= CffDiagnostics.FontCffIndexOffsetsInvalid;
             }
 
             previous = current;

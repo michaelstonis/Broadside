@@ -29,6 +29,7 @@ namespace Broadside.Security;
 /// file is never held in memory for this. Every digest of Table 8 is checked on every platform: SHA-3 goes through
 /// <see cref="IncrementalDigest"/>, which uses the managed implementation where the base class library has none (ISO/TS 32001 §5.1).
 /// </para>
+/// <para>ISO/TS 32004 §5.1, §6.1, §6.2, §6.3, §6.4, §6.5 and §6.6.</para>
 /// </remarks>
 internal static class IntegrityVerifier
 {
@@ -87,7 +88,7 @@ internal static class IntegrityVerifier
             }
 
             diagnostics.Report(
-                DiagnosticCodes.IntegrityCodeMissing,
+                SecurityDiagnostics.IntegrityCodeMissing,
                 DiagnosticSeverity.Warning,
                 "Permission bit 13 is clear, so a PDF MAC token is required (ISO/TS 32004 Table 3), but the trailer has no AuthCode dictionary.");
             return PdfIntegrityStatus.Missing;
@@ -96,7 +97,7 @@ internal static class IntegrityVerifier
         if (fileKey.IsEmpty)
         {
             diagnostics.Report(
-                DiagnosticCodes.IntegrityCodeNotVerified,
+                SecurityDiagnostics.IntegrityCodeNotVerified,
                 DiagnosticSeverity.Information,
                 "The document opened without its user password, so the PDF MAC token cannot be checked without the file encryption key.");
             return PdfIntegrityStatus.NotVerified;
@@ -174,7 +175,7 @@ internal static class IntegrityVerifier
             if (location is CosName other)
             {
                 diagnostics.Report(
-                    DiagnosticCodes.IntegrityCodeNotVerified,
+                    SecurityDiagnostics.IntegrityCodeNotVerified,
                     DiagnosticSeverity.Information,
                     $"The PDF MAC token's location /{other.Value} is not one ISO/TS 32004 defines; the token is not checked.");
                 return PdfIntegrityStatus.NotVerified;
@@ -210,7 +211,7 @@ internal static class IntegrityVerifier
             if (status == PdfIntegrityStatus.Verified && range[2] + range[3] != source.Length - loader.Header.Offset)
             {
                 diagnostics.Report(
-                    DiagnosticCodes.IntegrityCodeIncomplete,
+                    SecurityDiagnostics.IntegrityCodeIncomplete,
                     DiagnosticSeverity.Warning,
                     "The PDF MAC token is valid but its byte range does not reach the end of the file: what follows is not protected (a stale MAC after an update, or tampering; ISO/TS 32004 B.2.2.2, B.2.3.2).");
                 return PdfIntegrityStatus.Failed;
@@ -296,7 +297,7 @@ internal static class IntegrityVerifier
             if (!TryCreateDigest(parsed.DigestAlgorithm, out HashAlgorithmName digestName))
             {
                 diagnostics.Report(
-                    DiagnosticCodes.IntegrityCodeNotVerified,
+                    SecurityDiagnostics.IntegrityCodeNotVerified,
                     DiagnosticSeverity.Information,
                     $"The PDF MAC token's digest algorithm {parsed.DigestAlgorithm} is not one of ISO/TS 32004 Table 8; the document's integrity is not checked.");
                 return PdfIntegrityStatus.NotVerified;
@@ -418,13 +419,13 @@ internal static class IntegrityVerifier
 
         private PdfIntegrityStatus Invalid(string message)
         {
-            diagnostics.Report(DiagnosticCodes.IntegrityCodeInvalid, DiagnosticSeverity.Error, message);
+            diagnostics.Report(SecurityDiagnostics.IntegrityCodeInvalid, DiagnosticSeverity.Error, message);
             return PdfIntegrityStatus.Failed;
         }
 
         private PdfIntegrityStatus Mismatch(string message)
         {
-            diagnostics.Report(DiagnosticCodes.IntegrityCodeMismatch, DiagnosticSeverity.Error, message);
+            diagnostics.Report(SecurityDiagnostics.IntegrityCodeMismatch, DiagnosticSeverity.Error, message);
             return PdfIntegrityStatus.Failed;
         }
 

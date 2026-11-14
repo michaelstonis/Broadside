@@ -1,3 +1,4 @@
+using System.Globalization;
 using Broadside.Diagnostics;
 using Broadside.Objects;
 
@@ -7,12 +8,19 @@ namespace Broadside.Parsing;
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §7.5.4 and §7.5.5. Entries are read as tokens, not as fixed 20-byte records, so a table with wrong line endings or
-/// padding still reads (as pdf.js and PDFBox do), with one <see cref="DiagnosticCodes.XrefEntryFormatInvalid"/> per section. A
+/// padding still reads (as pdf.js and PDFBox do), with one <see cref="FileStructureDiagnostics.XrefEntryFormatInvalid"/> per section. A
 /// subsection numbered from 1 whose first entry is the head of the free list is renumbered from 0, as pdf.js does.
 /// </para>
 /// <para>
 /// An in-use entry with offset 0 is read as free (as pdf.js does) with a diagnostic, and object number 0 is always free (§7.5.4)
 /// and never appears in <see cref="XrefSection.Entries"/>.
+/// </para>
+/// <para>
+/// Repairs, each recorded once per section: a comment between tokens of the table is skipped
+/// (<see cref="FileStructureDiagnostics.XrefCommentIgnored"/>); a line that is neither a subsection header nor an entry is skipped
+/// (<see cref="FileStructureDiagnostics.XrefLineMalformed"/>); an entry numbered like the trailer's <c>Size</c> or more is
+/// reported but kept in lenient mode, because Size is the number of entries in the table (§7.5.5, Table 15) and real writers
+/// undercount it (<see cref="FileStructureDiagnostics.XrefEntryBeyondSize"/>).
 /// </para>
 /// </remarks>
 internal static class XrefTableReader
@@ -33,7 +41,7 @@ internal static class XrefTableReader
             if (trailerKeyword < 0)
             {
                 diagnostics.Report(
-                    DiagnosticCodes.TrailerMissing,
+                    FileStructureDiagnostics.TrailerMissing,
                     DiagnosticSeverity.Error,
                     "The cross-reference section has no trailer keyword.",
                     sectionOffset);
@@ -54,14 +62,85 @@ internal static class XrefTableReader
         if (trailer is not CosDictionary dictionary)
         {
             diagnostics.Report(
-                DiagnosticCodes.TrailerMissing,
+                FileStructureDiagnostics.TrailerMissing,
                 DiagnosticSeverity.Error,
                 "The trailer keyword is not followed by a dictionary.",
                 sectionOffset + lexer.Position);
             return null;
         }
 
+        ReportEntriesBeyondSize(entries, dictionary, sectionOffset, diagnostics);
         return new XrefSection(sectionOffset, sectionOffset + parser.Position, XrefSectionKind.Table, entries, dictionary);
+    }
+
+    /// <summary>
+    /// Reports the entries numbered <c>Size</c> or more: Size is "the total number of entries in the file's cross-reference table"
+    /// (§7.5.5, Table 15), so they are not part of it. Strict mode throws; lenient mode keeps them, because real writers undercount
+    /// Size (often with the Root beyond it) and ignoring the entries would rebuild those files for nothing. A missing or unusable
+    /// Size reports nothing.
+    /// </summary>
+    private static void ReportEntriesBeyondSize(Dictionary<int, XrefEntry> entries, CosDictionary trailer, long sectionOffset, DiagnosticSink diagnostics)
+    {
+        if (!trailer.TryGetValue(KnownNames.Size, out CosObject? size) || size is not CosInteger { Value: >= 0 } stated)
+        {
+            return;
+        }
+
+        int first = -1;
+        int dropped = 0;
+        foreach (int number in entries.Keys)
+        {
+            if (number >= stated.Value)
+            {
+                dropped++;
+                first = first < 0 || number < first ? number : first;
+            }
+        }
+
+        if (dropped == 0)
+        {
+            return;
+        }
+
+        diagnostics.Report(
+            FileStructureDiagnostics.XrefEntryBeyondSize,
+            DiagnosticSeverity.Warning,
+            string.Create(CultureInfo.InvariantCulture, $"The table lists {dropped} entries numbered {stated.Value} or more (the first is object {first}), but the trailer's Size is {stated.Value}, the total number of entries; they are kept."),
+            sectionOffset);
+    }
+
+    /// <summary>Reports the first comment in the gap between two tokens, once per section.</summary>
+    private static void ReportComment(ReadOnlySpan<byte> source, int gapStart, int gapEnd, long sectionOffset, DiagnosticSink diagnostics, ref bool reported)
+    {
+        if (reported || gapEnd <= gapStart)
+        {
+            return;
+        }
+
+        int comment = source[gapStart..gapEnd].IndexOf((byte)'%');
+        if (comment < 0)
+        {
+            return;
+        }
+
+        reported = true;
+        diagnostics.Report(
+            FileStructureDiagnostics.XrefCommentIgnored,
+            DiagnosticSeverity.Warning,
+            "A cross-reference table has a comment between its tokens; a table is subsections of entries (7.5.4), so the comment is skipped.",
+            sectionOffset + gapStart + comment);
+    }
+
+    /// <summary>Reports a line that is neither a subsection header nor an entry and moves the lexer to the end of that line.</summary>
+    private static void SkipMalformedLine(ref CosLexer lexer, CosToken token, long sectionOffset, DiagnosticSink diagnostics)
+    {
+        diagnostics.Report(
+            FileStructureDiagnostics.XrefLineMalformed,
+            DiagnosticSeverity.Warning,
+            "A line of the cross-reference table is neither a subsection header nor an entry; the line is skipped.",
+            sectionOffset + token.Start);
+        int end = lexer.Source[token.Start..].IndexOfAny((byte)'\r', (byte)'\n');
+        lexer.Position = end < 0 ? lexer.Source.Length : token.Start + end;
     }
 
     /// <summary>Reads subsections up to and including the <c>trailer</c> keyword.</summary>
@@ -70,13 +149,22 @@ internal static class XrefTableReader
     {
         bool formatReported = false;
         bool headerReported = false;
+        bool commentReported = false;
         while (true)
         {
+            int gapStart = lexer.Position;
             CosToken next = lexer.Peek();
+            ReportComment(lexer.Source, gapStart, next.Start, sectionOffset, diagnostics, ref commentReported);
             if (StructureTokens.IsKeyword(lexer.Source, next, "trailer"u8))
             {
                 lexer.Position = next.End;
                 return true;
+            }
+
+            if (next.Kind is not (CosTokenKind.Integer or CosTokenKind.EndOfInput))
+            {
+                SkipMalformedLine(ref lexer, next, sectionOffset, diagnostics);
+                continue;
             }
 
             long subsectionStart = sectionOffset + next.Start;
@@ -86,7 +174,7 @@ internal static class XrefTableReader
             if (!readFirst || !StructureTokens.TryReadUnsigned(ref lexer, out long count))
             {
                 diagnostics.Report(
-                    DiagnosticCodes.XrefSectionInvalid,
+                    FileStructureDiagnostics.XrefSectionInvalid,
                     DiagnosticSeverity.Error,
                     "Expected a subsection header (first object number and entry count) or the trailer keyword.",
                     subsectionStart);
@@ -99,7 +187,7 @@ internal static class XrefTableReader
                 // terminated by an end-of-line marker". Read as tokens anyway.
                 headerReported = true;
                 diagnostics.Report(
-                    DiagnosticCodes.XrefSubsectionHeaderInvalid,
+                    FileStructureDiagnostics.XrefSubsectionHeaderInvalid,
                     DiagnosticSeverity.Warning,
                     "A subsection header is not a line of exactly two integers separated by one space; it is read as tokens.",
                     subsectionStart);
@@ -107,12 +195,23 @@ internal static class XrefTableReader
 
             for (long index = 0; index < count; index++)
             {
-                int entryPosition = lexer.Peek().Start;
+                int entryGap = lexer.Position;
+                CosToken entryToken = lexer.Peek();
+                int entryPosition = entryToken.Start;
+                ReportComment(lexer.Source, entryGap, entryPosition, sectionOffset, diagnostics, ref commentReported);
+                if (entryToken.Kind is not (CosTokenKind.Integer or CosTokenKind.EndOfInput) && !StructureTokens.IsKeyword(lexer.Source, entryToken, "trailer"u8))
+                {
+                    // A line that is not an entry: skip it and read the entry that is still due.
+                    SkipMalformedLine(ref lexer, entryToken, sectionOffset, diagnostics);
+                    index--;
+                    continue;
+                }
+
                 long entryStart = sectionOffset + entryPosition;
                 if (!TryReadEntry(ref lexer, out XrefEntry entry) || first + index > int.MaxValue)
                 {
                     diagnostics.Report(
-                        DiagnosticCodes.XrefEntryInvalid,
+                        FileStructureDiagnostics.XrefEntryInvalid,
                         DiagnosticSeverity.Error,
                         "Expected a cross-reference entry: a 10-digit offset, a 5-digit generation and n or f.",
                         entryStart);
@@ -124,7 +223,7 @@ internal static class XrefTableReader
                     // §7.5.4: "each entry shall be exactly 20 bytes long, including the end-of-line marker". Read as tokens anyway.
                     formatReported = true;
                     diagnostics.Report(
-                        DiagnosticCodes.XrefEntryFormatInvalid,
+                        FileStructureDiagnostics.XrefEntryFormatInvalid,
                         DiagnosticSeverity.Warning,
                         "A cross-reference entry is not 20 bytes long (10-digit offset, space, 5-digit generation, space, n or f, two-byte end of line); the section is read entry by entry.",
                         entryStart);
@@ -136,7 +235,7 @@ internal static class XrefTableReader
                     // entry by one. Renumber from 0, as pdf.js does.
                     first = 0;
                     diagnostics.Report(
-                        DiagnosticCodes.XrefSubsectionNumberingInvalid,
+                        FileStructureDiagnostics.XrefSubsectionNumberingInvalid,
                         DiagnosticSeverity.Warning,
                         "The subsection starts at object 1, but its first entry is the head of the free list, which is object 0; the subsection is read as starting at 0.",
                         subsectionStart);

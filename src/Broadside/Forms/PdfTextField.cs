@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -63,7 +64,7 @@ public sealed class PdfTextField : PdfTerminalField
 
             if (MaxLength is null || IsMultiline || IsPassword || IsFileSelect)
             {
-                Report(DiagnosticCodes.TextCombInvalid, "The Comb flag may be set only with a MaxLen entry and with the Multiline, Password and FileSelect flags clear (Table 231).");
+                Report(FormDiagnostics.TextCombInvalid, "The Comb flag may be set only with a MaxLen entry and with the Multiline, Password and FileSelect flags clear (Table 231).");
             }
 
             return true;

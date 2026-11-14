@@ -82,7 +82,7 @@ internal sealed class StreamDecoder
     /// <summary>Records a diagnostic; throws it in strict mode.</summary>
     /// <param name="diagnostic">The diagnostic.</param>
     public void Report(Diagnostic diagnostic) =>
-        _diagnostics.Report(diagnostic.Code, diagnostic.Severity, diagnostic.Message, diagnostic.Offset, diagnostic.ObjectReference);
+        _diagnostics.Report(diagnostic.Kind, diagnostic.Severity, diagnostic.Message, diagnostic.Offset, diagnostic.ObjectReference);
 
     /// <summary>Decodes a stream into a new array.</summary>
     /// <param name="stream">The stream.</param>
@@ -131,7 +131,7 @@ internal sealed class StreamDecoder
         CheckExternalFile(stream);
         if (depth > MaxDepth)
         {
-            Report(DiagnosticCodes.StreamDecodingTooDeep, DiagnosticSeverity.Error, string.Create(
+            Report(FilterDiagnostics.StreamDecodingTooDeep, DiagnosticSeverity.Error, string.Create(
                 CultureInfo.InvariantCulture,
                 $"Decoding the stream needs more than {MaxDepth} nested stream decodes; it decodes to nothing."));
             return;
@@ -228,7 +228,7 @@ internal sealed class StreamDecoder
             bool imageCodec = FilterNames.IsImageCodec(name);
             string kind = FilterNames.IsStandard(name) ? "is a standard filter this version does not implement" : "is not a filter this engine knows";
             Report(
-                DiagnosticCodes.FilterUnsupported,
+                FilterDiagnostics.FilterUnsupported,
                 imageCodec ? DiagnosticSeverity.Information : DiagnosticSeverity.Error,
                 $"The filter /{name.Value} {kind}; the stream is left encoded from that filter on.");
             output.Write(data.Span);
@@ -264,7 +264,7 @@ internal sealed class StreamDecoder
 #pragma warning restore CA1031
         {
             Report(
-                DiagnosticCodes.FilterFailed,
+                FilterDiagnostics.FilterFailed,
                 DiagnosticSeverity.Error,
                 $"The filter /{name.Value} failed to decode the image ({exception.GetType().Name}: {exception.Message}); the image is not decoded.");
             return null;
@@ -278,7 +278,7 @@ internal sealed class StreamDecoder
     {
         if (index != 0)
         {
-            Report(DiagnosticCodes.CryptFilterNotFirst, DiagnosticSeverity.Warning, "The Crypt filter shall be the first filter in the Filter array; it is applied where it is.");
+            Report(FilterDiagnostics.CryptFilterNotFirst, DiagnosticSeverity.Warning, "The Crypt filter shall be the first filter in the Filter array; it is applied where it is.");
         }
 
         CosName cryptFilterName = context.Resolve(context.Parameters?.TryGetValue(FilterNames.Name, out CosObject? named) == true ? named : null) as CosName
@@ -288,7 +288,7 @@ internal sealed class StreamDecoder
         if (completed && !decrypted)
         {
             Report(
-                DiagnosticCodes.CryptFilterUnsupported,
+                FilterDiagnostics.CryptFilterUnsupported,
                 DiagnosticSeverity.Error,
                 $"The crypt filter /{cryptFilterName.Value} is not known to the document's security handler; the stream is left encrypted.");
             output.Clear();
@@ -335,7 +335,7 @@ internal sealed class StreamDecoder
             }
 
             Report(
-                DiagnosticCodes.FilterFailed,
+                FilterDiagnostics.FilterFailed,
                 DiagnosticSeverity.Error,
                 $"{(filterName is null ? "The predictor" : $"The filter /{filterName.Value}")} failed ({exception.GetType().Name}: {exception.Message}); the bytes it decoded before failing are kept.");
             return true;
@@ -343,7 +343,7 @@ internal sealed class StreamDecoder
     }
 
     private void ReportLengthExceeded() =>
-        Report(DiagnosticCodes.StreamDecodedLengthExceeded, DiagnosticSeverity.Error, string.Create(
+        Report(FilterDiagnostics.StreamDecodedLengthExceeded, DiagnosticSeverity.Error, string.Create(
             CultureInfo.InvariantCulture,
             $"The stream decodes to more than the limit of {MaxDecodedLength} bytes; it is truncated there."));
 
@@ -352,7 +352,7 @@ internal sealed class StreamDecoder
         if (stream.Dictionary.ContainsKey(FilterNames.F))
         {
             Report(
-                DiagnosticCodes.StreamExternalFileUnsupported,
+                FilterDiagnostics.StreamExternalFileUnsupported,
                 DiagnosticSeverity.Information,
                 "The stream's data is in an external file (F), which is not read; the bytes in the stream itself are decoded instead.");
         }
@@ -375,7 +375,7 @@ internal sealed class StreamDecoder
                 ReadArrayChain(names, parametersEntry, chain);
                 return chain;
             default:
-                Report(DiagnosticCodes.FilterInvalid, DiagnosticSeverity.Error, "The Filter entry shall be a name or an array of names; the stream is left encoded.");
+                Report(FilterDiagnostics.FilterInvalid, DiagnosticSeverity.Error, "The Filter entry shall be a name or an array of names; the stream is left encoded.");
                 return chain;
         }
     }
@@ -391,19 +391,19 @@ internal sealed class StreamDecoder
                 break;
             case CosDictionary:
                 Report(
-                    DiagnosticCodes.DecodeParmsInvalid,
+                    FilterDiagnostics.DecodeParmsInvalid,
                     DiagnosticSeverity.Warning,
                     "DecodeParms shall be an array with one entry per filter when Filter is an array of several; the dictionary is ignored.");
                 break;
             default:
-                Report(DiagnosticCodes.DecodeParmsInvalid, DiagnosticSeverity.Warning, "DecodeParms shall be a dictionary or an array; it is ignored.");
+                Report(FilterDiagnostics.DecodeParmsInvalid, DiagnosticSeverity.Warning, "DecodeParms shall be a dictionary or an array; it is ignored.");
                 break;
         }
 
         if (parameterArray is not null && parameterArray.Count != names.Count)
         {
             Report(
-                DiagnosticCodes.DecodeParmsInvalid,
+                FilterDiagnostics.DecodeParmsInvalid,
                 DiagnosticSeverity.Warning,
                 "The DecodeParms array shall have one entry per filter; missing entries take the defaults.");
         }
@@ -412,7 +412,7 @@ internal sealed class StreamDecoder
         {
             if (Resolve(names[index]) is not CosName name)
             {
-                Report(DiagnosticCodes.FilterInvalid, DiagnosticSeverity.Error, "Every element of the Filter array shall be a name; the chain stops before the first that is not.");
+                Report(FilterDiagnostics.FilterInvalid, DiagnosticSeverity.Error, "Every element of the Filter array shall be a name; the chain stops before the first that is not.");
                 return;
             }
 
@@ -433,12 +433,12 @@ internal sealed class StreamDecoder
                 return dictionary;
             case CosArray array:
                 Report(
-                    DiagnosticCodes.DecodeParmsInvalid,
+                    FilterDiagnostics.DecodeParmsInvalid,
                     DiagnosticSeverity.Warning,
                     "DecodeParms shall be a dictionary when Filter is a single name; the first element of the array is used.");
                 return array.Count > 0 ? Resolve(array[0]) as CosDictionary : null;
             default:
-                Report(DiagnosticCodes.DecodeParmsInvalid, DiagnosticSeverity.Warning, "DecodeParms shall be a dictionary; it is ignored.");
+                Report(FilterDiagnostics.DecodeParmsInvalid, DiagnosticSeverity.Warning, "DecodeParms shall be a dictionary; it is ignored.");
                 return null;
         }
     }
@@ -452,7 +452,7 @@ internal sealed class StreamDecoder
             case CosDictionary dictionary:
                 return dictionary;
             default:
-                Report(DiagnosticCodes.DecodeParmsInvalid, DiagnosticSeverity.Warning, "Each element of the DecodeParms array shall be a dictionary or null; this one is ignored.");
+                Report(FilterDiagnostics.DecodeParmsInvalid, DiagnosticSeverity.Warning, "Each element of the DecodeParms array shall be a dictionary or null; this one is ignored.");
                 return null;
         }
     }
@@ -465,13 +465,13 @@ internal sealed class StreamDecoder
         }
 
         Report(
-            DiagnosticCodes.FilterAbbreviationNotAllowed,
+            FilterDiagnostics.FilterAbbreviationNotAllowed,
             DiagnosticSeverity.Warning,
             $"The abbreviation /{name.Value} is valid only in inline images; it is read as /{fullName.Value}.");
         return fullName;
     }
 
-    private void Report(string code, DiagnosticSeverity severity, string message) => _diagnostics.Report(code, severity, message);
+    private void Report(DiagnosticCode code, DiagnosticSeverity severity, string message) => _diagnostics.Report(code, severity, message);
 
     /// <summary>One filter of a chain and its parameters.</summary>
     private readonly record struct FilterStage(CosName Name, CosDictionary? Parameters);

@@ -113,12 +113,15 @@ public sealed class FontProgramContext
     public IReadOnlyList<Diagnostic> Diagnostics => _diagnostics.Items;
 
     /// <summary>Records a deviation found in the program and what the parser did about it. Only the first of each code is kept.</summary>
-    /// <param name="code">A stable PascalCase identifier of the kind of deviation, such as <c>FontGlyphInvalid</c>.</param>
+    /// <param name="code">
+    /// The kind of deviation: a code of Broadside's catalog, such as <see cref="FontDiagnostics.FontGlyphInvalid"/>, or a third-party
+    /// parser's own code made with <see cref="DiagnosticCode.Create"/>.
+    /// </param>
     /// <param name="severity">Whether the repair kept the glyphs (<see cref="DiagnosticSeverity.Warning"/>) or lost some.</param>
     /// <param name="message">What was wrong and what the parser did.</param>
     /// <exception cref="DiagnosticException">In strict mode, unless the severity is <see cref="DiagnosticSeverity.Information"/>.</exception>
-    /// <remarks>Inside a document the diagnostic is recorded on the document, against the font file stream.</remarks>
-    public void Report(string code, DiagnosticSeverity severity, string message)
+    /// <remarks>ISO 32000-2 §9.9. Inside a document the diagnostic is recorded on the document, against the font file stream.</remarks>
+    public void Report(DiagnosticCode code, DiagnosticSeverity severity, string message)
     {
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(message);

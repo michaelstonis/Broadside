@@ -142,7 +142,7 @@ internal static unsafe class WicCodec
             long lumaBytes = (long)luma.Stride * luma.Height;
             long chromaBytes = (long)chroma.Stride * chroma.Height;
             DecodedImageBuilder image = request.CreateImage(reduction);
-            byte[] planes = ArrayPool<byte>.Shared.Rent(checked((int)(lumaBytes + (2 * chromaBytes) + (3L * image.Width))));
+            byte[] planes = ArrayPool<byte>.Shared.Rent(checked((int)(lumaBytes + (2 * chromaBytes) + (3L * image.Geometry.Width))));
             try
             {
                 fixed (byte* buffer = planes)
@@ -162,9 +162,9 @@ internal static unsafe class WicCodec
                     all.Slice((int)lumaBytes, (int)chromaBytes),
                     all.Slice((int)(lumaBytes + chromaBytes), (int)chromaBytes),
                     chroma,
-                    planes.AsSpan((int)(lumaBytes + (2 * chromaBytes)), 3 * image.Width)))
+                    planes.AsSpan((int)(lumaBytes + (2 * chromaBytes)), 3 * image.Geometry.Width)))
                 {
-                    reason = $"WIC's planes ({luma.Width} x {luma.Height}, {chroma.Width} x {chroma.Height}) do not fit a {image.Width} x {image.Height} image";
+                    reason = $"WIC's planes ({luma.Width} x {luma.Height}, {chroma.Width} x {chroma.Height}) do not fit a {image.Geometry.Width} x {image.Geometry.Height} image";
                     image.Dispose();
                     return null;
                 }
@@ -231,7 +231,7 @@ internal static unsafe class WicCodec
 
                 if (!WicSamples.CopyPixels(image, pixels.AsSpan(0, (int)bytes), source))
                 {
-                    reason = $"WIC's {width} x {height} pixels do not fit a {image.Width} x {image.Height} image";
+                    reason = $"WIC's {width} x {height} pixels do not fit a {image.Geometry.Width} x {image.Geometry.Height} image";
                     image.Dispose();
                     return null;
                 }

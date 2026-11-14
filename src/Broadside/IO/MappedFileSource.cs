@@ -18,6 +18,7 @@ namespace Broadside.IO;
 /// read throw <see cref="ObjectDisposedException"/> or complete, never fault. Windows are not protected that way: disposing a
 /// document while other threads still parse it is the caller's error. The file must not be truncated or rewritten while it is open.
 /// </para>
+/// <para>ISO 32000-2 §7.5.1.</para>
 /// </remarks>
 internal sealed unsafe class MappedFileSource : PdfSource
 {

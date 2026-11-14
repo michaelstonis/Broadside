@@ -13,6 +13,7 @@ namespace Broadside.Signatures.Validation;
 /// RFC 8017 §5.2.2 (RSAVP1), §8.1.2 and §8.2.2. Used where the platform cannot verify: SHA-3 digests on macOS, iOS and the browser,
 /// PSS salt lengths other than the digest length, and the browser for every RSA signature. Verification handles only public values,
 /// so it need not run in constant time.
+/// <para>ISO 32000-2 §12.8.3.1.</para>
 /// </remarks>
 internal static class ManagedRsa
 {

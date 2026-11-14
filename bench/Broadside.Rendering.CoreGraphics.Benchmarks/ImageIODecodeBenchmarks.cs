@@ -54,13 +54,10 @@ public class ImageIODecodeBenchmarks
     {
         using DecodedImage? image = new DctDecodeFilter().DecodeImage(_jpeg, new ImageFilterContext(new FilterContext())
         {
-            Width = _request.Width,
-            Height = _request.Height,
-            BitsPerComponent = 8,
-            ColorComponents = 3,
+            Geometry = new ImageGeometry(_request.Width, _request.Height, 3, 8),
             Reduction = Reduction,
         });
-        return image!.Width;
+        return image!.Geometry.Width;
     }
 
     /// <summary>ImageIO at the reduction (<c>kCGImageSourceSubsampleFactor</c> above 0), repacked into the core's samples.</summary>
@@ -68,6 +65,6 @@ public class ImageIODecodeBenchmarks
     public int ImageIO()
     {
         using DecodedImage? image = ImageIODecoder.Decode(_jpeg, _request, Reduction);
-        return image!.Width;
+        return image!.Geometry.Width;
     }
 }

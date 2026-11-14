@@ -25,9 +25,9 @@ public sealed class PdfCircleAnnotation : PdfMarkupAnnotation
 
     /// <summary>Gets the border effect (<c>BE</c>, PDF 1.5), or <see langword="null"/> for none.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.8, Table 180, and §12.5.4, Table 169.</remarks>
-    public PdfBorderEffect? BorderEffect => ReadBorderEffect();
+    public PdfBorderEffect? BorderEffect => this.GetBorderEffect();
 
     /// <summary>Gets the differences between the annotation rectangle and the drawn rectangle (<c>RD</c>, PDF 1.5), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.8, Table 180.</remarks>
-    public PdfRectangleDifferences? RectangleDifferences => ReadRectangleDifferences();
+    public PdfRectangleDifferences? RectangleDifferences => this.GetRectangleDifferences();
 }

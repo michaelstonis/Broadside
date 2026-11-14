@@ -6,6 +6,7 @@ namespace Broadside;
 /// <remarks>
 /// ISO 32000-2 §12.11.3, Table 276. Type <c>JS</c> names a document-level JavaScript (<see cref="Script"/>) that decides whether the
 /// requirement is met; <c>NoOp</c> does nothing. Exposed, never run. A live view over the handler dictionary.
+/// <para>ISO 32000-2 §12.11.5.</para>
 /// </remarks>
 public sealed class PdfRequirementHandler
 {

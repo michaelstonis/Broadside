@@ -32,7 +32,7 @@ public sealed class CcittImageTests
 
         using DecodedImage decoded = image.Decode()!;
 
-        Assert.Equal((width, height, 1, 1), (decoded.Width, decoded.Height, decoded.Components, decoded.BitsPerComponent));
+        Assert.Equal((width, height, 1, 1), (decoded.Geometry.Width, decoded.Geometry.Height, decoded.Geometry.Components, decoded.Geometry.BitsPerComponent));
         Assert.Equal(CcittEncoder.Pack(CcittEncoder.SampleBitmap(width, height)), decoded.Samples.ToArray());
         Assert.Equal(height, decoded.DecodedRows);
         Assert.Empty(document.Diagnostics);
@@ -48,12 +48,12 @@ public sealed class CcittImageTests
         {
             PdfImage image = document.Pages[0].GetImage(name)!;
             using DecodedImage decoded = image.Decode()!;
-            Assert.True(image.IsStencil);
+            Assert.True(image.IsImageMask);
             Assert.Equal(CcittEncoder.Pack(bitmap, blackIs1), decoded.Samples.ToArray());
             byte[] coverage = new byte[48];
             for (int y = 0; y < 16; y++)
             {
-                ImageRows.Stencil(decoded.GetRow(y), 48, image.CreateDecodeMap(decoded).IsInverted, coverage);
+                ImageRows.ImageMask(decoded.GetRow(y), 48, image.CreateDecodeMap(decoded).IsInverted, coverage);
                 Assert.Equal(bitmap[y].Select(black => black ? (byte)255 : (byte)0), coverage);
             }
         }
@@ -116,7 +116,7 @@ public sealed class CcittImageTests
 
         using DecodedImage decoded = document.Pages[0].GetImage("Im0")!.Decode()!;
 
-        Assert.Equal((37, 19, 1, 1, 5), (decoded.Width, decoded.Height, decoded.Components, decoded.BitsPerComponent, decoded.Stride));
+        Assert.Equal((37, 19, 1, 1, 5), (decoded.Geometry.Width, decoded.Geometry.Height, decoded.Geometry.Components, decoded.Geometry.BitsPerComponent, decoded.Stride));
         Assert.Equal(CcittEncoder.Pack(bitmap), decoded.Samples.ToArray());
         Assert.False(decoded.SamplesInverted);
         Assert.Equal(19, decoded.DecodedRows);
@@ -137,7 +137,7 @@ public sealed class CcittImageTests
         using DecodedImage decoded = document.Pages[0].GetImage("Im0")!.Decode()!;
 
         bool[][] expected = [.. bitmap.Select(row => Enumerable.Range(0, width).Select(x => x < 37 && row[x]).ToArray())];
-        Assert.Equal((width, 6), (decoded.Width, decoded.Height));
+        Assert.Equal((width, 6), (decoded.Geometry.Width, decoded.Geometry.Height));
         Assert.Equal(CcittEncoder.Pack(expected), decoded.Samples.ToArray());
         Assert.Contains("CcittWidthMismatch", Codes(document));
     }
@@ -185,7 +185,7 @@ public sealed class CcittImageTests
 
         using DecodedImage decoded = image.Decode()!;
         byte[] coverage = new byte[24];
-        ImageRows.Stencil(decoded.GetRow(3), 24, image.CreateDecodeMap(decoded).IsInverted, coverage);
+        ImageRows.ImageMask(decoded.GetRow(3), 24, image.CreateDecodeMap(decoded).IsInverted, coverage);
 
         Assert.Equal(CcittEncoder.Pack(bitmap, blackIs1: true), decoded.Samples.ToArray());
         Assert.Equal(bitmap[3].Select(black => black ? (byte)255 : (byte)0), coverage);

@@ -6,6 +6,7 @@ namespace Broadside;
 /// <remarks>
 /// ISO 32000-2 §12.6.4.1, Table 201. Kept as it is (parse-and-preserve) and reachable through <see cref="PdfAction.Dictionary"/>;
 /// <see cref="PdfAction.ActionType"/> says which type it is.
+/// <para>ISO 32000-2 §12.6.2.</para>
 /// </remarks>
 public sealed class PdfUnknownAction : PdfAction
 {

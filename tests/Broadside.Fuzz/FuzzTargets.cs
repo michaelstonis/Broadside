@@ -730,6 +730,18 @@ internal static class FuzzTargets
         }
     }
 
+    /// <summary>Every deviation a parser reports carries a code of the diagnostic catalog (issue #248), never free text.</summary>
+    private static void CheckCatalogCodes(IReadOnlyList<Diagnostic> diagnostics)
+    {
+        foreach (Diagnostic diagnostic in diagnostics)
+        {
+            if (diagnostic.Kind.Area == DiagnosticArea.None)
+            {
+                throw new InvalidOperationException($"{diagnostic.Code} is not a code of the diagnostic catalog.");
+            }
+        }
+    }
+
     /// <summary>A glyph outline must be contours of moveto, segments and close, with the points its verbs take, all finite.</summary>
     /// <summary>
     /// Parses the input as a CFF or OpenType-CFF program (issue #51) and reads all of it: every glyph's outline and advance (up to
@@ -760,8 +772,10 @@ internal static class FuzzTargets
         byte[] bytes = data.ToArray();
         var parser = new CffFontProgramParser();
         _ = parser.CanParse(bytes);
-        if (parser.Parse(bytes, new FontProgramContext { MaxCharStringOperators = 10_000 }) is not { } program)
+        var context = new FontProgramContext { MaxCharStringOperators = 10_000 };
+        if (parser.Parse(bytes, context) is not { } program)
         {
+            CheckCatalogCodes(context.Diagnostics);
             return;
         }
 
@@ -781,6 +795,9 @@ internal static class FuzzTargets
                 throw new InvalidOperationException($"Glyph {glyph} is named {name}, but the name finds glyph {named}.");
             }
         }
+
+        // Issue #248: damaged INDEXes and every other deviation report codes of the catalog, never free text.
+        CheckCatalogCodes(context.Diagnostics);
 
         if (program.BuiltInEncoding is { } encoding)
         {
@@ -1108,7 +1125,7 @@ internal static class FuzzTargets
 
         var filter = new JpxDecodeFilter();
         bool wantsAlpha = (data.Length & 1) == 1;
-        var context = new ImageFilterContext(new FilterContext { MaxDecodedLength = 1 << 20 }) { MaxPixels = 1 << 16, WantsAlpha = wantsAlpha };
+        var context = new ImageFilterContext(new FilterContext { MaxDecodedLength = 1 << 20 }) { MaxPixels = 1 << 16, SoftMaskInData = wantsAlpha ? PdfSoftMaskInData.Alpha : PdfSoftMaskInData.None };
         bool hasHeader = filter.TryReadHeader(data, context, out ImageHeader header);
         byte[] bytes = data.ToArray();
         using DecodedImage? image = filter.DecodeImage(bytes, context);
@@ -1117,11 +1134,11 @@ internal static class FuzzTargets
             return;
         }
 
-        if (!hasHeader || (image.Width, image.Height, image.Components, image.BitsPerComponent, image.Alpha is not null) != (header.Width, header.Height, header.Components, header.BitsPerComponent, header.HasAlpha)
-            || image.Samples.Length != (long)image.Stride * image.Height
-            || (image.Alpha is { } alpha && (alpha.Width, alpha.Height, alpha.Samples.Length) != (image.Width, image.Height, alpha.Stride * alpha.Height)))
+        if (!hasHeader || (image.Geometry.Width, image.Geometry.Height, image.Geometry.Components, image.Geometry.BitsPerComponent, image.Alpha is not null) != (header.Geometry.Width, header.Geometry.Height, header.Geometry.Components, header.Geometry.BitsPerComponent, header.HasAlpha)
+            || image.Samples.Length != (long)image.Stride * image.Geometry.Height
+            || (image.Alpha is { } alpha && (alpha.Geometry.Width, alpha.Geometry.Height, alpha.Samples.Length) != (image.Geometry.Width, image.Geometry.Height, alpha.Stride * alpha.Geometry.Height)))
         {
-            throw new InvalidOperationException($"JPXDecode made a {image.Width} x {image.Height} x {image.Components} image of {image.Samples.Length} bytes where the header says {header}.");
+            throw new InvalidOperationException($"JPXDecode made a {image.Geometry.Width} x {image.Geometry.Height} x {image.Geometry.Components} image of {image.Samples.Length} bytes where the header says {header}.");
         }
 
         if (wantsAlpha)
@@ -1146,11 +1163,11 @@ internal static class FuzzTargets
         }
 
         int d = reduced.Reduction;
-        if (d > Math.Min(asked, header.MaxReduction) || reduced.Width != (int)(((long)header.Width + (1L << d) - 1) >> d)
-            || reduced.Height != (int)(((long)header.Height + (1L << d) - 1) >> d) || reduced.Components != image.Components
-            || reduced.Samples.Length != (long)reduced.Stride * reduced.Height)
+        if (d > Math.Min(asked, header.MaxReduction) || reduced.Geometry.Width != (int)(((long)header.Geometry.Width + (1L << d) - 1) >> d)
+            || reduced.Geometry.Height != (int)(((long)header.Geometry.Height + (1L << d) - 1) >> d) || reduced.Geometry.Components != image.Geometry.Components
+            || reduced.Samples.Length != (long)reduced.Stride * reduced.Geometry.Height)
         {
-            throw new InvalidOperationException($"JPXDecode at reduction {d} (asked {asked}, header {header.MaxReduction}) made a {reduced.Width} x {reduced.Height} x {reduced.Components} image from {header.Width} x {header.Height}.");
+            throw new InvalidOperationException($"JPXDecode at reduction {d} (asked {asked}, header {header.MaxReduction}) made a {reduced.Geometry.Width} x {reduced.Geometry.Height} x {reduced.Geometry.Components} image from {header.Geometry.Width} x {header.Geometry.Height}.");
         }
     }
 
@@ -1294,7 +1311,7 @@ internal static class FuzzTargets
 
         var encoded = new ArrayBufferWriter<byte>();
         new StreamEncoder(StreamEncoderRegistry.Default, Unresolved).Encode(body, dictionary, encoded, levels[mode % levels.Length]);
-        var decoder = new StreamDecoder(FilterRegistry.Create([]), PdfOptions.DefaultMaxDecodedStreamLength, new DiagnosticSink(strict: true), Unresolved);
+        var decoder = new StreamDecoder(FilterRegistry.Create([]), PdfOptions.DefaultMaxDecodedLength, new DiagnosticSink(strict: true), Unresolved);
         ReadOnlyMemory<byte> decoded = decoder.Decode(new CosStream(dictionary, encoded.WrittenSpan.ToArray()));
         if (!decoded.Span.SequenceEqual(body))
         {
@@ -1347,7 +1364,7 @@ internal static class FuzzTargets
     private static void Repair(ReadOnlySpan<byte> data)
     {
         var diagnostics = new DiagnosticSink(strict: false);
-        var streams = new StreamDecoder(FilterRegistry.Create([]), PdfOptions.DefaultMaxDecodedStreamLength, diagnostics, static value => value ?? CosNull.Instance);
+        var streams = new StreamDecoder(FilterRegistry.Create([]), PdfOptions.DefaultMaxDecodedLength, diagnostics, static value => value ?? CosNull.Instance);
         using PdfSource source = PdfSource.FromMemory(data.ToArray());
         FileHeader header = FileHeader.Locate(source, diagnostics);
 
@@ -1411,7 +1428,7 @@ internal static class FuzzTargets
             $"7 0 obj\n<< /Type /XRef /Size 1000 {index} /W [{widths[0]} {widths[1]} {widths[2]}] /Length {rows.Length} >>\nstream\n");
         byte[] file = [.. head, .. rows, .. "\nendstream\nendobj\n"u8];
         var diagnostics = new DiagnosticSink(strict: false);
-        var streams = new StreamDecoder(FilterRegistry.Create([]), PdfOptions.DefaultMaxDecodedStreamLength, diagnostics, static value => value ?? CosNull.Instance);
+        var streams = new StreamDecoder(FilterRegistry.Create([]), PdfOptions.DefaultMaxDecodedLength, diagnostics, static value => value ?? CosNull.Instance);
         using PdfSource source = PdfSource.FromMemory(file);
 
         XrefSection? section = XrefStreamReader.Read(source, 0, streams, diagnostics);
@@ -1523,7 +1540,7 @@ internal static class FuzzTargets
                 IEnumerable<CosObject> streams = contents is CosArray array ? array : [contents];
                 foreach (CosObject item in streams)
                 {
-                    if (document.Resolve(item) is CosStream stream && document.DecodeStream(stream).Length > PdfOptions.DefaultMaxDecodedStreamLength)
+                    if (document.Resolve(item) is CosStream stream && document.DecodeStream(stream).Length > PdfOptions.DefaultMaxDecodedLength)
                     {
                         throw new InvalidOperationException("A decoded stream exceeds the decoded-length limit.");
                     }
@@ -2017,7 +2034,7 @@ internal static class FuzzTargets
         {
             if (severity == DiagnosticSeverity.Error)
             {
-                errors.Add(code);
+                errors.Add(code.Name);
             }
         });
         if ((packet is null) != (errors.Count > 0))
@@ -2045,7 +2062,7 @@ internal static class FuzzTargets
     {
         byte[] written = XmpPacketWriter.Write(packet.Properties, packet.About ?? string.Empty);
         var reported = new List<string>();
-        XmpPacket? reread = XmpPacketReader.Read(written, (code, _, _) => reported.Add(code));
+        XmpPacket? reread = XmpPacketReader.Read(written, (code, _, _) => reported.Add(code.Name));
         if (reread is null || reported.Count > 0)
         {
             throw new InvalidOperationException($"A written XMP packet must read cleanly; reported: {string.Join(", ", reported)}.");

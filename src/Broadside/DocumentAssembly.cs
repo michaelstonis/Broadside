@@ -16,6 +16,7 @@ namespace Broadside;
 /// ISO 32000-2 §7.7.3, §12.3.2.4, §12.3.3, §12.4.2 and §12.7. Everything is copied through one <see cref="PdfObjectCopier"/> session, pages
 /// first, so references to pages in what is copied later (destinations, widgets) name the copies. Names the target already has
 /// (destination names, top-level field names) are renamed in the copies only; the target's own objects are never renamed.
+/// <para>ISO 32000-2 §12.7.4.2.</para>
 /// </remarks>
 internal sealed class DocumentAssembly
 {

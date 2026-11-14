@@ -64,6 +64,8 @@ dotnet run -c Release --project tests/Broadside.Fuzz -- --smoke <target> 60     
 dotnet run -c Release --project bench/Broadside.Benchmarks -- --filter '*' --job dry         # if you added a benchmark
 ```
 
+**Options guard.** Adding a `Use*` or `With*` member to any `*Options` type (or a new options type) needs no extra test: `HostedOptionsGuardTests` in `tests/Broadside.Rendering.Tests/Hosting/` finds it by reflection and proves it is reachable through `services.AddBroadside(...)`, that a value option (simple-typed arguments) changes a public property that binds from configuration, and that engine options keep non-bindable state (filters, loggers, clocks, handlers) out of public properties. If it fails, make the value option a bindable property; if the option is deliberately code-only, say so in `OptionsGuard.Exemptions` with the reason. Per-call options (save, render) must chain by returning the same instance, or be immutable.
+
 `Broadside.slnx` also holds the Android and CoreGraphics backends, which need their workloads; build the full solution with `-p:BroadsideBuildPlatformBackends=false` on a machine without them.
 
 ## 6. Commit

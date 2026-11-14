@@ -75,10 +75,20 @@ public sealed class SecurityHandlerContext
     public PdfReadingMode ReadingMode => _diagnostics.IsStrict ? PdfReadingMode.Strict : PdfReadingMode.Lenient;
 
     /// <summary>Records a deviation found in the encryption dictionary. In strict mode, throws it as a <see cref="DiagnosticException"/>.</summary>
-    /// <param name="code">A PascalCase code.</param>
+    /// <param name="code">
+    /// The kind of deviation: a code of Broadside's catalog, such as <see cref="SecurityDiagnostics.EncryptDictionaryInvalid"/>, or a
+    /// third-party handler's own code made with <see cref="DiagnosticCode.Create"/>.
+    /// </param>
     /// <param name="severity">The severity.</param>
     /// <param name="message">What deviates and what was done about it.</param>
-    public void Report(string code, DiagnosticSeverity severity, string message) => _diagnostics.Report(code, severity, message);
+    /// <exception cref="ArgumentNullException"><paramref name="code"/> or <paramref name="message"/> is <see langword="null"/>.</exception>
+    /// <remarks>ISO 32000-2 §7.6.2. The diagnostic is recorded on the document being opened.</remarks>
+    public void Report(DiagnosticCode code, DiagnosticSeverity severity, string message)
+    {
+        ArgumentNullException.ThrowIfNull(code);
+        ArgumentNullException.ThrowIfNull(message);
+        _diagnostics.Report(code, severity, message);
+    }
 
     /// <summary>
     /// Records an encryption dictionary the handler cannot use (<c>EncryptDictionaryInvalid</c>, Error) and returns the exception to
@@ -88,8 +98,8 @@ public sealed class SecurityHandlerContext
     /// <returns>The exception.</returns>
     internal DiagnosticException Fail(string message)
     {
-        var diagnostic = new Diagnostic(DiagnosticCodes.EncryptDictionaryInvalid, DiagnosticSeverity.Error, message);
-        Report(diagnostic.Code, diagnostic.Severity, diagnostic.Message);
+        var diagnostic = new Diagnostic(SecurityDiagnostics.EncryptDictionaryInvalid, DiagnosticSeverity.Error, message);
+        Report(diagnostic.Kind, diagnostic.Severity, diagnostic.Message);
         return new DiagnosticException(diagnostic);
     }
 
@@ -100,7 +110,10 @@ public sealed class SecurityHandlerContext
 }
 
 /// <summary>What a security handler returns when the credentials open the document.</summary>
-/// <remarks>ISO 32000-2 §7.6.3: the file encryption key the handler computes, from which every string and stream key derives.</remarks>
+/// <remarks>
+/// <para>ISO 32000-2 §7.6.3: the file encryption key the handler computes, from which every string and stream key derives.</para>
+/// <para>ISO 32000-2 §7.6.2 and §7.6.5.3.</para>
+/// </remarks>
 public sealed class SecurityHandlerResult
 {
     private readonly byte[] _fileEncryptionKey;

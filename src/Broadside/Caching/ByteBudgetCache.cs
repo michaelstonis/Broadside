@@ -21,6 +21,7 @@ internal interface IBudgetedEntry
 /// Safe for any number of threads (the document's thread-safety contract): every operation holds one lock for a dictionary lookup
 /// and a few pointer moves, and a hit allocates nothing. Evicted values are only dropped, never disposed: a display list may still
 /// hold them, and the garbage collector frees them with the last holder.
+/// <para>ISO 32000-2 §7.8.2.</para>
 /// </remarks>
 /// <typeparam name="TKey">The key.</typeparam>
 /// <typeparam name="TEntry">The entry.</typeparam>

@@ -18,7 +18,7 @@ public sealed class PlatformImageAllocationTests
     [InlineData("dct-baseline.pdf")]
     public async Task A_prefetch_with_nothing_left_to_decode_allocates_nothing(string file)
     {
-        using PdfDocument document = PdfDocument.Open(Corpus.Bytes(file), new PdfOptions().UsePlatformImageDecoder(new GrayDecoder()));
+        using PdfDocument document = await PdfDocument.OpenAsync(Corpus.Bytes(file), new PdfOptions().UsePlatformImageDecoder(new GrayDecoder()), TestContext.Current.CancellationToken);
         DisplayList list = document.Pages[0].CreateDisplayList();
         await list.PrefetchImagesAsync(Matrix.Identity, null, 2, TestContext.Current.CancellationToken);
 

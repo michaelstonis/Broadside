@@ -400,12 +400,12 @@ internal sealed partial class TrueTypeFontProgram : FontProgram
     }
 
     private void ReportGlyph(int glyphId, string problem) => _context.Report(
-        DiagnosticCodes.FontGlyphInvalid,
+        FontDiagnostics.FontGlyphInvalid,
         DiagnosticSeverity.Warning,
         string.Create(CultureInfo.InvariantCulture, $"Glyph {glyphId} of the TrueType program deviates from the OpenType \"glyf\" table format: {problem}."));
 
     private static void ReportTable(FontProgramContext context, string table, string problem) => context.Report(
-        DiagnosticCodes.FontTableInvalid,
+        FontDiagnostics.FontTableInvalid,
         DiagnosticSeverity.Warning,
         $"The TrueType program's \"{table}\" table {problem}.");
 

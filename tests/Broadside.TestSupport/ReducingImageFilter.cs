@@ -57,8 +57,8 @@ public sealed class ReducingImageFilter(int maxReduction = 3, string? name = nul
     {
         ArgumentNullException.ThrowIfNull(context);
         Interlocked.Increment(ref _headers);
-        header = new ImageHeader(context.Width, context.Height, Math.Max(1, context.ColorComponents), 8) { MaxReduction = maxReduction };
-        return context.Width > 0 && context.Height > 0;
+        header = new ImageHeader(new ImageGeometry(context.Geometry.Width, context.Geometry.Height, Math.Max(1, context.Geometry.Components), 8)) { MaxReduction = maxReduction };
+        return context.Geometry.Width > 0 && context.Geometry.Height > 0;
     }
 
     /// <inheritdoc/>
@@ -68,21 +68,21 @@ public sealed class ReducingImageFilter(int maxReduction = 3, string? name = nul
         _decodes.AddOrUpdate(context.Reduction, 1, static (_, count) => count + 1);
         if (Fails)
         {
-            context.Filter.Report("TestDecodeFailed", DiagnosticSeverity.Error, "The test codec was told to fail.");
+            context.Filter.Report(DiagnosticCode.Create("Tests", "TestDecodeFailed", DiagnosticSeverity.Error), DiagnosticSeverity.Error, "The test codec was told to fail.");
             return null;
         }
 
         int reduction = Math.Min(context.Reduction, maxReduction);
-        int components = Math.Max(1, context.ColorComponents);
-        int width = context.Width;
-        int height = context.Height;
+        int components = Math.Max(1, context.Geometry.Components);
+        int width = context.Geometry.Width;
+        int height = context.Geometry.Height;
         int scale = 1 << reduction;
         int reducedWidth = (width + scale - 1) / scale;
         int reducedHeight = (height + scale - 1) / scale;
         DecodedImageBuilder? image = null;
         try
         {
-            if (!context.TryCreateImage(reducedWidth, reducedHeight, components, 8, out image))
+            if (!context.TryCreateImage(new ImageGeometry(reducedWidth, reducedHeight, components, 8), out image))
             {
                 return null;
             }
@@ -101,8 +101,8 @@ public sealed class ReducingImageFilter(int maxReduction = 3, string? name = nul
 
     private static void Fill(ReadOnlySpan<byte> data, DecodedImageBuilder image, int width, int height, int components, int scale)
     {
-        int reducedWidth = image.Width;
-        int reducedHeight = image.Height;
+        int reducedWidth = image.Geometry.Width;
+        int reducedHeight = image.Geometry.Height;
         for (int y = 0; y < reducedHeight; y++)
         {
             Span<byte> row = image.GetRow(y);

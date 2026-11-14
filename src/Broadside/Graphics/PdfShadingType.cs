@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 namespace Broadside.Graphics;
 
 /// <summary>The seven kinds of shading, the <c>ShadingType</c> entry of a shading dictionary.</summary>
-/// <remarks>ISO 32000-2 §8.7.4.5.1, Table 77.</remarks>
+/// <remarks>ISO 32000-2 §8.7.4.5.1, Table 77. Also §8.7.4.3.</remarks>
 [SuppressMessage("Design", "CA1008:Enums should have zero value", Justification = "The values are the numbers the PDF entry holds; 0 is not one of them.")]
 public enum PdfShadingType
 {

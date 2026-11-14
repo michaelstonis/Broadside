@@ -11,6 +11,7 @@ namespace Broadside.Fonts.Cff;
 /// <remarks>
 /// Adobe Technical Note #5176 §4, Tables 3-6 (p.9-12): operators 0-21 (12 escapes to a two-byte operator <c>12 x</c>), integer
 /// operands 28 (int16), 29 (int32) and 32-254, real operands 30 (packed decimal nibbles), at most 48 operands per operator.
+/// <para>ISO 32000-2 §9.9.1.</para>
 /// </remarks>
 internal ref struct CffDictReader
 {

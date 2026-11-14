@@ -1,7 +1,7 @@
 namespace Broadside.Rendering;
 
 /// <summary>Where a <see cref="DisplayGroup"/> comes from.</summary>
-/// <remarks>ISO 32000-2 §11.4.</remarks>
+/// <remarks>ISO 32000-2 §11.4. Also §11.7.4.</remarks>
 public enum DisplayGroupKind
 {
     /// <summary>A transparency group XObject painted by <c>Do</c> (§11.6.6, Table 145).</summary>

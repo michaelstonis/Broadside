@@ -8,6 +8,7 @@ namespace Broadside;
 /// ISO 32000-2 §7.5. Separate from <see cref="PdfOptions"/>, which configures reading, because a document can be saved several times
 /// in different layouts. The defaults write a classic cross-reference table, which every reader supports, and compress new and
 /// changed streams.
+/// <para>ISO 32000-2 §7.4.1 and Annex F.3.</para>
 /// </remarks>
 public sealed class PdfSaveOptions
 {

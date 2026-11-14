@@ -32,13 +32,13 @@ internal static class ImageTesting
     /// <summary>Unpacks row <paramref name="y"/> of an image into raw values, one per component.</summary>
     public static ushort[] Row(DecodedImage image, int y)
     {
-        ushort[] values = new ushort[image.Width * image.Components];
+        ushort[] values = new ushort[image.Geometry.Width * image.Geometry.Components];
         ImageRows.Unpack(image.GetRow(y), image.StorageBits, values.Length, values);
         return values;
     }
 
     /// <summary>Unpacks every row into one array of raw values.</summary>
-    public static ushort[] Raw(DecodedImage image) => [.. Enumerable.Range(0, image.Height).SelectMany(y => Row(image, y))];
+    public static ushort[] Raw(DecodedImage image) => [.. Enumerable.Range(0, image.Geometry.Height).SelectMany(y => Row(image, y))];
 
     /// <summary>The codes of the document's diagnostics.</summary>
     public static string[] Codes(PdfDocument document) => [.. document.Diagnostics.Select(d => d.Code)];

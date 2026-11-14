@@ -63,8 +63,8 @@ public sealed class DctProcessTests
         Assert.True(filter.TryReadHeader(Jpeg("precision12"), context, out ImageHeader header));
         using DecodedImage decoded = filter.DecodeImage(Jpeg("precision12"), context)!;
 
-        Assert.Equal(new ImageHeader(75, 43, 3, 8) { ColorModel = ImageColorModel.Rgb, MaxReduction = 3 }, header);
-        Assert.Equal((8, 43), (decoded.BitsPerComponent, decoded.DecodedRows));
+        Assert.Equal(new ImageHeader(new ImageGeometry(75, 43, 3, 8)) { ColorModel = ImageColorModel.Rgb, MaxReduction = 3 }, header);
+        Assert.Equal((8, 43), (decoded.Geometry.BitsPerComponent, decoded.DecodedRows));
         AssertWithinOne(Golden("precision12"), decoded.Samples);
     }
 
@@ -78,7 +78,7 @@ public sealed class DctProcessTests
         // Cut inside the AC scans: the first (DC) scan covered the whole image, so every row is decoded, only less precisely.
         using DecodedImage decoded = new DctDecodeFilter().DecodeImage(jpeg.AsMemory(0, jpeg.Length * 3 / 4), context)!;
 
-        Assert.Equal((149, 149), (decoded.Height, decoded.DecodedRows));
+        Assert.Equal((149, 149), (decoded.Geometry.Height, decoded.DecodedRows));
         Assert.Equal(["DctTruncated"], Codes(context.Filter));
         int close = 0;
         for (int i = 0; i < golden.Samples.Length; i++)
@@ -166,8 +166,8 @@ public sealed class DctProcessTests
         Assert.True(filter.TryReadHeader(jpeg, context, out ImageHeader header));
         using DecodedImage decoded = filter.DecodeImage(jpeg, context)!;
 
-        Assert.Equal(new ImageHeader(gray.Width, gray.Height, 5, 8) { MaxReduction = 3 }, header with { ColorModel = ImageColorModel.Unknown });
-        Assert.Equal((gray.Width, gray.Height, 5), (decoded.Width, decoded.Height, decoded.Components));
+        Assert.Equal(new ImageHeader(new ImageGeometry(gray.Width, gray.Height, 5, 8)) { MaxReduction = 3 }, header with { ColorModel = ImageColorModel.Unknown });
+        Assert.Equal((gray.Width, gray.Height, 5), (decoded.Geometry.Width, decoded.Geometry.Height, decoded.Geometry.Components));
         Assert.Equal(gray.Samples.SelectMany(value => Enumerable.Repeat(value, 5)), decoded.Samples.ToArray());
         Assert.False(decoded.ColorTransformApplied);
     }

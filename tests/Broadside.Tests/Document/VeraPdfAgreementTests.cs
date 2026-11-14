@@ -61,6 +61,7 @@ public sealed partial class VeraPdfAgreementTests(ITestOutputHelper output)
         ["PDF_A-1b 6-1-4-t02"] = (VeraPdfTriage.PdfAOnly, "Space after xref, or a blank line before the subsection header: §7.5.4 asks only for a line containing the keyword xref."),
         ["PDF_A-2b 6-1-4-t01"] = (VeraPdfTriage.PdfAOnly, "Space after xref, or a blank line before the subsection header (PDF/A-2 6.1.4)."),
         ["PDF_A-4 6-1-4-t01"] = (VeraPdfTriage.PdfAOnly, "Space after xref, or a blank line before the subsection header (PDF/A-4 6.1.4)."),
+        ["PDF_A-4 6-1-4-t02"] = (VeraPdfTriage.VeraPdfIssue, "The table lists a free entry for object 18 but the trailer says /Size 18: Size is the total number of entries in the table (§7.5.5 Table 15), so the entry is beyond it (XrefEntryBeyondSize); veraPDF passes the file."),
         ["PDF_A-1b 6-1-4-t03"] = (VeraPdfTriage.PdfAOnly, "Cross-reference stream: PDF/A-1 forbids them; §7.5.8 defines them."),
 
         // Strings (§7.3.4).

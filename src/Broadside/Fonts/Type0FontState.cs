@@ -8,7 +8,7 @@ namespace Broadside.Fonts;
 /// The CMap and descendant CIDFont of a Type 0 font, resolved once from its dictionary, with the COS objects they came from and
 /// their versions so that a change is noticed.
 /// </summary>
-/// <remarks>ISO 32000-2 §9.7.6.1, Table 119. Immutable once built.</remarks>
+/// <remarks>ISO 32000-2 §9.7.6.1, Table 119. Immutable once built. Also §9.7.3.</remarks>
 internal sealed class Type0FontState
 {
     private readonly CosObject[] _sources;
@@ -94,7 +94,7 @@ internal sealed class Type0FontState
                 }
 
                 CMap? fallback = PredefinedCMapTable.CreateFallback(name.Value);
-                font.Report(DiagnosticCodes.CMapUnavailable, DiagnosticSeverity.Information, PdfDocument.UnavailableMessage(name.Value, fallback is not null));
+                font.Report(CMapDiagnostics.CMapUnavailable, DiagnosticSeverity.Information, PdfDocument.UnavailableMessage(name.Value, fallback is not null));
                 standIn = fallback is null;
                 return fallback ?? CMap.IdentityH;
             case CosStream stream:
@@ -107,7 +107,7 @@ internal sealed class Type0FontState
                 break;
             default:
                 font.Report(
-                    DiagnosticCodes.Type0EncodingMissing,
+                    FontDiagnostics.Type0EncodingMissing,
                     DiagnosticSeverity.Warning,
                     "A Type 0 font's Encoding shall be a CMap name or stream (ISO 32000-2 §9.7.6.1, Table 119); codes are read as Identity-H.");
                 break;
@@ -129,7 +129,7 @@ internal sealed class Type0FontState
                 if (array.Count > 1)
                 {
                     font.Report(
-                        DiagnosticCodes.Type0DescendantFontsInvalid,
+                        FontDiagnostics.Type0DescendantFontsInvalid,
                         DiagnosticSeverity.Warning,
                         "DescendantFonts shall be a one-element array (ISO 32000-2 §9.7.6.1, Table 119); the first element is used.");
                 }
@@ -138,14 +138,14 @@ internal sealed class Type0FontState
                 break;
             case CosDictionary:
                 font.Report(
-                    DiagnosticCodes.Type0DescendantFontsInvalid,
+                    FontDiagnostics.Type0DescendantFontsInvalid,
                     DiagnosticSeverity.Warning,
                     "DescendantFonts shall be an array, not a dictionary (ISO 32000-2 §9.7.6.1, Table 119); the dictionary is used.");
                 element = font.Dictionary[CompositeFontNames.DescendantFonts];
                 break;
             default:
                 font.Report(
-                    DiagnosticCodes.Type0DescendantFontsInvalid,
+                    FontDiagnostics.Type0DescendantFontsInvalid,
                     DiagnosticSeverity.Warning,
                     "A Type 0 font shall have a DescendantFonts array with one CIDFont (ISO 32000-2 §9.7.6.1, Table 119); its glyphs cannot be shown.");
                 return null;
@@ -154,7 +154,7 @@ internal sealed class Type0FontState
         if (font.Document.Resolve(element) is not CosDictionary dictionary)
         {
             font.Report(
-                DiagnosticCodes.Type0DescendantFontsInvalid,
+                FontDiagnostics.Type0DescendantFontsInvalid,
                 DiagnosticSeverity.Warning,
                 "The descendant of a Type 0 font shall be a CIDFont dictionary (ISO 32000-2 §9.7.6.1, Table 119); its glyphs cannot be shown.");
             return null;
@@ -172,7 +172,7 @@ internal sealed class Type0FontState
         if (!CompositeFontNames.CidFontType0.Equals(subtype) && !CompositeFontNames.CidFontType2.Equals(subtype))
         {
             font.Document.DiagnosticSink.Report(
-                DiagnosticCodes.CidFontSubtypeInvalid,
+                FontDiagnostics.CidFontSubtypeInvalid,
                 DiagnosticSeverity.Warning,
                 $"A CIDFont's Subtype shall be CIDFontType0 or CIDFontType2, not {(subtype is null ? "absent" : "/" + subtype.Value)} (ISO 32000-2 §9.7.4.1, Table 115); read as CIDFontType2.",
                 objectReference: reference ?? font.Reference);
@@ -194,14 +194,14 @@ internal sealed class Type0FontState
         if (fontInfo is null)
         {
             descendant.Report(
-                DiagnosticCodes.CidSystemInfoInvalid,
+                FontDiagnostics.CidSystemInfoInvalid,
                 DiagnosticSeverity.Warning,
                 "A CIDFont shall have a CIDSystemInfo dictionary with Registry, Ordering and Supplement (ISO 32000-2 §9.7.3, Table 114, and §9.7.4.1, Table 115).");
         }
         else if (!IsIdentityChain(encoding) && encoding.SystemInfo is { } cmapInfo && !cmapInfo.IsCompatibleWith(fontInfo))
         {
             font.Report(
-                DiagnosticCodes.CidSystemInfoMismatch,
+                FontDiagnostics.CidSystemInfoMismatch,
                 DiagnosticSeverity.Warning,
                 $"The CMap's character collection {cmapInfo.Registry}-{cmapInfo.Ordering} differs from the CIDFont's {fontInfo.Registry}-{fontInfo.Ordering} (ISO 32000-2 §9.7.3); the CIDs are used as they are.");
         }
@@ -209,7 +209,7 @@ internal sealed class Type0FontState
         if (encoding.IsIdentity && !standIn && descendant.CidFontType == PdfCidFontType.CidFontType2 && !descendant.IsEmbedded)
         {
             font.Report(
-                DiagnosticCodes.Type0IdentityNotEmbedded,
+                FontDiagnostics.Type0IdentityNotEmbedded,
                 DiagnosticSeverity.Warning,
                 "Identity-H and Identity-V shall not be used with a TrueType CIDFont that is not embedded (ISO 32000-2 §9.7.5.2, Table 117, and §9.7.6.1).");
         }

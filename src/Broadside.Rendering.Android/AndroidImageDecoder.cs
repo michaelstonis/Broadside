@@ -181,7 +181,7 @@ public sealed partial class AndroidImageDecoder : IPlatformImageDecoder
         IntPtr handle = bitmap.Handle;
         BitmapInfo info;
         if (NativeMethods.AndroidBitmap_getInfo(env, handle, &info) != 0 || info.Format != NativeMethods.FormatRgba8888
-            || info.Width != builder.Width || info.Height != builder.Height)
+            || info.Width != builder.Geometry.Width || info.Height != builder.Geometry.Height)
         {
             throw new InvalidOperationException(FormattableString.Invariant($"BitmapFactory delivered a bitmap of format {info.Format}, not RGBA_8888"));
         }
@@ -194,11 +194,11 @@ public sealed partial class AndroidImageDecoder : IPlatformImageDecoder
 
         try
         {
-            int width = builder.Width;
-            for (int y = 0; y < builder.Height; y++)
+            int width = builder.Geometry.Width;
+            for (int y = 0; y < builder.Geometry.Height; y++)
             {
                 var row = new ReadOnlySpan<byte>((byte*)pixels + ((nint)y * info.Stride), width * 4);
-                if (builder.Components == 3)
+                if (builder.Geometry.Components == 3)
                 {
                     PackRgb(row, builder.GetRow(y));
                 }

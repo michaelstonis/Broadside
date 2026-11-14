@@ -33,6 +33,7 @@ internal static class Md5
 }
 
 /// <summary>A managed MD5 (RFC 1321 §3), for platforms whose base class library has none.</summary>
+/// <remarks>ISO 32000-2 §7.6.3.</remarks>
 internal static class ManagedMd5
 {
     private static readonly uint[] Sines = BuildSines();

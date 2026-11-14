@@ -26,6 +26,7 @@ namespace Broadside;
 /// <see cref="PdfDocument.CreateNameTree"/> for building a new tree. A damaged tree is rebuilt balanced on its first edit.
 /// </para>
 /// <para>Safe for concurrent reads while nobody changes the document; edits are single-threaded, like every change to a document.</para>
+/// <para>ISO 32000-2 §12.3.2.4.</para>
 /// </remarks>
 [SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "The name is the ISO 32000-2 term (§7.9.6).")]
 public sealed class PdfNameTree : IEnumerable<KeyValuePair<CosString, CosObject>>

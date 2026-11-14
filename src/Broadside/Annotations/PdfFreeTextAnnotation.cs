@@ -23,7 +23,7 @@ public sealed class PdfFreeTextAnnotation : PdfMarkupAnnotation
                 ReportMissing(AnnotationNames.DA, "Table 177");
             }
 
-            return ReadByteString(AnnotationNames.DA);
+            return this.GetByteString(AnnotationNames.DA);
         }
     }
 
@@ -42,17 +42,17 @@ public sealed class PdfFreeTextAnnotation : PdfMarkupAnnotation
 
     /// <summary>Gets the callout line (<c>CL</c>, PDF 1.6): two or three points, from the point the callout points at; empty when absent.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.6, Table 177: used only with the intent <c>FreeTextCallout</c>.</remarks>
-    public IReadOnlyList<PathPoint> CalloutLine => ReadPoints(AnnotationNames.CL, required: false, "Table 177");
+    public IReadOnlyList<PathPoint> CalloutLine => this.GetPointPairs(AnnotationNames.CL, required: false, "Table 177");
 
     /// <summary>Gets the border effect (<c>BE</c>, PDF 1.5), or <see langword="null"/> for none.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.6, Table 177, and §12.5.4, Table 169.</remarks>
-    public PdfBorderEffect? BorderEffect => ReadBorderEffect();
+    public PdfBorderEffect? BorderEffect => this.GetBorderEffect();
 
     /// <summary>Gets the differences between the annotation rectangle and the drawn rectangle (<c>RD</c>, PDF 1.5), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.6, Table 177.</remarks>
-    public PdfRectangleDifferences? RectangleDifferences => ReadRectangleDifferences();
+    public PdfRectangleDifferences? RectangleDifferences => this.GetRectangleDifferences();
 
     /// <summary>Gets the line ending at the start of the callout line (<c>LE</c>, PDF 1.6); default none.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.6, Table 177, and Table 179.</remarks>
-    public PdfLineEnding LineEnding => ParseLineEnding(Get(AnnotationNames.LE));
+    public PdfLineEnding LineEnding => AnnotationEntryReaders.ParseLineEnding(this.Entry(AnnotationNames.LE));
 }

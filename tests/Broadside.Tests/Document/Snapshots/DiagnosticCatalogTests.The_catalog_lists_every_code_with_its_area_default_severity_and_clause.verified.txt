@@ -1,0 +1,589 @@
+﻿FileStructure	HeaderMissing	Warning	ISO 32000-2 §7.5.2
+FileStructure	HeaderVersionInvalid	Warning	ISO 32000-2 §7.5.2
+FileStructure	HeaderInvalid	Warning	ISO 32000-2 §7.5.2
+FileStructure	HeaderBinaryCommentMissing	Warning	ISO 32000-2 §7.5.2
+FileStructure	StartxrefMissing	Warning	ISO 32000-2 §7.5.5
+FileStructure	StartxrefInvalid	Warning	ISO 32000-2 §7.5.5
+FileStructure	EndOfFileMarkerMissing	Warning	ISO 32000-2 §7.5.5
+FileStructure	EndOfFileMarkerNotLast	Warning	ISO 32000-2 §7.5.5
+FileStructure	TrailerIdMissing	Warning	ISO 32000-2 §7.5.5
+FileStructure	TrailerMissing	Error	ISO 32000-2 §7.5.5
+FileStructure	TrailerPrevInvalid	Warning	ISO 32000-2 §7.5.5
+FileStructure	RootMissing	Warning	ISO 32000-2 §7.5.5
+FileStructure	RootNotIndirect	Warning	ISO 32000-2 §7.5.5
+FileStructure	CatalogNotFound	Error	ISO 32000-2 §7.5
+FileStructure	XrefSectionInvalid	Error	ISO 32000-2 §7.5.4
+FileStructure	XrefEntryInvalid	Error	ISO 32000-2 §7.5.4
+FileStructure	XrefEntryFormatInvalid	Warning	ISO 32000-2 §7.5.4
+FileStructure	XrefSubsectionNumberingInvalid	Warning	ISO 32000-2 §7.5.4
+FileStructure	XrefSubsectionHeaderInvalid	Warning	ISO 32000-2 §7.5.4
+FileStructure	XrefEntryBeyondSize	Warning	ISO 32000-2 §7.5.5
+FileStructure	XrefCommentIgnored	Warning	ISO 32000-2 §7.5.4
+FileStructure	XrefLineMalformed	Warning	ISO 32000-2 §7.5.4
+FileStructure	StartxrefLastDamaged	Warning	ISO 32000-2 §7.5.5
+FileStructure	XrefPrevLoop	Error	ISO 32000-2 §7.5.4
+FileStructure	XrefStreamTypeInvalid	Warning	ISO 32000-2 §7.5.8
+FileStructure	XrefStreamWidthsInvalid	Error	ISO 32000-2 §7.5.8
+FileStructure	XrefStreamIndexInvalid	Warning	ISO 32000-2 §7.5.8
+FileStructure	XrefStreamSizeInvalid	Warning	ISO 32000-2 §7.5.8
+FileStructure	CrossReferenceEntryLimitExceeded	Error	ISO 32000-2 §7.5.8
+FileStructure	XrefStreamDataTruncated	Warning	ISO 32000-2 §7.5.8
+FileStructure	TrailerXRefStmInvalid	Error	ISO 32000-2 §7.5.8
+FileStructure	ObjectStreamInvalid	Error	ISO 32000-2 §7.5.7
+FileStructure	ObjectStreamTypeInvalid	Warning	ISO 32000-2 §7.5.7
+FileStructure	ObjectStreamHeaderInvalid	Warning	ISO 32000-2 §7.5.7
+FileStructure	ObjectStreamIndexMismatch	Warning	ISO 32000-2 §7.5.7
+FileStructure	ObjectStreamMemberMissing	Error	ISO 32000-2 §7.5.7
+FileStructure	ObjectStreamMemberInvalid	Warning	ISO 32000-2 §7.5.7
+FileStructure	ObjectStreamNested	Error	ISO 32000-2 §7.5.7
+FileStructure	ObjectStreamCycle	Error	ISO 32000-2 §7.5.7
+FileStructure	TrailerEntryFromOlderRevision	Warning	ISO 32000-2 §7.5.6
+FileStructure	LinearizationDictionaryInvalid	Warning	ISO 32000-2 Annex F
+FileStructure	LinearizationHintsInvalid	Warning	ISO 32000-2 Annex F
+FileStructure	LinearizationDropped	Information	ISO 32000-2 Annex F
+FileStructure	XrefEntryOffsetInvalid	Warning	ISO 32000-2 §7.3.10
+FileStructure	MissingEndobj	Warning	ISO 32000-2 §7.3.10
+FileStructure	ReferenceChainTooDeep	Error	ISO 32000-2 §7.3.10
+FileStructure	ObjectReferenceCycle	Error	ISO 32000-2 §7.5.4
+ObjectSyntax	UnexpectedEndOfInput	Warning	ISO 32000-2 §7.2, §7.3
+ObjectSyntax	UnexpectedToken	Warning	ISO 32000-2 §7.2, §7.3
+ObjectSyntax	TrailingContent	Warning	ISO 32000-2 §7.2, §7.3
+ObjectSyntax	NumberMalformed	Warning	ISO 32000-2 §7.2, §7.3
+ObjectSyntax	NumberOutOfRange	Warning	ISO 32000-2 §7.2, §7.3
+ObjectSyntax	ReferenceInvalid	Warning	ISO 32000-2 §7.2, §7.3
+ObjectSyntax	StringUnterminated	Warning	ISO 32000-2 §7.2, §7.3
+ObjectSyntax	HexStringUnterminated	Warning	ISO 32000-2 §7.2, §7.3
+ObjectSyntax	HexStringInvalidDigit	Warning	ISO 32000-2 §7.2, §7.3
+ObjectSyntax	NameInvalidEscape	Warning	ISO 32000-2 §7.2, §7.3
+ObjectSyntax	NameContainsNull	Warning	ISO 32000-2 §7.2, §7.3
+ObjectSyntax	ArrayUnterminated	Warning	ISO 32000-2 §7.2, §7.3
+ObjectSyntax	DictionaryUnterminated	Warning	ISO 32000-2 §7.2, §7.3
+ObjectSyntax	DictionaryKeyNotName	Warning	ISO 32000-2 §7.2, §7.3
+ObjectSyntax	DictionaryValueMissing	Warning	ISO 32000-2 §7.2, §7.3
+ObjectSyntax	DictionaryDuplicateKey	Warning	ISO 32000-2 §7.2, §7.3
+ObjectSyntax	NestingTooDeep	Warning	ISO 32000-2 §7.2, §7.3
+ObjectSyntax	StreamKeywordEndOfLine	Warning	ISO 32000-2 §7.2, §7.3
+ObjectSyntax	StreamLengthInvalid	Warning	ISO 32000-2 §7.2, §7.3
+ObjectSyntax	EndstreamMissing	Warning	ISO 32000-2 §7.2, §7.3
+Security	UnencryptedWrapperInvalid	Warning	ISO 32000-2 §7.6.7
+Security	EncryptedPayloadFilterUnknown	Information	ISO 32000-2 §7.6.7
+Security	EncryptedPayloadNotEncrypted	Warning	ISO 32000-2 §7.6.7
+Security	EncryptDictionaryInvalid	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	EncryptionIdMissing	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	EncryptionVersionInvalid	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	EncryptionRevisionInvalid	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	EncryptionKeyLengthInvalid	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	EncryptionEntryLengthInvalid	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	EncryptionPermissionsMismatch	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	EncryptionExtensionMissing	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	OwnerPasswordKeyVariant	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	CryptFilterMissing	Error	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	CryptFilterMethodInvalid	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	EncryptedDataInvalid	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	EncryptedDataAuthenticationFailed	Error	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	MetadataNotEncrypted	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	IntegrityCodeMissing	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	IntegrityCodeInvalid	Error	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	IntegrityCodeMismatch	Error	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	IntegrityCodeIncomplete	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	IntegrityCodeNotVerified	Information	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	PublicKeyRecipientInvalid	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	PublicKeyEnvelopeInvalid	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	CryptFilterNotAuthorized	Information	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Security	EncryptionDeprecated	Warning	ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004
+Document	CatalogEntryInvalid	Warning	ISO 32000-2 §7.7.2 Table 29, §7.12, §12.2, §12.11
+Document	PageLayoutInvalid	Warning	ISO 32000-2 §7.7.2 Table 29, §7.12, §12.2, §12.11
+Document	PageModeInvalid	Warning	ISO 32000-2 §7.7.2 Table 29, §7.12, §12.2, §12.11
+Document	ViewerPreferencesInvalid	Warning	ISO 32000-2 §7.7.2 Table 29, §7.12, §12.2, §12.11
+Document	ViewerPreferenceInvalid	Warning	ISO 32000-2 §7.7.2 Table 29, §7.12, §12.2, §12.11
+Document	ExtensionsInvalid	Warning	ISO 32000-2 §7.7.2 Table 29, §7.12, §12.2, §12.11
+Document	ExtensionsNotDirect	Warning	ISO 32000-2 §7.7.2 Table 29, §7.12, §12.2, §12.11
+Document	DeveloperExtensionInvalid	Warning	ISO 32000-2 §7.7.2 Table 29, §7.12, §12.2, §12.11
+Document	DeveloperExtensionBaseVersionLater	Warning	ISO 32000-2 §7.7.2 Table 29, §7.12, §12.2, §12.11
+Document	RequirementInvalid	Warning	ISO 32000-2 §7.7.2 Table 29, §7.12, §12.2, §12.11
+Document	OutputIntentInvalid	Warning	ISO 32000-2 §14.11.5
+Document	PageLabelsMissingZeroKey	Warning	ISO 32000-2 §12.4.2
+Document	PageLabelInvalid	Warning	ISO 32000-2 §12.4.2
+Document	PageLabelStyleInvalid	Warning	ISO 32000-2 §12.4.2
+Document	PageLabelStartInvalid	Warning	ISO 32000-2 §12.4.2
+Document	PageLabelPrefixInvalid	Warning	ISO 32000-2 §12.4.2
+Document	PageLabelTooLong	Warning	ISO 32000-2 §12.4.2
+Document	InfoDictionaryInvalid	Warning	ISO 32000-2 §7.9.4, §14.3, §14.4
+Document	InfoValueNotTextString	Warning	ISO 32000-2 §7.9.4, §14.3, §14.4
+Document	InfoTrappedInvalid	Warning	ISO 32000-2 §7.9.4, §14.3, §14.4
+Document	DateInvalid	Warning	ISO 32000-2 §7.9.4, §14.3, §14.4
+Document	DateUnreadable	Warning	ISO 32000-2 §7.9.4, §14.3, §14.4
+Document	MetadataStreamInvalid	Warning	ISO 32000-2 §7.9.4, §14.3, §14.4
+Document	MetadataStreamTypeInvalid	Warning	ISO 32000-2 §7.9.4, §14.3, §14.4
+Document	XmpMalformed	Error	ISO 32000-2 §7.9.4, §14.3, §14.4
+Document	XmpDtdProhibited	Error	ISO 32000-2 §7.9.4, §14.3, §14.4
+Document	XmpLeadingJunk	Warning	ISO 32000-2 §7.9.4, §14.3, §14.4
+Document	XmpPropertyDuplicate	Warning	ISO 32000-2 §7.9.4, §14.3, §14.4
+Document	FileIdentifierInvalid	Warning	ISO 32000-2 §7.9.4, §14.3, §14.4
+Document	CatalogTypeInvalid	Warning	ISO 32000-2 §7.7.2
+Document	CatalogVersionNotName	Warning	ISO 32000-2 §7.7.2
+Document	CatalogVersionInvalid	Warning	ISO 32000-2 §7.7.2
+Document	PagesMissing	Error	ISO 32000-2 §7.7.2
+Page	PageTreeNodeTypeInvalid	Warning	ISO 32000-2 §7.7.3
+Page	PageTreeKidsInvalid	Error	ISO 32000-2 §7.7.3
+Page	PageTreeKidInvalid	Error	ISO 32000-2 §7.7.3
+Page	PageTreeKidNotIndirect	Warning	ISO 32000-2 §7.7.3
+Page	PageTreeCycle	Error	ISO 32000-2 §7.7.3
+Page	PageTreeTooDeep	Error	ISO 32000-2 §7.7.3
+Page	PageTreeParentMismatch	Warning	ISO 32000-2 §7.7.3
+Page	PageTreeCountMismatch	Warning	ISO 32000-2 §7.7.3
+Page	PageMediaBoxMissing	Error	ISO 32000-2 §7.7.3.3, §7.9.5
+Page	PageBoxInvalid	Warning	ISO 32000-2 §7.7.3.3, §7.9.5
+Page	PageRotateInvalid	Warning	ISO 32000-2 §7.7.3.3, §7.9.5
+Page	PageResourcesMissing	Warning	ISO 32000-2 §7.7.3.3, §7.9.5
+Page	PageResourcesInvalid	Error	ISO 32000-2 §7.7.3.3, §7.9.5
+Page	PageUserUnitInvalid	Warning	ISO 32000-2 §7.7.3.3, §7.9.5
+Saving	VersionRaised	Warning	ISO 32000-2 §7.5.2, §7.7.2 Table 29
+Saving	ObjectNumberOutOfRange	Warning	ISO 32000-2 §7.5.4, §7.5.6, Annex C Table C.1
+Saving	PdfANonConformant	Warning	ISO 19005 (PDF/A); veraPDF validation profiles
+Saving	PdfANotIdentified	Information	ISO 19005 (PDF/A); veraPDF validation profiles
+Saving	PdfAConverted	Information	ISO 19005 (PDF/A); veraPDF validation profiles
+Saving	PdfANotConverted	Information	ISO 19005 (PDF/A); veraPDF validation profiles
+Saving	PdfUANonConformant	Warning	ISO 14289-1 (PDF/UA-1); veraPDF validation profiles
+Saving	PdfUANotIdentified	Information	ISO 14289-1 (PDF/UA-1); veraPDF validation profiles
+Saving	WellTaggedNonConformant	Warning	Well-Tagged PDF 1.0; veraPDF validation profiles
+Saving	WellTaggedNotDeclared	Information	Well-Tagged PDF 1.0; veraPDF validation profiles
+Navigation	NameDictionaryInvalid	Warning	ISO 32000-2 §7.7.4
+Navigation	NameTreeNodeInvalid	Warning	ISO 32000-2 §7.9.6 Table 36
+Navigation	NameTreeLimitsInvalid	Warning	ISO 32000-2 §7.9.6 Table 36
+Navigation	NameTreeKeysUnsorted	Warning	ISO 32000-2 §7.9.6 Table 36
+Navigation	NameTreeDuplicateKey	Warning	ISO 32000-2 §7.9.6 Table 36
+Navigation	NameTreeKeyInvalid	Warning	ISO 32000-2 §7.9.6 Table 36
+Navigation	NameTreeCycle	Error	ISO 32000-2 §7.9.6 Table 36
+Navigation	NameTreeTooDeep	Error	ISO 32000-2 §7.9.6 Table 36
+Navigation	NumberTreeNodeInvalid	Warning	ISO 32000-2 §7.9.7 Table 37
+Navigation	NumberTreeLimitsInvalid	Warning	ISO 32000-2 §7.9.7 Table 37
+Navigation	NumberTreeKeysUnsorted	Warning	ISO 32000-2 §7.9.7 Table 37
+Navigation	NumberTreeDuplicateKey	Warning	ISO 32000-2 §7.9.7 Table 37
+Navigation	NumberTreeKeyInvalid	Warning	ISO 32000-2 §7.9.7 Table 37
+Navigation	NumberTreeCycle	Error	ISO 32000-2 §7.9.7 Table 37
+Navigation	NumberTreeTooDeep	Error	ISO 32000-2 §7.9.7 Table 37
+Navigation	DestinationInvalid	Warning	ISO 32000-2 §12.3.2
+Navigation	DestinationPageNotFound	Warning	ISO 32000-2 §12.3.2
+Navigation	NamedDestinationNotFound	Warning	ISO 32000-2 §12.3.2
+Navigation	DestinationPageRemoved	Warning	ISO 32000-2 §12.3.2
+Navigation	OutlineInvalid	Warning	ISO 32000-2 §12.3.3
+Navigation	OutlineItemInvalid	Warning	ISO 32000-2 §12.3.3
+Navigation	OutlineCycle	Error	ISO 32000-2 §12.3.3
+Navigation	OutlineTooDeep	Error	ISO 32000-2 §12.3.3
+Navigation	OutlineLinkInconsistent	Warning	ISO 32000-2 §12.3.3
+Navigation	OutlineCountInvalid	Warning	ISO 32000-2 §12.3.3
+Navigation	OutlineDestAndAction	Warning	ISO 32000-2 §12.3.3
+OptionalContent	OptionalContentConfigMissing	Warning	ISO 32000-2 §8.11
+OptionalContent	OptionalContentGroupsMissing	Warning	ISO 32000-2 §8.11
+OptionalContent	OptionalContentGroupNotListed	Warning	ISO 32000-2 §8.11
+OptionalContent	OptionalContentGroupInvalid	Warning	ISO 32000-2 §8.11
+OptionalContent	OptionalContentBaseStateInvalid	Warning	ISO 32000-2 §8.11
+OptionalContent	OptionalContentIntentInvalid	Warning	ISO 32000-2 §8.11
+OptionalContent	OptionalContentGroupOnAndOff	Warning	ISO 32000-2 §8.11
+OptionalContent	VisibilityExpressionInvalid	Warning	ISO 32000-2 §8.11
+OptionalContent	VisibilityPolicyInvalid	Warning	ISO 32000-2 §8.11
+OptionalContent	OptionalContentInlineProperties	Warning	ISO 32000-2 §8.11
+FileSpecification	FileSpecificationInvalid	Warning	ISO 32000-2 §7.11, §12.3.5, §14.13
+FileSpecification	EmbeddedFileMissing	Warning	ISO 32000-2 §7.11, §12.3.5, §14.13
+FileSpecification	EmbeddedFileSubtypeMissing	Warning	ISO 32000-2 §7.11, §12.3.5, §14.13
+FileSpecification	EmbeddedFileParamsInvalid	Warning	ISO 32000-2 §7.11, §12.3.5, §14.13
+FileSpecification	RelatedFilesInvalid	Warning	ISO 32000-2 §7.11, §12.3.5, §14.13
+FileSpecification	AssociatedFilesInvalid	Warning	ISO 32000-2 §7.11, §12.3.5, §14.13
+FileSpecification	CollectionInvalid	Warning	ISO 32000-2 §7.11, §12.3.5, §14.13
+FileSpecification	CollectionFolderCycle	Warning	ISO 32000-2 §7.11, §12.3.5, §14.13
+FileSpecification	CollectionFolderIdDuplicate	Warning	ISO 32000-2 §7.11, §12.3.5, §14.13
+FileSpecification	CollectionFolderInvalid	Warning	ISO 32000-2 §7.11, §12.3.5, §14.13
+Filter	FilterInvalid	Error	ISO 32000-2 §7.3.8.2 Table 5, §7.4
+Filter	FilterUnsupported	Error	ISO 32000-2 §7.3.8.2 Table 5, §7.4
+Filter	FilterAbbreviationNotAllowed	Warning	ISO 32000-2 §7.3.8.2 Table 5, §7.4
+Filter	FilterDataInvalid	Warning	ISO 32000-2 §7.3.8.2 Table 5, §7.4
+Filter	FilterDataTruncated	Warning	ISO 32000-2 §7.3.8.2 Table 5, §7.4
+Filter	FilterFailed	Error	ISO 32000-2 §7.3.8.2 Table 5, §7.4
+Filter	DecodeParmsInvalid	Warning	ISO 32000-2 §7.3.8.2 Table 5, §7.4
+Filter	PredictorInvalid	Warning	ISO 32000-2 §7.3.8.2 Table 5, §7.4
+Filter	CryptFilterNotFirst	Warning	ISO 32000-2 §7.3.8.2 Table 5, §7.4
+Filter	CryptFilterUnsupported	Error	ISO 32000-2 §7.3.8.2 Table 5, §7.4
+Filter	StreamExternalFileUnsupported	Information	ISO 32000-2 §7.3.8.2 Table 5, §7.4
+Filter	StreamDecodedLengthExceeded	Error	ISO 32000-2 §7.3.8.2 Table 5, §7.4
+Filter	StreamDecodingTooDeep	Error	ISO 32000-2 §7.3.8.2 Table 5, §7.4
+Dct	DctLeadingJunk	Warning	ISO 32000-2 §7.4.8; ITU-T T.81
+Dct	DctExtraneousData	Warning	ISO 32000-2 §7.4.8; ITU-T T.81
+Dct	DctSegmentInvalid	Warning	ISO 32000-2 §7.4.8; ITU-T T.81
+Dct	DctFrameInvalid	Error	ISO 32000-2 §7.4.8; ITU-T T.81
+Dct	DctFrameRepeated	Warning	ISO 32000-2 §7.4.8; ITU-T T.81
+Dct	DctProcessUnsupported	Error	ISO 32000-2 §7.4.8; ITU-T T.81
+Dct	DctTableMissing	Warning	ISO 32000-2 §7.4.8; ITU-T T.81
+Dct	DctTableInvalid	Warning	ISO 32000-2 §7.4.8; ITU-T T.81
+Dct	DctScanInvalid	Warning	ISO 32000-2 §7.4.8; ITU-T T.81
+Dct	DctDataInvalid	Warning	ISO 32000-2 §7.4.8; ITU-T T.81
+Dct	DctRestartInvalid	Warning	ISO 32000-2 §7.4.8; ITU-T T.81
+Dct	DctTruncated	Warning	ISO 32000-2 §7.4.8; ITU-T T.81
+Dct	DctEndMissing	Warning	ISO 32000-2 §7.4.8; ITU-T T.81
+Dct	DctComponentCountInvalid	Warning	ISO 32000-2 §7.4.8; ITU-T T.81
+Dct	DctLinesFromDnl	Warning	ISO 32000-2 §7.4.8; ITU-T T.81
+Dct	DctPrecisionReduced	Information	ISO 32000-2 §7.4.8; ITU-T T.81
+Dct	DctAdobeTransformInvalid	Warning	ISO 32000-2 §7.4.8; ITU-T T.81
+Dct	DctColorTransformInferred	Information	ISO 32000-2 §7.4.8; ITU-T T.81
+Ccitt	CcittMissingEol	Warning	ISO 32000-2 §7.4.6; ITU-T T.4, T.6
+Ccitt	CcittRunTooLong	Warning	ISO 32000-2 §7.4.6; ITU-T T.4, T.6
+Ccitt	CcittDamagedRowReplaced	Warning	ISO 32000-2 §7.4.6; ITU-T T.4, T.6
+Ccitt	CcittDataInvalid	Error	ISO 32000-2 §7.4.6; ITU-T T.4, T.6
+Ccitt	CcittWidthMismatch	Warning	ISO 32000-2 §7.4.6; ITU-T T.4, T.6
+Jbig2	Jbig2FileHeaderPresent	Warning	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2EndOfPagePresent	Warning	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2PageNumberNotOne	Warning	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2PageInformationMissing	Warning	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2PageSizeMismatch	Warning	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2SegmentHeaderInvalid	Error	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2SegmentTruncated	Error	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2SegmentTypeReserved	Warning	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2SegmentInvalid	Error	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2UnsupportedFeature	Information	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2GlobalsInvalid	Warning	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2CombinationOperatorMismatch	Warning	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2IntermediateRegionUnused	Warning	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2RegionDataTruncated	Warning	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2RegionDataInvalid	Error	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2LimitExceeded	Error	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2SymbolIdOutOfRange	Error	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2ExportRunOverflow	Warning	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2SymbolCountMismatch	Warning	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2ContextReuseInvalid	Warning	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2TableInvalid	Error	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2RefinementReferenceMissing	Error	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2ReferredSegmentMissing	Error	ISO 32000-2 §7.4.7; ITU-T T.88
+Jbig2	Jbig2GrayValueOutOfRange	Warning	ISO 32000-2 §7.4.7; ITU-T T.88
+Jpx	JpxSignatureInvalid	Warning	ITU-T T.800 Annex I, Annex A
+Jpx	JpxBoxInvalid	Warning	ITU-T T.800 Annex I, Annex A
+Jpx	JpxMarkerUnexpected	Warning	ITU-T T.800 Annex I, Annex A
+Jpx	JpxMarkerSegmentInvalid	Warning	ITU-T T.800 Annex I, Annex A
+Jpx	JpxPsotInvalid	Warning	ITU-T T.800 Annex I, Annex A
+Jpx	JpxCodestreamTruncated	Warning	ITU-T T.800 Annex I, Annex A
+Jpx	JpxTilePartOrder	Warning	ITU-T T.800 Annex I, Annex A
+Jpx	JpxPocInvalid	Warning	ITU-T T.800 Annex I, Annex A
+Jpx	JpxPpmInvalid	Warning	ITU-T T.800 Annex I, Annex A
+Jpx	JpxCodestreamRaw	Information	ITU-T T.800 Annex I, Annex A
+Jpx	JpxCodestreamsIgnored	Warning	ITU-T T.800 Annex I, Annex A
+Jpx	JpxHighThroughputUnsupported	Error	ITU-T T.800 Annex I, Annex A
+Jpx	JpxPacketHeaderTruncated	Warning	ITU-T T.800 Annex B, Annex D, Annex G
+Jpx	JpxEphMissing	Warning	ITU-T T.800 Annex B, Annex D, Annex G
+Jpx	JpxCodeBlockInvalid	Warning	ITU-T T.800 Annex B, Annex D, Annex G
+Jpx	JpxSegmentationSymbolMismatch	Warning	ITU-T T.800 Annex B, Annex D, Annex G
+Jpx	JpxMctSkipped	Warning	ITU-T T.800 Annex B, Annex D, Annex G
+Jpx	JpxPrecisionUnsupported	Information	ISO 32000-2 §7.4.9; ITU-T T.800 Annex I
+Jpx	JpxChannelCountMismatch	Warning	ISO 32000-2 §7.4.9; ITU-T T.800 Annex I
+Jpx	JpxLimitExceeded	Error	ISO 32000-2 §7.4.9; ITU-T T.800 Annex I
+Jpx	JpxColorSpecificationUnsupported	Information	ISO 32000-2 §7.4.9; ITU-T T.800 Annex I
+Jpx	JpxPaletteIndexOutOfRange	Warning	ISO 32000-2 §7.4.9; ITU-T T.800 Annex I
+Jpx	JpxOpacityChannelAmbiguous	Warning	ISO 32000-2 §7.4.9; ITU-T T.800 Annex I
+Image	ImageDimensionInvalid	Warning	ISO 32000-2 §8.9.5 Table 87
+Image	ImageBitsPerComponentInvalid	Warning	ISO 32000-2 §8.9.5 Table 87
+Image	ImageColorSpaceMissing	Warning	ISO 32000-2 §8.9.5 Table 87
+Image	ImageColorSpaceInvalid	Warning	ISO 32000-2 §8.9.5 Table 87
+Image	ImageMaskConflict	Warning	ISO 32000-2 §8.9.5 Table 87
+Image	ImageDecodeInvalid	Warning	ISO 32000-2 §8.9.5 Table 87
+Image	ImageKeyAbbreviated	Warning	ISO 32000-2 §8.9.5 Table 87
+Image	ImageAlternatesInvalid	Warning	ISO 32000-2 §8.9.5 Table 87
+Image	ImageTooLarge	Error	ISO 32000-2 §8.9.3
+Image	ImageDataTruncated	Warning	ISO 32000-2 §8.9.3
+Image	ImageDataTooLong	Information	ISO 32000-2 §8.9.3
+Image	ImageDimensionMismatch	Warning	ISO 32000-2 §8.9.3
+Image	ImageComponentMismatch	Warning	ISO 32000-2 §8.9.3
+Image	ImageMaskInvalid	Warning	ISO 32000-2 §8.9.6, §11.6.5.2
+Image	ImageSoftMaskInvalid	Warning	ISO 32000-2 §8.9.6, §11.6.5.2
+Image	ImageMatteInvalid	Warning	ISO 32000-2 §8.9.6, §11.6.5.2
+Image	ImageSoftMaskInDataIgnored	Warning	ISO 32000-2 §8.9.6, §11.6.5.2
+Image	ImageDecodedManaged	Information	ISO 32000-2 §7.4.8
+Image	PlatformImageVerified	Warning	ISO 32000-2 §7.4.8
+Image	PlatformImageMismatch	Warning	ISO 32000-2 §7.4.8
+Image	InlineImageFilterNotAllowed	Warning	ISO 32000-2 §8.9.7
+Font	Type0EncodingMissing	Warning	ISO 32000-2 §9.7.3, §9.7.4, §9.7.6.1
+Font	Type0DescendantFontsInvalid	Warning	ISO 32000-2 §9.7.3, §9.7.4, §9.7.6.1
+Font	Type0IdentityNotEmbedded	Warning	ISO 32000-2 §9.7.3, §9.7.4, §9.7.6.1
+Font	CidSystemInfoInvalid	Warning	ISO 32000-2 §9.7.3, §9.7.4, §9.7.6.1
+Font	CidSystemInfoMismatch	Warning	ISO 32000-2 §9.7.3, §9.7.4, §9.7.6.1
+Font	CidFontSubtypeInvalid	Warning	ISO 32000-2 §9.7.3, §9.7.4, §9.7.6.1
+Font	CidFontWidthsInvalid	Warning	ISO 32000-2 §9.7.3, §9.7.4, §9.7.6.1
+Font	CidFontVerticalMetricsInvalid	Warning	ISO 32000-2 §9.7.3, §9.7.4, §9.7.6.1
+Font	CidToGidMapMissing	Warning	ISO 32000-2 §9.7.3, §9.7.4, §9.7.6.1
+Font	CidToGidMapInvalid	Warning	ISO 32000-2 §9.7.3, §9.7.4, §9.7.6.1
+Font	FontSubstituted	Information	ISO 32000-2 §9.6.2.2, §9.8.1, §9.8.2
+Font	FontProgramNotFound	Information	ISO 32000-2 §9.6.2.2, §9.8.1, §9.8.2
+Font	FontSubstituteUnreadable	Information	ISO 32000-2 §9.6.2.2, §9.8.1, §9.8.2
+Font	FontTypeInvalid	Warning	ISO 32000-2 §9.5, §9.6, §9.8
+Font	FontSubtypeInvalid	Warning	ISO 32000-2 §9.5, §9.6, §9.8
+Font	FontBaseFontMissing	Warning	ISO 32000-2 §9.5, §9.6, §9.8
+Font	FontStandard14Alias	Information	ISO 32000-2 §9.5, §9.6, §9.8
+Font	FontStandard14EntriesIncomplete	Warning	ISO 32000-2 §9.5, §9.6, §9.8
+Font	FontDescriptorMissing	Warning	ISO 32000-2 §9.5, §9.6, §9.8
+Font	FontDescriptorInvalid	Warning	ISO 32000-2 §9.5, §9.6, §9.8
+Font	FontWidthsMissing	Warning	ISO 32000-2 §9.5, §9.6, §9.8
+Font	FontWidthsInvalid	Warning	ISO 32000-2 §9.5, §9.6, §9.8
+Font	FontEncodingInvalid	Warning	ISO 32000-2 §9.5, §9.6, §9.8
+Font	FontEncodingIgnored	Information	ISO 32000-2 §9.5, §9.6, §9.8
+Font	FontDifferencesInvalid	Warning	ISO 32000-2 §9.5, §9.6, §9.8
+Font	FontBuiltInEncodingUnavailable	Information	ISO 32000-2 §9.5, §9.6, §9.8
+Font	FontGlyphMissing	Information	ISO 32000-2 §9.5, §9.6, §9.8
+Font	FontProgramUnsupported	Information	ISO 32000-2 §9.9
+Font	FontProgramFormatMismatch	Warning	ISO 32000-2 §9.9
+Font	FontProgramInvalid	Error	ISO 32000-2 §9.9
+Font	FontProgramTruncated	Warning	ISO 32000-2 §9.9
+Font	FontTableInvalid	Warning	ISO 32000-2 §9.9
+Font	FontGlyphInvalid	Warning	ISO 32000-2 §9.9
+Font	FontCmapInvalid	Warning	ISO 32000-2 §9.9
+Font	FontGlyphMappingFallback	Information	ISO 32000-2 §9.6.5.4
+CharString	FontCharstringStackOverflow	Error	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
+CharString	FontCharstringArgumentCount	Warning	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
+CharString	FontCharstringSubrOutOfRange	Warning	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
+CharString	FontCharstringSubrDepth	Error	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
+CharString	FontCharstringBudgetExceeded	Error	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
+CharString	FontCharstringUnknownOperator	Warning	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
+CharString	FontCharstringSeacComponentMissing	Warning	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
+CharString	FontCharstringNoEndchar	Warning	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
+CharString	FontCharstringMovetoMissing	Warning	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
+CharString	FontCharstringOperandInvalid	Warning	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
+CharString	FontCharstringTruncated	Error	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
+Cff	FontCffHeaderInvalid	Warning	Adobe Technical Note #5176
+Cff	FontCffIndexOutOfRange	Warning	Adobe Technical Note #5176 §5
+Cff	FontCffIndexTruncated	Warning	Adobe Technical Note #5176 §5
+Cff	FontCffIndexOffSizeInvalid	Warning	Adobe Technical Note #5176 §5, Table 7
+Cff	FontCffIndexOffsetsInvalid	Warning	Adobe Technical Note #5176 §5
+Cff	FontCffDictInvalid	Warning	Adobe Technical Note #5176
+Cff	FontCffPrivateMissing	Warning	Adobe Technical Note #5176
+Cff	FontCffMultipleFonts	Warning	Adobe Technical Note #5176
+Cff	FontCffCharsetInvalid	Warning	Adobe Technical Note #5176
+Cff	FontCffEncodingInvalid	Warning	Adobe Technical Note #5176
+Cff	FontCff2Unsupported	Information	Adobe Technical Note #5176
+Cff	FontCffFdArrayMissing	Warning	Adobe Technical Note #5176 §18-19
+Cff	FontCffFdSelectInvalid	Warning	Adobe Technical Note #5176 §18-19
+Type1	FontType1PfbWrapped	Warning	ISO 32000-2 §9.9 Table 125; Type 1 Font Format §7.2; Adobe Technical Note #5040 §3.3
+Type1	FontType1Length1Repaired	Warning	ISO 32000-2 §9.9 Table 125; Type 1 Font Format §7.2; Adobe Technical Note #5040 §3.3
+Type1	FontType1Length2Repaired	Warning	ISO 32000-2 §9.9 Table 125; Type 1 Font Format §7.2; Adobe Technical Note #5040 §3.3
+Type1	FontType1HexEexec	Warning	ISO 32000-2 §9.9 Table 125; Type 1 Font Format §7.2; Adobe Technical Note #5040 §3.3
+Type1	FontType1NoEexec	Warning	ISO 32000-2 §9.9 Table 125; Type 1 Font Format §7.2; Adobe Technical Note #5040 §3.3
+Type1	FontType1FontMatrixInvalid	Warning	Type 1 Font Format chapters 2, 5 and 10
+Type1	FontType1EncodingInvalid	Warning	Type 1 Font Format chapters 2, 5 and 10
+Type1	FontType1PrivateMissing	Warning	Type 1 Font Format chapters 2, 5 and 10
+Type1	FontType1EntryInvalid	Warning	Type 1 Font Format chapters 2, 5 and 10
+Type1	FontType1CharStringsMissing	Error	Type 1 Font Format chapters 2, 5 and 10
+Type1	FontType1NotdefMissing	Warning	Type 1 Font Format chapters 2, 5 and 10
+Type1	FontType1CharstringTruncated	Warning	Type 1 Font Format chapters 6 and 8; Adobe Technical Note #5015
+Type1	FontType1FlexMalformed	Warning	Type 1 Font Format chapters 6 and 8; Adobe Technical Note #5015
+Type1	FontType1BlendUnavailable	Warning	Type 1 Font Format chapters 6 and 8; Adobe Technical Note #5015
+Type1	FontType1NoWidth	Warning	Type 1 Font Format chapters 6 and 8; Adobe Technical Note #5015
+Type1	FontType1GlyphTooComplex	Error	Type 1 Font Format chapters 6 and 8; Adobe Technical Note #5015
+Type3	FontType3FontMatrixInvalid	Warning	ISO 32000-2 §9.6.4 Table 110
+Type3	FontType3CharProcsInvalid	Warning	ISO 32000-2 §9.6.4 Table 110
+Type3	ContentType3GlyphMetricsMissing	Warning	ISO 32000-2 §9.6.4 Table 111
+Type3	ContentType3GlyphMetricsMisplaced	Warning	ISO 32000-2 §9.6.4 Table 111
+Type3	ContentType3GlyphRecursion	Warning	ISO 32000-2 §9.6.4 Table 111
+CMap	CMapSyntaxInvalid	Warning	ISO 32000-2 §9.7.5; Adobe Technical Note #5014 §7
+CMap	CMapEntryInvalid	Warning	ISO 32000-2 §9.7.5; Adobe Technical Note #5014 §7
+CMap	CMapEntryLimitExceeded	Warning	ISO 32000-2 §9.7.5; Adobe Technical Note #5014 §7
+CMap	CMapCodespaceMissing	Warning	ISO 32000-2 §9.7.5; Adobe Technical Note #5014 §7
+CMap	CMapOperatorNotAllowed	Warning	ISO 32000-2 §9.7.5; Adobe Technical Note #5014 §7
+CMap	CMapUseCMapInvalid	Warning	ISO 32000-2 §9.7.5; Adobe Technical Note #5014 §7
+CMap	CMapUseCMapCycle	Error	ISO 32000-2 §9.7.5; Adobe Technical Note #5014 §7
+CMap	CMapUseCMapTooDeep	Warning	ISO 32000-2 §9.7.5; Adobe Technical Note #5014 §7
+CMap	CMapWritingModeMismatch	Warning	ISO 32000-2 §9.7.5; Adobe Technical Note #5014 §7
+CMap	CMapUnavailable	Information	ISO 32000-2 §9.7.5; Adobe Technical Note #5014 §7
+CMap	CMapCodeInvalid	Warning	ISO 32000-2 §9.7.6.2, §9.7.6.3
+Text	ToUnicodeInvalid	Warning	ISO 32000-2 §9.10.3
+Text	ToUnicodeIdentityName	Warning	ISO 32000-2 §9.10.3
+Text	ToUnicodeDestinationInvalid	Warning	ISO 32000-2 §9.10.3
+Text	ToUnicodeBfRangeOverflow	Warning	ISO 32000-2 §9.10.3
+Text	ToUnicodeCidMapping	Warning	ISO 32000-2 §9.10.3
+Text	ToUnicodeCodeLengthMismatch	Warning	ISO 32000-2 §9.10.2
+Text	GlyphNameNonStandard	Information	ISO 32000-2 §9.10.2
+Text	TextUcs2CmapMissing	Information	ISO 32000-2 §9.10.2
+Text	TextUnicodeUnmapped	Information	ISO 32000-2 §9.10.2
+Text	CidToUnicodeResourceInvalid	Information	ISO 32000-2 §9.10.2
+Content	ContentFontMissing	Warning	ISO 32000-2 §9.3, §9.4
+Content	ContentExtGStateMissing	Warning	ISO 32000-2 §8.4.5 Table 57
+Content	ContentExtGStateInvalid	Warning	ISO 32000-2 §8.4.5 Table 57
+Content	ContentXObjectMissing	Warning	ISO 32000-2 §8.8, §8.10
+Content	ContentXObjectInvalid	Warning	ISO 32000-2 §8.8, §8.10
+Content	ContentPostScriptXObject	Information	ISO 32000-2 §8.8, §8.10
+Content	ContentFormInvalid	Warning	ISO 32000-2 §8.8, §8.10
+Content	ContentFormCycle	Warning	ISO 32000-2 §8.8, §8.10
+Content	ContentInlineImageLengthMissing	Information	ISO 32000-2 §8.9.7
+Content	ContentPropertiesMissing	Warning	ISO 32000-2 §14.6
+Content	ContentMarkedContentUnbalanced	Warning	ISO 32000-2 §14.6
+Content	ContentStreamInvalid	Warning	ISO 32000-2 §7.8.2, §8.2, §8.4, §8.5
+Content	ContentUnknownOperator	Warning	ISO 32000-2 §7.8.2, §8.2, §8.4, §8.5
+Content	ContentOperandCount	Warning	ISO 32000-2 §7.8.2, §8.2, §8.4, §8.5
+Content	ContentOperandType	Warning	ISO 32000-2 §7.8.2, §8.2, §8.4, §8.5
+Content	ContentOperandOverflow	Warning	ISO 32000-2 §7.8.2, §8.2, §8.4, §8.5
+Content	ContentSyntaxInvalid	Warning	ISO 32000-2 §7.8.2, §8.2, §8.4, §8.5
+Content	ContentGluedTokens	Information	ISO 32000-2 §7.8.2, §8.2, §8.4, §8.5
+Content	ContentOperatorOutOfContext	Information	ISO 32000-2 §7.8.2, §8.2, §8.4, §8.5
+Content	ContentStackUnderflow	Warning	ISO 32000-2 §7.8.2, §8.2, §8.4, §8.5
+Content	ContentStackOverflow	Warning	ISO 32000-2 §7.8.2, §8.2, §8.4, §8.5
+Content	ContentUnbalancedSave	Warning	ISO 32000-2 §7.8.2, §8.2, §8.4, §8.5
+Content	ContentNoCurrentPoint	Warning	ISO 32000-2 §7.8.2, §8.2, §8.4, §8.5
+Content	ContentNoCurrentPath	Information	ISO 32000-2 §7.8.2, §8.2, §8.4, §8.5
+Content	ContentPathNotPainted	Information	ISO 32000-2 §7.8.2, §8.2, §8.4, §8.5
+Content	ContentGraphicsStateRange	Warning	ISO 32000-2 §7.8.2, §8.2, §8.4, §8.5
+Content	ContentCompatibilityUnbalanced	Warning	ISO 32000-2 §7.8.2, §8.2, §8.4, §8.5
+Content	ContentTextObjectUnbalanced	Warning	ISO 32000-2 §7.8.2, §8.2, §8.4, §8.5
+Content	ContentInlineImageInvalid	Warning	ISO 32000-2 §7.8.2, §8.2, §8.4, §8.5
+Function	FunctionInvalid	Error	ISO 32000-2 §7.10
+Function	FunctionEntryInvalid	Warning	ISO 32000-2 §7.10
+Function	FunctionSampleDataTruncated	Warning	ISO 32000-2 §7.10
+Function	FunctionProgramSyntaxInvalid	Warning	ISO 32000-2 §7.10
+Function	FunctionProgramStackInvalid	Warning	ISO 32000-2 §7.10
+Function	FunctionCycle	Error	ISO 32000-2 §7.10
+Function	FunctionTooDeep	Error	ISO 32000-2 §7.10
+Function	FunctionEvaluationRepaired	Warning	ISO 32000-2 §7.10
+Color	ColorSpaceInvalid	Warning	ISO 32000-2 §8.6
+Color	ColorSpaceEntryInvalid	Warning	ISO 32000-2 §8.6
+Color	ColorSpaceCycle	Error	ISO 32000-2 §8.6
+Color	ColorSpaceTooDeep	Error	ISO 32000-2 §8.6
+Color	IccProfileInvalid	Warning	ISO 32000-2 §8.6
+Color	IccComponentCountMismatch	Warning	ISO 32000-2 §8.6
+Color	IndexedLookupInvalid	Warning	ISO 32000-2 §8.6
+Color	TintTransformInvalid	Warning	ISO 32000-2 §8.6
+Color	DeviceNColorantsInvalid	Warning	ISO 32000-2 §8.6
+Color	DefaultColorSpaceInvalid	Warning	ISO 32000-2 §8.6
+Color	GroupColorSpaceInvalid	Warning	ISO 32000-2 §8.6
+Color	SoftMaskColorSpaceMissing	Warning	ISO 32000-2 §8.6
+Color	ContentColorSpaceMissing	Warning	ISO 32000-2 §8.6.8 Table 73
+Color	ContentColorSpaceAbbreviated	Warning	ISO 32000-2 §8.6.8 Table 73
+Color	ContentColorOperandCount	Warning	ISO 32000-2 §8.6.8 Table 73
+Color	ContentColorOperatorMismatch	Warning	ISO 32000-2 §8.6.8 Table 73
+Color	ContentColorOperatorInvalid	Warning	ISO 32000-2 §8.6.8 Table 73
+Color	ContentColorOperatorIgnored	Information	ISO 32000-2 §8.6.8 Table 73
+Color	ContentPatternMissing	Warning	ISO 32000-2 §8.6.8 Table 73
+Color	ColorComponentLimitExceeded	Information	ISO 32000-2 §8.6.8 Table 73
+Shading	ShadingTypeInvalid	Error	ISO 32000-2 §8.7.4, Tables 77 to 85
+Shading	ShadingColorSpaceInvalid	Error	ISO 32000-2 §8.7.4, Tables 77 to 85
+Shading	ShadingColorSpaceAbbreviated	Warning	ISO 32000-2 §8.7.4, Tables 77 to 85
+Shading	ShadingFunctionInvalid	Error	ISO 32000-2 §8.7.4, Tables 77 to 85
+Shading	ShadingCoordsInvalid	Warning	ISO 32000-2 §8.7.4, Tables 77 to 85
+Shading	ShadingEntryInvalid	Warning	ISO 32000-2 §8.7.4, Tables 77 to 85
+Shading	ShadingExtendInvalid	Warning	ISO 32000-2 §8.7.4, Tables 77 to 85
+Shading	ShadingBackgroundInvalid	Warning	ISO 32000-2 §8.7.4, Tables 77 to 85
+Shading	ShadingDecodeInvalid	Error	ISO 32000-2 §8.7.4, Tables 77 to 85
+Shading	ShadingBitsInvalid	Warning	ISO 32000-2 §8.7.4, Tables 77 to 85
+Shading	ShadingNotStream	Error	ISO 32000-2 §8.7.4, Tables 77 to 85
+Shading	MeshDataTruncated	Warning	ISO 32000-2 §8.7.4, Tables 77 to 85
+Shading	MeshEdgeFlagInvalid	Warning	ISO 32000-2 §8.7.4, Tables 77 to 85
+Shading	MeshLatticeIncomplete	Warning	ISO 32000-2 §8.7.4, Tables 77 to 85
+Shading	MeshSizeExceeded	Warning	ISO 32000-2 §8.7.4, Tables 77 to 85
+Shading	MeshPatchesUnpadded	Information	ISO 32000-2 §8.7.4, Tables 77 to 85
+Shading	PatternTypeInvalid	Error	ISO 32000-2 §8.7.2, §8.7.3, Tables 74 and 75
+Shading	PatternEntryInvalid	Warning	ISO 32000-2 §8.7.2, §8.7.3, Tables 74 and 75
+Shading	TilingPatternStepInvalid	Warning	ISO 32000-2 §8.7.2, §8.7.3, Tables 74 and 75
+Shading	TilingPatternBBoxMissing	Warning	ISO 32000-2 §8.7.2, §8.7.3, Tables 74 and 75
+Shading	PatternResourcesMissing	Warning	ISO 32000-2 §8.7.2, §8.7.3, Tables 74 and 75
+Shading	ContentShadingMissing	Warning	ISO 32000-2 §8.7.4.2, §8.7.3
+Shading	ContentPatternRecursion	Warning	ISO 32000-2 §8.7.4.2, §8.7.3
+Shading	ContentNestingTooDeep	Warning	ISO 32000-2 §8.7.4.2, §8.7.3
+Action	ActionEntryInvalid	Warning	ISO 32000-2 §12.6.2 Table 196, §12.6.4, §12.7.6
+Action	ActionNextInvalid	Warning	ISO 32000-2 §12.6.2 Table 196, §12.6.4, §12.7.6
+Action	ActionCycle	Information	ISO 32000-2 §12.6.2 Table 196, §12.6.4, §12.7.6
+Action	ActionTreeTooDeep	Warning	ISO 32000-2 §12.6.2 Table 196, §12.6.4, §12.7.6
+Action	ActionTargetCycle	Warning	ISO 32000-2 §12.6.2 Table 196, §12.6.4, §12.7.6
+Action	ActionOutOfScope	Information	ISO 32000-2 §12.6.2 Table 196, §12.6.4, §12.7.6
+Action	UriInvalid	Warning	ISO 32000-2 §12.6.2 Table 196, §12.6.4, §12.7.6
+Action	AdditionalActionsInvalid	Warning	ISO 32000-2 §12.6.3, §7.7.2 Table 29
+Action	OpenActionInvalid	Warning	ISO 32000-2 §12.6.3, §7.7.2 Table 29
+Action	ActionInvalid	Warning	ISO 32000-2 §12.6.2 Table 196
+Annotation	AnnotsInvalid	Warning	ISO 32000-2 §7.7.3.3 Table 31, §12.5.2
+Annotation	AnnotsInherited	Warning	ISO 32000-2 §7.7.3.3 Table 31, §12.5.2
+Annotation	AnnotationEntryInvalid	Warning	ISO 32000-2 §7.7.3.3 Table 31, §12.5.2
+Annotation	AnnotationNotIndirect	Warning	ISO 32000-2 §7.7.3.3 Table 31, §12.5.2
+Annotation	AnnotationDuplicate	Warning	ISO 32000-2 §7.7.3.3 Table 31, §12.5.2
+Annotation	AnnotationSharedAcrossPages	Warning	ISO 32000-2 §7.7.3.3 Table 31, §12.5.2
+Annotation	AnnotationPageMismatch	Warning	ISO 32000-2 §7.7.3.3 Table 31, §12.5.2
+Annotation	AnnotationTypeInvalid	Warning	ISO 32000-2 §12.5.2 to §12.5.4, Tables 166 to 169
+Annotation	AnnotationSubtypeMissing	Warning	ISO 32000-2 §12.5.2 to §12.5.4, Tables 166 to 169
+Annotation	AnnotationSubtypeNotName	Warning	ISO 32000-2 §12.5.2 to §12.5.4, Tables 166 to 169
+Annotation	AnnotationRectInvalid	Warning	ISO 32000-2 §12.5.2 to §12.5.4, Tables 166 to 169
+Annotation	AnnotationFlagsInvalid	Warning	ISO 32000-2 §12.5.2 to §12.5.4, Tables 166 to 169
+Annotation	AnnotationValueInvalid	Warning	ISO 32000-2 §12.5.2 to §12.5.4, Tables 166 to 169
+Annotation	AnnotationRequiredEntryMissing	Warning	ISO 32000-2 §12.5.2 to §12.5.4, Tables 166 to 169
+Annotation	BorderArrayInvalid	Warning	ISO 32000-2 §12.5.2 to §12.5.4, Tables 166 to 169
+Annotation	BorderStyleTypeInvalid	Warning	ISO 32000-2 §12.5.2 to §12.5.4, Tables 166 to 169
+Annotation	ColorArrayInvalid	Warning	ISO 32000-2 §12.5.2 to §12.5.4, Tables 166 to 169
+Annotation	QuadPointsInvalid	Warning	ISO 32000-2 §12.5.2 to §12.5.4, Tables 166 to 169
+Annotation	AppearanceMissing	Warning	ISO 32000-2 §12.5.5 Table 170
+Annotation	AppearanceStateMissing	Warning	ISO 32000-2 §12.5.5 Table 170
+Annotation	AppearanceEntryInvalid	Warning	ISO 32000-2 §12.5.5 Table 170
+Annotation	AppearanceBBoxMissing	Warning	ISO 32000-2 §12.5.5 Table 170
+Annotation	AppearanceNotForm	Warning	ISO 32000-2 §12.5.5 Table 170
+Annotation	AppearanceResourcesMissing	Warning	ISO 32000-2 §12.5.5 Table 170
+Annotation	AppearanceNotRendered	Information	ISO 32000-2 §12.5.5
+Annotation	PopupLinkMismatch	Warning	ISO 32000-2 §12.5.6.2, §12.5.6.3, §12.5.6.14, §12.5.6.21
+Annotation	PopupParentInvalid	Warning	ISO 32000-2 §12.5.6.2, §12.5.6.3, §12.5.6.14, §12.5.6.21
+Annotation	InReplyToInvalid	Warning	ISO 32000-2 §12.5.6.2, §12.5.6.3, §12.5.6.14, §12.5.6.21
+Annotation	InReplyToOtherPage	Warning	ISO 32000-2 §12.5.6.2, §12.5.6.3, §12.5.6.14, §12.5.6.21
+Annotation	ReplyTypeWithoutInReplyTo	Warning	ISO 32000-2 §12.5.6.2, §12.5.6.3, §12.5.6.14, §12.5.6.21
+Annotation	StateModelMissing	Warning	ISO 32000-2 §12.5.6.2, §12.5.6.3, §12.5.6.14, §12.5.6.21
+Annotation	LinkActionAndDest	Warning	ISO 32000-2 §12.5.6.2, §12.5.6.3, §12.5.6.14, §12.5.6.21
+Annotation	TrapNetPlacementInvalid	Warning	ISO 32000-2 §12.5.6.2, §12.5.6.3, §12.5.6.14, §12.5.6.21
+Form	AcroFormInvalid	Warning	ISO 32000-2 §12.7.3 Table 224, Annex K
+Form	AcroFormFieldsMissing	Warning	ISO 32000-2 §12.7.3 Table 224, Annex K
+Form	AcroFormEntryInvalid	Warning	ISO 32000-2 §12.7.3 Table 224, Annex K
+Form	XfaFormPresent	Information	ISO 32000-2 §12.7.3 Table 224, Annex K
+Form	XfaFormDynamic	Information	ISO 32000-2 §12.7.3 Table 224, Annex K
+Form	XfaPacketsInvalid	Warning	ISO 32000-2 §12.7.3 Table 224, Annex K
+Form	XfaDataNotUpdated	Information	ISO 32000-2 §12.7.3 Table 224, Annex K
+Form	FlattenInvalidatesSignatures	Warning	ISO 32000-2 §12.5.5
+Form	FieldReferenceInvalid	Warning	ISO 32000-2 §12.7.2, §12.7.4.1, §12.7.4.2
+Form	FieldNotIndirect	Warning	ISO 32000-2 §12.7.2, §12.7.4.1, §12.7.4.2
+Form	FieldTreeCycle	Warning	ISO 32000-2 §12.7.2, §12.7.4.1, §12.7.4.2
+Form	FieldTreeTooDeep	Warning	ISO 32000-2 §12.7.2, §12.7.4.1, §12.7.4.2
+Form	FieldNotRoot	Warning	ISO 32000-2 §12.7.2, §12.7.4.1, §12.7.4.2
+Form	FieldParentMissing	Warning	ISO 32000-2 §12.7.2, §12.7.4.1, §12.7.4.2
+Form	FieldParentMismatch	Warning	ISO 32000-2 §12.7.2, §12.7.4.1, §12.7.4.2
+Form	FieldKidsMixed	Warning	ISO 32000-2 §12.7.2, §12.7.4.1, §12.7.4.2
+Form	FieldNameMissing	Warning	ISO 32000-2 §12.7.2, §12.7.4.1, §12.7.4.2
+Form	FieldNameHasPeriod	Warning	ISO 32000-2 §12.7.2, §12.7.4.1, §12.7.4.2
+Form	FieldNameDuplicateInconsistent	Warning	ISO 32000-2 §12.7.2, §12.7.4.1, §12.7.4.2
+Form	FieldTypeMissing	Warning	ISO 32000-2 §12.7.2, §12.7.4.1, §12.7.4.2
+Form	ButtonFlagsConflict	Warning	ISO 32000-2 §12.7.2, §12.7.4.1, §12.7.4.2
+Form	SignatureFieldMultipleWidgets	Warning	ISO 32000-2 §12.7.2, §12.7.4.1, §12.7.4.2
+Form	WidgetNotInFieldTree	Warning	ISO 32000-2 §12.7.2, §12.7.4.1, §12.7.4.2
+Form	FieldEntryInvalid	Warning	ISO 32000-2 §12.7.4, §12.7.5
+Form	FieldFlagsInvalid	Warning	ISO 32000-2 §12.7.4, §12.7.5
+Form	FieldValueTypeInvalid	Warning	ISO 32000-2 §12.7.4, §12.7.5
+Form	DefaultAppearanceMissing	Warning	ISO 32000-2 §12.7.4, §12.7.5
+Form	DefaultAppearanceInvalid	Warning	ISO 32000-2 §12.7.4, §12.7.5
+Form	DefaultAppearanceFontMissing	Warning	ISO 32000-2 §12.7.4, §12.7.5
+Form	TextCombInvalid	Warning	ISO 32000-2 §12.7.4, §12.7.5
+Form	ButtonValueStateMismatch	Warning	ISO 32000-2 §12.7.4, §12.7.5
+Form	ButtonValueUnknownState	Warning	ISO 32000-2 §12.7.4, §12.7.5
+Form	ButtonStatesAmbiguous	Warning	ISO 32000-2 §12.7.4, §12.7.5
+Form	ButtonOnStateMissing	Warning	ISO 32000-2 §12.7.4, §12.7.5
+Form	ButtonOptLengthMismatch	Warning	ISO 32000-2 §12.7.4, §12.7.5
+Form	ChoiceOptionInvalid	Warning	ISO 32000-2 §12.7.4, §12.7.5
+Form	ChoiceOptionsInherited	Warning	ISO 32000-2 §12.7.4, §12.7.5
+Form	ChoiceValueNotInOptions	Warning	ISO 32000-2 §12.7.4, §12.7.5
+Form	ChoiceIndicesInvalid	Warning	ISO 32000-2 §12.7.4, §12.7.5
+Form	SignatureFieldDictNotIndirect	Warning	ISO 32000-2 §12.7.4, §12.7.5
+Structure	MarkInfoInvalid	Warning	ISO 32000-2 §14.6 to §14.8
+Structure	StructTreeRootInvalid	Warning	ISO 32000-2 §14.6 to §14.8
+Structure	StructElemInvalid	Warning	ISO 32000-2 §14.6 to §14.8
+Structure	StructElemTypeUnknown	Warning	ISO 32000-2 §14.6 to §14.8
+Structure	StructElemParentMismatch	Warning	ISO 32000-2 §14.6 to §14.8
+Structure	StructElemPageMissing	Warning	ISO 32000-2 §14.6 to §14.8
+Structure	StructTreeCycle	Warning	ISO 32000-2 §14.6 to §14.8
+Structure	StructTreeDepthExceeded	Warning	ISO 32000-2 §14.6 to §14.8
+Structure	ParentTreeMissing	Warning	ISO 32000-2 §14.6 to §14.8
+Structure	ParentTreeEntryInvalid	Warning	ISO 32000-2 §14.6 to §14.8
+Structure	McidDuplicate	Warning	ISO 32000-2 §14.6 to §14.8
+Structure	IdTreeDuplicate	Warning	ISO 32000-2 §14.6 to §14.8
+Structure	IdTreeEntryInvalid	Warning	ISO 32000-2 §14.6 to §14.8
+Structure	NamespaceInvalid	Warning	ISO 32000-2 §14.6 to §14.8
+Structure	NamespaceNotDeclared	Warning	ISO 32000-2 §14.6 to §14.8
+Structure	StructureTypeUnresolved	Warning	ISO 32000-2 §14.6 to §14.8
+Structure	AttributeObjectInvalid	Warning	ISO 32000-2 §14.6 to §14.8
+Structure	AttributeOwnerInvalid	Warning	ISO 32000-2 §14.6 to §14.8
+Structure	AttributeRevisionInvalid	Warning	ISO 32000-2 §14.6 to §14.8
+Structure	StructureRoleConflict	Information	ISO 32000-2 §14.7
+Structure	StructureClassConflict	Information	ISO 32000-2 §14.7
+Structure	StructureIdConflict	Information	ISO 32000-2 §14.7
+Structure	FigureAlternateTextPlaceholder	Warning	ISO 32000-2 §14.9.3
+Structure	FigureWithoutAlternateText	Warning	ISO 32000-2 §14.9.3

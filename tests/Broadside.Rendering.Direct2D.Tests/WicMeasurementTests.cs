@@ -34,7 +34,7 @@ public sealed class WicMeasurementTests
         foreach ((string name, byte[] jpeg) in Images())
         {
             if (!new DctDecodeFilter().TryReadHeader(jpeg, new ImageFilterContext(new FilterContext()), out ImageHeader header)
-                || header.BitsPerComponent != 8 || header.Components is not (1 or 3) || header.Height == 0)
+                || header.Geometry.BitsPerComponent != 8 || header.Geometry.Components is not (1 or 3) || header.Geometry.Height == 0)
             {
                 continue;
             }
@@ -44,16 +44,16 @@ public sealed class WicMeasurementTests
                 var request = new PlatformImageRequest
                 {
                     Filter = new CosName("DCTDecode"),
-                    Width = header.Width,
-                    Height = header.Height,
-                    Components = header.Components,
+                    Width = header.Geometry.Width,
+                    Height = header.Geometry.Height,
+                    Components = header.Geometry.Components,
                     BitsPerComponent = 8,
-                    ColorTransform = header.Components == 3,
+                    ColorTransform = header.Geometry.Components == 3,
                     Reduction = reduction,
                 };
                 foreach (WicPath path in (WicPath[])[WicPath.Planes, WicPath.Pixels])
                 {
-                    if (path == WicPath.Planes && header.Components != 3)
+                    if (path == WicPath.Planes && header.Geometry.Components != 3)
                     {
                         continue;
                     }
@@ -156,25 +156,22 @@ public sealed class WicMeasurementTests
     internal static DecodedImage? Managed(byte[] jpeg, ImageHeader header, int reduction) =>
         new DctDecodeFilter().DecodeImage(jpeg, new ImageFilterContext(new FilterContext())
         {
-            Width = header.Width,
-            Height = header.Height,
-            BitsPerComponent = 8,
-            ColorComponents = header.Components,
+            Geometry = header.Geometry with { BitsPerComponent = 8 },
             Reduction = reduction,
         });
 
     /// <summary>The largest difference, the PSNR and the share of pixels over 2 levels between two decodes of one size.</summary>
     internal static (int Max, double Psnr, double Over) Compare(DecodedImage a, DecodedImage b)
     {
-        Assert.Equal((a.Width, a.Height, a.Components), (b.Width, b.Height, b.Components));
-        int components = a.Components;
+        Assert.Equal((a.Geometry.Width, a.Geometry.Height, a.Geometry.Components), (b.Geometry.Width, b.Geometry.Height, b.Geometry.Components));
+        int components = a.Geometry.Components;
         int max = 0;
         long over = 0;
         double squares = 0;
-        for (int y = 0; y < a.Height; y++)
+        for (int y = 0; y < a.Geometry.Height; y++)
         {
-            ReadOnlySpan<byte> rowA = a.GetRow(y)[..(a.Width * components)];
-            ReadOnlySpan<byte> rowB = b.GetRow(y)[..(a.Width * components)];
+            ReadOnlySpan<byte> rowA = a.GetRow(y)[..(a.Geometry.Width * components)];
+            ReadOnlySpan<byte> rowB = b.GetRow(y)[..(a.Geometry.Width * components)];
             for (int x = 0; x < rowA.Length; x += components)
             {
                 int pixel = 0;
@@ -190,7 +187,7 @@ public sealed class WicMeasurementTests
             }
         }
 
-        long pixels = (long)a.Width * a.Height;
+        long pixels = (long)a.Geometry.Width * a.Geometry.Height;
         double mse = squares / (pixels * components);
         return (max, mse == 0 ? double.PositiveInfinity : 10 * Math.Log10(255.0 * 255.0 / mse), over / (double)pixels);
     }
@@ -198,7 +195,7 @@ public sealed class WicMeasurementTests
     private static string Db(double psnr) => double.IsPositiveInfinity(psnr) ? "inf" : psnr.ToString("0.0", CultureInfo.InvariantCulture);
 
     private static string Row(string name, ImageHeader header, WicPath path, int asked, params string[] cells) =>
-        string.Create(CultureInfo.InvariantCulture, $"| {name} | {header.Width} x {header.Height} x {header.Components} | {path} | {asked} | {string.Join(" | ", cells)} |");
+        string.Create(CultureInfo.InvariantCulture, $"| {name} | {header.Geometry.Width} x {header.Geometry.Height} x {header.Geometry.Components} | {path} | {asked} | {string.Join(" | ", cells)} |");
 
     /// <summary>Writes the table to the test output, the CI job summary, and the test results folder.</summary>
     private static void Publish(string table)

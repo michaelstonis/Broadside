@@ -63,7 +63,7 @@ internal static class AnnotationFlattening
         if (form is not null && form.TerminalFields.OfType<PdfSignatureField>().Any(field => field.IsSigned))
         {
             form.Report(
-                DiagnosticCodes.FlattenInvalidatesSignatures,
+                FormDiagnostics.FlattenInvalidatesSignatures,
                 "The form is signed: flattening removes its signature fields and changes the document they cover, so the signatures no longer verify (§12.8).");
         }
 

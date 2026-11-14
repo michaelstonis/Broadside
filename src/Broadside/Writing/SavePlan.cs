@@ -50,6 +50,7 @@ namespace Broadside.Writing;
 /// An unfiltered stream that <see cref="PdfSaveOptions.StreamCompression"/> selects is written instead as a <c>FlateDecode</c> copy
 /// when that is smaller (§7.4.4), under its written number, with its references renumbered and a direct <c>Length</c> (§7.3.8.2).
 /// </para>
+/// <para>ISO 32000-2 Annex F.3.</para>
 /// </remarks>
 internal static class SavePlan
 {
@@ -504,7 +505,7 @@ internal static class SavePlan
         }
 
         diagnostics.Report(
-            DiagnosticCodes.ObjectNumberOutOfRange,
+            SavingDiagnostics.ObjectNumberOutOfRange,
             DiagnosticSeverity.Warning,
             string.Create(CultureInfo.InvariantCulture, $"The file lists object number {highest}, and an incremental update, which cannot renumber, would need a Size or a cross-reference stream number above {int.MaxValue - 1} (ISO 32000-2 §7.5.6; Annex C, Table C.1); nothing is written. Save the whole file instead, which renumbers."));
         throw new NotSupportedException("An incremental update of a file that holds object 2147483647 cannot be written: its Size would not fit in 32 bits (ISO 32000-2 Annex C). Save the whole file instead.");
@@ -594,14 +595,14 @@ internal static class SavePlan
         if (diagnostics.IsStrict)
         {
             diagnostics.Report(
-                DiagnosticCodes.ObjectNumberOutOfRange,
+                SavingDiagnostics.ObjectNumberOutOfRange,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"The save would list object number {highest}, above {MaxObjectNumber} (ISO 32000-1 Annex C, Table C.1; ISO 32000-2 Annex C, Table C.1), and must renumber the objects to write it; strict mode does not renumber a numbering the options keep, so nothing is written. Save with PdfObjectNumbering.Compact."));
         }
         else
         {
             diagnostics.Report(
-                DiagnosticCodes.ObjectNumberOutOfRange,
+                SavingDiagnostics.ObjectNumberOutOfRange,
                 DiagnosticSeverity.Information,
                 string.Create(CultureInfo.InvariantCulture, $"The save would list object number {highest}, above {MaxObjectNumber} (ISO 32000-1 Annex C, Table C.1; ISO 32000-2 Annex C, Table C.1); the objects are renumbered 1 to n and every reference to an object not written is written as null (§7.3.10)."));
         }

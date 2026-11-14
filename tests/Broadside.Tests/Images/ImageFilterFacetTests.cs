@@ -22,10 +22,10 @@ public sealed class ImageFilterFacetTests
         PdfImage image = document.Pages[0].GetImage("Im0")!;
 
         using DecodedImage decoded = image.Decode()!;
-        Assert.Equal((2, 3), (decoded.Width, decoded.Height));
+        Assert.Equal((2, 3), (decoded.Geometry.Width, decoded.Geometry.Height));
         Assert.All(decoded.Samples.ToArray(), value => Assert.Equal(7, value));
         Assert.Equal(["ImageDimensionMismatch"], Codes(document));
-        Assert.Equal((4, 4, 8, 1, false, false), (codec.Context!.Width, codec.Context.Height, codec.Context.BitsPerComponent, codec.Context.ColorComponents, codec.Context.IsStencil, codec.Context.WantsAlpha));
+        Assert.Equal((new ImageGeometry(4, 4, 1, 8), false, PdfSoftMaskInData.None), (codec.Context!.Geometry, codec.Context.IsImageMask, codec.Context.SoftMaskInData));
     }
 
     [Theory]
@@ -40,7 +40,7 @@ public sealed class ImageFilterFacetTests
         {
             Make = context =>
             {
-                context.TryCreateImage(2, 1, components, 8, out DecodedImageBuilder? builder);
+                context.TryCreateImage(new ImageGeometry(2, 1, components, 8), out DecodedImageBuilder? builder);
                 builder!.ColorModel = model;
                 builder.Samples.Fill(255);
                 return builder.Build();
@@ -55,7 +55,7 @@ public sealed class ImageFilterFacetTests
         using DecodedImage decoded = image.Decode()!;
         Assert.Equal(family, image.ResolveColorSpace(decoded)!.Family);
         Assert.Equal(1f, image.CreateDecodeMap(decoded).Map(0, 255));
-        Assert.Equal(0, codec.Context!.ColorComponents);
+        Assert.Equal(0, codec.Context!.Geometry.Components);
         Assert.Empty(document.Diagnostics);
     }
 
@@ -68,8 +68,8 @@ public sealed class ImageFilterFacetTests
         {
             Make = context =>
             {
-                context.TryCreateImage(2, 1, 3, 8, out DecodedImageBuilder? builder);
-                if (context.WantsAlpha)
+                context.TryCreateImage(new ImageGeometry(2, 1, 3, 8), out DecodedImageBuilder? builder);
+                if (context.SoftMaskInData != PdfSoftMaskInData.None)
                 {
                     builder!.TryCreateAlpha(8, premultiplied, out DecodedImageBuilder alpha);
                     alpha.Samples[0] = 0x40;
@@ -83,9 +83,9 @@ public sealed class ImageFilterFacetTests
         PdfImage image = document.Pages[0].GetImage("Im0")!;
 
         Assert.Equal(PdfImageMaskKind.SoftInData, image.MaskKind);
-        Assert.Equal(smaskInData, image.SoftMaskInData);
+        Assert.Equal((PdfSoftMaskInData)smaskInData, image.SoftMaskInData);
         using DecodedImage decoded = image.Decode()!;
-        Assert.True(codec.Context!.WantsAlpha);
+        Assert.Equal((PdfSoftMaskInData)smaskInData, codec.Context!.SoftMaskInData);
         Assert.Equal(new byte[] { 0x40, 0xC0 }, decoded.Alpha!.Samples.ToArray());
         Assert.Equal(premultiplied, decoded.AlphaPremultiplied);
         Assert.Empty(document.Diagnostics);
@@ -99,7 +99,7 @@ public sealed class ImageFilterFacetTests
         PdfImage image = document.Pages[0].GetImage("Im0")!;
 
         using DecodedImage decoded = image.Decode()!;
-        Assert.False(codec.Context!.WantsAlpha);
+        Assert.Equal(PdfSoftMaskInData.None, codec.Context!.SoftMaskInData);
         Assert.Equal(PdfImageMaskKind.None, image.MaskKind);
         Assert.Null(decoded.Alpha);
     }
@@ -111,7 +111,7 @@ public sealed class ImageFilterFacetTests
         {
             Make = context =>
             {
-                context.TryCreateImage(8, 1, 1, 1, out DecodedImageBuilder? builder);
+                context.TryCreateImage(new ImageGeometry(8, 1, 1, 1), out DecodedImageBuilder? builder);
                 builder!.Samples[0] = 0b1100_0000;
                 builder.SamplesInverted = true;
                 return builder.Build();
@@ -123,18 +123,18 @@ public sealed class ImageFilterFacetTests
 
         // JBIG2 1 = black = paint: with the inversion folded in, the two 1 bits paint although Decode is [0 1].
         Assert.Equal([0.0, 1.0], stencil.DecodeArray);
-        Assert.True(stencilCodec.Context!.IsStencil);
+        Assert.True(stencilCodec.Context!.IsImageMask);
         ImageDecodeMap map = stencil.CreateDecodeMap(stencilSamples);
         Assert.True(map.IsInverted);
         byte[] coverage = new byte[8];
-        ImageRows.Stencil(stencilSamples.GetRow(0), 8, map.IsInverted, coverage);
+        ImageRows.ImageMask(stencilSamples.GetRow(0), 8, map.IsInverted, coverage);
         Assert.Equal(new byte[] { 255, 255, 0, 0, 0, 0, 0, 0 }, coverage);
 
         var grayCodec = new FakeImageFilter("JBIG2Decode")
         {
             Make = context =>
             {
-                context.TryCreateImage(1, 1, 1, 1, out DecodedImageBuilder? builder);
+                context.TryCreateImage(new ImageGeometry(1, 1, 1, 1), out DecodedImageBuilder? builder);
                 builder!.SamplesInverted = true;
                 return builder.Build();
             },
@@ -148,7 +148,7 @@ public sealed class ImageFilterFacetTests
     [Fact]
     public void A_header_larger_than_the_limit_is_rejected_before_the_codec_decodes_anything()
     {
-        var codec = new FakeImageFilter("JPXDecode") { Header = new ImageHeader(100_000, 100_000, 3, 8), Make = context => Gray(context, 1, 1, 0) };
+        var codec = new FakeImageFilter("JPXDecode") { Header = new ImageHeader(new ImageGeometry(100_000, 100_000, 3, 8)), Make = context => Gray(context, 1, 1, 0) };
         using PdfDocument document = Open(codec, "/Width 1 /Height 1 /ColorSpace /DeviceRGB /Filter /JPXDecode", new PdfOptions().WithMaxImagePixels(1_000_000));
         PdfImage image = document.Pages[0].GetImage("Im0")!;
 
@@ -175,12 +175,12 @@ public sealed class ImageFilterFacetTests
     {
         var context = new ImageFilterContext(new FilterContext()) { MaxPixels = 15 };
 
-        bool created16 = context.TryCreateImage(4, 4, 1, 8, out DecodedImageBuilder? rejected);
+        bool created16 = context.TryCreateImage(new ImageGeometry(4, 4, 1, 8), out DecodedImageBuilder? rejected);
         rejected?.Dispose();
         Assert.False(created16);
         Assert.Null(rejected);
         Assert.Equal("ImageTooLarge", Assert.Single(context.Filter.Diagnostics).Code);
-        Assert.True(context.TryCreateImage(3, 5, 1, 8, out DecodedImageBuilder? created));
+        Assert.True(context.TryCreateImage(new ImageGeometry(3, 5, 1, 8), out DecodedImageBuilder? created));
         using DecodedImageBuilder image = created;
         Assert.Equal(15, image.Samples.Length);
     }
@@ -222,7 +222,7 @@ public sealed class ImageFilterFacetTests
 
         using DecodedImage decoded = document.Pages[0].GetImage("Im0")!.Decode()!;
 
-        Assert.Equal((2, 1, 1, 8), (decoded.Width, decoded.Height, decoded.Components, decoded.BitsPerComponent));
+        Assert.Equal((2, 1, 1, 8), (decoded.Geometry.Width, decoded.Geometry.Height, decoded.Geometry.Components, decoded.Geometry.BitsPerComponent));
         Assert.Equal<byte>([10, 40], decoded.Samples.ToArray());
         Diagnostic diagnostic = Assert.Single(document.Diagnostics);
         Assert.Equal(("ImageComponentMismatch", DiagnosticSeverity.Warning), (diagnostic.Code, diagnostic.Severity));
@@ -236,7 +236,7 @@ public sealed class ImageFilterFacetTests
 
         using DecodedImage decoded = document.Pages[0].GetImage("Im0")!.Decode()!;
 
-        Assert.Equal(3, decoded.Components);
+        Assert.Equal(3, decoded.Geometry.Components);
         Assert.Equal<byte>([7, 0, 0, 9, 0, 0], decoded.Samples.ToArray());
         Assert.Equal(["ImageComponentMismatch"], Codes(document));
     }
@@ -250,7 +250,7 @@ public sealed class ImageFilterFacetTests
 
         using DecodedImage decoded = document.Pages[0].GetImage("Im0")!.Decode()!;
 
-        Assert.Equal((3, 1), (decoded.Components, decoded.BitsPerComponent));
+        Assert.Equal((3, 1), (decoded.Geometry.Components, decoded.Geometry.BitsPerComponent));
         Assert.Equal<byte>([0b1000_0010, 0b0100_0000, 0b0000_0000], decoded.Samples.ToArray());
         Assert.Equal(["ImageComponentMismatch"], Codes(document));
     }
@@ -285,7 +285,7 @@ public sealed class ImageFilterFacetTests
 
     private static DecodedImage Image(ImageFilterContext context, int width, int components, int bits, byte[] samples)
     {
-        Assert.True(context.TryCreateImage(width, 1, components, bits, out DecodedImageBuilder? created));
+        Assert.True(context.TryCreateImage(new ImageGeometry(width, 1, components, bits), out DecodedImageBuilder? created));
         using DecodedImageBuilder builder = created;
         samples.CopyTo(builder.Samples);
         return builder.Build();
@@ -293,7 +293,7 @@ public sealed class ImageFilterFacetTests
 
     private static DecodedImage Gray(ImageFilterContext context, int width, int height, byte value)
     {
-        Assert.True(context.TryCreateImage(width, height, 1, 8, out DecodedImageBuilder? created));
+        Assert.True(context.TryCreateImage(new ImageGeometry(width, height, 1, 8), out DecodedImageBuilder? created));
         using DecodedImageBuilder builder = created;
         builder.Samples.Fill(value);
         return builder.Build();

@@ -241,7 +241,7 @@ internal sealed partial class DisplayListBuilder
         }
 
         document.DiagnosticSink.ReportOnce(
-            DiagnosticCodes.GroupColorSpaceInvalid,
+            ColorDiagnostics.GroupColorSpaceInvalid,
             DiagnosticSeverity.Warning,
             $"A transparency group's colour space ({space!.Family}) cannot be a blending colour space (§11.3.4); the group blends in its parent's.",
             offset: null,

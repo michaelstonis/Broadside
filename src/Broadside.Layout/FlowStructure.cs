@@ -25,12 +25,11 @@ namespace Broadside.Layout.Flow;
 /// new MCID) when it ends, so artifacts never sit inside tagged content and MCIDs never nest. The layout never begins a part inside a text
 /// object that it began outside one, so the sequences nest properly with <c>BT</c>/<c>ET</c>.
 /// </para>
+/// <para>ISO 14289-2 §8.2.</para>
+/// <para>Well-Tagged PDF 1.0 §8.2.</para>
 /// </remarks>
 internal sealed class FlowStructure : IStructureSink
 {
-    /// <summary>The diagnostic code recorded for a figure without alternate text (§14.9.3).</summary>
-    public const string FigureWithoutAlternateText = nameof(FigureWithoutAlternateText);
-
     private static readonly CosName TableOwner = new("Table");
     private static readonly CosName ListOwner = new("List");
     private static readonly CosName ListNumberingKey = new("ListNumbering");
@@ -349,7 +348,7 @@ internal sealed class FlowStructure : IStructureSink
         }
 
         _diagnostics.Add(new Diagnostic(
-            FigureWithoutAlternateText,
+            StructureDiagnostics.FigureWithoutAlternateText.Name,
             DiagnosticSeverity.Warning,
             "A figure has no alternate text (ISO 32000-2 §14.9.3); assistive technology has nothing to read for it.",
             objectReference: element.Reference));

@@ -34,6 +34,7 @@ namespace Broadside.Signatures;
 /// <see cref="PdfCertificateSigner"/> is the managed default, over a certificate whose private key the platform holds. A signer is
 /// asked once per signature; a document may be signed from any thread but not from several at once (signing is a mutation).
 /// </para>
+/// <para>ISO 32000-2 §12.8.3.1.</para>
 /// </remarks>
 public interface IPdfSigner
 {

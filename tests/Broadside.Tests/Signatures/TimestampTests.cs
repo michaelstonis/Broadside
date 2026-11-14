@@ -28,7 +28,7 @@ public sealed class TimestampTests
         using X509Certificate2 certificate = TestCertificates.SelfSigned("CN=Broadside signer");
         using var authority = new TestTimestampAuthority();
         using var http = new HttpClient(authority, disposeHandler: false);
-        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("empty-page.pdf"));
+        using PdfDocument document = await PdfDocument.OpenAsync(Corpus.Bytes("empty-page.pdf"), TestContext.Current.CancellationToken);
         PdfSignatureOptions options = new PdfSignatureOptions()
             .WithSubFilter(PdfSignatureSubFilter.EtsiCadesDetached)
             .WithTimestampClient(new PdfTimestampClient(http, TestTimestampAuthority.Address));
@@ -105,7 +105,7 @@ public sealed class TimestampTests
         using var authority = new TestTimestampAuthority();
         using var http = new HttpClient(authority, disposeHandler: false);
         byte[] file = Corpus.Bytes("empty-page.pdf");
-        using PdfDocument document = PdfDocument.Open(file);
+        using PdfDocument document = await PdfDocument.OpenAsync(file, TestContext.Current.CancellationToken);
         var client = new PdfTimestampClient(http, TestTimestampAuthority.Address);
 
         using var output = new MemoryStream();
@@ -129,7 +129,7 @@ public sealed class TimestampTests
         Assert.Equal(authority.Tokens.Single(), timestamp.Cms);
 
         // §12.8.5.2 and Table 255: a DocTimeStamp dictionary with ETSI.RFC3161 and none of the entries that sub-filter excludes.
-        using PdfDocument reopened = PdfDocument.Open(stamped);
+        using PdfDocument reopened = await PdfDocument.OpenAsync(stamped, TestContext.Current.CancellationToken);
         PdfSignatureField field = Assert.Single(reopened.AcroForm!.TerminalFields.OfType<PdfSignatureField>());
         CosDictionary dictionary = field.SignatureDictionary!;
         Assert.Equal(new CosName("DocTimeStamp"), dictionary[new CosName("Type")]);
@@ -203,7 +203,7 @@ public sealed class TimestampTests
         using X509Certificate2 certificate = TestCertificates.SelfSigned("CN=Broadside signer");
         using var authority = new TestTimestampAuthority { Fault = TimestampFault.Rejection };
         using var http = new HttpClient(authority, disposeHandler: false);
-        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("metadata-xmp.pdf"));
+        using PdfDocument document = await PdfDocument.OpenAsync(Corpus.Bytes("metadata-xmp.pdf"), TestContext.Current.CancellationToken);
         var client = new PdfTimestampClient(http, TestTimestampAuthority.Address);
         string before = CosSnapshot.Of(document);
         using var output = new MemoryStream();
@@ -224,7 +224,7 @@ public sealed class TimestampTests
     {
         using var authority = new TestTimestampAuthority { Fault = TimestampFault.Rejection };
         using var http = new HttpClient(authority, disposeHandler: false);
-        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("empty-page.pdf"));
+        using PdfDocument document = await PdfDocument.OpenAsync(Corpus.Bytes("empty-page.pdf"), TestContext.Current.CancellationToken);
         using var output = new MemoryStream();
 
         PdfTimestampException exception = await Assert.ThrowsAsync<PdfTimestampException>(

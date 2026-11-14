@@ -48,10 +48,10 @@ internal static class PngVectors
     public static ushort[] Read(PdfImage image)
     {
         using DecodedImage decoded = image.Decode() ?? throw new InvalidOperationException("The image does not decode.");
-        Assert.Equal(decoded.Height, decoded.DecodedRows);
-        int width = decoded.Width;
-        int height = decoded.Height;
-        int components = decoded.Components;
+        Assert.Equal(decoded.Geometry.Height, decoded.DecodedRows);
+        int width = decoded.Geometry.Width;
+        int height = decoded.Geometry.Height;
+        int components = decoded.Geometry.Components;
         int scale = 65535 / ((1 << image.BitsPerComponent) - 1);
         PdfColorSpace space = image.ColorSpace!;
         byte[]? lookup = space is PdfIndexedColorSpace indexed ? indexed.GetLookup().ToArray() : null;

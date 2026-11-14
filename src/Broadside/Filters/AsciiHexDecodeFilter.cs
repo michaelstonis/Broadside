@@ -59,7 +59,7 @@ public sealed class AsciiHexDecodeFilter : IStreamFilter
             {
                 invalidReported = true;
                 writer.Flush();
-                context.Report(DiagnosticCodes.FilterDataInvalid, DiagnosticSeverity.Warning, "ASCIIHexDecode data holds a character that is neither a hexadecimal digit nor white-space; such characters are skipped.");
+                context.Report(FilterDiagnostics.FilterDataInvalid, DiagnosticSeverity.Warning, "ASCIIHexDecode data holds a character that is neither a hexadecimal digit nor white-space; such characters are skipped.");
             }
         }
 

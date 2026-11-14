@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 
 namespace Broadside.Annotations;
@@ -17,7 +18,7 @@ public sealed class PdfTextAnnotation : PdfMarkupAnnotation
 
     /// <summary>Gets the name of the icon (<c>Name</c>): <c>Comment</c>, <c>Key</c>, <c>Note</c> (the default), <c>Help</c>, <c>NewParagraph</c>, <c>Paragraph</c>, <c>Insert</c> or another name.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.4, Table 175.</remarks>
-    public string IconName => ReadIconName("Note");
+    public string IconName => this.GetIconName("Note");
 
     /// <summary>
     /// Gets the state this annotation sets on the one it replies to (<c>State</c>, PDF 1.5), such as <c>Accepted</c>; when absent, the
@@ -45,7 +46,7 @@ public sealed class PdfTextAnnotation : PdfMarkupAnnotation
 
             if (!Dictionary.ContainsKey(AnnotationNames.StateModel))
             {
-                Report(Parsing.DiagnosticCodes.StateModelMissing, "The text annotation has a State but no StateModel, which Table 175 requires with it.");
+                Report(AnnotationDiagnostics.StateModelMissing, "The text annotation has a State but no StateModel, which Table 175 requires with it.");
             }
 
             return state;

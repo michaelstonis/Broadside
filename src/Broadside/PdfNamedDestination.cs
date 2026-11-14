@@ -10,6 +10,7 @@ namespace Broadside;
 /// ISO 32000-2 §12.3.2.4. <see cref="Resolve"/> looks the name up in this document: a name in the catalog's <c>Dests</c> dictionary
 /// first, a string in the name dictionary's <c>Dests</c> tree first, then each in the other (files mix the two), comparing bytes
 /// (Annex J.3.3, J.3.4). A remote named destination is in another document and does not resolve here.
+/// <para>ISO 32000-2 §12.3.2.1.</para>
 /// </remarks>
 public sealed class PdfNamedDestination : PdfDestination
 {
@@ -53,7 +54,7 @@ public sealed class PdfNamedDestination : PdfDestination
         if (!found)
         {
             Document.DiagnosticSink.Report(
-                DiagnosticCodes.NamedDestinationNotFound,
+                NavigationDiagnostics.NamedDestinationNotFound,
                 DiagnosticSeverity.Warning,
                 $"The document has no named destination \"{Escape(Text)}\"; the reference to it shows no page.",
                 objectReference: Owner);

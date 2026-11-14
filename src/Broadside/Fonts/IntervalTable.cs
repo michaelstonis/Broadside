@@ -9,6 +9,7 @@ namespace Broadside.Fonts;
 /// A range is never expanded key by key: <c>&lt;0000&gt; &lt;FFFF&gt; 0</c> and a <c>W</c> entry <c>0 2147483647 500</c> are one
 /// interval each. With <see cref="Increment"/> the value of a key is the interval's value plus the key's offset from the interval's
 /// start (a <c>cidrange</c>); without, it is the interval's value (a <c>notdefrange</c>, a width).
+/// <para>ISO 32000-2 §9.7.5.</para>
 /// </remarks>
 internal sealed class IntervalTable
 {

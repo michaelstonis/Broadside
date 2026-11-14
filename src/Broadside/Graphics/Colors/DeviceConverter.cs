@@ -7,6 +7,7 @@ namespace Broadside.Graphics.Colors;
 /// ISO 32000-2 §10.4.2: gray to RGB r = g = b = gray (§10.4.2.2); RGB to gray 0.3 r + 0.59 g + 0.11 b; gray to CMYK (0, 0, 0,
 /// 1 − gray) and CMYK to gray 1 − min(1, 0.3 c + 0.59 m + 0.11 y + k) (§10.4.2.4); RGB to CMYK with black generation and
 /// undercolour removal (§10.4.2.3); CMYK to RGB either by §10.4.2.5 or by the SWOP characterisation (<see cref="CmykConversion"/>).
+/// <para>ISO 32000-2 §8.6.4.</para>
 /// </remarks>
 internal sealed class DeviceConverter(PdfColorSpaceFamily source, ColorConversion conversion, CmykConversion cmyk) : IColorConverter
 {

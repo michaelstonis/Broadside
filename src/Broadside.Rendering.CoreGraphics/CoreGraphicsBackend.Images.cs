@@ -135,7 +135,7 @@ internal sealed partial class CoreGraphicsBackend
                 PaintMask(mask, SampleUse.Clip, clipEdges: false);
             }
 
-            PaintSamples(pixels, entry, new SampleGrid(pixels.Width, pixels.Height, image.Width, image.Height, delivered), image.Interpolate, SampleUse.Draw, clipEdges: true);
+            PaintSamples(pixels, entry, new SampleGrid(pixels.Width, pixels.Height, image.Geometry.Width, image.Geometry.Height, delivered), image.Interpolate, SampleUse.Draw, clipEdges: true);
         }
         finally
         {
@@ -370,7 +370,7 @@ internal sealed partial class CoreGraphicsBackend
     {
         var soft = mask as DisplayImage;
         var stencil = mask as DisplayImageMask;
-        (int width, int height, bool interpolate) = soft is not null ? (soft.Width, soft.Height, soft.Interpolate) : (stencil!.Width, stencil.Height, stencil.Interpolate);
+        (int width, int height, bool interpolate) = soft is not null ? (soft.Geometry.Width, soft.Geometry.Height, soft.Interpolate) : (stencil!.Width, stencil.Height, stencil.Interpolate);
         int reduction = 0;
         if (TryGetImageSamplesPerPixel(out double samplesPerPixel, out Matrix toPixels))
         {

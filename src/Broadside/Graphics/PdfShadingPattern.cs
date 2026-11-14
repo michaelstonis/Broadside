@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics.Shadings;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -10,6 +11,7 @@ namespace Broadside.Graphics;
 /// space, see <see cref="PdfPattern.GetPatternSpace"/>), and with the shading's <see cref="PdfShading.Background"/> outside its
 /// bounds. <see cref="ExtGState"/> holds graphics state parameters in effect while painting; per §11.6.7 only those that affect
 /// <c>sh</c> apply, and the others come from the state at the beginning of the stream that selected the pattern.
+/// <para>ISO 32000-2 §8.7.1.</para>
 /// </remarks>
 public sealed class PdfShadingPattern : PdfPattern
 {
@@ -20,7 +22,7 @@ public sealed class PdfShadingPattern : PdfPattern
         Shading = shading is null ? null : reader.Document.Shadings.GetShading(shading, reader.DiagnosticReference);
         if (Shading is not { IsValid: true })
         {
-            reader.Invalid(DiagnosticCodes.PatternEntryInvalid, "A shading pattern's Shading entry is missing or not a usable shading.");
+            reader.Invalid(ShadingDiagnostics.PatternEntryInvalid, "A shading pattern's Shading entry is missing or not a usable shading.");
         }
 
         ExtGState = reader.Resolve(reader.Get(ShadingNames.ExtGState)) as CosDictionary;

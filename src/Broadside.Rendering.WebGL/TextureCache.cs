@@ -71,7 +71,7 @@ internal static class TextureCache
             return entry.Id;
         }
 
-        grid = new TextureGrid(image.Width, image.Height, 0);
+        grid = new TextureGrid(image.Geometry.Width, image.Geometry.Height, 0);
 
         if (native && Bitmaps.TryGetValue(image, out BitmapKey? bitmap))
         {
@@ -88,7 +88,7 @@ internal static class TextureCache
                     }
                 }
 
-                var uploaded = new Entry(id, (long)image.Width * image.Height * 4 * 4 / 3, new WeakReference<object>(image), defaults, conversion) { LastUse = _clock, Native = true, Grid = grid };
+                var uploaded = new Entry(id, (long)image.Geometry.Width * image.Geometry.Height * 4 * 4 / 3, new WeakReference<object>(image), defaults, conversion) { LastUse = _clock, Native = true, Grid = grid };
                 Table.AddOrUpdate(image, uploaded);
                 Entries.Add(uploaded);
                 Bytes += uploaded.Bytes;

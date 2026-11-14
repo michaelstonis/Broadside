@@ -14,9 +14,9 @@ public sealed class PdfInkAnnotation : PdfMarkupAnnotation
 
     /// <summary>Gets the paths (<c>InkList</c>, required): each a list of points in default user space; empty when absent.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.13, Table 185.</remarks>
-    public IReadOnlyList<IReadOnlyList<PathPoint>> InkList => ReadPointLists(AnnotationNames.InkList, required: true, "Table 185");
+    public IReadOnlyList<IReadOnlyList<PathPoint>> InkList => this.GetPointPairLists(AnnotationNames.InkList, required: true, "Table 185");
 
     /// <summary>Gets the path (<c>Path</c>, PDF 2.0): arrays of 2 numbers (the start point, then straight segments) or 6 (a cubic Bézier curve's two control points and end point); <see langword="null"/> when absent.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.13, Table 185.</remarks>
-    public IReadOnlyList<IReadOnlyList<double>>? Path => ReadPath();
+    public IReadOnlyList<IReadOnlyList<double>>? Path => this.GetCurvePath();
 }

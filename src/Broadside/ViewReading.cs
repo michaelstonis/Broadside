@@ -91,10 +91,10 @@ internal static class ViewReading
             case DateParseOutcome.Valid:
                 return date;
             case DateParseOutcome.Repaired:
-                Warn(document, Parsing.DiagnosticCodes.DateInvalid, $"The {key.Value} entry does not follow the date format of §7.9.4; it is read with the deviating fields repaired.", reference);
+                Warn(document, DocumentDiagnostics.DateInvalid, $"The {key.Value} entry does not follow the date format of §7.9.4; it is read with the deviating fields repaired.", reference);
                 return date;
             default:
-                Warn(document, Parsing.DiagnosticCodes.DateUnreadable, $"The {key.Value} entry is not a date (§7.9.4); its date is unknown.", reference);
+                Warn(document, DocumentDiagnostics.DateUnreadable, $"The {key.Value} entry is not a date (§7.9.4); its date is unknown.", reference);
                 return null;
         }
     }
@@ -109,5 +109,9 @@ internal static class ViewReading
 
     /// <summary>Records a lenient-mode warning; in strict mode it throws.</summary>
     public static void Warn(PdfDocument document, string code, string message, CosReference? reference) =>
+        document.DiagnosticSink.Report(code, DiagnosticSeverity.Warning, message, offset: null, reference);
+
+    /// <summary>Records a lenient-mode warning under a catalog code; in strict mode it throws.</summary>
+    public static void Warn(PdfDocument document, DiagnosticCode code, string message, CosReference? reference) =>
         document.DiagnosticSink.Report(code, DiagnosticSeverity.Warning, message, offset: null, reference);
 }

@@ -1,7 +1,10 @@
 namespace Broadside;
 
 /// <summary>The relationship of an associated file to the part of the document that refers to it (<c>AFRelationship</c>).</summary>
-/// <remarks>ISO 32000-2 §7.11.3, Table 43 (PDF 2.0), and §14.13. Informational only: it gives no processing instructions.</remarks>
+/// <remarks>
+/// <para>ISO 32000-2 §7.11.3, Table 43 (PDF 2.0), and §14.13. Informational only: it gives no processing instructions.</para>
+/// <para>PDF 2.0 Application Note 002 §2.</para>
+/// </remarks>
 public enum PdfFileRelationship
 {
     /// <summary>The relationship is not known or cannot be described by another value. The default.</summary>

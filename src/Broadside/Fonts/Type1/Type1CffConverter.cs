@@ -25,6 +25,7 @@ namespace Broadside.Fonts.Type1;
 /// unit. The vertical advance of <c>sbw</c> is dropped (CFF has none). A glyph the Type 1 interpreter drops (already reported)
 /// converts to an empty glyph with its width.
 /// </para>
+/// <para>ISO 32000-2 §9.9.2.</para>
 /// </remarks>
 internal static class Type1CffConverter
 {

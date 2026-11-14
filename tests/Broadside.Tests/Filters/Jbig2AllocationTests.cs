@@ -85,7 +85,7 @@ public sealed class Jbig2AllocationTests
     private static long MeasureDecode(byte[] page, int width, int height)
     {
         var filter = new Jbig2DecodeFilter();
-        var context = new ImageFilterContext(new FilterContext()) { Width = width, Height = height, BitsPerComponent = 1, ColorComponents = 1 };
+        var context = new ImageFilterContext(new FilterContext()) { Geometry = new ImageGeometry(width, height, 1, 1) };
         Action decode = () =>
         {
             using DecodedImage image = filter.DecodeImage(page, context)!;
@@ -107,7 +107,7 @@ public sealed class Jbig2AllocationTests
         segments.AddRange(Jbig2Encoder.Segment(100, 39, 1, Jbig2Encoder.GenericRegion(bitmap, 0, 0, 0, mmr, 0, typicalPrediction: !mmr)));
         byte[] page = [.. segments];
         var filter = new Jbig2DecodeFilter();
-        var context = new ImageFilterContext(new FilterContext()) { Width = 600, Height = rows, BitsPerComponent = 1, ColorComponents = 1 };
+        var context = new ImageFilterContext(new FilterContext()) { Geometry = new ImageGeometry(600, rows, 1, 1) };
         Action decode = () =>
         {
             using DecodedImage image = filter.DecodeImage(page, context)!;

@@ -14,6 +14,18 @@ namespace Broadside.Rendering;
 /// use the same mapping.
 /// </para>
 /// <para>Mutable and fluent like the other options objects: set properties or chain the <c>With*</c> methods. Not safe to change while a render reads it.</para>
+/// <para>
+/// The same package version, page (or display list) and options give the same bytes from the software rasterizer on every platform
+/// .NET runs natively: Linux, Windows and macOS, on x64 and Arm64, with or without hardware vector instructions. Its arithmetic
+/// avoids everything that may round differently from one machine to another: no fused multiply-add, no vector path whose result
+/// depends on the vector width or differs from the scalar path, no elementary function (power, logarithm, sine, arc tangent, cube
+/// root) from the platform's C library, and no reduction whose order depends on threads. A CI job compares render hashes of every
+/// corpus page across Linux x64, Windows x64, macOS Arm64 and a run with hardware intrinsics off. WebAssembly is not yet covered:
+/// in the browser the elementary functions come from the runtime's library, which is faster there. Native backends (SkiaSharp,
+/// CoreGraphics, Direct2D, Android) anti-alias with platform code, so they match the rasterizer within the golden-image threshold,
+/// not bit for bit, whether or not <see cref="ForceOutlines"/> is set.
+/// </para>
+/// <para>ISO 32000-2 §9.4.3.</para>
 /// </remarks>
 public sealed class RenderOptions
 {

@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics.Shadings;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -20,6 +21,7 @@ namespace Broadside.Graphics;
 /// or invalid TilingType reads as 1; missing Resources make the cell use the resources of the stream that paints with it. Each is
 /// recorded as a diagnostic; a pattern with neither usable steps nor a bounding box is invalid.
 /// </para>
+/// <para>ISO 32000-2 §8.7.1 and §8.7.3.2.</para>
 /// </remarks>
 public sealed class PdfTilingPattern : PdfPattern
 {
@@ -32,7 +34,7 @@ public sealed class PdfTilingPattern : PdfPattern
         Stream = reader.CosObject as CosStream ?? new CosStream(reader.Dictionary, ReadOnlyMemory<byte>.Empty);
         if (reader.CosObject is not CosStream)
         {
-            reader.Invalid(DiagnosticCodes.PatternTypeInvalid, "A tiling pattern shall be a stream; it is a dictionary.");
+            reader.Invalid(ShadingDiagnostics.PatternTypeInvalid, "A tiling pattern shall be a stream; it is a dictionary.");
         }
 
         int? paintType = reader.Integer(ShadingNames.PaintType);
@@ -43,7 +45,7 @@ public sealed class PdfTilingPattern : PdfPattern
         }
         else
         {
-            reader.Report(DiagnosticCodes.PatternEntryInvalid, "A tiling pattern's PaintType is missing or not 1 or 2; it is decided by the colour that uses it.");
+            reader.Report(ShadingDiagnostics.PatternEntryInvalid, "A tiling pattern's PaintType is missing or not 1 or 2; it is decided by the colour that uses it.");
             PaintType = PdfTilingPaintType.Colored;
         }
 
@@ -54,29 +56,29 @@ public sealed class PdfTilingPattern : PdfPattern
         }
         else
         {
-            reader.Report(DiagnosticCodes.PatternEntryInvalid, "A tiling pattern's TilingType is missing or not 1, 2 or 3; 1 is used.");
+            reader.Report(ShadingDiagnostics.PatternEntryInvalid, "A tiling pattern's TilingType is missing or not 1, 2 or 3; 1 is used.");
             TilingType = PdfTilingType.ConstantSpacing;
         }
 
         double? xStep = reader.Number(ShadingNames.XStep) is { } x and not 0 ? x : null;
         double? yStep = reader.Number(ShadingNames.YStep) is { } y and not 0 ? y : null;
-        PdfRectangle? box = reader.Rectangle(ShadingNames.BBox, DiagnosticCodes.TilingPatternBBoxMissing);
+        PdfRectangle? box = reader.Rectangle(ShadingNames.BBox, ShadingDiagnostics.TilingPatternBBoxMissing);
         if (box is null && xStep is { } bx && yStep is { } by)
         {
-            reader.Report(DiagnosticCodes.TilingPatternBBoxMissing, "A tiling pattern has no usable BBox; [0 0 XStep YStep] is used.");
+            reader.Report(ShadingDiagnostics.TilingPatternBBoxMissing, "A tiling pattern has no usable BBox; [0 0 XStep YStep] is used.");
             box = new PdfRectangle(0, 0, bx, by);
         }
 
         if (box is { } bounds && (xStep is null || yStep is null))
         {
-            reader.Report(DiagnosticCodes.TilingPatternStepInvalid, "A tiling pattern's XStep or YStep is missing or zero; the bounding box's width or height is used.");
+            reader.Report(ShadingDiagnostics.TilingPatternStepInvalid, "A tiling pattern's XStep or YStep is missing or zero; the bounding box's width or height is used.");
             xStep ??= bounds.Width;
             yStep ??= bounds.Height;
         }
 
         if (box is null || xStep is null or 0 || yStep is null or 0)
         {
-            reader.Invalid(DiagnosticCodes.TilingPatternStepInvalid, "A tiling pattern has neither usable steps nor a bounding box; it paints nothing.");
+            reader.Invalid(ShadingDiagnostics.TilingPatternStepInvalid, "A tiling pattern has neither usable steps nor a bounding box; it paints nothing.");
         }
 
         BoundingBox = box ?? default;
@@ -85,7 +87,7 @@ public sealed class PdfTilingPattern : PdfPattern
         Resources = reader.Resolve(reader.Get(ShadingNames.Resources)) as CosDictionary;
         if (Resources is null)
         {
-            reader.Report(DiagnosticCodes.PatternResourcesMissing, "A tiling pattern has no Resources dictionary; the cell uses the resources of the stream that paints with it.");
+            reader.Report(ShadingDiagnostics.PatternResourcesMissing, "A tiling pattern has no Resources dictionary; the cell uses the resources of the stream that paints with it.");
         }
 
         IsValid = reader.IsValid;

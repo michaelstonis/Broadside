@@ -73,7 +73,7 @@ public abstract class PdfAdditionalActions
                 return create(document, dictionary, value as CosReference, owner);
             default:
                 document.DiagnosticSink.Report(
-                    DiagnosticCodes.AdditionalActionsInvalid,
+                    ActionDiagnostics.AdditionalActionsInvalid,
                     DiagnosticSeverity.Warning,
                     "An AA entry shall be an additional-actions dictionary; it is ignored.",
                     objectReference: value as CosReference ?? owner);
@@ -85,7 +85,7 @@ public abstract class PdfAdditionalActions
 }
 
 /// <summary>The additional actions of an annotation: cursor, mouse button, focus and page events.</summary>
-/// <remarks>ISO 32000-2 §12.6.3, Table 197 (PDF 1.2; PO, PC, PV and PI PDF 1.5).</remarks>
+/// <remarks>ISO 32000-2 §12.6.3, Table 197 (PDF 1.2; PO, PC, PV and PI PDF 1.5). Also §12.5.6.18 and §12.5.6.19.</remarks>
 public sealed class PdfAnnotationAdditionalActions : PdfAdditionalActions
 {
     internal PdfAnnotationAdditionalActions(PdfDocument document, CosDictionary dictionary, CosReference? reference, CosReference? owner)
@@ -153,7 +153,7 @@ public sealed class PdfPageAdditionalActions : PdfAdditionalActions
 }
 
 /// <summary>The additional actions of a form field: keystroke, format, validate and calculate scripts.</summary>
-/// <remarks>ISO 32000-2 §12.6.3, Table 199 (PDF 1.3). Not defined for button fields.</remarks>
+/// <remarks>ISO 32000-2 §12.6.3, Table 199 (PDF 1.3). Not defined for button fields. Also §12.7.4.1.</remarks>
 public sealed class PdfFieldAdditionalActions : PdfAdditionalActions
 {
     internal PdfFieldAdditionalActions(PdfDocument document, CosDictionary dictionary, CosReference? reference, CosReference? owner)
@@ -179,7 +179,7 @@ public sealed class PdfFieldAdditionalActions : PdfAdditionalActions
 }
 
 /// <summary>The additional actions of the document: before and after closing, saving and printing.</summary>
-/// <remarks>ISO 32000-2 §12.6.3, Table 200 (PDF 1.4).</remarks>
+/// <remarks>ISO 32000-2 §12.6.3, Table 200 (PDF 1.4). Also §7.7.2.</remarks>
 public sealed class PdfDocumentAdditionalActions : PdfAdditionalActions
 {
     internal PdfDocumentAdditionalActions(PdfDocument document, CosDictionary dictionary, CosReference? reference, CosReference? owner)

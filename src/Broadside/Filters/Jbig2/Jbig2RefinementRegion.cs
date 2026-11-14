@@ -7,6 +7,7 @@ namespace Broadside.Filters.Jbig2;
 /// The parameters of the generic refinement region decoding procedure (ITU-T T.88 §6.3.2, Table 6) other than the size, which is the
 /// destination bitmap's, and the reference bitmap.
 /// </summary>
+/// <remarks>ISO 32000-2 §7.4.7.</remarks>
 internal readonly struct Jbig2RefinementParameters
 {
     /// <summary>Gets the template, 0 (13 pixels) or 1 (10 pixels) (GRTEMPLATE).</summary>
@@ -51,6 +52,7 @@ internal readonly struct Jbig2RefinementParameters
 /// Figures 14 and 15 is the reference centre alone: 0x0010 and 0x0008 in this order. Pixels outside either bitmap are 0 (§6.3.5.2).
 /// </para>
 /// <para>Allocates nothing.</para>
+/// <para>ISO 32000-2 §7.4.7.</para>
 /// </remarks>
 internal static class Jbig2RefinementRegion
 {

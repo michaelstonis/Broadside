@@ -8,6 +8,7 @@ namespace Broadside;
 /// <remarks>
 /// Spec #33 viewer capability 13 and story 8. Each cache is read under its own lock, so while other threads render the four may come
 /// from slightly different moments.
+/// <para>ISO 32000-2 §8.5.3.</para>
 /// </remarks>
 public sealed record PdfDocumentCacheStatistics(
     PdfCacheStatistics Content,

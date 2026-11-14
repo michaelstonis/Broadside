@@ -7,5 +7,5 @@ namespace Broadside.Fonts;
 /// Whether the code lies in one of the CMap's codespace ranges. An invalid code selects CID 0, and its length is that of the
 /// codespace range that best matches its first bytes.
 /// </param>
-/// <remarks>ISO 32000-2 §9.7.6.2 and §9.7.6.3; Adobe TN 5014 §5.2 (codespace ranges).</remarks>
+/// <remarks>ISO 32000-2 §9.7.6.2 and §9.7.6.3; Adobe TN 5014 §5.2 (codespace ranges). ISO 32000-2 §9.7.5.</remarks>
 public readonly record struct CharacterCode(uint Value, int Length, bool IsValid);

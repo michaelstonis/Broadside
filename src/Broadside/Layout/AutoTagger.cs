@@ -22,6 +22,7 @@ namespace Broadside.Layout;
 /// the same interpreter run as the extraction's. Owner runs are wrapped at the shallowest level where they nest properly with
 /// <c>BT</c>/<c>ET</c> and existing marked content (§14.6.1); a container holding several owners is entered and its children are
 /// wrapped instead. Existing artifact sequences are left as they are.
+/// <para>ISO 32000-2 §14.8.1.</para>
 /// </remarks>
 internal sealed class AutoTagger : ContentEditor
 {
@@ -805,7 +806,7 @@ internal sealed class AutoTagger : ContentEditor
                 element.AlternateDescription = _options.FigureAlternateText;
                 _figures.Add(element);
                 _diagnostics.Add(new Diagnostic(
-                    DiagnosticCodes.FigureAlternateTextPlaceholder,
+                    StructureDiagnostics.FigureAlternateTextPlaceholder,
                     DiagnosticSeverity.Warning,
                     "Auto-tagging gave a figure placeholder alternate text (ISO 32000-2 §14.9.3); replace it with a description of the figure.",
                     objectReference: element.Reference));

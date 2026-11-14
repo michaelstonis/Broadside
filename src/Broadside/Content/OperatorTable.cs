@@ -40,7 +40,7 @@ internal readonly ref struct OperandSignature(ReadOnlySpan<byte> kinds, bool var
 /// The operator keywords of Annex A, Table A.1: lookup from bytes without creating a string, the keyword of each operator, its
 /// operands and its category.
 /// </summary>
-/// <remarks>ISO 32000-2 Annex A and the clause tables 33, 56, 58-60, 73, 76, 86, 90, 103, 105-107, 111 and 352.</remarks>
+/// <remarks>ISO 32000-2 Annex A and the clause tables 33, 56, 58-60, 73, 76, 86, 90, 103, 105-107, 111 and 352. Also §7.8.2 and §8.2.</remarks>
 internal static class OperatorTable
 {
     /// <summary>The longest operator keyword.</summary>

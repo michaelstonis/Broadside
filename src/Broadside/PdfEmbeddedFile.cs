@@ -8,6 +8,7 @@ namespace Broadside;
 /// <remarks>
 /// ISO 32000-2 §7.11.4 (PDF 1.3), Table 44. In a file encrypted with an <c>EFF</c> crypt filter the stream is decrypted with that
 /// filter (§7.6.2, Table 20). <c>Subtype</c> and <c>Params</c> are required when the file is an associated file (§14.13.2).
+/// <para>PDF 2.0 Application Note 002 §3.1.</para>
 /// </remarks>
 public sealed class PdfEmbeddedFile
 {

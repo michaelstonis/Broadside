@@ -66,7 +66,7 @@ public sealed class RunLengthDecodeFilter : IStreamFilter
         if (!ended)
         {
             context.Report(
-                DiagnosticCodes.FilterDataTruncated,
+                FilterDiagnostics.FilterDataTruncated,
                 DiagnosticSeverity.Warning,
                 truncated
                     ? "RunLengthDecode data ends in the middle of a run; the bytes available are kept."

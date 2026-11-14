@@ -72,7 +72,7 @@ public abstract class PdfAnnotation
                 return rect;
             }
 
-            Report(DiagnosticCodes.AnnotationRectInvalid, "The annotation's Rect entry is missing or not four numbers; it reads as [0 0 0 0].");
+            Report(AnnotationDiagnostics.AnnotationRectInvalid, "The annotation's Rect entry is missing or not four numbers; it reads as [0 0 0 0].");
             return default;
         }
 
@@ -131,16 +131,16 @@ public abstract class PdfAnnotation
                     break;
                 case CosReal real when double.IsFinite(real.Value) && Math.Abs(real.Value) <= uint.MaxValue:
                     bits = (long)real.Value;
-                    Report(DiagnosticCodes.AnnotationFlagsInvalid, "The annotation's F entry shall be an integer; it is a real number, truncated.");
+                    Report(AnnotationDiagnostics.AnnotationFlagsInvalid, "The annotation's F entry shall be an integer; it is a real number, truncated.");
                     break;
                 default:
-                    Report(DiagnosticCodes.AnnotationFlagsInvalid, "The annotation's F entry shall be an integer; it reads as 0.");
+                    Report(AnnotationDiagnostics.AnnotationFlagsInvalid, "The annotation's F entry shall be an integer; it reads as 0.");
                     return PdfAnnotationFlags.None;
             }
 
             if ((bits & ~0x3FFL) != 0)
             {
-                Report(DiagnosticCodes.AnnotationFlagsInvalid, "The annotation's F entry sets bits Table 167 does not define, which shall be 0; they are kept.");
+                Report(AnnotationDiagnostics.AnnotationFlagsInvalid, "The annotation's F entry sets bits Table 167 does not define, which shall be 0; they are kept.");
             }
 
             return (PdfAnnotationFlags)(int)(uint)bits;
@@ -170,12 +170,12 @@ public abstract class PdfAnnotation
                 case null:
                     if (RequiresAppearance())
                     {
-                        Report(DiagnosticCodes.AppearanceMissing, "The annotation has no appearance dictionary, which a PDF 2.0 annotation of its type shall have; it has no appearance.");
+                        Report(AnnotationDiagnostics.AppearanceMissing, "The annotation has no appearance dictionary, which a PDF 2.0 annotation of its type shall have; it has no appearance.");
                     }
 
                     return null;
                 default:
-                    Report(DiagnosticCodes.AppearanceEntryInvalid, "The annotation's AP entry is not a dictionary; it has no appearance.");
+                    Report(AnnotationDiagnostics.AppearanceEntryInvalid, "The annotation's AP entry is not a dictionary; it has no appearance.");
                     return null;
             }
         }
@@ -260,8 +260,8 @@ public abstract class PdfAnnotation
     public void RemoveOptionalContent() => OptionalContentWriter.Assign(Document, Dictionary, null);
 
     /// <summary>Gets the files associated with the annotation (<c>AF</c>, PDF 2.0); empty when there are none.</summary>
-    /// <remarks>ISO 32000-2 §12.5.2, Table 166, and §14.13.9; read as <see cref="PdfDocument.ReadAssociatedFiles"/> reads any owner's.</remarks>
-    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => Document.ReadAssociatedFiles(Dictionary, DiagnosticReference);
+    /// <remarks>ISO 32000-2 §12.5.2, Table 166, and §14.13.9; read on every call, as <see cref="PdfDocument.AssociatedFiles"/> is. Common to every annotation subtype.</remarks>
+    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => AssociatedFileReader.ReadOwner(Document, Dictionary, DiagnosticReference);
 
     /// <summary>Gets or sets the stroking opacity used when the appearance is regenerated (<c>CA</c>, PDF 1.4); default 1.0, and setting 1 removes the entry.</summary>
     /// <remarks>ISO 32000-2 §12.5.2, Table 166. Not used when the annotation has an appearance stream.</remarks>
@@ -296,7 +296,7 @@ public abstract class PdfAnnotation
                 }
             }
 
-            Report(DiagnosticCodes.AnnotationValueInvalid, "The annotation's BM entry is not a standard blend mode; Normal is used.");
+            Report(AnnotationDiagnostics.AnnotationValueInvalid, "The annotation's BM entry is not a standard blend mode; Normal is used.");
             return BlendMode.Normal;
         }
     }
@@ -400,7 +400,7 @@ public abstract class PdfAnnotation
             return Checked(entry.Form);
         }
 
-        Report(DiagnosticCodes.AppearanceStateMissing, "The annotation's appearance has states but no AS entry selects one, which Table 166 requires; it has no appearance.");
+        Report(AnnotationDiagnostics.AppearanceStateMissing, "The annotation's appearance has states but no AS entry selects one, which Table 166 requires; it has no appearance.");
         return null;
     }
 
@@ -475,16 +475,16 @@ public abstract class PdfAnnotation
         CosReference? diagnosticReference = reference ?? page?.Reference;
         if (subtype is null)
         {
-            Report(document, DiagnosticCodes.AnnotationSubtypeMissing, "The annotation has no Subtype name, which Table 166 requires; it reads as an annotation of unknown type.", diagnosticReference);
+            Report(document, AnnotationDiagnostics.AnnotationSubtypeMissing, "The annotation has no Subtype name, which Table 166 requires; it reads as an annotation of unknown type.", diagnosticReference);
         }
         else if (isString)
         {
-            Report(document, DiagnosticCodes.AnnotationSubtypeNotName, "The annotation's Subtype entry shall be a name; it is a string, read as the name it spells.", diagnosticReference);
+            Report(document, AnnotationDiagnostics.AnnotationSubtypeNotName, "The annotation's Subtype entry shall be a name; it is a string, read as the name it spells.", diagnosticReference);
         }
 
         if (dictionary.TryGetValue(AnnotationNames.Type, out CosObject? type) && document.Resolve(type) is not CosNull and var typeValue && !AnnotationNames.Annot.Equals(typeValue))
         {
-            Report(document, DiagnosticCodes.AnnotationTypeInvalid, "The annotation's Type entry, if present, shall be Annot; it is ignored.", diagnosticReference);
+            Report(document, AnnotationDiagnostics.AnnotationTypeInvalid, "The annotation's Type entry, if present, shall be Annot; it is ignored.", diagnosticReference);
         }
 
         PdfAnnotation annotation = subtype?.Value switch
@@ -552,7 +552,7 @@ public abstract class PdfAnnotation
     }
 
     /// <summary>Reports a deviation in this annotation.</summary>
-    internal void Report(string code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
+    internal void Report(DiagnosticCode code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
         Document.DiagnosticSink.Report(code, severity, message, objectReference: DiagnosticReference);
 
     /// <summary>Returns the entry for <paramref name="key"/>, resolved; <see langword="null"/> when absent, null, or a reference to nothing.</summary>
@@ -560,48 +560,16 @@ public abstract class PdfAnnotation
 
     /// <summary>Records that a required entry is absent.</summary>
     private protected void ReportMissing(CosName key, string table) =>
-        Report(DiagnosticCodes.AnnotationRequiredEntryMissing, $"The {Kind} annotation has no {key.Value} entry, which {table} requires.");
+        Report(AnnotationDiagnostics.AnnotationRequiredEntryMissing, $"The {Kind} annotation has no {key.Value} entry, which {table} requires.");
 
     /// <summary>Records that an entry has the wrong type and is ignored.</summary>
     private protected void ReportInvalid(CosName key, string expected) => Issue.Ignored(key, expected);
 
     /// <summary>The report for an entry of the wrong type (<c>AnnotationValueInvalid</c>).</summary>
-    private protected EntryReport Issue => new(Document, DiagnosticCodes.AnnotationValueInvalid, DiagnosticReference, "The annotation");
+    private protected EntryReport Issue => new(Document, AnnotationDiagnostics.AnnotationValueInvalid, DiagnosticReference, "The annotation");
 
     /// <summary>Reads a text string entry (§7.9.2.2) with <see cref="EntryReader"/>'s repairs.</summary>
     private protected string? ReadText(CosName key) => EntryReader.Text(Get(key), key, Issue);
-
-    /// <summary>Reads a text string or text stream entry (§7.9.3): a stream's decoded bytes read as a text string.</summary>
-    private protected string? ReadTextOrStream(CosName key)
-    {
-        switch (Get(key))
-        {
-            case null:
-                return null;
-            case CosString text:
-                return text.DecodeText();
-            case CosStream stream:
-                return new CosString(Document.DecodeStream(stream).Span).DecodeText();
-            default:
-                ReportInvalid(key, "a text string or text stream");
-                return null;
-        }
-    }
-
-    /// <summary>Reads a byte string entry, such as a default appearance string, as Latin-1 text.</summary>
-    private protected string? ReadByteString(CosName key)
-    {
-        switch (Get(key))
-        {
-            case null:
-                return null;
-            case CosString text:
-                return System.Text.Encoding.Latin1.GetString(text.Bytes);
-            default:
-                ReportInvalid(key, "a string");
-                return null;
-        }
-    }
 
     /// <summary>Reads a boolean entry.</summary>
     private protected bool ReadBoolean(CosName key, bool fallback) => EntryReader.Boolean(Get(key), key, Issue) ?? fallback;
@@ -618,23 +586,6 @@ public abstract class PdfAnnotation
     /// <summary>Reads a name entry.</summary>
     private protected CosName? ReadName(CosName key) => EntryReader.Typed<CosName>(Get(key), key, "a name", Issue);
 
-    /// <summary>Reads a name entry from a fixed set; an unknown name reads as <paramref name="fallback"/> silently (the sets are open), another type with a diagnostic.</summary>
-    private protected T ReadChoice<T>(CosName key, T fallback, params ReadOnlySpan<(string Name, T Value)> choices)
-    {
-        if (ReadName(key) is { } name)
-        {
-            foreach ((string text, T value) in choices)
-            {
-                if (string.Equals(name.Value, text, StringComparison.Ordinal))
-                {
-                    return value;
-                }
-            }
-        }
-
-        return fallback;
-    }
-
     /// <summary>Reads a dictionary entry.</summary>
     private protected CosDictionary? ReadDictionary(CosName key) => EntryReader.Typed<CosDictionary>(Get(key), key, "a dictionary", Issue);
 
@@ -650,265 +601,13 @@ public abstract class PdfAnnotation
         PdfDeviceColor? color = AnnotationValues.ReadColor(Document, Get(key), out bool valid);
         if (!valid)
         {
-            Report(DiagnosticCodes.ColorArrayInvalid, $"The annotation's {key.Value} entry is not an array of 0, 1, 3 or 4 numbers; it reads as absent.");
+            Report(AnnotationDiagnostics.ColorArrayInvalid, $"The annotation's {key.Value} entry is not an array of 0, 1, 3 or 4 numbers; it reads as absent.");
         }
 
         return color;
     }
 
-    /// <summary>Reads an action entry (§12.6).</summary>
-    private protected PdfAction? ReadAction(CosName key) =>
-        Dictionary.TryGetValue(key, out CosObject? value) ? PdfAction.Create(Document, value, DiagnosticReference) : null;
-
-    /// <summary>Reads a form XObject entry (§8.10).</summary>
-    private protected PdfFormXObject? ReadForm(CosName key) =>
-        ReadStream(key) is not null && Dictionary.TryGetValue(key, out CosObject? value) ? PdfFormXObject.Create(Document, value) : null;
-
-    /// <summary>Reads a date entry (§7.9.4), recording a deviation from the date format.</summary>
-    private protected PdfDate? ReadDate(CosName key)
-    {
-        if (ReadText(key) is not { } text)
-        {
-            return null;
-        }
-
-        switch (PdfDate.Parse(text, out PdfDate date))
-        {
-            case DateParseOutcome.Valid:
-                return date;
-            case DateParseOutcome.Repaired:
-                Report(DiagnosticCodes.DateInvalid, $"The annotation's {key.Value} entry does not follow the date format of §7.9.4; it is read with the deviating fields repaired.");
-                return date;
-            default:
-                Report(DiagnosticCodes.DateUnreadable, $"The annotation's {key.Value} entry is not a date (§7.9.4).");
-                return null;
-        }
-    }
-
-    /// <summary>Reads a flat array of x y pairs, such as <c>Vertices</c> or <c>L</c>; an odd count or a non-number records a diagnostic.</summary>
-    private protected IReadOnlyList<PathPoint> ReadPoints(CosName key, bool required, string table)
-    {
-        CosObject? value = Get(key);
-        if (value is null)
-        {
-            if (required)
-            {
-                ReportMissing(key, table);
-            }
-
-            return [];
-        }
-
-        List<double>? numbers = AnnotationValues.ReadNumbers(Document, value, out bool complete);
-        if (numbers is null || !complete || numbers.Count % 2 != 0)
-        {
-            ReportInvalid(key, "an array of pairs of numbers");
-            if (numbers is null)
-            {
-                return [];
-            }
-        }
-
-        var points = new PathPoint[numbers.Count / 2];
-        for (int index = 0; index < points.Length; index++)
-        {
-            points[index] = new PathPoint(numbers[2 * index], numbers[(2 * index) + 1]);
-        }
-
-        return points;
-    }
-
-    /// <summary>Reads an array of arrays of x y pairs, such as <c>InkList</c>.</summary>
-    private protected IReadOnlyList<IReadOnlyList<PathPoint>> ReadPointLists(CosName key, bool required, string table)
-    {
-        CosObject? value = Get(key);
-        if (value is null)
-        {
-            if (required)
-            {
-                ReportMissing(key, table);
-            }
-
-            return [];
-        }
-
-        if (value is not CosArray outer)
-        {
-            ReportInvalid(key, "an array of arrays of numbers");
-            return [];
-        }
-
-        var lists = new List<IReadOnlyList<PathPoint>>(outer.Count);
-        bool valid = true;
-        foreach (CosObject element in outer)
-        {
-            List<double>? numbers = AnnotationValues.ReadNumbers(Document, element, out bool complete);
-            valid &= numbers is not null && complete && numbers.Count % 2 == 0;
-            if (numbers is null)
-            {
-                continue;
-            }
-
-            var points = new PathPoint[numbers.Count / 2];
-            for (int index = 0; index < points.Length; index++)
-            {
-                points[index] = new PathPoint(numbers[2 * index], numbers[(2 * index) + 1]);
-            }
-
-            lists.Add(points);
-        }
-
-        if (!valid)
-        {
-            ReportInvalid(key, "an array of arrays of pairs of numbers");
-        }
-
-        return lists;
-    }
-
-    /// <summary>Reads <c>Path</c> (PDF 2.0): arrays of 2 numbers (a point) or 6 (a Bézier curve's two control points and end point).</summary>
-    private protected IReadOnlyList<IReadOnlyList<double>>? ReadPath()
-    {
-        if (ReadArray(AnnotationNames.Path) is not { } outer)
-        {
-            return null;
-        }
-
-        var segments = new List<IReadOnlyList<double>>(outer.Count);
-        bool valid = true;
-        foreach (CosObject element in outer)
-        {
-            List<double>? numbers = AnnotationValues.ReadNumbers(Document, element, out bool complete);
-            bool shape = numbers is not null && complete && (numbers.Count == 2 || (numbers.Count == 6 && segments.Count > 0));
-            valid &= shape;
-            if (shape)
-            {
-                segments.Add(numbers!);
-            }
-        }
-
-        if (!valid)
-        {
-            ReportInvalid(AnnotationNames.Path, "an array of arrays of 2 or 6 numbers, the first of 2");
-        }
-
-        return segments;
-    }
-
-    /// <summary>Reads <c>QuadPoints</c>: complete quadrilaterals only; a count not a multiple of 8 or a non-number records a diagnostic.</summary>
-    private protected IReadOnlyList<PdfQuadrilateral> ReadQuadPoints(bool required, string table)
-    {
-        CosObject? value = Get(AnnotationNames.QuadPoints);
-        if (value is null)
-        {
-            if (required)
-            {
-                ReportMissing(AnnotationNames.QuadPoints, table);
-            }
-
-            return [];
-        }
-
-        List<double>? numbers = AnnotationValues.ReadNumbers(Document, value, out bool complete);
-        if (numbers is null || !complete || numbers.Count % 8 != 0 || numbers.Count == 0)
-        {
-            Report(DiagnosticCodes.QuadPointsInvalid, "The annotation's QuadPoints entry is not an array of 8n numbers; only its complete quadrilaterals are read.");
-            if (numbers is null)
-            {
-                return [];
-            }
-        }
-
-        var quads = new PdfQuadrilateral[numbers.Count / 8];
-        for (int index = 0; index < quads.Length; index++)
-        {
-            int at = index * 8;
-            quads[index] = new PdfQuadrilateral(
-                new PathPoint(numbers[at], numbers[at + 1]),
-                new PathPoint(numbers[at + 2], numbers[at + 3]),
-                new PathPoint(numbers[at + 4], numbers[at + 5]),
-                new PathPoint(numbers[at + 6], numbers[at + 7]));
-        }
-
-        return quads;
-    }
-
-    /// <summary>Reads <c>RD</c>: four non-negative numbers.</summary>
-    private protected PdfRectangleDifferences? ReadRectangleDifferences()
-    {
-        CosObject? value = Get(AnnotationNames.RD);
-        if (value is null)
-        {
-            return null;
-        }
-
-        Span<double> numbers = stackalloc double[4];
-        if (value is CosArray { Count: 4 } array && AnnotationValues.TryReadNumbers(Document, array, numbers)
-            && numbers[0] >= 0 && numbers[1] >= 0 && numbers[2] >= 0 && numbers[3] >= 0)
-        {
-            return new PdfRectangleDifferences(numbers[0], numbers[1], numbers[2], numbers[3]);
-        }
-
-        ReportInvalid(AnnotationNames.RD, "an array of four non-negative numbers");
-        return null;
-    }
-
-    /// <summary>Reads a line ending name (Table 179); unknown names read as None.</summary>
-    private protected static PdfLineEnding ParseLineEnding(CosObject? value) => value is CosName name
-        ? name.Value switch
-        {
-            "Square" => PdfLineEnding.Square,
-            "Circle" => PdfLineEnding.Circle,
-            "Diamond" => PdfLineEnding.Diamond,
-            "OpenArrow" => PdfLineEnding.OpenArrow,
-            "ClosedArrow" => PdfLineEnding.ClosedArrow,
-            "Butt" => PdfLineEnding.Butt,
-            "ROpenArrow" => PdfLineEnding.ROpenArrow,
-            "RClosedArrow" => PdfLineEnding.RClosedArrow,
-            "Slash" => PdfLineEnding.Slash,
-            _ => PdfLineEnding.None,
-        }
-        : PdfLineEnding.None;
-
-    /// <summary>Reads <c>LE</c> as two line endings, start and end (line and polyline annotations).</summary>
-    private protected (PdfLineEnding Start, PdfLineEnding End) ReadLineEndings()
-    {
-        switch (Get(AnnotationNames.LE))
-        {
-            case null:
-                return (PdfLineEnding.None, PdfLineEnding.None);
-            case CosArray { Count: 2 } array:
-                return (ParseLineEnding(Document.Resolve(array[0])), ParseLineEnding(Document.Resolve(array[1])));
-            default:
-                ReportInvalid(AnnotationNames.LE, "an array of two names");
-                return (PdfLineEnding.None, PdfLineEnding.None);
-        }
-    }
-
-    /// <summary>Reads the border effect dictionary <c>BE</c> (Table 169).</summary>
-    private protected PdfBorderEffect? ReadBorderEffect()
-    {
-        if (ReadDictionary(AnnotationNames.BE) is not { } effect)
-        {
-            return null;
-        }
-
-        var view = new DictionaryView(Document, effect, DiagnosticReference);
-        PdfBorderEffectStyle style = view.Get(AnnotationNames.S) is CosName { Value: "C" } ? PdfBorderEffectStyle.Cloudy : PdfBorderEffectStyle.None;
-        double intensity = AnnotationValues.ReadNumber(Document, view.Get(AnnotationNames.I)) ?? 0;
-        if (intensity is < 0 or > 2)
-        {
-            Report(DiagnosticCodes.AnnotationValueInvalid, "The border effect's intensity I shall be from 0 to 2; it is clamped.");
-            intensity = Math.Clamp(intensity, 0, 2);
-        }
-
-        return new PdfBorderEffect(style, intensity);
-    }
-
-    /// <summary>Reads the icon name entry <c>Name</c>, with the subtype's default.</summary>
-    private protected string ReadIconName(string fallback) => ReadName(AnnotationNames.Name)?.Value ?? fallback;
-
-    private static void Report(PdfDocument document, string code, string message, CosReference? reference) =>
+    private static void Report(PdfDocument document, DiagnosticCode code, string message, CosReference? reference) =>
         document.DiagnosticSink.Report(code, DiagnosticSeverity.Warning, message, objectReference: reference);
 
     private PdfAnnotation WithCreatedSubtype(CosName? subtype)
@@ -947,12 +646,12 @@ public abstract class PdfAnnotation
 
         if (!form.IsForm)
         {
-            Report(DiagnosticCodes.AppearanceNotForm, "An appearance stream's Subtype is not Form (§8.10.1, Table 93); it is read as a form XObject.");
+            Report(AnnotationDiagnostics.AppearanceNotForm, "An appearance stream's Subtype is not Form (§8.10.1, Table 93); it is read as a form XObject.");
         }
 
         if (form.BoundingBox is null)
         {
-            Report(DiagnosticCodes.AppearanceBBoxMissing, "An appearance stream has no BBox of four numbers, which Table 93 requires; the annotation rectangle's size is used.");
+            Report(AnnotationDiagnostics.AppearanceBBoxMissing, "An appearance stream has no BBox of four numbers, which Table 93 requires; the annotation rectangle's size is used.");
         }
 
         return form;
@@ -978,7 +677,7 @@ public abstract class PdfAnnotation
 
         if (border is not CosArray array)
         {
-            Report(DiagnosticCodes.BorderArrayInvalid, "The annotation's Border entry is not an array; the default border is used.");
+            Report(AnnotationDiagnostics.BorderArrayInvalid, "The annotation's Border entry is not an array; the default border is used.");
             return new PdfAnnotationBorder(1, PdfBorderStyle.Solid, [], 0, 0, PdfBorderSource.Default);
         }
 
@@ -1001,7 +700,7 @@ public abstract class PdfAnnotation
 
         if (!valid)
         {
-            Report(DiagnosticCodes.BorderArrayInvalid, "The annotation's Border entry is not three numbers and an optional dash array; missing elements read as 0.");
+            Report(AnnotationDiagnostics.BorderArrayInvalid, "The annotation's Border entry is not three numbers and an optional dash array; missing elements read as 0.");
         }
 
         return new PdfAnnotationBorder(numbers[2], dashes.Length > 0 ? PdfBorderStyle.Dashed : PdfBorderStyle.Solid, dashes, numbers[0], numbers[1], PdfBorderSource.BorderArray);
@@ -1012,7 +711,7 @@ public abstract class PdfAnnotation
         var view = new DictionaryView(Document, style, DiagnosticReference);
         if (view.Get(AnnotationNames.Type) is { } type && !(type is CosName { Value: "Border" }))
         {
-            Report(DiagnosticCodes.BorderStyleTypeInvalid, "The border style dictionary's Type, if present, shall be Border; the dictionary is used anyway.");
+            Report(AnnotationDiagnostics.BorderStyleTypeInvalid, "The border style dictionary's Type, if present, shall be Border; the dictionary is used anyway.");
         }
 
         double width = 1;
@@ -1024,7 +723,7 @@ public abstract class PdfAnnotation
             }
             else
             {
-                Report(DiagnosticCodes.AnnotationValueInvalid, "The border style's width W is not a non-negative number; 1 is used.");
+                Report(AnnotationDiagnostics.AnnotationValueInvalid, "The border style's width W is not a non-negative number; 1 is used.");
             }
         }
 
@@ -1052,7 +751,7 @@ public abstract class PdfAnnotation
                 }
                 else
                 {
-                    Report(DiagnosticCodes.AnnotationValueInvalid, "The border style's dash array D is not a dash pattern; [3] is used.");
+                    Report(AnnotationDiagnostics.AnnotationValueInvalid, "The border style's dash array D is not a dash pattern; [3] is used.");
                 }
             }
         }

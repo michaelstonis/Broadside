@@ -10,6 +10,7 @@ namespace Broadside.Signatures;
 /// RFC 5652 §5.3: unsigned attributes (<c>unsignedAttrs [1] IMPLICIT SET OF Attribute</c>) are not covered by the signature, so a
 /// signature or a time-stamp token stays valid when one is added. Every other element is copied as it was encoded, the encapsulated
 /// content and the signed attributes included; the structure around them is written again in DER.
+/// <para>ISO 32000-2 §12.8.5.2.</para>
 /// </remarks>
 internal static class CmsUnsignedAttributes
 {

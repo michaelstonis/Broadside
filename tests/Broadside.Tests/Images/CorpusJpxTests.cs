@@ -20,7 +20,7 @@ public sealed class CorpusJpxTests
 
         using DecodedImage decoded = image.Decode()!;
 
-        Assert.Equal((17, 13, 3, 8), (decoded.Width, decoded.Height, decoded.Components, decoded.BitsPerComponent));
+        Assert.Equal((17, 13, 3, 8), (decoded.Geometry.Width, decoded.Geometry.Height, decoded.Geometry.Components, decoded.Geometry.BitsPerComponent));
         Assert.Equal(Source(17, 13), decoded.Samples.ToArray());
         Assert.Same(PdfDeviceRgbColorSpace.Instance, image.ColorSpace);
         Assert.Empty(document.Diagnostics);
@@ -48,13 +48,13 @@ public sealed class CorpusJpxTests
 
         using DecodedImage decoded = image.Decode()!;
 
-        Assert.Equal((PdfImageMaskKind.SoftInData, 1), (image.MaskKind, image.SoftMaskInData));
-        Assert.Equal((15, 11, 3, 8), (decoded.Width, decoded.Height, decoded.Components, decoded.BitsPerComponent));
+        Assert.Equal((PdfImageMaskKind.SoftInData, PdfSoftMaskInData.Alpha), (image.MaskKind, image.SoftMaskInData));
+        Assert.Equal((15, 11, 3, 8), (decoded.Geometry.Width, decoded.Geometry.Height, decoded.Geometry.Components, decoded.Geometry.BitsPerComponent));
         Assert.Equal(ImageColorModel.Rgb, decoded.ColorModel);
         Assert.Equal(Source(15, 11), decoded.Samples.ToArray());
         DecodedImage alpha = Assert.IsType<DecodedImage>(decoded.Alpha);
         Assert.False(decoded.AlphaPremultiplied);
-        Assert.Equal((15, 11, 1, 8), (alpha.Width, alpha.Height, alpha.Components, alpha.BitsPerComponent));
+        Assert.Equal((15, 11, 1, 8), (alpha.Geometry.Width, alpha.Geometry.Height, alpha.Geometry.Components, alpha.Geometry.BitsPerComponent));
         Assert.Equal(
             Enumerable.Range(0, 11).SelectMany(y => Enumerable.Range(0, 15).Select(x => (byte)JpxSamples.Sample(x, y, 3, 8))),
             alpha.Samples.ToArray());
@@ -82,7 +82,7 @@ public sealed class CorpusJpxTests
             }
         }
 
-        Assert.Equal((21, 15, 3, 8), (decoded.Width, decoded.Height, decoded.Components, decoded.BitsPerComponent));
+        Assert.Equal((21, 15, 3, 8), (decoded.Geometry.Width, decoded.Geometry.Height, decoded.Geometry.Components, decoded.Geometry.BitsPerComponent));
         Assert.Equal(expected, decoded.Samples.ToArray());
         Assert.Empty(document.Diagnostics);
     }

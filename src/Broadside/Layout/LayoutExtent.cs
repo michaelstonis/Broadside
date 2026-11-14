@@ -14,6 +14,7 @@ namespace Broadside.Layout;
 /// A node whose content on the page shows no glyph (an image, a path, an empty sequence) has empty ranges that start where the
 /// content falls among the page's glyphs in logical order.
 /// </para>
+/// <para>ISO 32000-2 §14.8.4.8.</para>
 /// </remarks>
 public readonly record struct LayoutExtent
 {

@@ -8,6 +8,7 @@ namespace Broadside.IO;
 /// ISO 32000-2 §7.5.4: random access through the cross-reference table, so opening a large file through a stream reads its
 /// structure and the objects used, not the whole stream. The stream's length is read once, when the source is created; the stream
 /// must stay open and unchanged while the source is in use.
+/// <para>ISO 32000-2 §7.5.1.</para>
 /// </remarks>
 internal sealed class StreamSource : PdfSource
 {

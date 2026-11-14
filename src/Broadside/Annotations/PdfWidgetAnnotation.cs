@@ -14,7 +14,7 @@ public sealed class PdfWidgetAnnotation : PdfAnnotation
 
     /// <summary>Gets the visual effect when the widget is activated (<c>H</c>); default invert. <c>T</c> (toggle) reads as push.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.19, Table 191.</remarks>
-    public PdfHighlightMode HighlightMode => ReadChoice(AnnotationNames.H, PdfHighlightMode.Invert, ("N", PdfHighlightMode.None), ("I", PdfHighlightMode.Invert), ("O", PdfHighlightMode.Outline), ("P", PdfHighlightMode.Push), ("T", PdfHighlightMode.Push));
+    public PdfHighlightMode HighlightMode => this.GetChoice(AnnotationNames.H, PdfHighlightMode.Invert, ("N", PdfHighlightMode.None), ("I", PdfHighlightMode.Invert), ("O", PdfHighlightMode.Outline), ("P", PdfHighlightMode.Push), ("T", PdfHighlightMode.Push));
 
     /// <summary>Gets the appearance characteristics dictionary used to construct the appearance (<c>MK</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.19, Table 191, and §12.5.6.19, Table 192.</remarks>
@@ -22,7 +22,7 @@ public sealed class PdfWidgetAnnotation : PdfAnnotation
 
     /// <summary>Gets the action performed when the annotation is activated (<c>A</c>, PDF 1.1), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.19, Table 191, and §12.6.</remarks>
-    public PdfAction? Action => ReadAction(AnnotationNames.A);
+    public PdfAction? Action => this.GetAction(AnnotationNames.A);
 
     /// <summary>Gets the actions performed on the annotation's trigger events (<c>AA</c>, PDF 1.2), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.19, Table 191, and §12.6.3, Table 197; read through <see cref="PdfDocument.GetAnnotationAdditionalActions"/>.</remarks>

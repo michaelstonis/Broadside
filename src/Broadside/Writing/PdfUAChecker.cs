@@ -34,6 +34,9 @@ namespace Broadside.Writing;
 /// (7.11-1), encryption permissions (7.16-1), media clips (7.18.6.2), reference XObjects (7.20), font program internals and CMaps
 /// (7.21.3, 7.21.4.1-2, 7.21.4.2, 7.21.5, 7.21.6, 7.21.8).
 /// </para>
+/// <para>ISO 14289-1 §7.1, §7.2, §7.3, §7.4, §7.5, §7.6, §7.8, §7.9, §7.15, §7.18 and §7.21.</para>
+/// <para>ISO 14289-2 §8.1, §8.3, §8.4, §8.9, §8.10 and §8.11.</para>
+/// <para>Well-Tagged PDF 1.0 §8.2, §8.3, §8.4, §8.9 and §8.11.</para>
 /// </remarks>
 internal sealed partial class PdfUAChecker
 {

@@ -11,9 +11,9 @@ public enum PdfImageMaskKind
     /// <summary>No mask: every sample is painted.</summary>
     None,
 
-    /// <summary>The image is itself a stencil mask (<c>ImageMask true</c>): it paints the current fill colour where its samples say.</summary>
+    /// <summary>The image is itself an image mask (<c>ImageMask true</c>): it paints the current fill colour where its samples say.</summary>
     /// <remarks>ISO 32000-2 §8.9.6.2.</remarks>
-    Stencil,
+    ImageMask,
 
     /// <summary>An explicit mask: <c>Mask</c> is an image mask, possibly at another resolution (<see cref="PdfImage.Mask"/>).</summary>
     /// <remarks>ISO 32000-2 §8.9.6.3.</remarks>

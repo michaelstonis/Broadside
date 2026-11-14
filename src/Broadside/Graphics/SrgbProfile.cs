@@ -17,6 +17,8 @@ namespace Broadside.Graphics;
 /// The colorants are the IEC 61966-2-1 primaries (the columns of its RGB to XYZ matrix, under D65) adapted to D50 by the Bradford
 /// transform, rounded to s15Fixed16Number as the tags store them. Deterministic: every byte follows from these definitions.
 /// </para>
+/// <para>ISO 19005-2 §6.2.3.</para>
+/// <para>ISO 32000-2 §10.3.</para>
 /// </remarks>
 internal static class SrgbProfile
 {

@@ -35,7 +35,7 @@ public sealed class JpxScaledDecodeTests
 
         using DecodedImage image = Decode(vector.Data, levels, out string[] codes);
 
-        Assert.Equal((reference.Width, reference.Height, reference.Components, levels), (image.Width, image.Height, image.Components, image.Reduction));
+        Assert.Equal((reference.Width, reference.Height, reference.Components, levels), (image.Geometry.Width, image.Geometry.Height, image.Geometry.Components, image.Reduction));
         int[] actual = JpxTesting.Raw(image);
         if (vector.IsLossless)
         {
@@ -82,7 +82,7 @@ public sealed class JpxScaledDecodeTests
             {
                 Assert.NotNull(image);
                 Assert.InRange(image.Reduction, 0, header.MaxReduction);
-                Assert.Equal((ImageGeometry.Reduce(header.Width, image.Reduction), ImageGeometry.Reduce(header.Height, image.Reduction)), (image.Width, image.Height));
+                Assert.Equal((ImageGeometry.Reduce(header.Geometry.Width, image.Reduction), ImageGeometry.Reduce(header.Geometry.Height, image.Reduction)), (image.Geometry.Width, image.Geometry.Height));
             }
         }
     }
@@ -92,7 +92,7 @@ public sealed class JpxScaledDecodeTests
     {
         using DecodedImage image = Decode(JpxSamples.Vector("Rlcp3Layers").Data, 5, out _);
 
-        Assert.Equal((5, 4, 2), (image.Width, image.Height, image.Reduction));
+        Assert.Equal((5, 4, 2), (image.Geometry.Width, image.Geometry.Height, image.Reduction));
     }
 
     [Fact]
@@ -106,7 +106,7 @@ public sealed class JpxScaledDecodeTests
         using DecodedImage image = Decode(data, 3, out _);
 
         Assert.Equal(3, header.MaxReduction);
-        Assert.Equal((3, ImageGeometry.Reduce(header.Width, 3), ImageGeometry.Reduce(header.Height, 3)), (image.Reduction, image.Width, image.Height));
+        Assert.Equal((3, ImageGeometry.Reduce(header.Geometry.Width, 3), ImageGeometry.Reduce(header.Geometry.Height, 3)), (image.Reduction, image.Geometry.Width, image.Geometry.Height));
     }
 
     [Theory]
@@ -122,7 +122,7 @@ public sealed class JpxScaledDecodeTests
         using DecodedImage image = Decode(data, asked, out _);
 
         Assert.InRange(image.Reduction, 0, Math.Min(asked, header.MaxReduction));
-        Assert.Equal((ImageGeometry.Reduce(header.Width, image.Reduction), ImageGeometry.Reduce(header.Height, image.Reduction)), (image.Width, image.Height));
+        Assert.Equal((ImageGeometry.Reduce(header.Geometry.Width, image.Reduction), ImageGeometry.Reduce(header.Geometry.Height, image.Reduction)), (image.Geometry.Width, image.Geometry.Height));
     }
 
     private static byte[] InsertBeforeFirstTilePart(byte[] data, byte[] segment)

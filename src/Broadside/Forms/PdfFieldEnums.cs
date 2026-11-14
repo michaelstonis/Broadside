@@ -24,6 +24,7 @@ public enum PdfFieldType
 /// <remarks>
 /// ISO 32000-2 §12.7.2 (terminal and non-terminal fields), §12.7.5.2 Table 229 (Pushbutton and Radio decide the button kind) and
 /// §12.7.5.4 Table 233 (Combo decides the choice kind).
+/// <para>ISO 32000-2 §12.7.4.1.</para>
 /// </remarks>
 public enum PdfFieldKind
 {

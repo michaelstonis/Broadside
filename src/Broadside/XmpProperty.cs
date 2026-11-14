@@ -8,6 +8,7 @@ namespace Broadside;
 /// the other qualifiers (written with <c>rdf:value</c>, §7.8) are <see cref="Qualifiers"/>.
 /// </para>
 /// <para>Immutable: a snapshot of the packet it was read from.</para>
+/// <para>ISO 32000-2 §14.3.2.</para>
 /// </remarks>
 public sealed class XmpProperty
 {

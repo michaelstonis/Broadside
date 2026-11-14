@@ -21,6 +21,8 @@ namespace Broadside.Signatures;
 /// P-384 or P-521 (ISO/TS 32002 §5.1.3, Table 3). The digest algorithm is SHA-256, SHA-384, SHA-512 (ISO 32000-2 Table 260) or
 /// SHA3-256, SHA3-384, SHA3-512 (ISO/TS 32001 §5.1.4), the same for the message digest and the signed attributes (ISO/TS 32002 §5.1.4).
 /// </para>
+/// <para>ISO 32000-2 §12.8.3.1.</para>
+/// <para>ISO/TS 32002 §5.1.1.</para>
 /// </remarks>
 internal static class CmsSignedData
 {

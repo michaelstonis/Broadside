@@ -15,14 +15,14 @@ public sealed class LayoutTreeTests
     [InlineData("layout-tagged.pdf")]
     [InlineData("text-tagged-replacements.pdf")]
     [InlineData("text-tagged-spanning.pdf")]
-    public Task A_tagged_file_yields_the_expected_layout_tree(string fileName)
+    public async Task A_tagged_file_yields_the_expected_layout_tree(string fileName)
     {
-        using PdfDocument document = PdfDocument.Open(Corpus.Path(fileName));
+        using PdfDocument document = await PdfDocument.OpenAsync(Corpus.Path(fileName), TestContext.Current.CancellationToken);
 
         LayoutTree tree = document.ExtractLayout();
 
         Assert.Empty(document.Diagnostics);
-        return Verify(LayoutProjection.Of(tree)).UseParameters(fileName);
+        await Verify(LayoutProjection.Of(tree)).UseParameters(fileName);
     }
 
     [Fact]

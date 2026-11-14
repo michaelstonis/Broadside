@@ -10,6 +10,15 @@
     <PackageReference Include="xunit.v3" />
   </ItemGroup>
 
+  <!-- The packages the citation policy checks: referenced so their XML documentation is copied next to the test assembly. -->
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside/Broadside.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <ProjectReference Include="../../src/Broadside.Layout/Broadside.Layout.csproj" />
+    <ProjectReference Include="../../src/Broadside.Rendering/Broadside.Rendering.csproj" />
+  </ItemGroup>
+
   <!-- Fixtures are tiny fake repositories: their .cs files are scanned by the checker, never compiled, and are copied next to the test assembly. -->
   <ItemGroup>
     <Compile Remove="Fixtures/**" />

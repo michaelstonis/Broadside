@@ -8,21 +8,22 @@ namespace Broadside.Images;
 /// </summary>
 /// <remarks>
 /// <para>
-/// ISO 32000-2 §8.9.3 sample layout, exactly: <see cref="Height"/> rows of <see cref="Stride"/> bytes, each row starting on a byte
-/// boundary; within a row the <see cref="Components"/> components of each sample are interleaved, packed most significant bit first
+/// ISO 32000-2 §8.9.3 sample layout, exactly: <see cref="ImageGeometry.Height"/> rows of <see cref="Stride"/> bytes, each row starting on a byte
+/// boundary; within a row the <see cref="ImageGeometry.Components"/> components of each sample are interleaved, packed most significant bit first
 /// at <see cref="StorageBits"/> bits each (1, 2, 4, 8 or 16; 16-bit values big-endian); the padding bits at the end of a row are
-/// meaningless. <see cref="Stride"/> is ⌈<see cref="Width"/> × <see cref="Components"/> × <see cref="StorageBits"/> / 8⌉ with no
+/// meaningless. <see cref="Stride"/> is ⌈<see cref="ImageGeometry.Width"/> × <see cref="ImageGeometry.Components"/> × <see cref="StorageBits"/> / 8⌉ with no
 /// further alignment, so a filter's output is adopted as it is.
 /// </para>
 /// <para>
 /// The values are the raw samples, before the image's <c>Decode</c> array (§8.9.5.2): <see cref="ImageDecodeMap"/> applies it.
-/// <see cref="BitsPerComponent"/> is the logical depth, which sets the largest raw value (2^n − 1); a depth the layout cannot store
+/// <see cref="ImageGeometry.BitsPerComponent"/> is the logical depth, which sets the largest raw value (2^n − 1); a depth the layout cannot store
 /// directly (3, 5, 6, 7, 9 to 15, a JPEG 2000 precision) is stored in the next wider unit without scaling.
 /// </para>
 /// <para>
 /// Built by a <see cref="DecodedImageBuilder"/>, then immutable: safe for concurrent readers until disposed. Disposing while another
 /// thread reads is a caller error.
 /// </para>
+/// <para>ISO 32000-2 §8.9.1.</para>
 /// </remarks>
 public sealed class DecodedImage : IDisposable
 {
@@ -34,10 +35,7 @@ public sealed class DecodedImage : IDisposable
     {
         _buffer = buffer;
         _length = length;
-        Width = builder.Width;
-        Height = builder.Height;
-        Components = builder.Components;
-        BitsPerComponent = builder.BitsPerComponent;
+        Geometry = builder.Geometry;
         StorageBits = builder.StorageBits;
         Stride = builder.Stride;
         DecodedRows = builder.DecodedRows;
@@ -52,21 +50,14 @@ public sealed class DecodedImage : IDisposable
         AlphaPremultiplied = alpha is not null && builder.AlphaPremultiplied;
     }
 
-    /// <summary>Gets the number of samples in each row.</summary>
-    /// <remarks>ISO 32000-2 §8.9.2.</remarks>
-    public int Width { get; }
-
-    /// <summary>Gets the number of rows.</summary>
-    /// <remarks>ISO 32000-2 §8.9.2.</remarks>
-    public int Height { get; }
-
-    /// <summary>Gets the number of colour components in each sample (1 for an image mask or a soft mask).</summary>
-    /// <remarks>ISO 32000-2 §8.9.2.</remarks>
-    public int Components { get; }
-
-    /// <summary>Gets the logical number of bits per component: raw values run from 0 to 2^n − 1.</summary>
-    /// <remarks>ISO 32000-2 §8.9.2, §8.9.5.2 (the Decode formula divides by 2^n − 1).</remarks>
-    public int BitsPerComponent { get; }
+    /// <summary>Gets the samples' geometry: the number of samples in each row and of rows, the components in each sample, and the logical bits per component.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §8.9.2 and §8.9.5.2. The width and height are those of the samples delivered, which at a
+    /// <see cref="Reduction"/> are fewer than the image has; <see cref="ImageGeometry.Components"/> is 1 for an image mask or a soft
+    /// mask; <see cref="ImageGeometry.BitsPerComponent"/> is the logical depth, so raw values run from 0 to 2^n − 1 (the Decode
+    /// formula divides by 2^n − 1).
+    /// </remarks>
+    public ImageGeometry Geometry { get; }
 
     /// <summary>Gets the number of bits each component occupies in <see cref="Samples"/>: 1, 2, 4, 8 or 16.</summary>
     /// <remarks>ISO 32000-2 §8.9.3.</remarks>
@@ -78,7 +69,7 @@ public sealed class DecodedImage : IDisposable
 
     /// <summary>Gets the number of rows the data actually held; the rows after them are zero.</summary>
     /// <remarks>
-    /// ISO 32000-2 §8.9.3. Less than <see cref="Height"/> only for truncated data, which a lenient reader decodes as far as it goes
+    /// ISO 32000-2 §8.9.3. Less than <see cref="ImageGeometry.Height"/> only for truncated data, which a lenient reader decodes as far as it goes
     /// and records as a diagnostic. An image mask's missing rows paint nothing.
     /// </remarks>
     public int DecodedRows { get; }
@@ -88,13 +79,13 @@ public sealed class DecodedImage : IDisposable
     /// quarter, 3 for an eighth (<see cref="Filters.ImageFilterContext.Reduction"/>).
     /// </summary>
     /// <remarks>
-    /// A reduction s = 2^n of a W × H image leaves <see cref="Width"/> = ⌈W / s⌉ and <see cref="Height"/> = ⌈H / s⌉ samples; sample i
+    /// A reduction s = 2^n of a W × H image leaves <see cref="ImageGeometry.Width"/> = ⌈W / s⌉ and <see cref="ImageGeometry.Height"/> = ⌈H / s⌉ samples; sample i
     /// covers the source samples i·s to (i + 1)·s − 1, so the last one may cover less than s. Painted into the unit square (ISO
     /// 32000-2 §8.9.4), the reduced samples span ⌈W / s⌉·s / W of it, clipped at 1.
     /// </remarks>
     public int Reduction => _reduction;
 
-    /// <summary>Gets all rows: <see cref="Stride"/> × <see cref="Height"/> bytes.</summary>
+    /// <summary>Gets all rows: <see cref="Stride"/> × <see cref="ImageGeometry.Height"/> bytes.</summary>
     /// <exception cref="ObjectDisposedException">The image was disposed.</exception>
     /// <remarks>ISO 32000-2 §8.9.3.</remarks>
     public ReadOnlySpan<byte> Samples => Buffer.AsSpan(0, _length);
@@ -104,7 +95,7 @@ public sealed class DecodedImage : IDisposable
     /// leaves 1 as black, say) and left inverting them to the image layer, which folds the inversion into the <c>Decode</c> mapping.
     /// </summary>
     /// <remarks>
-    /// ISO 32000-2 §7.4.7 and §8.9.5.2. <see cref="PdfImage.CreateDecodeMap(DecodedImage)"/> and the stencil helpers take it into
+    /// ISO 32000-2 §7.4.7 and §8.9.5.2. <see cref="PdfImage.CreateDecodeMap(DecodedImage)"/> and the image mask helper take it into
     /// account; colour key masks (§8.9.6.4) compare the samples as the PDF file defines them, so a codec that sets it must not be
     /// used for colour-keyed images.
     /// </remarks>
@@ -122,9 +113,9 @@ public sealed class DecodedImage : IDisposable
     /// <remarks>ISO 32000-2 §7.4.9 and §8.6.6.3.</remarks>
     public ReadOnlyMemory<byte> Palette { get; }
 
-    /// <summary>Gets the transform code of a JPEG Adobe APP14 marker (0, 1 or 2), or <see langword="null"/> when there is none.</summary>
+    /// <summary>Gets the transform code of a JPEG Adobe APP14 marker, or <see langword="null"/> when there is none.</summary>
     /// <remarks>ISO 32000-2 §7.4.8, Table 13; Adobe Technical Note 5116.</remarks>
-    public int? AdobeTransform { get; }
+    public AdobeColorTransform? AdobeTransform { get; }
 
     /// <summary>Gets a value indicating whether the codec converted YCbCr to RGB or YCCK to CMYK.</summary>
     /// <remarks>ISO 32000-2 §7.4.8, Table 13 (<c>ColorTransform</c>).</remarks>
@@ -155,7 +146,7 @@ public sealed class DecodedImage : IDisposable
     public ReadOnlySpan<byte> GetRow(int y)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(y);
-        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(y, Height);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(y, Geometry.Height);
         return Buffer.AsSpan(y * Stride, Stride);
     }
 

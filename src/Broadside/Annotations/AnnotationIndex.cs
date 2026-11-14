@@ -38,7 +38,7 @@ internal sealed class AnnotationIndex
             case CosArray array:
                 return ReadArray(page, array, inherited);
             default:
-                Report(DiagnosticCodes.AnnotsInvalid, "The page's Annots entry is not an array; the page has no annotations.", pageReference);
+                Report(AnnotationDiagnostics.AnnotsInvalid, "The page's Annots entry is not an array; the page has no annotations.", pageReference);
                 return [];
         }
     }
@@ -47,7 +47,7 @@ internal sealed class AnnotationIndex
     /// <param name="pageReference">The page object's reference, when it has one.</param>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode.</exception>
     public void ReportInherited(CosReference? pageReference) =>
-        Report(DiagnosticCodes.AnnotsInherited, "The page has no Annots entry but a page tree node above it has one, which is not inheritable (Table 31); it is used, as viewers do.", pageReference);
+        Report(AnnotationDiagnostics.AnnotsInherited, "The page has no Annots entry but a page tree node above it has one, which is not inheritable (Table 31); it is used, as viewers do.", pageReference);
 
     /// <summary>Returns the view over <paramref name="dictionary"/>, creating it for <paramref name="page"/> when there is none or its subtype changed.</summary>
     public PdfAnnotation GetOrCreate(CosDictionary dictionary, CosReference? reference, PdfPage? page)
@@ -129,18 +129,18 @@ internal sealed class AnnotationIndex
             var reference = element as CosReference;
             if (_document.Resolve(element) is not CosDictionary dictionary)
             {
-                Report(DiagnosticCodes.AnnotationEntryInvalid, $"Element {index} of the page's Annots array is not an annotation dictionary; it is skipped.", reference ?? pageReference);
+                Report(AnnotationDiagnostics.AnnotationEntryInvalid, $"Element {index} of the page's Annots array is not an annotation dictionary; it is skipped.", reference ?? pageReference);
                 continue;
             }
 
             if (reference is null)
             {
-                Report(DiagnosticCodes.AnnotationNotIndirect, $"Element {index} of the page's Annots array is a direct dictionary; Table 31 requires indirect references. It is read anyway.", pageReference);
+                Report(AnnotationDiagnostics.AnnotationNotIndirect, $"Element {index} of the page's Annots array is a direct dictionary; Table 31 requires indirect references. It is read anyway.", pageReference);
             }
 
             if (!seen.Add(dictionary))
             {
-                Report(DiagnosticCodes.AnnotationDuplicate, $"The page's Annots array lists the same annotation more than once (again at element {index}); each listing is kept.", reference ?? pageReference);
+                Report(AnnotationDiagnostics.AnnotationDuplicate, $"The page's Annots array lists the same annotation more than once (again at element {index}); each listing is kept.", reference ?? pageReference);
             }
 
             PdfAnnotation annotation = GetOrCreate(dictionary, reference, page);
@@ -148,12 +148,12 @@ internal sealed class AnnotationIndex
             {
                 if (annotation.Page is not null && !ReferenceEquals(annotation.Page, page))
                 {
-                    Report(DiagnosticCodes.AnnotationSharedAcrossPages, "The annotation is listed by the Annots arrays of more than one page; §12.5.2 allows only one. Its page is the first that lists it.", reference ?? pageReference);
+                    Report(AnnotationDiagnostics.AnnotationSharedAcrossPages, "The annotation is listed by the Annots arrays of more than one page; §12.5.2 allows only one. Its page is the first that lists it.", reference ?? pageReference);
                 }
 
                 if (dictionary.TryGetValue(AnnotationNames.P, out CosObject? p) && !ReferenceEquals(_document.Resolve(p), page.Dictionary))
                 {
-                    Report(DiagnosticCodes.AnnotationPageMismatch, "The annotation's P entry does not name the page whose Annots array holds it; that page is used.", reference ?? pageReference);
+                    Report(AnnotationDiagnostics.AnnotationPageMismatch, "The annotation's P entry does not name the page whose Annots array holds it; that page is used.", reference ?? pageReference);
                 }
             }
 
@@ -162,7 +162,7 @@ internal sealed class AnnotationIndex
                 trapNets++;
                 if (trapNets > 1 || index != array.Count - 1)
                 {
-                    Report(DiagnosticCodes.TrapNetPlacementInvalid, "A page shall have at most one trap network annotation, the last element of its Annots array (§12.5.6.21).", reference ?? pageReference);
+                    Report(AnnotationDiagnostics.TrapNetPlacementInvalid, "A page shall have at most one trap network annotation, the last element of its Annots array (§12.5.6.21).", reference ?? pageReference);
                 }
             }
 
@@ -197,7 +197,7 @@ internal sealed class AnnotationIndex
         return owners;
     }
 
-    private void Report(string code, string message, CosReference? reference) =>
+    private void Report(DiagnosticCode code, string message, CosReference? reference) =>
         _document.DiagnosticSink.Report(code, DiagnosticSeverity.Warning, message, objectReference: reference);
 
     /// <summary>A page map and the containers it was built from.</summary>

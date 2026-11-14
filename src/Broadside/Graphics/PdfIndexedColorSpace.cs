@@ -1,4 +1,5 @@
 using System.Globalization;
+using Broadside.Diagnostics;
 using Broadside.Graphics.Colors;
 using Broadside.Graphics.Functions;
 using Broadside.Objects;
@@ -65,24 +66,24 @@ public sealed class PdfIndexedColorSpace : PdfColorSpace
 
         if (baseSpace.Family is PdfColorSpaceFamily.Pattern or PdfColorSpaceFamily.Indexed)
         {
-            Report(DiagnosticCodes.ColorSpaceInvalid, "An Indexed colour space's base is a Pattern or Indexed space, which it shall not be; DeviceGray is used.");
+            Report(ColorDiagnostics.ColorSpaceInvalid, "An Indexed colour space's base is a Pattern or Indexed space, which it shall not be; DeviceGray is used.");
             return false;
         }
 
         if (ColorEntries.Number(Cache!, Element(2)) is not double hival)
         {
-            Report(DiagnosticCodes.ColorSpaceInvalid, "An Indexed colour space's hival is not a number; DeviceGray is used.");
+            Report(ColorDiagnostics.ColorSpaceInvalid, "An Indexed colour space's hival is not a number; DeviceGray is used.");
             return false;
         }
 
         if (hival is < 0 or > 255 || hival != Math.Floor(hival))
         {
-            Report(DiagnosticCodes.ColorSpaceEntryInvalid, string.Create(CultureInfo.InvariantCulture, $"An Indexed colour space's hival {hival} is not an integer from 0 to 255; {HighValue} is used."));
+            Report(ColorDiagnostics.ColorSpaceEntryInvalid, string.Create(CultureInfo.InvariantCulture, $"An Indexed colour space's hival {hival} is not an integer from 0 to 255; {HighValue} is used."));
         }
 
         if (Element(3) is not (CosString or CosStream))
         {
-            Report(DiagnosticCodes.IndexedLookupInvalid, "An Indexed colour space has no lookup string or stream; DeviceGray is used.");
+            Report(ColorDiagnostics.IndexedLookupInvalid, "An Indexed colour space has no lookup string or stream; DeviceGray is used.");
             return false;
         }
 
@@ -90,11 +91,11 @@ public sealed class PdfIndexedColorSpace : PdfColorSpace
         int length = GetLookup().Length;
         if (length < expected)
         {
-            Report(DiagnosticCodes.IndexedLookupInvalid, string.Create(CultureInfo.InvariantCulture, $"An Indexed lookup table has {length} bytes where {expected} are needed; the missing entries read as zeros."));
+            Report(ColorDiagnostics.IndexedLookupInvalid, string.Create(CultureInfo.InvariantCulture, $"An Indexed lookup table has {length} bytes where {expected} are needed; the missing entries read as zeros."));
         }
         else if (length > expected)
         {
-            Report(DiagnosticCodes.IndexedLookupInvalid, string.Create(CultureInfo.InvariantCulture, $"An Indexed lookup table has {length} bytes where {expected} are needed; the rest are ignored."));
+            Report(ColorDiagnostics.IndexedLookupInvalid, string.Create(CultureInfo.InvariantCulture, $"An Indexed lookup table has {length} bytes where {expected} are needed; the rest are ignored."));
         }
 
         return true;

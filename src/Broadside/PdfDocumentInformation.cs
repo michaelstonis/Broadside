@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -103,13 +104,13 @@ public sealed class PdfDocumentInformation
             };
             if (trapped is null)
             {
-                _view.Report(DiagnosticCodes.InfoTrappedInvalid, "The Info dictionary's Trapped entry shall be /True, /False or /Unknown; it is read as /Unknown.");
+                _view.Report(DocumentDiagnostics.InfoTrappedInvalid, "The Info dictionary's Trapped entry shall be /True, /False or /Unknown; it is read as /Unknown.");
                 return PdfTrapped.Unknown;
             }
 
             if (!isName)
             {
-                _view.Report(DiagnosticCodes.InfoTrappedInvalid, "The Info dictionary's Trapped entry shall be a name; it is a boolean or a string, read as the name it spells.");
+                _view.Report(DocumentDiagnostics.InfoTrappedInvalid, "The Info dictionary's Trapped entry shall be a name; it is a boolean or a string, read as the name it spells.");
             }
 
             return trapped.Value;
@@ -128,7 +129,7 @@ public sealed class PdfDocumentInformation
     /// <remarks>ISO 32000-2 §7.9.4.</remarks>
     public PdfDate? GetDate(string key) => ReadDate(new CosName(key));
 
-    private string? ReadText(CosName key) => _view.ReadText(key, DiagnosticCodes.InfoValueNotTextString);
+    private string? ReadText(CosName key) => _view.ReadText(key, DocumentDiagnostics.InfoValueNotTextString);
 
     private PdfDate? ReadDate(CosName key)
     {
@@ -143,10 +144,10 @@ public sealed class PdfDocumentInformation
             case DateParseOutcome.Valid:
                 return date;
             case DateParseOutcome.Repaired:
-                _view.Report(DiagnosticCodes.DateInvalid, $"The Info dictionary's {key.Value} entry does not follow the date format of §7.9.4; it is read with the deviating fields repaired.");
+                _view.Report(DocumentDiagnostics.DateInvalid, $"The Info dictionary's {key.Value} entry does not follow the date format of §7.9.4; it is read with the deviating fields repaired.");
                 return date;
             default:
-                _view.Report(DiagnosticCodes.DateUnreadable, $"The Info dictionary's {key.Value} entry is not a date (§7.9.4); its text is kept, its date is unknown.");
+                _view.Report(DocumentDiagnostics.DateUnreadable, $"The Info dictionary's {key.Value} entry is not a date (§7.9.4); its text is kept, its date is unknown.");
                 return null;
         }
     }

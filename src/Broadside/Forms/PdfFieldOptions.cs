@@ -10,6 +10,7 @@ namespace Broadside.Forms;
 /// ISO 32000-2 §12.7.4.1 (Tables 226 and 227: <c>Ff</c>, <c>TU</c>), §12.7.4.3 (Table 228: <c>DA</c>, <c>Q</c>), §12.7.5.3
 /// (Table 232: <c>MaxLen</c>) and §12.5.6.19 (Table 192: <c>MK</c> <c>BC</c>, <c>BG</c>, <c>CA</c>; Table 168: <c>BS</c>
 /// <c>W</c>). Used by the <c>Add</c> methods of <see cref="PdfAcroForm"/>.
+/// <para>ISO 32000-2 §12.7.3.</para>
 /// </remarks>
 public sealed class PdfFieldOptions
 {

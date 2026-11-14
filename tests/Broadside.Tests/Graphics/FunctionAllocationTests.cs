@@ -27,6 +27,12 @@ public sealed class FunctionAllocationTests
         ["Type 0, 2 in, 1 out, 16-bit"] = static () => Stream(
             "<< /FunctionType 0 /Domain [0 1 0 1] /Range [0 1] /Size [3 3] /BitsPerSample 16 >>",
             [.. Enumerable.Range(0, 18).Select(static i => (byte)(i * 13))]),
+        ["Type 0, 1 in, 3 out, Order 3"] = static () => Stream(
+            "<< /FunctionType 0 /Domain [0 1] /Range [0 1 0 1 0 1] /Size [6] /Order 3 /BitsPerSample 8 >>",
+            [.. Enumerable.Range(0, 18).Select(static i => (byte)(i * 17))]),
+        ["Type 0, 3 in, 2 out, Order 3"] = static () => Stream(
+            "<< /FunctionType 0 /Domain [0 1 0 1 0 1] /Range [0 1 0 1] /Size [5 4 6] /Order 3 /BitsPerSample 8 >>",
+            [.. Enumerable.Range(0, 240).Select(static i => (byte)(i * 29))]),
         ["Type 2"] = static () => Cos("<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0] /C1 [1 0.5 0.25] /N 1.7 >>"),
         ["Type 3"] = static () => Cos(
             "<< /FunctionType 3 /Domain [0 1] /Bounds [0.5] /Encode [0 1 1 0] /Functions [" +

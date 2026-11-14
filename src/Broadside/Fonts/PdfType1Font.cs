@@ -7,6 +7,7 @@ namespace Broadside.Fonts;
 /// ISO 32000-2 §9.6.2 (Table 109) and §9.6.2.3. A non-embedded Type 1 font named after one of the Standard 14 fonts (§9.6.2.2) may
 /// omit <c>FirstChar</c>, <c>LastChar</c>, <c>Widths</c> and <c>FontDescriptor</c>; its widths and descriptor data then come from
 /// the Standard 14 metrics. The encoding of a Type 1 font overrides the font program's built-in encoding (§9.6.5.2).
+/// <para>ISO 32000-2 §9.5.</para>
 /// </remarks>
 public sealed class PdfType1Font : PdfSimpleFont
 {

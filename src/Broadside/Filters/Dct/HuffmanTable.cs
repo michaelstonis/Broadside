@@ -4,7 +4,10 @@ namespace Broadside.Filters.Dct;
 /// One Huffman decoding table built from a DHT segment's BITS and HUFFVAL lists: a 9-bit lookup for the short codes and the
 /// MAXCODE / VALPTR arrays for codes of 10 to 16 bits. Built in place, so a decoder reuses its tables across images.
 /// </summary>
-/// <remarks>ITU-T T.81 Annex C (Figures C.1 and C.2: HUFFSIZE and HUFFCODE), §F.2.2.3 (Figure F.15: MAXCODE, MINCODE, VALPTR).</remarks>
+/// <remarks>
+/// <para>ITU-T T.81 Annex C (Figures C.1 and C.2: HUFFSIZE and HUFFCODE), §F.2.2.3 (Figure F.15: MAXCODE, MINCODE, VALPTR).</para>
+/// <para>ISO 32000-2 §7.4.8.</para>
+/// </remarks>
 internal sealed class HuffmanTable
 {
     /// <summary>The number of leading bits the lookup table resolves.</summary>

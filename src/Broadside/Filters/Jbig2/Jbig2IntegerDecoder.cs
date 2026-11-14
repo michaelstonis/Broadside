@@ -49,6 +49,7 @@ internal enum Jbig2IntegerProcedure
 /// The arithmetic integer decoding procedure (ITU-T T.88 Annex A.2, Figure A.1, Table A.1) and the symbol ID decoding procedure IAID
 /// (A.3), over the shared MQ decoder (Annex E.3). Allocates nothing: the contexts belong to the caller.
 /// </summary>
+/// <remarks>ISO 32000-2 §7.4.7.</remarks>
 internal static class Jbig2IntegerDecoder
 {
     /// <summary>The bytes of one integer procedure's context set (PREV is at most 9 bits).</summary>

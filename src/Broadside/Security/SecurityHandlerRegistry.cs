@@ -51,6 +51,11 @@ internal sealed class SecurityHandlerRegistry
         return subFilter is not null && _bySubFilter.TryGetValue(subFilter, out handler) ? handler : null;
     }
 
+    /// <summary>Returns whether a handler of this registry has <paramref name="name"/> as its <c>Filter</c> or one of its <c>SubFilters</c>.</summary>
+    /// <param name="name">The name, such as an encrypted payload dictionary's <c>Subtype</c> (§7.6.7, Table 28).</param>
+    /// <returns><see langword="true"/> when a handler has the name.</returns>
+    public bool Provides(CosName name) => _byFilter.ContainsKey(name) || _bySubFilter.ContainsKey(name);
+
     private void Add(ISecurityHandler handler)
     {
         _byFilter[handler.Filter] = handler;

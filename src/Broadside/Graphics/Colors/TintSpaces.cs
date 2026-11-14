@@ -1,4 +1,5 @@
 using System.Globalization;
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -44,7 +45,7 @@ internal static class TintSpaces
         }
         else if (!IsAlternateFamily(found))
         {
-            space.Report(DiagnosticCodes.ColorSpaceEntryInvalid, "An alternate colour space shall be a device or CIE-based space; DeviceGray is used.");
+            space.Report(ColorDiagnostics.ColorSpaceEntryInvalid, "An alternate colour space shall be a device or CIE-based space; DeviceGray is used.");
         }
 
         int outputs = Alternate(found).ComponentCount;
@@ -52,7 +53,7 @@ internal static class TintSpaces
         if (function is not { IsValid: true })
         {
             space.Report(
-                DiagnosticCodes.TintTransformInvalid,
+                ColorDiagnostics.TintTransformInvalid,
                 special
                     ? "The tint transform is not a usable function; it is not needed for the colourants All and None."
                     : "The tint transform is not a usable function; tints are converted as subtractive ink on the alternate space instead.");
@@ -60,7 +61,7 @@ internal static class TintSpaces
         else if (function.InputCount != inputs || function.OutputCount < outputs)
         {
             space.Report(
-                DiagnosticCodes.TintTransformInvalid,
+                ColorDiagnostics.TintTransformInvalid,
                 string.Create(
                     CultureInfo.InvariantCulture,
                     $"The tint transform takes {function.InputCount} inputs and gives {function.OutputCount} outputs where {inputs} and {outputs} are needed; missing outputs read as 0."));

@@ -34,7 +34,7 @@ public static partial class ImageDecodeChecks
         BrowserImageDecoder decoder = bitmapOnPage
             ? new BrowserImageDecoder(new BrowserImageDecoderOptions().WithWebCodecs(false).WithImageBitmapOnPage(true))
             : BrowserImageDecoder.Shared;
-        using PdfDocument document = new PdfEngine(new PdfOptions().UseStandard14Fonts().UsePlatformImageDecoder(decoder).WithPlatformImageVerification(true)).Open(bytes);
+        using PdfDocument document = await new PdfEngine(new PdfOptions().UseStandard14Fonts().UsePlatformImageDecoder(decoder).WithPlatformImageVerification(true)).OpenAsync(bytes).ConfigureAwait(true);
         PdfPage page = document.Pages[0];
         DisplayList list = page.CreateDisplayList();
         Matrix device = new RenderOptions().WithScale(scale).GetDeviceTransform(page);

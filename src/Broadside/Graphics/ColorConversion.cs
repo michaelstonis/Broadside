@@ -6,6 +6,8 @@ namespace Broadside.Graphics;
 /// removal, used only when converting to CMYK) and §10.5 (transfer functions, applied to the device colour last). The default
 /// value converts to RGB with the relative colorimetric intent, the processor's choice of black point compensation and no transfer
 /// function.
+/// <para>ISO 32000-2 §11.7.5.</para>
+/// <para>PDF 2.0 Application Note 001 §BPC-3.</para>
 /// </remarks>
 public readonly record struct ColorConversion
 {

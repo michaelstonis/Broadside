@@ -2506,6 +2506,70 @@ def gen_startxref_wrong() -> bytes:
     return f.finish_classic(b"<< /Size 4 /Root 1 0 R >>", startxref_delta=100)
 
 
+def gen_xref_entry_beyond_size() -> bytes:
+    """7.5.5 Table 15: Size is the total number of entries in the cross-reference table, so an
+    entry numbered Size or more is not part of it. The table lists object 4, the trailer says 4."""
+    f = File()
+    f.add(1, catalog())
+    f.add(2, pages())
+    f.add(3, page())
+    f.add(4, b"<< /Note (listed beyond Size) >>")
+    start = f.pos()
+    f.raw(xref_table(f.offsets, 5, b"<< /Size 4 /Root 1 0 R >>"))
+    f.raw(b"startxref\n%d\n%%%%EOF\n" % start)
+    return bytes(f.buf)
+
+
+def gen_xref_comment() -> bytes:
+    """7.5.4: a table is subsections of entries; a comment (7.2.4) is not part of it. A comment
+    line sits between the subsection header and its first entry."""
+    f = File()
+    f.add(1, catalog())
+    f.add(2, pages())
+    f.add(3, page())
+    start = f.pos()
+    table = xref_table(f.offsets, 4, b"<< /Size 4 /Root 1 0 R >>")
+    table = table.replace(b"xref\n0 4\n", b"xref\n0 4\n% written by a tool\n", 1)
+    f.raw(table)
+    f.raw(b"startxref\n%d\n%%%%EOF\n" % start)
+    return bytes(f.buf)
+
+
+def gen_xref_line_malformed() -> bytes:
+    """7.5.4: every line of a table is a subsection header or an entry. A line of text sits
+    between the entries of object 2 and object 3."""
+    f = File()
+    f.add(1, catalog())
+    f.add(2, pages())
+    f.add(3, page())
+    start = f.pos()
+    table = xref_table(f.offsets, 4, b"<< /Size 4 /Root 1 0 R >>")
+    marker = b"%010d 00000 n \n" % f.offsets[3]
+    table = table.replace(marker, b"not an entry\n" + marker, 1)
+    f.raw(table)
+    f.raw(b"startxref\n%d\n%%%%EOF\n" % start)
+    return bytes(f.buf)
+
+
+def gen_xrefstm_offset_wrong() -> bytes:
+    """7.5.8.4 Table 19: hybrid-xref.pdf whose trailer's XRefStm offset points 25 bytes past the
+    start of the cross-reference stream (into its body)."""
+    data = gen_hybrid_xref()
+    at = data.index(b"/XRefStm ") + len(b"/XRefStm ")
+    end = data.index(b" ", at)
+    wrong = b"%d" % (int(data[at:end]) + 25)
+    assert len(wrong) == end - at
+    return data[:at] + wrong + data[end:]
+
+
+def gen_startxref_last_damaged() -> bytes:
+    """7.5.5, 7.5.6: incremental-update.pdf whose last startxref keyword is misspelled, so the only
+    startxref left is the one of the original revision."""
+    data = gen_incremental_update()
+    at = data.rindex(b"startxref")
+    return data[:at] + b"startxrf" + data[at + len(b"startxref"):]
+
+
 def gen_inline_image() -> bytes:
     content = (b"q 100 0 0 100 72 600 cm BI /W 2 /H 2 /CS /G /BPC 8 ID \x00\xff\xff\x00 EI Q")
     return simple_file([
@@ -3382,6 +3446,54 @@ def gen_collection_portfolio() -> bytes:
         (12, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain", b"Revenue up.")),
         (13, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain", b"Remember the milk.")),
     ])
+
+
+WRAPPER_PAYLOAD_NAME = b"Standard Protected PDF.pdf"
+
+
+def encrypted_payload(name: str) -> bytes:
+    """The encrypted payload of encrypted-wrapper.pdf: two text pages encrypted with the standard security handler
+    R6 (V 5, AES-256) and user password "p\u00e4sswort" (7.6.4.4)."""
+    key = fixed_bytes(name + ":file-key", 32)
+    encrypt = aes256_encryptor(name, key)
+    enc = (b"<< /Filter /Standard /V 5 /R 6 /Length 256 " + r6_entries(name, key, USER_PASSWORD_R6, OWNER_PASSWORD, PERMISSIONS)
+           + b" /CF << /StdCF << /CFM /AESV3 /AuthEvent /DocOpen /Length 32 >> >> /StmF /StdCF /StrF /StdCF >>")
+    id0 = file_id(name)
+    f = File("2.0", binary=True)
+    f.add(1, catalog())
+    f.add(2, pages([3, 5]))
+    f.add(3, page(contents=4, font=7))
+    f.add(4, stream(b"", encrypt(4, "stream", text_content(b"Payload page 1"))))
+    f.add(5, page(contents=6, font=7))
+    f.add(6, stream(b"", encrypt(6, "stream", text_content(b"Payload page 2"))))
+    f.add(7, HELVETICA)
+    f.add(8, enc)
+    return f.finish_classic(b"<< /Size 9 /Root 1 0 R /Encrypt 8 0 R /ID [<%s> <%s>] >>" % ((id0.hex().encode(),) * 2))
+
+
+def gen_encrypted_wrapper() -> bytes:
+    """7.6.7 unencrypted wrapper document: an unencrypted PDF 2.0 cover page whose catalog has a Collection with
+    D naming the payload and View /H, the payload's file specification as the only EmbeddedFiles entry (7.7.4,
+    Table 32) and in the catalog AF array (14.13), AFRelationship /EncryptedPayload (Table 43) and an encrypted
+    payload dictionary (Table 28: Type /EncryptedPayload, Subtype /Standard, Version /6). F and UF name the
+    cryptographic filter, not the payload's own file name (Table 43). The embedded file stream (7.11.4) is
+    Flate-encoded with Subtype application/pdf and Params Size, ModDate and CheckSum."""
+    payload = encrypted_payload("encrypted-wrapper:payload")
+    id0 = file_id("encrypted-wrapper").hex().encode()
+    return simple_file([
+        (1, catalog(b" /Names << /EmbeddedFiles << /Names [(%s) 6 0 R] >> >> /AF [6 0 R]"
+                    b" /Collection << /Type /Collection /D (%s) /View /H >>" % (WRAPPER_PAYLOAD_NAME, WRAPPER_PAYLOAD_NAME))),
+        (2, pages()),
+        (3, page(contents=4, font=5)),
+        (4, stream(b"", text_content(b"Open with the Standard security handler"))),
+        (5, HELVETICA),
+        (6, b"<< /Type /Filespec /F (%s) /UF (%s) /Desc (This embedded file is encrypted with the Standard security handler)"
+            b" /EF << /F 7 0 R /UF 7 0 R >> /EP << /Type /EncryptedPayload /Subtype /Standard /Version /6 >>"
+            b" /AFRelationship /EncryptedPayload >>" % (WRAPPER_PAYLOAD_NAME, WRAPPER_PAYLOAD_NAME)),
+        (7, stream(b"/Type /EmbeddedFile /Subtype /application#2Fpdf /Filter /FlateDecode"
+                   b" /Params << /Size %d /ModDate (D:20240101000000Z) /CheckSum <%s> >>" % (
+                       len(payload), hashlib.md5(payload).hexdigest().encode()), flate(payload))),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
 
 
 def xmp_titled(title: bytes) -> bytes:
@@ -7125,6 +7237,11 @@ FILES = {
     "wrong-stream-length.pdf": gen_wrong_stream_length,
     "no-xref.pdf": gen_no_xref,
     "startxref-wrong.pdf": gen_startxref_wrong,
+    "xref-entry-beyond-size.pdf": gen_xref_entry_beyond_size,
+    "xref-comment.pdf": gen_xref_comment,
+    "xref-line-malformed.pdf": gen_xref_line_malformed,
+    "xrefstm-offset-wrong.pdf": gen_xrefstm_offset_wrong,
+    "startxref-last-damaged.pdf": gen_startxref_last_damaged,
     "inline-image.pdf": gen_inline_image,
     "page-tree-inherited.pdf": gen_page_tree_inherited,
     "annotations-link.pdf": gen_annotations_link,
@@ -7163,6 +7280,7 @@ FILES = {
     "embedded-files.pdf": gen_embedded_files,
     "collection-portfolio.pdf": gen_collection_portfolio,
     "associated-files.pdf": gen_associated_files,
+    "encrypted-wrapper.pdf": gen_encrypted_wrapper,
     "object-metadata.pdf": gen_object_metadata,
     "declarations.pdf": gen_declarations,
     "actions-all.pdf": gen_actions_all,

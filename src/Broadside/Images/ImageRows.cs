@@ -5,13 +5,14 @@ using Broadside.Graphics;
 namespace Broadside.Images;
 
 /// <summary>
-/// Row operations over decoded image samples: unpacking packed components, scaling them to 8 bits, colour key and stencil
+/// Row operations over decoded image samples: unpacking packed components, scaling them to 8 bits, colour key and image mask
 /// coverage, Matte un-premultiplication and mask sampling. None of them allocates.
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §8.9.3 (sample layout), §8.9.5.2 (Decode), §8.9.6 (masks), §11.6.5.2 (Matte). Each works on one row at a time, from
 /// its byte-aligned start, so the padding bits at the end of a row are never read as samples. Spans are the caller's: these methods
 /// keep nothing.
+/// <para>ISO 32000-2 §8.9.4.</para>
 /// </remarks>
 public static class ImageRows
 {
@@ -100,7 +101,7 @@ public static class ImageRows
     /// </summary>
     /// <param name="row">The row, from its first byte.</param>
     /// <param name="storageBits">The storage width: 1, 2, 4, 8 or 16.</param>
-    /// <param name="bitsPerComponent">The logical depth (<see cref="DecodedImage.BitsPerComponent"/>), at most the storage width.</param>
+    /// <param name="bitsPerComponent">The logical depth (<see cref="ImageGeometry.BitsPerComponent"/>), at most the storage width.</param>
     /// <param name="count">The number of components.</param>
     /// <param name="destination">At least <paramref name="count"/> bytes.</param>
     /// <exception cref="ArgumentOutOfRangeException">A width or span is out of range.</exception>
@@ -189,7 +190,7 @@ public static class ImageRows
     }
 
     /// <summary>
-    /// Computes the coverage of a row of a stencil mask or explicit mask (1 bit per sample): 255 where the sample paints, 0 where it
+    /// Computes the coverage of a row of an image mask or explicit mask (1 bit per sample): 255 where the sample paints, 0 where it
     /// leaves the backdrop.
     /// </summary>
     /// <param name="row">The packed row.</param>
@@ -201,7 +202,7 @@ public static class ImageRows
     /// <param name="coverage">One byte per sample.</param>
     /// <exception cref="ArgumentOutOfRangeException">The spans do not fit <paramref name="width"/>.</exception>
     /// <remarks>ISO 32000-2 §8.9.6.2 and §8.9.6.3.</remarks>
-    public static void Stencil(ReadOnlySpan<byte> row, int width, bool inverted, Span<byte> coverage)
+    public static void ImageMask(ReadOnlySpan<byte> row, int width, bool inverted, Span<byte> coverage)
     {
         CheckSpans(row.Length, 1, width, coverage.Length, maxBits: 1);
         Unpack1(row, coverage[..width]);

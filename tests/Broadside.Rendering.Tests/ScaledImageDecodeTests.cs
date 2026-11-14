@@ -32,7 +32,7 @@ public sealed class ScaledImageDecodeTests
 
             Assert.Equal(0, codec.Decodes);
             DisplayImage image = Assert.Single(recorder.Images).Image;
-            Assert.Equal((256, 256, 1, 8, 3), (image.Width, image.Height, image.Components, image.BitsPerComponent, image.MaxReduction));
+            Assert.Equal((256, 256, 1, 8, 3), (image.Geometry.Width, image.Geometry.Height, image.Geometry.Components, image.Geometry.BitsPerComponent, image.MaxReduction));
             Assert.Equal(0, codec.Decodes);
         }
     }
@@ -168,12 +168,12 @@ public sealed class ScaledImageDecodeTests
             ReducingImageFilter.Page(ReducingImageFilter.Photo(256, 256, 1), 256, 256, "/DeviceGray", Paint), new PdfOptions().UseFilter(codec));
 
         DisplayList list = document.Pages[0].CreateDisplayList();
-        Assert.DoesNotContain(document.Diagnostics, static diagnostic => diagnostic.Code == "TestDecodeFailed");
+        Assert.DoesNotContain(document.Diagnostics, static diagnostic => diagnostic.Code == "Tests.TestDecodeFailed");
         using Bitmap first = RenderList(document, 0.0625, scaled: true);
         using Bitmap second = RenderList(document, 0.03125, scaled: true);
         using Bitmap full = RenderList(document, 0.0625, scaled: false);
 
-        Assert.Single(document.Diagnostics, static diagnostic => diagnostic.Code == "TestDecodeFailed");
+        Assert.Single(document.Diagnostics, static diagnostic => diagnostic.Code == "Tests.TestDecodeFailed");
         Assert.Equal(1, codec.Decodes);
         Assert.All([first, second, full], static bitmap => Assert.All(bitmap.Pixels.ToArray(), static value => Assert.Equal(byte.MaxValue, value)));
         Assert.NotNull(list);
@@ -203,7 +203,7 @@ public sealed class ScaledImageDecodeTests
 
             using (DecodedImage extracted = document.Pages[0].GetImage("Im0")!.Decode()!)
             {
-                Assert.Equal((256, 256, 0), (extracted.Width, extracted.Height, extracted.Reduction));
+                Assert.Equal((256, 256, 0), (extracted.Geometry.Width, extracted.Geometry.Height, extracted.Reduction));
                 Assert.Equal(4, codec.DecodesAt(0));
             }
 
@@ -304,7 +304,7 @@ public sealed class ScaledImageDecodeTests
         var recorder = new RecordingBackend();
         document.Pages[0].CreateDisplayList().Replay(recorder);
         DisplayImage mask = Assert.Single(recorder.Images).Image.SoftMask!;
-        Assert.Equal((1024, 1024, 3, 0), (mask.Width, mask.Height, mask.MaxReduction, codec.Decodes));
+        Assert.Equal((1024, 1024, 3, 0), (mask.Geometry.Width, mask.Geometry.Height, mask.MaxReduction, codec.Decodes));
 
         using Bitmap reduced = RenderList(document, 0.0625, scaled: true);
         Assert.Equal((1, 1), (codec.Decodes, codec.DecodesAt(3)));

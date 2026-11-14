@@ -8,4 +8,12 @@
     <ProjectReference Include="../Broadside/Broadside.csproj" />
   </ItemGroup>
 
+  <!--
+    The platform-independent elementary functions the rasterizer's strokes and ICC engine share with the core's colour and function
+    code (issue #233: the same bytes on every platform). Compiled in rather than exposed, since no package grants another its internals.
+  -->
+  <ItemGroup>
+    <Compile Include="../Broadside/Numerics/DeterministicMath.cs" Link="Numerics/DeterministicMath.cs" />
+  </ItemGroup>
+
 </Project>

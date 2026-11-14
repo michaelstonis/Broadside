@@ -23,6 +23,7 @@ namespace Broadside.Fonts;
 /// are shown in visual order, right to left. Splitting mixed text into runs is bidirectional layout's job (issue #173).
 /// Indic, Southeast Asian and the other complex scripts are not shaped beyond the default features (issue #230).
 /// </para>
+/// <para>ISO 32000-2 §9.4.3.</para>
 /// </remarks>
 public sealed class TextShaping : IEquatable<TextShaping>
 {

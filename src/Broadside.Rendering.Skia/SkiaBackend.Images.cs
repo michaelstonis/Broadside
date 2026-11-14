@@ -118,7 +118,7 @@ public sealed partial class SkiaBackend
         private void DrawConverted(DisplayImage image, SKImage pixels, ImageCache.Entry entry, int delivered, bool folded)
         {
             object? maskKey = folded ? null : (object?)image.SoftMask ?? image.Mask;
-            var grid = new SampleGrid(pixels.Width, pixels.Height, image.Width, image.Height, delivered);
+            var grid = new SampleGrid(pixels.Width, pixels.Height, image.Geometry.Width, image.Geometry.Height, delivered);
             Prepare(_image, _compositing.FillAlpha, PaintBlend);
             if (maskKey is null)
             {
@@ -427,7 +427,7 @@ public sealed partial class SkiaBackend
         {
             var soft = mask as DisplayImage;
             var stencil = mask as DisplayImageMask;
-            (int width, int height, bool interpolate) = soft is not null ? (soft.Width, soft.Height, soft.Interpolate) : (stencil!.Width, stencil.Height, stencil.Interpolate);
+            (int width, int height, bool interpolate) = soft is not null ? (soft.Geometry.Width, soft.Geometry.Height, soft.Interpolate) : (stencil!.Width, stencil.Height, stencil.Interpolate);
             int reduction = 0;
             if (TryGetImageSamplesPerPixel(out double samplesPerPixel, out Matrix toPixels))
             {

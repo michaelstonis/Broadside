@@ -3,7 +3,10 @@ using Broadside.Objects;
 namespace Broadside;
 
 /// <summary>The kind of object a metadata stream describes.</summary>
-/// <remarks>ISO 32000-2 §14.3.2, Table 348, and PDF 2.0 Application Note 003 Tables 1-5 and "Other locations".</remarks>
+/// <remarks>
+/// <para>ISO 32000-2 §14.3.2, Table 348, and PDF 2.0 Application Note 003 Tables 1-5 and "Other locations".</para>
+/// <para>PDF 2.0 Application Note 003 §Explicit, §Implicit and §Other.</para>
+/// </remarks>
 public enum PdfMetadataLocation
 {
     /// <summary>The whole document: the catalog's <c>Metadata</c> (Table 29).</summary>
@@ -65,6 +68,7 @@ public enum PdfMetadataLocation
 /// <remarks>
 /// ISO 32000-2 §14.3.2 (PDF 1.4), Tables 347 and 348: a stream with <c>Type</c> <c>Metadata</c> and <c>Subtype</c> <c>XML</c> holding
 /// an XMP packet (ISO 16684-1), in the <c>Metadata</c> entry of the object it describes. PDF 2.0 Application Note 003.
+/// <para>PDF 2.0 Application Note 003 §Explicit, §Implicit and §Other.</para>
 /// </remarks>
 public sealed class PdfObjectMetadata
 {

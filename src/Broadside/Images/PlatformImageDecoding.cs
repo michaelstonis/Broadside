@@ -183,7 +183,7 @@ internal sealed class PlatformImageDecoding
 
         if (decoded is null)
         {
-            Report(encoded, DiagnosticCodes.ImageDecodedManaged, DiagnosticSeverity.Information, string.Create(
+            Report(encoded, ImageDiagnostics.ImageDecodedManaged, DiagnosticSeverity.Information, string.Create(
                 CultureInfo.InvariantCulture,
                 $"The platform image decoder '{decoder.Name}' did not decode the {request.Width} x {request.Height} {request.Filter.Value} image ({failure}); it is decoded with the managed codec."));
             return null;
@@ -204,7 +204,7 @@ internal sealed class PlatformImageDecoding
     }
 
     /// <summary>Records a diagnostic of <paramref name="image"/>, under its stream's reference when known.</summary>
-    private void Report(EncodedImage image, string code, DiagnosticSeverity severity, string message) =>
+    private void Report(EncodedImage image, DiagnosticCode code, DiagnosticSeverity severity, string message) =>
         image.Report(code, severity, message, _references.TryGetValue(image, out CosReference? reference) ? reference : null);
 
     /// <summary>Returns why <paramref name="decoded"/> is not what <paramref name="request"/> asked for, or <see langword="null"/>.</summary>
@@ -212,10 +212,10 @@ internal sealed class PlatformImageDecoding
     {
         int r = decoded.Reduction;
         if (r <= request.Reduction
-            && decoded.Width == ImageGeometry.Reduce(request.Width, r)
-            && decoded.Height == ImageGeometry.Reduce(request.Height, r)
-            && decoded.Components == request.Components
-            && decoded.BitsPerComponent == 8
+            && decoded.Geometry.Width == ImageGeometry.Reduce(request.Width, r)
+            && decoded.Geometry.Height == ImageGeometry.Reduce(request.Height, r)
+            && decoded.Geometry.Components == request.Components
+            && decoded.Geometry.BitsPerComponent == 8
             && decoded.StorageBits == 8
             && !decoded.SamplesInverted
             && decoded.Alpha is null)
@@ -225,16 +225,16 @@ internal sealed class PlatformImageDecoding
 
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"it delivered {decoded.Width} x {decoded.Height} x {decoded.Components} samples of {decoded.BitsPerComponent} bits at reduction {r} for a request of reduction {request.Reduction}");
+            $"it delivered {decoded.Geometry.Width} x {decoded.Geometry.Height} x {decoded.Geometry.Components} samples of {decoded.Geometry.BitsPerComponent} bits at reduction {r} for a request of reduction {request.Reduction}");
     }
 
     /// <summary>Decodes the image with the managed codec at the platform's reduction and records how far apart the two are.</summary>
     private void Compare(EncodedImage encoded, IPlatformImageDecoder decoder, in PlatformImageRequest request, DecodedImage platform, CancellationToken cancellationToken)
     {
         using DecodedImage? managed = encoded.Decode(platform.Reduction, cancellationToken);
-        if (managed is null || managed.Width != platform.Width || managed.Height != platform.Height || managed.Components != platform.Components)
+        if (managed is null || managed.Geometry.Width != platform.Geometry.Width || managed.Geometry.Height != platform.Geometry.Height || managed.Geometry.Components != platform.Geometry.Components)
         {
-            Report(encoded, DiagnosticCodes.PlatformImageMismatch, DiagnosticSeverity.Warning, string.Create(
+            Report(encoded, ImageDiagnostics.PlatformImageMismatch, DiagnosticSeverity.Warning, string.Create(
                 CultureInfo.InvariantCulture,
                 $"The platform image decoder '{decoder.Name}' decoded the {request.Width} x {request.Height} image at reduction {platform.Reduction}, and the managed codec could not decode it the same way to compare."));
             return;
@@ -248,7 +248,7 @@ internal sealed class PlatformImageDecoding
                 : difference.Psnr >= 55;
         Report(
             encoded,
-            within ? DiagnosticCodes.PlatformImageVerified : DiagnosticCodes.PlatformImageMismatch,
+            within ? ImageDiagnostics.PlatformImageVerified : ImageDiagnostics.PlatformImageMismatch,
             within ? DiagnosticSeverity.Information : DiagnosticSeverity.Warning,
             string.Create(
                 CultureInfo.InvariantCulture,

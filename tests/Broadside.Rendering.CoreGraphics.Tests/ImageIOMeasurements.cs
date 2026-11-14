@@ -82,7 +82,7 @@ public sealed class ImageIOMeasurements(ITestOutputHelper output)
                 try
                 {
                     var options = new PdfOptions().UsePlatformImageDecoder(ImageIODecoder.Shared).WithPlatformImageVerification(true).WithDisplayListCacheBudget(0);
-                    using PdfDocument document = PdfDocument.Open(Path.Combine(root, file), options);
+                    using PdfDocument document = await PdfDocument.OpenAsync(Path.Combine(root, file), options, TestContext.Current.CancellationToken);
                     for (int i = 0; i < Math.Min(document.Pages.Count, 10); i++)
                     {
                         Graphics.Matrix device = new RenderOptions().WithScale(scale).GetDeviceTransform(document.Pages[i]);
@@ -119,7 +119,7 @@ public sealed class ImageIOMeasurements(ITestOutputHelper output)
             try
             {
                 var probe = new ProbingDecoder(file, Log);
-                using PdfDocument document = PdfDocument.Open(Path.Combine(root, file), new PdfOptions().UsePlatformImageDecoder(probe).WithDisplayListCacheBudget(0));
+                using PdfDocument document = await PdfDocument.OpenAsync(Path.Combine(root, file), new PdfOptions().UsePlatformImageDecoder(probe).WithDisplayListCacheBudget(0), TestContext.Current.CancellationToken);
                 for (int i = 0; i < Math.Min(document.Pages.Count, 10); i++)
                 {
                     Graphics.Matrix device = new RenderOptions().GetDeviceTransform(document.Pages[i]);
@@ -171,7 +171,7 @@ public sealed class ImageIOMeasurements(ITestOutputHelper output)
                 PdfOptions options = new PdfOptions().WithDisplayListCacheBudget(0);
                 options = imageIO ? options.UsePlatformImageDecoder(ImageIODecoder.Shared) : options;
 #pragma warning disable CA2000 // disposed by the using declaration; the analyzer loses it across the await below
-                using PdfDocument document = PdfDocument.Open(file, options);
+                using PdfDocument document = await PdfDocument.OpenAsync(file, options, TestContext.Current.CancellationToken);
 #pragma warning restore CA2000
                 PdfPage page = document.Pages[0];
                 using global::CoreGraphics.CGBitmapContext context = BitmapRendering.CreateContext(612, 792, out _, out _);

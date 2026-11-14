@@ -34,7 +34,7 @@ public sealed class CffProgramTests
     {
         { [1, 0, 4, 1, 0, 0], "FontProgramInvalid" },
         { [0x25, 0x21, 0x50, 0x53], "FontCffHeaderInvalid" },
-        { [1, 0, 4, 1, 0, 1, 1, 1, 9, 0, 1], "FontCffIndexInvalid" },
+        { [1, 0, 4, 1, 0, 1, 1, 1, 9, 0, 1], "FontCffIndexOffsetsInvalid" },
     };
 
     [Fact]
@@ -267,7 +267,40 @@ public sealed class CffProgramTests
         FontProgram program = Parse(font, context);
 
         Assert.Equal(2, program.GlyphCount);
-        Assert.Contains(context.Diagnostics, diagnostic => diagnostic.Code == "FontCffIndexInvalid");
+        Assert.Contains(context.Diagnostics, diagnostic => diagnostic.Kind == CffDiagnostics.FontCffIndexOffsetsInvalid);
+    }
+
+    /// <summary>
+    /// Issue #248: each kind of damage to an INDEX (Adobe Technical Note #5176 §5) reports its own catalog code with a fixed message,
+    /// for the example font and for the program of the corpus file text-cff-embedded.pdf (the CFF fuzz target's seed).
+    /// </summary>
+    [Fact]
+    public Task Each_kind_of_INDEX_damage_reports_its_catalog_code()
+    {
+        var text = new System.Text.StringBuilder();
+        foreach ((string source, byte[] program) in new[] { ("Appendix D", AppendixD), ("text-cff-embedded.pdf", CorpusProgram("text-cff-embedded.pdf")) })
+        {
+            int name = program[2];
+            foreach ((string damage, byte[] damaged) in new (string, byte[])[]
+            {
+                ("starts outside the program", program[..(name + 1)]),
+                ("count larger than the program", With(program, (name, 0xFF), (name + 1, 0xFF))),
+                ("offSize 5", With(program, (name + 2, 5))),
+                ("first offset 2", With(program, (name + 2 + program[name + 2], 2))),
+            })
+            {
+                var context = new FontProgramContext();
+                _ = new CffFontProgramParser().Parse(damaged, context);
+                text.Append(source).Append(", ").Append(damage).Append('\n');
+                foreach (Diagnostic diagnostic in context.Diagnostics)
+                {
+                    Assert.NotEqual(DiagnosticArea.None, diagnostic.Kind.Area);
+                    text.Append("  ").Append(diagnostic.ToString()).Append('\n');
+                }
+            }
+        }
+
+        return Verify(text.ToString());
     }
 
     [Fact]
@@ -293,6 +326,27 @@ public sealed class CffProgramTests
         }
 
         return builder;
+    }
+
+    /// <summary>The unfiltered CFF program of a corpus file: from its first CFF header to the <c>endstream</c> after it.</summary>
+    private static byte[] CorpusProgram(string fileName)
+    {
+        byte[] file = Corpus.Bytes(fileName);
+        int start = file.AsSpan().IndexOf((ReadOnlySpan<byte>)[1, 0, 4]);
+        Assert.True(start > 0);
+        int end = start + file.AsSpan(start).IndexOf("endstream"u8);
+        return file[start..end].AsSpan().TrimEnd((ReadOnlySpan<byte>)[(byte)'\r', (byte)'\n']).ToArray();
+    }
+
+    private static byte[] With(byte[] program, params (int Offset, byte Value)[] changes)
+    {
+        byte[] copy = [.. program];
+        foreach ((int offset, byte value) in changes)
+        {
+            copy[offset] = value;
+        }
+
+        return copy;
     }
 
     private static FontProgram Parse(byte[] font, FontProgramContext? context = null)

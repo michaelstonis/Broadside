@@ -96,8 +96,8 @@ public sealed class CcittFaxDecodeFilter : IImageFilter
     public bool TryReadHeader(ReadOnlySpan<byte> encoded, ImageFilterContext context, out ImageHeader header)
     {
         ArgumentNullException.ThrowIfNull(context);
-        CcittParameters parameters = ReadParameters(context.Filter, context.Width, report: false);
-        header = new ImageHeader(context.Width > 0 ? context.Width : parameters.Columns, context.Height > 0 ? context.Height : parameters.Rows, 1, 1)
+        CcittParameters parameters = ReadParameters(context.Filter, context.Geometry.Width, report: false);
+        header = new ImageHeader(new ImageGeometry(context.Geometry.Width > 0 ? context.Geometry.Width : parameters.Columns, context.Geometry.Height > 0 ? context.Geometry.Height : parameters.Rows, 1, 1))
         {
             ColorModel = ImageColorModel.Gray,
         };
@@ -110,14 +110,14 @@ public sealed class CcittFaxDecodeFilter : IImageFilter
     {
         ArgumentNullException.ThrowIfNull(context);
         FilterContext filter = context.Filter;
-        CcittParameters parameters = ReadParameters(filter, context.Width, report: false);
-        int width = context.Width > 0 ? context.Width : parameters.Columns;
-        int height = context.Height > 0 ? context.Height : parameters.Rows;
+        CcittParameters parameters = ReadParameters(filter, context.Geometry.Width, report: false);
+        int width = context.Geometry.Width > 0 ? context.Geometry.Width : parameters.Columns;
+        int height = context.Geometry.Height > 0 ? context.Geometry.Height : parameters.Rows;
 
         // With no height known, the stream path decodes and reports; otherwise report the parameters here.
         if (height > 0)
         {
-            parameters = ReadParameters(filter, context.Width, report: true);
+            parameters = ReadParameters(filter, context.Geometry.Width, report: true);
             if (!FitsLimit(parameters, context.MaxDecodedLength, filter))
             {
                 return null;
@@ -126,7 +126,7 @@ public sealed class CcittFaxDecodeFilter : IImageFilter
 
         if (width != parameters.Columns)
         {
-            filter.Report(DiagnosticCodes.CcittWidthMismatch, DiagnosticSeverity.Warning, string.Create(
+            filter.Report(CcittDiagnostics.CcittWidthMismatch, DiagnosticSeverity.Warning, string.Create(
                 CultureInfo.InvariantCulture,
                 $"The image is {width} pixels wide but CCITTFaxDecode Columns is {parameters.Columns}; rows are decoded at Columns and {(width < parameters.Columns ? "cut" : "padded with white")} to the width."));
         }
@@ -147,7 +147,7 @@ public sealed class CcittFaxDecodeFilter : IImageFilter
         DecodedImageBuilder? image = null;
         try
         {
-            if (!context.TryCreateImage(width, height, 1, 1, out image))
+            if (!context.TryCreateImage(new ImageGeometry(width, height, 1, 1), out image))
             {
                 return null;
             }
@@ -212,7 +212,7 @@ public sealed class CcittFaxDecodeFilter : IImageFilter
         DecodedImageBuilder? image = null;
         try
         {
-            if (!context.TryCreateImage(width, height, 1, 1, out image))
+            if (!context.TryCreateImage(new ImageGeometry(width, height, 1, 1), out image))
             {
                 return null;
             }
@@ -254,7 +254,7 @@ public sealed class CcittFaxDecodeFilter : IImageFilter
             return true;
         }
 
-        context.Report(DiagnosticCodes.DecodeParmsInvalid, DiagnosticSeverity.Error, string.Create(
+        context.Report(FilterDiagnostics.DecodeParmsInvalid, DiagnosticSeverity.Error, string.Create(
             CultureInfo.InvariantCulture,
             $"CCITTFaxDecode Columns {parameters.Columns} needs more memory than the {limit}-byte decoding limit allows; nothing is decoded."));
         return false;
@@ -271,24 +271,24 @@ public sealed class CcittFaxDecodeFilter : IImageFilter
         string at = string.Create(CultureInfo.InvariantCulture, $"row {decoder.FirstIssueRow + 1}");
         if ((issues & CcittIssues.MissingEol) != 0)
         {
-            context.Report(DiagnosticCodes.CcittMissingEol, DiagnosticSeverity.Warning, $"CCITTFaxDecode EndOfLine is true but lines have no EOL before them; they are decoded without (first issue at {at}).");
+            context.Report(CcittDiagnostics.CcittMissingEol, DiagnosticSeverity.Warning, $"CCITTFaxDecode EndOfLine is true but lines have no EOL before them; they are decoded without (first issue at {at}).");
         }
 
         if ((issues & CcittIssues.RunTooLong) != 0)
         {
-            context.Report(DiagnosticCodes.CcittRunTooLong, DiagnosticSeverity.Warning, $"CCITTFaxDecode runs go past the last column; they are cut there (first issue at {at}).");
+            context.Report(CcittDiagnostics.CcittRunTooLong, DiagnosticSeverity.Warning, $"CCITTFaxDecode runs go past the last column; they are cut there (first issue at {at}).");
         }
 
         if ((issues & CcittIssues.DamagedRowReplaced) != 0)
         {
-            context.Report(DiagnosticCodes.CcittDamagedRowReplaced, DiagnosticSeverity.Warning, string.Create(
+            context.Report(CcittDiagnostics.CcittDamagedRowReplaced, DiagnosticSeverity.Warning, string.Create(
                 CultureInfo.InvariantCulture,
                 $"CCITTFaxDecode data has damaged rows ({decoder.DamagedRows}); within DamagedRowsBeforeError they are replaced by the previous row or a white row (first issue at {at})."));
         }
 
         if ((issues & (CcittIssues.DamagedRowResynchronized | CcittIssues.DamagedData)) != 0)
         {
-            context.Report(DiagnosticCodes.CcittDataInvalid, DiagnosticSeverity.Error, (issues & CcittIssues.DamagedData) != 0
+            context.Report(CcittDiagnostics.CcittDataInvalid, DiagnosticSeverity.Error, (issues & CcittIssues.DamagedData) != 0
                 ? $"CCITTFaxDecode data has an invalid code and no EOL to resume at; the row is kept as far as it decodes, white after, and decoding stops ({at})."
                 : $"CCITTFaxDecode data has invalid codes; the damaged rows are kept as far as they decode, white after, and decoding resumes at the next EOL (first issue at {at}).");
         }
@@ -296,13 +296,13 @@ public sealed class CcittFaxDecodeFilter : IImageFilter
         bool cut = (issues & (CcittIssues.Truncated | CcittIssues.DamagedData)) != 0;
         if ((issues & CcittIssues.Truncated) != 0)
         {
-            context.Report(DiagnosticCodes.FilterDataTruncated, DiagnosticSeverity.Warning, string.Create(
+            context.Report(FilterDiagnostics.FilterDataTruncated, DiagnosticSeverity.Warning, string.Create(
                 CultureInfo.InvariantCulture,
                 $"CCITTFaxDecode data ends inside row {decoder.RowsDecoded}; the row is white after the last code."));
         }
         else if (!cut && ((issues & CcittIssues.FewerRows) != 0 || decoder.RowsDecoded < expectedRows))
         {
-            context.Report(DiagnosticCodes.FilterDataTruncated, DiagnosticSeverity.Warning, string.Create(
+            context.Report(FilterDiagnostics.FilterDataTruncated, DiagnosticSeverity.Warning, string.Create(
                 CultureInfo.InvariantCulture,
                 $"CCITTFaxDecode data ends after {decoder.RowsDecoded} rows where {Math.Max(expectedRows, 0)} are expected{(expectedRows > 0 ? "; the rest are white" : string.Empty)}."));
         }
@@ -362,7 +362,7 @@ public sealed class CcittFaxDecodeFilter : IImageFilter
         {
             if (report)
             {
-                context.Report(DiagnosticCodes.DecodeParmsInvalid, DiagnosticSeverity.Warning, $"CCITTFaxDecode {message}.");
+                context.Report(FilterDiagnostics.DecodeParmsInvalid, DiagnosticSeverity.Warning, $"CCITTFaxDecode {message}.");
             }
 
             return value;

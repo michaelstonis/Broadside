@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics.Colors;
 using Broadside.Graphics.Functions;
 using Broadside.Objects;
@@ -9,6 +10,7 @@ namespace Broadside.Graphics;
 /// <remarks>
 /// ISO 32000-2 §8.6.5.2, Table 62: <c>[/CalGray dictionary]</c>. A maps to X = XW·A^G, Y = YW·A^G, Z = ZW·A^G. A missing or
 /// invalid white point reads as D65, a negative black point as [0 0 0] and a gamma that is not positive as 1, each recorded once.
+/// <para>ISO 32000-2 §8.6.5.1.</para>
 /// </remarks>
 public sealed class PdfCalGrayColorSpace : PdfColorSpace
 {
@@ -49,7 +51,7 @@ public sealed class PdfCalGrayColorSpace : PdfColorSpace
         CieChecks.WhiteAndBlack(this, Cache!, dictionary, "CalGray");
         if (dictionary.ContainsKey(ColorSpaceNames.Gamma) && ColorEntries.Number(Cache!, dictionary, ColorSpaceNames.Gamma) is not > 0)
         {
-            Report(DiagnosticCodes.ColorSpaceEntryInvalid, "A CalGray Gamma is not a positive number; 1 is used.");
+            Report(ColorDiagnostics.ColorSpaceEntryInvalid, "A CalGray Gamma is not a positive number; 1 is used.");
         }
 
         return true;

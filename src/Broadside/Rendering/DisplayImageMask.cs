@@ -5,14 +5,14 @@ namespace Broadside.Rendering;
 
 /// <summary>
 /// An image mask interned in a display list: one bit per sample saying where something is painted, at the mask's own resolution.
-/// It is either a stencil mask, painted with the current fill colour (<see cref="IRenderingBackend.FillImageMask"/>), or the
+/// It is either an image mask, painted with the current fill colour (<see cref="IRenderingBackend.FillImageMask"/>), or the
 /// explicit mask of an image (<see cref="DisplayImage.Mask"/>), which shows the image where it paints.
 /// </summary>
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §8.9.6.2 (stencil masking) and §8.9.6.3 (explicit masking). Samples are 1 bit, in the §8.9.3 layout (rows top to
 /// bottom, most significant bit first, each row starting on a byte boundary). With the default Decode array <c>[0 1]</c> a sample
-/// 0 paints; with <c>[1 0]</c> (<see cref="IsInverted"/>) a sample 1 paints. Use <see cref="ImageRows.Stencil"/> to turn a row into
+/// 0 paints; with <c>[1 0]</c> (<see cref="IsInverted"/>) a sample 1 paints. Use <see cref="ImageRows.ImageMask"/> to turn a row into
 /// coverage. Rows the data did not reach paint nothing.
 /// </para>
 /// <para>
@@ -34,11 +34,11 @@ public sealed class DisplayImageMask
 
     /// <summary>Gets the width in samples.</summary>
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87 (Width).</remarks>
-    public int Width => _samples.Width;
+    public int Width => _samples.Geometry.Width;
 
     /// <summary>Gets the height in samples.</summary>
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87 (Height).</remarks>
-    public int Height => _samples.Height;
+    public int Height => _samples.Geometry.Height;
 
     /// <summary>Gets the number of bytes per row of <see cref="Samples"/>: ⌈<see cref="Width"/> / 8⌉.</summary>
     /// <remarks>ISO 32000-2 §8.9.3: each row starts on a byte boundary.</remarks>

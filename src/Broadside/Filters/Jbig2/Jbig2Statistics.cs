@@ -8,6 +8,7 @@ namespace Broadside.Filters.Jbig2;
 /// what its clause says (§7.4.2.2 steps 3 to 5, §7.4.3.2, §7.4.4.2, §7.4.5.2, §7.4.6.4, §7.4.7.5) and every procedure it invokes
 /// continues the same contexts. Pooled; dispose returns the arrays.
 /// </summary>
+/// <remarks>ISO 32000-2 §7.4.7.</remarks>
 internal sealed class Jbig2Statistics : IDisposable
 {
     private const int IntegerBytes = 13 * Jbig2IntegerDecoder.ContextCount;

@@ -32,6 +32,7 @@ namespace Broadside.Parsing;
 /// hooks 1 and 2 (§7.6.2: strings in an object stream are not separately encrypted). Members publish to the cache like any object.
 /// A member reference with a generation other than 0 resolves to null (§7.5.7: members have generation 0).
 /// </para>
+/// <para>ISO 32000-2 §7.5.3.</para>
 /// </remarks>
 internal sealed class ObjectLoader
 {
@@ -400,7 +401,7 @@ internal sealed class ObjectLoader
     private int LowestUnusedNumber()
     {
         _diagnostics.Report(
-            DiagnosticCodes.ObjectNumberOutOfRange,
+            SavingDiagnostics.ObjectNumberOutOfRange,
             DiagnosticSeverity.Warning,
             "The file holds object number 2147483647, so no number is left above it for a new object (ISO 32000-2 §7.3.10; Annex C, Table C.1); new objects take the lowest numbers the file neither lists nor refers to, and a save renumbers the file.");
         int number = 1;
@@ -542,7 +543,7 @@ internal sealed class ObjectLoader
         if (depth > MaxDepth)
         {
             _diagnostics.Report(
-                DiagnosticCodes.ReferenceChainTooDeep,
+                FileStructureDiagnostics.ReferenceChainTooDeep,
                 DiagnosticSeverity.Error,
                 string.Create(CultureInfo.InvariantCulture, $"Loading the object needs more than {MaxDepth} nested loads; read as null."),
                 objectReference: reference);
@@ -583,7 +584,7 @@ internal sealed class ObjectLoader
         if (entry.Kind == XrefEntryKind.Compressed)
         {
             _diagnostics.Report(
-                DiagnosticCodes.ObjectStreamCycle,
+                FileStructureDiagnostics.ObjectStreamCycle,
                 DiagnosticSeverity.Error,
                 string.Create(CultureInfo.InvariantCulture, $"Object stream {entry.Offset} needs this object, which it holds, to be decoded; read as null."),
                 objectReference: reference);
@@ -591,7 +592,7 @@ internal sealed class ObjectLoader
         else
         {
             _diagnostics.Report(
-                DiagnosticCodes.ObjectReferenceCycle,
+                FileStructureDiagnostics.ObjectReferenceCycle,
                 DiagnosticSeverity.Error,
                 "Loading the object needs the object itself (a stream's Length refers back to it); read as null where it is needed.",
                 objectReference: reference);
@@ -638,7 +639,7 @@ internal sealed class ObjectLoader
         if (CrossReference.TryGetEntry(number, out XrefEntry entry) && entry.Kind == XrefEntryKind.Compressed)
         {
             _diagnostics.Report(
-                DiagnosticCodes.ObjectStreamNested,
+                FileStructureDiagnostics.ObjectStreamNested,
                 DiagnosticSeverity.Error,
                 "The object stream holding this object is itself listed as stored in an object stream, which a stream cannot be; read as null.",
                 objectReference: member);
@@ -648,7 +649,7 @@ internal sealed class ObjectLoader
         if (Load(reference, depth + 1) is not CosStream stream)
         {
             _diagnostics.Report(
-                DiagnosticCodes.ObjectStreamInvalid,
+                FileStructureDiagnostics.ObjectStreamInvalid,
                 DiagnosticSeverity.Error,
                 string.Create(CultureInfo.InvariantCulture, $"The cross-reference entry places the object in object {number}, which is not a stream; read as null."),
                 objectReference: member);
@@ -658,7 +659,7 @@ internal sealed class ObjectLoader
         if (!stream.Dictionary.TryGetValue(KnownNames.Type, out CosObject? type) || !KnownNames.ObjStm.Equals(type))
         {
             _diagnostics.Report(
-                DiagnosticCodes.ObjectStreamTypeInvalid,
+                FileStructureDiagnostics.ObjectStreamTypeInvalid,
                 DiagnosticSeverity.Warning,
                 "The object stream's Type entry shall be /ObjStm; the stream is read as one.",
                 objectReference: reference);
@@ -713,7 +714,7 @@ internal sealed class ObjectLoader
         if (!found || offset == context.Offset)
         {
             _diagnostics.Report(
-                DiagnosticCodes.XrefEntryOffsetInvalid,
+                FileStructureDiagnostics.XrefEntryOffsetInvalid,
                 DiagnosticSeverity.Error,
                 "The cross-reference entry's offset does not point at the object's header, and the file holds no such header; read as null.",
                 context.Offset,
@@ -722,7 +723,7 @@ internal sealed class ObjectLoader
         }
 
         _diagnostics.Report(
-            DiagnosticCodes.XrefEntryOffsetInvalid,
+            FileStructureDiagnostics.XrefEntryOffsetInvalid,
             DiagnosticSeverity.Warning,
             string.Create(CultureInfo.InvariantCulture, $"The cross-reference entry's offset does not point at the object's header; the object is read from offset {offset}, where its header is."),
             context.Offset,
@@ -791,7 +792,7 @@ internal sealed class ObjectLoader
         if (!ended)
         {
             _diagnostics.Report(
-                DiagnosticCodes.MissingEndobj,
+                FileStructureDiagnostics.MissingEndobj,
                 DiagnosticSeverity.Warning,
                 "The object is not followed by the endobj keyword; it ends here.",
                 context.Offset + end.Start,

@@ -20,6 +20,7 @@ namespace Broadside.Security;
 /// <c>PDFMAC</c> (§6.4). Every field has a fixed length, so <see cref="TokenLength"/> is known before the file is digested and the
 /// space for the token can be reserved (Table 6, <c>MAC</c>: "Space for the MAC string shall be allocated before it is computed").
 /// </para>
+/// <para>ISO/TS 32004 §6.1, §6.2, §6.3 and §6.4.</para>
 /// </remarks>
 internal sealed class IntegrityCodeWriter
 {

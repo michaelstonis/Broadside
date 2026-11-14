@@ -12,7 +12,7 @@ internal readonly record struct GroupContent(bool Blends, bool Transparency);
 /// ISO 32000-2 §11.3.5) or is transparent at all. A group whose content only uses Normal has the same result whether it is isolated or
 /// not (§11.4.5: only blending sees the backdrop); one whose content is opaque gives nearly the same result in any blending space.
 /// </summary>
-/// <remarks>Reused for every group; allocates nothing.</remarks>
+/// <remarks>Reused for every group; allocates nothing. ISO 32000-2 §11.6.7.</remarks>
 internal sealed class GroupProbe : IRenderingBackend
 {
     private bool _blends;

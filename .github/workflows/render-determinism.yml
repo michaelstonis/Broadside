@@ -1,0 +1,154 @@
+# The software rasterizer draws the same bytes on every platform (issue #233). Each leg renders every page of every hand-written
+# corpus file at 72 and 150 DPI (RenderHashTests in tests/Broadside.Rendering.Tests) and uploads the hash manifest with the renders;
+# the compare job fails when any runner's hash differs, listing the pages and attaching diff images. Runs on every pull request that
+# touches code a render goes through, so later rendering changes are held to the guarantee.
+name: Render determinism
+
+on:
+  pull_request:
+    paths:
+      - 'src/Broadside/**'
+      - 'src/Broadside.Rendering/**'
+      - 'src/Broadside.Fonts.Standard14/**'
+      - 'src/Broadside.Fonts.Cmaps/**'
+      - 'tests/Corpus/**'
+      - 'tests/Broadside.GoldenImages/**'
+      - 'tests/Broadside.TestSupport/**'
+      - 'tests/Broadside.Rendering.Tests/**'
+      - 'global.json'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - 'src/Directory.Build.props'
+      - '.github/workflows/render-determinism.yml'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: render-determinism-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_GENERATE_ASPNET_CERTIFICATE: false
+  DiffEngine_Disabled: true
+
+jobs:
+  render:
+    name: render (${{ matrix.leg }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - leg: linux-x64
+            os: ubuntu-latest
+            hw-intrinsics: '1'
+          - leg: windows-x64
+            os: windows-latest
+            hw-intrinsics: '1'
+          - leg: macos-arm64
+            os: macos-latest
+            hw-intrinsics: '1'
+          # Vector128.IsHardwareAccelerated false: every SIMD kernel takes its scalar path, which must draw the same bytes.
+          - leg: linux-x64-no-intrinsics
+            os: ubuntu-latest
+            hw-intrinsics: '0'
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Build the rendering tests
+        run: dotnet build tests/Broadside.Rendering.Tests -c Release -warnaserror
+
+      - name: Render every corpus page and write the hash manifest
+        shell: bash
+        env:
+          DOTNET_EnableHWIntrinsic: ${{ matrix.hw-intrinsics }}
+          BROADSIDE_RENDER_HASH_OUTPUT: ${{ github.workspace }}/artifacts/render-hashes/${{ matrix.leg }}
+        run: >
+          dotnet test --project tests/Broadside.Rendering.Tests -c Release --no-build
+          -- --filter-trait "Category=RenderHash"
+
+      - name: Upload the manifest and renders
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: render-hashes-${{ matrix.leg }}
+          path: artifacts/render-hashes/${{ matrix.leg }}
+          if-no-files-found: error
+          retention-days: 7
+
+  compare:
+    name: compare
+    needs: render
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Download every runner's manifest
+        uses: actions/download-artifact@v8
+        with:
+          pattern: render-hashes-*
+          path: artifacts/render-hashes
+
+      - name: Name each run after its leg
+        shell: bash
+        run: |
+          cd artifacts/render-hashes
+          for run in render-hashes-*; do mv "$run" "${run#render-hashes-}"; done
+          ls
+
+      - name: Build the rendering tests
+        run: dotnet build tests/Broadside.Rendering.Tests -c Release -warnaserror
+
+      - name: Compare the manifests
+        env:
+          BROADSIDE_RENDER_HASH_COMPARE: ${{ github.workspace }}/artifacts/render-hashes
+        run: >
+          dotnet test --project tests/Broadside.Rendering.Tests -c Release --no-build
+          -- --filter-trait "Category=RenderHashComparison"
+
+      - name: Upload the diff images
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: render-hash-differences
+          path: artifacts/render-hashes/differences
+          if-no-files-found: ignore

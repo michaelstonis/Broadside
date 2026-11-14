@@ -10,12 +10,12 @@ internal readonly record struct SampleDifference(int Max, double Psnr, double Ov
     /// <summary>Measures <paramref name="a"/> against <paramref name="b"/>, which have the same size, components and 8-bit storage.</summary>
     public static SampleDifference Measure(DecodedImage a, DecodedImage b)
     {
-        int components = a.Components;
-        int width = a.Width;
+        int components = a.Geometry.Components;
+        int width = a.Geometry.Width;
         int max = 0;
         long over = 0;
         double squares = 0;
-        for (int y = 0; y < a.Height; y++)
+        for (int y = 0; y < a.Geometry.Height; y++)
         {
             ReadOnlySpan<byte> rowA = a.GetRow(y)[..(width * components)];
             ReadOnlySpan<byte> rowB = b.GetRow(y)[..(width * components)];
@@ -37,7 +37,7 @@ internal readonly record struct SampleDifference(int Max, double Psnr, double Ov
             }
         }
 
-        long pixels = (long)width * a.Height;
+        long pixels = (long)width * a.Geometry.Height;
         double mse = pixels == 0 ? 0 : squares / (pixels * components);
         double psnr = mse == 0 ? double.PositiveInfinity : 10 * Math.Log10(255.0 * 255.0 / mse);
         return new SampleDifference(max, psnr, pixels == 0 ? 0 : over / (double)pixels);

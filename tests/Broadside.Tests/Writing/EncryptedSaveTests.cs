@@ -101,13 +101,16 @@ public sealed class EncryptedSaveTests
         Assert.True(exitCode == 0, output);
     }
 
+    /// <summary>The unencrypted wrapper of an encrypted payload (#234): its named file is encrypted, the document is not.</summary>
+    private const string UnencryptedWrapper = "encrypted-wrapper.pdf";
+
     /// <summary>Every encrypted corpus file that opens cleanly, with each way of saving it.</summary>
     public static TheoryData<string, EncryptedSaveMode> EncryptedFilesAndModes
     {
         get
         {
             var data = new TheoryData<string, EncryptedSaveMode>();
-            foreach (string file in Corpus.WellFormedFileNames.Concat(Corpus.PasswordProtectedFileNames).Where(name => name.StartsWith("encrypted-", StringComparison.Ordinal)))
+            foreach (string file in Corpus.WellFormedFileNames.Concat(Corpus.PasswordProtectedFileNames).Where(name => name.StartsWith("encrypted-", StringComparison.Ordinal) && name != UnencryptedWrapper))
             {
                 foreach (EncryptedSaveMode mode in Enum.GetValues<EncryptedSaveMode>())
                 {

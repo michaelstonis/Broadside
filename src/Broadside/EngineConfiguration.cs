@@ -44,7 +44,7 @@ internal sealed class EngineConfiguration
     public StreamEncoderRegistry StreamEncoders { get; private init; } = StreamEncoderRegistry.Default;
 
     /// <summary>Gets the most bytes one stream may decode to (issue #38).</summary>
-    public long MaxDecodedStreamLength { get; private init; } = PdfOptions.DefaultMaxDecodedStreamLength;
+    public long MaxDecodedLength { get; private init; } = PdfOptions.DefaultMaxDecodedLength;
 
     /// <summary>Gets the security handlers: the standard handler with the options' registrations applied (issue #42).</summary>
     public SecurityHandlerRegistry SecurityHandlers { get; private init; } = SecurityHandlerRegistry.Default;
@@ -101,7 +101,7 @@ internal sealed class EngineConfiguration
         Logger = ObjectLog.CreateLogger(options.LoggerFactory ?? hostLoggerFactory),
         Filters = options.Filters.Count == 0 ? FilterRegistry.Default : FilterRegistry.Create(options.Filters),
         StreamEncoders = options.StreamEncoders.Count == 0 ? StreamEncoderRegistry.Default : StreamEncoderRegistry.Create(options.StreamEncoders),
-        MaxDecodedStreamLength = options.MaxDecodedStreamLength,
+        MaxDecodedLength = options.MaxDecodedLength,
         SecurityHandlers = options.SecurityHandlers.Count == 0 ? SecurityHandlerRegistry.Default : SecurityHandlerRegistry.Create(options.SecurityHandlers),
         Credentials = options.Credentials,
         StreamBufferLimit = options.StreamBufferLimit,

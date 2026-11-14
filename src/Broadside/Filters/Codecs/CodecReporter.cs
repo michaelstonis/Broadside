@@ -7,7 +7,7 @@ namespace Broadside.Filters.Codecs;
 /// <param name="Severity">The severity.</param>
 /// <param name="Message">The message.</param>
 /// <param name="Key">The deduplication key besides the code, or <see langword="null"/>.</param>
-internal readonly record struct CodecDiagnostic(string Code, DiagnosticSeverity Severity, string Message, string? Key);
+internal readonly record struct CodecDiagnostic(DiagnosticCode Code, DiagnosticSeverity Severity, string Message, string? Key);
 
 /// <summary>
 /// Reports the deviations of one image codec call through its filter context, each code (and key) once per call: the one
@@ -53,16 +53,16 @@ internal class CodecReporter
     /// <param name="code">The code.</param>
     /// <param name="key">The deduplication key besides the code.</param>
     /// <returns><see langword="true"/> when the reporter is not silent and the code (and key) was not reported in this call.</returns>
-    public bool ShouldReport(string code, string? key = null) => !_silent && !_reported.Contains(key is null ? code : code + "/" + key);
+    public bool ShouldReport(DiagnosticCode code, string? key = null) => !_silent && !_reported.Contains(key is null ? code.Name : code.Name + "/" + key);
 
     /// <summary>Records a deviation unless one with the same code (and <paramref name="key"/>) was already recorded in this call.</summary>
     /// <param name="code">The code.</param>
     /// <param name="severity">The severity.</param>
     /// <param name="message">The message.</param>
     /// <param name="key">The deduplication key besides the code (one report per distinct key).</param>
-    public void Report(string code, DiagnosticSeverity severity, string message, string? key = null)
+    public void Report(DiagnosticCode code, DiagnosticSeverity severity, string message, string? key = null)
     {
-        if (_silent || !_reported.Add(key is null ? code : code + "/" + key))
+        if (_silent || !_reported.Add(key is null ? code.Name : code.Name + "/" + key))
         {
             return;
         }

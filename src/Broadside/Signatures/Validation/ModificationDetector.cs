@@ -27,6 +27,7 @@ namespace Broadside.Signatures.Validation;
 /// a change by itself: it matters only through an existing object that comes to refer to it, which is classified. Objects the walk
 /// from the catalog does not reach (outlines, the structure tree, name trees) are <see cref="PdfModificationKind.Other"/>.
 /// </para>
+/// <para>ISO 32000-2 §12.8.2.1.</para>
 /// </remarks>
 internal sealed class ModificationDetector
 {

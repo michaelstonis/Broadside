@@ -11,6 +11,7 @@ namespace Broadside.Content;
 /// ISO 32000-2 §8.5.2, Table 58. The current path is not part of the graphics state: <c>q</c> and <c>Q</c> leave it alone, and a
 /// painting operator ends it (§8.5.2.1). When no processor wants paths or clips the builder tracks only whether a path and a current
 /// point exist, so diagnostics stay the same while no geometry is stored.
+/// <para>ISO 32000-2 §8.5.1.</para>
 /// </remarks>
 internal sealed class PathBuilder
 {

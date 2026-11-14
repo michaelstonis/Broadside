@@ -372,7 +372,7 @@ public sealed class Type3FontTests
             Lines.Add($"Fill {DeviceBox(path.Path.Bounds, context.State.Ctm)} rgb={Colour(context)}");
 
         public override void PaintImage(in ImageEvent image, ContentContext context) =>
-            Lines.Add($"{(image.IsStencil ? "Mask" : "Image")} {DeviceBox(new PdfRectangle(0, 0, 1, 1), image.Ctm)} rgb={Colour(context)}");
+            Lines.Add($"{(image.IsImageMask ? "Mask" : "Image")} {DeviceBox(new PdfRectangle(0, 0, 1, 1), image.Ctm)} rgb={Colour(context)}");
 
         public override void IntersectClip(in ClipEvent clip, ContentContext context)
         {

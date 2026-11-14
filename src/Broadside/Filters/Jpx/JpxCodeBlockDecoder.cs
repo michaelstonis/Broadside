@@ -45,6 +45,7 @@ internal readonly record struct JpxBlockCoding(int Width, int Height, int Orient
 /// insignificant there. The MQ registers stay in locals across a pass (<see cref="MqDecoder.Decode(ref byte, ReadOnlySpan{byte}, ref uint, ref uint, ref int, ref int)"/>).
 /// </para>
 /// <para>Allocation-free per code-block: one instance per decode call reuses its pooled arrays until <see cref="Dispose"/>.</para>
+/// <para>ISO 32000-2 §7.4.9.</para>
 /// </remarks>
 internal sealed class JpxCodeBlockDecoder : IDisposable
 {

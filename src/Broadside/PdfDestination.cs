@@ -61,7 +61,7 @@ public abstract class PdfDestination
                 return null;
             default:
                 document.DiagnosticSink.Report(
-                    DiagnosticCodes.DestinationInvalid,
+                    NavigationDiagnostics.DestinationInvalid,
                     DiagnosticSeverity.Warning,
                     "A destination is not an array, a name or a string; it is ignored.",
                     objectReference: reference);

@@ -103,6 +103,7 @@ internal interface IObjectCache
 /// </summary>
 /// <param name="loader">The loader, to resolve a reference with.</param>
 /// <param name="context">The stream object being loaded.</param>
+/// <remarks>ISO 32000-2 §7.3.8.</remarks>
 internal sealed class StreamLengthResolver(ObjectLoader loader, ObjectLoadContext context) : IStreamLengthResolver
 {
     /// <summary>The streams whose <c>Length</c> this thread is resolving, across loaders.</summary>

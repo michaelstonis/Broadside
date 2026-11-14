@@ -156,7 +156,7 @@ public sealed class AttachmentWritingTests
         byte[] file = Save(document, new PdfSaveOptions().WithIncrementalUpdate(true));
         using PdfDocument reopened = PdfDocument.Open(file);
         PdfFileSpecification catalogFile = Assert.Single(reopened.AssociatedFiles);
-        PdfFileSpecification annotationFile = Assert.Single(reopened.ReadAssociatedFiles(reopened.Pages[0].Annotations[0].Dictionary));
+        PdfFileSpecification annotationFile = Assert.Single(reopened.Pages[0].Annotations[0].AssociatedFiles);
         PdfEmbeddedFileEntry attachment = Assert.Single(reopened.EmbeddedFiles);
         Assert.NotNull(catalogFile.Reference);
         Assert.Equal(catalogFile.Reference, annotationFile.Reference);

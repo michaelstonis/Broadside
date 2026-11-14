@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -23,6 +24,7 @@ namespace Broadside.Structure;
 /// maps, namespaces, class maps, attributes, IDs and the text entries are edited in place. New objects are made with
 /// <see cref="PdfDocument.AddObject"/>, so both full and incremental saves write them.
 /// </para>
+/// <para>ISO 32000-2 §12.3.2.3.</para>
 /// </remarks>
 public sealed class PdfStructureTreeRoot
 {
@@ -56,7 +58,7 @@ public sealed class PdfStructureTreeRoot
                 }
                 else if (kid.Kind != KidKind.Invalid)
                 {
-                    _context.Report(DiagnosticCodes.StructTreeRootInvalid, "The structure tree root's K holds something other than a structure element (Table 354); skipped.", Reference);
+                    _context.Report(StructureDiagnostics.StructTreeRootInvalid, "The structure tree root's K holds something other than a structure element (Table 354); skipped.", Reference);
                 }
             }
 
@@ -105,8 +107,8 @@ public sealed class PdfStructureTreeRoot
     public CosArray? PronunciationLexicon => ViewReading.Get(_context.Document, Dictionary, StructureNames.PronunciationLexicon) as CosArray;
 
     /// <summary>Gets the files associated with the whole tree (<c>AF</c>), in order.</summary>
-    /// <remarks>ISO 32000-2 Tables 354 and 355 (PDF 2.0), and §14.13.6. Read through <see cref="PdfDocument.ReadAssociatedFiles"/> on every call.</remarks>
-    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => _context.Document.ReadAssociatedFiles(Dictionary, Reference);
+    /// <remarks>ISO 32000-2 Tables 354 and 355 (PDF 2.0), and §14.13.6. Read on every call, as <see cref="PdfDocument.AssociatedFiles"/> is.</remarks>
+    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => AssociatedFileReader.ReadOwner(_context.Document, Dictionary, Reference);
 
     /// <summary>Gets every element reachable from the root, in document order: depth first, each element before its children, children in <c>K</c> order; an element reachable twice is listed once.</summary>
     /// <remarks>ISO 32000-2 §14.7.2, §14.8.2.5 (logical order). A snapshot, built on first use and again after the tree changes.</remarks>
@@ -262,7 +264,7 @@ public sealed class PdfStructureTreeRoot
                 return new PdfStructureElement(_context, dictionary, null, null, parentKnown: false, depth: 0);
             }
 
-            _context.Report(DiagnosticCodes.IdTreeEntryInvalid, "The IDTree maps an ID to an element whose ID differs (Table 354); the element is searched through K.", Reference);
+            _context.Report(StructureDiagnostics.IdTreeEntryInvalid, "The IDTree maps an ID to an element whose ID differs (Table 354); the element is searched through K.", Reference);
         }
 
         return _context.Walk.TryGetById(id, out PdfStructureElement? element) ? element : null;
@@ -333,7 +335,7 @@ public sealed class PdfStructureTreeRoot
                 }
             }
 
-            _context.Report(DiagnosticCodes.ParentTreeEntryInvalid, $"The parent tree entry {key} of an object content item does not name an element whose K holds the object (§14.7.5.4); the element is searched through K.", contentItem as CosReference);
+            _context.Report(StructureDiagnostics.ParentTreeEntryInvalid, $"The parent tree entry {key} of an object content item does not name an element whose K holds the object (§14.7.5.4); the element is searched through K.", contentItem as CosReference);
         }
 
         return _context.Walk.TryGetObjectParent(resolved, out PdfStructureElement? found) ? found : null;

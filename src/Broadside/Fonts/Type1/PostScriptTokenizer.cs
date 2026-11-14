@@ -70,6 +70,7 @@ internal readonly record struct PostScriptToken(PostScriptTokenKind Kind, int St
 /// numbers, literal strings with nested parentheses and escapes, hexadecimal strings, and the delimiters <c>[ ] { } &lt;&lt; &gt;&gt;</c>.
 /// After <c>n RD</c> (or <c>-|</c>) a reader takes one separator byte and then <c>n</c> binary bytes with <see cref="ReadBinary"/>.
 /// Never throws: malformed input becomes executable names, unterminated strings run to the end of the input.
+/// <para>ISO 32000-2 §9.9.1.</para>
 /// </remarks>
 internal ref struct PostScriptTokenizer
 {

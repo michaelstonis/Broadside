@@ -21,6 +21,7 @@ namespace Broadside;
 /// integer (a common producer error) uses it as a 0-based page index. A page that is not in the page tree has no
 /// <see cref="PageIndex"/>, with a diagnostic when it is asked for.
 /// </para>
+/// <para>ISO 32000-2 §12.3.2.1 and Annex G.4.</para>
 /// </remarks>
 public sealed class PdfExplicitDestination : PdfDestination
 {
@@ -310,10 +311,10 @@ public sealed class PdfExplicitDestination : PdfDestination
     }
 
     private void Report(string message) =>
-        Document.DiagnosticSink.Report(DiagnosticCodes.DestinationInvalid, DiagnosticSeverity.Warning, message, objectReference: Owner);
+        Document.DiagnosticSink.Report(NavigationDiagnostics.DestinationInvalid, DiagnosticSeverity.Warning, message, objectReference: Owner);
 
     private void ReportPageNotFound(string message) =>
-        Document.DiagnosticSink.Report(DiagnosticCodes.DestinationPageNotFound, DiagnosticSeverity.Warning, message + " It shows no page.", objectReference: Owner);
+        Document.DiagnosticSink.Report(NavigationDiagnostics.DestinationPageNotFound, DiagnosticSeverity.Warning, message + " It shows no page.", objectReference: Owner);
 
     /// <summary>A parameter of Table 149.</summary>
     private enum Slot

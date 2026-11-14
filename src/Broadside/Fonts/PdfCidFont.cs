@@ -236,7 +236,7 @@ public abstract class PdfCidFont
     internal CosObject? Get(CosName key) => Parent.GetFrom(Dictionary, key);
 
     /// <summary>Records a deviation found in this CIDFont.</summary>
-    internal void Report(string code, DiagnosticSeverity severity, string message) =>
+    internal void Report(DiagnosticCode code, DiagnosticSeverity severity, string message) =>
         Document.DiagnosticSink.Report(code, severity, message, objectReference: Reference ?? Parent.Reference);
 
     /// <summary>Reads a <c>CIDSystemInfo</c> dictionary (Table 114); <see langword="null"/> unless Registry and Ordering are strings.</summary>

@@ -30,6 +30,7 @@ namespace Broadside.Filters.Dct;
 /// <c>Shuffle</c>s, <c>ConditionalSelect</c>, <c>Min</c>/<c>Max</c>. The source is BCL-only, so the Blazor sample's kernel benchmark
 /// links it.
 /// </para>
+/// <para>ISO 32000-2 §7.4.8.</para>
 /// </remarks>
 internal static partial class InverseDct
 {

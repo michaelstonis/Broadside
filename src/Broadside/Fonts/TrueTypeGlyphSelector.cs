@@ -56,7 +56,7 @@ internal sealed class TrueTypeGlyphSelector
             // Both flags and a Differences array: the producer meant the names (pdf.js and PDFBox read it as nonsymbolic).
             symbolic = false;
             font.Report(
-                DiagnosticCodes.FontGlyphMappingFallback,
+                FontDiagnostics.FontGlyphMappingFallback,
                 DiagnosticSeverity.Information,
                 "The font descriptor sets both the Symbolic and Nonsymbolic flags (ISO 32000-2 §9.8.2, Table 121) and the encoding has a Differences array; glyphs are selected by name as for a nonsymbolic font.");
         }
@@ -170,7 +170,7 @@ internal sealed class TrueTypeGlyphSelector
     }
 
     private void ReportFallback(byte code, string what) => _font.Report(
-        DiagnosticCodes.FontGlyphMappingFallback,
+        FontDiagnostics.FontGlyphMappingFallback,
         DiagnosticSeverity.Information,
         string.Create(CultureInfo.InvariantCulture, $"Character code {code} of the TrueType font: {what} (ISO 32000-2 §9.6.5.4 lets a processor choose a mapping)."));
 }

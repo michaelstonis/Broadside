@@ -10,6 +10,7 @@ namespace Broadside;
 /// or object-level XMP (<see cref="PdfObjectMetadata.Declarations"/>), whose scope is that object. There is no catalog key. The
 /// <c>https</c> spelling of the namespace, which published documents also use, is read too; URIs are trimmed of XML white space.
 /// Exposed, not validated (a PDF/A file also needs an extension schema, §9).
+/// <para>ISO 14289-2 §7.2.</para>
 /// </remarks>
 public sealed class PdfDeclaration
 {

@@ -15,8 +15,12 @@ namespace Broadside.Diagnostics;
 /// </para>
 /// <para>
 /// Codes are stable PascalCase identifiers, such as <c>StreamLengthInvalid</c> or <c>PageTreeCountMismatch</c>; match on
-/// <see cref="Code"/>, <see cref="Offset"/> and <see cref="ObjectReference"/>, never on <see cref="Message"/>. A document records each
+/// <see cref="Code"/> (or <see cref="Kind"/>), <see cref="Offset"/> and <see cref="ObjectReference"/>, never on <see cref="Message"/>. A document records each
 /// repair once: the same code at the same offset in the same object is not recorded twice, however often it is met.
+/// </para>
+/// <para>
+/// Broadside's codes are listed by area in the catalog classes, such as <see cref="FileStructureDiagnostics"/>; <see cref="Kind"/>
+/// gives the code's area, default severity and clause.
 /// </para>
 /// <para>
 /// ISO 32000-2 §7.5 describes the file structure a reader repairs (cross-reference table, trailer, <c>startxref</c>) but does not
@@ -26,6 +30,8 @@ namespace Broadside.Diagnostics;
 /// </remarks>
 public sealed class Diagnostic
 {
+    private DiagnosticCode? _kind;
+
     /// <summary>Initializes a new instance of the <see cref="Diagnostic"/> class.</summary>
     /// <param name="code">The stable identifier of the kind of deviation.</param>
     /// <param name="severity">How much the repair may have changed the document.</param>
@@ -43,8 +49,28 @@ public sealed class Diagnostic
         ObjectReference = objectReference;
     }
 
-    /// <summary>Gets the stable identifier of the kind of deviation.</summary>
+    /// <summary>Initializes a new instance of the <see cref="Diagnostic"/> class from a typed code.</summary>
+    /// <param name="code">The kind of deviation; its <see cref="DiagnosticCode.Name"/> becomes <see cref="Code"/>.</param>
+    /// <param name="severity">How much the repair may have changed the document.</param>
+    /// <param name="message">A human-readable description of the deviation and the repair.</param>
+    /// <param name="offset">The byte offset in the file where the deviation was found, when known.</param>
+    /// <param name="objectReference">The indirect object the deviation is in, when known.</param>
+    internal Diagnostic(DiagnosticCode code, DiagnosticSeverity severity, string message, long? offset = null, CosReference? objectReference = null)
+        : this((code ?? throw new ArgumentNullException(nameof(code))).Name, severity, message, offset, objectReference)
+    {
+        _kind = code;
+    }
+
+    /// <summary>Gets the stable identifier of the kind of deviation: the <see cref="DiagnosticCode.Name"/> of <see cref="Kind"/>.</summary>
     public string Code { get; }
+
+    /// <summary>
+    /// Gets the kind of deviation as a typed code: the catalog's code of that name, or, for a code outside the catalog (such as one a
+    /// third-party filter reports), a code with <see cref="DiagnosticArea.None"/> whose default severity is <see cref="Severity"/>.
+    /// </summary>
+    public DiagnosticCode Kind => _kind ??= DiagnosticCatalog.TryGet(Code, out DiagnosticCode? known)
+        ? known
+        : new DiagnosticCode(Code, DiagnosticArea.None, Severity, clause: null);
 
     /// <summary>Gets how much the repair may have changed the document.</summary>
     public DiagnosticSeverity Severity { get; }

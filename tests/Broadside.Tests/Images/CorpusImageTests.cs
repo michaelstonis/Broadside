@@ -19,7 +19,7 @@ public sealed class CorpusImageTests
         PdfImage image = document.Pages[0].GetImage("Im0")!;
         using DecodedImage decoded = image.Decode()!;
 
-        Assert.Equal((10, 3, 1, 1, 1, 2), (decoded.Width, decoded.Height, decoded.Components, decoded.BitsPerComponent, decoded.StorageBits, decoded.Stride));
+        Assert.Equal((10, 3, 1, 1, 1, 2), (decoded.Geometry.Width, decoded.Geometry.Height, decoded.Geometry.Components, decoded.Geometry.BitsPerComponent, decoded.StorageBits, decoded.Stride));
         Assert.Equal(new byte[] { 0x80, 0x7F, 0x55, 0x7F, 0xF8, 0x3F }, decoded.Samples.ToArray());
         Assert.Equal(
             new ushort[] { 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0 },
@@ -42,9 +42,9 @@ public sealed class CorpusImageTests
 
         Assert.Equal(new byte[] { 0x1B, 0x3F, 0xF9, 0x7F }, decoded.Samples.ToArray());
         byte[] gray = new byte[5];
-        ImageRows.UnpackScaled(decoded.GetRow(0), decoded.StorageBits, decoded.BitsPerComponent, 5, gray);
+        ImageRows.UnpackScaled(decoded.GetRow(0), decoded.StorageBits, decoded.Geometry.BitsPerComponent, 5, gray);
         Assert.Equal(new byte[] { 0, 85, 170, 255, 0 }, gray);
-        ImageRows.UnpackScaled(decoded.GetRow(1), decoded.StorageBits, decoded.BitsPerComponent, 5, gray);
+        ImageRows.UnpackScaled(decoded.GetRow(1), decoded.StorageBits, decoded.Geometry.BitsPerComponent, 5, gray);
         Assert.Equal(new byte[] { 255, 255, 170, 85, 85 }, gray);
         Assert.False(image.Interpolate);
         Assert.Null(image.Intent);
@@ -79,7 +79,7 @@ public sealed class CorpusImageTests
         PdfImage image = document.Pages[0].GetImage("Im0")!;
         using DecodedImage decoded = image.Decode()!;
 
-        Assert.Equal((16, 16, 18), (decoded.BitsPerComponent, decoded.StorageBits, decoded.Stride));
+        Assert.Equal((16, 16, 18), (decoded.Geometry.BitsPerComponent, decoded.StorageBits, decoded.Stride));
         Assert.Equal(new ushort[] { 0x12FF, 0xFF12, 0x0001, 0x8000, 0x7FFF, 0xFFFF, 0x0000, 0x1234, 0xABCD }, Row(decoded, 0));
         Assert.Equal(new ushort[] { 0xFFFF, 0x0000, 0x00FF, 0xFF00, 0x4321, 0x8001, 0x0F0F, 0xF0F0, 0x5555 }, Row(decoded, 1));
 
@@ -111,8 +111,8 @@ public sealed class CorpusImageTests
         PdfImage image = document.Pages[0].GetImage("Im0")!;
         using DecodedImage decoded = image.Decode()!;
 
-        Assert.True(image.IsStencil);
-        Assert.Equal(PdfImageMaskKind.Stencil, image.MaskKind);
+        Assert.True(image.IsImageMask);
+        Assert.Equal(PdfImageMaskKind.ImageMask, image.MaskKind);
         Assert.Null(image.ColorSpace);
         Assert.Equal(1, image.BitsPerComponent);
         Assert.Equal([1.0, 0.0], image.DecodeArray);
@@ -122,7 +122,7 @@ public sealed class CorpusImageTests
         string[] painted = [.. Enumerable.Range(0, 8).Select(y =>
         {
             byte[] coverage = new byte[8];
-            ImageRows.Stencil(decoded.GetRow(y), 8, map.IsInverted, coverage);
+            ImageRows.ImageMask(decoded.GetRow(y), 8, map.IsInverted, coverage);
             return string.Concat(coverage.Select(c => c == 255 ? '#' : '.'));
         })];
         Assert.Equal(["...#....", "...##...", "######..", "#######.", "######..", "...##...", "...#....", "........"], painted);
@@ -138,10 +138,10 @@ public sealed class CorpusImageTests
         Assert.Equal(PdfImageMaskKind.Explicit, image.MaskKind);
         PdfImage mask = image.Mask!;
         Assert.Equal((16, 16), (mask.Width, mask.Height));
-        Assert.True(mask.IsStencil);
+        Assert.True(mask.IsImageMask);
         using DecodedImage samples = image.Decode()!;
         using DecodedImage maskSamples = mask.Decode()!;
-        Assert.Equal((16, 16, 2), (maskSamples.Width, maskSamples.Height, maskSamples.Stride));
+        Assert.Equal((16, 16, 2), (maskSamples.Geometry.Width, maskSamples.Geometry.Height, maskSamples.Stride));
 
         // The disc of radius 7 about (7.5, 7.5): sample 0 (inside) shows the image. Sampled at each image pixel's centre, the four
         // corner pixels fall outside it, as poppler renders them white.
@@ -149,7 +149,7 @@ public sealed class CorpusImageTests
         byte[] coverage = new byte[16];
         for (int y = 0; y < 4; y++)
         {
-            ImageRows.Stencil(maskSamples.GetRow(ImageRows.MaskIndex(y, 4, 16)), 16, mask.CreateDecodeMap(maskSamples).IsInverted, coverage);
+            ImageRows.ImageMask(maskSamples.GetRow(ImageRows.MaskIndex(y, 4, 16)), 16, mask.CreateDecodeMap(maskSamples).IsInverted, coverage);
             for (int x = 0; x < 4; x++)
             {
                 shown[(4 * y) + x] = coverage[ImageRows.MaskIndex(x, 4, 16)] == 255;
@@ -196,7 +196,7 @@ public sealed class CorpusImageTests
         PdfImage softMask = image.Mask!;
         Assert.Same(PdfDeviceGrayColorSpace.Instance, softMask.ColorSpace);
         using DecodedImage alpha = softMask.Decode()!;
-        Assert.Equal((2, 8, 1), (alpha.Width, alpha.Height, alpha.Components));
+        Assert.Equal((2, 8, 1), (alpha.Geometry.Width, alpha.Geometry.Height, alpha.Geometry.Components));
         Assert.Equal(new byte[] { 0, 16, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240 }, alpha.Samples.ToArray());
         using DecodedImage colour = image.Decode()!;
         Assert.Equal(new ushort[] { 0, 60, 191, 60, 60, 175, 120, 60, 159, 180, 60, 143 }, Row(colour, 1));

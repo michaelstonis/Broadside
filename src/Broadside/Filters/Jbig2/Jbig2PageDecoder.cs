@@ -134,7 +134,7 @@ internal sealed class Jbig2PageDecoder : IDisposable
             if (segment.Page != 0)
             {
                 _reporter.Report(
-                    DiagnosticCodes.Jbig2GlobalsInvalid,
+                    Jbig2Diagnostics.Jbig2GlobalsInvalid,
                     DiagnosticSeverity.Warning,
                     "The JBIG2Globals stream holds segments associated with a page, which belong in the image stream (ISO 32000-2 §7.4.7); they are ignored.");
                 continue;
@@ -152,7 +152,7 @@ internal sealed class Jbig2PageDecoder : IDisposable
         DecodedImageBuilder? image = null;
         try
         {
-            if (!context.TryCreateImage(width, height, 1, 1, out image))
+            if (!context.TryCreateImage(new ImageGeometry(width, height, 1, 1), out image))
             {
                 return null;
             }
@@ -176,7 +176,7 @@ internal sealed class Jbig2PageDecoder : IDisposable
                 if (segment.Page != pageNumber)
                 {
                     _reporter.Report(
-                        DiagnosticCodes.Jbig2PageNumberNotOne,
+                        Jbig2Diagnostics.Jbig2PageNumberNotOne,
                         DiagnosticSeverity.Warning,
                         string.Create(CultureInfo.InvariantCulture, $"The JBIG2 stream holds segments of more than one page; those of page {segment.Page} are ignored and page {pageNumber} is decoded (ISO 32000-2 §7.4.7)."),
                         "other");
@@ -198,7 +198,7 @@ internal sealed class Jbig2PageDecoder : IDisposable
             if (unused > 0)
             {
                 _reporter.Report(
-                    DiagnosticCodes.Jbig2IntermediateRegionUnused,
+                    Jbig2Diagnostics.Jbig2IntermediateRegionUnused,
                     DiagnosticSeverity.Warning,
                     string.Create(CultureInfo.InvariantCulture, $"The JBIG2 page has {unused} intermediate region(s) no refinement region refers to (ITU-T T.88 §8.2 step 6); they are dropped."));
             }
@@ -233,7 +233,7 @@ internal sealed class Jbig2PageDecoder : IDisposable
         if (page is not (0 or 1))
         {
             _reporter.Report(
-                DiagnosticCodes.Jbig2PageNumberNotOne,
+                Jbig2Diagnostics.Jbig2PageNumberNotOne,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"The JBIG2 image's segments are associated with page {page}, where ISO 32000-2 §7.4.7 requires 1; that page is decoded."));
         }
@@ -264,7 +264,7 @@ internal sealed class Jbig2PageDecoder : IDisposable
                 else
                 {
                     _reporter.Report(
-                        DiagnosticCodes.Jbig2TableInvalid,
+                        Jbig2Diagnostics.Jbig2TableInvalid,
                         DiagnosticSeverity.Error,
                         string.Create(CultureInfo.InvariantCulture, $"The JBIG2 code table segment {segment.Number} {error}; segments that refer to it are not decoded."));
                 }
@@ -282,7 +282,7 @@ internal sealed class Jbig2PageDecoder : IDisposable
                 if (Jbig2SegmentType.IsRegion(segment.Type) || segment.Type is Jbig2SegmentType.PageInformation or Jbig2SegmentType.EndOfPage or Jbig2SegmentType.EndOfStripe)
                 {
                     _reporter.Report(
-                        DiagnosticCodes.Jbig2SegmentInvalid,
+                        Jbig2Diagnostics.Jbig2SegmentInvalid,
                         DiagnosticSeverity.Error,
                         string.Create(CultureInfo.InvariantCulture, $"The JBIG2 segment {segment.Number} of type {segment.Type} is associated with no page, which ITU-T T.88 §7.3.2 does not allow; it is skipped."));
                     return true;
@@ -337,12 +337,12 @@ internal sealed class Jbig2PageDecoder : IDisposable
     }
 
     private void ReportEnd(string what) => _reporter.Report(
-        DiagnosticCodes.Jbig2EndOfPagePresent,
+        Jbig2Diagnostics.Jbig2EndOfPagePresent,
         DiagnosticSeverity.Warning,
         $"The JBIG2 stream holds {what}, which ISO 32000-2 §7.4.7 does not allow; decoding of the page stops there.");
 
     private void ReportReserved(in Jbig2Segment segment) => _reporter.Report(
-        DiagnosticCodes.Jbig2SegmentTypeReserved,
+        Jbig2Diagnostics.Jbig2SegmentTypeReserved,
         DiagnosticSeverity.Warning,
         string.Create(CultureInfo.InvariantCulture, $"The JBIG2 segment {segment.Number} has the reserved type {segment.Type} (ITU-T T.88 §7.3; type 54, colour palette, is forbidden by ISO 32000-2 §7.4.7); it is skipped."),
         segment.Type.ToString(CultureInfo.InvariantCulture));
@@ -368,7 +368,7 @@ internal sealed class Jbig2PageDecoder : IDisposable
         if (_havePage)
         {
             _reporter.Report(
-                DiagnosticCodes.Jbig2SegmentInvalid,
+                Jbig2Diagnostics.Jbig2SegmentInvalid,
                 DiagnosticSeverity.Error,
                 string.Create(CultureInfo.InvariantCulture, $"The JBIG2 page has a second page information segment ({segment.Number}); it is ignored."),
                 "page");
@@ -378,7 +378,7 @@ internal sealed class Jbig2PageDecoder : IDisposable
         if (data.Length < 19)
         {
             _reporter.Report(
-                DiagnosticCodes.Jbig2SegmentInvalid,
+                Jbig2Diagnostics.Jbig2SegmentInvalid,
                 DiagnosticSeverity.Error,
                 string.Create(CultureInfo.InvariantCulture, $"The JBIG2 page information segment {segment.Number} has {data.Length} data bytes where ITU-T T.88 §7.4.8 needs 19; the page is white with the OR operator."));
             RequirePage();
@@ -392,7 +392,7 @@ internal sealed class Jbig2PageDecoder : IDisposable
         if (width != (uint)bitmap.Width || (height != uint.MaxValue && height != (uint)bitmap.Height))
         {
             _reporter.Report(
-                DiagnosticCodes.Jbig2PageSizeMismatch,
+                Jbig2Diagnostics.Jbig2PageSizeMismatch,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"The JBIG2 page is {width} x {(height == uint.MaxValue ? "unknown" : height.ToString(CultureInfo.InvariantCulture))} but the image is {bitmap.Width} x {bitmap.Height}; the image size is used and regions are clipped to it."));
         }
@@ -416,7 +416,7 @@ internal sealed class Jbig2PageDecoder : IDisposable
 
         _havePage = true;
         _reporter.Report(
-            DiagnosticCodes.Jbig2PageInformationMissing,
+            Jbig2Diagnostics.Jbig2PageInformationMissing,
             DiagnosticSeverity.Warning,
             "The JBIG2 page has no page information segment before its regions (ITU-T T.88 §7.4.8); the page is white (0) and regions use their own operators.");
     }
@@ -463,7 +463,7 @@ internal sealed class Jbig2PageDecoder : IDisposable
         }
 
         _reporter.Report(
-            DiagnosticCodes.Jbig2LimitExceeded,
+            Jbig2Diagnostics.Jbig2LimitExceeded,
             DiagnosticSeverity.Error,
             string.Create(CultureInfo.InvariantCulture, $"The JBIG2 {kind} segment {segment.Number} is {width} x {height} pixels, more than the image limits allow; it is not decoded."));
         return false;
@@ -647,7 +647,7 @@ internal sealed class Jbig2PageDecoder : IDisposable
         if (symbolTotal > Jbig2SymbolDictionary.MaxSymbols)
         {
             _reporter.Report(
-                DiagnosticCodes.Jbig2LimitExceeded,
+                Jbig2Diagnostics.Jbig2LimitExceeded,
                 DiagnosticSeverity.Error,
                 string.Create(CultureInfo.InvariantCulture, $"The JBIG2 text region segment {segment.Number} refers to {symbolTotal} symbols, more than the {Jbig2SymbolDictionary.MaxSymbols} allowed; it is not decoded."));
             return;
@@ -683,7 +683,7 @@ internal sealed class Jbig2PageDecoder : IDisposable
             if (!TrySelectTextTables(huffmanFlags, refine, tables, ref parameters))
             {
                 _reporter.Report(
-                    DiagnosticCodes.Jbig2TableInvalid,
+                    Jbig2Diagnostics.Jbig2TableInvalid,
                     DiagnosticSeverity.Error,
                     string.Create(CultureInfo.InvariantCulture, $"The JBIG2 text region segment {segment.Number} selects a reserved Huffman table or a custom table it does not refer to (ITU-T T.88 §7.4.3.1.6); it is not decoded."));
                 return;
@@ -883,7 +883,7 @@ internal sealed class Jbig2PageDecoder : IDisposable
         if (!decoded)
         {
             _reporter.Report(
-                DiagnosticCodes.Jbig2LimitExceeded,
+                Jbig2Diagnostics.Jbig2LimitExceeded,
                 DiagnosticSeverity.Error,
                 string.Create(CultureInfo.InvariantCulture, $"The JBIG2 halftone region segment {segment.Number} has a grid of {parameters.GridWidth} x {parameters.GridHeight} cells, more than the image limits allow; it is not decoded."));
             return;
@@ -932,7 +932,7 @@ internal sealed class Jbig2PageDecoder : IDisposable
         if (referred is null && segment.ReferredCount > 0)
         {
             _reporter.Report(
-                DiagnosticCodes.Jbig2RefinementReferenceMissing,
+                Jbig2Diagnostics.Jbig2RefinementReferenceMissing,
                 DiagnosticSeverity.Error,
                 string.Create(CultureInfo.InvariantCulture, $"The JBIG2 refinement region segment {segment.Number} refers to no intermediate region still held (ITU-T T.88 §7.4.7.4); it refines the page instead."));
         }
@@ -1024,7 +1024,7 @@ internal sealed class Jbig2PageDecoder : IDisposable
         if (!_operatorOverridden && own != _defaultOperator)
         {
             _reporter.Report(
-                DiagnosticCodes.Jbig2CombinationOperatorMismatch,
+                Jbig2Diagnostics.Jbig2CombinationOperatorMismatch,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"The JBIG2 region segment {segment.Number} uses the combination operator {own} but the page does not allow overriding its default {_defaultOperator} (ITU-T T.88 §7.4.8.5); the region's operator is used (§8.2 step 5 a)."));
         }
@@ -1037,14 +1037,14 @@ internal sealed class Jbig2PageDecoder : IDisposable
         if (result.Status == MmrStatus.Invalid)
         {
             _reporter.Report(
-                DiagnosticCodes.Jbig2RegionDataInvalid,
+                Jbig2Diagnostics.Jbig2RegionDataInvalid,
                 DiagnosticSeverity.Error,
                 string.Create(CultureInfo.InvariantCulture, $"The MMR data of JBIG2 region segment {segment.Number} has an invalid code in row {result.Rows}; the rows after it are 0."));
         }
         else if (result.Rows < rows)
         {
             _reporter.Report(
-                DiagnosticCodes.Jbig2RegionDataTruncated,
+                Jbig2Diagnostics.Jbig2RegionDataTruncated,
                 DiagnosticSeverity.Warning,
                 string.Create(CultureInfo.InvariantCulture, $"The MMR data of JBIG2 region segment {segment.Number} ends after {result.Rows} of its {rows} rows; the rest are 0."));
         }
@@ -1056,19 +1056,19 @@ internal sealed class Jbig2PageDecoder : IDisposable
         {
             case Jbig2TextResult.Truncated:
                 _reporter.Report(
-                    DiagnosticCodes.Jbig2RegionDataTruncated,
+                    Jbig2Diagnostics.Jbig2RegionDataTruncated,
                     DiagnosticSeverity.Warning,
                     string.Create(CultureInfo.InvariantCulture, $"The data of JBIG2 text region segment {segment.Number} ends or becomes invalid before its last symbol instance; the instances decoded so far are drawn."));
                 break;
             case Jbig2TextResult.SymbolIdOutOfRange:
                 _reporter.Report(
-                    DiagnosticCodes.Jbig2SymbolIdOutOfRange,
+                    Jbig2Diagnostics.Jbig2SymbolIdOutOfRange,
                     DiagnosticSeverity.Error,
                     string.Create(CultureInfo.InvariantCulture, $"The JBIG2 text region segment {segment.Number} has a symbol instance whose ID is beyond its symbols (ITU-T T.88 §6.4.10); it is drawn as an empty symbol."));
                 break;
             case Jbig2TextResult.LimitExceeded:
                 _reporter.Report(
-                    DiagnosticCodes.Jbig2LimitExceeded,
+                    Jbig2Diagnostics.Jbig2LimitExceeded,
                     DiagnosticSeverity.Error,
                     string.Create(CultureInfo.InvariantCulture, $"The JBIG2 text region segment {segment.Number} has more symbol instance pixels, or a larger refined instance, than the image limits allow; decoding of the region stops there."));
                 break;
@@ -1076,12 +1076,12 @@ internal sealed class Jbig2PageDecoder : IDisposable
     }
 
     private void ReportMissing(in Jbig2Segment segment, string kind, uint number) => _reporter.Report(
-        DiagnosticCodes.Jbig2ReferredSegmentMissing,
+        Jbig2Diagnostics.Jbig2ReferredSegmentMissing,
         DiagnosticSeverity.Error,
         string.Create(CultureInfo.InvariantCulture, $"The JBIG2 {kind} segment {segment.Number} refers to segment {number}, which is absent or could not be decoded (ITU-T T.88 §7.2.5); it is decoded without it."));
 
     private void ReportInvalid(in Jbig2Segment segment, string kind, string what) => _reporter.Report(
-        DiagnosticCodes.Jbig2SegmentInvalid,
+        Jbig2Diagnostics.Jbig2SegmentInvalid,
         DiagnosticSeverity.Error,
         string.Create(CultureInfo.InvariantCulture, $"The JBIG2 {kind} segment {segment.Number} {what}."));
 

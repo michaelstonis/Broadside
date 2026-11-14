@@ -49,13 +49,10 @@ public class WicImageDecodeBenchmarks
     {
         using DecodedImage? image = new DctDecodeFilter().DecodeImage(_jpeg, new ImageFilterContext(new FilterContext())
         {
-            Width = 2550,
-            Height = 3150,
-            BitsPerComponent = 8,
-            ColorComponents = 3,
+            Geometry = new ImageGeometry(2550, 3150, 3, 8),
             Reduction = _request.Reduction,
         });
-        return image!.Width;
+        return image!.Geometry.Width;
     }
 
     [Benchmark]
@@ -64,6 +61,6 @@ public class WicImageDecodeBenchmarks
         // WIC decodes synchronously: the task has completed when DecodeAsync returns.
         ValueTask<DecodedImage?> decode = WicImageDecoder.Shared.DecodeAsync(_jpeg, _request, CancellationToken.None);
         using DecodedImage? image = decode.IsCompleted ? decode.Result : throw new InvalidOperationException("The WIC decode did not complete synchronously.");
-        return image!.Width;
+        return image!.Geometry.Width;
     }
 }

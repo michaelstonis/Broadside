@@ -10,6 +10,7 @@ namespace Broadside.Signatures.Validation;
 /// <remarks>
 /// RFC 6960 §4.2.1 (ASN.1, explicit tags: <c>good</c>, <c>revoked</c> and <c>unknown</c> are the implicitly tagged exceptions) and
 /// §4.4.1 (nonce, RFC 8954 §2.1). A bare <c>BasicOCSPResponse</c> is accepted too, since some document security stores hold one.
+/// <para>ISO 32000-2 §12.8.3.3.</para>
 /// </remarks>
 internal sealed class OcspResponse
 {
