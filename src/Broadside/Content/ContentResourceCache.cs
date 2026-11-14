@@ -13,7 +13,8 @@ namespace Broadside.Content;
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §7.8.2, §7.8.3, §8.4.5, §8.10, §9.6.4. Entries are keyed by the object's identity and rebuilt when the object's
-/// <c>Version</c> moved (a public mutation), so an edit is seen by the next run. Thread-safe for concurrent runs: two threads may
+/// <c>Version</c> moved (a public mutation), so an edit is seen by the next run. Decoded data of a stream whose <c>Filter</c> or
+/// <c>DecodeParms</c> is reached through a reference is also rebuilt after an object is added or removed (§7.3.10, issue #305). Thread-safe for concurrent runs: two threads may
 /// compute the same entry and the last published wins; the values are immutable, so either is right. Entries live as long as the
 /// object they are keyed on, which the document's object cache keeps for the document's lifetime, except decoded content: pages',
 /// form XObjects' and patterns' decoded streams live in the document's content cache (issue #103), within
@@ -77,8 +78,14 @@ internal sealed class ContentResourceCache(PdfDocument document)
             return content.Data;
         }
 
-        // A cancelled decode throws before anything is stored, so the next run decodes afresh.
-        var decoded = new DecodedContent(stream, stream.Version, stream.Dictionary.Version, document.Streams.Decode(stream, 0, cancellationToken));
+        // A cancelled decode throws before anything is stored, so the next run decodes afresh. The stamp is read before decoding.
+        int dataVersion = stream.Version;
+        int dictionaryVersion = stream.Dictionary.Version;
+        int? stamp = DecodeStamp.Of(document, stream);
+        ReadOnlyMemory<byte> data = document.Streams.Decode(stream, 0, cancellationToken);
+        DecodedContent decoded = stamp is int objectsVersion
+            ? new StampedContent(stream, dataVersion, dictionaryVersion, data, document, objectsVersion)
+            : new DecodedContent(stream, dataVersion, dictionaryVersion, data);
         document.Caches.Content.Add(stream, decoded);
         return decoded.Data;
     }
@@ -89,15 +96,18 @@ internal sealed class ContentResourceCache(PdfDocument document)
     /// </summary>
     public Type3GlyphMetrics GetType3GlyphMetrics(CosStream stream)
     {
-        if (_glyphHeads.TryGetValue(stream, out GlyphHead? cached) && cached.DataVersion == stream.Version && cached.DictionaryVersion == stream.Dictionary.Version)
+        if (_glyphHeads.TryGetValue(stream, out GlyphHead? cached) && cached.IsCurrent(stream, document))
         {
             return cached.Metrics;
         }
 
         int dataVersion = stream.Version;
         int dictionaryVersion = stream.Dictionary.Version;
+        int? stamp = DecodeStamp.Of(document, stream);
         Type3GlyphMetrics metrics = Type3GlyphMetrics.Read(GetContent(stream).Span, _headArena ??= new OperandArena());
-        _glyphHeads.AddOrUpdate(stream, new GlyphHead(dataVersion, dictionaryVersion, metrics));
+        _glyphHeads.AddOrUpdate(
+            stream,
+            stamp is int objectsVersion ? new StampedGlyphHead(dataVersion, dictionaryVersion, metrics, objectsVersion) : new GlyphHead(dataVersion, dictionaryVersion, metrics));
         return metrics;
     }
 
@@ -134,16 +144,38 @@ internal sealed class ContentResourceCache(PdfDocument document)
     }
 
     /// <summary>A content stream's decoded data, current while the stream's data and dictionary are unchanged.</summary>
-    private sealed record DecodedContent(CosStream Stream, int DataVersion, int DictionaryVersion, ReadOnlyMemory<byte> Data) : IBudgetedEntry
+    private record DecodedContent(CosStream Stream, int DataVersion, int DictionaryVersion, ReadOnlyMemory<byte> Data) : IBudgetedEntry
     {
         /// <inheritdoc/>
         public long Bytes => ContentOverhead + Data.Length;
 
         /// <inheritdoc/>
-        public bool IsCurrent => Stream.Version == DataVersion && Stream.Dictionary.Version == DictionaryVersion;
+        public virtual bool IsCurrent => Stream.Version == DataVersion && Stream.Dictionary.Version == DictionaryVersion;
     }
 
-    private sealed record GlyphHead(int DataVersion, int DictionaryVersion, Type3GlyphMetrics Metrics);
+    /// <summary>
+    /// The decoded data of a stream whose <c>Filter</c> or <c>DecodeParms</c> is reached through a reference: also current only while
+    /// no object is added or removed, which can change what the reference resolves to (§7.3.10, issue #305).
+    /// </summary>
+    private sealed record StampedContent(CosStream Stream, int DataVersion, int DictionaryVersion, ReadOnlyMemory<byte> Data, PdfDocument Document, int ObjectsVersion)
+        : DecodedContent(Stream, DataVersion, DictionaryVersion, Data)
+    {
+        /// <inheritdoc/>
+        public override bool IsCurrent => base.IsCurrent && Document.ObjectsVersion == ObjectsVersion;
+    }
+
+    /// <summary>What a Type 3 glyph description declares, current while the stream's data and dictionary are unchanged.</summary>
+    private record GlyphHead(int DataVersion, int DictionaryVersion, Type3GlyphMetrics Metrics)
+    {
+        public virtual bool IsCurrent(CosStream stream, PdfDocument document) => stream.Version == DataVersion && stream.Dictionary.Version == DictionaryVersion;
+    }
+
+    /// <summary>A glyph head decoded through a referenced <c>Filter</c> or <c>DecodeParms</c>: also current only while no object is added or removed.</summary>
+    private sealed record StampedGlyphHead(int DataVersion, int DictionaryVersion, Type3GlyphMetrics Metrics, int ObjectsVersion)
+        : GlyphHead(DataVersion, DictionaryVersion, Metrics)
+    {
+        public override bool IsCurrent(CosStream stream, PdfDocument document) => base.IsCurrent(stream, document) && document.ObjectsVersion == ObjectsVersion;
+    }
 
     /// <summary>A page's <c>Contents</c> array read as one stream, and what it was built from.</summary>
     internal sealed class JoinedContent : IBudgetedEntry
@@ -151,15 +183,22 @@ internal sealed class ContentResourceCache(PdfDocument document)
         private readonly CosArray _array;
         private readonly PdfDocument _document;
         private readonly int _arrayVersion;
+
+        /// <summary>
+        /// The document's <c>ObjectsVersion</c> before decoding, when a stream's <c>Filter</c> or <c>DecodeParms</c> is reached through
+        /// a reference (an added or removed object can change what it resolves to, §7.3.10, issue #305); -1 otherwise.
+        /// </summary>
+        private readonly int _objectsVersion;
         private readonly CosObject[] _elements;
         private readonly int[] _dataVersions;
         private readonly int[] _dictionaryVersions;
 
-        private JoinedContent(CosArray array, PdfDocument document, CosObject[] elements, int[] dataVersions, int[] dictionaryVersions, byte[] data, ContentPart[] parts, string[] problems)
+        private JoinedContent(CosArray array, PdfDocument document, int arrayVersion, int objectsVersion, CosObject[] elements, int[] dataVersions, int[] dictionaryVersions, byte[] data, ContentPart[] parts, string[] problems)
         {
             _array = array;
             _document = document;
-            _arrayVersion = array.Version;
+            _arrayVersion = arrayVersion;
+            _objectsVersion = objectsVersion;
             _elements = elements;
             _dataVersions = dataVersions;
             _dictionaryVersions = dictionaryVersions;
@@ -185,6 +224,9 @@ internal sealed class ContentResourceCache(PdfDocument document)
 
         public static JoinedContent Create(CosArray array, PdfDocument document, CancellationToken cancellationToken)
         {
+            int arrayVersion = array.Version;
+            int objectsVersion = document.ObjectsVersion;
+            bool stamped = false;
             int count = array.Count;
             var elements = new CosObject[count];
             int[] dataVersions = new int[count];
@@ -200,6 +242,7 @@ internal sealed class ContentResourceCache(PdfDocument document)
                 {
                     dataVersions[index] = stream.Version;
                     dictionaryVersions[index] = stream.Dictionary.Version;
+                    stamped |= DecodeStamp.ReadsReferences(stream.Dictionary);
                     decoded[index] = document.Streams.Decode(stream, 0, cancellationToken);
                     total += decoded[index].Length + 1;
                 }
@@ -223,13 +266,16 @@ internal sealed class ContentResourceCache(PdfDocument document)
                 }
             }
 
-            return new JoinedContent(array, document, elements, dataVersions, dictionaryVersions, data, [.. parts], problems is null ? [] : [.. problems]);
+            return new JoinedContent(array, document, arrayVersion, stamped ? objectsVersion : -1, elements, dataVersions, dictionaryVersions, data, [.. parts], problems is null ? [] : [.. problems]);
         }
 
-        /// <summary>Returns whether nothing this content was built from has changed since: the array, what its elements resolve to, their data and dictionaries.</summary>
+        /// <summary>
+        /// Returns whether nothing this content was built from has changed since: the array, what its elements resolve to, their data
+        /// and dictionaries, and, for a stream decoded through a referenced <c>Filter</c> or <c>DecodeParms</c>, the document's objects.
+        /// </summary>
         public bool IsCurrent(CosArray array, PdfDocument document)
         {
-            if (array.Version != _arrayVersion || array.Count != _elements.Length)
+            if (array.Version != _arrayVersion || array.Count != _elements.Length || (_objectsVersion >= 0 && document.ObjectsVersion != _objectsVersion))
             {
                 return false;
             }

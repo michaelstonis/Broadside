@@ -16,6 +16,7 @@ public sealed class ContentCacheTests
 {
     private static readonly CosName Contents = new("Contents");
     private static readonly CosName Filter = new("Filter");
+    private static readonly CosName DecodeParms = new("DecodeParms");
 
     [Fact]
     public void Replacing_the_data_of_the_page_content_stream_is_seen_by_the_next_run()
@@ -80,6 +81,56 @@ public sealed class ContentCacheTests
         ((CosStream)document.Resolve(array[1])).EncodedData = Encoding.ASCII.GetBytes("2 2 l s");
 
         Assert.Equal(["Op 0 0 m", "Op 2 2 l", "Op s"], Run(page));
+    }
+
+    [Fact]
+    public void A_filter_name_removed_as_an_object_is_seen_by_the_next_run()
+    {
+        using PdfDocument document = PdfDocument.Open(ContentPdf.Build("3020302032203220726520660A>"));
+        PdfPage page = document.Pages[0];
+        CosReference hex = document.AddObject(new CosName("ASCIIHexDecode"));
+        ContentStream(document, page).Dictionary[Filter] = hex;
+        Assert.Equal(["Op 0 0 2 2 re", "Op f"], Run(page));
+
+        // §7.3.10: Filter now resolves to null, so the data is read as stored (§7.3.8.2, Table 5); the stream is unchanged.
+        Assert.True(document.RemoveObject(hex));
+
+        Assert.DoesNotContain("Op f", Run(page));
+    }
+
+    [Fact]
+    public void A_filter_name_removed_as_an_object_is_seen_by_the_next_run_of_a_contents_array()
+    {
+        using PdfDocument document = PdfDocument.Open(ContentPdf.Build("q Q", "3020302032203220726520660A>"));
+        PdfPage page = document.Pages[0];
+        var array = (CosArray)document.Resolve(page.Dictionary[Contents]);
+        CosReference hex = document.AddObject(new CosName("ASCIIHexDecode"));
+        ((CosStream)document.Resolve(array[1])).Dictionary[Filter] = hex;
+        Assert.Equal(["Op q", "Op Q", "Op 0 0 2 2 re", "Op f"], Run(page));
+
+        // §7.3.10: the second part's Filter now resolves to null; the array and both streams are unchanged.
+        Assert.True(document.RemoveObject(hex));
+
+        Assert.DoesNotContain("Op f", Run(page));
+    }
+
+    [Fact]
+    public void Decode_parameters_removed_as_an_object_are_seen_by_the_next_run()
+    {
+        const string content = "0 0 2 2 re f";
+        using PdfDocument document = PdfDocument.Open(ContentPdf.Build("q Q"));
+        PdfPage page = document.Pages[0];
+        CosStream stream = ContentStream(document, page);
+        stream.EncodedData = Deflate(PngSub(content));
+        stream.Dictionary[Filter] = new CosName("FlateDecode");
+        CosReference parameters = document.AddObject(CosObject.Parse(Encoding.ASCII.GetBytes($"<< /Predictor 11 /Columns {content.Length} >>")));
+        stream.Dictionary[DecodeParms] = parameters;
+        Assert.Equal(["Op 0 0 2 2 re", "Op f"], Run(page));
+
+        // §7.3.10: DecodeParms now resolves to null, so no predictor is undone (§7.4.4.4, Table 8); the stream is unchanged.
+        Assert.True(document.RemoveObject(parameters));
+
+        Assert.DoesNotContain("Op f", Run(page));
     }
 
     [Fact]
@@ -159,14 +210,30 @@ public sealed class ContentCacheTests
 
     private static CosStream ContentStream(PdfDocument document, PdfPage page) => (CosStream)document.Resolve(page.Dictionary[Contents]);
 
-    private static byte[] Deflate(string content)
+    private static byte[] Deflate(string content) => Deflate(Encoding.ASCII.GetBytes(content));
+
+    private static byte[] Deflate(byte[] content)
     {
         using var output = new MemoryStream();
         using (var zlib = new ZLibStream(output, CompressionLevel.Optimal))
         {
-            zlib.Write(Encoding.ASCII.GetBytes(content));
+            zlib.Write(content);
         }
 
         return output.ToArray();
+    }
+
+    /// <summary>One PNG row of <paramref name="content"/> under the Sub filter (§7.4.4.4; PNG §9.2): each byte less the one before.</summary>
+    private static byte[] PngSub(string content)
+    {
+        byte[] bytes = Encoding.ASCII.GetBytes(content);
+        byte[] row = new byte[bytes.Length + 1];
+        row[0] = 1;
+        for (int i = 0; i < bytes.Length; i++)
+        {
+            row[i + 1] = (byte)(bytes[i] - (i == 0 ? 0 : bytes[i - 1]));
+        }
+
+        return row;
     }
 }

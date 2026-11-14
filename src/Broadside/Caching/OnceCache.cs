@@ -135,7 +135,37 @@ internal sealed class OnceCache<TKey, TValue>
     /// <param name="create">Computes the value; runs at most once per key and stamp while its results are kept.</param>
     /// <param name="cycle">The value for a request that would wait on itself, as for the overload without a stamp. Not cached.</param>
     /// <returns>The value.</returns>
-    public TValue GetOrCreate<TState>(TKey key, int? stamp, TState state, Func<TKey, TState, Created<TValue>> create, Func<TKey, TState, TValue> cycle)
+    public TValue GetOrCreate<TState>(TKey key, int? stamp, TState state, Func<TKey, TState, Created<TValue>> create, Func<TKey, TState, TValue> cycle) =>
+        GetOrCreate(key, stamp, state, create, cycle, isCurrent: null);
+
+    /// <summary>
+    /// Returns the value for <paramref name="key"/> computed at <paramref name="stamp"/>, as the overload without
+    /// <paramref name="isCurrent"/> does, except that a value cached at another stamp is first asked whether it still holds: when
+    /// <paramref name="isCurrent"/> says it does, the same value is kept and recorded at <paramref name="stamp"/>.
+    /// </summary>
+    /// <remarks>
+    /// For values whose identity callers rely on (a colour space view that converters and renders key on, issue #305): an object
+    /// added or removed elsewhere in the document leaves such a value as it was, and only a value that read a reference whose target
+    /// changed is computed again. A cached exception is never asked; it is replaced.
+    /// </remarks>
+    /// <typeparam name="TState">What the factories need, passed through so they can be static.</typeparam>
+    /// <param name="key">The key.</param>
+    /// <param name="stamp">What the value is computed at; <see langword="null"/> for a value the key alone decides.</param>
+    /// <param name="state">The factories' state.</param>
+    /// <param name="create">Computes the value; runs at most once per key and stamp while its results are kept.</param>
+    /// <param name="cycle">The value for a request that would wait on itself, as for the overload without a stamp. Not cached.</param>
+    /// <param name="isCurrent">
+    /// Whether a value computed at another stamp still holds at <paramref name="stamp"/>; <see langword="null"/> to replace every
+    /// such value. It may run on several threads at once for the same value, and must give each the same answer.
+    /// </param>
+    /// <returns>The value.</returns>
+    public TValue GetOrCreate<TState>(
+        TKey key,
+        int? stamp,
+        TState state,
+        Func<TKey, TState, Created<TValue>> create,
+        Func<TKey, TState, TValue> cycle,
+        Func<TKey, TValue, TState, bool>? isCurrent)
     {
         while (true)
         {
@@ -145,6 +175,14 @@ internal sealed class OnceCache<TKey, TValue>
                 {
                     if (entry.Stamp == stamp)
                     {
+                        return entry.Result;
+                    }
+
+                    if (isCurrent is not null && entry.HasValue && isCurrent(key, entry.Result, state))
+                    {
+                        // Still right: keep the value (and its identity) and record it at this stamp. Only this exact entry is
+                        // replaced; a request that got there first already did the same.
+                        _entries.TryUpdate(key, Entry.Completed(entry.Result, stamp), entry);
                         return entry.Result;
                     }
 
@@ -224,9 +262,12 @@ internal sealed class OnceCache<TKey, TValue>
             }
         }
 
-        public static Entry Completed(TValue value)
+        /// <summary>Gets a value indicating whether the entry completed with a value rather than an exception.</summary>
+        public bool HasValue => IsCompleted && _error is null;
+
+        public static Entry Completed(TValue value, int? stamp = null)
         {
-            var entry = new Entry { _value = value };
+            var entry = new Entry { _value = value, Stamp = stamp };
             entry.Finish(OnceEntryState.Completed);
             return entry;
         }
