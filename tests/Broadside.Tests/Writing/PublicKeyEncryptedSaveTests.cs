@@ -198,6 +198,22 @@ public sealed class PublicKeyEncryptedSaveTests
     }
 
     [Fact]
+    public void A_linearized_save_with_integrity_protection_writes_a_mac_that_verifies()
+    {
+        using X509Certificate2 reader = PublicKeyTestFile.Certificate("Broadside Reader");
+        using PdfDocument source = PdfDocument.Open(Corpus.Path("text-standard14.pdf"));
+        var encryption = new PdfPublicKeyEncryptionOptions().AddRecipient(reader, PdfPermissions.Print).WithIntegrityProtection(true);
+
+        byte[] saved = Save(source, new PdfSaveOptions().WithLinearize(true).WithPublicKeyEncryption(encryption));
+
+        using PdfDocument reopened = new PdfEngine().Open(saved, new PdfCertificateCredentials(reader));
+        Assert.True(reopened.IsLinearized);
+        Assert.Equal(PdfIntegrityStatus.Verified, reopened.Security!.Integrity);
+        AssertSameDocument(source, reopened);
+        Assert.Empty(reopened.Diagnostics);
+    }
+
+    [Fact]
     public void A_save_without_recipients_or_combined_with_other_encryption_options_is_refused_before_writing()
     {
         using X509Certificate2 reader = PublicKeyTestFile.Certificate("Broadside Reader");
@@ -209,7 +225,6 @@ public sealed class PublicKeyEncryptedSaveTests
         Assert.Throws<ArgumentException>(() => source.Save(output, new PdfSaveOptions().WithPublicKeyEncryption(recipients).WithEncryption(new PdfEncryptionOptions("user", "owner"))));
         Assert.Throws<ArgumentException>(() => source.Save(output, new PdfSaveOptions().WithPublicKeyEncryption(recipients).WithRemoveEncryption(true)));
         Assert.Throws<NotSupportedException>(() => source.Save(output, new PdfSaveOptions().WithPublicKeyEncryption(recipients).WithIncrementalUpdate(true)));
-        Assert.Throws<NotSupportedException>(() => source.Save(output, new PdfSaveOptions().WithPublicKeyEncryption(recipients.WithIntegrityProtection(true)).WithLinearize(true)));
         Assert.Equal(0, output.Length);
     }
 

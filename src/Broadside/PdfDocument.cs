@@ -481,8 +481,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
-    /// or a linearized save would carry an integrity MAC.
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead).
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
@@ -563,8 +562,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
-    /// or a linearized save would carry an integrity MAC.
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead).
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
@@ -590,8 +588,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
-    /// or a linearized save would carry an integrity MAC.
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead).
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
@@ -609,8 +606,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
-    /// or a linearized save would carry an integrity MAC.
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead).
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
@@ -634,8 +630,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
-    /// or a linearized save would carry an integrity MAC.
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead).
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
@@ -653,8 +648,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
-    /// or a linearized save would carry an integrity MAC.
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead).
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>

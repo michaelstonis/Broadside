@@ -1,10 +1,13 @@
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Broadside.Filters;
 using Broadside.Objects;
 using Broadside.Parsing;
+using Broadside.Security;
+using Broadside.Security.Cryptography;
 
 namespace Broadside.Writing;
 
@@ -61,6 +64,13 @@ internal sealed partial class FileWriter
     /// and every object below the first-page section; its trailer holds only <c>Size</c>, and its <c>startxref</c> points at the
     /// first-page section (F.3.11). The second file identifier is derived from the objects' bytes (§14.4).
     /// </para>
+    /// <para>
+    /// With <see cref="Integrity"/>, the first-page trailer, which is the document's trailer, carries the <c>AuthCode</c> dictionary
+    /// (ISO/TS 32004 §5.2.3, Table 6). Its byte range and MAC string are placeholders of fixed width in both renderings of the
+    /// beginning, so no offset moves; once every byte is known, the byte range is filled in to cover the whole file but the MAC string
+    /// (§6.5.1), which leaves the hint stream, first page and main section all covered, and the token is computed over it (§6.6.2).
+    /// </para>
+    /// <para>ISO/TS 32004 §6.5.1 and §6.6.2.</para>
     /// </remarks>
     private IEnumerable<ReadOnlyMemory<byte>> WriteLinearized(LinearizedLayout layout)
     {
@@ -105,6 +115,11 @@ internal sealed partial class FileWriter
         byte[] digest = SHA256.HashData(written.Span);
         var secondIdentifier = new CosString(digest.AsSpan(0, 16), hexadecimal: true);
         var identifier = new CosArray([_firstIdentifier ?? secondIdentifier, secondIdentifier]);
+
+        // ISO/TS 32004 §6.5.1: the first-page trailer is the document's trailer (F.3.4), so it carries the AuthCode dictionary. Its
+        // byte range and MAC string are placeholders of their final widths in both renderings below, so the beginning of the file
+        // keeps its length, and are filled in once the rest of the file is written.
+        _authCode = Integrity is null || IntegritySignature is not null ? null : AuthCodePlaceholder.Create(Integrity.TokenLength, written.Length);
 
         // The beginning of the file has a fixed length; render it once with zeros to learn it.
         int firstSectionCount = layout.HintStreamNumber - layout.LinearizationNumber + 1;
@@ -163,6 +178,11 @@ internal sealed partial class FileWriter
             throw new InvalidOperationException("The beginning of a linearized file changed length between its two renderings.");
         }
 
+        if (_authCode is not null)
+        {
+            SealAuthCode(_authCode, MemoryMarshal.AsMemory(prefix.WrittenMemory).Span, values.FileLength, written, (int)hintPosition, hintObject.Span, main.WrittenSpan);
+        }
+
         yield return prefix.WrittenMemory;
         foreach (ReadOnlyMemory<byte> chunk in Slice(written[..(int)hintPosition]))
         {
@@ -176,6 +196,33 @@ internal sealed partial class FileWriter
         }
 
         yield return main.WrittenMemory;
+    }
+
+    /// <summary>
+    /// Fills in the <c>AuthCode</c> dictionary in the beginning of a linearized file once every other byte is known (ISO/TS 32004
+    /// §6.5.1, §6.6.2): the byte range covers the whole file but the MAC string, which sits in the first-page trailer, so it is
+    /// <c>[0 L1 S L2]</c> with <c>L2</c> running past the first page, the hint stream and the main section to the end of the file. The
+    /// digest takes the file in written order: the beginning around the MAC string, the body up to the hint stream, the hint stream,
+    /// the rest of the body and the main section.
+    /// </summary>
+    private void SealAuthCode(
+        AuthCodePlaceholder authCode,
+        Span<byte> prefix,
+        long fileLength,
+        ReadOnlyMemory<byte> body,
+        int hintPosition,
+        ReadOnlySpan<byte> hintObject,
+        ReadOnlySpan<byte> main)
+    {
+        int macAt = authCode.FillByteRange(prefix, 0, fileLength);
+        using IncrementalDigest digest = IntegrityCodeWriter.CreateDigest();
+        digest.AppendData(prefix[..macAt]);
+        digest.AppendData(prefix[(macAt + authCode.MacLength)..]);
+        digest.AppendData(body.Span[..hintPosition]);
+        digest.AppendData(hintObject);
+        digest.AppendData(body.Span[hintPosition..]);
+        digest.AppendData(main);
+        authCode.FillToken(prefix, macAt, digest, Integrity!);
     }
 
     private static IEnumerable<ReadOnlyMemory<byte>> Slice(ReadOnlyMemory<byte> data)
@@ -349,6 +396,15 @@ internal sealed partial class FileWriter
         }
 
         dictionary[KnownNames.ID] = identifier;
+        if (_authCode is not null)
+        {
+            dictionary[AuthCodePlaceholder.Key] = _authCode.Dictionary;
+        }
+        else if (Integrity is not null && IntegritySignature is { } signature)
+        {
+            dictionary[AuthCodePlaceholder.Key] = AuthCodePlaceholder.AttachedTo(signature);
+        }
+
         buffer.Write("<<"u8);
         foreach (KeyValuePair<CosName, CosObject> entry in dictionary)
         {
