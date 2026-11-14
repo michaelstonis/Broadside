@@ -6068,6 +6068,30 @@ def gen_jpx_lossless() -> bytes:
                      version="1.5")
 
 
+def gen_jpx_fragmented() -> bytes:
+    """7.4.9 JPXDecode of a fragmented codestream (ISO/IEC 15444-2 fragment table box 'ftbl' holding a fragment list box 'flst':
+    NF, then OFF (8 bytes, from the start of the file), LEN (4) and DR (2, 0 = this file) per fragment). The codestream of
+    jpx-lossless.pdf (same 17 x 13 image, same /ColorSpace /DeviceRGB) is cut in three pieces; each piece sits in a 'free' box
+    after the JP2 Header box, stored in the order last, first, middle, and the fragment list names them in codestream order. There
+    is no 'jp2c' box. A reader that reassembles the fragments decodes exactly the samples of jpx-lossless.pdf."""
+    width, height = 17, 13
+    comps = [[[jpx_sample(x, y, c) for x in range(width)] for y in range(height)] for c in range(3)]
+    codestream = j2k_codestream(comps, 8, 2, mct=True)
+    whole = jp2_file(codestream, width, height, 3, 8, 16)
+    prefix = whole[:len(whole) - (8 + len(codestream))]  # signature, ftyp and jp2h
+    cuts = [0, len(codestream) // 3, 2 * len(codestream) // 3, len(codestream)]
+    pieces = [codestream[a:b] for a, b in zip(cuts, cuts[1:])]
+    stored, offsets = prefix, {}
+    for index in (2, 0, 1):
+        offsets[index] = len(stored) + 8
+        stored += jp2_box(b"free", pieces[index])
+    flst = struct.pack(">H", len(pieces)) + b"".join(struct.pack(">QIH", offsets[i], len(pieces[i]), 0)
+                                                    for i in range(len(pieces)))
+    data = stored + jp2_box(b"ftbl", jp2_box(b"flst", flst))
+    return one_image(b"/Width 17 /Height 13 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /JPXDecode", data,
+                     version="1.5")
+
+
 def type3_font(scale: int, char_procs: int, resources: int, tounicode: int) -> bytes:
     """9.6.4 Table 110 Type 3 font dictionary for gen_text_type3(): glyph space is 1000/``scale`` units per em, so the
     FontMatrix is ``scale``/1000 and every width and coordinate is divided by ``scale``."""
@@ -7317,6 +7341,7 @@ FILES = {
     "jpx-lossless.pdf": gen_jpx_lossless,
     "jpx-subsampled.pdf": gen_jpx_subsampled,
     "jpx-smask-in-data.pdf": gen_jpx_smask_in_data,
+    "jpx-fragmented.pdf": gen_jpx_fragmented,
     "inline-image-filters.pdf": gen_inline_image_filters,
     "inline-image-ei-in-data.pdf": gen_inline_image_ei_in_data,
     "dct-baseline.pdf": gen_dct_baseline,
