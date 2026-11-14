@@ -745,6 +745,34 @@ public sealed partial class PdfDocument : IDisposable
     /// <returns><see langword="true"/> when the object has been loaded.</returns>
     internal bool TryGetLoaded(CosReference reference, [NotNullWhen(true)] out CosObject? value) => _loader.TryGetLoaded(reference, out value);
 
+    /// <summary>
+    /// Returns a reference to every object the file holds, in object number order: each entry the cross-reference information lists
+    /// in use, and each object header found by scanning the file. For repairs only: the first call scans the whole file.
+    /// </summary>
+    /// <returns>The references, without repeats.</returns>
+    internal IReadOnlyList<CosReference> ObjectsInFile()
+    {
+        var references = new HashSet<CosReference>();
+        foreach ((int number, XrefEntry entry) in _loader.CrossReference.Entries)
+        {
+            int generation = entry.Kind == XrefEntryKind.Compressed ? 0 : entry.Generation;
+            if (entry.Kind != XrefEntryKind.Free && number > 0 && generation is >= 0 and <= CosReference.MaxGeneration)
+            {
+                references.Add(new CosReference(number, generation));
+            }
+        }
+
+        foreach (ScannedObject found in _loader.Scan.Value.Objects)
+        {
+            if (found.Number > 0 && found.Generation is >= 0 and <= CosReference.MaxGeneration)
+            {
+                references.Add(new CosReference(found.Number, found.Generation));
+            }
+        }
+
+        return [.. references.OrderBy(static reference => reference.ObjectNumber).ThenBy(static reference => reference.Generation)];
+    }
+
     /// <summary>Returns <paramref name="value"/>, or the indirect object it refers to when it is a <see cref="CosReference"/>.</summary>
     /// <param name="value">A COS object from this document, or <see langword="null"/>.</param>
     /// <returns>
@@ -1609,6 +1637,20 @@ public sealed partial class PdfDocument : IDisposable
                     source, loader, streams, configuration.SecurityHandlers, offered, diagnostics, reportUnusable: true, out _);
                 catalog = ReadCatalog(loader, diagnostics, reportUnusableRoot: true)!;
             }
+            else if (!reconstructed && !loader.CrossReference.IsDeferred && !ListsPageTreeRoot(loader, catalog)
+                && RebuildForPageTree(source, header, scan.Value, streams, diagnostics) is { } rebuilt)
+            {
+                // §7.7.2: Pages is required. A catalog whose Pages is absent or names an object the cross-reference information
+                // does not list is a table that misses the page tree (or a catalog an update left behind): rebuild it by scanning
+                // when the scan finds a catalog with a page tree, as pdf.js and poppler do. Otherwise the page tree reader
+                // recovers the page objects the file holds.
+                crossReference = rebuilt;
+                loader = new ObjectLoader(source, header, crossReference, diagnostics, new ObjectLoaderHooks(), streams) { Scan = scan, Logger = configuration.Logger };
+                streams.CryptFilter = IdentityCryptFilterHandler.Instance;
+                security = DocumentSecurity.Open(
+                    source, loader, streams, configuration.SecurityHandlers, offered, diagnostics, reportUnusable: true, out _);
+                catalog = ReadCatalog(loader, diagnostics, reportUnusableRoot: true)!;
+            }
 
             // A linearized file whose length is its L has one revision (F.3.4, G.7), ending with the file; its tail is not read for it.
             IReadOnlyList<PdfRevision> revisions = loader.CrossReference.IsDeferred
@@ -1729,6 +1771,50 @@ public sealed partial class PdfDocument : IDisposable
         }
 
         return crossReference;
+    }
+
+    /// <summary>
+    /// Whether the catalog's <c>Pages</c> entry (§7.7.2, Table 29) is a dictionary or a reference the cross-reference information
+    /// lists in use. Decided without loading the page tree root, so opening a file still parses the catalog and nothing else; a
+    /// listed root that does not load as a dictionary is the page tree reader's to recover.
+    /// </summary>
+    private static bool ListsPageTreeRoot(ObjectLoader loader, CosDictionary catalog) =>
+        catalog.TryGetValue(KnownNames.Pages, out CosObject? pages)
+        && pages switch
+        {
+            CosDictionary => true,
+            CosReference reference => loader.CrossReference.TryGetEntry(reference.ObjectNumber, out XrefEntry entry) && entry.Kind != XrefEntryKind.Free,
+            _ => false,
+        };
+
+    /// <summary>
+    /// Rebuilds the cross-reference information by scanning, for a catalog whose <c>Pages</c> the file's own does not list (§7.7.2, §7.7.3),
+    /// and keeps it only when the scan finds a catalog with a page tree; in strict mode, throws instead.
+    /// </summary>
+    /// <returns>The rebuilt cross-reference information, or <see langword="null"/> to keep the file's own.</returns>
+    private static CrossReference? RebuildForPageTree(PdfSource source, FileHeader header, FileScan scan, StreamDecoder streams, DiagnosticSink diagnostics)
+    {
+        const string message = "The catalog has no Pages entry, or one naming an object the cross-reference information does not list; the cross-reference information is rebuilt by scanning the file, which finds a catalog with a page tree.";
+        if (diagnostics.IsStrict)
+        {
+            diagnostics.Report(DocumentDiagnostics.PagesMissing, DiagnosticSeverity.Error, message);
+        }
+
+        // What the rebuild reports is kept only when its result is: a scan that finds no catalog with a page tree changes nothing.
+        var attempt = new DiagnosticSink(strict: false);
+        CrossReference? rebuilt = CrossReferenceReconstructor.Reconstruct(source, header, scan, streams, attempt, reportMissingTrailer: false);
+        if (rebuilt is null)
+        {
+            return null;
+        }
+
+        diagnostics.Report(DocumentDiagnostics.PagesMissing, DiagnosticSeverity.Warning, message);
+        foreach (Diagnostic diagnostic in attempt.Snapshot())
+        {
+            diagnostics.Report(diagnostic.Code, diagnostic.Severity, diagnostic.Message, diagnostic.Offset, diagnostic.ObjectReference);
+        }
+
+        return rebuilt;
     }
 
     /// <summary>Loads the catalog through the trailer's <c>Root</c> and checks its <c>Type</c> and <c>Version</c> (§7.7.2).</summary>

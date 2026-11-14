@@ -13,6 +13,11 @@ namespace Broadside;
 /// forbids it, and it would loop); a kid that is a direct dictionary is accepted; a kid that is not a dictionary is skipped; a
 /// <c>Parent</c> that disagrees with the path the node was reached by is reported, and the path wins; a wrong <c>Count</c> is reported.
 /// </para>
+/// <para>
+/// A catalog without a usable <c>Pages</c> entry (§7.7.2) has its pages rebuilt from the page tree nodes and page objects the
+/// file holds, with a <c>PagesMissing</c> diagnostic; opening the document has already rebuilt the cross-reference information
+/// by scanning when that finds a catalog with a page tree.
+/// </para>
 /// <para>Each page's attributes are checked here, once, so the <see cref="PdfPage"/> getters can apply defaults silently.</para>
 /// </remarks>
 internal static class PageTreeReader
@@ -29,54 +34,13 @@ internal static class PageTreeReader
         document.Catalog.TryGetValue(KnownNames.Pages, out CosObject? rootEntry);
         if (document.Resolve(rootEntry) is not CosDictionary root)
         {
-            diagnostics.Report(
-                DocumentDiagnostics.PagesMissing,
-                DiagnosticSeverity.Error,
-                "The catalog has no Pages entry that resolves to the page tree root; the document has no pages.");
-            return [];
+            return Recover(document, diagnostics);
         }
 
         var pages = new List<PdfPage>();
-        var visitedReferences = new HashSet<CosReference>();
-        var visitedDictionaries = new HashSet<CosDictionary>(ReferenceEqualityComparer.Instance);
+        var walk = new Walk(document, diagnostics);
         var rootReference = rootEntry as CosReference;
-        if (rootReference is not null)
-        {
-            visitedReferences.Add(rootReference);
-        }
-
-        visitedDictionaries.Add(root);
-        var stack = new Stack<Frame>();
-        stack.Push(new Frame(root, rootReference, null, null, 0));
-        while (stack.TryPop(out Frame frame))
-        {
-            CheckParent(frame, diagnostics);
-            if (IsLeaf(document, frame, diagnostics))
-            {
-                var page = new PdfPage(document, frame.Node, frame.Reference, frame.Ancestors);
-                CheckPage(page, diagnostics);
-                pages.Add(page);
-                continue;
-            }
-
-            if (frame.Depth >= MaxDepth)
-            {
-                diagnostics.Report(
-                    PageDiagnostics.PageTreeTooDeep,
-                    DiagnosticSeverity.Error,
-                    string.Create(CultureInfo.InvariantCulture, $"The page tree is deeper than {MaxDepth} levels; the deeper nodes are skipped."),
-                    objectReference: frame.Reference);
-                continue;
-            }
-
-            var ancestors = new PageTreeAncestor(frame.Node, frame.Ancestors, frame.Reference);
-            List<Frame> kids = ReadKids(document, frame, ancestors, visitedReferences, visitedDictionaries, diagnostics);
-            for (int index = kids.Count - 1; index >= 0; index--)
-            {
-                stack.Push(kids[index]);
-            }
-        }
-
+        walk.Read(root, rootReference, pages);
         if (root.TryGetValue(KnownNames.Count, out CosObject? count)
             && root.TryGetValue(KnownNames.Kids, out _)
             && (document.Resolve(count) is not CosInteger { Value: var stated } || stated != pages.Count))
@@ -89,6 +53,99 @@ internal static class PageTreeReader
         }
 
         return pages;
+    }
+
+    /// <summary>
+    /// Rebuilds the list of pages of a document whose catalog has no usable <c>Pages</c> entry (§7.7.2) from the objects the file
+    /// holds: first each page tree node no other node is the parent of, walked as a root, in object number order; then each page
+    /// object no walk reached, in object number order, inheriting through its <c>Parent</c> chain (§7.7.3.4).
+    /// </summary>
+    /// <remarks>
+    /// The cross-reference information was already rebuilt by scanning when that found a catalog with a page tree, so this runs
+    /// only when no catalog in the file has one. In strict mode the missing page tree throws instead.
+    /// </remarks>
+    private static List<PdfPage> Recover(PdfDocument document, DiagnosticSink diagnostics)
+    {
+        const string missing = "The catalog has no Pages entry that resolves to the page tree root";
+        if (diagnostics.IsStrict)
+        {
+            diagnostics.Report(DocumentDiagnostics.PagesMissing, DiagnosticSeverity.Error, missing + ".");
+        }
+
+        var nodes = new List<(CosDictionary Node, CosReference Reference)>();
+        var pageObjects = new List<(CosDictionary Page, CosReference Reference)>();
+        foreach (CosReference reference in document.ObjectsInFile())
+        {
+            if (document.Resolve(reference) is not CosDictionary dictionary || !dictionary.TryGetValue(KnownNames.Type, out CosObject? type))
+            {
+                continue;
+            }
+
+            if (KnownNames.Pages.Equals(type))
+            {
+                if (!dictionary.TryGetValue(KnownNames.Parent, out CosObject? parent) || document.Resolve(parent) is not CosDictionary)
+                {
+                    nodes.Add((dictionary, reference));
+                }
+            }
+            else if (KnownNames.Page.Equals(type))
+            {
+                pageObjects.Add((dictionary, reference));
+            }
+        }
+
+        var pages = new List<PdfPage>();
+        var walk = new Walk(document, diagnostics);
+        foreach ((CosDictionary node, CosReference reference) in nodes)
+        {
+            if (walk.IsUnvisited(node, reference))
+            {
+                walk.Read(node, reference, pages);
+            }
+        }
+
+        var added = new HashSet<CosDictionary>(ReferenceEqualityComparer.Instance);
+        foreach ((CosDictionary dictionary, CosReference reference) in pageObjects)
+        {
+            if (walk.IsUnvisited(dictionary, reference) && added.Add(dictionary))
+            {
+                var page = new PdfPage(document, dictionary, reference, AncestorsOf(document, dictionary));
+                CheckPage(page, diagnostics);
+                pages.Add(page);
+            }
+        }
+
+        diagnostics.Report(
+            DocumentDiagnostics.PagesMissing,
+            pages.Count == 0 ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning,
+            pages.Count == 0
+                ? missing + ", and the file holds no page objects; the document has no pages."
+                : string.Create(CultureInfo.InvariantCulture, $"{missing}; the {pages.Count} pages are the page objects found in the file, under each page tree node without a parent and then on their own, in object number order."));
+        return pages;
+    }
+
+    /// <summary>The chain of dictionaries a page object's <c>Parent</c> entries lead to, nearest first, for inheritance (§7.7.3.4).</summary>
+    private static PageTreeAncestor? AncestorsOf(PdfDocument document, CosDictionary page)
+    {
+        var chain = new List<(CosDictionary Node, CosReference? Reference)>();
+        var seen = new HashSet<CosDictionary>(ReferenceEqualityComparer.Instance) { page };
+        CosDictionary current = page;
+        while (chain.Count < MaxDepth
+            && current.TryGetValue(KnownNames.Parent, out CosObject? parent)
+            && document.Resolve(parent) is CosDictionary node
+            && seen.Add(node))
+        {
+            chain.Add((node, parent as CosReference));
+            current = node;
+        }
+
+        PageTreeAncestor? ancestors = null;
+        for (int index = chain.Count - 1; index >= 0; index--)
+        {
+            ancestors = new PageTreeAncestor(chain[index].Node, ancestors, chain[index].Reference);
+        }
+
+        return ancestors;
     }
 
     private static List<Frame> ReadKids(
@@ -280,6 +337,58 @@ internal static class PageTreeReader
             DiagnosticSeverity.Warning,
             string.Create(CultureInfo.InvariantCulture, $"The page's {key.Value} is not a rectangle of four numbers; {fallback}."),
             objectReference: reference);
+
+    /// <summary>One depth-first walk of page tree nodes (§7.7.3), sharing what it has visited across the roots it is given.</summary>
+    private sealed class Walk(PdfDocument document, DiagnosticSink diagnostics)
+    {
+        private readonly HashSet<CosReference> _visitedReferences = [];
+        private readonly HashSet<CosDictionary> _visitedDictionaries = new(ReferenceEqualityComparer.Instance);
+
+        /// <summary>Whether no walk has reached the node or page yet.</summary>
+        public bool IsUnvisited(CosDictionary node, CosReference? reference) =>
+            !_visitedDictionaries.Contains(node) && (reference is null || !_visitedReferences.Contains(reference));
+
+        /// <summary>Appends the pages under <paramref name="root"/> to <paramref name="pages"/>, in Kids order.</summary>
+        public void Read(CosDictionary root, CosReference? rootReference, List<PdfPage> pages)
+        {
+            if (rootReference is not null)
+            {
+                _visitedReferences.Add(rootReference);
+            }
+
+            _visitedDictionaries.Add(root);
+            var stack = new Stack<Frame>();
+            stack.Push(new Frame(root, rootReference, null, null, 0));
+            while (stack.TryPop(out Frame frame))
+            {
+                CheckParent(frame, diagnostics);
+                if (IsLeaf(document, frame, diagnostics))
+                {
+                    var page = new PdfPage(document, frame.Node, frame.Reference, frame.Ancestors);
+                    CheckPage(page, diagnostics);
+                    pages.Add(page);
+                    continue;
+                }
+
+                if (frame.Depth >= MaxDepth)
+                {
+                    diagnostics.Report(
+                        PageDiagnostics.PageTreeTooDeep,
+                        DiagnosticSeverity.Error,
+                        string.Create(CultureInfo.InvariantCulture, $"The page tree is deeper than {MaxDepth} levels; the deeper nodes are skipped."),
+                        objectReference: frame.Reference);
+                    continue;
+                }
+
+                var ancestors = new PageTreeAncestor(frame.Node, frame.Ancestors, frame.Reference);
+                List<Frame> kids = ReadKids(document, frame, ancestors, _visitedReferences, _visitedDictionaries, diagnostics);
+                for (int index = kids.Count - 1; index >= 0; index--)
+                {
+                    stack.Push(kids[index]);
+                }
+            }
+        }
+    }
 
     /// <summary>A node waiting to be visited.</summary>
     /// <param name="Node">The node's dictionary.</param>
