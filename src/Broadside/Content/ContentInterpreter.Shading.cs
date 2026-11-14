@@ -96,13 +96,12 @@ internal sealed partial class ContentInterpreter
             Reference = pattern.Reference,
             Content = _context.GetContent(pattern.Stream),
             Resources = pattern.Resources ?? _context.Resources,
-            InitialState = initial,
             ClipBox = pattern.BoundingBox,
             Processor = processor,
             IgnoresColorOperators = uncolored,
         };
 
-        switch (RunNested(run))
+        switch (RunNested(run, initial))
         {
             case NestedRunResult.Recursive:
                 Report(ContentIssue.PatternRecursion, -1, "A tiling pattern's cell paints with the same pattern (directly or through other patterns or forms); the inner cell is empty.");

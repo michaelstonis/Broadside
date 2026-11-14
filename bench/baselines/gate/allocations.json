@@ -172,6 +172,8 @@
     "Broadside.Benchmarks.FunctionBenchmarks.EvaluateEach(Function: \"Type4DoubleDot\")": 0,
     "Broadside.Benchmarks.FunctionBenchmarks.EvaluateEach(Function: \"Type4Hexachrome\")": 0,
     "Broadside.Benchmarks.FunctionBenchmarks.EvaluateEach(Function: \"Type4LogoGreen\")": 0,
+    "Broadside.Benchmarks.GraphicsStateBenchmarks.CopyState": 0,
+    "Broadside.Benchmarks.GraphicsStateBenchmarks.SaveRestore": 0,
     "Broadside.Benchmarks.GroupRenderingBenchmarks.Replay(Dpi: 300)": 0,
     "Broadside.Benchmarks.GroupRenderingBenchmarks.Replay(Dpi: 72)": 0,
     "Broadside.Benchmarks.HitTestBenchmarks.Build(Glyphs: 10000)": 171840,
