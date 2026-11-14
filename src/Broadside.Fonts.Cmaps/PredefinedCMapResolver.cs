@@ -19,7 +19,7 @@ namespace Broadside.Fonts.Cmaps;
 /// <para>
 /// The files are the upstream CMap files, byte for byte, stored Deflate-compressed as assembly resources; each is inflated on its
 /// first request and the bytes are shared by every engine and thread for the life of the process. The core parses them with its
-/// own CMap parser (Adobe TN 5014) and caches the parsed CMap per document.
+/// own CMap parser (Adobe TN 5014) and caches each parsed table per engine, so every document of the engine shares it.
 /// </para>
 /// </remarks>
 public sealed class PredefinedCMapResolver : IFontResolver

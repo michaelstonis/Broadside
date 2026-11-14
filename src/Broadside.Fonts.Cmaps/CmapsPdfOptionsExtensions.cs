@@ -21,6 +21,10 @@ public static class CmapsPdfOptionsExtensions
     /// as unavailable (with a diagnostic naming it), its codes are split by its codespace and each shows the glyph of CID 0.
     /// Resolvers registered earlier are asked first, so a resolver with its own CMap files registered before this call wins for the
     /// names it has.
+    /// Each CMap and table is parsed the first time a document of the engine needs it and then shared, unchanged, by every document
+    /// and thread of that engine (two engines share nothing). The parsed tables the engine keeps are bounded at 256 tables and 16 MiB of
+    /// CMap text, about 50 MB of memory; all of this package parsed takes about 9 MB, so a viewer that opens documents in all five
+    /// collections holds at most that. Past the bound a table is parsed for the document that needs it and not kept.
     /// </remarks>
     public static PdfOptions UsePredefinedCMaps(this PdfOptions options)
     {

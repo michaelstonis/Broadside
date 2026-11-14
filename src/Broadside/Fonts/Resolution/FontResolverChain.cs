@@ -2,7 +2,7 @@ namespace Broadside.Fonts.Resolution;
 
 /// <summary>
 /// An engine's font resolvers in the order they are asked: those registered with <see cref="PdfOptions.UseFontResolver"/>, then
-/// the operating system's. Immutable; shared by every document of the engine.
+/// the operating system's. Immutable apart from the cache of tables parsed from its resources; shared by every document of the engine.
 /// </summary>
 /// <remarks>ISO 32000-2 §9.6.2.2, §9.7.5.2, §9.8.</remarks>
 internal sealed class FontResolverChain
@@ -18,8 +18,12 @@ internal sealed class FontResolverChain
         System = system;
     }
 
-    /// <summary>Gets the chain of an engine with default options: the operating system's fonts only.</summary>
-    public static FontResolverChain Default { get; } = new([], SystemFontResolver.Shared);
+    /// <summary>Creates the chain of an engine with default options: the operating system's fonts only.</summary>
+    /// <returns>A new chain; each engine has its own, because the tables parsed from its resources are kept with it.</returns>
+    public static FontResolverChain CreateDefault() => new([], SystemFontResolver.Shared);
+
+    /// <summary>Gets the predefined CMaps and CID-to-Unicode tables parsed from this chain's resources, shared by every document of the engine.</summary>
+    public FontResourceCache Resources { get; } = new();
 
     /// <summary>Gets the operating system's resolver, or <see langword="null"/>.</summary>
     public IFontResolver? System { get; }
