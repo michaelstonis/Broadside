@@ -70,6 +70,9 @@ public class CompositingRowBenchmarks
     private readonly uint[] _source = new uint[GroupWidth];
     private readonly uint[] _backdrop = new uint[GroupWidth];
     private readonly uint[] _target = new uint[GroupWidth];
+    private readonly uint[] _backdropOther = new uint[GroupWidth];
+    private readonly byte[] _alpha = new byte[GroupWidth];
+    private readonly byte[] _scaled = new byte[GroupWidth];
 
     [GlobalSetup]
     public void Setup()
@@ -81,6 +84,8 @@ public class CompositingRowBenchmarks
             int alpha = random.Next(3) == 0 ? 0 : random.Next(256);
             _source[i] = Premultiplied(random, alpha);
             _backdrop[i] = Premultiplied(random, 255);
+            _backdropOther[i] = random.Next(2) == 0 ? _backdrop[i] : Premultiplied(random, random.Next(256));
+            _alpha[i] = (byte)random.Next(256);
         }
 #pragma warning restore CA5394
     }
@@ -117,6 +122,67 @@ public class CompositingRowBenchmarks
         _backdrop.AsSpan(0, SpanWidth).CopyTo(span);
         CompositingRows.FillRow(span, Color, 100);
         return span[SpanWidth / 2];
+    }
+
+    // The rows added to finish #473, 794 pixels each (a page width at 96 DPI), the target copied from the backdrop first by both paths.
+    [Benchmark]
+    public uint MixRowScalar()
+    {
+        _backdrop.CopyTo(_target, 0);
+        CompositingRows.MixRowScalar(_target, _source, 100);
+        return _target[GroupWidth / 2];
+    }
+
+    [Benchmark]
+    public uint MixRow()
+    {
+        _backdrop.CopyTo(_target, 0);
+        CompositingRows.MixRow(_target, _source, 100);
+        return _target[GroupWidth / 2];
+    }
+
+    [Benchmark]
+    public uint KnockOutRowScalar()
+    {
+        _source.CopyTo(_target, 0);
+        CompositingRows.KnockOutRowScalar(_backdrop, _target, _backdropOther, 100);
+        return _target[GroupWidth / 2];
+    }
+
+    [Benchmark]
+    public uint KnockOutRow()
+    {
+        _source.CopyTo(_target, 0);
+        CompositingRows.KnockOutRow(_backdrop, _target, _backdropOther, 100);
+        return _target[GroupWidth / 2];
+    }
+
+    [Benchmark]
+    public uint RemoveBackdropRowScalar()
+    {
+        CompositingRows.RemoveBackdropRowScalar(_source, _backdrop, _alpha, _target);
+        return _target[GroupWidth / 2];
+    }
+
+    [Benchmark]
+    public uint RemoveBackdropRow()
+    {
+        CompositingRows.RemoveBackdropRow(_source, _backdrop, _alpha, _target);
+        return _target[GroupWidth / 2];
+    }
+
+    [Benchmark]
+    public byte ScaleRowScalar()
+    {
+        CompositingRows.ScaleRowScalar(_alpha, _scaled, 100);
+        return _scaled[GroupWidth / 2];
+    }
+
+    [Benchmark]
+    public byte ScaleRow()
+    {
+        CompositingRows.ScaleRow(_alpha, _scaled, 100);
+        return _scaled[GroupWidth / 2];
     }
 
 #pragma warning disable CA5394 // benchmark input, not security
