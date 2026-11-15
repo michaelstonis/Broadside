@@ -109,9 +109,7 @@ public sealed class PanelModelTests
         Assert.All(fields, f => Assert.Equal(AnnotationRole.Field, layer.GetRole(f.Target)));
         FormFieldItem text = fields.First(f => f.Field is Broadside.Forms.PdfTextField { IsReadOnly: false });
 
-        layer.Focus(text.Target);
-        Assert.True(layer.SetFieldText("Grace"));
-        layer.Focus(null);
+        Assert.True(layer.SetFieldText(text.Target, "Grace"));
         Assert.Equal("Grace", ((Broadside.Forms.PdfTextField)text.Field).Value);
         await shell.SettleAsync();
         Assert.Null(shell.Controller.Editor);

@@ -16,9 +16,9 @@ share), the tools in a bottom bar, and each tool's panel in a bottom sheet (drag
 desktop (720 units and wider): zoom in the top bar, a rail of tools on the left and the panel in a sidebar beside the pages.
 
 - Documents (☰): the gallery, a PDF from this device (the platform's file picker), or an http(s) address read through range requests.
-- Search, Outline, Pages (thumbnails), Annotate, Info (facts, diagnostics, tag tree), Signed (signature status) and View (layout,
+- Search, Outline, Pages (thumbnails), Annotate, Form (every widget as a native editor, required and read-only marked, the XFA notice), Info (facts, diagnostics, tag tree), Signed (signature status) and View (layout,
   rotation, zoom, dark mode, GPU or CPU composition) are `Broadside.Viewer.Maui`'s reusable panels (`PdfSearchPanel`,
-  `PdfOutlinePanel`, `PdfThumbnailsPanel`, `PdfAnnotationsPanel`, `PdfDocumentInfoPanel`, `PdfSignaturesPanel`,
+  `PdfOutlinePanel`, `PdfThumbnailsPanel`, `PdfAnnotationsPanel`, `PdfFormPanel`, `PdfDocumentInfoPanel`, `PdfSignaturesPanel`,
   `PdfViewSettingsPanel`), each bound to the `PdfView` through its `Viewer` property. View adds the sample's tile renderer switch
   (SkiaSharp or Broadside's managed rasterizer).
 - Create: the Blazor demo's `DocumentCreator` (linked): the flow layout package, saved as PDF/A and PDF/UA, opened at once.

@@ -58,6 +58,7 @@ internal sealed class ViewerController : IDisposable
     private TextSelection? _selection;
     private DocumentSearch? _search;
     private AnnotationLayer? _annotations;
+    private FormFilling? _filling;
     private AccessibilityBridge? _bridge;
     private bool _showAnnotations = true;
     private ColorFilter? _colorFilter;
@@ -129,6 +130,9 @@ internal sealed class ViewerController : IDisposable
     public DocumentSearch? Search => _search;
 
     public AnnotationLayer? Annotations => _annotations;
+
+    /// <summary>The form filling of the open document (#218): Tab order, one commit per edit through the form API.</summary>
+    public FormFilling? Forms => _filling;
 
     public AccessibilityBridge? Bridge => _bridge;
 
@@ -224,6 +228,8 @@ internal sealed class ViewerController : IDisposable
         _annotations = new AnnotationLayer(session, _scheduler);
         _annotations.ActionRequested += OnActionRequested;
         _annotations.Changed += OnAnnotationsChanged;
+        _filling = new FormFilling(_annotations);
+        _filling.Changed += OnFillingChanged;
         _bridge = new AccessibilityBridge(session, _annotations) { Viewer = _zoom, Observer = OnAccessibilityChange };
         _annotations.Accessibility = _bridge;
         SetState(_state with { IsLoading = false, PageCount = session.PageCount, IsRendering = true });
@@ -729,7 +735,8 @@ internal sealed class ViewerController : IDisposable
             return false;
         }
 
-        bool done = _editor.Kind == FieldEditorKind.Text ? _annotations.SetFieldText(text) : _annotations.SetFieldChoice(text);
+        // One write per edit, to the editor's widget (#218's target setters): what synthetic input through the form filling writes.
+        bool done = _editor.Kind == FieldEditorKind.Text ? _annotations.SetFieldText(_editor.Target, text) : _annotations.SetFieldChoice(_editor.Target, text);
         Wake();
         return done;
     }
@@ -742,7 +749,7 @@ internal sealed class ViewerController : IDisposable
             return false;
         }
 
-        bool done = _annotations.SetFieldSelection([index]);
+        bool done = _annotations.SetFieldSelection(_editor.Target, [index]);
         Wake();
         return done;
     }
@@ -1311,6 +1318,19 @@ internal sealed class ViewerController : IDisposable
         }
     }
 
+    private static InputKey FieldKey(string key) => key switch
+    {
+        " " => InputKey.Space,
+        "Enter" => InputKey.Enter,
+        "ArrowUp" => InputKey.ArrowUp,
+        "ArrowDown" => InputKey.ArrowDown,
+        "Home" => InputKey.Home,
+        "End" => InputKey.End,
+        _ => InputKey.None,
+    };
+
+    private void OnFillingChanged(object? sender, EventArgs e) => Wake();
+
     private int CountClick(double x, double y)
     {
         long now = _time.GetTimestamp();
@@ -1328,8 +1348,12 @@ internal sealed class ViewerController : IDisposable
         switch (key)
         {
             case "Tab":
+                // The form filling commits the field's edit and moves on in each page's Tabs order (#218).
                 _keyboardFocus = true;
-                return shift ? _annotations!.FocusPrevious() : _annotations!.FocusNext();
+                return _filling!.KeyDown(InputKey.Tab, modifiers);
+            case " " or "Enter" or "ArrowUp" or "ArrowDown" or "Home" or "End" when !command && _filling!.Kind is FieldEditKind.Button or FieldEditKind.Choice
+                && _filling.KeyDown(FieldKey(key), modifiers):
+                return true;
             case "Enter" when _annotations!.Focused is { } focused:
                 _annotations.Activate(focused);
                 return true;
@@ -1508,6 +1532,8 @@ internal sealed class ViewerController : IDisposable
             _annotations.Changed -= OnAnnotationsChanged;
         }
 
+        _filling?.Changed -= OnFillingChanged;
+        _filling = null;
         _annotations = null;
         _bridge = null;
         Surface.Clear();

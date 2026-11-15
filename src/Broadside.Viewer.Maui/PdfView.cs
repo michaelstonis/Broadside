@@ -193,6 +193,13 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
     /// <summary>Gets the annotation and link layer of the open document, or null (form values and annotation edits go through it).</summary>
     public AnnotationLayer? Annotations => _controller.Annotations;
 
+    /// <summary>
+    /// Gets the form filling of the open document, or null: the field the keyboard edits, Tab order (each page's Tabs entry), and one
+    /// commit per edit through the form API (filling through the view saves the same file as filling through the API).
+    /// </summary>
+    /// <remarks>ISO 32000-2 §12.7 (interactive forms), §12.5 Table 166 (Tabs). Spec #33 viewer capability 12.</remarks>
+    public FormFilling? Forms => _controller.Forms;
+
     /// <summary>Gets the accessibility bridge of the open document, or null.</summary>
     public AccessibilityBridge? Accessibility => _controller.Bridge;
 

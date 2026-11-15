@@ -20,6 +20,7 @@ public sealed class PdfFormPanel : ContentView
     private const int MaxPages = 100;
     private readonly ViewerFollower _follower;
     private readonly Label _status = PanelKit.Hint(string.Empty, "form-status");
+    private readonly Label _xfa = PanelKit.Hint(string.Empty, "form-xfa");
     private readonly VerticalStackLayout _list = new() { Spacing = 10, AutomationId = "form-fields" };
     private IReadOnlyList<FormFieldItem> _fields = [];
     private int _generation;
@@ -36,6 +37,7 @@ public sealed class PdfFormPanel : ContentView
                 Children =
                 {
                     _status,
+                    _xfa,
                     _list,
                     PanelKit.Hint("Fill a field here or tap it in the page. Values go through the viewer's annotation layer: the field's appearance is regenerated and only its tiles redraw."),
                 },
@@ -52,6 +54,9 @@ public sealed class PdfFormPanel : ContentView
         get => (PdfView?)GetValue(ViewerProperty);
         set => SetValue(ViewerProperty, value);
     }
+
+    /// <summary>Gets the XFA notice of the document (the view shows and fills only its AcroForm fields), or null.</summary>
+    public string? XfaExplanation => _xfa.IsVisible ? _xfa.Text : null;
 
     /// <summary>Gets the number of widgets the panel lists.</summary>
     public int FieldCount => _fields.Count;
@@ -101,6 +106,8 @@ public sealed class PdfFormPanel : ContentView
         }
 
         _fields = fields;
+        _xfa.Text = layer.XfaForm?.Explanation ?? string.Empty;
+        _xfa.IsVisible = layer.XfaForm is not null;
         _status.Text = fields.Count == 0
             ? "This document has no form fields."
             : string.Create(CultureInfo.InvariantCulture, $"{fields.Count} field(s){(session.PageCount > MaxPages ? $" on the first {MaxPages} pages" : string.Empty)}");
@@ -115,7 +122,8 @@ public sealed class PdfFormPanel : ContentView
     {
         var label = new Label
         {
-            Text = item.Label + string.Create(CultureInfo.InvariantCulture, $"  · p. {item.Target.PageIndex + 1}"),
+            Text = item.Label + (item.Field.IsRequired ? " *" : string.Empty) + (item.Field.IsReadOnly ? " (read-only)" : string.Empty)
+                + string.Create(CultureInfo.InvariantCulture, $"  · p. {item.Target.PageIndex + 1}"),
             FontSize = 13,
             LineBreakMode = LineBreakMode.TailTruncation,
         };
@@ -146,7 +154,7 @@ public sealed class PdfFormPanel : ContentView
             if (input.Text != committed)
             {
                 committed = input.Text;
-                Edit(layer, item, l => l.SetFieldText(input.Text));
+                Edit(layer, item, l => l.SetFieldText(item.Target, input.Text), toggles: false);
             }
         }
 
@@ -185,7 +193,7 @@ public sealed class PdfFormPanel : ContentView
             {
                 selected = picker.SelectedIndex;
                 string? value = selected == 0 ? null : field.Options[selected - 1].ExportValue;
-                Edit(layer, item, l => l.SetFieldChoice(value));
+                Edit(layer, item, l => l.SetFieldChoice(item.Target, value), toggles: false);
             }
         };
         return picker;
@@ -203,7 +211,7 @@ public sealed class PdfFormPanel : ContentView
                 int[] indices = [.. boxes.Select((b, index) => (b, index)).Where(p => p.b.IsChecked).Select(p => p.index)];
                 if (!indices.SequenceEqual(field.SelectedIndices))
                 {
-                    Edit(layer, item, l => l.SetFieldSelection(indices));
+                    Edit(layer, item, l => l.SetFieldSelection(item.Target, indices), toggles: false);
                 }
             };
             boxes.Add(box);
@@ -216,12 +224,22 @@ public sealed class PdfFormPanel : ContentView
     // Only scrolls: focusing the widget in the layer would open the view's own editor over it and take the keyboard from this one.
     private void Reveal(FormFieldItem item) => _follower.View?.Reveal(item.Target.PageIndex, item.Rectangle);
 
-    private void Edit(Broadside.Viewer.AnnotationLayer layer, FormFieldItem item, Func<Broadside.Viewer.AnnotationLayer, bool> edit)
+    private void Edit(Broadside.Viewer.AnnotationLayer layer, FormFieldItem item, Func<Broadside.Viewer.AnnotationLayer, bool> edit, bool toggles = true)
     {
-        // The layer sets the focused field's value; the focus is given back at once, so the view's own editor never opens.
-        layer.Focus(item.Target);
-        bool changed = edit(layer);
-        layer.Focus(null);
+        // Values go to the widget's target (#218); a toggle acts on the focused widget, whose focus is given back at once so the
+        // view's own editor never opens over it.
+        bool changed;
+        if (toggles)
+        {
+            layer.Focus(item.Target);
+            changed = edit(layer);
+            layer.Focus(null);
+        }
+        else
+        {
+            changed = edit(layer);
+        }
+
         if (changed)
         {
             Edited?.Invoke(this, EventArgs.Empty);

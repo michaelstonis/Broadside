@@ -131,3 +131,5 @@ Broadside.Viewer.Maui.PdfFormPanel.Edited -> System.EventHandler?
 Broadside.Viewer.Maui.PdfFormPanel.FieldCount.get -> int
 Broadside.Viewer.Maui.PdfFormPanel.RefreshAsync() -> System.Threading.Tasks.Task!
 static readonly Broadside.Viewer.Maui.PdfFormPanel.ViewerProperty -> Microsoft.Maui.Controls.BindableProperty!
+Broadside.Viewer.Maui.PdfView.Forms.get -> Broadside.Viewer.FormFilling?
+Broadside.Viewer.Maui.PdfFormPanel.XfaExplanation.get -> string?

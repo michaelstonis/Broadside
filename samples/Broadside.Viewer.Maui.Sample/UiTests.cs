@@ -164,6 +164,11 @@ public static class UiTests
         byte[] saved = await page.Document.SaveAsync() ?? throw new InvalidOperationException("The document did not save.");
         using PdfDocument reopened = PdfDocument.Open(saved);
         Check(reopened.AcroForm?.TerminalFields.OfType<Broadside.Forms.PdfTextField>().Any(f => f.FullyQualifiedName == name && f.Value == "Ada Lovelace") == true, "the saved file has the value in " + name);
+
+        // An XFA hybrid: the panel explains that only its AcroForm fields are shown and filled.
+        await OpenAsync(page, "documents/application-form-xfa.pdf");
+        await WaitAsync(() => page.CurrentPanel == SamplePanel.Form && form.FieldCount > 0, "the XFA hybrid's AcroForm fields");
+        await WaitAsync(() => form.XfaExplanation is { Length: > 0 }, "the XFA notice");
     }
 
     private static async Task InfoAsync(MainPage page)

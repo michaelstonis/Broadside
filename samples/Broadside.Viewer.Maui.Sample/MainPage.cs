@@ -40,6 +40,7 @@ public sealed class MainPage : ContentPage
     private bool _benchStarted;
     private bool _uiTestStarted;
     private double _sheetDrag;
+    private AnnotationLayer? _layer;
 
     public MainPage()
     {
@@ -144,6 +145,13 @@ public sealed class MainPage : ContentPage
 
         _document.Changed += OnDocumentChanged;
         _view.StateChanged += OnStateChanged;
+        _view.DocumentChanged += (_, _) =>
+        {
+            // Any edit that redraws a page (a field filled in place, an annotation moved, a panel's change) marks the document edited.
+            _layer?.Invalidated -= OnLayerInvalidated;
+            _layer = _view.Annotations;
+            _layer?.Invalidated += OnLayerInvalidated;
+        };
         _view.Error += (_, e) => _document.Report(e.Exception.Message);
         _view.ActionRequested += OnActionRequested;
         _root.SetAppThemeColor(BackgroundColorProperty, Color.FromRgb(0xF6, 0xF6, 0xF8), Color.FromRgb(0x1E, 0x1E, 0x22));
@@ -415,6 +423,14 @@ public sealed class MainPage : ContentPage
         else if (_panel == SamplePanel.Open && _document.Session is not null && !_document.IsOpening && sender is SampleDocument && !_wide.GetValueOrDefault())
         {
             Show(SamplePanel.None); // a phone shows the document it just opened
+        }
+    }
+
+    private void OnLayerInvalidated(object? sender, PageInvalidatedEventArgs e)
+    {
+        if (!_document.IsEdited)
+        {
+            _document.MarkEdited();
         }
     }
 
