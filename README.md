@@ -56,6 +56,7 @@ All 13 packages are published to NuGet.org at `0.1.0-preview.1`, with a matching
 | [`Broadside.Viewer.Blazor`](https://www.nuget.org/packages/Broadside.Viewer.Blazor) | Blazor WebAssembly viewer component (`PdfViewer`) | `net10.0` (browser only) | `Microsoft.AspNetCore.Components.Web` |
 | [`Broadside.Viewer.Maui`](https://www.nuget.org/packages/Broadside.Viewer.Maui) | .NET MAUI viewer control (`PdfView`), drawn with SkiaSharp | `net10.0`, `net10.0-android`, `net10.0-ios`, `net10.0-maccatalyst`; `net10.0-windows10.0.19041.0` from the next release ([#381](https://github.com/michaelstonis/Broadside/issues/381)) | `Microsoft.Maui.Controls`, `SkiaSharp.Views.Maui.Controls` |
 | [`Broadside.Viewer.Wpf`](https://www.nuget.org/packages/Broadside.Viewer.Wpf) | WPF viewer control (`PdfView`), drawn with the software rasterizer | `net10.0-windows` | WPF (the Windows Desktop SDK) |
+| [`Broadside.Viewer.Avalonia`](https://www.nuget.org/packages/Broadside.Viewer.Avalonia) | Avalonia viewer control (`PdfView`) for Windows, macOS and Linux | `net10.0` | `Avalonia` |
 
 The core and `Broadside.Rendering` depend only on packages Microsoft ships with no native component; every other backend depends on its platform library and nothing else. Every package except `Broadside.Viewer.Maui` and `Broadside.Viewer.Wpf` is marked trimmable and AOT-compatible. MAUI and SkiaSharp's views are not annotated for trimming on every target, and WPF is not trimmable.
 
@@ -139,9 +140,9 @@ How much of each specification is implemented is in the [conformance map](https:
 
 | Platform | Read, write, edit and the software rasterizer | Native backend | Viewer | Exercised in CI |
 |---|---|---|---|---|
-| Windows | yes | Direct2D, Skia | WPF; MAUI from the next release ([#381](https://github.com/michaelstonis/Broadside/issues/381)) | build and tests; Direct2D golden images on a WARP device; WPF viewer UI Automation test; Native AOT smoke |
-| macOS | yes | CoreGraphics, Skia | none | build and tests; CoreGraphics golden images; Native AOT smoke |
-| Linux | yes | Skia | none | build and tests; Native AOT smoke; corpus, fuzz and veraPDF jobs |
+| Windows | yes | Direct2D, Skia | WPF, Avalonia; MAUI from the next release ([#381](https://github.com/michaelstonis/Broadside/issues/381)) | build and tests; Direct2D golden images on a WARP device; WPF viewer UI Automation test; Native AOT smoke |
+| macOS | yes | CoreGraphics, Skia | Avalonia | build and tests; CoreGraphics golden images; Native AOT smoke |
+| Linux | yes | Skia | Avalonia | build and tests; Native AOT smoke; corpus, fuzz and veraPDF jobs; the Avalonia viewer's UI tests, headless |
 | iOS | yes | CoreGraphics, Skia | MAUI (Metal) | the MAUI sample compiles for the iOS simulator |
 | Mac Catalyst | yes | CoreGraphics, Skia | MAUI (Metal) | the MAUI sample compiles |
 | Android | yes | Android Canvas, Skia | MAUI (OpenGL ES) | the Android backend's golden images and a MAUI sample smoke run on an API 35 emulator |
@@ -176,11 +177,18 @@ With nothing to size it, the viewer is as wide as its container and min(80vh, 60
 
 **WPF** (`Broadside.Viewer.Wpf`). The `PdfView` control is a `FrameworkElement`: place it in any panel and set `Source` to a file path or an http(s) address, or `Session` to a document session you opened. Tiles render off the UI thread with the managed software rasterizer, so they match the golden images byte for byte, and are drawn as frozen bitmaps. It takes mouse, touch, pen and keyboard input, selects and copies text, follows links, edits form fields, searches (`Search`, F3) and has a smart dark mode (`ColorFilter`). UI Automation sees each loaded page with its text in reading order, and the tagged structure under it.
 
+**Avalonia** (`Broadside.Viewer.Avalonia`). The `PdfView` control runs on Windows, macOS and Linux. Tiles render off the UI thread with the software rasterizer into Avalonia bitmaps, so every platform draws the same pixels; Avalonia composes them. It has touch, mouse, pen, wheel and trackpad input, text selection, search (`Find`, F3), links and form fields, dark mode (`ColorFilter`) and automation peers that give screen readers each page's text in reading order. Set `Source` to a file path or an http(s) address, or `Session` to a session you opened.
+
+```xml
+<bs:PdfView xmlns:bs="using:Broadside.Viewer.Avalonia" Source="sample.pdf" />
+```
+
 **Samples** (in [`samples/`](https://github.com/michaelstonis/Broadside/tree/main/samples)):
 
 - [`Broadside.Viewer.Blazor.Sample`](https://github.com/michaelstonis/Broadside/blob/main/samples/Broadside.Viewer.Blazor.Sample/README.md) is a static Blazor WebAssembly app that shows the library end to end in the browser, phones included. It covers viewing, search, outline, thumbnails, annotations, forms, document information and tags, signatures, and creating PDF/A and PDF/UA documents with the layout package. It also has a renderer switch (software or WebGL) and the render worker. The documentation site hosts it as the [live demo](https://michaelstonis.github.io/Broadside/demo/). Run it with `dotnet run --project samples/Broadside.Viewer.Blazor.Sample`, or publish a trimmed, AOT-compiled static site with `samples/Broadside.Viewer.Blazor.Sample/publish-static.sh out/demo`.
 - [`Broadside.Viewer.Maui.Sample`](https://github.com/michaelstonis/Broadside/blob/main/samples/Broadside.Viewer.Maui.Sample/README.md) is a MAUI app around `PdfView` with the same gallery, for Android, iOS and Mac Catalyst. It needs the `maui` workload. Run it with `dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-maccatalyst -t:Run`, or with `-f net10.0-android` or `-f net10.0-ios`. It does less than the Blazor demo for now ([#358](https://github.com/michaelstonis/Broadside/issues/358)).
 - [`Broadside.Viewer.Wpf.Sample`](https://github.com/michaelstonis/Broadside/tree/main/samples/Broadside.Viewer.Wpf.Sample) is a WPF window around `PdfView` with the sample documents, page, zoom, selection, search and dark-mode controls. Run it on Windows with `dotnet run --project samples/Broadside.Viewer.Wpf.Sample`, optionally followed by `-- path\to\file.pdf`.
+- [`Broadside.Viewer.Avalonia.Sample`](https://github.com/michaelstonis/Broadside/tree/main/samples/Broadside.Viewer.Avalonia.Sample) is a desktop app around the Avalonia `PdfView` for Windows, macOS and Linux: open, pages, zoom, layout, dark mode, annotations, search, the outline and page thumbnails. Run it with `dotnet run --project samples/Broadside.Viewer.Avalonia.Sample`, optionally followed by `-- <file or address>`.
 
 ## Status and roadmap
 

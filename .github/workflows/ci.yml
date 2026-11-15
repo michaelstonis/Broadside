@@ -617,3 +617,63 @@ jobs:
           name: test-results-winui
           path: artifacts/test-results/**/*.trx
           if-no-files-found: warn
+
+  # The Avalonia viewer (#224): its UI tests run headless on Linux (Avalonia.Headless with Skia drawing and no display server) through
+  # real input events: open, scroll, zoom, select and search over the rendering gate's pinned real-world pages (fetched and cached
+  # here; BROADSIDE_PINNED_REQUIRED makes a missing one fail), touch gestures, keys, links, form fields, dark mode, worker-thread
+  # tiles and the automation peers' reading order. Then the desktop sample builds. The shell library, the tests and the sample also
+  # build in build-test on every OS; the tests are not in Broadside.Core.slnf.
+  avalonia:
+    name: avalonia
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      BROADSIDE_CORPUS_DIR: ${{ github.workspace }}/corpus
+      BROADSIDE_PINNED_REQUIRED: 'true'
+      # Avalonia's build tasks report build telemetry unless told not to.
+      AVALONIA_TELEMETRY_OPTOUT: '1'
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-avalonia-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-avalonia-${{ runner.os }}-
+
+      - name: Cache the pinned pages' corpora
+        uses: actions/cache@v6
+        with:
+          path: corpus
+          key: avalonia-pinned-corpora-${{ hashFiles('tools/CorpusFetcher/corpora.json', 'tests/Broadside.Rendering.Tests/CorpusGate/pinned-pages.txt') }}
+
+      - name: Fetch the pinned pages' corpora
+        run: dotnet run -c Release --project tools/CorpusFetcher -- --only pdfjs,pdf20examples,gwg-output-suite
+
+      - name: Build the UI tests
+        run: dotnet build tests/Broadside.Viewer.Avalonia.Tests -c Release -warnaserror
+
+      - name: Test the viewer headless
+        run: >
+          dotnet test --project tests/Broadside.Viewer.Avalonia.Tests -c Release --no-build --minimum-expected-tests 30
+          --results-directory artifacts/test-results -- --report-xunit-trx
+
+      - name: Build the sample
+        run: dotnet build samples/Broadside.Viewer.Avalonia.Sample -c Release -warnaserror
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-avalonia
+          path: artifacts/test-results/**/*.trx
+          if-no-files-found: warn
