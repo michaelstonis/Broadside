@@ -83,7 +83,7 @@ internal sealed partial class DisplayListBuilder
     /// that selects the alternate images marked for printing (§8.9.5.4) and whose optional-content states have the configuration's
     /// auto-state entries for the Print event applied (§8.11.4.4).
     /// </summary>
-    private static ContentOptions ForIntent(PdfDocument document, DisplayIntent intent, ContentOptions options)
+    internal static ContentOptions ForIntent(PdfDocument document, DisplayIntent intent, ContentOptions options)
     {
         if (intent != DisplayIntent.Print)
         {
@@ -115,7 +115,7 @@ internal sealed partial class DisplayListBuilder
     }
 
     /// <summary>Saves the state around a layer, as <c>q</c> would, the alpha constants and blend mode with it.</summary>
-    private void OpenLayer()
+    internal void OpenLayer()
     {
         Append(ref _saved, ref _savedCount, _current);
         Append(ref _savedAt, ref _savedAtCount, _operationCount);
@@ -124,7 +124,7 @@ internal sealed partial class DisplayListBuilder
     }
 
     /// <summary>Restores the state saved by <see cref="OpenLayer"/>, dropping the pair when nothing was painted.</summary>
-    private void CloseLayer() => Close(DisplayOperationKind.RestoreState);
+    internal void CloseLayer() => Close(DisplayOperationKind.RestoreState);
 
     /// <summary>Pops the innermost saved state and records <paramref name="kind"/>, or drops everything since the save when nothing was painted.</summary>
     private bool Close(DisplayOperationKind kind)
@@ -149,7 +149,7 @@ internal sealed partial class DisplayListBuilder
     /// Adds the appearance of every annotation of one layer that the flags, the intent and optional content leave visible: widgets
     /// for the form-field layer, the others for the annotation layer.
     /// </summary>
-    private void AddAnnotations(IReadOnlyList<PdfAnnotation> annotations, bool widgets, DisplayIntent intent, ContentOptions options, ref PdfOptionalContentState? state)
+    internal void AddAnnotations(IReadOnlyList<PdfAnnotation> annotations, bool widgets, DisplayIntent intent, ContentOptions options, ref PdfOptionalContentState? state)
     {
         foreach (PdfAnnotation annotation in annotations)
         {

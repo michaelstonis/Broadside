@@ -107,6 +107,31 @@ internal sealed class EncodedImage
     /// <remarks>ISO 32000-2 §7.4 and §8.9.3.</remarks>
     public DecodedImage? Decode(int reduction, CancellationToken cancellationToken)
     {
+        (FilterContext filterContext, ImageFilterContext context) = CreateContext(reduction, cancellationToken);
+        DecodedImage? decoded = _streams.RunImageFilter(_filter.Name, () => _filter.DecodeImage(_data, context), cancellationToken);
+        return Check(decoded, filterContext, context);
+    }
+
+    /// <summary>
+    /// Starts a decode at a reduction of 2^<paramref name="reduction"/> that runs in slices (issue #365): in several steps when the
+    /// codec has resume points (<see cref="ISlicedImageFilter"/>), else in one. Its result is <see cref="Decode"/>'s.
+    /// </summary>
+    /// <param name="reduction">The reduction asked for, 0 to <see cref="ImageHeader.MaxReduction"/>.</param>
+    /// <returns>The job; the caller disposes it, and owns its result.</returns>
+    /// <remarks>ISO 32000-2 §7.4 and §8.9.3.</remarks>
+    public ImageDecodeJob BeginDecode(int reduction)
+    {
+        (FilterContext filterContext, ImageFilterContext context) = CreateContext(reduction, CancellationToken.None);
+#pragma warning disable CA2000 // The checked job owns and disposes the codec's.
+        ImageDecodeJob inner = _filter is ISlicedImageFilter sliced
+            ? sliced.BeginDecodeImage(_data, context)
+            : new ImageDecodeJob.OneStep(() => _filter.DecodeImage(_data, context));
+#pragma warning restore CA2000
+        return new CheckedDecode(this, inner, filterContext, context);
+    }
+
+    private (FilterContext Filter, ImageFilterContext Image) CreateContext(int reduction, CancellationToken cancellationToken)
+    {
         var filterContext = new FilterContext(_streams, 0) { Parameters = _parameters, StreamDictionary = _dictionary, CancellationToken = cancellationToken };
         var context = new ImageFilterContext(filterContext)
         {
@@ -116,7 +141,12 @@ internal sealed class EncodedImage
             Reduction = Math.Clamp(reduction, 0, Header.MaxReduction),
         };
 
-        DecodedImage? decoded = _streams.RunImageFilter(_filter.Name, () => _filter.DecodeImage(_data, context), cancellationToken);
+        return (filterContext, context);
+    }
+
+    /// <summary>Accepts the codec's samples when they are what its header promised; otherwise reports and disposes them.</summary>
+    private DecodedImage? Check(DecodedImage? decoded, FilterContext filterContext, ImageFilterContext context)
+    {
         if (decoded is null)
         {
             return null;
@@ -135,6 +165,50 @@ internal sealed class EncodedImage
         }
 
         return decoded;
+    }
+
+    /// <summary>A codec's job with <see cref="Decode"/>'s handling around it: failures become a diagnostic, the result is checked.</summary>
+    private sealed class CheckedDecode(EncodedImage image, ImageDecodeJob inner, FilterContext filterContext, ImageFilterContext context) : ImageDecodeJob
+    {
+        private static readonly object Finished = new();
+        private static readonly object Paused = new();
+        private bool _done;
+
+        public override bool Continue(long deadline, CancellationToken cancellationToken)
+        {
+            if (_done)
+            {
+                return true;
+            }
+
+            object? step;
+            try
+            {
+                step = image._streams.RunImageFilter(image._filter.Name, () => inner.Continue(deadline, cancellationToken) ? Finished : Paused, cancellationToken);
+            }
+            catch
+            {
+                _done = true;
+                inner.Dispose();
+                throw;
+            }
+
+            if (ReferenceEquals(step, Paused))
+            {
+                return false;
+            }
+
+            _done = true;
+            Result = step is null ? null : image.Check(inner.Result, filterContext, context);
+            inner.Dispose();
+            return true;
+        }
+
+        public override void Dispose()
+        {
+            _done = true;
+            inner.Dispose();
+        }
     }
 
     /// <summary>Copies a dictionary's entries into a new one without counting it as a change (it is never written).</summary>

@@ -71,6 +71,19 @@ internal ref struct ContentReader
         _arena = arena;
     }
 
+    /// <summary>Initializes a reader that starts at <paramref name="position"/>, after an operator a run in slices stopped at (#365).</summary>
+    /// <param name="source">The content.</param>
+    /// <param name="arena">The operands' arena, empty.</param>
+    /// <param name="position">Where the previous reader stopped (<see cref="Position"/>).</param>
+    public ContentReader(ReadOnlySpan<byte> source, OperandArena arena, int position)
+    {
+        _lexer = new CosLexer(source, position);
+        _arena = arena;
+    }
+
+    /// <summary>Gets the offset of the first byte not yet read: after the last operator returned.</summary>
+    public readonly int Position => _lexer.Position;
+
     /// <summary>Gets the deviations repaired since they were last cleared.</summary>
     public ReaderIssues Issues { get; private set; }
 

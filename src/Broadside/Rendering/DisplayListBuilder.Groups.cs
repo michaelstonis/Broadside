@@ -76,7 +76,7 @@ internal sealed partial class DisplayListBuilder
     /// knockout as its <c>K</c> says, blending in its <c>CS</c>. The content follows inside a save, closed by <see cref="ClosePageGroup"/>.
     /// </summary>
     /// <returns>The group's index, or −1 when the page has no transparency group.</returns>
-    private int OpenPageGroup(PdfPage page, PdfDocument document)
+    internal int OpenPageGroup(PdfPage page, PdfDocument document)
     {
         if (document.Resolve(page.Dictionary.TryGetValue(GroupName, out CosObject? value) ? value : null) is not CosDictionary group
             || !TransparencyName.Equals(document.Resolve(group.TryGetValue(GroupSubtypeName, out CosObject? subtype) ? subtype : null)))
@@ -107,7 +107,7 @@ internal sealed partial class DisplayListBuilder
     }
 
     /// <summary>Closes the page group opened by <see cref="OpenPageGroup"/>.</summary>
-    private void ClosePageGroup(int group)
+    internal void ClosePageGroup(int group)
     {
         if (group >= 0)
         {

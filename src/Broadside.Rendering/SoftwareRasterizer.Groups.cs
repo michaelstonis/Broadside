@@ -58,6 +58,19 @@ public sealed partial class SoftwareRasterizer
         /// </remarks>
         public void DrawGroup(in DisplayGroup group)
         {
+            _nested++;
+            try
+            {
+                DrawGroupCore(group);
+            }
+            finally
+            {
+                _nested--;
+            }
+        }
+
+        private void DrawGroupCore(in DisplayGroup group)
+        {
             if (_clip.IsEmpty || !TryGroupBounds(group, out int left, out int top, out int right, out int bottom))
             {
                 return;

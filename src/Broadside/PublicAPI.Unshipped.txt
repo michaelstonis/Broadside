@@ -5753,3 +5753,10 @@ Broadside.Images.DecodedImageBuilder.AdobeTransform.set -> void
 Broadside.Images.DecodedImageBuilder.Geometry.get -> Broadside.Images.ImageGeometry
 Broadside.Images.PdfImage.SoftMaskInData.get -> Broadside.Images.PdfSoftMaskInData
 Broadside.Rendering.DisplayImage.Geometry.get -> Broadside.Images.ImageGeometry
+Broadside.Rendering.DisplayImage.ContinueDecode(int reduction, System.TimeSpan budget, System.Threading.CancellationToken cancellationToken) -> bool
+Broadside.PdfPage.BeginDisplayList(Broadside.Rendering.DisplayLayers layers, Broadside.Rendering.DisplayIntent intent, Broadside.Content.ContentOptions! options) -> Broadside.Rendering.DisplayListBuild!
+Broadside.Rendering.DisplayListBuild
+Broadside.Rendering.DisplayListBuild.Continue(System.TimeSpan budget) -> bool
+Broadside.Rendering.DisplayListBuild.Dispose() -> void
+Broadside.Rendering.DisplayListBuild.IsCompleted.get -> bool
+Broadside.Rendering.DisplayListBuild.Result.get -> Broadside.Rendering.DisplayList!

@@ -98,7 +98,8 @@ public sealed class DocumentSessionTests
 
         CountingBackend renderer = Assert.Single(backends);
         Assert.True(renderer.Slices > 2, $"{renderer.Slices} slices");
-        Assert.Equal(renderer.Slices, yields); // one yield before the build, one between each pair of slices
+        // One yield before the build, one between each pair of its slices (issue #365) and one between each pair of drawing slices.
+        Assert.True(yields >= renderer.Slices, $"{yields} yields for {renderer.Slices} drawing slices");
         Assert.Single(surface.Tiles);
     }
 
@@ -112,7 +113,7 @@ public sealed class DocumentSessionTests
             .WithSliceBudget(TimeSpan.FromTicks(1))
             .UseYield(async _ =>
             {
-                // The second yield is between two drawing slices: the tile's pixels are held when the token fires.
+                // The second yield is inside the render (between two slices of its build or of its drawing, issue #365).
                 if (++yields == 2)
                 {
                     await cancellation.CancelAsync();
@@ -142,9 +143,9 @@ public sealed class DocumentSessionTests
             .UseBackend(CountingBackend.Factory(backends))
             .UseYield(async cancellationToken =>
             {
-                if (++yields == 2)
+                // Mid-render (after the build's own yields, issue #365): park here until the session closes.
+                if (backends.Count > 0 && backends[0].Slices > 0 && ++yields == 1)
                 {
-                    // Mid-render: park here until the session closes.
                     drawing.SetResult();
                     await Task.Delay(Timeout.Infinite, cancellationToken);
                 }
@@ -181,7 +182,7 @@ public sealed class DocumentSessionTests
             .WithSliceBudget(TimeSpan.FromTicks(1))
             .UseYield(async cancellationToken =>
             {
-                if (++yields == 2)
+                if (backends.Count > 0 && backends[0].Slices > 0 && ++yields == 1)
                 {
                     drawing.SetResult();
                     await Task.Delay(Timeout.Infinite, cancellationToken);

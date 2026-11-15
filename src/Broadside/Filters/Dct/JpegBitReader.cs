@@ -34,6 +34,23 @@ internal ref struct JpegBitReader
         _atMarker = false;
     }
 
+    /// <summary>Initializes a new instance of the <see cref="JpegBitReader"/> struct where <see cref="Save"/> left a reader.</summary>
+    /// <param name="data">The whole JPEG data, the same as the saved reader's.</param>
+    /// <param name="state">The saved state.</param>
+    public JpegBitReader(ReadOnlySpan<byte> data, in JpegBitReaderState state)
+    {
+        _data = data;
+        _position = state.Position;
+        _buffer = state.Buffer;
+        _bits = state.Bits;
+        _padding = state.Padding;
+        _atMarker = state.AtMarker;
+    }
+
+    /// <summary>Returns the reader's state, from which <see cref="JpegBitReader(ReadOnlySpan{byte}, in JpegBitReaderState)"/> resumes (a decode paused between MCU rows, #365).</summary>
+    /// <returns>The state.</returns>
+    public readonly JpegBitReaderState Save() => new(_position, _buffer, _bits, _padding, _atMarker);
+
     /// <summary>Gets a value indicating whether a read consumed bits beyond the data (the zeros supplied after a marker or the end).</summary>
     public readonly bool Overread => _padding > _bits;
 
@@ -178,3 +195,11 @@ internal ref struct JpegBitReader
         }
     }
 }
+
+/// <summary>A <see cref="JpegBitReader"/>'s state between two slices of a decode (#365).</summary>
+/// <param name="Position">The first byte not yet loaded.</param>
+/// <param name="Buffer">The loaded bits.</param>
+/// <param name="Bits">The number of loaded bits.</param>
+/// <param name="Padding">The zero bits supplied after a marker or the end.</param>
+/// <param name="AtMarker">Whether the reader stopped in front of a marker or the end.</param>
+internal readonly record struct JpegBitReaderState(int Position, ulong Buffer, int Bits, int Padding, bool AtMarker);

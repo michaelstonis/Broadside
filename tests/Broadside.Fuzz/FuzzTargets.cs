@@ -1141,6 +1141,22 @@ internal static class FuzzTargets
             throw new InvalidOperationException($"JPXDecode made a {image.Geometry.Width} x {image.Geometry.Height} x {image.Geometry.Components} image of {image.Samples.Length} bytes where the header says {header}.");
         }
 
+        // Issue #365: a decode in slices that pauses at every code-block and wavelet level gives the same samples.
+        var slicedContext = new ImageFilterContext(new FilterContext { MaxDecodedLength = 1 << 20 }) { MaxPixels = 1 << 16, SoftMaskInData = context.SoftMaskInData };
+        using (ImageDecodeJob job = ((ISlicedImageFilter)filter).BeginDecodeImage(bytes, slicedContext))
+        {
+            while (!job.Continue(0, CancellationToken.None))
+            {
+            }
+
+            using DecodedImage? sliced = job.Result;
+            if (sliced is null || !sliced.Samples.SequenceEqual(image.Samples) || (sliced.Alpha is null) != (image.Alpha is null)
+                || (image.Alpha is { } opacity && !opacity.Samples.SequenceEqual(sliced.Alpha!.Samples)))
+            {
+                throw new InvalidOperationException("JPXDecode in slices decoded other samples than one whole decode.");
+            }
+        }
+
         if (wantsAlpha)
         {
             return;

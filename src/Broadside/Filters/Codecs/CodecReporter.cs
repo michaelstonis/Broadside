@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Broadside.Diagnostics;
 
 namespace Broadside.Filters.Codecs;
@@ -47,6 +48,8 @@ internal class CodecReporter
         _recorded.Clear();
         _context = context;
         _silent = silent;
+        Deadline = long.MaxValue;
+        SliceToken = default;
     }
 
     /// <summary>Returns whether <see cref="Report"/> would report <paramref name="code"/> now, so a caller can skip building the message.</summary>
@@ -82,7 +85,21 @@ internal class CodecReporter
         {
             context.CancellationToken.ThrowIfCancellationRequested();
         }
+
+        SliceToken.ThrowIfCancellationRequested();
     }
+
+    /// <summary>
+    /// Gets or sets the <see cref="Stopwatch"/> timestamp at which a sliced decode pauses at its next resume point
+    /// (<see cref="long.MaxValue"/>: never). Issue #365: a decode run in slices on the caller's thread.
+    /// </summary>
+    public long Deadline { get; set; } = long.MaxValue;
+
+    /// <summary>Gets or sets the token of the current slice of a sliced decode, checked with the context's.</summary>
+    public CancellationToken SliceToken { get; set; }
+
+    /// <summary>Gets a value indicating whether a sliced decode has used its slice and should pause at this resume point.</summary>
+    public bool ShouldPause => Deadline != long.MaxValue && Stopwatch.GetTimestamp() >= Deadline;
 
     /// <summary>Reports again what another reporter recorded (each code and key still once per call).</summary>
     /// <param name="recorded">The recorded deviations.</param>

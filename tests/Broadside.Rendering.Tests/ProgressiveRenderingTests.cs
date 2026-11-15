@@ -52,7 +52,8 @@ public sealed class ProgressiveRenderingTests
             slices++;
         }
 
-        Assert.Equal(Math.Max(1, list.OperationCount), slices);
+        // One operation per slice, after the slices that decode the images kept encoded one MCU row at a time (issue #365).
+        Assert.True(slices >= Math.Max(1, list.OperationCount), $"{slices} slices for {list.OperationCount} operations");
         Assert.True(expected.AsSpan().SequenceEqual(bitmap.Pixels));
     }
 
@@ -73,10 +74,16 @@ public sealed class ProgressiveRenderingTests
         using var sliced = new Bitmap(160, 120);
 
         using ProgressiveRender render = rasterizer.BeginRender(list, sliced, device, CancellationToken.None, progress: null);
+        // Slices that hand operations over (others decode images or finish an image paint, issue #365).
         int slices = 1;
+        double last = 0;
         while (!render.Continue(TimeSpan.Zero))
         {
-            slices++;
+            if (render.Progress > last)
+            {
+                slices++;
+                last = render.Progress;
+            }
         }
 
         Assert.True(slices < list.OperationCount, "Nothing was skipped outside the tile.");
