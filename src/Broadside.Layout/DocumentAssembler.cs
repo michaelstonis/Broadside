@@ -113,8 +113,19 @@ internal sealed partial class DocumentAssembler
 
         setup.Validate("section");
         Style regionStyle = Merge(Merge(_root, new Style { Color = _theme.Muted }.Merge(_theme.HeaderFooter)), section.Style?.Inherited);
+        Watermark? watermark = null;
+        if (section.Watermark is { } text)
+        {
+            Style full = Merge(Merge(_root, new Style { FontFamily = _theme.HeadingFont, Bold = true, FontSize = 60, Color = _theme.Muted }), section.WatermarkStyle);
+            watermark = new Watermark(text, TextStyleOf(full, full.Color));
+        }
+
         return new PageTemplate(setup)
         {
+            Decoration = section.Decoration,
+            BackgroundColor = section.BackgroundColor,
+            BackgroundImage = section.BackgroundImage is { } background ? Embed(background) : null,
+            Watermark = watermark,
             Header = Region(section.Header, regionStyle),
             Footer = Region(section.Footer, regionStyle),
             FirstPageHeader = Region(section.FirstPageHeader, regionStyle),
@@ -172,6 +183,13 @@ internal sealed partial class DocumentAssembler
                 case ImageNode image:
                     FlowBlock builtImage = BuildImage(image, scope, language);
                     add(Kept(image, image.Caption is { } imageCaption ? new BlockGroup(builtImage, Caption(imageCaption, scope, language)) { KeepTogether = true } : builtImage));
+                    break;
+                case DrawingNode drawing:
+                    FlowBlock builtDrawing = BuildDrawing(drawing, scope, language);
+                    add(Kept(drawing, drawing.Caption is { } drawingCaption ? new BlockGroup(builtDrawing, Caption(drawingCaption, scope, language)) { KeepTogether = true } : builtDrawing));
+                    break;
+                case ColumnsNode columns:
+                    add(Kept(columns, BuildColumns(columns, scope, language)));
                     break;
                 case GroupNode group:
                     add(new BlockGroup(Blocks(group.Content, Merge(scope, group.Scope?.Inherited), language))
@@ -541,13 +559,74 @@ internal sealed partial class DocumentAssembler
         };
     }
 
+    /// <summary>The image of <paramref name="source"/> in the document, embedded on first use.</summary>
+    private PdfImage Embed(ImageSource source)
+    {
+        if (!_images.TryGetValue(source, out PdfImage? image))
+        {
+            image = source.Embed(_document);
+            _images.Add(source, image);
+        }
+
+        return image;
+    }
+
+    private DrawingBlock BuildDrawing(DrawingNode node, Style scope, string? language)
+    {
+        double width = node.Width.ToPoints();
+        double height = node.Height.ToPoints();
+        if (node.FillWidth)
+        {
+            height *= _contentWidth / width;
+            width = _contentWidth;
+        }
+
+        CheckAlternateText(node.AlternateText);
+        Style full = Resolve(null, scope, node.Local);
+        Style box = node.Local ?? Style.Empty;
+        return new DrawingBlock(width, height, node.Draw)
+        {
+            AlternateText = node.AlternateText,
+            IsDecorative = node.AlternateText is null,
+            Alignment = node.Alignment,
+            SpaceBefore = box.SpaceBefore?.ToPoints() ?? 0,
+            SpaceAfter = box.SpaceAfter?.ToPoints() ?? _root.SpaceAfter?.ToPoints() ?? 0,
+            Language = node.AlternateText is null || string.Equals(full.Language, language, StringComparison.OrdinalIgnoreCase) ? null : full.Language,
+        };
+    }
+
+    private ColumnsBlock BuildColumns(ColumnsNode node, Style scope, string? language)
+    {
+        Style inner = Merge(scope, node.Scope?.Inherited);
+        var columns = new FlowColumn[node.Columns.Count];
+        for (int index = 0; index < columns.Length; index++)
+        {
+            ColumnNode column = node.Columns[index];
+            columns[index] = new FlowColumn(column.Width, Blocks(column.Content, inner, language));
+        }
+
+        Style box = node.Local ?? Style.Empty;
+        return new ColumnsBlock(columns)
+        {
+            Gap = node.Gap?.ToPoints() ?? 12,
+            SpaceBefore = box.SpaceBefore?.ToPoints() ?? 0,
+            SpaceAfter = box.SpaceAfter?.ToPoints() ?? _root.SpaceAfter?.ToPoints() ?? 0,
+        };
+    }
+
+    private void CheckAlternateText(string? alternate)
+    {
+        if (alternate is not null && FileNameLike().IsMatch(alternate))
+        {
+            _context.Report(
+                LayoutDiagnostics.AlternateTextLooksLikeFileName,
+                $"The alternate text \"{Shorten(alternate)}\" looks like a file name; it should say what the image shows (ISO 32000-2 §14.9.3).");
+        }
+    }
+
     private ImageBlock BuildImage(ImageNode node, Style scope, string? language)
     {
-        if (!_images.TryGetValue(node.Source, out PdfImage? image))
-        {
-            image = node.Source.Embed(_document);
-            _images.Add(node.Source, image);
-        }
+        PdfImage image = Embed(node.Source);
 
         double aspect = image.Height / (double)image.Width;
         double width;
@@ -573,13 +652,7 @@ internal sealed partial class DocumentAssembler
             height = image.Height;
         }
 
-        if (node.AlternateText is { } alternate && FileNameLike().IsMatch(alternate))
-        {
-            _context.Report(
-                LayoutDiagnostics.AlternateTextLooksLikeFileName,
-                $"The alternate text \"{Shorten(alternate)}\" looks like a file name; it should say what the image shows (ISO 32000-2 §14.9.3).");
-        }
-
+        CheckAlternateText(node.AlternateText);
         Style full = Resolve(null, scope, node.Local);
         string? blockLanguage = string.Equals(full.Language, language, StringComparison.OrdinalIgnoreCase) ? null : full.Language;
         Style box = node.Local ?? Style.Empty;

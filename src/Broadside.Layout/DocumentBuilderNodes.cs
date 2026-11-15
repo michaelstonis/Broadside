@@ -94,6 +94,16 @@ internal sealed class SectionNode
 
     public HeaderFooterNode? EvenPageFooter { get; set; }
 
+    public Action<PdfCanvas, PageInfo>? Decoration { get; set; }
+
+    public PdfColor? BackgroundColor { get; set; }
+
+    public ImageSource? BackgroundImage { get; set; }
+
+    public string? Watermark { get; set; }
+
+    public Style? WatermarkStyle { get; set; }
+
     public ContainerNode Content { get; } = new();
 }
 
@@ -322,4 +332,40 @@ internal sealed class RuleNode : BlockNode
 internal sealed class RawNode(FlowBlock block) : BlockNode
 {
     public FlowBlock Block { get; } = block;
+}
+
+/// <summary>A vector drawing: a box the callback paints, described or decorative.</summary>
+internal sealed class DrawingNode : BlockNode
+{
+    public required Length Width { get; init; }
+
+    public required Length Height { get; init; }
+
+    public required Action<PdfCanvas, PdfRectangle> Draw { get; init; }
+
+    public string? AlternateText { get; init; }
+
+    public bool FillWidth { get; set; }
+
+    public TextAlignment Alignment { get; set; }
+
+    public string? Caption { get; set; }
+}
+
+/// <summary>Columns side by side, each its own scope of content.</summary>
+internal sealed class ColumnsNode : BlockNode
+{
+    public List<ColumnNode> Columns { get; } = [];
+
+    public Style? Scope { get; set; }
+
+    public Length? Gap { get; set; }
+}
+
+/// <summary>One column: its width and content.</summary>
+internal sealed class ColumnNode(ColumnWidth width)
+{
+    public ColumnWidth Width { get; } = width;
+
+    public ContainerNode Content { get; } = new();
 }

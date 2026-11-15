@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Broadside.Graphics;
 
 namespace Broadside.Layout.Flow;
 
@@ -300,6 +301,79 @@ public readonly ref struct SectionBuilder
     public SectionBuilder EvenPageFooter(Action<HeaderFooterBuilder> build)
     {
         Section.EvenPageFooter = Region(build);
+        return this;
+    }
+
+    /// <summary>
+    /// Draws on every page of the section once its content is laid out, over the body and under the header and footer: crop marks, a
+    /// page border, letterhead art. The callback receives the page's canvas in default user space (points, origin at the bottom-left
+    /// corner of the page) and the page: its number, the page count, its section and its setup. Calling it again adds another drawing.
+    /// </summary>
+    /// <param name="draw">Draws on one page.</param>
+    /// <returns>This builder.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="draw"/> is null.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §14.8.2.2.2, Table 363: what it draws is a pagination artifact, in a saved graphics state (§8.4.2). It runs once per
+    /// page, in page order; what it leaves unbalanced on the canvas is balanced and recorded as a <c>DrawingStateUnbalanced</c>
+    /// diagnostic.
+    /// </remarks>
+    public SectionBuilder Decorate(Action<PdfCanvas, PageInfo> draw)
+    {
+        ArgumentNullException.ThrowIfNull(draw);
+        SectionNode section = Section;
+        section.Decoration = section.Decoration is null ? draw : section.Decoration + draw;
+        return this;
+    }
+
+    /// <summary>Fills every page of the section with <paramref name="color"/>, under everything else.</summary>
+    /// <param name="color">The color.</param>
+    /// <returns>This builder.</returns>
+    /// <remarks>ISO 32000-2 §14.8.2.2.2, Table 363: a <c>Background</c> pagination artifact.</remarks>
+    public SectionBuilder Background(PdfColor color)
+    {
+        Section.BackgroundColor = color;
+        return this;
+    }
+
+    /// <summary>Stretches <paramref name="image"/> over every page of the section, above the background color and under everything else.</summary>
+    /// <param name="image">The image; embedded once per document however many sections use it.</param>
+    /// <returns>This builder.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="image"/> is null.</exception>
+    /// <remarks>ISO 32000-2 §14.8.2.2.2, Table 363 (a <c>Background</c> pagination artifact) and §8.9.5 (image XObjects).</remarks>
+    public SectionBuilder Background(ImageSource image)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        Section.BackgroundImage = image;
+        return this;
+    }
+
+    /// <summary>
+    /// Draws <paramref name="text"/> large, rotated 45 degrees and translucent across the middle of every page of the section, under the body:
+    /// in the theme's heading font, bold, 60 points, in its muted color, at 20% opacity.
+    /// </summary>
+    /// <param name="text">The text, on one line.</param>
+    /// <returns>This builder.</returns>
+    /// <exception cref="ArgumentException"><paramref name="text"/> is null or empty.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §14.8.2.2.2, Table 363: a pagination artifact with <c>Subtype</c> <c>Watermark</c>; the opacity is the <c>ca</c> constant
+    /// alpha of an ExtGState (§11.6.4.4), minimum PDF version 1.4.
+    /// </remarks>
+    public SectionBuilder Watermark(string text) => Watermark(text, Flow.Style.Empty);
+
+    /// <summary>Draws <paramref name="text"/> as a watermark (see <see cref="Watermark(string)"/>) with <paramref name="style"/> over its default look.</summary>
+    /// <param name="text">The text, on one line.</param>
+    /// <param name="style">The font, size, weight and color over the default look.</param>
+    /// <returns>This builder.</returns>
+    /// <exception cref="ArgumentException"><paramref name="text"/> is null or empty.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="style"/> is null.</exception>
+    /// <remarks>ISO 32000-2 §14.8.2.2.2, Table 363, and §11.6.4.4. Minimum PDF version 1.4.</remarks>
+    public SectionBuilder Watermark(string text, Style style)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(text);
+        ArgumentNullException.ThrowIfNull(style);
+        SectionNode section = Section;
+        section.Watermark = text;
+        section.WatermarkStyle = style;
         return this;
     }
 

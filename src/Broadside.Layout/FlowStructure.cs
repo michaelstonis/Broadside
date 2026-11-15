@@ -276,7 +276,7 @@ internal sealed class FlowStructure : IStructureSink
         }
 
         Node? parent = node.Parent;
-        if (parent is not null && node.Type == "Caption" && node.Owner is FlowBlock && parent.Children is [.., { Owner: ImageBlock or Table } captioned] && captioned.Type == ((FlowBlock)captioned.Owner!).StructureType)
+        if (parent is not null && node.Type == "Caption" && node.Owner is FlowBlock && parent.Children is [.., { Owner: ImageBlock or DrawingBlock or Table } captioned] && captioned.Type == ((FlowBlock)captioned.Owner!).StructureType)
         {
             // A caption right after a figure or table belongs to it (§14.8.4.4, Table 368).
             node.Parent = parent = captioned;
@@ -311,7 +311,7 @@ internal sealed class FlowStructure : IStructureSink
                 break;
         }
 
-        if (node.Owner is ImageBlock or Table && node.Type == ((FlowBlock)node.Owner).StructureType && parent is not null)
+        if (node.Owner is ImageBlock or DrawingBlock or Table && node.Type == ((FlowBlock)node.Owner).StructureType && parent is not null)
         {
             AdoptCaption(parent, node);
         }

@@ -778,3 +778,33 @@ Broadside.Layout.Flow.Rule.Thickness.init -> void
 Broadside.Layout.Flow.Spacer
 Broadside.Layout.Flow.Spacer.Height.get -> double
 Broadside.Layout.Flow.Spacer.Spacer(double height) -> void
+Broadside.Layout.Flow.ColumnsBuilder
+Broadside.Layout.Flow.ColumnsBuilder.Column(Broadside.Layout.Flow.ColumnWidth width, System.Action<Broadside.Layout.Flow.ContainerBuilder>! build) -> void
+Broadside.Layout.Flow.ColumnsBuilder.Column(System.Action<Broadside.Layout.Flow.ContainerBuilder>! build) -> void
+Broadside.Layout.Flow.ColumnsBuilder.ColumnsBuilder() -> void
+Broadside.Layout.Flow.ColumnsElement
+Broadside.Layout.Flow.ColumnsElement.ColumnsElement() -> void
+Broadside.Layout.Flow.ColumnsElement.Gap(Broadside.Layout.Flow.Length gap) -> Broadside.Layout.Flow.ColumnsElement
+Broadside.Layout.Flow.ColumnsElement.KeepTogether() -> Broadside.Layout.Flow.ColumnsElement
+Broadside.Layout.Flow.ColumnsElement.KeepWithNext() -> Broadside.Layout.Flow.ColumnsElement
+Broadside.Layout.Flow.ColumnsElement.SpaceAfter(Broadside.Layout.Flow.Length space) -> Broadside.Layout.Flow.ColumnsElement
+Broadside.Layout.Flow.ColumnsElement.SpaceBefore(Broadside.Layout.Flow.Length space) -> Broadside.Layout.Flow.ColumnsElement
+Broadside.Layout.Flow.ColumnsElement.Style(Broadside.Layout.Flow.Style! style) -> Broadside.Layout.Flow.ColumnsElement
+Broadside.Layout.Flow.ContainerBuilder.Columns(System.Action<Broadside.Layout.Flow.ColumnsBuilder>! build) -> Broadside.Layout.Flow.ColumnsElement
+Broadside.Layout.Flow.ContainerBuilder.DecorativeDrawing(Broadside.Layout.Flow.Length width, Broadside.Layout.Flow.Length height, System.Action<Broadside.Graphics.PdfCanvas!, Broadside.PdfRectangle>! draw) -> Broadside.Layout.Flow.DrawingElement
+Broadside.Layout.Flow.ContainerBuilder.Drawing(Broadside.Layout.Flow.Length width, Broadside.Layout.Flow.Length height, string! alternateText, System.Action<Broadside.Graphics.PdfCanvas!, Broadside.PdfRectangle>! draw) -> Broadside.Layout.Flow.DrawingElement
+Broadside.Layout.Flow.DrawingElement
+Broadside.Layout.Flow.DrawingElement.AlignCenter() -> Broadside.Layout.Flow.DrawingElement
+Broadside.Layout.Flow.DrawingElement.AlignLeft() -> Broadside.Layout.Flow.DrawingElement
+Broadside.Layout.Flow.DrawingElement.AlignRight() -> Broadside.Layout.Flow.DrawingElement
+Broadside.Layout.Flow.DrawingElement.Caption(string! caption) -> Broadside.Layout.Flow.DrawingElement
+Broadside.Layout.Flow.DrawingElement.DrawingElement() -> void
+Broadside.Layout.Flow.DrawingElement.FillWidth() -> Broadside.Layout.Flow.DrawingElement
+Broadside.Layout.Flow.DrawingElement.KeepWithNext() -> Broadside.Layout.Flow.DrawingElement
+Broadside.Layout.Flow.DrawingElement.SpaceAfter(Broadside.Layout.Flow.Length space) -> Broadside.Layout.Flow.DrawingElement
+Broadside.Layout.Flow.DrawingElement.SpaceBefore(Broadside.Layout.Flow.Length space) -> Broadside.Layout.Flow.DrawingElement
+Broadside.Layout.Flow.SectionBuilder.Background(Broadside.Graphics.PdfColor color) -> Broadside.Layout.Flow.SectionBuilder
+Broadside.Layout.Flow.SectionBuilder.Background(Broadside.Layout.Flow.ImageSource! image) -> Broadside.Layout.Flow.SectionBuilder
+Broadside.Layout.Flow.SectionBuilder.Decorate(System.Action<Broadside.Graphics.PdfCanvas!, Broadside.Layout.Flow.PageInfo>! draw) -> Broadside.Layout.Flow.SectionBuilder
+Broadside.Layout.Flow.SectionBuilder.Watermark(string! text) -> Broadside.Layout.Flow.SectionBuilder
+Broadside.Layout.Flow.SectionBuilder.Watermark(string! text, Broadside.Layout.Flow.Style! style) -> Broadside.Layout.Flow.SectionBuilder

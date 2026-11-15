@@ -130,6 +130,64 @@ public readonly ref struct ContainerBuilder
         return AddImage(new ImageNode { Source = source });
     }
 
+    /// <summary>
+    /// Adds a vector drawing (<c>Figure</c>) with its alternate text: <paramref name="draw"/> paints a box of <paramref name="width"/> by
+    /// <paramref name="height"/> through the page's <see cref="PdfCanvas"/>, whose origin is the box's bottom-left corner and whose unit is the point.
+    /// </summary>
+    /// <param name="width">The width of the box.</param>
+    /// <param name="height">The height of the box.</param>
+    /// <param name="alternateText">What the drawing shows, for readers that cannot see it.</param>
+    /// <param name="draw">Paints the drawing: the page's canvas, and the box <c>[0 0 width height]</c> in its current coordinates.</param>
+    /// <returns>The drawing's builder.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="width"/> or <paramref name="height"/> is not positive.</exception>
+    /// <exception cref="ArgumentException"><paramref name="alternateText"/> is null, empty or white space.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="draw"/> is null.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §14.8.4.8.5 (<c>Figure</c>, with a <c>BBox</c> layout attribute, §14.8.5.4.3), §14.9.3 (<c>Alt</c>) and §8.4.2. The
+    /// callback runs once, when the drawing is placed, inside a saved graphics state and the figure's marked content; what it leaves
+    /// unbalanced is balanced again and recorded as a <c>DrawingStateUnbalanced</c> diagnostic. A drawing that does not fit below the
+    /// content before it starts a page; one wider than the space it is in, or taller than a page, is scaled down.
+    /// </remarks>
+    public DrawingElement Drawing(Length width, Length height, string alternateText, Action<PdfCanvas, PdfRectangle> draw)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(alternateText);
+        return AddDrawing(width, height, alternateText, draw);
+    }
+
+    /// <summary>Adds a vector drawing that carries no meaning (see <see cref="Drawing"/>), drawn as an artifact and skipped by assistive technology.</summary>
+    /// <param name="width">The width of the box.</param>
+    /// <param name="height">The height of the box.</param>
+    /// <param name="draw">Paints the drawing.</param>
+    /// <returns>The drawing's builder.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="width"/> or <paramref name="height"/> is not positive.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="draw"/> is null.</exception>
+    /// <remarks>ISO 32000-2 §14.8.2.2 (artifacts).</remarks>
+    public DrawingElement DecorativeDrawing(Length width, Length height, Action<PdfCanvas, PdfRectangle> draw) => AddDrawing(width, height, null, draw);
+
+    /// <summary>
+    /// Adds columns side by side, such as an address beside an invoice number: each column flows its own content from the same top, and
+    /// what follows starts below the longest. Each column is tagged as one <c>Div</c>, read in column order, never as a table.
+    /// </summary>
+    /// <param name="build">Describes the columns.</param>
+    /// <returns>The columns' builder.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="build"/> is null.</exception>
+    /// <exception cref="InvalidOperationException"><paramref name="build"/> describes no column.</exception>
+    /// <remarks>ISO 32000-2 §14.8.4.4 (grouping elements). This is not newspaper-style flow from one column into the next.</remarks>
+    public ColumnsElement Columns(Action<ColumnsBuilder> build)
+    {
+        ArgumentNullException.ThrowIfNull(build);
+        BuildContext context = Context;
+        var columns = new ColumnsNode();
+        _container!.Blocks.Add(columns);
+        build(new ColumnsBuilder(context, columns));
+        if (columns.Columns.Count == 0)
+        {
+            throw new InvalidOperationException("Columns need at least one column.");
+        }
+
+        return new ColumnsElement(context, columns);
+    }
+
     /// <summary>Adds a group: content that shares a style and adds no structure element of its own unless given a <see cref="GroupElement.Role"/>.</summary>
     /// <param name="build">Describes the content.</param>
     /// <returns>The group's builder.</returns>
@@ -194,6 +252,25 @@ public readonly ref struct ContainerBuilder
         BuildContext context = Context;
         _container!.Blocks.Add(image);
         return new ImageElement(context, image);
+    }
+
+    private DrawingElement AddDrawing(Length width, Length height, string? alternateText, Action<PdfCanvas, PdfRectangle> draw)
+    {
+        if (!(width.ToPoints() > 0 && double.IsFinite(width.ToPoints())))
+        {
+            throw new ArgumentOutOfRangeException(nameof(width), width, "The width shall be positive and finite.");
+        }
+
+        if (!(height.ToPoints() > 0 && double.IsFinite(height.ToPoints())))
+        {
+            throw new ArgumentOutOfRangeException(nameof(height), height, "The height shall be positive and finite.");
+        }
+
+        ArgumentNullException.ThrowIfNull(draw);
+        BuildContext context = Context;
+        var drawing = new DrawingNode { Width = width, Height = height, Draw = draw, AlternateText = alternateText };
+        _container!.Blocks.Add(drawing);
+        return new DrawingElement(context, drawing);
     }
 }
 
