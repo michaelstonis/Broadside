@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Avalonia shell of the viewer core (#224): a PdfView control for Windows, macOS and Linux desktops. Tiles render with the
+    viewer core's software rasterizer off the UI thread into Avalonia WriteableBitmaps, which Avalonia composes with its own renderer.
+    Avalonia is the only dependency beyond Broadside (ADR 0001: a shell depends on its UI framework and nothing else).
+  -->
+  <PropertyGroup>
+    <Description>Avalonia viewer for Broadside: a PdfView control on the shared viewer core for Windows, macOS and Linux, with tiles rendered off the UI thread, touch, mouse and keyboard input, text selection, search, annotation and link layers, dark mode and automation peers that expose page text in reading order. Depends on Avalonia only.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Broadside.Viewer/Broadside.Viewer.csproj" />
+    <PackageReference Include="Avalonia" />
+  </ItemGroup>
+
+</Project>

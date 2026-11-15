@@ -7,6 +7,7 @@ namespace Broadside.Viewer.Tests;
 /// Smart dark mode in the viewer (spec #33 viewer capability 9): the session draws its tiles with its color filter, turning it on or
 /// off builds no display list again, and a backend or remote renderer that cannot draw the filter falls back to the software path.
 /// </summary>
+[Collection(HeavyTestCollection.Name)]
 public sealed class ColorFilterViewerTests
 {
     private static CancellationToken Token => TestContext.Current.CancellationToken;

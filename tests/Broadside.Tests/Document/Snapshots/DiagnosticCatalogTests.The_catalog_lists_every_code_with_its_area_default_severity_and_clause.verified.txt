@@ -589,3 +589,14 @@ Structure	StructureClassConflict	Information	ISO 32000-2 §14.7
 Structure	StructureIdConflict	Information	ISO 32000-2 §14.7
 Structure	FigureAlternateTextPlaceholder	Warning	ISO 32000-2 §14.9.3
 Structure	FigureWithoutAlternateText	Warning	ISO 32000-2 §14.9.3
+Layout	DrawingStateUnbalanced	Warning	ISO 32000-2 §8.4.2
+Layout	KeepTogetherTooTall	Warning	ISO 32000-2 §7.7.3.3
+Layout	HeadingLevelSkipped	Warning	ISO 32000-2 §14.8.4.3.6
+Layout	AlternateTextLooksLikeFileName	Warning	ISO 32000-2 §14.9.3
+Layout	FontFaceMissing	Warning	ISO 32000-2 §9.6.2
+Layout	FontNotFound	Warning	ISO 32000-2 §9.6.2
+Layout	CharacterNotEncodable	Warning	ISO 32000-2 §9.4.3
+Layout	DocumentLanguageMissing	Warning	ISO 32000-2 §14.9.2
+Layout	DocumentTitleMissing	Warning	ISO 32000-2 §14.3.3
+Layout	AppendedToUntaggedDocument	Warning	ISO 32000-2 §14.8
+Layout	DocumentMetadataKept	Information	ISO 32000-2 §14.3.3

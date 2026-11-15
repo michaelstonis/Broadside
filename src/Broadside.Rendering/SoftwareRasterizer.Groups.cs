@@ -197,6 +197,7 @@ public sealed partial class SoftwareRasterizer
             }
 
             Backend child = _cellBackend ??= new Backend();
+            child.UseGlyphsOf(this);
             child.Begin(_document!, _groundBitmap, Matrix.Identity, width, height, preview: false, _antiAliasing);
             child._pixelModel = _pixelModel;
             try

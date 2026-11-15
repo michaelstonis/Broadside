@@ -103,10 +103,12 @@ internal sealed class DisplayListEntry(long epoch, DisplayList list) : EpochEntr
 /// <param name="MaxOperands">The content limit on operands.</param>
 /// <param name="MaxSaveDepth">The content limit on the graphics state stack.</param>
 /// <param name="MaxNestingDepth">The content limit on nested streams.</param>
+/// <param name="TransientFieldAppearances">Whether widgets without an appearance were drawn with a display-only one.</param>
 internal readonly record struct DisplayListKey(
     CosDictionary Page,
     DisplayLayers Layers,
     DisplayIntent Intent,
     int MaxOperands,
     int MaxSaveDepth,
-    int MaxNestingDepth);
+    int MaxNestingDepth,
+    bool TransientFieldAppearances = false);

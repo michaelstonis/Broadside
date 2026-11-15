@@ -174,10 +174,7 @@ public sealed partial class Table
         double left = x + padding.Left;
         double right = Math.Max(left, x + width - padding.Right);
         using var region = new FlowContext(context, left, right, top - padding.Top, heights, drawPage);
-        foreach (FlowBlock block in cell.Blocks)
-        {
-            block.LayOut(region);
-        }
+        region.LayOutBlocks(cell.Blocks);
 
         return new CellResult(region.PageCount, region.Top - region.CursorY, region.OverflowedFirstPage);
     }

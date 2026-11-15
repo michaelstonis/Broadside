@@ -33,6 +33,8 @@ internal sealed class FlowStructure : IStructureSink
     private static readonly CosName TableOwner = new("Table");
     private static readonly CosName ListOwner = new("List");
     private static readonly CosName ListNumberingKey = new("ListNumbering");
+    private static readonly CosName LayoutOwner = new("Layout");
+    private static readonly CosName BBoxKey = new("BBox");
     private static readonly CosName RowSpanKey = new("RowSpan");
     private static readonly CosName ColSpanKey = new("ColSpan");
     private static readonly CosName ScopeKey = new("Scope");
@@ -50,12 +52,14 @@ internal sealed class FlowStructure : IStructureSink
     private PdfPage? _page;
     private int _ids;
 
-    public FlowStructure(PdfStructureTreeRoot root, FlowTagging tagging, List<Diagnostic> diagnostics)
+    public FlowStructure(PdfStructureTreeRoot root, FlowTagging tagging, List<Diagnostic> diagnostics, PdfStructureElement? document = null)
     {
         _root = root;
         _tagging = tagging;
         _diagnostics = diagnostics;
-        _stack.Add(new Node("Document", null, null, NodeKind.Container, null));
+
+        // Appending to a tagged document: the new elements go under its existing Document element rather than a second root.
+        _stack.Add(new Node("Document", null, null, NodeKind.Container, null) { Element = document });
     }
 
     /// <summary>Gets the <c>Document</c> element, or <see langword="null"/> when nothing was tagged.</summary>
@@ -75,7 +79,9 @@ internal sealed class FlowStructure : IStructureSink
     {
         NodeKind kind = block switch
         {
-            Paragraph { IsPlain: true } or ImageBlock => NodeKind.Leaf,
+            // A block of type Artifact (a decorative image) is a layout artifact, never an element (§14.8.2.2).
+            { StructureType: "Artifact" } => NodeKind.Artifact,
+            Paragraph { IsPlain: true } or ImageBlock or DrawingBlock => NodeKind.Leaf,
             _ => NodeKind.Container,
         };
         Begin(block.StructureType, block, block.Language, kind, page, canvas);
@@ -96,6 +102,18 @@ internal sealed class FlowStructure : IStructureSink
     }
 
     public void EndPart(FlowPart part, PdfPage page, PdfCanvas canvas) => End(page, canvas);
+
+    public void SetBoundingBox(FlowBlock block, PdfRectangle box)
+    {
+        if (_stack[^1] is { Element: { } element } node && ReferenceEquals(node.Owner, block))
+        {
+            // §14.8.5.4.3, Table 379: the figure's area on its page, in default user space.
+            element.AddAttributes(LayoutOwner).SetValue(BBoxKey, new CosArray
+            {
+                new CosReal(Math.Round(box.Left, 4)), new CosReal(Math.Round(box.Bottom, 4)), new CosReal(Math.Round(box.Right, 4)), new CosReal(Math.Round(box.Top, 4)),
+            });
+        }
+    }
 
     public void AddAnnotation(FlowPart part, PdfAnnotation annotation)
     {
@@ -225,7 +243,7 @@ internal sealed class FlowStructure : IStructureSink
     /// </summary>
     private static Node? Reusable(Node parent, string type, object? owner)
     {
-        bool anyChild = owner is TableRow or TableCell;
+        bool anyChild = owner is TableRow or TableCell or ColumnPart;
         if (type == "Caption" && parent.Children is [.., { Children: [.., var adopted] }] && ReferenceEquals(adopted.Owner, owner) && adopted.Type == type)
         {
             // A caption continued on the next page, already moved into its figure or table.
@@ -280,6 +298,9 @@ internal sealed class FlowStructure : IStructureSink
                 break;
             case InlineImage image:
                 Describe(element, image.AlternateText);
+                break;
+            case DrawingBlock drawing:
+                Describe(element, drawing.AlternateText);
                 break;
             case TableCell cell:
                 DescribeCell(node, element, cell);
@@ -478,7 +499,7 @@ internal sealed class FlowStructure : IStructureSink
     private static string DefaultType(object? owner) => owner switch
     {
         Paragraph => "P",
-        ImageBlock or InlineImage => "Figure",
+        ImageBlock or InlineImage or DrawingBlock => "Figure",
         ListBlock => "L",
         Table => "Table",
         TextRun { Link: not null } => "Link",

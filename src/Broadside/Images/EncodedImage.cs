@@ -32,6 +32,7 @@ internal sealed class EncodedImage
     private readonly CosDictionary? _parameters;
     private readonly CosDictionary _dictionary;
     private readonly ImageGeometry _dictionaryGeometry;
+    private JpxRequest? _jpxRequest;
 
     /// <summary>Initializes a new instance of the <see cref="EncodedImage"/> class.</summary>
     /// <param name="data">The data the codec decodes, which nothing writes from now on.</param>
@@ -72,6 +73,16 @@ internal sealed class EncodedImage
     public bool TryCreatePlatformRequest(out PlatformImageRequest request)
     {
         request = default;
+        if (_filter.Name.Equals(FilterNames.JpxDecode))
+        {
+            // The rule reads the JP2 boxes and joins a fragmented codestream, so its answer is made once.
+            JpxRequest answer = _jpxRequest ??= PlatformImageEligibility.TryCreateJpxRequest(_data.Span, Header, IsIndexed(), out PlatformImageRequest created, out _)
+                ? new JpxRequest(created)
+                : JpxRequest.Ineligible;
+            request = answer.Request;
+            return answer.Eligible;
+        }
+
         if (!_filter.Name.Equals(FilterNames.DctDecode))
         {
             return false;
@@ -211,6 +222,12 @@ internal sealed class EncodedImage
         }
     }
 
+    // ISO 32000-2 §7.4.9: an Indexed color space makes the codestream's samples palette indices, which the codec returns raw.
+    private bool IsIndexed() =>
+        _dictionary.TryGetValue(ImageNames.ColorSpace, out CosObject? value)
+        && _streams.Resolve(value) is CosArray { Count: > 0 } array
+        && _streams.Resolve(array[0]) is CosName { Value: "Indexed" or "I" };
+
     /// <summary>Copies a dictionary's entries into a new one without counting it as a change (it is never written).</summary>
     private static CosDictionary Copy(CosDictionary source)
     {
@@ -221,5 +238,15 @@ internal sealed class EncodedImage
         }
 
         return CosDictionary.FromOwnedEntries(entries);
+    }
+
+    // The platform-decoder rule's answer for a JPXDecode image: a class, so that racing threads publish one reference atomically.
+    private sealed class JpxRequest(PlatformImageRequest request, bool eligible = true)
+    {
+        public static JpxRequest Ineligible { get; } = new(default, eligible: false);
+
+        public PlatformImageRequest Request { get; } = request;
+
+        public bool Eligible { get; } = eligible;
     }
 }

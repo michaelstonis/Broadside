@@ -14,7 +14,7 @@ allocation change needs.
 
 | Piece | Where |
 |---|---|
-| Workflow | [`.github/workflows/bench-gate.yml`](../../../.github/workflows/bench-gate.yml): `plan`, four `allocations` shards, four `measure` shards when times are compared, then `gate`; [`bench-gate-perf.yml`](../../../.github/workflows/bench-gate-perf.yml) re-runs it when a pull request is labelled `perf` |
+| Workflow | [`.github/workflows/bench-gate.yml`](../../../.github/workflows/bench-gate.yml): `plan`, four `allocations` shards, eight `measure` shards when times are compared, then `gate`; [`bench-gate-perf.yml`](../../../.github/workflows/bench-gate-perf.yml) re-runs it when a pull request is labelled `perf` |
 | Measuring | [`bench/run-gate.sh`](../../run-gate.sh): builds both commits, measures allocations, runs the timings interleaved, reruns what looks slower; `--measure allocations` or `times` does one part |
 | Allocation figures | [`GateAllocations.cs`](../../Broadside.Benchmarks/GateAllocations.cs): `Broadside.Benchmarks --gate-allocations` |
 | Comparing | [`tools/BenchGate`](../../../tools/BenchGate/README.md): the allocation and time rules, the summary, `record`, `shard` |
@@ -29,7 +29,7 @@ over `tests/Corpus/` only and `ContentInterpretationBenchmarks` over its `tests/
 ## When it runs
 
 The gate has two parts (issue #389): allocations on every pull request it watches, times only where they matter. Comparing times
-needs the base commit built and both commits run in interleaved rounds, about an hour of wall-clock time; checking allocations
+needs the base commit built and both commits run in interleaved rounds, about half an hour of wall-clock time; checking allocations
 needs one short run of the pull request, about 12 minutes.
 
 **Allocations** are checked on every pull request whose diff touches `src/**`, `bench/**`, `tests/Broadside.TestSupport/**`,
@@ -64,9 +64,10 @@ Each of four `allocations` jobs (`ubuntu-24.04`, 4 vCPU) builds the pull request
 of the cases (`bench/run-gate.sh --measure allocations`): methods dealt to the lightest shard by their case count in the baseline,
 and `OpenAndWalkBenchmarks.OpenAndWalk`, which has a case per corpus file, split over all four through `BROADSIDE_BENCH_PARTITION`
 ([`BenchmarkPartition.cs`](../../Broadside.Benchmarks/BenchmarkPartition.cs)). They take about 10 minutes, most of it the build.
-When times are compared, four `measure` jobs, sharded the same way, build both commits and run the timing rounds and the rerun
-(`--measure times`, which also measures the base commit's allocation figures for the stale-baseline notice); they take 45 to 70
-minutes. The `gate` job compares everything at once, so a case no shard ran is caught. A newer push cancels the older run.
+When times are compared, eight `measure` jobs (`MEASURE_SHARDS`), sharded the same way, build both commits and run the timing
+rounds and the rerun (`--measure times`, which also measures the base commit's allocation figures for the stale-baseline notice).
+Until #337 four of them took 45 to 70 minutes, a third of it BenchmarkDotNet rebuilding the project graph on each of its six
+invocations; in process and over eight shards each should take about half an hour. The `gate` job compares everything at once, so a case no shard ran is caught. A newer push cancels the older run.
 
 ## How it measures
 
@@ -80,7 +81,11 @@ rebuilt after its forced collection) moved it by up to a few hundred bytes betwe
 bytes per call of the benchmark method: for a method with `OperationsPerInvoke = n` it is n times BenchmarkDotNet's per-operation
 figure.
 
-**Times** come from BenchmarkDotNet, one process per case: 3 warm-up and 10 measured iterations of about 100 ms each, JSON export.
+**Times** come from BenchmarkDotNet, in process (`--inProcess`, the build `run-gate.sh` made) and one process per benchmark class:
+3 warm-up and 10 measured iterations of about 100 ms each, JSON export. Until #337 every case ran out of process, which made
+BenchmarkDotNet rebuild the whole project graph into its generated project on every invocation (six minutes on the runner) and
+measured nothing that a process per class does not: the base and the pull request still run each class in a fresh process, in
+the same order, under the same runtime settings.
 Two rounds per shard, interleaved so that drift of the runner during the job weighs on both sides alike: round 1 runs the base
 commit then the pull request, round 2 the pull request then the base. A case the rounds find slower is rerun once for both
 commits after the rounds.
@@ -150,7 +155,8 @@ Measured over ten runs of the gate against an unchanged commit on the CI runner 
   caught essentially always. Under 15 % is not the gate's business: it is within what the runner itself moves.
 - The time a run takes was the other constraint: two rounds plus a targeted rerun kept a run near 25 minutes on four shards
   when this rule was set. More rounds would tighten the estimate, at about 8 minutes each. With Phase 3's benchmarks a shard
-  had grown to 45 to 70 minutes by October 2026, which is why times now run only where they matter (#389).
+  had grown to 45 to 70 minutes by October 2026, which is why times now run only where they matter (#389), and why they now
+  run in process over eight shards (#337).
 
 ## Updating the baseline
 
@@ -193,6 +199,43 @@ measures only the pull request's allocation figures, as every pull request's CI 
 the comparison from reporting the baseline cases you did not run. On a developer machine the time rule is meaningful (both
 commits run on the same machine), but the allocation figures are this machine's: expect allocation findings on the cases that
 read system fonts and a few bytes per document on macOS, and use them only to compare before and after your own change.
+
+## Size probes
+
+Issue #361 gates the shipped size of the core the same way: [`sizes.json`](sizes.json) holds the size, in bytes, of each Native AOT
+size probe's executable, by runtime identifier. A probe is a tiny app in [`bench/SizeProbes`](../../SizeProbes) that calls only the
+public API one scenario needs, so the trimmer keeps only what that scenario reaches:
+
+| Probe | Does |
+|---|---|
+| `empty` | Nothing: the runtime's floor, which every other probe includes |
+| `open-metadata` | Opens a file and reads its page count and document information |
+| `extract-text` | Opens a file and extracts the text of every page |
+| `render` | Opens a file and renders its first page with the software rasterizer |
+| `fill-form` | Opens a form, sets a text field (regenerating its appearance) and saves |
+| `save` | Opens a file, sets its title and saves |
+| `sign` | Opens a file and signs it with a certificate |
+
+[`bench/size-probes.sh`](../../size-probes.sh) publishes each probe for the current runtime (`dotnet publish -c Release
+--use-current-runtime`; trimmer and AOT warnings are errors), runs it over a corpus file (a probe exits non-zero when its result is
+wrong, so a trim that removed something the scenario needs fails too) and writes the sizes; `BenchGate sizes` compares them with the
+baseline. A probe fails when it grows by more than 1% (`--tolerance`), when it is not in the baseline, or when a baselined probe of
+the measured runtime was not measured. A probe that shrinks by more than 1% passes, with a request to re-record so the saving is
+kept. The tolerance absorbs what a linker or runtime patch moves; a real feature costs far more.
+
+The CI job `size-probes` (`ci.yml`, every pull request) runs on the macOS runner, because the baseline is recorded for
+`osx-arm64`: Native AOT cannot cross-compile between operating systems, so a developer Mac can measure exactly what CI does. To
+record an intended change, run the probes and record (or download the job's `size-probes` artifact and record from it), and say
+in the pull request what the bytes bought:
+
+```sh
+bench/size-probes.sh --out artifacts/size-probes/sizes.json
+dotnet run --project tools/BenchGate -- sizes --baseline bench/baselines/gate/sizes.json \
+  --results artifacts/size-probes/sizes.json --record bench/baselines/gate/sizes.json
+```
+
+What the probes measured, where the bytes go and what an app can switch off is in
+[`docs/benchmarks/core-size.md`](../../../docs/benchmarks/core-size.md).
 
 ## Validation
 

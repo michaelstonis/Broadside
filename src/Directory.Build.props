@@ -9,6 +9,11 @@
     <IsTrimmable>true</IsTrimmable>
     <IsAotCompatible>true</IsAotCompatible>
     <EnablePackageValidation>true</EnablePackageValidation>
+    <!--
+      Nullable metadata only where a consumer can see it (public and protected members, and internal ones for the assemblies
+      InternalsVisibleTo names): private members' NullableAttribute and NullableContextAttribute are dropped (issue #361).
+    -->
+    <Features>$(Features);nullablePublicOnly</Features>
   </PropertyGroup>
 
   <ItemGroup>

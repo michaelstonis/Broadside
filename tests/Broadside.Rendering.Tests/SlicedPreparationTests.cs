@@ -9,6 +9,11 @@ namespace Broadside.Rendering.Tests;
 /// a display list built in slices (<see cref="PdfPage.BeginDisplayList"/>) and a render whose images are prepared in slices give the
 /// samples, the list and the pixels of the unsliced path, byte for byte.
 /// </summary>
+/// <remarks>
+/// In the Heavy collection: the cache test asserts the document keeps the list, and the cache's epoch is process-wide, so a test that
+/// edits a document at the same time would make the entry stale.
+/// </remarks>
+[Collection(HeavyTestCollection.Name)]
 public sealed class SlicedPreparationTests
 {
     public static TheoryData<string> ImageFiles => new("dct-baseline.pdf", "dct-cmyk.pdf", "dct-progressive.pdf", "jpx-lossless.pdf", "jpx-subsampled.pdf", "jpx-smask-in-data.pdf", "image-smask.pdf");

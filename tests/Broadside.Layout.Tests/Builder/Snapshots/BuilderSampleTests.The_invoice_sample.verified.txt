@@ -1,0 +1,86 @@
+﻿== structure ==
+Document
+  H1
+  P
+  P
+  H2
+  P
+  P
+  P
+  Table
+    THead
+      TR
+        TH
+          P
+        TH
+          P
+        TH
+          P
+        TH
+          P
+    TBody
+      TR
+        TD
+          P
+        TD
+          P
+        TD
+          P
+        TD
+          P
+      TR
+        TD
+          P
+        TD
+          P
+        TD
+          P
+        TD
+          P
+      TR
+        TD
+          P
+        TD
+          P
+        TD
+          P
+        TD
+          P
+      TR
+        TD
+          P
+  Table
+    TBody
+      TR
+        TH
+          P
+        TD
+          P
+      TR
+        TH
+          P
+        TD
+          P
+  P
+
+== text ==
+--- page 1 ---
+Invoice
+No. 2026-0042
+Due 14/12/2026
+Bill to
+Northern Water Ltd
+1 Reservoir Road
+Leeds LS1 1AA
+Description Qty Unit price Amount
+Flow meter, 50 mm 2 420.00 840.00
+Calibration service 1 180.00 180.00
+Mounting kit 4 35.50 142.00
+Prices exclude delivery.
+Subtotal 1162.00
+Total due 1394.40
+Pay by bank transfer to GB33 BUKB 2020 1555 5555 55, quoting reference 2026-0042.
+Acme Instruments Page 1 of 1
+
+== sha256 ==
+93991AC594CF370A0FBA74DDBBF131B4E19A103E3509D342F38CD956AE20C51B

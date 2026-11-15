@@ -50,7 +50,8 @@
         <PdfViewer @ref="_viewer" Class="viewer" Session="Demo.Session" Label="@Demo.Name" LayoutOptions="_layout"
                    ShowAnnotations="_showAnnotations" AllowAnnotationEditing="_editAnnotations"
                    ColorFilter="(_darkMode ? Broadside.Rendering.ColorFilter.DarkMode : Broadside.Rendering.ColorFilter.None)"
-                   OnStateChanged="OnStateChanged" OnAction="OnAction" OnError="OnError" TileObserver="RenderStats.Observe" />
+                   OnStateChanged="OnStateChanged" OnAction="OnAction" OnError="OnError" OnXfaForm="OnXfaForm"
+                   TileObserver="RenderStats.Observe" />
       }
       else
       {
@@ -79,7 +80,7 @@
               <OutlinePanel />
               break;
             case Panel.Pages:
-              <PagesPanel />
+              <PagesPanel DarkMode="_darkMode" />
               break;
             case Panel.Annotate:
               <AnnotatePanel @bind-ShowAnnotations="_showAnnotations" @bind-EditAnnotations="_editAnnotations" />
@@ -125,7 +126,6 @@
 
   private PdfViewer? _viewer;
   private AnnotationLayer? _layer;
-  private AnnotationTarget? _focusedField;
   private Panel _panel;
   private PageLayoutOptions _layout = new();
   private bool _showAnnotations = true;
@@ -220,30 +220,29 @@
     AnnotationLayer? layer = _viewer?.Annotations;
     if (!ReferenceEquals(layer, _layer))
     {
-      _layer?.Changed -= OnLayerChanged;
+      _layer?.Invalidated -= OnLayerInvalidated;
       _layer = layer;
-      _layer?.Changed += OnLayerChanged;
+      _layer?.Invalidated += OnLayerInvalidated;
     }
   }
 
   public void Dispose()
   {
     Demo.Changed -= OnDemoChanged;
-    _layer?.Changed -= OnLayerChanged;
+    _layer?.Invalidated -= OnLayerInvalidated;
   }
 
-  // Tapping a text or choice field in the page opens the Form panel, where the phone's keyboard can fill it.
-  private void OnLayerChanged(object? sender, EventArgs e)
+  // Fields are filled in place, in the viewer's own field editor (#218); a field value written through the form API marks the
+  // document edited, so the Form panel and the download follow.
+  private void OnLayerInvalidated(object? sender, PageInvalidatedEventArgs e)
   {
-    AnnotationTarget? focused = _layer?.FocusedField is Broadside.Forms.PdfTextField or Broadside.Forms.PdfChoiceField ? _layer.Focused : null;
-    if (focused is not null && focused != _focusedField && _panel != Panel.Form)
+    if ((e.Layers & Broadside.Rendering.DisplayLayers.FormFields) != 0)
     {
-      _panel = Panel.Form;
-      _ = InvokeAsync(StateHasChanged);
+      _ = InvokeAsync(Demo.MarkEdited);
     }
-
-    _focusedField = focused;
   }
+
+  private void OnXfaForm(XfaFormEventArgs notice) => Demo.Report(notice.Explanation);
 
   private void OnDemoChanged(object? sender, EventArgs e)
   {
@@ -279,6 +278,18 @@
     if (action.Uri is { } uri)
     {
       Demo.Report("This link leaves the document. Open", uri.ToString());
+    }
+    else if (action.Action is Broadside.PdfResetFormAction)
+    {
+      Demo.Report("The form's fields were reset to their default values.");
+    }
+    else if (action.Action is Broadside.PdfSubmitFormAction submit && _viewer?.Forms is { } forms)
+    {
+      // The viewer never submits anything; it can say which required fields are still empty.
+      IReadOnlyList<Broadside.Forms.PdfTerminalField> missing = forms.GetMissingRequiredFields(submit.SelectFields());
+      Demo.Report(missing.Count == 0
+        ? "The form asked to be submitted; this demo does not send it anywhere."
+        : $"Required fields are empty: {string.Join(", ", missing.Select(field => field.AlternateName ?? field.FullyQualifiedName))}");
     }
     else if (action.Destination is null && action.PageIndex is null)
     {

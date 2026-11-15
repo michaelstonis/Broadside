@@ -24,6 +24,34 @@ internal static class CosMutation
     /// <summary>Gets the current epoch.</summary>
     public static long Epoch => Volatile.Read(ref _epoch);
 
-    /// <summary>Records one change.</summary>
-    public static void Advance() => Interlocked.Increment(ref _epoch);
+    [ThreadStatic]
+    private static int _quiet;
+
+    /// <summary>Records one change, unless this thread is inside a <see cref="Quiet"/> scope.</summary>
+    public static void Advance()
+    {
+        if (_quiet == 0)
+        {
+            Interlocked.Increment(ref _epoch);
+        }
+    }
+
+    /// <summary>
+    /// Starts a scope in which this thread's changes do not advance the epoch: for building objects that belong to no document and no
+    /// cache depends on, such as a viewer's transient appearance built while a display list is built (which would otherwise make the
+    /// list, and every other cache, stale at once). Nothing a document holds may be changed inside it.
+    /// </summary>
+    /// <returns>The scope; dispose it to end it.</returns>
+    public static QuietScope Quiet()
+    {
+        _quiet++;
+        return default;
+    }
+
+    /// <summary>A <see cref="Quiet"/> scope.</summary>
+    public readonly struct QuietScope : IDisposable
+    {
+        /// <summary>Ends the scope.</summary>
+        public void Dispose() => _quiet--;
+    }
 }
