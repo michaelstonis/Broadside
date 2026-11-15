@@ -117,7 +117,8 @@ internal sealed class FontResourceCache
         {
             foreach (Diagnostic diagnostic in resource.Diagnostics)
             {
-                context.Report(diagnostic.Kind, diagnostic.Severity, diagnostic.Message);
+                // A context's diagnostics are always made from typed codes (ContextDiagnostics), so this never looks a name up.
+                context.Report(diagnostic.TypedKind ?? new DiagnosticCode(diagnostic.Code, DiagnosticArea.None, diagnostic.Severity, clause: null), diagnostic.Severity, diagnostic.Message);
             }
 
             return found;

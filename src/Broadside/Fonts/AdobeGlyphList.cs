@@ -210,7 +210,7 @@ internal static partial class AdobeGlyphList
 
     private static bool TryFind(
         ReadOnlySpan<char> name,
-        string names,
+        ReadOnlySpan<byte> names,
         ReadOnlySpan<ushort> nameOffsets,
         string values,
         ReadOnlySpan<ushort> valueOffsets,
@@ -222,8 +222,8 @@ internal static partial class AdobeGlyphList
         while (low <= high)
         {
             int middle = low + ((high - low) >> 1);
-            ReadOnlySpan<char> candidate = names.AsSpan(nameOffsets[middle], nameOffsets[middle + 1] - nameOffsets[middle]);
-            int order = candidate.SequenceCompareTo(name);
+            ReadOnlySpan<byte> candidate = names.Slice(nameOffsets[middle], nameOffsets[middle + 1] - nameOffsets[middle]);
+            int order = CompareOrdinal(candidate, name);
             if (order == 0)
             {
                 value = values.AsSpan(valueOffsets[middle], valueOffsets[middle + 1] - valueOffsets[middle]);
@@ -242,5 +242,21 @@ internal static partial class AdobeGlyphList
 
         value = default;
         return false;
+    }
+
+    /// <summary>Compares an ASCII name with a name, ordinally: the order of <see cref="MemoryExtensions.SequenceCompareTo{T}(ReadOnlySpan{T}, ReadOnlySpan{T})"/> over chars.</summary>
+    private static int CompareOrdinal(ReadOnlySpan<byte> ascii, ReadOnlySpan<char> name)
+    {
+        int length = Math.Min(ascii.Length, name.Length);
+        for (int index = 0; index < length; index++)
+        {
+            int difference = ascii[index] - name[index];
+            if (difference != 0)
+            {
+                return difference;
+            }
+        }
+
+        return ascii.Length - name.Length;
     }
 }
