@@ -1,0 +1,14 @@
+﻿== structure ==
+Document
+  Figure Alt="Acme Instruments logo"
+  H1
+  Figure Alt="Bar chart of units shipped in Q4: North 135, South 104, East 151, West 112."
+    Caption
+
+== text ==
+--- page 1 ---
+Images and drawings
+Figure 1. Units shipped in Q4
+
+== sha256 ==
+AA14BB0C1F8134B220EE912BADF9A9906B4E5E8F65862DD7F921AC0387220870

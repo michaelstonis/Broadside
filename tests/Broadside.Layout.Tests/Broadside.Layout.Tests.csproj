@@ -17,6 +17,10 @@
     <Compile Include="../Broadside.Tests/Writing/VeraPdf.cs" Link="Shared/VeraPdf.cs" />
     <Compile Include="../Broadside.Tests/Writing/CosGraph.cs" Link="Shared/CosGraph.cs" />
     <Compile Include="../Broadside.Tests/Writing/CosSnapshot.cs" Link="Shared/CosSnapshot.cs" />
+    <!-- The document builder guide's samples (issue #397), snapshotted and validated as they are shipped. -->
+    <Compile Include="../../samples/Broadside.BuilderSamples/Samples.cs" Link="BuilderSamples/Samples.cs" />
+    <Compile Include="../../samples/Broadside.BuilderSamples/SampleData.cs" Link="BuilderSamples/SampleData.cs" />
+    <None Include="../../samples/Broadside.BuilderSamples/assets/logo.png" Link="BuilderSamples/logo.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
