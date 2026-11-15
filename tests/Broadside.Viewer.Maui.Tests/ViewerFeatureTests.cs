@@ -5,6 +5,11 @@ using SkiaSharp;
 namespace Broadside.Viewer.Maui.Tests;
 
 /// <summary>The viewer features the MAUI view exposes beyond navigation (#358): search highlights, revealing an area and dark mode.</summary>
+/// <remarks>
+/// Not run in parallel: the dark mode test counts display-list cache misses, and the cache's memory budget is shared by every
+/// document in the process, so other tests' documents can evict this one's lists.
+/// </remarks>
+[Collection(HeavyTestCollection.Name)]
 public sealed class ViewerFeatureTests
 {
     [Fact]
@@ -98,6 +103,21 @@ public sealed class ViewerFeatureTests
         await shell.SettleAsync();
         using SKBitmap light = shell.Draw();
         Assert.Equal(ViewerFrame.Background, light.GetPixel(1, 1));
+    });
+
+    [Fact]
+    public void Going_to_an_outline_entry_shows_its_destination_page() => UiThread.Run(async () =>
+    {
+        using Shell shell = await Shell.OpenAsync(Shell.SampleDocument("novel-large-print.pdf"));
+        DocumentOutline outline = await DocumentOutline.LoadAsync(shell.Controller.Session!, TestContext.Current.CancellationToken);
+        OutlineEntry[] entries = [.. outline.Entries.Where(e => e.Target is { PageIndex: > 0 })];
+        Assert.NotEmpty(entries);
+        foreach (OutlineEntry entry in entries.Reverse().Take(3))
+        {
+            shell.Controller.GoTo(entry.Target!.Value);
+            await shell.SettleAsync();
+            Assert.Equal(entry.Target.Value.PageIndex, shell.Controller.Input!.CurrentPage);
+        }
     });
 
     private static int CountItems(Shell shell, ViewerFrame.ItemKind kind)

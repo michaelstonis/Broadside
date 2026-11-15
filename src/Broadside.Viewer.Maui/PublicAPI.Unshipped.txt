@@ -72,3 +72,54 @@ Broadside.Viewer.Maui.PdfView.Redraw() -> void
 Broadside.Viewer.Maui.PdfView.Reveal(int pageIndex, Broadside.PdfRectangle area) -> void
 Broadside.Viewer.Maui.PdfView.Search.get -> Broadside.Viewer.DocumentSearch?
 static readonly Broadside.Viewer.Maui.PdfView.ColorFilterProperty -> Microsoft.Maui.Controls.BindableProperty!
+Broadside.Viewer.Maui.PdfView.GoTo(Broadside.Viewer.ViewTarget target) -> void
+Broadside.Viewer.Maui.PdfSearchPanel
+Broadside.Viewer.Maui.PdfSearchPanel.PdfSearchPanel() -> void
+Broadside.Viewer.Maui.PdfSearchPanel.Viewer.get -> Broadside.Viewer.Maui.PdfView?
+Broadside.Viewer.Maui.PdfSearchPanel.Viewer.set -> void
+Broadside.Viewer.Maui.PdfSearchPanel.Query.get -> string!
+Broadside.Viewer.Maui.PdfSearchPanel.Query.set -> void
+Broadside.Viewer.Maui.PdfSearchPanel.Clear() -> void
+static readonly Broadside.Viewer.Maui.PdfSearchPanel.ViewerProperty -> Microsoft.Maui.Controls.BindableProperty!
+Broadside.Viewer.Maui.PdfAnnotationsPanel
+Broadside.Viewer.Maui.PdfAnnotationsPanel.PdfAnnotationsPanel() -> void
+Broadside.Viewer.Maui.PdfAnnotationsPanel.Viewer.get -> Broadside.Viewer.Maui.PdfView?
+Broadside.Viewer.Maui.PdfAnnotationsPanel.Viewer.set -> void
+Broadside.Viewer.Maui.PdfAnnotationsPanel.Edited -> System.EventHandler?
+Broadside.Viewer.Maui.PdfAnnotationsPanel.RefreshAsync() -> System.Threading.Tasks.Task!
+static readonly Broadside.Viewer.Maui.PdfAnnotationsPanel.ViewerProperty -> Microsoft.Maui.Controls.BindableProperty!
+Broadside.Viewer.Maui.PdfDocumentInfoPanel
+Broadside.Viewer.Maui.PdfDocumentInfoPanel.PdfDocumentInfoPanel() -> void
+Broadside.Viewer.Maui.PdfDocumentInfoPanel.Viewer.get -> Broadside.Viewer.Maui.PdfView?
+Broadside.Viewer.Maui.PdfDocumentInfoPanel.Viewer.set -> void
+Broadside.Viewer.Maui.PdfDocumentInfoPanel.FileName.get -> string?
+Broadside.Viewer.Maui.PdfDocumentInfoPanel.FileName.set -> void
+Broadside.Viewer.Maui.PdfDocumentInfoPanel.Refresh() -> void
+static readonly Broadside.Viewer.Maui.PdfDocumentInfoPanel.ViewerProperty -> Microsoft.Maui.Controls.BindableProperty!
+static readonly Broadside.Viewer.Maui.PdfDocumentInfoPanel.FileNameProperty -> Microsoft.Maui.Controls.BindableProperty!
+Broadside.Viewer.Maui.PdfSignaturesPanel
+Broadside.Viewer.Maui.PdfSignaturesPanel.PdfSignaturesPanel() -> void
+Broadside.Viewer.Maui.PdfSignaturesPanel.Viewer.get -> Broadside.Viewer.Maui.PdfView?
+Broadside.Viewer.Maui.PdfSignaturesPanel.Viewer.set -> void
+Broadside.Viewer.Maui.PdfSignaturesPanel.RefreshAsync() -> System.Threading.Tasks.Task!
+static readonly Broadside.Viewer.Maui.PdfSignaturesPanel.ViewerProperty -> Microsoft.Maui.Controls.BindableProperty!
+Broadside.Viewer.Maui.PdfViewSettingsPanel
+Broadside.Viewer.Maui.PdfViewSettingsPanel.PdfViewSettingsPanel() -> void
+Broadside.Viewer.Maui.PdfViewSettingsPanel.Viewer.get -> Broadside.Viewer.Maui.PdfView?
+Broadside.Viewer.Maui.PdfViewSettingsPanel.Viewer.set -> void
+static readonly Broadside.Viewer.Maui.PdfViewSettingsPanel.ViewerProperty -> Microsoft.Maui.Controls.BindableProperty!
+Broadside.Viewer.Maui.PdfOutlinePanel
+Broadside.Viewer.Maui.PdfOutlinePanel.PdfOutlinePanel() -> void
+Broadside.Viewer.Maui.PdfOutlinePanel.Viewer.get -> Broadside.Viewer.Maui.PdfView?
+Broadside.Viewer.Maui.PdfOutlinePanel.Viewer.set -> void
+Broadside.Viewer.Maui.PdfOutlinePanel.VisibleCount.get -> int
+Broadside.Viewer.Maui.PdfOutlinePanel.Activate(int index) -> bool
+static readonly Broadside.Viewer.Maui.PdfOutlinePanel.ViewerProperty -> Microsoft.Maui.Controls.BindableProperty!
+Broadside.Viewer.Maui.PdfThumbnailsPanel
+Broadside.Viewer.Maui.PdfThumbnailsPanel.PdfThumbnailsPanel() -> void
+Broadside.Viewer.Maui.PdfThumbnailsPanel.Viewer.get -> Broadside.Viewer.Maui.PdfView?
+Broadside.Viewer.Maui.PdfThumbnailsPanel.Viewer.set -> void
+Broadside.Viewer.Maui.PdfThumbnailsPanel.RenderedCount.get -> int
+Broadside.Viewer.Maui.PdfThumbnailsPanel.PageCount.get -> int
+Broadside.Viewer.Maui.PdfThumbnailsPanel.Activate(int pageIndex) -> void
+static readonly Broadside.Viewer.Maui.PdfThumbnailsPanel.ViewerProperty -> Microsoft.Maui.Controls.BindableProperty!

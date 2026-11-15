@@ -200,6 +200,11 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
     /// <param name="pageIndex">The page.</param>
     public void GoToPage(int pageIndex) => _controller.GoToPage(pageIndex);
 
+    /// <summary>Shows a destination's view, such as an outline entry's <see cref="OutlineEntry.Target"/>: its page, the view it asks for and its zoom.</summary>
+    /// <param name="target">The resolved destination.</param>
+    /// <remarks>ISO 32000-2 §12.3.2.2 (explicit destinations, Table 149). Spec #33 viewer capability 10.</remarks>
+    public void GoTo(ViewTarget target) => _controller.GoTo(target);
+
     /// <summary>Shows the next page or spread.</summary>
     public void NextPage() => _controller.NextPage();
 

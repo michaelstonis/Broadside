@@ -340,6 +340,17 @@ internal sealed class ViewerController : IDisposable
         Wake();
     }
 
+    /// <summary>Shows a destination's view (an outline entry's): its page, the view it asks for and its zoom (ISO 32000-2 §12.3.2.2).</summary>
+    public void GoTo(ViewTarget target)
+    {
+        if (_zoom is not null && _input is not null)
+        {
+            _interacted = true;
+            _zoom.SetViewport(target.GetViewport(_zoom.Layout, _input.Viewport, _input.ActualSize, _zoom.MinZoom, _zoom.MaxZoom));
+            Wake();
+        }
+    }
+
     public void NextPage()
     {
         _interacted = true;
@@ -1210,14 +1221,15 @@ internal sealed class ViewerController : IDisposable
                 SKPoint c = ToPoint(layout.PageToViewport(viewport, page.PageIndex, quad.TopRight.X, quad.TopRight.Y));
                 SKPoint d = ToPoint(layout.PageToViewport(viewport, page.PageIndex, quad.TopLeft.X, quad.TopLeft.Y));
                 frame.Add(new ViewerFrame.Item(ViewerFrame.ItemKind.Selection, default, null, a, b, c, d));
-                if (page.PageIndex == start.PageIndex && i == 0)
+                // Handles are for touch and pen only (a mouse drags the selection itself): only drawn handles can be grabbed.
+                if (!_mouseHover && page.PageIndex == start.PageIndex && i == 0)
                 {
                     AddHandle(frame, d, a);
                     _startHandle = new SKPoint(a.X / (float)_ratio, a.Y / (float)_ratio);
                     startShown = true;
                 }
 
-                if (page.PageIndex == end.PageIndex && i == quads - 1)
+                if (!_mouseHover && page.PageIndex == end.PageIndex && i == quads - 1)
                 {
                     AddHandle(frame, c, b);
                     _endHandle = new SKPoint(b.X / (float)_ratio, b.Y / (float)_ratio);
