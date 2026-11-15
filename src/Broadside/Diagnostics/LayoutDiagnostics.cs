@@ -57,6 +57,22 @@ public static class LayoutDiagnostics
     /// <remarks>ISO 32000-2 §14.3.3</remarks>
     public static DiagnosticCode DocumentMetadataKept { get; } = new(nameof(DocumentMetadataKept), DiagnosticArea.Layout, DiagnosticSeverity.Information, "ISO 32000-2 §14.3.3");
 
+    /// <summary>Gets the <c>AnchorNotFound</c> code: a link (<c>TextRun.Destination</c>) or page reference names an anchor id no block of
+    /// the flow has and, for a link, the document has no named destination of; the link is drawn as plain text, the page number as
+    /// <c>?</c>.</summary>
+    /// <remarks>ISO 32000-2 §12.3.2.4</remarks>
+    public static DiagnosticCode AnchorNotFound { get; } = new(nameof(AnchorNotFound), DiagnosticArea.Layout, DiagnosticSeverity.Warning, "ISO 32000-2 §12.3.2.4");
+
+    /// <summary>Gets the <c>AnchorDuplicate</c> code: two blocks of a flow have the same anchor id; the first keeps it and is the named
+    /// destination.</summary>
+    /// <remarks>ISO 32000-2 §12.3.2.4</remarks>
+    public static DiagnosticCode AnchorDuplicate { get; } = new(nameof(AnchorDuplicate), DiagnosticArea.Layout, DiagnosticSeverity.Warning, "ISO 32000-2 §12.3.2.4");
+
+    /// <summary>Gets the <c>ForwardReferencesNotConverged</c> code: the page numbers a flow shows (page references, a table of contents)
+    /// still changed after the last layout pass allowed; the last pass's numbers are drawn, and some may be wrong.</summary>
+    /// <remarks>ISO 32000-2 §7.7.3.3</remarks>
+    public static DiagnosticCode ForwardReferencesNotConverged { get; } = new(nameof(ForwardReferencesNotConverged), DiagnosticArea.Layout, DiagnosticSeverity.Warning, "ISO 32000-2 §7.7.3.3");
+
     /// <summary>Gets every code of this area, in declaration order.</summary>
     internal static DiagnosticCode[] Codes { get; } =
     [
@@ -71,5 +87,8 @@ public static class LayoutDiagnostics
         DocumentTitleMissing,
         AppendedToUntaggedDocument,
         DocumentMetadataKept,
+        AnchorNotFound,
+        AnchorDuplicate,
+        ForwardReferencesNotConverged,
     ];
 }

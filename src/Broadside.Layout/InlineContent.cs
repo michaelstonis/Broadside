@@ -69,7 +69,29 @@ public sealed class TextRun : InlineElement
     /// <summary>The target of the run as a link, or null when the run is not a link.</summary>
     public Uri? Link { get; init; }
 
-    private protected override string DefaultStructureType => Link is null ? "Span" : "Link";
+    /// <summary>
+    /// Gets the destination the run links to: the <see cref="FlowBlock.Id"/> of a block of the same flow, or a named destination the
+    /// document already has; null when the run is not such a link. A run has a <see cref="Link"/> or a destination, not both. A
+    /// destination neither names is reported (<c>AnchorNotFound</c>) and the run is drawn as plain text.
+    /// </summary>
+    /// <exception cref="ArgumentException">The value is empty.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §12.5.6.5, Table 176 (<c>Dest</c>) and §12.3.2.4: one link annotation over the run's portion of each line, whose
+    /// destination is the name (PDF 1.2), tagged <c>Link</c> with the annotation's object reference (§14.8.4.7.2).
+    /// </remarks>
+    public string? Destination
+    {
+        get;
+        init => field = value is { Length: 0 } ? throw new ArgumentException("A destination name shall not be empty.", nameof(value)) : value;
+    }
+
+    /// <summary>The block a run made by the layout links to (a table of contents entry to its heading), or null.</summary>
+    internal FlowBlock? Target { get; init; }
+
+    /// <summary>Gets whether the run links somewhere: a URI, a destination or a block.</summary>
+    internal bool IsLink => Link is not null || Destination is not null || Target is not null;
+
+    private protected override string DefaultStructureType => IsLink ? "Link" : "Span";
 }
 
 /// <summary>

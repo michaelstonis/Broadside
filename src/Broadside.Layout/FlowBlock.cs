@@ -27,6 +27,19 @@ public abstract class FlowBlock
     public string? Language { get; init; }
 
     /// <summary>
+    /// Gets the block's anchor: a name that links (<see cref="TextRun.Destination"/>) and page references (<see cref="PageReference"/>)
+    /// reach it by, or null for none. Rendering writes it as a named destination at the top left of the block's first line and reports
+    /// where it landed in <see cref="FlowLayoutResult.Anchors"/>.
+    /// </summary>
+    /// <exception cref="ArgumentException">The value is empty.</exception>
+    /// <remarks>ISO 32000-2 §12.3.2.4 (named destinations, PDF 1.2) and §12.3.2.2 (an <c>XYZ</c> destination).</remarks>
+    public string? Id
+    {
+        get;
+        init => field = value is { Length: 0 } ? throw new ArgumentException("An anchor id shall not be empty.", nameof(value)) : value;
+    }
+
+    /// <summary>
     /// Gets a value indicating whether the block stays on the page of the block after it: when this block, and the first line of the
     /// next, do not both fit below the cursor but would fit on a new page, the page breaks before this block. Consecutive blocks with it
     /// set move as one chain. It has no effect on the last block of a flow, list item, group or column, or at the top of a page.
