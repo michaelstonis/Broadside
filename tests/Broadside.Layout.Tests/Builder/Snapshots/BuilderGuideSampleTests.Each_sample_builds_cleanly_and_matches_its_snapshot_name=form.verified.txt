@@ -1,0 +1,39 @@
+﻿== structure ==
+Document
+  H1
+  P
+  Form
+    Lbl
+  Form
+    Lbl
+  Form
+    Lbl
+  Form
+    Lbl
+  Div
+    P
+    Form
+      Lbl
+    Form
+      Lbl
+  Form
+    Lbl
+  Form
+    Lbl
+
+== text ==
+--- page 1 ---
+Equipment loan request
+Complete every field, sign, and return the form to the stores office.
+Full name
+Email address
+Site
+Items requested
+Collection
+Pick up
+Deliver to my desk
+I will return the equipment in working order
+Signature
+
+== sha256 ==
+630CD665CD384436DEC50D8865EDA83C744C9791946CF4B7297DA29B9BB7196B

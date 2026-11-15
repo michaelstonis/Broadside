@@ -239,6 +239,70 @@ PdfDocument.Create(doc => doc
 
 `AttachFile` embeds the file, lists it among the document's attachments and associates it with the document, with its MIME type from the file name. Under PDF/A, files of any kind may be attached at PDF/A-3 and PDF/A-4f only. The full invoice is in the samples.
 
+## Links, a table of contents and the outline
+
+```csharp
+PdfDocument.Create(doc => doc
+    .WithTitle("Broadside user guide")
+    .WithLanguage("en-US")
+    .WithOutlineDepth(3)                              // the default is 3; 0 turns the outline off
+    .Content(c =>
+    {
+        c.Heading(1, "Broadside user guide");
+        c.TableOfContents().Title("Contents").Depth(2);
+        c.PageBreak();
+
+        c.Heading(2, "Installing").Id("install");
+        c.List(l =>
+        {
+            l.Item("Add the Broadside package.");
+            l.Item(i =>
+            {
+                i.Paragraph("Add the optional packages you need:");
+                i.List(sub => sub.Item("Broadside.Rendering, for PNG output")).Bullet("–");
+            });
+        }).Numbered();
+
+        c.Heading(2, "Reading files");
+        c.Paragraph(t =>
+        {
+            t.Text("Install the packages first (see ");
+            t.Link("Installing", to: "install");
+            t.Text(" on page ");
+            t.PageOf("install");
+            t.Text("), or read the ");
+            t.Link("online guide", new Uri("https://example.org/guide"));
+            t.Text(".");
+        });
+    }));
+```
+
+- **Outline.** Headings build the document outline (bookmarks) down to `WithOutlineDepth`, 3 by default, each entry going to its heading.
+- **Ids.** `.Id("install")` on a heading, paragraph, image, drawing or table names it: it becomes a named destination that `t.Link(text, to: id)` and `t.PageOf(id)` reach. A link to an id no element has is an `AnchorNotFound` diagnostic, and its text stays plain.
+- **Table of contents.** `TableOfContents()` lists the headings down to `Depth` (3 by default), each linked to its heading, with a dot leader and the page number, tagged `TOC` and `TOCI`. `Title` adds a title above it in the level-2 heading look, tagged as a paragraph so it does not list itself.
+- **Forward references.** Page numbers in a table of contents or from `PageOf` are known only after layout, so layout runs again until they are stable, at most three passes; if they still change, a `ForwardReferencesNotConverged` diagnostic says so and the last pass stands. Your lambdas never run twice.
+
+## Forms
+
+```csharp
+PdfDocument.Create(doc => doc
+    .WithTitle("Equipment loan request")
+    .WithLanguage("en-GB")
+    .WithPdfUAConformance(PdfUAConformance.PdfUA1)
+    .Content(c =>
+    {
+        c.Heading(1, "Equipment loan request");
+        c.TextField("name", "Full name").Width(90.Mm).Required();
+        c.ComboBox("site", "Site", ["Leeds", "Manchester", "York"]).Value("Leeds");
+        c.TextField("items", "Items requested").Multiline(lines: 4);
+        c.RadioGroup("collection", "Collection", ["Pick up", "Deliver to my desk"]).Value("Pick up");
+        c.CheckBox("terms", "I will return the equipment in working order").Required();
+        c.SignatureField("signature", "Signature").Size(70.Mm, 20.Mm);
+    }));
+```
+
+Fields are flow blocks: layout places each one and its label, and the AcroForm field is created where it lands. The label is a required argument: it is drawn above the field (beside it with `.LabelBeside()`, and always beside a check box or radio button) and written as the field's alternate name. Each field is tagged `Form` with its label and its widget, pages with fields get `/Tabs /S`, and the appearances come from the forms writer. A field name used twice throws.
+
 ## Accessible by default
 
 - **Tagged.** The structure is `Document`, then a `Sect` for each section after the first, then each element's type: `H1` to `H6`, `P`, `L`/`LI`/`Lbl`/`LBody`, `Table`/`THead`/`TBody`/`TR`/`TH`/`TD`, `Figure` with `Alt` and `BBox`, `Caption`, `Link`, a `Div` per column. Headers, footers, backgrounds, watermarks, decorations, rules and decorative images and drawings are artifacts. `WithTagging(false)` writes untagged output.

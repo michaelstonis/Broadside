@@ -11,13 +11,13 @@ namespace Broadside.Benchmarks;
 /// The document builder against the same documents built by hand with the flow engine (issue #397, spec section 8 "Benchmarks"): the
 /// builder is a front, so builder plus layout should stay within +5 % of the time and +10 % of the bytes of its <c>*Flow</c> twin. Each
 /// case builds and lays out a whole document (saving is left out): <c>Hello</c> one page; <c>Report100</c> about 100 pages of headings
-/// and paragraphs with a header and a page-numbered footer; <c>LongTable</c> a 200-row table over several pages through closures and through the
+/// and paragraphs with a table of contents, an outline, a header and a page-numbered footer; <c>LongTable</c> a 200-row table over several pages through closures and through the
 /// <c>Row(params ReadOnlySpan&lt;string&gt;)</c> fast path; <c>Invoice</c> 1,000 invoices from one shared theme, serially and in parallel
 /// (the mean is per invoice).
 /// </summary>
 /// <remarks>
-/// The table of contents of the spec's <c>Report100</c> joins this benchmark when the builder's table of contents lands (forward
-/// references, B6); until then the report has no table of contents. The spec's 10,000-row table waits for the flow engine: laying out a
+/// The report opens with a table of contents and builds its outline, so it exercises the forward references (layout runs until the
+/// page numbers settle). The spec's 10,000-row table waits for the flow engine: laying out a
 /// table that spans pages grows with the square of its rows today (500 rows about 1 s and 1.9 GB allocated, 1,000 rows about 6 s and
 /// 7.7 GB, the hand-built twin alike), so the case uses 200 rows until that is fixed.
 /// </remarks>
@@ -85,6 +85,8 @@ public class DocumentBuilderBenchmarks
                 .Content(c =>
                 {
                     c.Heading(1, "Field report");
+                    c.TableOfContents().Title("Contents").Depth(2);
+                    c.PageBreak();
                     for (int index = 0; index < paragraphs.Length; index++)
                     {
                         if (index % 12 == 0)
@@ -110,10 +112,13 @@ public class DocumentBuilderBenchmarks
             Header = new HeaderFooter(small) { Left = "Field report", Right = "Operations" },
             Footer = new HeaderFooter(small) { Center = "Page {page} of {pages}" },
         };
-        var flow = new FlowDocument(template) { Tagging = FlowTagging.Default.WithLanguage("en-GB").WithTitle("Report") };
+        var flow = new FlowDocument(template) { Tagging = FlowTagging.Default.WithLanguage("en-GB").WithTitle("Report"), OutlineDepth = 3 };
         var body = new ParagraphStyle(regular, 11).WithSpaceAfter(6);
-        var h2 = new ParagraphStyle(bold, 11 * 1.6).WithSpaceBefore(10).WithSpaceAfter(4);
+        var h2 = new ParagraphStyle(bold, 11 * 1.6).WithSpaceBefore(12).WithSpaceAfter(6);
         flow.Add(new Paragraph("Field report", new ParagraphStyle(bold, 22).WithSpaceBefore(12).WithSpaceAfter(6)) { StructureType = "H1" });
+        flow.Add(new BlockGroup(new Paragraph("Contents", h2)) { KeepWithNext = true });
+        flow.Add(new TableOfContents(body) { Depth = 2 });
+        flow.Add(new PageBreak());
         for (int index = 0; index < _paragraphs.Length; index++)
         {
             if (index % 12 == 0)

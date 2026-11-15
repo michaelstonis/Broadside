@@ -199,6 +199,18 @@ public readonly ref struct DrawingElement
         return this;
     }
 
+    /// <summary>Names the element, so links and page references can point at it.</summary>
+    /// <param name="id">The name, unique in the document.</param>
+    /// <returns>This builder.</returns>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is null or empty.</exception>
+    /// <remarks>ISO 32000-2 §12.3.2.4 (named destinations, PDF 1.2).</remarks>
+    public DrawingElement Id(string id)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(id);
+        Node.Id = id;
+        return this;
+    }
+
     private DrawingElement Align(TextAlignment alignment)
     {
         Node.Alignment = alignment;

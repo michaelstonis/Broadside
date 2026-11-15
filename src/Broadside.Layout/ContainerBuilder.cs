@@ -188,6 +188,77 @@ public readonly ref struct ContainerBuilder
         return new ColumnsElement(context, columns);
     }
 
+    /// <summary>
+    /// Adds a table of contents: one entry per heading of the document down to level 3 (<see cref="TableOfContentsElement.Depth"/>), each
+    /// linking to its heading, with a dot leader and the heading's page number.
+    /// </summary>
+    /// <returns>The table of contents' builder.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §14.8.4.4 (<c>TOC</c>, <c>TOCI</c>) and §12.5.6.5 (links). Its page numbers are forward references: layout runs again
+    /// until they are stable (at most three passes, else a <c>ForwardReferencesNotConverged</c> diagnostic). Your lambdas never run again.
+    /// </remarks>
+    public TableOfContentsElement TableOfContents()
+    {
+        BuildContext context = Context;
+        var toc = new TocNode();
+        _container!.Blocks.Add(toc);
+        return new TableOfContentsElement(context, toc);
+    }
+
+    /// <summary>Adds a text field (<c>Form</c>) with its label drawn above it.</summary>
+    /// <param name="name">The field's name, unique in the document.</param>
+    /// <param name="label">The label: drawn as text and written as the field's alternate name (<c>TU</c>).</param>
+    /// <returns>The field's builder.</returns>
+    /// <exception cref="ArgumentException"><paramref name="name"/> or <paramref name="label"/> is null, empty or white space.</exception>
+    /// <remarks>ISO 32000-2 §12.7.5.3 (text fields) and §14.8.4.7.3 (<c>Form</c>). AcroForm needs PDF 1.2.</remarks>
+    public FieldElement TextField(string name, string label) => AddField(FormFieldType.Text, name, label, []);
+
+    /// <summary>Adds a check box (<c>Form</c>) with its label beside it.</summary>
+    /// <param name="name">The field's name, unique in the document.</param>
+    /// <param name="label">The label: drawn as text and written as the field's alternate name.</param>
+    /// <returns>The field's builder.</returns>
+    /// <exception cref="ArgumentException"><paramref name="name"/> or <paramref name="label"/> is null, empty or white space.</exception>
+    /// <remarks>ISO 32000-2 §12.7.5.2.3 (check boxes).</remarks>
+    public FieldElement CheckBox(string name, string label) => AddField(FormFieldType.CheckBox, name, label, []);
+
+    /// <summary>Adds a set of radio buttons, one per choice, under a label.</summary>
+    /// <param name="name">The field's name, unique in the document.</param>
+    /// <param name="label">The label of the group.</param>
+    /// <param name="choices">The choices, in order; at least one.</param>
+    /// <returns>The field's builder.</returns>
+    /// <exception cref="ArgumentException"><paramref name="name"/> or <paramref name="label"/> is null, empty or white space, or there is no choice.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="choices"/> is null.</exception>
+    /// <remarks>ISO 32000-2 §12.7.5.2.4 (radio buttons).</remarks>
+    public FieldElement RadioGroup(string name, string label, IReadOnlyList<string> choices) => AddField(FormFieldType.RadioButtons, name, label, Choices(choices));
+
+    /// <summary>Adds a combo box (a drop-down list) with its label above it.</summary>
+    /// <param name="name">The field's name, unique in the document.</param>
+    /// <param name="label">The label.</param>
+    /// <param name="choices">The choices, in order; at least one.</param>
+    /// <returns>The field's builder.</returns>
+    /// <exception cref="ArgumentException"><paramref name="name"/> or <paramref name="label"/> is null, empty or white space, or there is no choice.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="choices"/> is null.</exception>
+    /// <remarks>ISO 32000-2 §12.7.5.4 (choice fields).</remarks>
+    public FieldElement ComboBox(string name, string label, IReadOnlyList<string> choices) => AddField(FormFieldType.ComboBox, name, label, Choices(choices));
+
+    /// <summary>Adds a list box with its label above it.</summary>
+    /// <param name="name">The field's name, unique in the document.</param>
+    /// <param name="label">The label.</param>
+    /// <param name="choices">The choices, in order; at least one.</param>
+    /// <returns>The field's builder.</returns>
+    /// <exception cref="ArgumentException"><paramref name="name"/> or <paramref name="label"/> is null, empty or white space, or there is no choice.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="choices"/> is null.</exception>
+    /// <remarks>ISO 32000-2 §12.7.5.4 (choice fields).</remarks>
+    public FieldElement ListBox(string name, string label, IReadOnlyList<string> choices) => AddField(FormFieldType.ListBox, name, label, Choices(choices));
+
+    /// <summary>Adds an unsigned signature field with its label above it.</summary>
+    /// <param name="name">The field's name, unique in the document.</param>
+    /// <param name="label">The label.</param>
+    /// <returns>The field's builder.</returns>
+    /// <exception cref="ArgumentException"><paramref name="name"/> or <paramref name="label"/> is null, empty or white space.</exception>
+    /// <remarks>ISO 32000-2 §12.7.5.5 (signature fields, PDF 1.3).</remarks>
+    public FieldElement SignatureField(string name, string label) => AddField(FormFieldType.Signature, name, label, []);
+
     /// <summary>Adds a group: content that shares a style and adds no structure element of its own unless given a <see cref="GroupElement.Role"/>.</summary>
     /// <param name="build">Describes the content.</param>
     /// <returns>The group's builder.</returns>
@@ -254,6 +325,33 @@ public readonly ref struct ContainerBuilder
         return new ImageElement(context, image);
     }
 
+    private static string[] Choices(IReadOnlyList<string> choices)
+    {
+        ArgumentNullException.ThrowIfNull(choices);
+        string[] copy = [.. choices];
+        if (copy.Length == 0)
+        {
+            throw new ArgumentException("A choice field needs at least one choice.", nameof(choices));
+        }
+
+        foreach (string choice in copy)
+        {
+            ArgumentNullException.ThrowIfNull(choice, nameof(choices));
+        }
+
+        return copy;
+    }
+
+    private FieldElement AddField(FormFieldType type, string name, string label, string[] choices)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(label);
+        BuildContext context = Context;
+        var field = new FieldNode { Type = type, Name = name, Label = label, Choices = choices };
+        _container!.Blocks.Add(field);
+        return new FieldElement(context, field);
+    }
+
     private DrawingElement AddDrawing(Length width, Length height, string? alternateText, Action<PdfCanvas, PdfRectangle> draw)
     {
         if (!(width.ToPoints() > 0 && double.IsFinite(width.ToPoints())))
@@ -309,6 +407,41 @@ public readonly ref struct TextBuilder
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(uri);
         return Add(new SpanNode { Text = text, Link = uri });
+    }
+
+    /// <summary>
+    /// Adds a link to an element of the document named with <c>Id(...)</c> (or to a named destination the document already has), in the
+    /// theme's link style; it is tagged <c>Link</c> with its annotation.
+    /// </summary>
+    /// <param name="text">The link's text.</param>
+    /// <param name="to">The id of the element it goes to.</param>
+    /// <returns>The span's builder.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="text"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="to"/> is null or empty.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §12.5.6.5 (link annotations) and §12.3.2.4 (named destinations, PDF 1.2). An id no element has is an
+    /// <c>AnchorNotFound</c> diagnostic, and the text stays as plain text.
+    /// </remarks>
+    public SpanElement Link(string text, string to)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentException.ThrowIfNullOrEmpty(to);
+        return Add(new SpanNode { Text = text, Destination = to });
+    }
+
+    /// <summary>Adds the page number of the element named <paramref name="id"/>, such as "see page 12".</summary>
+    /// <param name="id">The id of the element.</param>
+    /// <returns>The span's builder.</returns>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is null or empty.</exception>
+    /// <remarks>
+    /// The number is the page's number among the document's pages laid out by the build, as the footer's <c>PageField.Number</c> shows it;
+    /// layout runs again until the numbers it shows are stable (at most three passes, else a <c>ForwardReferencesNotConverged</c>
+    /// diagnostic). An id no element has shows "?" with an <c>AnchorNotFound</c> diagnostic.
+    /// </remarks>
+    public SpanElement PageOf(string id)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(id);
+        return Add(new SpanNode { Text = string.Empty, PageOf = id });
     }
 
     /// <summary>Ends the line: what follows starts on the next one.</summary>
@@ -945,6 +1078,18 @@ public readonly ref struct ImageElement
     {
         ArgumentException.ThrowIfNullOrEmpty(caption);
         Node.Caption = caption;
+        return this;
+    }
+
+    /// <summary>Names the element, so links and page references can point at it.</summary>
+    /// <param name="id">The name, unique in the document.</param>
+    /// <returns>This builder.</returns>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is null or empty.</exception>
+    /// <remarks>ISO 32000-2 §12.3.2.4 (named destinations, PDF 1.2).</remarks>
+    public ImageElement Id(string id)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(id);
+        Node.Id = id;
         return this;
     }
 

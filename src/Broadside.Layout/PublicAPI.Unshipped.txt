@@ -890,3 +890,39 @@ Broadside.Layout.Flow.TableElement.AlignCenter() -> Broadside.Layout.Flow.TableE
 Broadside.Layout.Flow.TableElement.AlignLeft() -> Broadside.Layout.Flow.TableElement
 Broadside.Layout.Flow.TableElement.AlignRight() -> Broadside.Layout.Flow.TableElement
 Broadside.Layout.Flow.TableElement.Width(Broadside.Layout.Flow.Length width) -> Broadside.Layout.Flow.TableElement
+Broadside.Layout.Flow.ContainerBuilder.CheckBox(string! name, string! label) -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.ContainerBuilder.ComboBox(string! name, string! label, System.Collections.Generic.IReadOnlyList<string!>! choices) -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.ContainerBuilder.ListBox(string! name, string! label, System.Collections.Generic.IReadOnlyList<string!>! choices) -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.ContainerBuilder.RadioGroup(string! name, string! label, System.Collections.Generic.IReadOnlyList<string!>! choices) -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.ContainerBuilder.SignatureField(string! name, string! label) -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.ContainerBuilder.TableOfContents() -> Broadside.Layout.Flow.TableOfContentsElement
+Broadside.Layout.Flow.ContainerBuilder.TextField(string! name, string! label) -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.DocumentBuilder.WithOutlineDepth(int depth) -> Broadside.Layout.Flow.DocumentBuilder
+Broadside.Layout.Flow.DrawingElement.Id(string! id) -> Broadside.Layout.Flow.DrawingElement
+Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.FieldElement.Checked() -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.FieldElement.FieldElement() -> void
+Broadside.Layout.Flow.FieldElement.FillWidth() -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.FieldElement.Height(Broadside.Layout.Flow.Length height) -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.FieldElement.KeepWithNext() -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.FieldElement.LabelBeside() -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.FieldElement.Multiline(int lines = 3) -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.FieldElement.ReadOnly() -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.FieldElement.Required() -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.FieldElement.Size(Broadside.Layout.Flow.Length width, Broadside.Layout.Flow.Length height) -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.FieldElement.SpaceAfter(Broadside.Layout.Flow.Length space) -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.FieldElement.SpaceBefore(Broadside.Layout.Flow.Length space) -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.FieldElement.Style(Broadside.Layout.Flow.Style! style) -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.FieldElement.Value(string! value) -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.FieldElement.Width(Broadside.Layout.Flow.Length width) -> Broadside.Layout.Flow.FieldElement
+Broadside.Layout.Flow.ImageElement.Id(string! id) -> Broadside.Layout.Flow.ImageElement
+Broadside.Layout.Flow.TableElement.Id(string! id) -> Broadside.Layout.Flow.TableElement
+Broadside.Layout.Flow.TableOfContentsElement
+Broadside.Layout.Flow.TableOfContentsElement.Depth(int depth) -> Broadside.Layout.Flow.TableOfContentsElement
+Broadside.Layout.Flow.TableOfContentsElement.Leader(string! leader) -> Broadside.Layout.Flow.TableOfContentsElement
+Broadside.Layout.Flow.TableOfContentsElement.SpaceBefore(Broadside.Layout.Flow.Length space) -> Broadside.Layout.Flow.TableOfContentsElement
+Broadside.Layout.Flow.TableOfContentsElement.Style(Broadside.Layout.Flow.Style! style) -> Broadside.Layout.Flow.TableOfContentsElement
+Broadside.Layout.Flow.TableOfContentsElement.TableOfContentsElement() -> void
+Broadside.Layout.Flow.TableOfContentsElement.Title(string! title) -> Broadside.Layout.Flow.TableOfContentsElement
+Broadside.Layout.Flow.TextBuilder.Link(string! text, string! to) -> Broadside.Layout.Flow.SpanElement
+Broadside.Layout.Flow.TextBuilder.PageOf(string! id) -> Broadside.Layout.Flow.SpanElement
