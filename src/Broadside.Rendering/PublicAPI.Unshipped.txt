@@ -146,3 +146,15 @@ Broadside.Rendering.RenderOptions.ColorFilter.set -> void
 Broadside.Rendering.RenderOptions.WithColorFilter(Broadside.Rendering.ColorFilter colorFilter) -> Broadside.Rendering.RenderOptions!
 Broadside.Rendering.SoftwareRasterizer.ColorFilter.get -> Broadside.Rendering.ColorFilter
 Broadside.Rendering.SoftwareRasterizer.ColorFilter.set -> void
+Broadside.Rendering.GlyphPositioning
+Broadside.Rendering.GlyphPositioning.Exact = 0 -> Broadside.Rendering.GlyphPositioning
+Broadside.Rendering.GlyphPositioning.Quantized = 1 -> Broadside.Rendering.GlyphPositioning
+Broadside.Rendering.RenderOptions.GlyphPositioning.get -> Broadside.Rendering.GlyphPositioning
+Broadside.Rendering.RenderOptions.GlyphPositioning.set -> void
+Broadside.Rendering.RenderOptions.WithGlyphPositioning(Broadside.Rendering.GlyphPositioning glyphPositioning) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.SoftwareRasterizer.GlyphCacheBudget.get -> long
+Broadside.Rendering.SoftwareRasterizer.GlyphCacheBudget.set -> void
+Broadside.Rendering.SoftwareRasterizer.GlyphCacheStatistics.get -> Broadside.PdfCacheStatistics
+Broadside.Rendering.SoftwareRasterizer.GlyphPositioning.get -> Broadside.Rendering.GlyphPositioning
+Broadside.Rendering.SoftwareRasterizer.GlyphPositioning.set -> void
+const Broadside.Rendering.SoftwareRasterizer.DefaultGlyphCacheBudget = 4194304 -> long
