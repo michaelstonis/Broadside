@@ -105,6 +105,9 @@ two along tile seams, before and after this change.
    resolution once instead of through a picture shader each draw.
 5. **Strokes** (#335): the union sampling of #310 doubles stroking. An exact fast path when a stroke's pieces cannot overlap (one segment,
    butt caps, no dashes) would recover most of it on stroke-heavy pages without changing pixels.
+   Done in #335 another way ([stroke-union.md](stroke-union.md)): that fast path changes pixels (the walk rounds differently from
+   exact-area cells), so the walk itself got cheaper with bit-identical output: 32 % faster on the stroke-heavy page at 72 and 300
+   DPI (90 to 61 ms, 368 to 250 ms), 19–28 % on `paths-strokes.pdf`.
 6. **Function-based shadings** (H11): evaluate the function on a grid and interpolate where the function is smooth (pdf.js does), behind
    an accuracy bound.
 
