@@ -47,7 +47,9 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   DOTNET_GENERATE_ASPNET_CERTIFICATE: false
   BASELINE: bench/baselines/gate/allocations.json
-  SHARDS: 4 # the length of the allocations and measure jobs' matrix.shard
+  SHARDS: 4 # the length of the allocations jobs' matrix.shard
+  # The length of the measure jobs' matrix.shard: twice the allocations jobs', since each case runs six times there (issue #337).
+  MEASURE_SHARDS: 8
   # Methods with one case per corpus file split their cases over the shards (bench/Broadside.Benchmarks/BenchmarkPartition.cs).
   SPLIT: Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk
   # The branch the nightly run measures.
@@ -156,18 +158,18 @@ jobs:
           if-no-files-found: warn
           overwrite: true
 
-  # When times are compared: each shard runs its quarter of the cases for both commits, interleaved in two rounds, and reruns
+  # When times are compared: each shard runs its eighth of the cases for both commits, interleaved in two rounds, and reruns
   # what looks slower. Its allocation figures are the base commit's only (the stale-baseline notice).
   measure:
     name: measure (${{ matrix.shard }})
     needs: plan
     if: needs.plan.outputs.timing == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 100
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
     steps:
       - name: Check out
         uses: actions/checkout@v7
@@ -203,14 +205,14 @@ jobs:
           dotnet build bench/Broadside.Benchmarks -c Release -warnaserror
           dotnet run -c Release --project bench/Broadside.Benchmarks --no-build -- --list flat > "${RUNNER_TEMP}/methods.txt"
           dotnet run -c Release --project tools/BenchGate -- shard --list "${RUNNER_TEMP}/methods.txt" --baseline "${BASELINE}" \
-            --count "${SHARDS}" --index "${SHARD}" --split "${SPLIT}" --out "${RUNNER_TEMP}/shard.txt"
+            --count "${MEASURE_SHARDS}" --index "${SHARD}" --split "${SPLIT}" --out "${RUNNER_TEMP}/shard.txt"
           cat "${RUNNER_TEMP}/shard.txt"
 
       - name: Run the benchmarks of both commits
         shell: bash
         env:
           SHARD: ${{ matrix.shard }}
-          BROADSIDE_BENCH_PARTITION: ${{ matrix.shard }}/${{ env.SHARDS }}
+          BROADSIDE_BENCH_PARTITION: ${{ matrix.shard }}/${{ env.MEASURE_SHARDS }}
         run: |
           bench/run-gate.sh --measure times --base "${RUNNER_TEMP}/base" --head . --out "artifacts/bench-gate/shard-${SHARD}" \
             --methods "${RUNNER_TEMP}/shard.txt"

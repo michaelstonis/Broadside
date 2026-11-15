@@ -88,6 +88,25 @@ internal sealed class ToggleButtonAppearance
         return new ToggleButtonAppearance(document, appearances);
     }
 
+    /// <summary>
+    /// Returns the appearance <paramref name="widget"/> shows in its current state (the on stream when it is on, else the off one), or
+    /// <see langword="null"/> when it is not a widget of the field.
+    /// </summary>
+    /// <param name="widget">The widget.</param>
+    /// <returns>The appearance stream, a direct object.</returns>
+    public CosStream? StreamFor(PdfWidgetAnnotation widget)
+    {
+        foreach ((PdfWidgetAnnotation candidate, CosName _, CosName state, CosStream onStream, CosStream offStream) in _appearances)
+        {
+            if (ReferenceEquals(candidate.Dictionary, widget.Dictionary))
+            {
+                return state.Equals(FormNames.Off) ? offStream : onStream;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Makes the streams new indirect objects, each widget's normal appearance subdictionary, and sets its appearance state.</summary>
     /// <remarks>ISO 32000-2 §12.5.5 (appearance subdictionaries keyed by state) and §12.7.5.2.3.</remarks>
     public void Apply()

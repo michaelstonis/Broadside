@@ -38,6 +38,13 @@ namespace Broadside.Rendering.CoreGraphics;
 /// offered, and anything ImageIO rejects or returns in another layout decodes with the managed codec, with an
 /// <c>ImageDecodedManaged</c> diagnostic.
 /// </para>
+/// <para>
+/// JPEG 2000 (ISO 32000-2 §7.4.9; <c>public.jpeg-2000</c>): ImageIO decodes it as the managed decoder does, to within 2 levels
+/// (exactly for reversible 5/3 codestreams), full size and at <c>kCGImageSourceSubsampleFactor</c> 2, 4 and 8, which is the
+/// codestream's resolution levels dropped, ⌈W / 2^d⌉ samples wide. It is nonetheless 2.5 to 12 times slower than the managed
+/// decoder on every image of the JPX corpus files and the real-world corpora, so <see cref="CanDecode"/> refuses it and the managed
+/// decoder serves every JPX image (see <c>docs/benchmarks/imageio-image-decoder.md</c>).
+/// </para>
 /// </remarks>
 public sealed class ImageIODecoder : IPlatformImageDecoder
 {
@@ -47,7 +54,8 @@ public sealed class ImageIODecoder : IPlatformImageDecoder
     /// <summary>The largest mean step of the first component's quantization table that ImageIO decodes within the tolerance (measured).</summary>
     internal const double MaxMeanQuantizerStep = 12;
 
-    private static readonly Lazy<Options> SharedOptions = new(Options.Create);
+    private static readonly Lazy<Options> SharedOptions = new(() => Options.Create("public.jpeg"));
+    private static readonly Lazy<Options> SharedJpxOptions = new(() => Options.Create("public.jpeg-2000"));
 
     private ImageIODecoder()
     {
@@ -73,8 +81,15 @@ public sealed class ImageIODecoder : IPlatformImageDecoder
 
     /// <inheritdoc/>
     /// <remarks>
+    /// <para>
     /// ISO 32000-2 §7.4.8 and ITU-T T.81 A.1.1: DCTDecode, 8-bit samples of 1 or 3 components that share one sampling, at the
     /// image's own resolution (reduction 0).
+    /// </para>
+    /// <para>
+    /// JPXDecode (§7.4.9) is not taken, although ImageIO decodes it within the tolerance: it is 2.5 to 12 times slower than the
+    /// managed decoder on every image measured (see <c>docs/benchmarks/imageio-image-decoder.md</c>), so offering it would only
+    /// slow the render. <see cref="DecodeAsync"/> would decode a JPX request, if a future measurement changes that.
+    /// </para>
     /// </remarks>
     public bool CanDecode(in PlatformImageRequest request) =>
         request.Filter.Value == "DCTDecode" && request.BitsPerComponent == 8 && request.Components is 1 or 3 && !request.ChromaSubsampled
@@ -85,6 +100,12 @@ public sealed class ImageIODecoder : IPlatformImageDecoder
     public ValueTask<DecodedImage?> DecodeAsync(ReadOnlyMemory<byte> encoded, PlatformImageRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (request.Filter.Value == "JPXDecode")
+        {
+            // The reduction is the resolution levels dropped, which ImageIO's subsample factor 2^d delivers exactly.
+            return ValueTask.FromResult(Decode(encoded, request, request.Reduction));
+        }
+
         double step = MeanQuantizerStep(encoded.Span);
         if (!(step <= MaxMeanQuantizerStep))
         {
@@ -161,7 +182,7 @@ public sealed class ImageIODecoder : IPlatformImageDecoder
     /// </summary>
     internal static unsafe DecodedImage? Decode(ReadOnlyMemory<byte> encoded, in PlatformImageRequest request, int subsample)
     {
-        Options options = SharedOptions.Value;
+        Options options = request.Filter.Value == "JPXDecode" ? SharedJpxOptions.Value : SharedOptions.Value;
         subsample = Math.Clamp(subsample, 0, Math.Min(request.Reduction, 3));
         using MemoryHandle pin = encoded.Pin();
         IntPtr data = Native.CFDataCreateWithBytesNoCopy(IntPtr.Zero, (IntPtr)pin.Pointer, encoded.Length, Native.AllocatorNull);
@@ -354,23 +375,23 @@ public sealed class ImageIODecoder : IPlatformImageDecoder
             Image = image;
         }
 
-        /// <summary>Gets the source's options: no caching, <c>public.jpeg</c> as the hint and, where the system has the key, as the only type allowed.</summary>
+        /// <summary>Gets the source's options: no caching, the type (<c>public.jpeg</c> or <c>public.jpeg-2000</c>) as the hint and, where the system has the key, as the only type allowed.</summary>
         public NSDictionary Source { get; }
 
         /// <summary>Gets the image's options per ImageIO subsample exponent 0 to 3: decode at once, at a factor of 2^i.</summary>
         public NSDictionary[] Image { get; }
 
-        public static Options Create()
+        public static Options Create(string type)
         {
             IntPtr library = Dlfcn.dlopen(Constants.ImageIOLibrary, 0);
             NSString Key(string name) => Dlfcn.GetStringConstant(library, name) ?? throw new PlatformNotSupportedException($"ImageIO has no {name}.");
-            var jpeg = new NSString("public.jpeg");
+            var hint = new NSString(type);
             var keys = new List<NSObject> { Key("kCGImageSourceShouldCache"), Key("kCGImageSourceTypeIdentifierHint") };
-            var values = new List<NSObject> { NSNumber.FromBoolean(false), jpeg };
+            var values = new List<NSObject> { NSNumber.FromBoolean(false), hint };
             if (Dlfcn.GetStringConstant(library, "kCGImageSourceAllowableTypes") is { } allowable)
             {
                 keys.Add(allowable);
-                values.Add(NSArray.FromNSObjects(jpeg));
+                values.Add(NSArray.FromNSObjects(hint));
             }
 
             NSDictionary source = NSDictionary.FromObjectsAndKeys(values.ToArray(), keys.ToArray());

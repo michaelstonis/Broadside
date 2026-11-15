@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A WinUI 3 desktop app around Broadside.Viewer.WinUI's PdfView (#223): unpackaged, with the Windows App SDK runtime copied next to
+    the app (self-contained), so it runs from its output folder with nothing installed. No XAML: the window is built in code.
+    Windows only (WinAppSDK's resource index and XAML tooling run on Windows); the UI tests in tests/Broadside.Viewer.WinUI.UITests
+    drive it on the Windows runner. See README.md to run it.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <UseWinUI>true</UseWinUI>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <IsTrimmable>false</IsTrimmable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Viewer.WinUI/Broadside.Viewer.WinUI.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+  </ItemGroup>
+
+  <!-- The documents the UI tests open (the pinned subset: representative sample documents and corpus files with tagged structure). -->
+  <ItemGroup>
+    <None Include="../documents/pdf/textbook.pdf;../documents/pdf/newsletter.pdf;../documents/pdf/paper.pdf;../documents/pdf/novel-hardback.pdf;../documents/pdf/application-form.pdf" LinkBase="documents" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../tests/Corpus/tagged-structure.pdf" LinkBase="documents" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

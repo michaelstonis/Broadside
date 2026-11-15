@@ -111,6 +111,28 @@ public sealed class ContentOptions
     }
 
     /// <summary>
+    /// Gets or sets a value indicating whether a display list's form-field layer draws a widget that has no appearance (or, when the
+    /// form's <c>NeedAppearances</c> is set, a text or choice field's widget) with a transient appearance: the one the form-filling
+    /// API would generate from the field's value, used for this list only and never written to the document. Default
+    /// <see langword="false"/>: appearances are drawn as they are.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §12.7.3 (Table 224, <c>NeedAppearances</c>), §12.7.4.3 and §12.7.5; spec #33 viewer capability 12. Rendering never
+    /// changes the document, so no font is embedded for a transient appearance: a value that neither the default appearance font nor
+    /// Helvetica can show is left without one. Lists built with and without the option are cached apart.
+    /// </remarks>
+    public bool TransientFieldAppearances { get; set; }
+
+    /// <summary>Sets <see cref="TransientFieldAppearances"/>.</summary>
+    /// <param name="transient">Whether widgets without an appearance get a display-only one.</param>
+    /// <returns>These options.</returns>
+    public ContentOptions WithTransientFieldAppearances(bool transient)
+    {
+        TransientFieldAppearances = transient;
+        return this;
+    }
+
+    /// <summary>
     /// Gets or sets a value indicating whether the run is for printing: an image XObject without <c>OC</c> is then painted as its
     /// alternate marked <c>DefaultForPrinting</c> (ISO 32000-2 §8.9.5.4 rule d). Set by display-list builds for
     /// <see cref="Rendering.DisplayIntent.Print"/> on their own copy of the caller's options.

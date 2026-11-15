@@ -62,29 +62,34 @@ fi
 # allocated a few KB more or less from one process to the next. bench/baselines/gate/README.md has the measurements.
 runtime_env=(DOTNET_TieredCompilation=0 DOTNET_PROCESSOR_COUNT=1)
 
-# The timing job: one process per case, 3 warm-up and 10 measured iterations of about 100 ms. Plain BenchmarkDotNet options
-# (not a --job name) so a base commit older than the gate runs the same job. BenchmarkDotNet builds its generated project, and
-# with it the whole project graph without the compiler server, once per invocation: since Phase 3 (rendering, fonts, Skia) that
-# takes more than its default 120 s limit on the 4-vCPU runner, so the limit is 15 minutes.
-bench_args=(--launchCount 1 --warmupCount 3 --iterationCount 10 --iterationTime 100 --exporters json --buildTimeout 900
-  --envVars DOTNET_TieredCompilation:0 DOTNET_PROCESSOR_COUNT:1)
-
-filters=('*')
-if [ -n "${methods}" ]; then
-  filters=()
-  while IFS= read -r line; do
-    [ -n "${line// /}" ] && filters+=("${line}")
-  done < "${methods}"
-  if [ "${#filters[@]}" -eq 0 ]; then
-    echo "No benchmark methods to run."
-    exit 0
-  fi
-fi
+# The timing job: 3 warm-up and 10 measured iterations of about 100 ms, in process, one process per benchmark class (issue
+# #337). Plain BenchmarkDotNet options (not a --job name) so a base commit older than the gate runs the same job. Out of process,
+# BenchmarkDotNet rebuilt the whole project graph (rendering, fonts, Skia, the viewer) into its generated project without the
+# compiler server on every invocation: six minutes on the 4-vCPU runner, six times per shard, a third of a measuring job. In
+# process it runs the build made here, so the runtime settings go on the process itself (runtime_env) rather than through
+# --envVars, which the in-process toolchain refuses. A class still gets a fresh process, so no case runs after another class's
+# code was compiled or its caches filled, and the base and the pull request run each class in the same order.
+bench_args=(--inProcess --launchCount 1 --warmupCount 3 --iterationCount 10 --iterationTime 100 --exporters json)
 
 echo "::group::Build the pull request's benchmarks and gate tool"
 dotnet build "${head}/bench/Broadside.Benchmarks" -c Release -warnaserror || exit 1
 dotnet build "${head}/tools/BenchGate" -c Release -warnaserror || exit 1
 echo "::endgroup::"
+
+# The methods to run, one Namespace.Type.Method per line: the --methods file, or every benchmark of the pull request (the timing
+# runs go class by class, so they need the names rather than '*').
+if [ -z "${methods}" ]; then
+  methods="${out}/methods.txt"
+  (cd "${head}" && dotnet artifacts/bin/Broadside.Benchmarks/release/Broadside.Benchmarks.dll --list flat) > "${methods}" || exit 1
+fi
+filters=()
+while IFS= read -r line; do
+  [ -n "${line// /}" ] && filters+=("${line}")
+done < "${methods}"
+if [ "${#filters[@]}" -eq 0 ]; then
+  echo "No benchmark methods to run."
+  exit 0
+fi
 
 base_built=false
 if [ -n "${base}" ]; then
@@ -119,23 +124,36 @@ allocations() {
   fi
 }
 
-# run <checkout> <side> <folder> <filter...>
+# run <checkout> <side> <folder> <filter...>: one process per benchmark class, each writing its report to
+# <out>/<folder>/<side>/<class>/ (BenchmarkDotNet names a report after its class, so two classes never share a folder). A filter
+# is Namespace.Type.Method, or a full name with its parameters (the rerun's suspects); its class is what precedes the method.
 run() {
   local checkout="$1" side="$2" folder="$3"
   shift 3
+  local classes class filter name code
+  local selected=()
+  classes="$(for filter in "$@"; do name="${filter%%(*}"; echo "${name%.*}"; done | awk '!seen[$0]++')"
   echo "::group::${folder}/${side}"
-  (cd "${checkout}" && dotnet run -c Release --project bench/Broadside.Benchmarks --no-build -- \
-    --filter "$@" "${bench_args[@]}" --artifacts "${out}/${folder}/${side}")
-  local code=$?
-  echo "::endgroup::"
-  if [ "${code}" -ne 0 ]; then
-    if [ "${side}" = "head" ]; then
-      echo "::error title=Benchmark gate::A pull-request benchmark failed in ${folder} (exit ${code}); see the log."
-      status=1
-    else
-      echo "::warning title=Benchmark gate::A base-commit benchmark failed in ${folder} (exit ${code}); it is not compared in time."
+  while IFS= read -r class; do
+    [ -n "${class}" ] || continue
+    selected=()
+    for filter in "$@"; do
+      name="${filter%%(*}"
+      [ "${name%.*}" = "${class}" ] && selected+=("${filter}")
+    done
+    (cd "${checkout}" && env "${runtime_env[@]}" dotnet artifacts/bin/Broadside.Benchmarks/release/Broadside.Benchmarks.dll \
+      --filter "${selected[@]}" "${bench_args[@]}" --artifacts "${out}/${folder}/${side}/${class##*.}")
+    code=$?
+    if [ "${code}" -ne 0 ]; then
+      if [ "${side}" = "head" ]; then
+        echo "::error title=Benchmark gate::A pull-request benchmark of ${class##*.} failed in ${folder} (exit ${code}); see the log."
+        status=1
+      else
+        echo "::warning title=Benchmark gate::A base-commit benchmark of ${class##*.} failed in ${folder} (exit ${code}); it is not compared in time."
+      fi
     fi
-  fi
+  done <<< "${classes}"
+  echo "::endgroup::"
 }
 
 if [ "${measure}" != times ]; then
