@@ -6,7 +6,7 @@ namespace Broadside.Images;
 /// </summary>
 /// <remarks>
 /// <para>
-/// ISO 32000-2 §7.4.8 (DCTDecode) and §8.9.5 (image dictionaries). Register one with <see cref="PdfOptions.UsePlatformImageDecoder"/>.
+/// ISO 32000-2 §7.4.8 (DCTDecode), §7.4.9 (JPXDecode) and §8.9.5 (image dictionaries). Register one with <see cref="PdfOptions.UsePlatformImageDecoder"/>.
 /// <c>DisplayList.PrefetchImagesAsync</c> offers it the images kept encoded in a display list (<c>DisplayImage.MaxReduction</c> above
 /// 0) that the region drawn reaches, at the reduction the backend will ask for; what it returns goes into the document's image cache,
 /// where the replay finds it. A replay that finds nothing decodes with the managed codec and never waits on the platform, so a host
@@ -15,7 +15,9 @@ namespace Broadside.Images;
 /// <para>
 /// The core decides which images may be offered: one rule over the codestream's header and the image dictionary, so that the
 /// samples a platform returns mean what the managed codec's would (§7.4.8 Table 13 <c>ColorTransform</c> and the APP14 segment,
-/// 8-bit samples of 1 or 3 components, the frame's size equal to the dictionary's). <see cref="CanDecode"/> can only narrow it.
+/// 8-bit samples of 1 or 3 components, the frame's size equal to the dictionary's; for JPEG 2000 the codestream's own samples, with
+/// no palette, opacity or color conversion to read). <see cref="CanDecode"/> can only narrow it, and a decoder that takes only
+/// JPEG data must check <see cref="PlatformImageRequest.Filter"/>.
 /// Before the data is handed over, the core zero-fills the segments a platform would misread, as <see cref="Features"/> says.
 /// </para>
 /// <para>
@@ -52,7 +54,7 @@ public interface IPlatformImageDecoder
 
     /// <summary>Decodes the image at <see cref="PlatformImageRequest.Reduction"/>, or at a finer reduction when that is what the platform delivers.</summary>
     /// <param name="encoded">
-    /// The codestream (for DCTDecode, the JPEG data), with the segments <see cref="Features"/> names zero-filled. Valid until the
+    /// The codestream (for DCTDecode, the JPEG data; for JPXDecode, the JP2 file or the codestream), with the segments <see cref="Features"/> names zero-filled. Valid until the
     /// returned task completes; copy what must outlive it.
     /// </param>
     /// <param name="request">What the image's header and dictionary say, and the reduction wanted.</param>

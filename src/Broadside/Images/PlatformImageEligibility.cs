@@ -1,6 +1,8 @@
 using System.Buffers.Binary;
 using System.Globalization;
 using Broadside.Filters;
+using Broadside.Filters.Codecs;
+using Broadside.Filters.Jpx;
 
 namespace Broadside.Images;
 
@@ -221,6 +223,123 @@ internal static class PlatformImageEligibility
             reason = null;
             return true;
         }
+    }
+
+    /// <summary>Applies the shared rule to a JPEG 2000 file or codestream whose header the codec has read.</summary>
+    /// <param name="data">The JPXDecode data.</param>
+    /// <param name="header">The header the codec read for this image and its dictionary (so its channels already follow the dictionary's color space and <c>SMaskInData</c>).</param>
+    /// <param name="indexed">Whether the image dictionary's color space is <c>Indexed</c>, whose samples are palette indices that a decoder must return exactly.</param>
+    /// <param name="request">The request (reduction 0), when eligible.</param>
+    /// <param name="reason">Why the image is not eligible, or <see langword="null"/>.</param>
+    /// <returns>Whether the image may be offered to a platform decoder.</returns>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §7.4.9 and Table 87; ITU-T T.800 Annexes A (SIZ), B.5 (resolution levels) and I.5.3 (the JP2 header boxes). A
+    /// codec decides the output channels from the image dictionary, the file's palette, component mapping, channel definition and
+    /// color specification boxes and the codestream's components; a platform decoder applies its own reading of the boxes. So the
+    /// rule offers only the images where there is nothing to read: 8-bit unsigned components that all cover the image grid, as many
+    /// as the image has channels (1 or 3), no opacity channel, no palette, component mapping or channel definition box, and no
+    /// color specification other than enumerated sRGB or gray (an sYCC or ICC specification is converted, or not, as the platform
+    /// pleases). The codestream must lie in one piece: a file that stores it in fragments is not offered, because the data handed
+    /// over is the file and a platform decoder would not reassemble it.
+    /// </para>
+    /// <para>
+    /// A request's <see cref="PlatformImageRequest.Reduction"/> is then the number of resolution levels dropped (T.800 B.5), which
+    /// gives ⌈W / 2^d⌉ × ⌈H / 2^d⌉ samples; <see cref="ImageHeader.MaxReduction"/> of the header is at least 1, so an image whose
+    /// codestream has no decomposition level is decoded when its list is built and never offered. Reads the boxes and markers in
+    /// place; a fragmented file is joined once to find that out. Never throws on malformed data (it is then not offered).
+    /// </para>
+    /// </remarks>
+    public static bool TryCreateJpxRequest(ReadOnlySpan<byte> data, in ImageHeader header, bool indexed, out PlatformImageRequest request, out string? reason)
+    {
+        request = default;
+        if (indexed)
+        {
+            reason = "the color space is Indexed";
+            return false;
+        }
+
+        if (header.HasAlpha)
+        {
+            reason = "the image has an opacity channel (SMaskInData)";
+            return false;
+        }
+
+        ImageGeometry geometry = header.Geometry;
+        if (geometry.Components is not (1 or 3) || geometry.BitsPerComponent != 8)
+        {
+            reason = string.Create(CultureInfo.InvariantCulture, $"the image has {geometry.Components} channels of {geometry.BitsPerComponent} bits (only 8-bit gray and RGB go to a platform decoder)");
+            return false;
+        }
+
+        var quiet = new CodecReporter(null, silent: true);
+        if (JpxCodestreamReader.Locate(data, quiet, out byte[]? assembled) is not { } range)
+        {
+            reason = "the data holds no codestream";
+            return false;
+        }
+
+        if (assembled is not null)
+        {
+            reason = "the codestream is stored in fragments";
+            return false;
+        }
+
+        JpxFileHeader file = JpxFileHeader.Read(data, quiet);
+        if (file.Palette is not null || file.Mapping is not null)
+        {
+            reason = "the file has a palette or component mapping box";
+            return false;
+        }
+
+        if (file.Channels is not null)
+        {
+            reason = "the file has a channel definition box";
+            return false;
+        }
+
+        foreach (JpxColorSpecification color in file.Colors)
+        {
+            if (color.Method != 1 || color.Enumerated is not (16 or 17))
+            {
+                reason = color.Method == 1
+                    ? string.Create(CultureInfo.InvariantCulture, $"the file's color specification is enumerated space {color.Enumerated}, not sRGB or gray")
+                    : "the file's color specification is an ICC profile";
+                return false;
+            }
+        }
+
+        if (JpxCodestreamReader.ReadSize(data.Slice(range.Offset, range.Length), quiet) is not { } size)
+        {
+            reason = "the codestream's SIZ marker segment is unreadable";
+            return false;
+        }
+
+        if (size.Components.Length != geometry.Components)
+        {
+            reason = string.Create(CultureInfo.InvariantCulture, $"the codestream has {size.Components.Length} components and the image {geometry.Components} channels");
+            return false;
+        }
+
+        foreach (JpxComponentInfo component in size.Components)
+        {
+            if (component.Depth != 8 || component.Signed || component.Dx != 1 || component.Dy != 1)
+            {
+                reason = "a component is not 8-bit unsigned and sampled at every position of the image grid";
+                return false;
+            }
+        }
+
+        request = new PlatformImageRequest
+        {
+            Filter = FilterNames.JpxDecode,
+            Width = geometry.Width,
+            Height = geometry.Height,
+            Components = geometry.Components,
+            BitsPerComponent = 8,
+        };
+        reason = null;
+        return true;
     }
 
     /// <summary>
