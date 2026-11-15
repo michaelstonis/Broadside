@@ -782,3 +782,52 @@ Broadside.Viewer.SoftwareTileBackend.Begin(Broadside.Rendering.DisplayList! list
 Broadside.Viewer.ViewerOptions.ColorFilter.get -> Broadside.Rendering.ColorFilter
 Broadside.Viewer.ViewerOptions.ColorFilter.set -> void
 Broadside.Viewer.ViewerOptions.WithColorFilter(Broadside.Rendering.ColorFilter colorFilter) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.InputKey.Tab = 13 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.Enter = 14 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.Escape = 15 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.Backspace = 16 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.Delete = 17 -> Broadside.Viewer.InputKey
+Broadside.Viewer.ViewerOptions.TransientFieldAppearances.get -> bool
+Broadside.Viewer.ViewerOptions.TransientFieldAppearances.set -> void
+Broadside.Viewer.ViewerOptions.WithTransientFieldAppearances(bool transient) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.AnnotationLayer.SetFieldText(Broadside.Viewer.AnnotationTarget target, string? value) -> bool
+Broadside.Viewer.AnnotationLayer.SetFieldChoice(Broadside.Viewer.AnnotationTarget target, string? value) -> bool
+Broadside.Viewer.AnnotationLayer.SetFieldSelection(Broadside.Viewer.AnnotationTarget target, System.Collections.Generic.IEnumerable<int>! indices) -> bool
+Broadside.Viewer.AnnotationLayer.ResetFields(System.Collections.Generic.IEnumerable<Broadside.Forms.PdfTerminalField!>! fields) -> int
+Broadside.Viewer.AnnotationLayer.XfaFormDetected -> System.EventHandler<Broadside.Viewer.XfaFormEventArgs!>?
+Broadside.Viewer.AnnotationLayer.XfaForm.get -> Broadside.Viewer.XfaFormEventArgs?
+Broadside.Viewer.XfaFormEventArgs
+Broadside.Viewer.XfaFormEventArgs.IsDynamic.get -> bool
+Broadside.Viewer.XfaFormEventArgs.PacketCount.get -> int
+Broadside.Viewer.XfaFormEventArgs.Explanation.get -> string!
+Broadside.Viewer.FieldEditKind
+Broadside.Viewer.FieldEditKind.None = 0 -> Broadside.Viewer.FieldEditKind
+Broadside.Viewer.FieldEditKind.Text = 1 -> Broadside.Viewer.FieldEditKind
+Broadside.Viewer.FieldEditKind.Choice = 2 -> Broadside.Viewer.FieldEditKind
+Broadside.Viewer.FieldEditKind.Button = 3 -> Broadside.Viewer.FieldEditKind
+Broadside.Viewer.FormFilling
+Broadside.Viewer.FormFilling.FormFilling(Broadside.Viewer.AnnotationLayer! layer) -> void
+Broadside.Viewer.FormFilling.Changed -> System.EventHandler?
+Broadside.Viewer.FormFilling.Layer.get -> Broadside.Viewer.AnnotationLayer!
+Broadside.Viewer.FormFilling.Target.get -> Broadside.Viewer.AnnotationTarget?
+Broadside.Viewer.FormFilling.Field.get -> Broadside.Forms.PdfTerminalField?
+Broadside.Viewer.FormFilling.Kind.get -> Broadside.Viewer.FieldEditKind
+Broadside.Viewer.FormFilling.IsReadOnly.get -> bool
+Broadside.Viewer.FormFilling.IsRequired.get -> bool
+Broadside.Viewer.FormFilling.IsDirty.get -> bool
+Broadside.Viewer.FormFilling.Text.get -> string!
+Broadside.Viewer.FormFilling.Caret.get -> int
+Broadside.Viewer.FormFilling.SelectionStart.get -> int
+Broadside.Viewer.FormFilling.SelectionLength.get -> int
+Broadside.Viewer.FormFilling.SelectedOptions.get -> System.Collections.Generic.IReadOnlyList<int>!
+Broadside.Viewer.FormFilling.HighlightedOption.get -> int
+Broadside.Viewer.FormFilling.MaxLength.get -> int?
+Broadside.Viewer.FormFilling.KeyDown(Broadside.Viewer.InputKey key, Broadside.Viewer.InputModifiers modifiers) -> bool
+Broadside.Viewer.FormFilling.TextInput(string! text) -> bool
+Broadside.Viewer.FormFilling.SetText(string! text, int? caret = null) -> bool
+Broadside.Viewer.FormFilling.SetSelectedOptions(System.Collections.Generic.IEnumerable<int>! indices) -> bool
+Broadside.Viewer.FormFilling.SelectAll() -> bool
+Broadside.Viewer.FormFilling.Commit() -> bool
+Broadside.Viewer.FormFilling.Cancel() -> bool
+Broadside.Viewer.FormFilling.GetMissingRequiredFields(System.Collections.Generic.IEnumerable<Broadside.Forms.PdfTerminalField!>? fields = null) -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfTerminalField!>!
+Broadside.Viewer.AnnotationLayer.FindTarget(int pageIndex, Broadside.Objects.CosDictionary! dictionary) -> Broadside.Viewer.AnnotationTarget?

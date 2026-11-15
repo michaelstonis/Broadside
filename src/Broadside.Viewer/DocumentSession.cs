@@ -34,6 +34,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     private readonly bool _cooperative;
     private readonly TimeSpan _sliceBudget;
     private readonly DisplayIntent _intent;
+    private readonly bool _transientFieldAppearances;
     private readonly Func<ITileBackend>? _backendFactory;
     private readonly bool _scaledImageDecode;
     private readonly double _imageSamplesPerPixel;
@@ -63,6 +64,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         _cooperative = options.IsCooperative;
         _sliceBudget = options.SliceBudget;
         _intent = options.Intent;
+        _transientFieldAppearances = options.TransientFieldAppearances;
         _backendFactory = options.BackendFactory;
         _scaledImageDecode = options.ScaledImageDecode;
         _imageSamplesPerPixel = options.ImageSamplesPerPixel;
@@ -683,11 +685,15 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         reads.ReadAsync(_ => GetTileTransform(page, tile), token);
 
     private Task<DisplayList> BuildOnWorkerAsync(PdfPage page, DisplayLayers layers, CancellationToken token) =>
-        _reads!.ReadAsync(read => page.CreateDisplayList(layers, _intent, new ContentOptions().WithCancellation(read)), token);
+        _reads!.ReadAsync(read => page.CreateDisplayList(layers, _intent, ListOptions(read)), token);
 
     /// <summary>Builds (or takes from the document's cache) a page's list on the calling thread: the tile scheduler's cooperative path.</summary>
+    // Form-field widgets without an appearance draw a transient one (#218): display only, the document is left as it is.
+    private ContentOptions ListOptions(CancellationToken token) =>
+        new ContentOptions().WithCancellation(token).WithTransientFieldAppearances(_transientFieldAppearances);
+
     internal DisplayList CreateDisplayList(PdfPage page, DisplayLayers layers, CancellationToken token) =>
-        page.CreateDisplayList(layers, _intent, new ContentOptions().WithCancellation(token));
+        page.CreateDisplayList(layers, _intent, ListOptions(token));
 
     /// <summary>The device transform that draws <paramref name="tile"/>'s region of <paramref name="page"/> at the bitmap's origin.</summary>
     internal static Matrix GetTileTransform(PdfPage page, in Tile tile) =>
@@ -786,7 +792,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
 
     private async ValueTask<DisplayList> BuildCoreAsync(PdfPage page, DisplayLayers layers, CancellationToken token)
     {
-        ContentOptions options = new ContentOptions().WithCancellation(token);
+        ContentOptions options = ListOptions(token);
         for (int attempt = 0; ; attempt++)
         {
             try
