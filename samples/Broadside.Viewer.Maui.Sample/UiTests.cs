@@ -29,6 +29,7 @@ public static class UiTests
             ("search-highlights-matches", SearchAsync),
             ("annotate-adds-a-note-and-save-keeps-it", AnnotateAndSaveAsync),
             ("view-settings-apply", ViewSettingsAsync),
+            ("form-fills-a-field-and-save-keeps-it", FormAsync),
             ("info-lists-facts-diagnostics-and-tags", InfoAsync),
             ("signatures-show-status", SignaturesAsync),
             ("outline-navigates", OutlineAsync),
@@ -145,6 +146,24 @@ public static class UiTests
         await WaitAsync(() => !page.Viewer.State.IsRendering, "the managed tiles");
         Find<RadioButton>(page, "renderer-skia").IsChecked = true;
         Check(SampleDocument.UseSkia, "SkiaSharp draws again");
+    }
+
+    private static async Task FormAsync(MainPage page)
+    {
+        await OpenAsync(page, "documents/acroform-fields.pdf");
+        await WaitAsync(() => page.CurrentPanel == SamplePanel.Form, "the gallery opens the form panel");
+        var form = (PdfFormPanel)page.PanelView(SamplePanel.Form);
+        await WaitAsync(() => form.FieldCount > 0, "the form's fields");
+        Entry entry = ((IVisualTreeElement)form).GetVisualTreeDescendants().OfType<Entry>().FirstOrDefault(e => e.IsEnabled && e.AutomationId?.StartsWith("field:", StringComparison.Ordinal) == true)
+            ?? throw new InvalidOperationException("No editable text field in the form panel.");
+        string name = entry.AutomationId["field:".Length..];
+        entry.Text = "Ada Lovelace";
+        entry.SendCompleted();
+        await WaitAsync(() => page.Document.IsEdited, "the document is marked edited");
+
+        byte[] saved = await page.Document.SaveAsync() ?? throw new InvalidOperationException("The document did not save.");
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        Check(reopened.AcroForm?.TerminalFields.OfType<Broadside.Forms.PdfTextField>().Any(f => f.FullyQualifiedName == name && f.Value == "Ada Lovelace") == true, "the saved file has the value in " + name);
     }
 
     private static async Task InfoAsync(MainPage page)

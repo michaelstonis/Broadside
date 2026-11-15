@@ -57,7 +57,9 @@ public sealed class MainPage : ContentPage
         _panels[SamplePanel.Outline] = new PdfOutlinePanel { Viewer = _view };
         _panels[SamplePanel.Pages] = new PdfThumbnailsPanel { Viewer = _view };
         _panels[SamplePanel.Annotate] = annotate;
-        _panels[SamplePanel.Form] = new Label { Text = "Form filling is not available yet.", Margin = new Thickness(4) };
+        PdfFormPanel form = new() { Viewer = _view };
+        form.Edited += (_, _) => _document.MarkEdited();
+        _panels[SamplePanel.Form] = form;
         _panels[SamplePanel.Info] = info;
         _panels[SamplePanel.Signatures] = new PdfSignaturesPanel { Viewer = _view };
         _panels[SamplePanel.View] = new ScrollView { Content = view };

@@ -277,3 +277,32 @@ internal static class LayoutChanges
         return copy.WithRotation((((copy.Rotation + (quarterTurns * 90)) % 360) + 360) % 360);
     }
 }
+
+/// <summary>A form field's widget as the form panel lists it: where it is, its field, its fully qualified name and what to call it.</summary>
+internal sealed record FormFieldItem(AnnotationTarget Target, PdfTerminalField Field, string Name, string Label, PdfRectangle Rectangle);
+
+/// <summary>Lists the form's widgets through the <see cref="AnnotationLayer"/> (ISO 32000-2 §12.7): values set there regenerate the field's appearance and redraw only its overlay tiles.</summary>
+internal static class FormFields
+{
+    /// <summary>The widgets of the first <paramref name="maxPages"/> pages, in page order then annotation order.</summary>
+    public static async Task<IReadOnlyList<FormFieldItem>> ListAsync(AnnotationLayer layer, int pageCount, int maxPages, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(layer);
+        var fields = new List<FormFieldItem>();
+        for (int page = 0; page < Math.Min(pageCount, maxPages); page++)
+        {
+            int count = await layer.LoadPageAsync(page, cancellationToken).ConfigureAwait(true);
+            for (int i = 0; i < count; i++)
+            {
+                var target = new AnnotationTarget(page, i);
+                if (layer.GetRole(target) == AnnotationRole.Field && layer.GetAnnotation(target) is PdfWidgetAnnotation { Field: { } field })
+                {
+                    string name = field.FullyQualifiedName;
+                    fields.Add(new FormFieldItem(target, field, name, field.AlternateName ?? name, layer.GetRectangle(target)));
+                }
+            }
+        }
+
+        return fields;
+    }
+}

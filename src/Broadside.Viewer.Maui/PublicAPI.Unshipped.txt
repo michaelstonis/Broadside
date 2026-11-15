@@ -123,3 +123,11 @@ Broadside.Viewer.Maui.PdfThumbnailsPanel.RenderedCount.get -> int
 Broadside.Viewer.Maui.PdfThumbnailsPanel.PageCount.get -> int
 Broadside.Viewer.Maui.PdfThumbnailsPanel.Activate(int pageIndex) -> void
 static readonly Broadside.Viewer.Maui.PdfThumbnailsPanel.ViewerProperty -> Microsoft.Maui.Controls.BindableProperty!
+Broadside.Viewer.Maui.PdfFormPanel
+Broadside.Viewer.Maui.PdfFormPanel.PdfFormPanel() -> void
+Broadside.Viewer.Maui.PdfFormPanel.Viewer.get -> Broadside.Viewer.Maui.PdfView?
+Broadside.Viewer.Maui.PdfFormPanel.Viewer.set -> void
+Broadside.Viewer.Maui.PdfFormPanel.Edited -> System.EventHandler?
+Broadside.Viewer.Maui.PdfFormPanel.FieldCount.get -> int
+Broadside.Viewer.Maui.PdfFormPanel.RefreshAsync() -> System.Threading.Tasks.Task!
+static readonly Broadside.Viewer.Maui.PdfFormPanel.ViewerProperty -> Microsoft.Maui.Controls.BindableProperty!

@@ -15,6 +15,7 @@ public sealed class PanelTests
             new PdfAnnotationsPanel { Viewer = view },
             new PdfDocumentInfoPanel { Viewer = view, FileName = "none.pdf" },
             new PdfSignaturesPanel { Viewer = view },
+            new PdfFormPanel { Viewer = view },
             new PdfViewSettingsPanel { Viewer = view },
         ];
 
@@ -31,6 +32,7 @@ public sealed class PanelTests
                 PdfAnnotationsPanel => PdfAnnotationsPanel.ViewerProperty,
                 PdfDocumentInfoPanel => PdfDocumentInfoPanel.ViewerProperty,
                 PdfSignaturesPanel => PdfSignaturesPanel.ViewerProperty,
+                PdfFormPanel => PdfFormPanel.ViewerProperty,
                 _ => PdfViewSettingsPanel.ViewerProperty,
             }, null);
         }

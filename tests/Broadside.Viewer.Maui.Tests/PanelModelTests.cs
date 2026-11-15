@@ -100,6 +100,24 @@ public sealed class PanelModelTests
     }
 
     [Fact]
+    public void Form_fields_list_every_widget_and_a_value_set_through_the_layer_reaches_the_field() => UiThread.Run(async () =>
+    {
+        using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("acroform-fields.pdf"));
+        AnnotationLayer layer = shell.Controller.Annotations!;
+        IReadOnlyList<FormFieldItem> fields = await FormFields.ListAsync(layer, shell.Controller.Session!.PageCount, 100, CancellationToken.None);
+        Assert.NotEmpty(fields);
+        Assert.All(fields, f => Assert.Equal(AnnotationRole.Field, layer.GetRole(f.Target)));
+        FormFieldItem text = fields.First(f => f.Field is Broadside.Forms.PdfTextField { IsReadOnly: false });
+
+        layer.Focus(text.Target);
+        Assert.True(layer.SetFieldText("Grace"));
+        layer.Focus(null);
+        Assert.Equal("Grace", ((Broadside.Forms.PdfTextField)text.Field).Value);
+        await shell.SettleAsync();
+        Assert.Null(shell.Controller.Editor);
+    });
+
+    [Fact]
     public void Rotation_turns_by_quarter_turns_and_wraps()
     {
         PageLayoutOptions options = LayoutChanges.Rotate(null, -1);
