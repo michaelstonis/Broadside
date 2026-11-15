@@ -14,6 +14,7 @@
 | `bench-dry` | ubuntu | `dotnet run --project bench/Broadside.Benchmarks -- --filter '*' --job dry`: one iteration of every benchmark, no measurement; then the same for the realistic tier, `bench/Broadside.Benchmarks.Realistic` (the sample documents, not gated, #363). |
 | `blazor-wasm / blazor-wasm (chrome <browsers>)` | ubuntu | Calls [`blazor-wasm.yml`](#blazor-wasmyml-the-blazor-webassembly-sample-in-browsers) with `browsers: firefox` on pull requests into the integration branch, and `firefox webkit` on pull requests into `main` and pushes to `main` (#389). |
 | `maui` | macOS | Installs the `maui` workload and builds `samples/Broadside.Viewer.Maui.Sample` (#226) for Android in Debug and in Release (ILLink and AOT on, arm64 and x86_64), and compiles its Mac Catalyst and iOS-simulator heads (`-t:Compile`: bundling needs Xcode 27, which the image lacks), all with `-warnaserror`. Then `tools/ApkAotCheck` checks that every AOT image in the Release APK holds the MVIDs of the assemblies the APK ships, the mismatch that crashed the Release app at startup in #366 (#368). The shell library itself builds in `build-test`; its tests are in `Broadside.Core.slnf`. |
+| `uno / uno (webassembly + linux desktop)`, `uno / uno (desktop, <os>)` | ubuntu; macos, windows | Calls [`uno.yml`](#unoyml-the-uno-platform-sample-on-both-heads). |
 
 A newer push to the same PR or branch cancels the older run. NuGet packages are cached per OS, keyed on `Directory.Packages.props` and every `.csproj`. `DiffEngine_Disabled=true` keeps Verify from launching a diff tool.
 
@@ -26,6 +27,15 @@ Called by `ci.yml` (input `browsers`), nightly at 03:47 UTC on the integration b
 | `blazor-wasm (chrome <browsers>)` | ubuntu | Installs `wasm-tools`, publishes `samples/Broadside.Viewer.Blazor.Sample` twice with `publish-static.sh` (trimmed and AOT-compiled; then `--no-aot --runtime-folder framework`, in its own obj/bin folders), and installs Playwright's `browsers`: `~/.cache/ms-playwright` is cached per Playwright version (read from `Directory.Packages.props`) and browser set, each install attempt is killed after 4 minutes and retried up to three times, and WebKit's system packages are installed with apt timeouts and retries (Firefox needs none: it runs on the libraries of the image's own Firefox). Then runs `tests/Broadside.Viewer.Blazor.BrowserTests` in the image's Chrome and those browsers, all required (`BROADSIDE_BROWSERS_REQUIRED`): a remote linearized file shows page 1 before the download completes, keyboard and screen-reader reading order, a phone profile with pinch-zoom, every demo feature at 390 px with touch in each browser (#338; the WebKit cases skip where WebKit is not installed), the non-AOT build booting from a host that refuses paths starting with `_`, no native binaries and the size budgets (issues #221, #338), and the browser kernel benchmark: every SIMD kernel's scalar and vector methods timed and compared in both the AOT and the interpreter build (#470; `kernel aot|interpreter` lines in the measurement log). Screenshots are uploaded as `blazor-demo-screenshots`. |
 
 WebKit is not on every pull request because its system packages (about 120 MB of GStreamer and friends from the Ubuntu mirror) stalled the install past its 10-minute limit twice on #388, so the browser tests never ran (#389).
+
+## `uno.yml`: the Uno Platform sample on both heads
+
+Called by `ci.yml` (job `uno`); also runs from the "Run workflow" button.
+
+| Job | Runs on | What it does |
+|---|---|---|
+| `uno (webassembly + linux desktop)` | ubuntu-24.04 | Installs `wasm-tools`, publishes `samples/Broadside.Viewer.Uno.Sample` for `net10.0-browserwasm` (Release) to `artifacts/uno-sample-wasm` and builds its `net10.0-desktop` head, both with `-warnaserror`; installs Playwright's WebKit and runs `tests/Broadside.Viewer.Uno.UITests` under `xvfb-run` with `BROADSIDE_UNO_REQUIRED=1`: Chrome and WebKit open, scroll (wheel), zoom (Ctrl+wheel, keys), select (mouse drag, double click) and search (Ctrl+F) in the browser head (#225), and the desktop head runs its automation script on X11. |
+| `uno (desktop, <os>)` | macos-latest, windows-latest | Builds the desktop head and runs `DesktopHeadTests` (the automation script in a real window). |
 
 ## `bench-gate.yml`: allocations on every pull request that touches library, benchmark or corpus code; times on hot paths, `perf`, `main` and nightly
 

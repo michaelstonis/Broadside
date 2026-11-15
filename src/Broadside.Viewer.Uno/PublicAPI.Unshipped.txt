@@ -1,0 +1,73 @@
+#nullable enable
+Broadside.Viewer.Uno.AccessibleNodeAutomationPeer
+Broadside.Viewer.Uno.AccessibleNodeAutomationPeer.Node.get -> Broadside.Viewer.AccessibleNode!
+Broadside.Viewer.Uno.GlobalStaticResources
+Broadside.Viewer.Uno.GlobalStaticResources.GlobalStaticResources() -> void
+Broadside.Viewer.Uno.PdfView
+Broadside.Viewer.Uno.PdfView.Accessibility.get -> Broadside.Viewer.AccessibilityBridge?
+Broadside.Viewer.Uno.PdfView.ActionRequested -> System.EventHandler<Broadside.Viewer.ViewerActionEventArgs!>?
+Broadside.Viewer.Uno.PdfView.AllowAnnotationEditing.get -> bool
+Broadside.Viewer.Uno.PdfView.AllowAnnotationEditing.set -> void
+Broadside.Viewer.Uno.PdfView.Annotations.get -> Broadside.Viewer.AnnotationLayer?
+Broadside.Viewer.Uno.PdfView.ClearFind() -> void
+Broadside.Viewer.Uno.PdfView.Close() -> void
+Broadside.Viewer.Uno.PdfView.ColorFilter.get -> Broadside.Rendering.ColorFilter?
+Broadside.Viewer.Uno.PdfView.ColorFilter.set -> void
+Broadside.Viewer.Uno.PdfView.CopySelectionAsync() -> System.Threading.Tasks.Task<string?>!
+Broadside.Viewer.Uno.PdfView.CurrentSession.get -> Broadside.Viewer.DocumentSession?
+Broadside.Viewer.Uno.PdfView.Error -> System.EventHandler<Broadside.Viewer.Uno.PdfViewErrorEventArgs!>?
+Broadside.Viewer.Uno.PdfView.Find(string! query, Broadside.Viewer.TextSearchOptions? options = null) -> void
+Broadside.Viewer.Uno.PdfView.FindNext() -> Broadside.Viewer.SearchMatch?
+Broadside.Viewer.Uno.PdfView.FindPrevious() -> Broadside.Viewer.SearchMatch?
+Broadside.Viewer.Uno.PdfView.GoToPage(int pageIndex) -> void
+Broadside.Viewer.Uno.PdfView.LayoutOptions.get -> Broadside.Viewer.PageLayoutOptions?
+Broadside.Viewer.Uno.PdfView.LayoutOptions.set -> void
+Broadside.Viewer.Uno.PdfView.NextPage() -> void
+Broadside.Viewer.Uno.PdfView.Options.get -> Broadside.Viewer.ViewerOptions?
+Broadside.Viewer.Uno.PdfView.Options.set -> void
+Broadside.Viewer.Uno.PdfView.PdfView() -> void
+Broadside.Viewer.Uno.PdfView.PreviousPage() -> void
+Broadside.Viewer.Uno.PdfView.Reveal(int pageIndex, Broadside.PdfRectangle area) -> void
+Broadside.Viewer.Uno.PdfView.ScrollBy(double deltaX, double deltaY) -> void
+Broadside.Viewer.Uno.PdfView.Search.get -> Broadside.Viewer.DocumentSearch?
+Broadside.Viewer.Uno.PdfView.Selection.get -> Broadside.Viewer.TextSelection?
+Broadside.Viewer.Uno.PdfView.Session.get -> Broadside.Viewer.DocumentSession?
+Broadside.Viewer.Uno.PdfView.Session.set -> void
+Broadside.Viewer.Uno.PdfView.ShowAnnotations.get -> bool
+Broadside.Viewer.Uno.PdfView.ShowAnnotations.set -> void
+Broadside.Viewer.Uno.PdfView.Source.get -> string?
+Broadside.Viewer.Uno.PdfView.Source.set -> void
+Broadside.Viewer.Uno.PdfView.State.get -> Broadside.Viewer.Uno.PdfViewState
+Broadside.Viewer.Uno.PdfView.StateChanged -> System.EventHandler<Broadside.Viewer.Uno.PdfViewStateChangedEventArgs!>?
+Broadside.Viewer.Uno.PdfView.ZoomBy(double factor) -> void
+Broadside.Viewer.Uno.PdfView.ZoomTo(Broadside.Viewer.ZoomMode mode) -> void
+Broadside.Viewer.Uno.PdfViewAutomationPeer
+Broadside.Viewer.Uno.PdfViewAutomationPeer.GetPageText(int pageIndex) -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.Viewer.Uno.PdfViewErrorEventArgs
+Broadside.Viewer.Uno.PdfViewErrorEventArgs.Exception.get -> System.Exception!
+Broadside.Viewer.Uno.PdfViewErrorEventArgs.PdfViewErrorEventArgs(System.Exception! exception) -> void
+Broadside.Viewer.Uno.PdfViewState
+Broadside.Viewer.Uno.PdfViewState.IsLoading.get -> bool
+Broadside.Viewer.Uno.PdfViewState.IsLoading.init -> void
+Broadside.Viewer.Uno.PdfViewState.IsRendering.get -> bool
+Broadside.Viewer.Uno.PdfViewState.IsRendering.init -> void
+Broadside.Viewer.Uno.PdfViewState.PageCount.get -> int
+Broadside.Viewer.Uno.PdfViewState.PageCount.init -> void
+Broadside.Viewer.Uno.PdfViewState.PageIndex.get -> int
+Broadside.Viewer.Uno.PdfViewState.PageIndex.init -> void
+Broadside.Viewer.Uno.PdfViewState.PdfViewState() -> void
+Broadside.Viewer.Uno.PdfViewState.PdfViewState(int PageIndex, int PageCount, double Zoom, bool IsLoading, bool IsRendering) -> void
+Broadside.Viewer.Uno.PdfViewState.Zoom.get -> double
+Broadside.Viewer.Uno.PdfViewState.Zoom.init -> void
+Broadside.Viewer.Uno.PdfViewStateChangedEventArgs
+Broadside.Viewer.Uno.PdfViewStateChangedEventArgs.PdfViewStateChangedEventArgs(Broadside.Viewer.Uno.PdfViewState state) -> void
+Broadside.Viewer.Uno.PdfViewStateChangedEventArgs.State.get -> Broadside.Viewer.Uno.PdfViewState
+static Broadside.Viewer.Uno.GlobalStaticResources.Initialize() -> void
+static Broadside.Viewer.Uno.GlobalStaticResources.RegisterDefaultStyles() -> void
+static Broadside.Viewer.Uno.GlobalStaticResources.RegisterResourceDictionariesBySource() -> void
+static readonly Broadside.Viewer.Uno.PdfView.AllowAnnotationEditingProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly Broadside.Viewer.Uno.PdfView.ColorFilterProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly Broadside.Viewer.Uno.PdfView.LayoutOptionsProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly Broadside.Viewer.Uno.PdfView.SessionProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly Broadside.Viewer.Uno.PdfView.ShowAnnotationsProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly Broadside.Viewer.Uno.PdfView.SourceProperty -> Microsoft.UI.Xaml.DependencyProperty!

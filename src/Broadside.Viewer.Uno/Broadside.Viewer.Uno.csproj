@@ -1,0 +1,36 @@
+<Project Sdk="Uno.Sdk">
+
+  <!--
+    The Uno Platform shell of the viewer core (#225): a PdfView control for Uno's Skia-rendered heads (desktop and WebAssembly). It is
+    a cross-head Uno library on plain net10.0 (one assembly every Skia head loads), built with the Uno.Sdk single-project SDK, whose
+    version is pinned in global.json (msbuild-sdks); the SDK pins Uno.WinUI and the packages it implies (README of Uno.Sdk), and they
+    resolve through central package management like every other package. Uno is the only dependency beyond Broadside (ADR 0001: a
+    shell depends on its UI framework). Tiles draw with the managed rasterizer through the session's default backend, so no SkiaSharp
+    version of ours meets Uno's own.
+  -->
+  <PropertyGroup>
+    <Description>Uno Platform viewer for Broadside: a PdfView control on the shared viewer core for Uno's desktop (Skia) and WebAssembly heads, with tiles, touch, mouse and keyboard input, text selection, search, smart dark mode and automation peers. Depends on Uno.WinUI.</Description>
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <!-- Uno's generated XAML infrastructure is not trimming- or AOT-annotated; the shell itself uses no reflection. -->
+    <IsTrimmable>false</IsTrimmable>
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Broadside.Viewer/Broadside.Viewer.csproj" />
+    <!-- The sample's UI-test hooks read the composed frame and drive the view's input path (Automation.cs). -->
+    <InternalsVisibleTo Include="Broadside.Viewer.Uno.Sample" />
+  </ItemGroup>
+
+  <!--
+    A library has no app icon or window title: Uno.Resizetizer's window-title generator (added by the SDK to every project) would
+    emit public helper types into the package. Its generator is removed; Uno's XAML generator stays (it completes the partial
+    DependencyObject types).
+  -->
+  <Target Name="_BroadsideRemoveResizetizerGenerator" BeforeTargets="CoreCompile" AfterTargets="ResolveLockFileAnalyzers">
+    <ItemGroup>
+      <Analyzer Remove="@(Analyzer)" Condition="$([System.String]::Copy('%(Analyzer.Identity)').ToLowerInvariant().Contains('resizetizer'))" />
+    </ItemGroup>
+  </Target>
+
+</Project>
