@@ -11,9 +11,14 @@ internal sealed partial class DisplayListBuilder
     private double[] _dashes = new double[16];
     private int _dashCount;
 
+    // Each distinct stroke record once per list (issue #337): a page that cycles through a few line styles (a table's rules, a
+    // chart's series) shared a record only between consecutive strokes, so its list held one record and one dash slice per
+    // change. Kept with the builder, so a warm build adds nothing to the list's own allocation.
+    private Dictionary<DisplayStroke, int>? _strokeIndexes;
+
     /// <summary>
-    /// Records the stroke of a path with the stroking colour and the line parameters current at the operator. Consecutive strokes
-    /// with the same colour and parameters share one record.
+    /// Records the stroke of a path with the stroking colour and the line parameters current at the operator. Strokes with the same
+    /// colour and parameters share one record.
     /// </summary>
     /// <remarks>ISO 32000-2 §8.5.3.2. A stroke in a shading pattern (§8.7.4.1) strokes with its shading; one in a tiling pattern (§8.7.3) with its cell.</remarks>
     private void StrokePath(in PathEvent path, ContentContext context)
@@ -50,29 +55,15 @@ internal sealed partial class DisplayListBuilder
         AddOperation(new DisplayOperation(DisplayOperationKind.StrokePath, default, pathIndex, strokeIndex));
     }
 
-    /// <summary>Returns the index of the stroke record for the colour and the state's line parameters, reusing the last when equal.</summary>
+    /// <summary>Returns the index of the stroke record for the colour and the state's line parameters, reusing an equal one.</summary>
     private int AddStroke(int colorIndex, in GraphicsState state)
     {
+        // The candidate's dash array goes after the recorded ones first, so that the comparer reads it like a recorded record's;
+        // it stays there only when the record is new.
         ReadOnlySpan<double> dash = state.DashArray;
-        if (_strokeCount > 0)
-        {
-            DisplayStroke last = _strokes[_strokeCount - 1];
-            if (last.ColorIndex == colorIndex
-                && last.LineWidth == state.LineWidth
-                && last.LineCap == state.LineCap
-                && last.LineJoin == state.LineJoin
-                && last.MiterLimit == state.MiterLimit
-                && last.DashPhase == state.DashPhase
-                && last.StrokeAdjustment == state.StrokeAdjustment
-                && _dashes.AsSpan(last.DashStart, last.DashCount).SequenceEqual(dash))
-            {
-                return _strokeCount - 1;
-            }
-        }
-
         EnsureCapacity(ref _dashes, _dashCount + dash.Length);
         dash.CopyTo(_dashes.AsSpan(_dashCount));
-        Append(ref _strokes, ref _strokeCount, new DisplayStroke(
+        var stroke = new DisplayStroke(
             colorIndex,
             state.LineWidth,
             state.LineCap,
@@ -81,8 +72,16 @@ internal sealed partial class DisplayListBuilder
             _dashCount,
             dash.Length,
             state.DashPhase,
-            state.StrokeAdjustment));
+            state.StrokeAdjustment);
+        _strokeIndexes ??= new Dictionary<DisplayStroke, int>(new StrokeComparer(this));
+        if (_strokeIndexes.TryGetValue(stroke, out int index))
+        {
+            return index;
+        }
+
+        Append(ref _strokes, ref _strokeCount, stroke);
         _dashCount += dash.Length;
+        _strokeIndexes.Add(stroke, _strokeCount - 1);
         return _strokeCount - 1;
     }
 
@@ -91,5 +90,38 @@ internal sealed partial class DisplayListBuilder
     {
         _strokeCount = 0;
         _dashCount = 0;
+        _strokeIndexes?.Clear();
+    }
+
+    /// <summary>Compares stroke records by value: their fields, and their dash arrays element by element wherever they are stored.</summary>
+    private sealed class StrokeComparer(DisplayListBuilder builder) : IEqualityComparer<DisplayStroke>
+    {
+        public bool Equals(DisplayStroke x, DisplayStroke y) =>
+            x.ColorIndex == y.ColorIndex
+            && x.LineWidth == y.LineWidth
+            && x.LineCap == y.LineCap
+            && x.LineJoin == y.LineJoin
+            && x.MiterLimit == y.MiterLimit
+            && x.DashPhase == y.DashPhase
+            && x.StrokeAdjustment == y.StrokeAdjustment
+            && builder._dashes.AsSpan(x.DashStart, x.DashCount).SequenceEqual(builder._dashes.AsSpan(y.DashStart, y.DashCount));
+
+        public int GetHashCode(DisplayStroke obj)
+        {
+            var hash = default(HashCode);
+            hash.Add(obj.ColorIndex);
+            hash.Add(obj.LineWidth);
+            hash.Add(obj.LineCap);
+            hash.Add(obj.LineJoin);
+            hash.Add(obj.MiterLimit);
+            hash.Add(obj.DashPhase);
+            hash.Add(obj.StrokeAdjustment);
+            foreach (double value in builder._dashes.AsSpan(obj.DashStart, obj.DashCount))
+            {
+                hash.Add(value);
+            }
+
+            return hash.ToHashCode();
+        }
     }
 }

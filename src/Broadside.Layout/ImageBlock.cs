@@ -69,6 +69,9 @@ public sealed class ImageBlock : FlowBlock
     internal override void LayOut(FlowContext context)
     {
         context.AddSpace(SpaceBefore);
+
+        // A page is open from here on, so the content area is known even for the first block of the flow.
+        context.EnsureRoom(0);
         double scale = Math.Min(1, Math.Min(context.Width / Width, (context.Top - context.Bottom) / Height));
         double height = Height * scale;
         context.EnsureRoom(height);

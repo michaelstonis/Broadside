@@ -83,7 +83,8 @@ internal sealed class ColorSpaceCache
     /// <summary>The views: a <see cref="PdfColorSpace"/> built without resolving a reference, else a <see cref="BuiltSpace"/>.</summary>
     private readonly OnceCache<Key, object?> _spaces = new();
     private readonly OnceCache<Key, PdfDefaultColorSpaces> _defaults = new();
-    private readonly ConcurrentDictionary<ConverterKey, PdfColorConverter> _converters = DeterministicTable.Create<ConverterKey, PdfColorConverter>();
+    // Created by the first converter (issue #337): most documents opened never convert a color.
+    private ConcurrentDictionary<ConverterKey, PdfColorConverter>? _converters;
 
     /// <summary>Initializes a new instance of the <see cref="ColorSpaceCache"/> class.</summary>
     /// <param name="document">The document.</param>
@@ -327,13 +328,20 @@ internal sealed class ColorSpaceCache
     public PdfColorConverter GetConverter(PdfColorSpace source, ColorConversion conversion, PdfDefaultColorSpaces defaults)
     {
         var key = new ConverterKey(source, conversion, defaults.Gray, defaults.Rgb, defaults.Cmyk);
-        if (_converters.TryGetValue(key, out PdfColorConverter? converter) && converter.IsCurrent)
+        ConcurrentDictionary<ConverterKey, PdfColorConverter>? converters = Volatile.Read(ref _converters);
+        if (converters is null)
+        {
+            ConcurrentDictionary<ConverterKey, PdfColorConverter> created = DeterministicTable.Create<ConverterKey, PdfColorConverter>();
+            converters = Interlocked.CompareExchange(ref _converters, created, null) ?? created;
+        }
+
+        if (converters.TryGetValue(key, out PdfColorConverter? converter) && converter.IsCurrent)
         {
             return converter;
         }
 
         converter = PdfColorConverter.Create(this, source, conversion, defaults);
-        _converters[key] = converter;
+        converters[key] = converter;
         return converter;
     }
 

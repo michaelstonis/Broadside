@@ -57,7 +57,10 @@ internal sealed class DiagnosticSink(bool strict, Action<Diagnostic>? observer =
     public void Report(DiagnosticCode code, DiagnosticSeverity severity, string message, long? offset = null, CosReference? objectReference = null) =>
         Report(new Diagnostic(code, severity, message, offset, objectReference));
 
-    private void Report(Diagnostic diagnostic)
+    /// <summary>Records a deviation made elsewhere, unless an equal one is already recorded; in strict mode, throws it.</summary>
+    /// <param name="diagnostic">The diagnostic.</param>
+    /// <exception cref="DiagnosticException">The sink is strict and the severity is not <see cref="DiagnosticSeverity.Information"/>.</exception>
+    public void Report(Diagnostic diagnostic)
     {
         bool added;
         lock (_gate)

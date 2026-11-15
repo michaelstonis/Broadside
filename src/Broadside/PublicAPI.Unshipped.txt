@@ -4313,6 +4313,7 @@ Broadside.Graphics.PdfCanvas.Stroke() -> void
 Broadside.Graphics.PdfCanvas.Transform(Broadside.Graphics.Matrix matrix) -> void
 Broadside.Graphics.PdfCanvas.Translate(double x, double y) -> void
 static Broadside.Graphics.PdfColor.FromCmyk(float cyan, float magenta, float yellow, float black) -> Broadside.Graphics.PdfColor
+static Broadside.Graphics.PdfColor.FromHex(string! hex) -> Broadside.Graphics.PdfColor
 static Broadside.Graphics.PdfColor.FromGray(float gray) -> Broadside.Graphics.PdfColor
 static Broadside.Graphics.PdfColor.FromRgb(float red, float green, float blue) -> Broadside.Graphics.PdfColor
 Broadside.Graphics.PdfFormXObject.CreateCanvas() -> Broadside.Graphics.PdfCanvas!
@@ -5097,6 +5098,7 @@ Broadside.Diagnostics.DiagnosticArea.Action = 27 -> Broadside.Diagnostics.Diagno
 Broadside.Diagnostics.DiagnosticArea.Annotation = 28 -> Broadside.Diagnostics.DiagnosticArea
 Broadside.Diagnostics.DiagnosticArea.Form = 29 -> Broadside.Diagnostics.DiagnosticArea
 Broadside.Diagnostics.DiagnosticArea.Structure = 30 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Layout = 31 -> Broadside.Diagnostics.DiagnosticArea
 Broadside.Diagnostics.FileStructureDiagnostics
 static Broadside.Diagnostics.FileStructureDiagnostics.HeaderMissing.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.FileStructureDiagnostics.HeaderVersionInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
@@ -5753,3 +5755,13 @@ Broadside.Images.DecodedImageBuilder.AdobeTransform.set -> void
 Broadside.Images.DecodedImageBuilder.Geometry.get -> Broadside.Images.ImageGeometry
 Broadside.Images.PdfImage.SoftMaskInData.get -> Broadside.Images.PdfSoftMaskInData
 Broadside.Rendering.DisplayImage.Geometry.get -> Broadside.Images.ImageGeometry
+Broadside.Diagnostics.LayoutDiagnostics
+static Broadside.Diagnostics.LayoutDiagnostics.DrawingStateUnbalanced.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.KeepTogetherTooTall.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.PdfDocument.ReportDiagnostic(Broadside.Diagnostics.Diagnostic! diagnostic) -> void
+Broadside.Content.ContentOptions.TransientFieldAppearances.get -> bool
+Broadside.Content.ContentOptions.TransientFieldAppearances.set -> void
+Broadside.Content.ContentOptions.WithTransientFieldAppearances(bool transient) -> Broadside.Content.ContentOptions!
+Broadside.Forms.PdfAcroForm.SelectFields(System.Collections.Generic.IReadOnlyList<Broadside.PdfActionTarget!>? targets, bool exclude) -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfTerminalField!>!
+Broadside.PdfResetFormAction.SelectFields() -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfTerminalField!>!
+Broadside.PdfSubmitFormAction.SelectFields() -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfTerminalField!>!

@@ -96,3 +96,7 @@ Broadside.Viewer.Blazor.WebGLTileBackend.WebGLTileBackend(bool scaledImageDecode
 Broadside.Viewer.Blazor.PdfViewer.Search.get -> Broadside.Viewer.DocumentSearch?
 Broadside.Viewer.Blazor.PdfViewer.ColorFilter.get -> Broadside.Rendering.ColorFilter?
 Broadside.Viewer.Blazor.PdfViewer.ColorFilter.set -> void
+Broadside.Viewer.Blazor.PdfViewer.GoTo(Broadside.Viewer.ViewTarget target) -> void
+Broadside.Viewer.Blazor.PdfViewer.Forms.get -> Broadside.Viewer.FormFilling?
+Broadside.Viewer.Blazor.PdfViewer.OnXfaForm.get -> Microsoft.AspNetCore.Components.EventCallback<Broadside.Viewer.XfaFormEventArgs!>
+Broadside.Viewer.Blazor.PdfViewer.OnXfaForm.set -> void

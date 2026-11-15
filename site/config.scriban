@@ -34,7 +34,8 @@ end
 # framework, the most complete one a Linux runner with the android workload can produce:
 #   - Broadside.Viewer.Maui builds net10.0. Its public API is the same on every target (one PublicAPI file); the
 #     iOS, Android, Mac Catalyst and Windows handlers are internal.
-#   - Broadside.Rendering.Direct2D builds net10.0-windows (the Windows targeting pack is a NuGet package).
+#   - Broadside.Rendering.Direct2D and Broadside.Viewer.Wpf build net10.0-windows (the Windows targeting pack and WPF are NuGet packages).
+#   - Broadside.Viewer.WinUI builds net10.0-windows (the Windows App SDK is a NuGet package and the library needs no PRI).
 #   - Broadside.Rendering.Android builds net10.0-android (the docs job installs the android workload).
 #   - Broadside.Rendering.CoreGraphics is not listed: its macos, ios and maccatalyst workloads only install on macOS.
 #     site/articles/api-coverage.md documents its API instead.
@@ -70,7 +71,9 @@ with api.dotnet
         { name: "Broadside.Layout", path: "../src/Broadside.Layout/Broadside.Layout.csproj" },
         { name: "Broadside.Viewer", path: "../src/Broadside.Viewer/Broadside.Viewer.csproj" },
         { name: "Broadside.Viewer.Blazor", path: "../src/Broadside.Viewer.Blazor/Broadside.Viewer.Blazor.csproj" },
+        { name: "Broadside.Viewer.Wpf", path: "../src/Broadside.Viewer.Wpf/Broadside.Viewer.Wpf.csproj" },
         { name: "Broadside.Viewer.Maui", path: "../src/Broadside.Viewer.Maui/Broadside.Viewer.Maui.csproj",
-          properties: { TargetFramework: "net10.0" } }
+          properties: { TargetFramework: "net10.0" } },
+        { name: "Broadside.Viewer.WinUI", path: "../src/Broadside.Viewer.WinUI/Broadside.Viewer.WinUI.csproj" }
     ]
 end

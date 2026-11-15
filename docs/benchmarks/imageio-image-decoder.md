@@ -1,6 +1,6 @@
 # ImageIO image decoder in the CoreGraphics backend (#375)
 
-`ImageIODecoder` puts Apple's ImageIO behind the platform image decoder seam (#372) for documents drawn with the CoreGraphics backend. This page records the measurements that decided what it decodes, and what it gains.
+`ImageIODecoder` puts Apple's ImageIO behind the platform image decoder seam (#372) for documents drawn with the CoreGraphics backend. This page records the measurements that decided what it decodes, and what it gains: JPEG (#375), then JPEG 2000 (#482, the last section: ImageIO decodes it faithfully and slower than the managed decoder, so it is not used).
 
 Measured 2026-11-10 on an Apple M4 Max Mac (macOS 27.2) while other builds ran on it (load average 20 to 60), so absolute times are high and noisy; the ratios between rows taken together are what count. The photographs are `CatalogueSamples`' (public domain): the 2550 x 3150 catalogue-class cover, baseline 4:4:4 at quality 90, and a 5280 x 3792 4:2:0 photograph. "Managed" is the managed DCT decoder with #362's reduced IDCTs. The research report (`docs/research/image-decode-scaled-and-native.md`, §5, measured on macOS 27.0.1) found ImageIO within 55 to 66 dB of libjpeg; on macOS 27.2 it is not, as below.
 
@@ -78,10 +78,74 @@ The same full-size decode in an iOS app on the iOS 26.5 simulator (iPhone, on th
 - **Opt-in.** `ImageIODecoder` is not registered by any package; register it with `PdfOptions.UsePlatformImageDecoder(ImageIODecoder.Shared)` and await `CoreGraphicsRenderer.PrefetchImagesAsync` before a list render.
 - With these rules, verification mode over the real-world corpus records 87 `PlatformImageVerified` and no `PlatformImageMismatch`.
 
+## JPEG 2000 (#482)
+
+ImageIO decodes JPEG 2000 (`public.jpeg-2000`): JP2 files and bare codestreams, with `kCGImageSourceSubsampleFactor` 2, 4 and 8 giving the codestream's resolution levels dropped. This section records whether that serves JPXDecode images, measured 2026-11-14 on the same Mac (macOS 27.2) while other builds ran on it (load average 50 to 350), so the absolute times are high and noisy; the ratios are steady between runs. "Managed" is `JpxDecodeFilter` at the same reduction, timed cold (a fresh document, only the decode timed, best of 3; the first few decodes in the process also pay the managed decoder's JIT); "ImageIO" includes the no-copy `CFData`, the decode, the provider copy and the repack into the core's samples.
+
+The images are every JPX image the core offers (the rule of #482, below) in the JPX files of the real-world corpora (found with `pdfimages -list`: 27 of 5743 files), `tests/Corpus/jpx-*.pdf`, and the 28 OpenJPEG-encoded vectors of `JpxSamples` that are 8-bit gray or RGB (23 lossless, 5 lossy).
+
+### Fidelity against the managed decoder
+
+The bars are the seam's `Tolerance` (full size: max 24, 50 dB, 1% over 2 levels; reduced: 55 dB). ImageIO is within them everywhere it decodes, and exact on reversible (5/3) codestreams:
+
+| Image | Coding | Full size | 1/2, 1/4, 1/8 with the subsample factor |
+|---|---|---|---|
+| S2.pdf, 6 images, about 340 x 400 | 9/7, 5 levels, 5 layers, 256 x 256 tiles | max 1 to 2, 57.5 to 58.0 dB | max 1 to 2, 57.7 to 60.1 dB |
+| issue5481.pdf, 1090 x 725 | 9/7, 1 level, 10 layers, precincts | max 1, 59.5 dB | 65.6 dB |
+| issue5549.pdf, 1090 x 725 | 9/7, 5 levels, 10 layers, precincts | max 2, 56.1 dB | 56.3, 57.4, 58.3 dB |
+| 123.pdf, 1269 x 1643 | 9/7, 5 levels, 6 layers, tiles | max 2, 57.2 dB | 56.9, 57.8, 58.2 dB |
+| issue5475.pdf, 512 x 512 gray | 9/7, 1 level | max 1, 62.3 dB | 68.1 dB |
+| issue5567.pdf, 1500 x 1125, bare codestream | 5/3, 5 levels | exact | exact |
+| veraPDF 6-2-8-3, 640 x 480 (4 files) | 5/3, 5 levels | exact | exact |
+| jp2k-resetprob.pdf, `jpx-lossless.pdf`, `jpx-subsampled.pdf` | 5/3 | exact | exact |
+| the 28 OpenJPEG vectors (every progression, tiles, precincts, POC, ROI, every code-block style, tile-parts) | 5/3 and 9/7 | lossless exact, lossy max 1, at least 57.4 dB | the same, at every level the codestream has |
+
+Other findings:
+- **Sizes.** ImageIO delivers ⌈W / 2^d⌉ x ⌈H / 2^d⌉ samples for a JPEG 2000 reduction (1090 x 725 at 1/8 is 137 x 91), the core's grid, so no replicated edge is needed as it is for JPEG. It stops at a factor of 8 (a request for 1/16 delivers 1/8).
+- **Averaging is not a reduction.** A full ImageIO decode box-averaged down is 16 to 34 dB from the resolution-level decode (the codestream's low-pass filter is not a box); only the subsample factor serves a reduction.
+- **What ImageIO refuses**: `6-2-8-3-t03` (a 4-byte ICC profile box), `-t04` (enumerated color space 19), `-t05`, and the 212-megapixel `issue19517.pdf` (after 5.4 s; the managed decoder refuses that one at its limit too). The managed decoder decodes the first three.
+- **The boxes the rule refuses** (`ImageIOJpxMeasurements.ImageIO_and_the_JP2_boxes_the_shared_rule_refuses`, on synthetic JP2 files made from the 64 x 48 OpenJPEG vector): ImageIO reads some of them as the managed decoder does and some not, so the rule keeps them all managed, the safe side. It could admit sYCC and channel definitions if ever needed.
+
+| JP2 content (a 64 x 48 RGB codestream, or gray with a palette) | ImageIO against the managed decoder |
+|---|---|
+| enumerated sRGB (accepted by the rule) | exact |
+| enumerated sYCC (18) | max 1, 52.9 dB: ImageIO converts it to RGB as the managed decoder does |
+| enumerated CIELab (14) | max 68, 33.4 dB, 53% of pixels over 2 levels |
+| a channel definition box naming the colors in reverse order | exact: ImageIO honors it |
+| an ICC profile box (a 128-byte header-only profile) | ImageIO refuses the file, the managed decoder decodes it |
+| a palette and component mapping box (a gray codestream, 256 entries of 3 columns) | ImageIO refuses the file, the managed decoder decodes it |
+| a fragmented codestream (two fragments, in order or not) | ImageIO refuses the file, the managed decoder decodes it |
+
+### Time
+
+Per decode, managed against ImageIO (ms; the load made every number larger than on a quiet Mac):
+
+| Image | Full | 1/2 | 1/4 | 1/8 |
+|---|---|---|---|---|
+| S2.pdf, 341 x 392 (the first three in the process, JIT cold) | 12.1 / 6.8 | 6.2 / 3.1 | 3.3 / 1.9 | 1.6 / 0.9 |
+| S2.pdf, 344 x 413 (warm) | 2.2 / 6.9 | 1.5 / 3.5 | 0.9 / 2.2 | 0.4 / 1.0 |
+| issue5481.pdf, 1090 x 725 | 87 / 273 | 39 / 141 | | |
+| issue5549.pdf, 1090 x 725 | 54 / 416 | 37 / 300 | 12 / 40 | 3.9 / 39 |
+| 123.pdf, 1269 x 1643 | 17.9 / 81.6 | 8.0 / 29.8 | 4.0 / 13.9 | 2.2 / 6.9 |
+| issue5567.pdf, 1500 x 1125, lossless | 74 / 924 | 38 / 387 | 20 / 56 | 5.6 / 14.2 |
+| issue5475.pdf, 512 x 512 gray | 5.1 / 40.5 | 5.3 / 12.4 | | |
+| veraPDF 6-2-8-3-t01-pass-b.pdf, 640 x 480 | 4.0 / 14.1 | 3.4 / 6.1 | 2.1 / 3.0 | 0.6 / 1.1 |
+
+ImageIO is 2.4 to 12.6 times slower than the managed decoder at full size (issue5567: 12.6) and 1.4 to 10 times slower at every reduction. The one case it wins is the first three decodes in the process, where the managed decoder is still compiling. A run at a load of 50 to 100 and one at 200 and above gave the same ratios.
+
+### The rule and the decision
+
+- **The shared rule (#482).** `PlatformImageEligibility` offers a JPX image to a platform decoder when it is 8-bit unsigned gray or RGB with as many components as channels, all on the image grid, no `SMaskInData` opacity, not `Indexed`, no palette, component mapping or channel definition box, no color specification but enumerated sRGB or gray, and the codestream in one piece. The request's `Reduction` is the resolution levels dropped, capped by the codestream's decomposition levels (`ImageHeader.MaxReduction`).
+- **Fragmented files stay managed.** A file that stores its codestream in a fragment table (ISO/IEC 15444-2) is handed over as the file, and a platform decoder has no reason to join the pieces; the rule refuses it. (The sweep's reassembly, `JpxCodestreamReader.Locate`'s `assembled`, is what lets the managed decoder read it.)
+- **`ImageIODecoder` does not take JPX.** The bars are met, but ImageIO is slower than the managed decoder on every image measured, so offering JPX would slow every render that has such an image. `CanDecode` refuses it, `DecodeAsync` and `Decode` still decode a JPX request (with `kCGImageSourceAllowableTypes` restricted to `public.jpeg-2000`), and `ImageIOJpxTests` holds the fidelity measured above, so taking JPX later (a faster ImageIO, a measurement on iOS devices) is a change to `CanDecode`. The issue can close on this evidence.
+
 ## Reproduce
 
 ```sh
 dotnet build tests/Broadside.Rendering.CoreGraphics.Tests -c Release
+# JPEG 2000 (#482): fidelity and time over the JPX files listed in BROADSIDE_IMAGEIO_FILES (paths under BROADSIDE_CORPUS_DIR or absolute),
+# over the OpenJPEG vectors, and the boxes the rule refuses (add --filter-method "*Vectors*" or "*boxes*" for one):
+BROADSIDE_IMAGEIO_LOG=/tmp/imageio-jpx.txt artifacts/bin/Broadside.Rendering.CoreGraphics.Tests/release/Broadside.Rendering.CoreGraphics.Tests.app/Contents/MacOS/Broadside.Rendering.CoreGraphics.Tests --filter-class "*ImageIOJpxMeasurements" --explicit only
 # Fidelity and time per vector and reduction:
 BROADSIDE_IMAGEIO_LOG=/tmp/imageio.txt artifacts/bin/Broadside.Rendering.CoreGraphics.Tests/release/Broadside.Rendering.CoreGraphics.Tests.app/Contents/MacOS/Broadside.Rendering.CoreGraphics.Tests --filter-class "*ImageIOMeasurements" --explicit only
 # The corpus measurements read BROADSIDE_CORPUS_DIR and a list of files under it in BROADSIDE_IMAGEIO_FILES.

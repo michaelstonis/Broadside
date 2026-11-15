@@ -13,13 +13,18 @@ else if (_fields.Count == 0)
 }
 else
 {
-  <p class="hint">Fill a field here or tap it in the page. Values go through the viewer's annotation layer: the field's appearance is
-    regenerated (ISO 32000-2 §12.7.4.3) and its tiles redraw. Download (⤓) saves the filled form.</p>
+  @if (_layer?.XfaForm is { } xfa)
+  {
+    <p class="hint" data-xfa-notice>@xfa.Explanation</p>
+  }
+  <p class="hint">Tap a field in the page to fill it in place (Tab moves on), or fill it here. Both go through the viewer's form
+    filling: the value is written through the form API once, the field's appearance is regenerated (ISO 32000-2 §12.7.4.3) and only
+    its overlay tiles redraw. Fields marked * are required. Download (⤓) saves the filled form.</p>
   <ul class="list form-fields" data-field-count="@_fields.Count">
     @foreach (FieldItem item in _fields)
     {
       <li class="field @(IsFocused(item) ? "focused" : "")" id="field-@item.Id">
-        <label for="input-@item.Id">@item.Label <small>p. @(item.Target.PageIndex + 1)</small></label>
+        <label for="input-@item.Id">@item.Label@(item.Field.IsRequired ? " *" : "") <small>p. @(item.Target.PageIndex + 1)@(item.Field.IsReadOnly ? ", read-only" : "")</small></label>
         @switch (item.Field)
         {
           case PdfTextField text:
@@ -165,29 +170,45 @@ else
     Demo.Viewer?.Reveal(item.Target.PageIndex, item.Rect);
   }
 
-  private void SetText(FieldItem item, string? value) => Edit(item, layer => layer.SetFieldText(value));
+  // The panel is another input for the viewer's form filling (#218): it focuses the field and fills it exactly as typing in the page
+  // does, so an edit open in the page is never overwritten by a stale one. The app marks the document edited when a value is written.
+  private void SetText(FieldItem item, string? value) => Fill(item, forms => forms.SetText(value ?? string.Empty) && forms.Commit());
 
-  private void Toggle(FieldItem item) => Edit(item, layer => layer.ToggleField());
+  private void Toggle(FieldItem item) => Fill(item, forms => forms.KeyDown(InputKey.Space, InputModifiers.None));
 
-  private void SetChoice(FieldItem item, string? value) => Edit(item, layer => layer.SetFieldChoice(string.IsNullOrEmpty(value) ? null : value));
+  private void SetChoice(FieldItem item, string? value)
+  {
+    int index = item.Field is PdfChoiceField choice && !string.IsNullOrEmpty(value) ? IndexOf(choice, value) : -1;
+    Fill(item, forms => forms.SetSelectedOptions(index >= 0 ? [index] : []) && forms.Commit());
+  }
 
   private void SetSelection(FieldItem item, object? value)
   {
-    IEnumerable<int> indices = value is string[] values ? values.Select(v => int.Parse(v, CultureInfo.InvariantCulture)) : [];
-    Edit(item, layer => layer.SetFieldSelection(indices));
+    int[] indices = value is string[] values ? [.. values.Select(v => int.Parse(v, CultureInfo.InvariantCulture))] : [];
+    Fill(item, forms => forms.SetSelectedOptions(indices) && forms.Commit());
   }
 
-  private void Edit(FieldItem item, Func<AnnotationLayer, bool> edit)
+  private static int IndexOf(PdfChoiceField choice, string exportValue)
   {
-    if (_layer is not { } layer)
+    for (int i = 0; i < choice.Options.Count; i++)
+    {
+      if (choice.Options[i].ExportValue == exportValue)
+      {
+        return i;
+      }
+    }
+
+    return -1;
+  }
+
+  private void Fill(FieldItem item, Func<FormFilling, bool> fill)
+  {
+    if (_layer is not { } layer || Demo.Viewer?.Forms is not { } forms)
     {
       return;
     }
 
     layer.Focus(item.Target);
-    if (edit(layer))
-    {
-      Demo.MarkEdited();
-    }
+    fill(forms);
   }
 }
