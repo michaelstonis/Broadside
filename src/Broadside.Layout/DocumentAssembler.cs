@@ -497,6 +497,8 @@ internal sealed partial class DocumentAssembler
             SpaceBefore = node.SpaceBefore?.ToPoints() ?? 0,
             SpaceAfter = node.SpaceAfter?.ToPoints() ?? _root.SpaceAfter?.ToPoints() ?? 0,
             Language = tableLanguage,
+            Width = node.Width?.ToPoints(),
+            Alignment = node.Alignment,
         };
 
         foreach (RowNode row in node.HeaderRows)

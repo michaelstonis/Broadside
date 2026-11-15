@@ -129,6 +129,43 @@ public sealed class BuilderEquivalenceTests
     }
 
     [Fact]
+    public void A_narrow_right_aligned_totals_table_writes_the_same_bytes_as_the_hand_built_table()
+    {
+        using PdfDocument built = PdfDocument.Create(Options(), doc => doc
+            .WithTitle("Totals")
+            .WithLanguage("en-GB")
+            .Content(c => c.Table(t =>
+            {
+                t.Columns(ColumnWidth.Proportional(1), Length.Millimeters(30));
+                t.Row(r =>
+                {
+                    r.HeaderCell("Subtotal");
+                    r.Cell("1,000.00").AlignRight();
+                });
+            })
+            .Width(Length.Millimeters(80)).AlignRight().KeepTogether().Border(TableBorder.None)));
+
+        using PdfDocument twin = NewTwin();
+        PdfCanvasFont bold = Embed(twin, Standard14Font.HelveticaBold);
+        PdfCanvasFont regular = Embed(twin, Standard14Font.Helvetica);
+        var table = new Table(ColumnWidth.Proportional(1), ColumnWidth.Fixed(30 * 72 / 25.4))
+        {
+            Style = Theme.Default.Table.WithBorder(TableBorder.None),
+            SpaceAfter = 6,
+            Width = 80 * 72 / 25.4,
+            Alignment = TextAlignment.Right,
+        };
+        table.AddRow(
+            new TableCell("Subtotal", new ParagraphStyle(bold, 11)) { Scope = TableHeaderScope.Row },
+            new TableCell("1,000.00", new ParagraphStyle(regular, 11).WithAlignment(TextAlignment.Right)));
+        var flow = new FlowDocument(new PageTemplate(PageSetup.A4)) { Tagging = FlowTagging.Default.WithLanguage("en-GB").WithTitle("Totals") };
+        flow.Add(new BlockGroup(table) { KeepTogether = true });
+        flow.Render(twin);
+
+        Assert.Equal(Save(twin), Save(built));
+    }
+
+    [Fact]
     public void Spacers_rules_page_breaks_groups_and_keep_options_write_the_same_bytes_as_the_hand_built_blocks()
     {
         using PdfDocument built = PdfDocument.Create(Options(), doc => doc

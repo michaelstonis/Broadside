@@ -28,6 +28,13 @@ internal sealed class BuildContext(PdfDocument document, bool appending)
 
     public bool Tagging { get; set; } = true;
 
+    public PdfUAConformance PdfUA { get; set; }
+
+    public PdfAConformance PdfA { get; set; }
+
+    /// <summary>The files <see cref="DocumentBuilder.AttachFile(string, ReadOnlySpan{byte}, PdfFileRelationship, string)"/> attaches, in order.</summary>
+    public List<AttachmentNode> Attachments { get; } = [];
+
     public List<SectionNode> Sections { get; } = [];
 
     /// <summary>The section <see cref="DocumentBuilder.Content"/> adds to: the last section, or a new one.</summary>
@@ -70,6 +77,9 @@ internal sealed class BuildContext(PdfDocument document, bool appending)
 
     public void Report(DiagnosticCode code, string message) => Diagnostics.Add(new Diagnostic(code.Name, code.DefaultSeverity, message));
 }
+
+/// <summary>A file attached to the document and associated with it.</summary>
+internal sealed record AttachmentNode(string FileName, byte[] Contents, PdfFileRelationship Relationship, string MediaType);
 
 /// <summary>A section: its page setup, header and footer variants, scope style and content.</summary>
 internal sealed class SectionNode
@@ -249,6 +259,10 @@ internal sealed class TableNode : BlockNode
     public Length? SpaceBefore { get; set; }
 
     public Length? SpaceAfter { get; set; }
+
+    public Length? Width { get; set; }
+
+    public TextAlignment Alignment { get; set; }
 }
 
 /// <summary>A table row: built cells, or a run of plain strings in <see cref="BuildContext.PlainCells"/>.</summary>

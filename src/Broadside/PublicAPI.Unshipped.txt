@@ -5774,3 +5774,6 @@ Broadside.Content.ContentOptions.WithTransientFieldAppearances(bool transient) -
 Broadside.Forms.PdfAcroForm.SelectFields(System.Collections.Generic.IReadOnlyList<Broadside.PdfActionTarget!>? targets, bool exclude) -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfTerminalField!>!
 Broadside.PdfResetFormAction.SelectFields() -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfTerminalField!>!
 Broadside.PdfSubmitFormAction.SelectFields() -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfTerminalField!>!
+Broadside.PdfDocument.DefaultSaveOptions.get -> Broadside.PdfSaveOptions?
+Broadside.PdfDocument.DefaultSaveOptions.set -> void
+static Broadside.Diagnostics.SavingDiagnostics.ConformanceOverridden.get -> Broadside.Diagnostics.DiagnosticCode!

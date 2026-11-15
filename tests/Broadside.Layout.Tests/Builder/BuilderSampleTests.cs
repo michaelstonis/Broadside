@@ -65,8 +65,11 @@ public sealed class BuilderSampleTests
         }
     }
 
-    private static PdfDocument FieldReport() =>
+    /// <summary>The spec's report sample (section 3.3), optionally declared for a PDF/UA or PDF/A profile.</summary>
+    internal static PdfDocument FieldReport(PdfUAConformance ua = PdfUAConformance.None, PdfAConformance a = PdfAConformance.None) =>
         PdfDocument.Create(Options(), doc => doc
+            .WithPdfUAConformance(ua)
+            .WithPdfAConformance(a)
             .WithTitle("Field report, Q4")
             .WithAuthor("Operations")
             .WithLanguage("en-GB")
@@ -96,7 +99,8 @@ public sealed class BuilderSampleTests
                     }
                 })));
 
-    private static PdfDocument Invoice()
+    /// <summary>The spec's invoice sample (section 3.8), optionally declared for a PDF/UA or PDF/A profile.</summary>
+    internal static PdfDocument Invoice(PdfUAConformance ua = PdfUAConformance.None, PdfAConformance a = PdfAConformance.None)
     {
         CultureInfo culture = CultureInfo.InvariantCulture;
         (string Description, int Quantity, decimal Price)[] lines =
@@ -107,6 +111,8 @@ public sealed class BuilderSampleTests
         ];
         decimal subtotal = lines.Sum(line => line.Quantity * line.Price);
         return PdfDocument.Create(Options(), doc => doc
+            .WithPdfUAConformance(ua)
+            .WithPdfAConformance(a)
             .WithTitle("Invoice 2026-0042")
             .WithAuthor("Acme Instruments")
             .WithLanguage("en-GB")

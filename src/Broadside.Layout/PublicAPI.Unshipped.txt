@@ -808,3 +808,16 @@ Broadside.Layout.Flow.SectionBuilder.Background(Broadside.Layout.Flow.ImageSourc
 Broadside.Layout.Flow.SectionBuilder.Decorate(System.Action<Broadside.Graphics.PdfCanvas!, Broadside.Layout.Flow.PageInfo>! draw) -> Broadside.Layout.Flow.SectionBuilder
 Broadside.Layout.Flow.SectionBuilder.Watermark(string! text) -> Broadside.Layout.Flow.SectionBuilder
 Broadside.Layout.Flow.SectionBuilder.Watermark(string! text, Broadside.Layout.Flow.Style! style) -> Broadside.Layout.Flow.SectionBuilder
+Broadside.Layout.Flow.DocumentBuilder.AttachFile(string! fileName, System.ReadOnlySpan<byte> contents, Broadside.PdfFileRelationship relationship) -> Broadside.Layout.Flow.DocumentBuilder
+Broadside.Layout.Flow.DocumentBuilder.AttachFile(string! fileName, System.ReadOnlySpan<byte> contents, Broadside.PdfFileRelationship relationship, string! mediaType) -> Broadside.Layout.Flow.DocumentBuilder
+Broadside.Layout.Flow.DocumentBuilder.AttachFile(string! fileName, string! text, Broadside.PdfFileRelationship relationship) -> Broadside.Layout.Flow.DocumentBuilder
+Broadside.Layout.Flow.DocumentBuilder.WithPdfAConformance(Broadside.PdfAConformance conformance) -> Broadside.Layout.Flow.DocumentBuilder
+Broadside.Layout.Flow.DocumentBuilder.WithPdfUAConformance(Broadside.PdfUAConformance conformance) -> Broadside.Layout.Flow.DocumentBuilder
+Broadside.Layout.Flow.Table.Alignment.get -> Broadside.Layout.Flow.TextAlignment
+Broadside.Layout.Flow.Table.Alignment.init -> void
+Broadside.Layout.Flow.Table.Width.get -> double?
+Broadside.Layout.Flow.Table.Width.init -> void
+Broadside.Layout.Flow.TableElement.AlignCenter() -> Broadside.Layout.Flow.TableElement
+Broadside.Layout.Flow.TableElement.AlignLeft() -> Broadside.Layout.Flow.TableElement
+Broadside.Layout.Flow.TableElement.AlignRight() -> Broadside.Layout.Flow.TableElement
+Broadside.Layout.Flow.TableElement.Width(Broadside.Layout.Flow.Length width) -> Broadside.Layout.Flow.TableElement

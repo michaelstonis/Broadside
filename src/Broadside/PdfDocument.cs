@@ -480,6 +480,18 @@ public sealed partial class PdfDocument : IDisposable
     /// </remarks>
     public static PdfDocument Create(PdfOptions options) => new PdfEngine(options).Create();
 
+    /// <summary>
+    /// Gets or sets the options the saves that take none use (<see cref="Save(Stream)"/>, <see cref="Save(string)"/> and their asynchronous
+    /// counterparts), such as the PDF/A and PDF/UA conformance a document was built for; <see langword="null"/> (the default) for new
+    /// default <see cref="PdfSaveOptions"/> each time.
+    /// </summary>
+    /// <remarks>
+    /// ISO 19005 (PDF/A) and ISO 14289 (PDF/UA). Options passed to a save explicitly win; when their PDF/A or PDF/UA conformance differs from
+    /// these, the save records a <c>ConformanceOverridden</c> diagnostic (Information). The options object is used as it is, not copied: a
+    /// change to it applies to later saves. A mutation: no read may run concurrently with it.
+    /// </remarks>
+    public PdfSaveOptions? DefaultSaveOptions { get; set; }
+
     /// <summary>Writes the document to <paramref name="stream"/> as a complete file with a classic cross-reference table.</summary>
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
     /// <exception cref="NotSupportedException">
@@ -489,8 +501,8 @@ public sealed partial class PdfDocument : IDisposable
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
-    /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
-    public void Save(Stream stream) => Save(stream, new PdfSaveOptions());
+    /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with <see cref="DefaultSaveOptions"/>, or default <see cref="PdfSaveOptions"/> when it is null.</remarks>
+    public void Save(Stream stream) => Save(stream, DefaultSaveOptions ?? new PdfSaveOptions());
 
     /// <summary>Writes the document to <paramref name="stream"/> as a complete file.</summary>
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
@@ -556,6 +568,7 @@ public sealed partial class PdfDocument : IDisposable
     public void Save(Stream stream, PdfSaveOptions options)
     {
         ArgumentNullException.ThrowIfNull(stream);
+        ReportOverriddenConformance(options);
         FileWriter writer = PlanSave(options);
         WriteTo(writer, stream);
         Rebase(writer);
@@ -570,8 +583,8 @@ public sealed partial class PdfDocument : IDisposable
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
-    /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
-    public void Save(string path) => Save(path, new PdfSaveOptions());
+    /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(string, PdfSaveOptions)"/> with <see cref="DefaultSaveOptions"/>, or default <see cref="PdfSaveOptions"/> when it is null.</remarks>
+    public void Save(string path) => Save(path, DefaultSaveOptions ?? new PdfSaveOptions());
 
     /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it.</summary>
     /// <param name="path">The file path. Do not name the file the document was opened from.</param>
@@ -587,6 +600,7 @@ public sealed partial class PdfDocument : IDisposable
     public void Save(string path, PdfSaveOptions options)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
+        ReportOverriddenConformance(options);
 
         // Planned before the file is created, so a document that cannot be saved leaves an existing file alone.
         FileWriter writer = PlanSave(options);
@@ -613,7 +627,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <remarks>
     /// ISO 32000-2 §7.5. The asynchronous counterpart of <see cref="Save(Stream)"/>.
     /// </remarks>
-    public Task SaveAsync(Stream stream, CancellationToken cancellationToken = default) => SaveAsync(stream, new PdfSaveOptions(), cancellationToken);
+    public Task SaveAsync(Stream stream, CancellationToken cancellationToken = default) => SaveAsync(stream, DefaultSaveOptions ?? new PdfSaveOptions(), cancellationToken);
 
     /// <summary>Writes the document to <paramref name="stream"/> as a complete file, writing asynchronously.</summary>
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
@@ -635,6 +649,7 @@ public sealed partial class PdfDocument : IDisposable
     public async Task SaveAsync(Stream stream, PdfSaveOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
+        ReportOverriddenConformance(options);
         FileWriter writer = PlanSave(options);
         await WriteToAsync(writer, stream, cancellationToken).ConfigureAwait(false);
         Rebase(writer);
@@ -655,7 +670,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <remarks>
     /// ISO 32000-2 §7.5. The asynchronous counterpart of <see cref="Save(string)"/>. The file is written to a temporary file beside <paramref name="path"/> and moved over it only once complete, so a canceled or failed save leaves an existing file at <paramref name="path"/> as it was and creates no file there.
     /// </remarks>
-    public Task SaveAsync(string path, CancellationToken cancellationToken = default) => SaveAsync(path, new PdfSaveOptions(), cancellationToken);
+    public Task SaveAsync(string path, CancellationToken cancellationToken = default) => SaveAsync(path, DefaultSaveOptions ?? new PdfSaveOptions(), cancellationToken);
 
     /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it, writing asynchronously.</summary>
     /// <param name="path">The file path. Do not name the file the document was opened from.</param>
@@ -676,6 +691,7 @@ public sealed partial class PdfDocument : IDisposable
     public async Task SaveAsync(string path, PdfSaveOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
+        ReportOverriddenConformance(options);
 
         // Planned before any file is created, so a document that cannot be saved leaves an existing file alone.
         FileWriter writer = PlanSave(options);
@@ -1429,6 +1445,23 @@ public sealed partial class PdfDocument : IDisposable
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             // The save's own failure is the one to report; a temporary file that cannot be removed is left behind.
+        }
+    }
+
+    /// <summary>Records explicit save options whose PDF/A or PDF/UA conformance differs from <see cref="DefaultSaveOptions"/>.</summary>
+    private void ReportOverriddenConformance(PdfSaveOptions options)
+    {
+        if (DefaultSaveOptions is not { } defaults || ReferenceEquals(options, defaults) || options is null)
+        {
+            return;
+        }
+
+        if (options.PdfAConformance != defaults.PdfAConformance || options.PdfUAConformance != defaults.PdfUAConformance)
+        {
+            _diagnostics.Report(
+                SavingDiagnostics.ConformanceOverridden,
+                DiagnosticSeverity.Information,
+                $"The save's options (PDF/A {options.PdfAConformance}, PDF/UA {options.PdfUAConformance}) override the document's default save options (PDF/A {defaults.PdfAConformance}, PDF/UA {defaults.PdfUAConformance}).");
         }
     }
 
