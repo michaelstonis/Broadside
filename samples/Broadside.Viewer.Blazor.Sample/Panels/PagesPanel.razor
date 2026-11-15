@@ -1,12 +1,12 @@
 @inherits DemoPanel
 
-<p class="hint">Each thumbnail is a whole page rendered by the same managed rasterizer as the viewer, one at a time between frames.</p>
+<p class="hint">Each thumbnail is a whole page drawn from the viewer's own display list, one at a time while the viewer is idle.</p>
 <ul class="thumbnails">
   @for (int i = 0; i < Count; i++)
   {
     int page = i;
     <li>
-      <button class="thumbnail @(page == Demo.State.PageIndex ? "current" : "")" @onclick="() => Demo.Viewer?.GoToPage(page)" aria-label="Page @(page + 1)">
+      <button class="thumbnail @(page == Demo.State.PageIndex ? "current" : "")" @onclick="() => Demo.Viewer?.GoToPage(page)" aria-label="Page @Label(page)">
         @if (Demo.Thumbnails.TryGetValue(page, out string? image))
         {
           <img src="@image" alt="" data-thumbnail="@(page)" />
@@ -15,7 +15,7 @@
         {
           <span class="placeholder"></span>
         }
-        <small>@(page + 1)</small>
+        <small>@Label(page)</small>
       </button>
     </li>
   }
@@ -27,10 +27,15 @@
 
 @code {
   private const int MaxPages = 300;
-  private const double ThumbnailPixels = 220;
+  private const int ThumbnailPixels = 220;
   private CancellationTokenSource? _work;
   private int _version = -1;
+  private bool? _dark;
   private bool _more;
+  private PageLabelTable? _labels;
+
+  /// <summary>Gets or sets whether the viewer is in dark mode: the thumbnails are drawn with the session's color filter, so they are drawn again when it changes.</summary>
+  [Parameter] public bool DarkMode { get; set; }
 
   private int Count => Math.Min(Demo.Session?.PageCount ?? 0, MaxPages);
 
@@ -40,61 +45,70 @@
     return Task.CompletedTask;
   }
 
+  protected override void OnParametersSet() => Reload();
+
+  private string Label(int page) =>
+    _labels is { } labels && page < labels.Count ? labels.GetLabel(page) : (page + 1).ToString(CultureInfo.InvariantCulture);
+
   private void Reload()
   {
-    if (_version != Demo.Version)
+    if (_version == Demo.Version && _dark == DarkMode)
     {
-      _version = Demo.Version;
-      _more = (Demo.Session?.PageCount ?? 0) > MaxPages;
-      _work?.Cancel();
-      _work = CancellationTokenSource.CreateLinkedTokenSource(Demo.WorkToken);
-      _ = RenderAsync(_work.Token);
+      return;
     }
+
+    bool documentChanged = _version != Demo.Version;
+    _version = Demo.Version;
+    _dark = DarkMode;
+    _more = (Demo.Session?.PageCount ?? 0) > MaxPages;
+    _work?.Cancel();
+    _work = CancellationTokenSource.CreateLinkedTokenSource(Demo.WorkToken);
+    if (!documentChanged)
+    {
+      Demo.Thumbnails.Clear(); // the color filter changed: draw them again
+    }
+
+    _ = RenderAsync(documentChanged, _work.Token);
   }
 
   protected override void OnClosed() => _work?.Cancel();
 
-  private async Task RenderAsync(CancellationToken token)
+  // The core's PageThumbnails draws each page from the display list in the session's shared cache (the list the viewer built, or the one
+  // the viewer will use), after the viewer's own tiles; the panel only keeps the pictures.
+  private async Task RenderAsync(bool loadLabels, CancellationToken token)
   {
     if (Demo.Session is not { } session)
     {
       return;
     }
 
-    // Start at the page in view, then wrap around.
-    int count = Count;
-    int first = Demo.CurrentPage;
-    for (int n = 0; n < count && !token.IsCancellationRequested; n++)
+    try
     {
-      int page = (first + n) % count;
-      if (Demo.Thumbnails.ContainsKey(page))
+      // The viewer applies the same value when it opens a document; this makes the thumbnails of a document opened in dark mode right too.
+      session.ColorFilter = DarkMode ? Broadside.Rendering.ColorFilter.DarkMode : Broadside.Rendering.ColorFilter.None;
+      if (loadLabels)
       {
-        continue;
+        _labels = await PageLabelTable.LoadAsync(session, token);
+        await InvokeAsync(StateHasChanged);
       }
 
-      try
+      // Start at the page in view, then wrap around.
+      int count = Count;
+      int first = Demo.CurrentPage;
+      var surface = new ThumbnailSurface((page, image) =>
       {
-        PageMetrics metrics = await session.GetPageMetricsAsync(page, token);
-        double scale = ThumbnailPixels / Math.Max(metrics.Width, metrics.Height);
-        var surface = new PngSurface();
-        await session.RenderPageAsync(page, scale, surface, token);
-        if (surface.Image is { } image && !token.IsCancellationRequested)
-        {
-          Demo.Thumbnails[page] = image;
-          StateHasChanged();
-        }
-      }
-      catch (OperationCanceledException)
-      {
-        return;
-      }
-#pragma warning disable CA1031 // a page that cannot be rendered keeps its placeholder
-      catch (Exception)
-#pragma warning restore CA1031
-      {
-      }
-
-      await Task.Yield();
+        Demo.Thumbnails[page] = image;
+        _ = InvokeAsync(StateHasChanged);
+      });
+      var thumbnails = new PageThumbnails(session, surface, new ThumbnailOptions().WithSize(ThumbnailPixels));
+      IEnumerable<int> order = Enumerable.Range(0, count).Select(n => (first + n) % count).Where(page => !Demo.Thumbnails.ContainsKey(page));
+      await thumbnails.RenderAsync(order, token);
+    }
+    catch (OperationCanceledException)
+    {
+    }
+    catch (ObjectDisposedException)
+    {
     }
   }
 }
