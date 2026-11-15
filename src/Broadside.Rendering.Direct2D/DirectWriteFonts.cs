@@ -112,7 +112,9 @@ internal sealed unsafe class DirectWriteFonts : IDisposable
             return false;
         }
 
-        if (PInvoke.DWriteCreateFactory(DWRITE_FACTORY_TYPE.DWRITE_FACTORY_TYPE_ISOLATED, out IDWriteFactory5* factory).Failed)
+        IDWriteFactory5* factory;
+        Guid factoryId = IDWriteFactory5.IID_Guid;
+        if (PInvoke.DWriteCreateFactory(DWRITE_FACTORY_TYPE.DWRITE_FACTORY_TYPE_ISOLATED, &factoryId, (void**)&factory).Failed)
         {
             _unavailable = true;
             return false;

@@ -9,8 +9,11 @@ namespace Broadside.Viewer.Uno;
 /// <remarks>ISO 32000-2 §14.8.2.5 (reading order), §14.9.3 (alternate descriptions), §14.9.4 (replacement text).</remarks>
 internal static class AccessibleText
 {
-    /// <summary>The node's spoken name: its name or text, its role word for links, figures and controls, and a check box's state.</summary>
-    public static string Describe(AccessibilityBridge bridge, AccessibleNode node)
+    /// <summary>
+    /// The node's spoken name: its name or text, a check box's state, a cell's position, and for a page "Page" and its label (ISO
+    /// 32000-2 §12.4.2) when the document labels its pages, else its number.
+    /// </summary>
+    public static string Describe(AccessibilityBridge bridge, AccessibleNode node, PageLabelTable? labels = null)
     {
         ArgumentNullException.ThrowIfNull(bridge);
         ArgumentNullException.ThrowIfNull(node);
@@ -19,6 +22,7 @@ internal static class AccessibleText
         string state = (states & AccessibleStates.Checked) != 0 ? ", checked" : string.Empty;
         return node.Role switch
         {
+            AccessibleRole.Page when name.Length == 0 && labels is { HasLabels: true } && node.PageIndex < labels.Count => "Page " + labels.GetLabel(node.PageIndex),
             AccessibleRole.Page => name.Length == 0 ? string.Create(CultureInfo.InvariantCulture, $"Page {node.PageIndex + 1}") : name,
             AccessibleRole.Figure => name.Length == 0 ? "figure" : name,
             AccessibleRole.CheckBox => name + (state.Length > 0 ? state : ", not checked"),

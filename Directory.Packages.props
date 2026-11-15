@@ -32,6 +32,16 @@
     it honors central package management: it reads these PackageVersion items and adds its own versioned references. The sample's
     heads turn transitive pinning off (see samples/Broadside.Viewer.Uno.Sample), so Uno keeps its own SkiaSharp.
   -->
+  <ItemGroup Label="Avalonia viewer (#224): Avalonia's own packages, never referenced by the core (ADR 0001)">
+    <!-- The shell library references Avalonia only; Desktop and Fluent are the sample's, Headless and Skia the UI tests'. Avalonia.Skia
+         brings its own SkiaSharp (3.119), so the sample and the tests turn off transitive pinning: the SkiaSharp pinned above is the
+         Skia backend's, a different major version. -->
+    <PackageVersion Include="Avalonia" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Headless" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Skia" Version="12.1.4" />
+  </ItemGroup>
 
   <ItemGroup Label="Build and analysis">
     <PackageVersion Include="MinVer" Version="8.0.0" />
@@ -57,6 +67,11 @@
     <!-- The MAUI viewer (#226): MAUI itself and SkiaSharp's MAUI views, the platform libraries ADR 0001 allows that shell. -->
     <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.110" />
     <PackageVersion Include="SkiaSharp.Views.Maui.Controls" Version="4.153.1" />
+    <!-- The WinUI 3 viewer (#223): the Windows App SDK, the platform library ADR 0001 allows that shell; the version MAUI 10.0.110 uses
+         on Windows, so the two shells pin the same one. -->
+    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="1.8.260529003" />
+    <!-- UI Automation client for the WinUI viewer's UI tests on the Windows runner (tests only). -->
+    <PackageVersion Include="FlaUI.UIA3" Version="5.0.0" />
     <!-- A concrete container, logging pipeline and configuration for the dependency-injection tests (#46); never in the core. -->
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />

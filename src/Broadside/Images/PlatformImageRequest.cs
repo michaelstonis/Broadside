@@ -8,10 +8,21 @@ namespace Broadside.Images;
 /// segments the data carries, and the reduction the backend will draw it at.
 /// </summary>
 /// <remarks>
-/// ISO 32000-2 §7.4.8 (DCTDecode; Table 13 <c>ColorTransform</c>), §8.9.5.1 Table 87 (Width, Height, BitsPerComponent) and ITU-T
-/// T.81 Annex B (the frame header). Every request passed the shared rule of <see cref="IPlatformImageDecoder"/>: 8-bit samples of 1 or
-/// 3 components, a frame of the dictionary's size with its height in the header, and three components transformed from YCbCr exactly
-/// when a JFIF decoder transforms them.
+/// <para>
+/// ISO 32000-2 §7.4.8 (DCTDecode; Table 13 <c>ColorTransform</c>), §7.4.9 (JPXDecode), §8.9.5.1 Table 87 (Width, Height,
+/// BitsPerComponent), ITU-T T.81 Annex B (the frame header) and ITU-T T.800 Annexes A and I (the codestream and the JP2 boxes). Every
+/// request passed the shared rule of <see cref="IPlatformImageDecoder"/>. For DCTDecode: 8-bit samples of 1 or 3 components, a frame
+/// of the dictionary's size with its height in the header, and three components transformed from YCbCr exactly when a JFIF decoder
+/// transforms them.
+/// </para>
+/// <para>
+/// For JPXDecode: 8-bit unsigned gray or RGB components that all cover the image grid, as many as the image has channels, with no
+/// opacity channel, no <c>Indexed</c> color space, no palette, component mapping or channel definition box, no color specification
+/// but enumerated sRGB or gray, and the codestream in one piece. The size is the codestream's (§7.4.9), the samples are the
+/// codestream's own after its inverse component transform, <see cref="ColorTransform"/>, <see cref="Progressive"/>,
+/// <see cref="ArithmeticCoding"/>, <see cref="HasExif"/> and <see cref="HasIccProfile"/> are <see langword="false"/>, the chroma
+/// ratios are 1, and <see cref="Reduction"/> is the number of resolution levels dropped (ITU-T T.800 B.5).
+/// </para>
 /// </remarks>
 public readonly record struct PlatformImageRequest
 {
@@ -19,24 +30,24 @@ public readonly record struct PlatformImageRequest
     private readonly byte _chromaX;
     private readonly byte _chromaY;
 
-    /// <summary>Gets the image codec: <c>DCTDecode</c>.</summary>
-    /// <remarks>ISO 32000-2 §7.4.8. JPEG 2000 (§7.4.9) is never offered yet.</remarks>
+    /// <summary>Gets the image codec: <c>DCTDecode</c> or <c>JPXDecode</c>.</summary>
+    /// <remarks>ISO 32000-2 §7.4.8 and §7.4.9. A decoder that takes only JPEG data checks this in <see cref="IPlatformImageDecoder.CanDecode"/>.</remarks>
     public CosName Filter { get; init; }
 
     /// <summary>Gets the image's width in samples at its own resolution.</summary>
-    /// <remarks>ITU-T T.81 B.2.2 (X), equal to the dictionary's Width (ISO 32000-2 Table 87).</remarks>
+    /// <remarks>ITU-T T.81 B.2.2 (X), equal to the dictionary's Width (ISO 32000-2 Table 87); for JPXDecode ITU-T T.800 A.5.1 (Xsiz − XOsiz), which wins over the dictionary (§7.4.9).</remarks>
     public int Width { get; init; }
 
     /// <summary>Gets the image's height in samples at its own resolution.</summary>
-    /// <remarks>ITU-T T.81 B.2.2 (Y), equal to the dictionary's Height (ISO 32000-2 Table 87); never 0 (a DNL segment is never offered).</remarks>
+    /// <remarks>ITU-T T.81 B.2.2 (Y), equal to the dictionary's Height (ISO 32000-2 Table 87); never 0 (a DNL segment is never offered); for JPXDecode ITU-T T.800 A.5.1 (Ysiz − YOsiz).</remarks>
     public int Height { get; init; }
 
-    /// <summary>Gets the number of components per sample, 1 (gray) or 3 (RGB, from YCbCr).</summary>
-    /// <remarks>ITU-T T.81 B.2.2 (Nf). Four-component (CMYK, YCCK) data is never offered.</remarks>
+    /// <summary>Gets the number of components per sample, 1 (gray) or 3 (RGB, from YCbCr for DCTDecode).</summary>
+    /// <remarks>ITU-T T.81 B.2.2 (Nf); for JPXDecode the image's channels (ISO 32000-2 §7.4.9). Four-component (CMYK, YCCK) data is never offered.</remarks>
     public int Components { get; init; }
 
     /// <summary>Gets the bits per component, always 8.</summary>
-    /// <remarks>ITU-T T.81 B.2.2 (P); ISO 32000-2 §7.4.8 and Table 87.</remarks>
+    /// <remarks>ITU-T T.81 B.2.2 (P); ITU-T T.800 A.5.1 (Ssiz); ISO 32000-2 §7.4.8 and Table 87.</remarks>
     public int BitsPerComponent { get; init; }
 
     /// <summary>Gets a value indicating whether the frame is progressive (SOF2, SOF10).</summary>
@@ -48,7 +59,7 @@ public readonly record struct PlatformImageRequest
     public bool ArithmeticCoding { get; init; }
 
     /// <summary>Gets a value indicating whether the three components are YCbCr, to be transformed to RGB.</summary>
-    /// <remarks>ISO 32000-2 §7.4.8 Table 13 and Adobe Technical Note #5116 §18 (APP14). Always true for three components, false for one.</remarks>
+    /// <remarks>ISO 32000-2 §7.4.8 Table 13 and Adobe Technical Note #5116 §18 (APP14). For DCTDecode always true for three components, false for one; always false for JPXDecode.</remarks>
     public bool ColorTransform { get; init; }
 
     /// <summary>
@@ -92,11 +103,12 @@ public readonly record struct PlatformImageRequest
     /// <summary>Gets the reduction wanted, as a power of two: 0 for the image's own resolution, 1 for half, up to 3 for an eighth.</summary>
     /// <remarks>
     /// ISO 32000-2 §8.9.4: the backend draws the image so small that this reduction still leaves its samples per device pixel. A
-    /// decoder may deliver a finer one (a smaller reduction) but never a coarser one.
+    /// decoder may deliver a finer one (a smaller reduction) but never a coarser one. For JPXDecode it is the number of resolution
+    /// levels dropped (ITU-T T.800 B.5), never more than the codestream's decomposition levels.
     /// </remarks>
     public int Reduction { get; init; }
 
-    /// <summary>Gets the width at <see cref="Reduction"/>: ⌈<see cref="Width"/> / 2^<see cref="Reduction"/>⌉, as libjpeg's DCT scaling delivers.</summary>
+    /// <summary>Gets the width at <see cref="Reduction"/>: ⌈<see cref="Width"/> / 2^<see cref="Reduction"/>⌉, as libjpeg's DCT scaling and a JPEG 2000 resolution level (ITU-T T.800 B-15) deliver.</summary>
     public int ReducedWidth => ImageGeometry.Reduce(Width, Reduction);
 
     /// <summary>Gets the height at <see cref="Reduction"/>: ⌈<see cref="Height"/> / 2^<see cref="Reduction"/>⌉.</summary>

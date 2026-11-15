@@ -213,6 +213,7 @@ internal static partial class Automation
         PdfView view = page.Viewer;
         ViewerController controller = view.Controller;
         bool ok = true;
+        double fitWidth = 0;
 
         async Task Step(string name, Func<Task<string?>> body)
         {
@@ -240,6 +241,8 @@ internal static partial class Automation
             {
                 return drawn;
             }
+
+            fitWidth = view.State.Zoom;
 
             // What Uno actually shows: black text on white paper (tiles uploaded in the right channel order).
             (int dark, int white, int colored) = await SampleAsync(view);
@@ -269,9 +272,11 @@ internal static partial class Automation
 
         await Step("select", async () =>
         {
-            view.ZoomTo(ZoomMode.FitWidth);
+            // One animation at a time: a page jump stops a running zoom animation.
             view.GoToPage(0);
-            await Until(() => view.State.PageIndex == 0 && Settled(controller) && controller.Selection?.TryGetPage(0, out _) == true, "page 1 with its text");
+            await Until(() => view.State.PageIndex == 0 && controller.Input?.IsAnimating == false, "page 1");
+            view.ZoomTo(ZoomMode.FitWidth);
+            await Until(() => view.State.PageIndex == 0 && Math.Abs(view.State.Zoom - fitWidth) < 0.01 && controller.Input?.IsAnimating == false && Settled(controller) && controller.Selection?.TryGetPage(0, out _) == true, "page 1 at fit-width with its text");
             if (FindText(controller, 0) is not (double x, double y))
             {
                 return "no text under the pointer on page 1";

@@ -19,12 +19,14 @@ Broadside.Viewer.Uno.PdfView.Error -> System.EventHandler<Broadside.Viewer.Uno.P
 Broadside.Viewer.Uno.PdfView.Find(string! query, Broadside.Viewer.TextSearchOptions? options = null) -> void
 Broadside.Viewer.Uno.PdfView.FindNext() -> Broadside.Viewer.SearchMatch?
 Broadside.Viewer.Uno.PdfView.FindPrevious() -> Broadside.Viewer.SearchMatch?
+Broadside.Viewer.Uno.PdfView.Forms.get -> Broadside.Viewer.FormFilling?
 Broadside.Viewer.Uno.PdfView.GoToPage(int pageIndex) -> void
 Broadside.Viewer.Uno.PdfView.LayoutOptions.get -> Broadside.Viewer.PageLayoutOptions?
 Broadside.Viewer.Uno.PdfView.LayoutOptions.set -> void
 Broadside.Viewer.Uno.PdfView.NextPage() -> void
 Broadside.Viewer.Uno.PdfView.Options.get -> Broadside.Viewer.ViewerOptions?
 Broadside.Viewer.Uno.PdfView.Options.set -> void
+Broadside.Viewer.Uno.PdfView.PageLabels.get -> Broadside.Viewer.PageLabelTable?
 Broadside.Viewer.Uno.PdfView.PdfView() -> void
 Broadside.Viewer.Uno.PdfView.PreviousPage() -> void
 Broadside.Viewer.Uno.PdfView.Reveal(int pageIndex, Broadside.PdfRectangle area) -> void

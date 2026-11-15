@@ -133,6 +133,31 @@ public sealed class RasterizerAllocationTests
     }
 
     [Theory]
+    [InlineData(GlyphPositioning.Exact, SoftwareRasterizer.DefaultGlyphCacheBudget)]
+    [InlineData(GlyphPositioning.Quantized, SoftwareRasterizer.DefaultGlyphCacheBudget)]
+    [InlineData(GlyphPositioning.Exact, 16 * 1024)]
+    [InlineData(GlyphPositioning.Exact, 0)]
+    public void Drawing_glyphs_through_the_glyph_cache_allocates_nothing_once_warm(GlyphPositioning positioning, long budget)
+    {
+        // Issue #370: hits paint from the cache's arena; with a budget far below the page's glyphs every render evicts and refills,
+        // which reuses the arena and the table once they have grown; with none, every glyph is scan converted into the scratch runs.
+        using PdfDocument document = PdfDocument.Open(TextSamples.Page(ContentSamples.TextHeavy(2000)));
+        PdfPage page = document.Pages[0];
+        DisplayList list = page.CreateDisplayList();
+        RenderOptions options = new RenderOptions().WithScale(1.37);
+        PixelSize size = options.GetPixelSize(page);
+        Matrix device = options.GetDeviceTransform(page);
+        using var bitmap = new Bitmap(size.Width, size.Height);
+        using var rasterizer = new SoftwareRasterizer { GlyphPositioning = positioning, GlyphCacheBudget = budget };
+        Action render = () => rasterizer.Render(list, bitmap, device);
+
+        long allocated = Allocations.Measure(render, warmUpCalls: 3);
+
+        Assert.Equal(0, allocated);
+        Assert.Contains(bitmap.Pixels.ToArray(), value => value != 0);
+    }
+
+    [Theory]
     [InlineData(1)]
     [InlineData(4)]
     public void Drawing_type3_glyphs_allocates_nothing_per_glyph_once_warm(double scale)

@@ -32,6 +32,17 @@ public sealed class PdfSubmitFormAction : PdfAction
     /// <remarks>ISO 32000-2 §12.7.6.2, Tables 239 and 240. Reserved bits are kept as they are.</remarks>
     public PdfSubmitFormFlags Flags => (PdfSubmitFormFlags)(ReadInteger(ActionNames.Flags) ?? 0);
 
+    /// <summary>
+    /// Returns the terminal fields the action submits: those <see cref="Fields"/> names with their descendants (or every other field
+    /// with <see cref="PdfSubmitFormFlags.Exclude"/>; every field without <c>Fields</c>), leaving out fields marked NoExport.
+    /// </summary>
+    /// <returns>The fields in the form's tree order; empty when the document has no interactive form.</returns>
+    /// <remarks>ISO 32000-2 §12.7.6.2: NoExport "takes precedence over the action's Fields array and Include/Exclude flag".</remarks>
+    public IReadOnlyList<Forms.PdfTerminalField> SelectFields() =>
+        Document.AcroForm is { } form
+            ? [.. form.SelectFields(Fields, (Flags & PdfSubmitFormFlags.Exclude) != 0).Where(field => !field.IsNoExport)]
+            : [];
+
     /// <summary>Gets the character set of the submitted data (<c>CharSet</c>, PDF 2.0), such as <c>utf-8</c>, or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.7.6.2, Table 239: utf-8, utf-16, Shift-JIS, BigFive, GBK or UHC are supported values.</remarks>
     public string? CharacterSet => ReadString(ActionNames.CharSet) is { } charSet ? System.Text.Encoding.Latin1.GetString(charSet.Bytes) : null;
@@ -64,6 +75,15 @@ public sealed class PdfResetFormAction : PdfAction
     /// </summary>
     /// <remarks>ISO 32000-2 §12.7.6.3, Table 241.</remarks>
     public IReadOnlyList<PdfActionTarget>? Fields => ReadTargets(ActionNames.Fields, "an array of field dictionaries and text strings");
+
+    /// <summary>
+    /// Returns the terminal fields the action resets: those <see cref="Fields"/> names with their descendants (or every other field
+    /// with <see cref="PdfResetFormFlags.Exclude"/>; every field without <c>Fields</c>).
+    /// </summary>
+    /// <returns>The fields in the form's tree order; empty when the document has no interactive form.</returns>
+    /// <remarks>ISO 32000-2 §12.7.6.3, Tables 241 and 242.</remarks>
+    public IReadOnlyList<Forms.PdfTerminalField> SelectFields() =>
+        Document.AcroForm is { } form ? form.SelectFields(Fields, (Flags & PdfResetFormFlags.Exclude) != 0) : [];
 
     /// <summary>Gets the flags (<c>Flags</c>); <see cref="PdfResetFormFlags.None"/> when absent.</summary>
     /// <remarks>ISO 32000-2 §12.7.6.3, Tables 241 and 242.</remarks>

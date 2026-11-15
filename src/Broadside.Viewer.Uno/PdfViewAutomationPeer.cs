@@ -70,6 +70,8 @@ public sealed partial class PdfViewAutomationPeer : FrameworkElementAutomationPe
 
     internal AccessibilityBridge? Bridge => _controller.Bridge;
 
+    internal PageLabelTable? PageLabels => _controller.PageLabels;
+
     /// <summary>Where a node is, in the view's coordinates turned into the window's.</summary>
     internal Rect BoundsOf(AccessibleNode node)
     {
@@ -125,7 +127,7 @@ public sealed partial class AccessibleNodeAutomationPeer : AutomationPeer
     public AccessibleNode Node { get; }
 
     /// <inheritdoc/>
-    protected override string GetNameCore() => _owner.Bridge is { } bridge ? AccessibleText.Describe(bridge, Node) : string.Empty;
+    protected override string GetNameCore() => _owner.Bridge is { } bridge ? AccessibleText.Describe(bridge, Node, _owner.PageLabels) : string.Empty;
 
     /// <inheritdoc/>
     protected override string GetClassNameCore() => Node.Role.ToString();

@@ -307,6 +307,23 @@ public sealed partial class PdfDocument : IDisposable
     /// </remarks>
     public IReadOnlyList<Diagnostic> Diagnostics => _diagnostics.Snapshot();
 
+    /// <summary>
+    /// Records a diagnostic found while building or changing the document, such as one flow layout finds while laying content out, so
+    /// that <see cref="Diagnostics"/> is the one list to look at. It is recorded like a diagnostic of reading: once per code, offset
+    /// and object, observed by the engine's logger, and thrown in strict mode.
+    /// </summary>
+    /// <param name="diagnostic">The diagnostic; codes from the catalog (such as <see cref="LayoutDiagnostics"/>) or made with
+    /// <see cref="DiagnosticCode.Create"/>.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="diagnostic"/> is null.</exception>
+    /// <exception cref="DiagnosticException">The document was opened or created in strict mode (<see cref="PdfOptions.UseStrict"/>) and
+    /// the diagnostic's severity is not <see cref="DiagnosticSeverity.Information"/>; it is recorded first.</exception>
+    /// <remarks>Repairs are recorded rather than swallowed, and refused in strict mode, the same for writing as for reading (ISO 32000-2 §7.5).</remarks>
+    public void ReportDiagnostic(Diagnostic diagnostic)
+    {
+        ArgumentNullException.ThrowIfNull(diagnostic);
+        _diagnostics.Report(diagnostic);
+    }
+
     /// <summary>Opens the PDF file at <paramref name="path"/> with default options.</summary>
     /// <param name="path">The file path. The file is memory-mapped and shared for reading: do not change it until the document is disposed.</param>
     /// <returns>The document. Dispose it when done.</returns>

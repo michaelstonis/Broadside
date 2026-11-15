@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Broadside.Rendering;
 using Microsoft.Maui.ApplicationModel.DataTransfer;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Devices;
@@ -54,6 +55,10 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
     public static readonly BindableProperty UseHardwareAccelerationProperty =
         BindableProperty.Create(nameof(UseHardwareAcceleration), typeof(bool), typeof(PdfView), true, propertyChanged: (b, _, _) => ((PdfView)b).ReplaceCanvas());
 
+    /// <summary>The <see cref="ColorFilter"/> property.</summary>
+    public static readonly BindableProperty ColorFilterProperty =
+        BindableProperty.Create(nameof(ColorFilter), typeof(ColorFilter?), typeof(PdfView), null, propertyChanged: (b, _, n) => ((PdfView)b).ApplyColorFilter((ColorFilter?)n));
+
     private static readonly Lazy<HttpClient> SharedHttp = new(() => new HttpClient());
     private static readonly TimeSpan FrameInterval = TimeSpan.FromMilliseconds(15);
     private static readonly TimeSpan SemanticInterval = TimeSpan.FromMilliseconds(250);
@@ -93,6 +98,12 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
     /// this is raised; URIs, launches, named actions and scripts are never performed by the view.
     /// </summary>
     public event EventHandler<ViewerActionEventArgs>? ActionRequested;
+
+    /// <summary>
+    /// Raised on the UI thread when another document is shown or the view closes it (<see cref="CurrentSession"/>, <see cref="Search"/>,
+    /// <see cref="Selection"/> and <see cref="Annotations"/> are new): panels that follow the view reload on it.
+    /// </summary>
+    public event EventHandler? DocumentChanged;
 
     /// <summary>Raised when opening the document, loading a page's text or links, or drawing fails.</summary>
     public event EventHandler<PdfViewErrorEventArgs>? Error;
@@ -140,6 +151,21 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
         set => SetValue(UseHardwareAccelerationProperty, value);
     }
 
+    /// <summary>
+    /// Gets or sets the color filter the pages are drawn with, such as <see cref="Broadside.Rendering.ColorFilter.DarkMode"/> for smart
+    /// dark mode; <see langword="null"/> (the default) keeps the session's own (<see cref="ViewerOptions.ColorFilter"/>).
+    /// </summary>
+    /// <remarks>
+    /// Spec #33 viewer capability 9. Changing it redraws every tile from the cached display lists (none is built again); the old tiles
+    /// stay on screen until the new ones arrive, and the surroundings and the paper shown before a page's tiles arrive turn dark with it.
+    /// See <see cref="DocumentSession.ColorFilter"/>.
+    /// </remarks>
+    public ColorFilter? ColorFilter
+    {
+        get => (ColorFilter?)GetValue(ColorFilterProperty);
+        set => SetValue(ColorFilterProperty, value);
+    }
+
     /// <summary>Gets or sets the options for documents opened from <see cref="Source"/>; without a backend factory, tiles draw with <see cref="SkiaTileBackend"/>.</summary>
     /// <remarks>
     /// Without an <see cref="ViewerOptions.Engine"/>, the engine built from <see cref="ViewerOptions.DocumentOptions"/> (created when
@@ -157,8 +183,22 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
     /// <summary>Gets the text selection of the open document, or null.</summary>
     public TextSelection? Selection => _controller.Selection;
 
+    /// <summary>
+    /// Gets the find-in-document search of the open document, or null: every match of its query is highlighted over the pages (the
+    /// current one distinctly) without drawing any page again; scroll a match into view with <see cref="Reveal"/>.
+    /// </summary>
+    /// <remarks>Spec #33 viewer capability 7. Its <see cref="DocumentSearch.Changed"/> event is raised on the indexing thread.</remarks>
+    public DocumentSearch? Search => _controller.Search;
+
     /// <summary>Gets the annotation and link layer of the open document, or null (form values and annotation edits go through it).</summary>
     public AnnotationLayer? Annotations => _controller.Annotations;
+
+    /// <summary>
+    /// Gets the form filling of the open document, or null: the field the keyboard edits, Tab order (each page's Tabs entry), and one
+    /// commit per edit through the form API (filling through the view saves the same file as filling through the API).
+    /// </summary>
+    /// <remarks>ISO 32000-2 §12.7 (interactive forms), §12.5 Table 166 (Tabs). Spec #33 viewer capability 12.</remarks>
+    public FormFilling? Forms => _controller.Forms;
 
     /// <summary>Gets the accessibility bridge of the open document, or null.</summary>
     public AccessibilityBridge? Accessibility => _controller.Bridge;
@@ -166,6 +206,11 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
     /// <summary>Shows a page (zero-based).</summary>
     /// <param name="pageIndex">The page.</param>
     public void GoToPage(int pageIndex) => _controller.GoToPage(pageIndex);
+
+    /// <summary>Shows a destination's view, such as an outline entry's <see cref="OutlineEntry.Target"/>: its page, the view it asks for and its zoom.</summary>
+    /// <param name="target">The resolved destination.</param>
+    /// <remarks>ISO 32000-2 §12.3.2.2 (explicit destinations, Table 149). Spec #33 viewer capability 10.</remarks>
+    public void GoTo(ViewTarget target) => _controller.GoTo(target);
 
     /// <summary>Shows the next page or spread.</summary>
     public void NextPage() => _controller.NextPage();
@@ -180,6 +225,14 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
     /// <summary>Zooms by a factor around the view's centre.</summary>
     /// <param name="factor">The factor (above 1 zooms in).</param>
     public void ZoomBy(double factor) => _controller.ZoomBy(factor);
+
+    /// <summary>Scrolls the least distance that brings an area of a page into view (a found match, an annotation, a field), or centres it.</summary>
+    /// <param name="pageIndex">The zero-based page.</param>
+    /// <param name="area">The area in the page's default user space.</param>
+    public void Reveal(int pageIndex, PdfRectangle area) => _controller.Reveal(pageIndex, area);
+
+    /// <summary>Draws every tile again (the old tiles stay on screen until the new ones arrive), for example after the session's backend changed what it draws with.</summary>
+    public void Redraw() => _controller.Redraw();
 
     /// <summary>Scrolls the view by a distance in device-independent units, as a wheel or trackpad scroll does (no animation).</summary>
     /// <param name="deltaX">The horizontal distance; positive scrolls right.</param>
@@ -341,6 +394,14 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
     }
 
     void IViewerHost.CopyText(string text) => _ = Clipboard.Default.SetTextAsync(text);
+
+    private void ApplyColorFilter(ColorFilter? filter)
+    {
+        _controller.SetColorFilter(filter);
+        SKColor background = filter == Broadside.Rendering.ColorFilter.DarkMode ? ViewerFrame.DarkBackground : ViewerFrame.Background;
+        BackgroundColor = Microsoft.Maui.Graphics.Color.FromRgb(background.Red, background.Green, background.Blue);
+        Invalidate();
+    }
 
     // ---- Frames and painting ----
 
@@ -530,6 +591,11 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
             {
                 _controller.CloseDocument();
             }
+
+            if (generation == _openGeneration)
+            {
+                DocumentChanged?.Invoke(this, EventArgs.Empty);
+            }
         }
 #pragma warning disable CA1031 // the host hears why the document did not open
         catch (Exception exception) when (generation == _openGeneration)
@@ -560,12 +626,22 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
         input.BackgroundColor = Colors.White;
         input.TextColor = Colors.Black;
         bool committed = false;
+
+        // The form filling (#218) holds what is typed and writes it once when the edit ends (focus loss, Enter): filling a field here
+        // saves the same file as filling it through the API.
+        input.TextChanged += (_, e) =>
+        {
+            if (ReferenceEquals(_editorView, input))
+            {
+                _controller.EditorInput(e.NewTextValue ?? string.Empty);
+            }
+        };
         void Commit()
         {
             if (!committed && ReferenceEquals(_editorView, input))
             {
                 committed = true;
-                _controller.CommitFieldText(input.Text);
+                _controller.CommitFieldEdit();
                 _controller.EndFieldEdit();
             }
         }

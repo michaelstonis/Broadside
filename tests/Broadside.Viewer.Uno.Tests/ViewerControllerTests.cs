@@ -236,13 +236,20 @@ public sealed class ViewerControllerTests
 
         FieldEditor editor = Assert.IsType<FieldEditor>(shell.Editors[^1]);
         Assert.Equal(FieldEditorKind.Text, editor.Kind);
+        Assert.Equal(editor.Target, shell.Controller.Forms!.Target);
+        Assert.Equal(FieldEditKind.Text, shell.Controller.Forms.Kind);
         shell.Events.Clear();
-        Assert.True(shell.Controller.CommitFieldText("Ada"));
+
+        // Typing reaches the form filling, which writes the field once, when the edit ends (and only when the value changed).
+        shell.Controller.EditorInput("Grace");
+        Assert.NotEqual("Grace", ((PdfTextField)layer.FocusedField!).Value);
+        Assert.True(shell.Controller.CommitFieldText("Grace Hopper"));
+        Assert.False(shell.Controller.CommitFieldEdit());
         await shell.SettleAsync();
         Assert.All(
             shell.Events.Where(e => e.Kind is TileEventKind.Started or TileEventKind.Presented),
             e => Assert.Equal(DisplayLayers.None, e.Tile.Layers & DisplayLayers.Content));
-        Assert.Equal("Ada", ((PdfTextField)layer.FocusedField!).Value);
+        Assert.Equal("Grace Hopper", ((PdfTextField)layer.FocusedField!).Value);
 
         Assert.True(shell.Controller.KeyDown("Escape", InputModifiers.None));
         Assert.Null(shell.Editors[^1]);
@@ -291,6 +298,24 @@ public sealed class ViewerControllerTests
 
         static AccessibleNode? Find(AccessibleNode node, Func<AccessibleNode, bool> match) =>
             match(node) ? node : node.Children.Select(child => Find(child, match)).FirstOrDefault(found => found is not null);
+    });
+
+    [Fact]
+    public void Pages_are_named_by_their_page_labels_and_by_number_without_any() => UiThread.Run(async () =>
+    {
+        using (Shell shell = await Shell.OpenAsync(Shell.CorpusFile("page-labels.pdf")))
+        {
+            await shell.SettleAsync(() => shell.Controller.PageLabels is not null);
+            AccessibilityBridge bridge = shell.Controller.Bridge!;
+            Assert.Equal("Page i", AccessibleText.Describe(bridge, bridge.GetPage(0), shell.Controller.PageLabels));
+            Assert.Equal("Page Cover", AccessibleText.Describe(bridge, bridge.GetPage(11), shell.Controller.PageLabels));
+        }
+
+        using (Shell plain = await Shell.OpenAsync(Shell.CorpusFile("tagged-structure.pdf")))
+        {
+            Assert.Null(plain.Controller.PageLabels);
+            Assert.Equal("Page 1", AccessibleText.Describe(plain.Controller.Bridge!, plain.Controller.Bridge!.GetPage(0), plain.Controller.PageLabels));
+        }
     });
 
     [Fact]

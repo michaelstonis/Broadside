@@ -190,6 +190,14 @@ public sealed partial class PdfView : UserControl, IViewerHost
     /// <summary>Gets the search over the open document, or null; <see cref="Find"/> drives it and highlights its matches.</summary>
     public DocumentSearch? Search => _controller.Search;
 
+    /// <summary>Gets the form filling of the open document (the focused field's edit, committed through the form API), or null.</summary>
+    /// <remarks>ISO 32000-2 §12.7.</remarks>
+    public FormFilling? Forms => _controller.Forms;
+
+    /// <summary>Gets the open document's page labels once read, or null; the automation peers name pages by them.</summary>
+    /// <remarks>ISO 32000-2 §12.4.2.</remarks>
+    public PageLabelTable? PageLabels => _controller.PageLabels;
+
     /// <summary>Shows a page (zero-based).</summary>
     /// <param name="pageIndex">The page.</param>
     public void GoToPage(int pageIndex) => _controller.GoToPage(pageIndex);
@@ -657,6 +665,7 @@ public sealed partial class PdfView : UserControl, IViewerHost
                 _controller.EndFieldEdit();
             }
         };
+        input.TextChanged += (_, _) => _controller.EditorInput(input.Text);
         input.LostFocus += (_, _) => Commit();
         return input;
     }

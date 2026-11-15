@@ -1,3 +1,5 @@
+using System.Globalization;
+using Broadside.Diagnostics;
 using Broadside.Graphics;
 using Broadside.Objects;
 
@@ -66,35 +68,57 @@ internal static class PageDecorations
         }
     }
 
-    /// <summary>Draws the header and footer of every page, with the page number and count fields filled in.</summary>
-    public static void DrawHeadersAndFooters(List<(PdfPage Page, PageTemplate Template, bool First)> pages, ITextShaper shaper)
+    /// <summary>Draws the decoration, header and footer of every page, with the page number and count fields filled in.</summary>
+    public static void DrawHeadersAndFooters(List<DecoratedPage> pages, ITextShaper shaper, List<Diagnostic> diagnostics, PdfDocument document)
     {
+        // The flow's pages are the document's last ones; a page label (§12.4.2) is looked up by the page's index in the document.
+        int firstIndex = document.Pages.Count - pages.Count;
         for (int index = 0; index < pages.Count; index++)
         {
-            (PdfPage page, PageTemplate template, bool first) = pages[index];
+            (PdfPage page, PageTemplate template, bool first, int section) = pages[index];
+            int pageIndex = firstIndex + index;
+            int pageNumber = index + 1;
+            Func<string> label = () => document.PageLabels is { } labels ? labels.GetLabel(pageIndex) : pageNumber.ToString(CultureInfo.InvariantCulture);
             HeaderFooter? header = template.HeaderFor(index + 1, first);
             HeaderFooter? footer = template.FooterFor(index + 1, first);
             bool hasHeader = header is { IsEmpty: false };
             bool hasFooter = footer is { IsEmpty: false };
-            if (!hasHeader && !hasFooter)
+            if (!hasHeader && !hasFooter && template.Decoration is null)
             {
                 continue;
             }
 
             using PdfCanvas canvas = page.CreateCanvas();
+            if (template.Decoration is { } decoration)
+            {
+                Decorate(canvas, decoration, new PageInfo(index + 1, pages.Count, section, first, template.Setup), diagnostics);
+            }
+
             if (hasHeader)
             {
-                DrawRegion(canvas, shaper, template.Setup, header!, isHeader: true, index + 1, pages.Count);
+                DrawRegion(canvas, shaper, template.Setup, header!, isHeader: true, index + 1, pages.Count, label);
             }
 
             if (hasFooter)
             {
-                DrawRegion(canvas, shaper, template.Setup, footer!, isHeader: false, index + 1, pages.Count);
+                DrawRegion(canvas, shaper, template.Setup, footer!, isHeader: false, index + 1, pages.Count, label);
             }
         }
     }
 
-    private static void DrawRegion(PdfCanvas canvas, ITextShaper shaper, PageSetup setup, HeaderFooter region, bool isHeader, int pageNumber, int pageCount)
+    /// <summary>Runs a template's decoration on one page as a pagination artifact, in a saved graphics state it cannot leave unbalanced.</summary>
+    private static void Decorate(PdfCanvas canvas, Action<PdfCanvas, PageInfo> decoration, PageInfo page, List<Diagnostic> diagnostics)
+    {
+        canvas.BeginMarkedContent("Artifact", new CosDictionary { [TypeKey] = new CosName("Pagination") });
+        canvas.SaveState();
+        int state = canvas.StateDepth;
+        int marked = canvas.MarkedContentDepth;
+        decoration(canvas, page);
+        CanvasBalance.Restore(canvas, state, marked, diagnostics, string.Create(CultureInfo.InvariantCulture, $"The decoration of page {page.Number}"));
+        canvas.EndMarkedContent();
+    }
+
+    private static void DrawRegion(PdfCanvas canvas, ITextShaper shaper, PageSetup setup, HeaderFooter region, bool isHeader, int pageNumber, int pageCount, Func<string> label)
     {
         TextStyle style = region.Style;
         double left = setup.Margins.Left;
@@ -113,7 +137,7 @@ internal static class PageDecorations
                 continue;
             }
 
-            string text = HeaderFooter.Expand(slot, pageNumber, pageCount);
+            string text = region.ExpandSlot(slot, pageNumber, pageCount, label);
             double width = shaper.Measure(text, style);
             ShowLine(canvas, shaper, text, style, left + (((right - left) - width) * alignment), baseline);
         }

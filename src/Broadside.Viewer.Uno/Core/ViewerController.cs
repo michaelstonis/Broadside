@@ -59,6 +59,8 @@ internal sealed class ViewerController : IDisposable
     private AnnotationLayer? _annotations;
     private AccessibilityBridge? _bridge;
     private DocumentSearch? _search;
+    private FormFilling? _filling;
+    private PageLabelTable? _labels;
     private bool _revealMatch;
     private ColorFilter? _colorFilter;
     private bool _showAnnotations = true;
@@ -133,6 +135,12 @@ internal sealed class ViewerController : IDisposable
     public AccessibilityBridge? Bridge => _bridge;
 
     public DocumentSearch? Search => _search;
+
+    /// <summary>Gets the form filling of the open document (the focused field's edit), or null.</summary>
+    public FormFilling? Forms => _filling;
+
+    /// <summary>Gets the open document's page labels once read (pages are named by them), or null.</summary>
+    public PageLabelTable? PageLabels => _labels;
 
     public InputModel? Input => _input;
 
@@ -228,6 +236,9 @@ internal sealed class ViewerController : IDisposable
         _annotations.Changed += OnAnnotationsChanged;
         _bridge = new AccessibilityBridge(session, _annotations) { Viewer = _zoom, Observer = OnAccessibilityChange };
         _annotations.Accessibility = _bridge;
+        _filling = new FormFilling(_annotations);
+        _filling.Changed += OnFillingChanged;
+        _ = LoadLabelsAsync(session, generation);
         _search = new DocumentSearch(session);
         _search.Changed += (_, _) => WakeAnyThread();
         SetState(_state with { IsLoading = false, PageCount = session.PageCount, IsRendering = true });
@@ -716,30 +727,48 @@ internal sealed class ViewerController : IDisposable
 
     // ---- Form fields ----
 
-    /// <summary>Commits the editor's text to the focused text field (or an editable combo box's value).</summary>
-    public bool CommitFieldText(string? text)
+    /// <summary>The editor's text changed (typing, an input method, a paste): the form filling holds it until the edit ends.</summary>
+    public void EditorInput(string text)
     {
-        if (_annotations is null || _editor is null)
+        if (_filling is { } filling && _editor is { } editor && filling.Target == editor.Target)
         {
-            return false;
+            filling.SetText(text);
         }
+    }
 
-        bool done = _editor.Kind == FieldEditorKind.Text ? _annotations.SetFieldText(text) : _annotations.SetFieldChoice(text);
+    /// <summary>
+    /// Ends the edit of the editor's field: the form filling writes it once through the form API when it differs from the field's
+    /// value, which regenerates the field's appearance and redraws only its overlay tiles.
+    /// </summary>
+    public bool CommitFieldEdit()
+    {
+        bool done = _filling?.Commit() ?? false;
         Wake();
         return done;
     }
 
-    /// <summary>Selects option <paramref name="index"/> of the focused choice field.</summary>
-    public bool CommitFieldChoice(int index)
+    /// <summary>Sets the editor's text (a text field, or an editable combo box's value) and ends the edit.</summary>
+    public bool CommitFieldText(string? text)
     {
-        if (_annotations is null || _editor is not { Kind: FieldEditorKind.Choice })
+        if (_filling is null || _editor is null || _filling.Target != _editor.Target)
         {
             return false;
         }
 
-        bool done = _annotations.SetFieldSelection([index]);
-        Wake();
-        return done;
+        _filling.SetText(text ?? string.Empty);
+        return CommitFieldEdit();
+    }
+
+    /// <summary>Picks option <paramref name="index"/> of the editor's choice field and ends the edit.</summary>
+    public bool CommitFieldChoice(int index)
+    {
+        if (_filling is null || _editor is not { Kind: FieldEditorKind.Choice } editor || _filling.Target != editor.Target)
+        {
+            return false;
+        }
+
+        _filling.SetSelectedOptions([index]);
+        return CommitFieldEdit();
     }
 
     /// <summary>Closes the editor (focus leaves the field).</summary>
@@ -965,6 +994,34 @@ internal sealed class ViewerController : IDisposable
         }
 
         Wake();
+    }
+
+    private void OnFillingChanged(object? sender, EventArgs e) => Wake();
+
+    /// <summary>Reads the page labels (ISO 32000-2 §12.4.2) so the accessible pages are named by them, as the document numbers its pages.</summary>
+    private async Task LoadLabelsAsync(DocumentSession session, int generation)
+    {
+        PageLabelTable labels;
+        try
+        {
+            labels = await PageLabelTable.LoadAsync(session, _closing.Token).ConfigureAwait(true);
+        }
+        catch (Exception exception) when (exception is OperationCanceledException or ObjectDisposedException)
+        {
+            return;
+        }
+#pragma warning disable CA1031 // a document without readable labels numbers its pages from 1
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+            return;
+        }
+
+        if (generation == _generation && labels.HasLabels)
+        {
+            _labels = labels;
+            _host.AccessibilityChanged(new AccessibilityChange(AccessibilityChangeKind.ChildrenChanged, null));
+        }
     }
 
     private void RefreshAccessiblePages()
@@ -1523,6 +1580,9 @@ internal sealed class ViewerController : IDisposable
     private void Close()
     {
         _generation++;
+        _filling?.Changed -= OnFillingChanged;
+        _filling = null;
+        _labels = null;
         _search?.Dispose();
         _search = null;
         _revealMatch = false;
