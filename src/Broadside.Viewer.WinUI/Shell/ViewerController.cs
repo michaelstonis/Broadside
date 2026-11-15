@@ -14,7 +14,7 @@ namespace Broadside.Viewer.WinUI;
 /// A port of the MAUI shell's controller (#226) with the Blazor shell's search and dark mode (#215, #219): the input model owns the
 /// gestures (#213); this class only routes pointers to the annotation layer, the text selection or the input model. Coordinates
 /// arrive in device-independent units; frames are composed in device pixels. All members run on the UI thread; tiles render on
-/// workers in a background session and reach the UI thread through <see cref="TileStore.Drain"/> (ADR 0013).
+/// workers in a background session and reach the UI thread through <see cref="TileStore.Drain"/>, so tiles never render on the UI thread.
 /// </remarks>
 internal sealed class ViewerController : IDisposable
 {
