@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Broadside.Diagnostics;
 using Broadside.Fonts;
+using Broadside.Forms;
 using Broadside.Graphics;
 using Broadside.Images;
 using Broadside.Objects;
@@ -90,7 +91,8 @@ internal sealed partial class DocumentAssembler
             AddBlocks(flow.Add, section.Content, scope, _context.Language);
         }
 
-        return flow!;
+        flow!.OutlineDepth = _context.OutlineDepth;
+        return flow;
     }
 
     private PageTemplate TemplateOf(SectionNode section)
@@ -191,6 +193,12 @@ internal sealed partial class DocumentAssembler
                 case ColumnsNode columns:
                     add(Kept(columns, BuildColumns(columns, scope, language)));
                     break;
+                case TocNode toc:
+                    AddTableOfContents(add, toc, scope, language);
+                    break;
+                case FieldNode field:
+                    add(Kept(field, BuildField(field, scope)));
+                    break;
                 case GroupNode group:
                     add(new BlockGroup(Blocks(group.Content, Merge(scope, group.Scope?.Inherited), language))
                     {
@@ -261,7 +269,7 @@ internal sealed partial class DocumentAssembler
         }
 
         Style full = Resolve(type, scope, node.Local);
-        return Paragraph(node.Text, node.Spans, full, node.Level > 0 ? Headings[node.Level - 1] : "P", language);
+        return Paragraph(node.Text, node.Spans, full, node.Level > 0 ? Headings[node.Level - 1] : "P", language, node.Id);
     }
 
     private Paragraph Caption(string text, Style scope, string? language) => Paragraph(text, null, Resolve(_caption, scope, null), "Caption", language);
@@ -270,22 +278,22 @@ internal sealed partial class DocumentAssembler
     /// A paragraph of <paramref name="text"/> or <paramref name="spans"/> in the resolved style <paramref name="full"/>, tagged
     /// <paramref name="structureType"/>, with its language written only where it differs from <paramref name="parentLanguage"/>.
     /// </summary>
-    private Paragraph Paragraph(string? text, List<SpanNode>? spans, Style full, string structureType, string? parentLanguage)
+    private Paragraph Paragraph(string? text, List<SpanNode>? spans, Style full, string structureType, string? parentLanguage, string? id = null)
     {
         ParagraphStyle style = ParagraphStyleOf(full);
         string? language = string.Equals(full.Language, parentLanguage, StringComparison.OrdinalIgnoreCase) ? null : full.Language;
         if (text is not null)
         {
-            List<InlineElement>? runs = AddRuns(null, text, full, NeedsStyle(full) ? TextStyleOf(full, full.Color) : null, style, null, null);
+            List<InlineElement>? runs = AddRuns(null, text, full, NeedsStyle(full) ? TextStyleOf(full, full.Color) : null, style, null, null, null);
             return runs is null
-                ? new Paragraph(text, style) { StructureType = structureType, Language = language }
-                : new Paragraph(runs, style) { StructureType = structureType, Language = language };
+                ? new Paragraph(text, style) { StructureType = structureType, Language = language, Id = id }
+                : new Paragraph(runs, style) { StructureType = structureType, Language = language, Id = id };
         }
 
         var content = new List<InlineElement>(spans!.Count);
         foreach (SpanNode span in spans)
         {
-            Style spanFull = span.Link is null ? Merge(full, span.Local) : Merge(Merge(full, _link), span.Local);
+            Style spanFull = span.Link is null && span.Destination is null ? Merge(full, span.Local) : Merge(Merge(full, _link), span.Local);
             string? spanLanguage = string.Equals(spanFull.Language, full.Language, StringComparison.OrdinalIgnoreCase) ? null : spanFull.Language;
             TextStyle? spanStyle = SameText(spanFull, full) && !NeedsStyle(full) ? null : TextStyleOf(spanFull, Visible(spanFull.Color));
             if (span.LineBreak)
@@ -294,10 +302,16 @@ internal sealed partial class DocumentAssembler
                 continue;
             }
 
-            _ = AddRuns(content, span.Text, spanFull, spanStyle, style, span.Link, spanLanguage);
+            if (span.PageOf is { } target)
+            {
+                content.Add(spanStyle is null ? new PageReference(target) : new PageReference(target, spanStyle));
+                continue;
+            }
+
+            _ = AddRuns(content, span.Text, spanFull, spanStyle, style, span.Link, span.Destination, spanLanguage);
         }
 
-        return new Paragraph(content, style) { StructureType = structureType, Language = language };
+        return new Paragraph(content, style) { StructureType = structureType, Language = language, Id = id };
     }
 
     /// <summary>
@@ -305,16 +319,16 @@ internal sealed partial class DocumentAssembler
     /// else one per stretch of a face from the family's fallbacks, with characters no face encodes replaced and reported. Leaves
     /// <paramref name="runs"/> null for plain text that needs no run of its own.
     /// </summary>
-    private List<InlineElement>? AddRuns(List<InlineElement>? runs, string text, Style full, TextStyle? style, ParagraphStyle paragraph, Uri? link, string? language)
+    private List<InlineElement>? AddRuns(List<InlineElement>? runs, string text, Style full, TextStyle? style, ParagraphStyle paragraph, Uri? link, string? destination, string? language)
     {
         PdfCanvasFont primary = (style ?? paragraph.TextStyle).Font;
         FontFamily family = full.FontFamily!;
         if (Encodes(primary, text))
         {
-            if (runs is not null || style is not null || link is not null || language is not null)
+            if (runs is not null || style is not null || link is not null || destination is not null || language is not null)
             {
                 runs ??= [];
-                runs.Add(Run(text, style, link, language));
+                runs.Add(Run(text, style, link, destination, language));
             }
 
             return runs;
@@ -333,7 +347,7 @@ internal sealed partial class DocumentAssembler
             PdfCanvasFont font = Skipped(rune) ? current ?? primary : FontFor(family, face, primary, character, rune);
             if (current is not null && !ReferenceEquals(font, current))
             {
-                runs.Add(Run(segment.ToString(), ReferenceEquals(current, primary) ? style : baseStyle.WithFont(current), link, language));
+                runs.Add(Run(segment.ToString(), ReferenceEquals(current, primary) ? style : baseStyle.WithFont(current), link, destination, language));
                 segment.Clear();
             }
 
@@ -350,14 +364,16 @@ internal sealed partial class DocumentAssembler
 
         if (segment.Length > 0)
         {
-            runs.Add(Run(segment.ToString(), ReferenceEquals(current, primary) ? style : baseStyle.WithFont(current!), link, language));
+            runs.Add(Run(segment.ToString(), ReferenceEquals(current, primary) ? style : baseStyle.WithFont(current!), link, destination, language));
         }
 
         return runs;
     }
 
-    private static TextRun Run(string text, TextStyle? style, Uri? link, string? language) =>
-        style is null ? new TextRun(text) { Link = link, Language = language } : new TextRun(text, style) { Link = link, Language = language };
+    private static TextRun Run(string text, TextStyle? style, Uri? link, string? destination, string? language) =>
+        style is null
+            ? new TextRun(text) { Link = link, Destination = destination, Language = language }
+            : new TextRun(text, style) { Link = link, Destination = destination, Language = language };
 
     private PdfCanvasFont FontFor(FontFamily family, FontFace face, PdfCanvasFont primary, ReadOnlySpan<char> character, Rune rune)
     {
@@ -499,6 +515,7 @@ internal sealed partial class DocumentAssembler
             Language = tableLanguage,
             Width = node.Width?.ToPoints(),
             Alignment = node.Alignment,
+            Id = node.Id,
         };
 
         foreach (RowNode row in node.HeaderRows)
@@ -561,6 +578,40 @@ internal sealed partial class DocumentAssembler
         };
     }
 
+    /// <summary>A table of contents, with its title (a paragraph in the level-2 heading look, not a heading) kept with it.</summary>
+    private void AddTableOfContents(Func<FlowBlock, object> add, TocNode node, Style scope, string? language)
+    {
+        Style full = Resolve(null, scope, node.Local);
+        var toc = new TableOfContents(ParagraphStyleOf(full)) { Depth = node.Depth, LeaderText = node.Leader ?? "." };
+        if (node.Title is { } title)
+        {
+            Style look = Resolve(_headings[1], scope, node.Local?.SpaceBefore is { } before ? new Style { SpaceBefore = before } : null);
+            add(new BlockGroup(Paragraph(title, null, look, "P", language)) { KeepWithNext = true });
+        }
+
+        add(Kept(node, toc));
+    }
+
+    private FieldBlock BuildField(FieldNode node, Style scope)
+    {
+        Style full = Resolve(null, scope, node.Local);
+        ParagraphStyle label = ParagraphStyleOf(full);
+        double height = node.Height?.ToPoints() ?? (node.Lines > 0 ? (node.Lines * full.FontSize!.Value * full.LineHeight!.Value) + 4 : 0);
+        return new FieldBlock(node.Type, node.Name, node.Label, label)
+        {
+            Width = node.Width?.ToPoints() ?? 0,
+            Height = height,
+            Choices = node.Choices,
+            Value = node.Value,
+            IsChecked = node.Checked,
+            Options = node.Flags == PdfFieldFlags.None ? null : new PdfFieldOptions().WithFlags(node.Flags),
+            LabelPosition = node.LabelPosition,
+            SpaceBefore = full.SpaceBefore?.ToPoints() ?? 0,
+            SpaceAfter = full.SpaceAfter?.ToPoints() ?? 0,
+            Id = node.Id,
+        };
+    }
+
     /// <summary>The image of <paramref name="source"/> in the document, embedded on first use.</summary>
     private PdfImage Embed(ImageSource source)
     {
@@ -590,6 +641,7 @@ internal sealed partial class DocumentAssembler
         {
             AlternateText = node.AlternateText,
             IsDecorative = node.AlternateText is null,
+            Id = node.Id,
             Alignment = node.Alignment,
             SpaceBefore = box.SpaceBefore?.ToPoints() ?? 0,
             SpaceAfter = box.SpaceAfter?.ToPoints() ?? _root.SpaceAfter?.ToPoints() ?? 0,
@@ -664,6 +716,7 @@ internal sealed partial class DocumentAssembler
             Alignment = node.Alignment,
             SpaceBefore = box.SpaceBefore?.ToPoints() ?? 0,
             SpaceAfter = box.SpaceAfter?.ToPoints() ?? _root.SpaceAfter?.ToPoints() ?? 0,
+            Id = node.Id,
             StructureType = node.AlternateText is null ? "Artifact" : "Figure",
             Language = node.AlternateText is null ? null : blockLanguage,
         };

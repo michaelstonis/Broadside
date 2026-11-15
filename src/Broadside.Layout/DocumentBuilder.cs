@@ -121,6 +121,22 @@ public readonly ref struct DocumentBuilder
     }
 
     /// <summary>
+    /// Sets the deepest heading level the document outline (bookmarks) lists; 3 by default, 0 for no outline. Each entry goes to its
+    /// heading, nested by level.
+    /// </summary>
+    /// <param name="depth">The level, 0 to 6.</param>
+    /// <returns>This builder.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="depth"/> is outside 0 to 6.</exception>
+    /// <remarks>ISO 32000-2 §12.3.3 (document outline). Appending to a document adds the entries after its existing ones.</remarks>
+    public DocumentBuilder WithOutlineDepth(int depth)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(depth);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(depth, 6);
+        Context.OutlineDepth = depth;
+        return this;
+    }
+
+    /// <summary>
     /// Declares the PDF/UA conformance the document is built for. Its preconditions are checked when the build ends (a language, a title,
     /// tagged output, no skipped heading level under PDF/UA-1, no PDF/A level it cannot combine with), and an unmet one throws there,
     /// naming every one; it chooses the structure namespace (PDF 1.7 for PDF/UA-1, PDF 2.0 for PDF/UA-2); and it becomes the default for

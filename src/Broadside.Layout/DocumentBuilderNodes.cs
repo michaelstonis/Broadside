@@ -1,4 +1,5 @@
 using Broadside.Diagnostics;
+using Broadside.Forms;
 using Broadside.Graphics;
 
 namespace Broadside.Layout.Flow;
@@ -27,6 +28,9 @@ internal sealed class BuildContext(PdfDocument document, bool appending)
     public string? Language { get; set; }
 
     public bool Tagging { get; set; } = true;
+
+    /// <summary>The deepest heading level the outline lists; 0 for no outline.</summary>
+    public int OutlineDepth { get; set; } = 3;
 
     public PdfUAConformance PdfUA { get; set; }
 
@@ -147,6 +151,9 @@ internal abstract class BlockNode
 
     /// <summary>True when the element stays on one page when it fits on one.</summary>
     public bool KeepTogether { get; set; }
+
+    /// <summary>The anchor id links, page references and the outline reach the element by, or null.</summary>
+    public string? Id { get; set; }
 }
 
 /// <summary>A paragraph or a heading: plain text or spans.</summary>
@@ -158,8 +165,6 @@ internal sealed class ParagraphNode : BlockNode
 
     /// <summary>The heading level, 1 to 6, or 0 for a paragraph.</summary>
     public int Level { get; set; }
-
-    public string? Id { get; set; }
 }
 
 /// <summary>A span of a paragraph: text, a link or a line break.</summary>
@@ -170,6 +175,12 @@ internal sealed class SpanNode
     public Style? Local { get; set; }
 
     public Uri? Link { get; init; }
+
+    /// <summary>The anchor id the span links to, or null.</summary>
+    public string? Destination { get; init; }
+
+    /// <summary>The anchor id whose page number the span shows, or null.</summary>
+    public string? PageOf { get; init; }
 
     public bool LineBreak { get; init; }
 }
@@ -382,4 +393,40 @@ internal sealed class ColumnNode(ColumnWidth width)
     public ColumnWidth Width { get; } = width;
 
     public ContainerNode Content { get; } = new();
+}
+
+/// <summary>A table of contents: its title, depth and leader.</summary>
+internal sealed class TocNode : BlockNode
+{
+    public string? Title { get; set; }
+
+    public int Depth { get; set; } = 3;
+
+    public string? Leader { get; set; }
+}
+
+/// <summary>A form field with its label.</summary>
+internal sealed class FieldNode : BlockNode
+{
+    public required FormFieldType Type { get; init; }
+
+    public required string Name { get; init; }
+
+    public required string Label { get; init; }
+
+    public IReadOnlyList<string> Choices { get; init; } = [];
+
+    public Length? Width { get; set; }
+
+    public Length? Height { get; set; }
+
+    public int Lines { get; set; }
+
+    public string? Value { get; set; }
+
+    public bool Checked { get; set; }
+
+    public PdfFieldFlags Flags { get; set; }
+
+    public FieldLabelPosition LabelPosition { get; set; }
 }

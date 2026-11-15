@@ -50,6 +50,8 @@ public sealed class BuilderGuideSampleTests
     [InlineData("results-table", "ua2")]
     [InlineData("images-and-drawing", "2u")]
     [InlineData("invoice", "3u")]
+    [InlineData("guide", "ua1")]
+    [InlineData("form", "ua1")]
     public void Each_sample_passes_verapdf_under_the_profile_it_declares(string name, string flavour)
     {
         using PdfDocument document = Build(name);

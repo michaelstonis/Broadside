@@ -24,6 +24,8 @@ public static class Samples
         ("field-report", (options, _) => CreateFieldReport(options, SampleData.Report)),
         ("results-table", (options, _) => ResultsTable(options, SampleData.Results)),
         ("images-and-drawing", (options, logo) => ImagesAndDrawing(options, logo, SampleData.Results)),
+        ("guide", (options, _) => Guide(options)),
+        ("form", (options, _) => LoanRequestForm(options)),
         ("invoice", (options, logo) => CreateInvoice(options, SampleData.Invoice, AcmeTheme.WithLogo(logo))),
         ("escape-hatches", (options, _) => EscapeHatches(options)),
     ];
@@ -164,6 +166,81 @@ public static class Samples
                     canvas.Fill();
                 })
                 .Caption("Figure 1. Units shipped in Q4");
+            }));
+
+    /// <summary>
+    /// Lists, links to a heading and to the web, a page reference, a table of contents and the outline built from the headings
+    /// (section 3.6), declared PDF/UA-1.
+    /// </summary>
+    /// <param name="options">The document's options.</param>
+    /// <returns>The document.</returns>
+    public static PdfDocument Guide(PdfOptions options) =>
+        PdfDocument.Create(options, doc => doc
+            .WithTitle("Broadside user guide")
+            .WithLanguage("en-US")
+            .WithOutlineDepth(3)                              // the default is 3; 0 turns the outline off
+            .WithPdfUAConformance(PdfUAConformance.PdfUA1)
+            .Section(s => s
+                .Footer(f => f.Center($"Page {PageField.Number} of {PageField.Count}"))
+                .Content(c =>
+                {
+                    c.Heading(1, "Broadside user guide");
+                    c.TableOfContents().Title("Contents").Depth(2);
+                    c.PageBreak();
+
+                    c.Heading(2, "Installing").Id("install");
+                    c.List(l =>
+                    {
+                        l.Item("Add the Broadside package.");
+                        l.Item(i =>
+                        {
+                            i.Paragraph("Add the optional packages you need:");
+                            i.List(sub =>
+                            {
+                                sub.Item("Broadside.Rendering, for PNG output");
+                                sub.Item("Broadside.Fonts.Standard14, for non-embedded fonts");
+                            }).Bullet("–");
+                        });
+                    }).Numbered();
+
+                    c.Heading(2, "Reading files");
+                    c.Paragraph(t =>
+                    {
+                        t.Text("Install the packages first (see ");
+                        t.Link("Installing", to: "install");
+                        t.Text(" on page ");
+                        t.PageOf("install");
+                        t.Text("), or read the ");
+                        t.Link("online guide", new Uri("https://example.org/guide"));
+                        t.Text(".");
+                    });
+
+                    c.Heading(3, "Repairs and diagnostics");
+                    c.Paragraph("Reading is lenient: a damaged file is repaired, and every repair is recorded as a diagnostic on the document.");
+                    c.Heading(2, "Writing files");
+                    c.Paragraph("Save with Save or SaveAsync; a document built for a PDF/A or PDF/UA profile saves with it by default.");
+                })));
+
+    /// <summary>A form with labeled fields of every kind (section 3.7), declared PDF/UA-1.</summary>
+    /// <param name="options">The document's options.</param>
+    /// <returns>The document.</returns>
+    public static PdfDocument LoanRequestForm(PdfOptions options) =>
+        PdfDocument.Create(options, doc => doc
+            .WithTitle("Equipment loan request")
+            .WithLanguage("en-GB")
+            .WithPdfUAConformance(PdfUAConformance.PdfUA1)
+            .Content(c =>
+            {
+                c.Heading(1, "Equipment loan request");
+                c.Paragraph("Complete every field, sign, and return the form to the stores office.");
+
+                c.TextField("name", "Full name").Width(90.Mm).Required();
+                c.TextField("email", "Email address").Width(90.Mm).Required();
+                c.ComboBox("site", "Site", ["Leeds", "Manchester", "York"]).Value("Leeds");
+                c.TextField("items", "Items requested").Multiline(lines: 4).FillWidth();
+                c.RadioGroup("collection", "Collection", ["Pick up", "Deliver to my desk"]).Value("Pick up");
+                c.CheckBox("terms", "I will return the equipment in working order").Required();
+                c.SignatureField("signature", "Signature").Size(70.Mm, 20.Mm);
             }));
 
     /// <summary>
