@@ -169,6 +169,10 @@ public sealed class PdfView : Control, IDisposable
     /// <summary>Gets the search of the open document, or null; <see cref="Find"/> runs it and the viewer highlights its matches.</summary>
     public DocumentSearch? Search => Controller.Search;
 
+    /// <summary>Gets the open document's page labels once they are read, or null; the automation peers name pages by them.</summary>
+    /// <remarks>ISO 32000-2 §12.4.2 (page labels).</remarks>
+    public PageLabelTable? PageLabels => Controller.PageLabels;
+
     internal ViewerController Controller { get; }
 
     /// <summary>Gets whether a frame is requested and has not run yet (tests).</summary>
@@ -180,6 +184,14 @@ public sealed class PdfView : Control, IDisposable
     /// <summary>Shows a page (zero-based).</summary>
     /// <param name="pageIndex">The page.</param>
     public void GoToPage(int pageIndex) => Controller.GoToPage(pageIndex);
+
+    /// <summary>
+    /// Shows a resolved destination (an outline entry's <see cref="OutlineEntry.Target"/>, a named destination): its page, the zoom and
+    /// the position its view asks for, at once.
+    /// </summary>
+    /// <param name="target">The target.</param>
+    /// <remarks>ISO 32000-2 §12.3.2.2, Table 149.</remarks>
+    public void GoTo(ViewTarget target) => Controller.GoTo(target);
 
     /// <summary>Shows the next page or spread.</summary>
     public void NextPage() => Controller.NextPage();

@@ -14,6 +14,7 @@ namespace Broadside.Viewer.Avalonia.Sample;
 internal sealed class MainWindow : Window, IDisposable
 {
     private readonly PdfView _viewer = new();
+    private readonly SidePanel _side;
     private readonly TextBlock _status = new() { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0) };
     private readonly TextBox _query = new() { PlaceholderText = "Search", Width = 180 };
     private readonly TextBlock _matches = new() { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0) };
@@ -26,7 +27,12 @@ internal sealed class MainWindow : Window, IDisposable
 
         // Standard 14 fonts and the predefined CMaps are bundled, so text draws the same on every OS; tiles render on worker threads.
         _viewer.Options = new ViewerOptions().WithDocumentOptions(new PdfOptions().UseStandard14Fonts().UsePredefinedCMaps());
-        _viewer.StateChanged += (_, e) => ShowState(e.State);
+        _side = new SidePanel(_viewer);
+        _viewer.StateChanged += (_, e) =>
+        {
+            ShowState(e.State);
+            _side.Update(e.State);
+        };
         _viewer.ActionRequested += (_, e) =>
         {
             // Links to the web are never followed by the viewer; the sample shows where they go.
@@ -86,6 +92,8 @@ internal sealed class MainWindow : Window, IDisposable
         var root = new DockPanel();
         DockPanel.SetDock(toolbar, Dock.Top);
         root.Children.Add(toolbar);
+        DockPanel.SetDock(_side, Dock.Left);
+        root.Children.Add(_side);
         root.Children.Add(_viewer);
         Content = root;
         _viewer.Source = source;
@@ -95,7 +103,11 @@ internal sealed class MainWindow : Window, IDisposable
     }
 
     /// <summary>Closes the document when the window closes.</summary>
-    public void Dispose() => _viewer.Dispose();
+    public void Dispose()
+    {
+        _side.Dispose();
+        _viewer.Dispose();
+    }
 
     protected override void OnClosed(EventArgs e)
     {

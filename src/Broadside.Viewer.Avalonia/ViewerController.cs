@@ -76,6 +76,7 @@ internal sealed class ViewerController : IDisposable
     private AnnotationLayer? _annotations;
     private AccessibilityBridge? _bridge;
     private DocumentSearch? _search;
+    private PageLabelTable? _labels;
     private SearchMatch? _revealed;
     private ColorFilter? _colorFilter;
     private bool _showAnnotations = true;
@@ -146,6 +147,9 @@ internal sealed class ViewerController : IDisposable
     public AccessibilityBridge? Bridge => _bridge;
 
     public DocumentSearch? Search => _search;
+
+    /// <summary>Gets the open document's page labels once they are read (null before), for page names.</summary>
+    public PageLabelTable? PageLabels => _labels;
 
     public InputModel? Input => _input;
 
@@ -246,6 +250,7 @@ internal sealed class ViewerController : IDisposable
         SetState(_state with { IsLoading = false, PageCount = session.PageCount, IsRendering = true });
         _host.AccessibilityChanged(new AccessibilityChange(AccessibilityChangeKind.ChildrenChanged, null));
         _ = SweepMetricsAsync(session, generation);
+        _ = LoadPageLabelsAsync(session, generation);
         Wake();
     }
 
@@ -381,6 +386,17 @@ internal sealed class ViewerController : IDisposable
 
         _zoom.SetViewport(layout.Clamp(viewport with { X = viewport.X + dx, Y = viewport.Y + dy }));
         Wake();
+    }
+
+    /// <summary>Shows a resolved destination (an outline entry's target, a named destination): its page, zoom and position.</summary>
+    public void GoTo(ViewTarget target)
+    {
+        if (_zoom is not null && _input is not null)
+        {
+            _interacted = true;
+            _zoom.SetViewport(target.GetViewport(_zoom.Layout, _input.Viewport, _input.ActualSize, _zoom.MinZoom, _zoom.MaxZoom));
+            Wake();
+        }
     }
 
     // ---- Search ----
@@ -901,6 +917,37 @@ internal sealed class ViewerController : IDisposable
                 _metricsDirty = true;
                 Wake();
             }
+        }
+    }
+
+    private async Task LoadPageLabelsAsync(DocumentSession session, int generation)
+    {
+        PageLabelTable labels;
+        try
+        {
+            labels = await PageLabelTable.LoadAsync(session, _closing.Token).ConfigureAwait(true);
+        }
+        catch (Exception exception) when (exception is OperationCanceledException or ObjectDisposedException)
+        {
+            return;
+        }
+#pragma warning disable CA1031 // pages keep their numbers as names; the host hears why the labels are missing
+        catch (Exception exception)
+#pragma warning restore CA1031
+        {
+            if (generation == _generation)
+            {
+                _host.Error(exception);
+            }
+
+            return;
+        }
+
+        if (generation == _generation)
+        {
+            // Pages are named by their labels from now on (§12.4.2): the accessibility tree's pages are announced again.
+            _labels = labels;
+            _host.AccessibilityChanged(new AccessibilityChange(AccessibilityChangeKind.ChildrenChanged, null));
         }
     }
 
@@ -1566,6 +1613,7 @@ internal sealed class ViewerController : IDisposable
         _annotations = null;
         _bridge = null;
         _search?.Dispose();
+        _labels = null;
         _search = null;
         _revealed = null;
         Surface.Clear();

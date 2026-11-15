@@ -121,6 +121,13 @@ jobs:
         if: runner.os == 'Windows'
         run: dotnet test --project tests/Broadside.Rendering.Direct2D.Tests -c Release --no-build --minimum-expected-tests 1 --results-directory artifacts/test-results -- --report-xunit-trx
 
+      - name: Test the WPF viewer (Windows)
+        # The WPF shell (issue #222): the controller, the control and its UI Automation peers, then the UI Automation test that starts
+        # the sample app (built above with the solution) and opens, reads, zooms, scrolls, selects and searches the pinned subset
+        # through it. Needs the Windows Desktop runtime and the runner's interactive desktop; outside Broadside.Core.slnf.
+        if: runner.os == 'Windows'
+        run: dotnet test --project tests/Broadside.Viewer.Wpf.Tests -c Release --no-build --minimum-expected-tests 1 --results-directory artifacts/test-results -- --report-xunit-trx
+
       - name: Dry run the Direct2D benchmarks (Windows)
         # bench-dry runs bench/Broadside.Benchmarks on Linux; the Direct2D backend's benchmarks need Windows.
         if: runner.os == 'Windows'
@@ -358,7 +365,7 @@ jobs:
         run: dotnet run --project tools/ConformanceCheck -- --root . --summary --citations --site-page site/articles/conformance.md >> "${GITHUB_STEP_SUMMARY}"
 
   # Checks the formatting of everything dotnet format can see: the core solution filter, and the fuzz, benchmark and Windows-only
-  # Direct2D test and benchmark projects, which are outside it.
+  # Direct2D and WPF test, benchmark and sample projects, which are outside it.
   format:
     name: format
     runs-on: ubuntu-latest
@@ -388,6 +395,9 @@ jobs:
           dotnet format bench/Broadside.Benchmarks/Broadside.Benchmarks.csproj --verify-no-changes
           dotnet format tests/Broadside.Rendering.Direct2D.Tests/Broadside.Rendering.Direct2D.Tests.csproj --verify-no-changes
           dotnet format bench/Broadside.Rendering.Direct2D.Benchmarks/Broadside.Rendering.Direct2D.Benchmarks.csproj --verify-no-changes
+          dotnet format tests/Broadside.Viewer.Wpf.Tests/Broadside.Viewer.Wpf.Tests.csproj --verify-no-changes
+          dotnet format samples/Broadside.Viewer.Wpf.Sample/Broadside.Viewer.Wpf.Sample.csproj --verify-no-changes
+          dotnet format tests/Broadside.Viewer.WinUI.UITests/Broadside.Viewer.WinUI.UITests.csproj --verify-no-changes
 
   # Runs every fuzz target in smoke mode for 60 s (tests/Broadside.Fuzz/README.md), the targets of the --list split over
   # parallel shards (target i runs in shard i mod the shard count) so the run stays far below its timeout as targets are added.
@@ -558,6 +568,55 @@ jobs:
         run: >
           dotnet run --project tools/ApkAotCheck --
           artifacts/bin/Broadside.Viewer.Maui.Sample/release_net10.0-android/dev.broadside.viewer.sample-Signed.apk
+
+  # The WinUI 3 viewer (#223) on the Windows runner: the control library, its sample app (unpackaged, Windows App SDK self-contained)
+  # and the UI Automation tests that launch the sample and drive it (open, scroll, zoom, select and search the pinned subset; the
+  # automation peers' page text in reading order). The library and the controller tests also build and run in build-test on every OS;
+  # the sample needs Windows (MakePri, mt.exe), so it is not in Broadside.slnx.
+  winui:
+    name: winui
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-winui-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-winui-${{ runner.os }}-
+
+      - name: Build the control
+        run: dotnet build src/Broadside.Viewer.WinUI -c Release -warnaserror
+
+      - name: Build the sample app
+        run: dotnet build samples/Broadside.Viewer.WinUI.Sample -c Release -warnaserror -r win-x64
+
+      - name: Build the UI tests
+        run: dotnet build tests/Broadside.Viewer.WinUI.UITests -c Release -warnaserror
+
+      - name: Run the UI Automation tests against the sample
+        shell: pwsh
+        run: |
+          $env:BROADSIDE_WINUI_SAMPLE = (Resolve-Path "artifacts/bin/Broadside.Viewer.WinUI.Sample/release_win-x64/Broadside.Viewer.WinUI.Sample.exe").Path
+          dotnet test --project tests/Broadside.Viewer.WinUI.UITests -c Release --no-build --minimum-expected-tests 1 --results-directory artifacts/test-results -- --report-xunit-trx
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-winui
+          path: artifacts/test-results/**/*.trx
+          if-no-files-found: warn
 
   # The Avalonia viewer (#224): its UI tests run headless on Linux (Avalonia.Headless with Skia drawing and no display server) through
   # real input events: open, scroll, zoom, select and search over the rendering gate's pinned real-world pages (fetched and cached

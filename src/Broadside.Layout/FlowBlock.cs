@@ -26,6 +26,14 @@ public abstract class FlowBlock
     /// <summary>The natural language of the block as a BCP 47 tag (such as <c>en-US</c>), or null to inherit the document's.</summary>
     public string? Language { get; init; }
 
+    /// <summary>
+    /// Gets a value indicating whether the block stays on the page of the block after it: when this block, and the first line of the
+    /// next, do not both fit below the cursor but would fit on a new page, the page breaks before this block. Consecutive blocks with it
+    /// set move as one chain. It has no effect on the last block of a flow, list item, group or column, or at the top of a page.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.7.3.3: pagination only; the content of each page is unchanged.</remarks>
+    public bool KeepWithNext { get; init; }
+
     /// <summary>Checks the block before anything is written; throws <see cref="ArgumentException"/> naming the block by its <paramref name="index"/> in the flow.</summary>
     internal abstract void Validate(int index);
 

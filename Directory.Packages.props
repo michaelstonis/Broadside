@@ -60,6 +60,11 @@
     <!-- The MAUI viewer (#226): MAUI itself and SkiaSharp's MAUI views, the platform libraries ADR 0001 allows that shell. -->
     <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.110" />
     <PackageVersion Include="SkiaSharp.Views.Maui.Controls" Version="4.153.1" />
+    <!-- The WinUI 3 viewer (#223): the Windows App SDK, the platform library ADR 0001 allows that shell; the version MAUI 10.0.110 uses
+         on Windows, so the two shells pin the same one. -->
+    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="1.8.260529003" />
+    <!-- UI Automation client for the WinUI viewer's UI tests on the Windows runner (tests only). -->
+    <PackageVersion Include="FlaUI.UIA3" Version="5.0.0" />
     <!-- A concrete container, logging pipeline and configuration for the dependency-injection tests (#46); never in the core. -->
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />

@@ -257,6 +257,15 @@ internal sealed class ViewerController : IAsyncDisposable
         Wake();
     }
 
+    public void GoTo(ViewTarget target)
+    {
+        if (_zoom is not null && _input is not null)
+        {
+            _zoom.SetViewport(target.GetViewport(_zoom.Layout, _input.Viewport, _input.ActualSize, _zoom.MinZoom, _zoom.MaxZoom));
+            Wake();
+        }
+    }
+
     public void NextPage()
     {
         _input?.NextPage();

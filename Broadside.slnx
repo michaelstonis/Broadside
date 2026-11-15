@@ -9,6 +9,7 @@
   <Folder Name="/samples/">
     <Project Path="samples/Broadside.Viewer.Avalonia.Sample/Broadside.Viewer.Avalonia.Sample.csproj" />
     <Project Path="samples/Broadside.Viewer.Blazor.Sample/Broadside.Viewer.Blazor.Sample.csproj" />
+    <Project Path="samples/Broadside.Viewer.Wpf.Sample/Broadside.Viewer.Wpf.Sample.csproj" />
     <Project Path="samples/documents/generator/Broadside.SampleDocuments.csproj" />
   </Folder>
   <Folder Name="/solution-items/">
@@ -34,6 +35,8 @@
     <Project Path="src/Broadside.Viewer.Avalonia/Broadside.Viewer.Avalonia.csproj" />
     <Project Path="src/Broadside.Viewer.Blazor/Broadside.Viewer.Blazor.csproj" />
     <Project Path="src/Broadside.Viewer.Maui/Broadside.Viewer.Maui.csproj" />
+    <Project Path="src/Broadside.Viewer.WinUI/Broadside.Viewer.WinUI.csproj" />
+    <Project Path="src/Broadside.Viewer.Wpf/Broadside.Viewer.Wpf.csproj" />
     <Project Path="src/Broadside.Viewer/Broadside.Viewer.csproj" />
     <Project Path="src/Broadside/Broadside.csproj" />
   </Folder>
@@ -48,6 +51,9 @@
     <Project Path="tests/Broadside.Viewer.Blazor.BrowserTests/Broadside.Viewer.Blazor.BrowserTests.csproj" />
     <Project Path="tests/Broadside.Viewer.Maui.Tests/Broadside.Viewer.Maui.Tests.csproj" />
     <Project Path="tests/Broadside.Viewer.Tests/Broadside.Viewer.Tests.csproj" />
+    <Project Path="tests/Broadside.Viewer.WinUI.Tests/Broadside.Viewer.WinUI.Tests.csproj" />
+    <Project Path="tests/Broadside.Viewer.WinUI.UITests/Broadside.Viewer.WinUI.UITests.csproj" />
+    <Project Path="tests/Broadside.Viewer.Wpf.Tests/Broadside.Viewer.Wpf.Tests.csproj" />
     <Project Path="tests/Broadside.Rendering.Android.Device/Broadside.Rendering.Android.Device.csproj" />
     <Project Path="tests/Broadside.Rendering.Android.Tests/Broadside.Rendering.Android.Tests.csproj" />
     <Project Path="tests/Broadside.Rendering.AotSmoke/Broadside.Rendering.AotSmoke.csproj" />

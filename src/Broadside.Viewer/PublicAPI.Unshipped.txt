@@ -782,3 +782,69 @@ Broadside.Viewer.SoftwareTileBackend.Begin(Broadside.Rendering.DisplayList! list
 Broadside.Viewer.ViewerOptions.ColorFilter.get -> Broadside.Rendering.ColorFilter
 Broadside.Viewer.ViewerOptions.ColorFilter.set -> void
 Broadside.Viewer.ViewerOptions.WithColorFilter(Broadside.Rendering.ColorFilter colorFilter) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewTarget
+Broadside.Viewer.ViewTarget.ViewTarget() -> void
+Broadside.Viewer.ViewTarget.ViewTarget(int PageIndex, Broadside.PdfDestinationView View, double? Left, double? Top, double? Right, double? Bottom, double? Zoom) -> void
+Broadside.Viewer.ViewTarget.PageIndex.get -> int
+Broadside.Viewer.ViewTarget.PageIndex.init -> void
+Broadside.Viewer.ViewTarget.View.get -> Broadside.PdfDestinationView
+Broadside.Viewer.ViewTarget.View.init -> void
+Broadside.Viewer.ViewTarget.Left.get -> double?
+Broadside.Viewer.ViewTarget.Left.init -> void
+Broadside.Viewer.ViewTarget.Top.get -> double?
+Broadside.Viewer.ViewTarget.Top.init -> void
+Broadside.Viewer.ViewTarget.Right.get -> double?
+Broadside.Viewer.ViewTarget.Right.init -> void
+Broadside.Viewer.ViewTarget.Bottom.get -> double?
+Broadside.Viewer.ViewTarget.Bottom.init -> void
+Broadside.Viewer.ViewTarget.Zoom.get -> double?
+Broadside.Viewer.ViewTarget.Zoom.init -> void
+Broadside.Viewer.ViewTarget.GetViewport(Broadside.Viewer.PageLayout! layout, in Broadside.Viewer.Viewport viewport, double actualSize = 1, double minZoom = 0.1, double maxZoom = 64) -> Broadside.Viewer.Viewport
+static Broadside.Viewer.ViewTarget.FindNamedAsync(Broadside.Viewer.DocumentSession! session, string! name, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.ViewTarget?>
+static Broadside.Viewer.ViewTarget.Resolve(Broadside.PdfDestination? destination) -> Broadside.Viewer.ViewTarget?
+Broadside.Viewer.OutlineEntry
+Broadside.Viewer.OutlineEntry.ActionKind.get -> Broadside.PdfActionKind?
+Broadside.Viewer.OutlineEntry.Children.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.OutlineEntry!>!
+Broadside.Viewer.OutlineEntry.Color.get -> Broadside.PdfRgbColor
+Broadside.Viewer.OutlineEntry.Id.get -> int
+Broadside.Viewer.OutlineEntry.IsBold.get -> bool
+Broadside.Viewer.OutlineEntry.IsItalic.get -> bool
+Broadside.Viewer.OutlineEntry.IsNavigable.get -> bool
+Broadside.Viewer.OutlineEntry.IsOpen.get -> bool
+Broadside.Viewer.OutlineEntry.Level.get -> int
+Broadside.Viewer.OutlineEntry.PageLabel.get -> string?
+Broadside.Viewer.OutlineEntry.Parent.get -> Broadside.Viewer.OutlineEntry?
+Broadside.Viewer.OutlineEntry.Target.get -> Broadside.Viewer.ViewTarget?
+Broadside.Viewer.OutlineEntry.Title.get -> string!
+Broadside.Viewer.OutlineEntry.Uri.get -> System.Uri?
+override Broadside.Viewer.OutlineEntry.ToString() -> string!
+Broadside.Viewer.DocumentOutline
+Broadside.Viewer.DocumentOutline.Entries.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.OutlineEntry!>!
+Broadside.Viewer.DocumentOutline.FindEntryFor(int pageIndex) -> Broadside.Viewer.OutlineEntry?
+Broadside.Viewer.DocumentOutline.GetVisible() -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.OutlineEntry!>!
+Broadside.Viewer.DocumentOutline.GetVisible(System.Func<Broadside.Viewer.OutlineEntry!, bool>! isOpen) -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.OutlineEntry!>!
+Broadside.Viewer.DocumentOutline.IsEmpty.get -> bool
+Broadside.Viewer.DocumentOutline.Roots.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.OutlineEntry!>!
+static Broadside.Viewer.DocumentOutline.LoadAsync(Broadside.Viewer.DocumentSession! session, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.DocumentOutline!>
+Broadside.Viewer.PageLabelTable
+Broadside.Viewer.PageLabelTable.Count.get -> int
+Broadside.Viewer.PageLabelTable.GetLabel(int pageIndex) -> string!
+Broadside.Viewer.PageLabelTable.HasLabels.get -> bool
+Broadside.Viewer.PageLabelTable.TryFindPage(string! label, out int pageIndex) -> bool
+static Broadside.Viewer.PageLabelTable.LoadAsync(Broadside.Viewer.DocumentSession! session, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.PageLabelTable!>
+Broadside.Viewer.PageThumbnails
+Broadside.Viewer.PageThumbnails.Failed -> System.EventHandler<Broadside.Viewer.ThumbnailFailedEventArgs!>?
+Broadside.Viewer.PageThumbnails.GetScaleAsync(int pageIndex, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<double>
+Broadside.Viewer.PageThumbnails.PageThumbnails(Broadside.Viewer.DocumentSession! session, Broadside.Viewer.IRenderSurface! surface, Broadside.Viewer.ThumbnailOptions? options = null) -> void
+Broadside.Viewer.PageThumbnails.RenderAsync(System.Collections.Generic.IEnumerable<int>! pages, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<int>!
+Broadside.Viewer.ThumbnailOptions
+Broadside.Viewer.ThumbnailOptions.MaxDeferral.get -> System.TimeSpan
+Broadside.Viewer.ThumbnailOptions.Size.get -> int
+Broadside.Viewer.ThumbnailOptions.ThumbnailOptions() -> void
+Broadside.Viewer.ThumbnailOptions.WithMaxDeferral(System.TimeSpan deferral) -> Broadside.Viewer.ThumbnailOptions!
+Broadside.Viewer.ThumbnailOptions.WithSize(int pixels) -> Broadside.Viewer.ThumbnailOptions!
+const Broadside.Viewer.ThumbnailOptions.DefaultSize = 160 -> int
+static readonly Broadside.Viewer.ThumbnailOptions.DefaultMaxDeferral -> System.TimeSpan
+Broadside.Viewer.ThumbnailFailedEventArgs
+Broadside.Viewer.ThumbnailFailedEventArgs.Exception.get -> System.Exception!
+Broadside.Viewer.ThumbnailFailedEventArgs.PageIndex.get -> int

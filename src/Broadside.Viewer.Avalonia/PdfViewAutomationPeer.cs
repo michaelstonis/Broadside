@@ -206,10 +206,10 @@ public sealed class PdfViewAutomationPeer : ControlAutomationPeer
 
         protected override AutomationPeer? GetLabeledByCore() => null;
 
-        // A page is named by its number; a node by its name (alternate description first, else the text of name-from-content roles),
+        // A page is named by its label (§12.4.2), else its number; a node by its name (alternate description first, else the text of name-from-content roles),
         // and a leaf without one by its text, so a screen reader reads every word once and in reading order.
         protected override string? GetNameCore() => Node.Role == AccessibleRole.Page
-            ? "Page " + (Node.PageIndex + 1).ToString(CultureInfo.InvariantCulture)
+            ? "Page " + (_owner.Controller.PageLabels is { } labels && Node.PageIndex < labels.Count ? labels.GetLabel(Node.PageIndex) : (Node.PageIndex + 1).ToString(CultureInfo.InvariantCulture))
             : Node.Name is { Length: > 0 } name ? name : Node.Children.Count == 0 ? Node.Text : null;
 
         protected override string GetLocalizedControlTypeCore() => Node.Role switch

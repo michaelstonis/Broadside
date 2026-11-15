@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The WPF viewer sample (#222): Broadside.Viewer.Wpf's PdfView in a window with page, zoom, selection, search and dark-mode controls,
+    over the representative sample documents (samples/documents/pdf, found by walking up from the executable). Run it on Windows:
+      dotnet run (project samples/Broadside.Viewer.Wpf.Sample), optionally with a PDF file path as the program's argument
+    It builds on every host (the Windows targeting pack is a NuGet package). The UI Automation test in tests/Broadside.Viewer.Wpf.Tests
+    (SampleAutomationTests) starts it with a file path and drives it through the automation IDs its controls carry.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Viewer.Wpf/Broadside.Viewer.Wpf.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
+  </ItemGroup>
+
+</Project>

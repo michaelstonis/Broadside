@@ -364,6 +364,29 @@ public sealed class ViewerTests
     });
 
     [Fact]
+    public Task Pages_are_named_by_their_page_labels() => Ui.RunAsync(async () =>
+    {
+        using ViewerHarness viewer = await ViewerHarness.OpenAsync(ViewerHarness.CorpusFile("page-labels.pdf"));
+        Assert.NotNull(viewer.Viewer.PageLabels);
+        AutomationPeer document = ControlAutomationPeer.CreatePeerForElement(viewer.Viewer);
+        Assert.Equal(
+            ["Page i", "Page ii", "Page iii", "Page 1", "Page 2", "Page IV", "Page V", "Page Z", "Page AA", "Page A-zz", "Page A-aaa", "Page Cover"],
+            document.GetChildren().Select(page => page.GetName()));
+    });
+
+    [Fact]
+    public Task Going_to_a_destination_shows_its_page_at_the_view_it_asks_for() => Ui.RunAsync(async () =>
+    {
+        using ViewerHarness viewer = await ViewerHarness.OpenAsync(ViewerHarness.SampleDocument("textbook.pdf"));
+        viewer.Viewer.GoTo(new ViewTarget(5, PdfDestinationView.Fit, null, null, null, null, null));
+        await viewer.SettleAsync();
+        Assert.Equal(5, viewer.Viewer.State.PageIndex);
+        Viewport viewport = viewer.Viewport;
+        Assert.Equal(viewer.Layout.GetZoom(ZoomMode.FitPage, viewport.Width, viewport.Height, 5, 96.0 / 72), viewport.Zoom, 6);
+        PinnedSubsetTests.AssertTilesOnScreen(viewer, 5);
+    });
+
+    [Fact]
     public Task Pages_a_screen_reader_asks_for_load_and_announce_their_children() => Ui.RunAsync(async () =>
     {
         using ViewerHarness viewer = await ViewerHarness.OpenAsync(ViewerHarness.CorpusFile("text-tagged-spanning.pdf"), 600, 300);

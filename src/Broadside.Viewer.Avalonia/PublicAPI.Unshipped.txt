@@ -15,12 +15,14 @@ Broadside.Viewer.Avalonia.PdfView.Error -> System.EventHandler<Broadside.Viewer.
 Broadside.Viewer.Avalonia.PdfView.Find(string! query, Broadside.Viewer.TextSearchOptions? options = null) -> void
 Broadside.Viewer.Avalonia.PdfView.FindNext() -> Broadside.Viewer.SearchMatch?
 Broadside.Viewer.Avalonia.PdfView.FindPrevious() -> Broadside.Viewer.SearchMatch?
+Broadside.Viewer.Avalonia.PdfView.GoTo(Broadside.Viewer.ViewTarget target) -> void
 Broadside.Viewer.Avalonia.PdfView.GoToPage(int pageIndex) -> void
 Broadside.Viewer.Avalonia.PdfView.LayoutOptions.get -> Broadside.Viewer.PageLayoutOptions?
 Broadside.Viewer.Avalonia.PdfView.LayoutOptions.set -> void
 Broadside.Viewer.Avalonia.PdfView.NextPage() -> void
 Broadside.Viewer.Avalonia.PdfView.Options.get -> Broadside.Viewer.ViewerOptions?
 Broadside.Viewer.Avalonia.PdfView.Options.set -> void
+Broadside.Viewer.Avalonia.PdfView.PageLabels.get -> Broadside.Viewer.PageLabelTable?
 Broadside.Viewer.Avalonia.PdfView.PdfView() -> void
 Broadside.Viewer.Avalonia.PdfView.PreviousPage() -> void
 Broadside.Viewer.Avalonia.PdfView.Redraw() -> void
