@@ -199,6 +199,49 @@ jobs:
         shell: bash
         run: artifacts/aot-smoke/Broadside.Rendering.AotSmoke --require-aot
 
+  # Publishes the Native AOT size probes (bench/SizeProbes, issue #361), one tiny app per scenario, runs each, and fails when one
+  # grows past the tolerance of bench/baselines/gate/sizes.json, or is new or missing there (bench/baselines/gate/README.md, "Size
+  # probes"). The baseline is recorded for osx-arm64, so this runs on the macOS runner. The job summary has the table; the measured
+  # sizes are an artifact, ready to record.
+  size-probes:
+    name: size-probes
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Publish and run the probes
+        run: bench/size-probes.sh --out artifacts/size-probes/sizes.json
+
+      - name: Compare with the baseline
+        run: >
+          dotnet run --project tools/BenchGate -c Release --
+          sizes --baseline bench/baselines/gate/sizes.json --results artifacts/size-probes/sizes.json
+          --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the measured sizes
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: size-probes
+          path: artifacts/size-probes/sizes.json
+          if-no-files-found: ignore
+
   # Validates the files Broadside writes in a PDF/A mode with veraPDF, the PDF Association's reference validator (issue #201; spec
   # story 42; PDF/A-4 and 4f, #203): every test in the VeraPdf trait saves a document as PDF/A and asserts that veraPDF reports no failed rule. veraPDF is a
   # Java tool used here only, never by the library (ADR 0001); its release is pinned and checksummed like qpdf above, and

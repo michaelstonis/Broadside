@@ -194,6 +194,43 @@ the comparison from reporting the baseline cases you did not run. On a developer
 commits run on the same machine), but the allocation figures are this machine's: expect allocation findings on the cases that
 read system fonts and a few bytes per document on macOS, and use them only to compare before and after your own change.
 
+## Size probes
+
+Issue #361 gates the shipped size of the core the same way: [`sizes.json`](sizes.json) holds the size, in bytes, of each Native AOT
+size probe's executable, by runtime identifier. A probe is a tiny app in [`bench/SizeProbes`](../../SizeProbes) that calls only the
+public API one scenario needs, so the trimmer keeps only what that scenario reaches:
+
+| Probe | Does |
+|---|---|
+| `empty` | Nothing: the runtime's floor, which every other probe includes |
+| `open-metadata` | Opens a file and reads its page count and document information |
+| `extract-text` | Opens a file and extracts the text of every page |
+| `render` | Opens a file and renders its first page with the software rasterizer |
+| `fill-form` | Opens a form, sets a text field (regenerating its appearance) and saves |
+| `save` | Opens a file, sets its title and saves |
+| `sign` | Opens a file and signs it with a certificate |
+
+[`bench/size-probes.sh`](../../size-probes.sh) publishes each probe for the current runtime (`dotnet publish -c Release
+--use-current-runtime`; trimmer and AOT warnings are errors), runs it over a corpus file (a probe exits non-zero when its result is
+wrong, so a trim that removed something the scenario needs fails too) and writes the sizes; `BenchGate sizes` compares them with the
+baseline. A probe fails when it grows by more than 1% (`--tolerance`), when it is not in the baseline, or when a baselined probe of
+the measured runtime was not measured. A probe that shrinks by more than 1% passes, with a request to re-record so the saving is
+kept. The tolerance absorbs what a linker or runtime patch moves; a real feature costs far more.
+
+The CI job `size-probes` (`ci.yml`, every pull request) runs on the macOS runner, because the baseline is recorded for
+`osx-arm64`: Native AOT cannot cross-compile between operating systems, so a developer Mac can measure exactly what CI does. To
+record an intended change, run the probes and record (or download the job's `size-probes` artifact and record from it), and say
+in the pull request what the bytes bought:
+
+```sh
+bench/size-probes.sh --out artifacts/size-probes/sizes.json
+dotnet run --project tools/BenchGate -- sizes --baseline bench/baselines/gate/sizes.json \
+  --results artifacts/size-probes/sizes.json --record bench/baselines/gate/sizes.json
+```
+
+What the probes measured, where the bytes go and what an app can switch off is in
+[`docs/benchmarks/core-size.md`](../../../docs/benchmarks/core-size.md).
+
 ## Validation
 
 Runs of the workflow on throwaway branches with a temporary push trigger (the "Run workflow" button needs the workflow on `main`);

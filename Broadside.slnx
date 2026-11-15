@@ -5,6 +5,13 @@
     <Project Path="bench/Broadside.SampleTimings/Broadside.SampleTimings.csproj" />
     <Project Path="bench/Broadside.Rendering.CoreGraphics.Benchmarks/Broadside.Rendering.CoreGraphics.Benchmarks.csproj" />
     <Project Path="bench/Broadside.Rendering.Direct2D.Benchmarks/Broadside.Rendering.Direct2D.Benchmarks.csproj" />
+    <Project Path="bench/SizeProbes/Empty/SizeProbe.Empty.csproj" />
+    <Project Path="bench/SizeProbes/ExtractText/SizeProbe.ExtractText.csproj" />
+    <Project Path="bench/SizeProbes/FillForm/SizeProbe.FillForm.csproj" />
+    <Project Path="bench/SizeProbes/OpenMetadata/SizeProbe.OpenMetadata.csproj" />
+    <Project Path="bench/SizeProbes/Render/SizeProbe.Render.csproj" />
+    <Project Path="bench/SizeProbes/Save/SizeProbe.Save.csproj" />
+    <Project Path="bench/SizeProbes/Sign/SizeProbe.Sign.csproj" />
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/Broadside.Viewer.Blazor.Sample/Broadside.Viewer.Blazor.Sample.csproj" />
