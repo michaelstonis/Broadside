@@ -159,6 +159,10 @@ _Avoid_: Document structure (ambiguous with the structure tree), semantic tree, 
 The tagged-PDF hierarchy stored in the file itself, as defined by ISO 32000-2 clause 14.7.
 _Avoid_: Tag tree, logical structure (as a term), accessibility tree
 
+**Document builder**:
+The fluent front over flow layout. It describes a document as nested content in C# and lays it out through the flow engine into a `PdfDocument`.
+_Avoid_: DSL, composer, template engine, fluent layout
+
 ### Conformance
 
 **Conformance map**:

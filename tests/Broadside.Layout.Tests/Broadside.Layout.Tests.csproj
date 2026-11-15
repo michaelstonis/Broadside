@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <!-- The document builder is experimental in 1.0 (issue #397); its tests opt in. -->
+    <NoWarn>$(NoWarn);BROADSIDE0001</NoWarn>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="../../src/Broadside.Layout/Broadside.Layout.csproj" />
     <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />

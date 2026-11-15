@@ -417,7 +417,7 @@ internal sealed class FlowContext : IDisposable
         }
 
         FinishPage();
-        PageDecorations.DrawHeadersAndFooters(_templated, Services.Shaper);
+        PageDecorations.DrawHeadersAndFooters(_templated, Services.Shaper, _document);
     }
 
     /// <summary>True when structure hooks fire now: a page is open at the root, or this region draws.</summary>

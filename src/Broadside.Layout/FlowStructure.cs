@@ -50,12 +50,14 @@ internal sealed class FlowStructure : IStructureSink
     private PdfPage? _page;
     private int _ids;
 
-    public FlowStructure(PdfStructureTreeRoot root, FlowTagging tagging, List<Diagnostic> diagnostics)
+    public FlowStructure(PdfStructureTreeRoot root, FlowTagging tagging, List<Diagnostic> diagnostics, PdfStructureElement? document = null)
     {
         _root = root;
         _tagging = tagging;
         _diagnostics = diagnostics;
-        _stack.Add(new Node("Document", null, null, NodeKind.Container, null));
+
+        // Appending to a tagged document: the new elements go under its existing Document element rather than a second root.
+        _stack.Add(new Node("Document", null, null, NodeKind.Container, null) { Element = document });
     }
 
     /// <summary>Gets the <c>Document</c> element, or <see langword="null"/> when nothing was tagged.</summary>
