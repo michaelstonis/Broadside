@@ -33,7 +33,7 @@ public sealed class MainPage : ContentPage
     private readonly Label _sheetTitle = new() { FontAttributes = FontAttributes.Bold, FontSize = 17, VerticalTextAlignment = TextAlignment.Center, AutomationId = "sheet-title" };
     private readonly ContentView _sheetBody = new();
     private readonly Grid _root = new();
-    private Layout _tools = new Grid();
+    private Microsoft.Maui.Controls.Layout _tools = new Grid();
     private bool? _wide;
     private SamplePanel _panel;
     private bool _smokeDone;
@@ -191,7 +191,7 @@ public sealed class MainPage : ContentPage
             button.SetAppThemeColor(BackgroundColorProperty, tool == panel ? Color.FromRgb(0xDD, 0xE6, 0xFA) : Colors.Transparent, tool == panel ? Color.FromRgb(0x2C, 0x3A, 0x55) : Colors.Transparent);
         }
 
-        Arrange(_wide == true);
+        SizePanel();
     }
 
     protected override void OnSizeAllocated(double width, double height)
@@ -204,10 +204,25 @@ public sealed class MainPage : ContentPage
             {
                 Arrange(wide);
             }
-            else if (!wide && _panel != SamplePanel.None)
+            else
             {
-                ((RowDefinition)_root.RowDefinitions[3]).Height = SheetHeight();
+                SizePanel();
             }
+        }
+    }
+
+    // Opening or closing a panel only resizes its row or column: the viewer is never taken out of the page (its canvas stays).
+    private void SizePanel()
+    {
+        bool open = _panel != SamplePanel.None;
+        _sheet.IsVisible = open;
+        if (_wide == true && _root.ColumnDefinitions.Count == 3)
+        {
+            _root.ColumnDefinitions[1].Width = open ? new GridLength(360) : new GridLength(0);
+        }
+        else if (_wide == false && _root.RowDefinitions.Count == 5)
+        {
+            _root.RowDefinitions[3].Height = open ? new GridLength(SheetHeight()) : new GridLength(0);
         }
     }
 
@@ -219,12 +234,12 @@ public sealed class MainPage : ContentPage
         _wide = wide;
         foreach (View child in new View[] { _topBar, _message, _view, _sheet, _tools })
         {
-            (child.Parent as Layout)?.Children.Remove(child);
+            (child.Parent as Microsoft.Maui.Controls.Layout)?.Children.Remove(child);
         }
 
         foreach (Button button in _toolButtons.Values)
         {
-            (button.Parent as Layout)?.Children.Remove(button);
+            (button.Parent as Microsoft.Maui.Controls.Layout)?.Children.Remove(button);
         }
 
         _root.Children.Clear();
@@ -311,7 +326,7 @@ public sealed class MainPage : ContentPage
         }
     }
 
-    private View RendererSection()
+    private VerticalStackLayout RendererSection()
     {
         var skia = new RadioButton { Content = "SkiaSharp", IsChecked = SampleDocument.UseSkia, GroupName = "renderer", AutomationId = "renderer-skia" };
         var managed = new RadioButton { Content = "Managed rasterizer", IsChecked = !SampleDocument.UseSkia, GroupName = "renderer", AutomationId = "renderer-managed" };

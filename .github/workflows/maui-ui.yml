@@ -79,11 +79,11 @@ jobs:
 
       - name: Build the sample for Mac Catalyst
         if: matrix.platform == 'catalyst'
-        run: dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-maccatalyst -warnaserror
+        run: dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-maccatalyst -warnaserror -p:ValidateXcodeVersion=false
 
       - name: Build the sample for the iOS simulator
         if: matrix.platform == 'ios'
-        run: dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-ios -p:RuntimeIdentifier=iossimulator-arm64 -warnaserror
+        run: dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-ios -p:RuntimeIdentifier=iossimulator-arm64 -warnaserror -p:ValidateXcodeVersion=false
 
       - name: Find the app
         run: |

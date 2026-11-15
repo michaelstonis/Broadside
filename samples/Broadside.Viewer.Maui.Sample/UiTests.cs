@@ -131,10 +131,10 @@ public static class UiTests
         Check(page.Viewer.LayoutOptions?.Rotation == 90, "rotated right");
         Click(page, "rotate-left");
         Click(page, "layout-continuous");
-        Find<Switch>(page, "view-dark-mode").IsToggled = true;
+        Find<Microsoft.Maui.Controls.Switch>(page, "view-dark-mode").IsToggled = true;
         Check(page.Viewer.ColorFilter == ColorFilter.DarkMode && page.Viewer.CurrentSession?.ColorFilter == ColorFilter.DarkMode, "dark mode on the view and its session");
         await WaitAsync(() => !page.Viewer.State.IsRendering, "the dark tiles");
-        Find<Switch>(page, "view-dark-mode").IsToggled = false;
+        Find<Microsoft.Maui.Controls.Switch>(page, "view-dark-mode").IsToggled = false;
         Check(page.Viewer.CurrentSession?.ColorFilter == ColorFilter.None, "dark mode off");
         double zoom = page.Viewer.State.Zoom;
         Click(page, "zoom-in");
@@ -223,7 +223,7 @@ public static class UiTests
         ((IButtonController)button).SendClicked();
     }
 
-    private static string Labels(Layout layout) => string.Join("|", layout.Children.OfType<Label>().Select(l => l.Text));
+    private static string Labels(Microsoft.Maui.Controls.Layout layout) => string.Join("|", layout.Children.OfType<Label>().Select(l => l.Text));
 
     private static Rect BoundsInPage(VisualElement element)
     {
