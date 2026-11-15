@@ -25,6 +25,13 @@
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.12" />
   </ItemGroup>
 
+  <!--
+    The Uno Platform viewer (#225) uses the Uno.Sdk single-project SDK, an MSBuild SDK: its exact version is pinned in global.json
+    ("msbuild-sdks": Uno.Sdk 6.7.49, the newest servicing release of Uno 6.7; Uno 7.0 shipped days ago), not here, because MSBuild
+    resolves SDKs before NuGet sees this file. That SDK version fixes Uno.WinUI (6.7.424) and every package it adds implicitly, and
+    it honors central package management: it reads these PackageVersion items and adds its own versioned references. The sample's
+    heads turn transitive pinning off (see samples/Broadside.Viewer.Uno.Sample), so Uno keeps its own SkiaSharp.
+  -->
   <ItemGroup Label="Avalonia viewer (#224): Avalonia's own packages, never referenced by the core (ADR 0001)">
     <!-- The shell library references Avalonia only; Desktop and Fluent are the sample's, Headless and Skia the UI tests'. Avalonia.Skia
          brings its own SkiaSharp (3.119), so the sample and the tests turn off transitive pinning: the SkiaSharp pinned above is the

@@ -55,6 +55,7 @@
     { "name": "Broadside.Viewer", "checked": false, "reason": "Viewer: page layout, scrolling, zoom, selection and input handling around rendered pages; viewer behavior is not specified by ISO 32000-2." },
     { "name": "Broadside.Viewer.Blazor", "checked": false, "reason": "Viewer: the Blazor host of the viewer." },
     { "name": "Broadside.Viewer.Maui", "checked": false, "reason": "Viewer: the .NET MAUI host of the viewer." },
+    { "name": "Broadside.Viewer.Uno", "checked": false, "reason": "Viewer: the Uno Platform host of the viewer." },
     { "name": "Broadside.Viewer.WinUI", "checked": false, "reason": "Viewer: the WinUI 3 host of the viewer." },
     { "name": "Broadside.Viewer.Wpf", "checked": false, "reason": "Viewer: the WPF host of the viewer." }
   ],

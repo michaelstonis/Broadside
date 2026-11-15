@@ -75,6 +75,7 @@ with api.dotnet
         { name: "Broadside.Viewer.Wpf", path: "../src/Broadside.Viewer.Wpf/Broadside.Viewer.Wpf.csproj" },
         { name: "Broadside.Viewer.Maui", path: "../src/Broadside.Viewer.Maui/Broadside.Viewer.Maui.csproj",
           properties: { TargetFramework: "net10.0" } },
+        { name: "Broadside.Viewer.Uno", path: "../src/Broadside.Viewer.Uno/Broadside.Viewer.Uno.csproj" },
         { name: "Broadside.Viewer.WinUI", path: "../src/Broadside.Viewer.WinUI/Broadside.Viewer.WinUI.csproj" }
     ]
 end

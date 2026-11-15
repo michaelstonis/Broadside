@@ -550,6 +550,13 @@ jobs:
     with:
       browsers: ${{ (github.event_name == 'push' || github.base_ref == 'main') && 'firefox webkit' || 'firefox' }}
 
+  # The Uno Platform viewer sample (#225) on its WebAssembly head (Playwright: Chrome and WebKit) and its desktop head (Linux under
+  # Xvfb, macOS, Windows), driven by tests/Broadside.Viewer.Uno.UITests; the job is in uno.yml. The shell library and its controller
+  # tests build and run in build-test (Broadside.Core.slnf).
+  uno:
+    name: uno
+    uses: ./.github/workflows/uno.yml
+
   # The .NET MAUI viewer sample (#226) for Mac Catalyst, the iOS simulator and Android. It needs the maui workload, so it is not in
   # Broadside.slnx; the shell library's platform targets also build in build-test (macOS) and its tests run in Broadside.Core.slnf.
   maui:

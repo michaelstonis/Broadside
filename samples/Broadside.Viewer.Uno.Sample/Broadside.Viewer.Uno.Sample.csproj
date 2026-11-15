@@ -1,0 +1,63 @@
+<Project Sdk="Uno.Sdk">
+
+  <!--
+    The Uno Platform viewer sample (#225): Broadside.Viewer.Uno's PdfView with a toolbar (documents, pages, zoom, find, dark mode) on
+    Uno's desktop head (Skia: macOS, Windows, Linux X11) and WebAssembly head. A single Uno.Sdk project (version in global.json).
+    Run the desktop head:  dotnet build samples/Broadside.Viewer.Uno.Sample -f net10.0-desktop -t:Run
+    Publish the browser:   dotnet publish samples/Broadside.Viewer.Uno.Sample -f net10.0-browserwasm -c Release
+    (see README.md)
+    The UI tests (tests/Broadside.Viewer.Uno.UITests) drive the WebAssembly head with Playwright and the desktop head through its
+    automation script (BROADSIDE_UNO_SCRIPT=1, see Automation.cs).
+  -->
+  <PropertyGroup>
+    <TargetFramework />
+    <TargetFrameworks>net10.0-desktop;net10.0-browserwasm</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <UnoSingleProject>true</UnoSingleProject>
+    <RootNamespace>Broadside.Viewer.Uno.Sample</RootNamespace>
+    <ApplicationTitle>Broadside Viewer</ApplicationTitle>
+    <ApplicationId>dev.broadside.viewer.uno.sample</ApplicationId>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+    <IsTrimmable>false</IsTrimmable>
+    <!-- [JSImport] for the browser tests' channel. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Uno's generated application code is not held to the repository's analyzers. -->
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <NoWarn>$(NoWarn);IDE0130;CA1001;CA1010;CA1016;CA1031;CA1303;CA1848;CA2007;CS1591;Uno0001</NoWarn>
+    <!-- Never .NET WebAssembly threads: tiles render in cooperative slices on the page's thread. -->
+    <WasmEnableThreads>false</WasmEnableThreads>
+    <!-- Uno's Skia renderer on both heads: the browser head draws on a canvas, as the desktop head draws in its window. -->
+    <UnoFeatures>SkiaRenderer</UnoFeatures>
+    <UnoSplashScreenColor>#2B4C7E</UnoSplashScreenColor>
+    <!--
+      Uno's heads bring their own SkiaSharp (and its native libraries) at the version the Uno.Sdk fixes. The repository pins
+      SkiaSharp for the Skia backend, and transitive pinning would force that version under Uno's managed and native assets alike;
+      this head is not a library and references no Broadside backend, so it resolves its transitive packages as the Uno.Sdk asks.
+    -->
+    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Viewer.Uno/Broadside.Viewer.Uno.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
+  </ItemGroup>
+
+  <!-- The documents the sample shows, from the repository's representative samples and the hand-written corpus (linked, so they never drift). -->
+  <ItemGroup>
+    <EmbeddedResource Include="../documents/pdf/textbook.pdf" LogicalName="documents/textbook.pdf" />
+    <EmbeddedResource Include="../documents/pdf/paper.pdf" LogicalName="documents/paper.pdf" />
+    <EmbeddedResource Include="../documents/pdf/application-form.pdf" LogicalName="documents/application-form.pdf" />
+    <EmbeddedResource Include="../../tests/Corpus/tagged-structure.pdf" LogicalName="documents/tagged-structure.pdf" />
+  </ItemGroup>
+
+  <!-- Head-specific entry points live under Platforms/<head>/ and compile only for that head. -->
+  <ItemGroup Condition="'$(TargetFramework)' != 'net10.0-browserwasm'">
+    <Compile Remove="Platforms/WebAssembly/**" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' != 'net10.0-desktop'">
+    <Compile Remove="Platforms/Desktop/**" />
+  </ItemGroup>
+
+</Project>
