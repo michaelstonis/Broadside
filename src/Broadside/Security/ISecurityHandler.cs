@@ -99,7 +99,7 @@ public sealed class SecurityHandlerContext
     internal DiagnosticException Fail(string message)
     {
         var diagnostic = new Diagnostic(SecurityDiagnostics.EncryptDictionaryInvalid, DiagnosticSeverity.Error, message);
-        Report(diagnostic.Kind, diagnostic.Severity, diagnostic.Message);
+        Report(SecurityDiagnostics.EncryptDictionaryInvalid, diagnostic.Severity, diagnostic.Message);
         return new DiagnosticException(diagnostic);
     }
 
