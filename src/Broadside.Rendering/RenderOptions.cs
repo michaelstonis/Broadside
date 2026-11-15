@@ -433,6 +433,26 @@ public sealed class RenderOptions
         return this;
     }
 
+    /// <summary>
+    /// Gets or sets how the software rasterizer positions filled glyphs: <see cref="Rendering.GlyphPositioning.Exact"/> (the default,
+    /// the pixels the text rendering matrix gives) or <see cref="Rendering.GlyphPositioning.Quantized"/> (the nearest quarter pixel,
+    /// so its glyph cache reuses far more glyphs).
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §9.4.4 and §10.7.4; see <see cref="Rendering.GlyphPositioning"/> and <see cref="SoftwareRasterizer.GlyphCacheBudget"/>.
+    /// Other backends position glyphs as their platform does and ignore it.
+    /// </remarks>
+    public GlyphPositioning GlyphPositioning { get; set; }
+
+    /// <summary>Sets <see cref="GlyphPositioning"/>.</summary>
+    /// <param name="glyphPositioning">The positioning.</param>
+    /// <returns>This instance.</returns>
+    public RenderOptions WithGlyphPositioning(GlyphPositioning glyphPositioning)
+    {
+        GlyphPositioning = glyphPositioning;
+        return this;
+    }
+
     /// <summary>Returns <paramref name="value"/> when it is a valid <see cref="ImageSamplesPerPixel"/>.</summary>
     internal static double CheckSamplesPerPixel(double value) =>
         double.IsFinite(value) && value >= 1

@@ -9,8 +9,9 @@ namespace Broadside.Tools.BenchGate;
 /// BenchGate suspects --results &lt;dir&gt; --out &lt;file&gt; [--fail-ratio &lt;x&gt;]
 /// BenchGate record   --results &lt;dir&gt; --out &lt;file&gt;
 /// BenchGate shard    --list &lt;file&gt; --count &lt;n&gt; --index &lt;i&gt; --out &lt;file&gt; [--baseline &lt;file&gt;] [--split &lt;method,...&gt;]
+/// BenchGate sizes    --baseline &lt;file&gt; --results &lt;file&gt; [--tolerance &lt;x&gt;] [--summary &lt;file&gt;] [--record &lt;file&gt;]
 /// </code>
-/// Exit codes: 0 passed, 1 a regression (compare only), 2 a bad command line or unreadable input.
+/// Exit codes: 0 passed, 1 a regression (compare and sizes only), 2 a bad command line or unreadable input.
 /// </summary>
 internal static class Program
 {
@@ -37,6 +38,7 @@ internal static class Program
                 "suspects" => Suspects(options),
                 "record" => Record(options),
                 "shard" => Shard(options),
+                "sizes" => Sizes(options),
                 _ => Usage($"Unknown command '{args[0]}'."),
             };
         }
@@ -130,6 +132,37 @@ internal static class Program
         return 0;
     }
 
+    private static int Sizes(Dictionary<string, string> options)
+    {
+        if (!options.TryGetValue("--baseline", out string? baseline) || !options.TryGetValue("--results", out string? results))
+        {
+            return Usage("sizes needs --baseline and --results.");
+        }
+
+        double tolerance = options.TryGetValue("--tolerance", out string? value)
+            ? double.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture)
+            : SizeGate.DefaultTolerance;
+        SizeReport report = SizeGate.Run(baseline, results, tolerance);
+        string markdown = report.ToMarkdown();
+        if (options.TryGetValue("--summary", out string? summary))
+        {
+            File.AppendAllText(summary, markdown + Environment.NewLine);
+        }
+
+        if (options.TryGetValue("--record", out string? record))
+        {
+            SizeGate.Record(record, results);
+        }
+
+        foreach (SizeRow row in report.Failures)
+        {
+            Console.Out.WriteLine($"::error title=Size probe regression::{row.Rid} {row.Probe}: {row.Verdict}");
+        }
+
+        Console.Out.WriteLine(markdown);
+        return report.Passed ? 0 : 1;
+    }
+
     private static GateOptions ReadOptions(Dictionary<string, string> options) => GateOptions.Default with
     {
         FailRatio = options.TryGetValue("--fail-ratio", out string? ratio)
@@ -169,6 +202,7 @@ internal static class Program
         writer.WriteLine("  BenchGate suspects --results <dir> --out <file> [--fail-ratio <x>]");
         writer.WriteLine("  BenchGate record   --results <dir> --out <file>");
         writer.WriteLine("  BenchGate shard    --list <file> --count <n> --index <i> --out <file> [--baseline <file>] [--split <method,...>]");
+        writer.WriteLine("  BenchGate sizes    --baseline <file> --results <file> [--tolerance <x>] [--summary <file>] [--record <file>]");
         writer.WriteLine("Results layout: <dir>/[<shard>/]{round-<n>,confirm,allocations}/{base,head}/**/*.json.");
     }
 }

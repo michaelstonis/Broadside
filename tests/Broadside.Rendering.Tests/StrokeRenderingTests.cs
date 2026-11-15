@@ -286,6 +286,32 @@ public sealed class StrokeRenderingTests
         Assert.Equal(paints, !IsBlank(bitmap));
     }
 
+    [Theory]
+    [InlineData("stroke-heavy", 72, "701DF8B1AE1A93277D319C74F14C8422015AD67E76321B6B23BDE9126E691E3B")]
+    [InlineData("stroke-heavy", 300, "24EB249FB0359C6542E4AFE1BC5B0D0C9A08AD7B07F4C69534F4025D77292088")]
+    [InlineData("coincident", 72, "4EB5E5F9F9B9321105ADC696E920A480315B5C018A8D95B5980DBCE4407DB229")]
+    [InlineData("coincident", 300, "9482C29482CE238B0AABEC891320FB5B609CDB6FBB6CAC160305180935B20813")]
+    public void Strokes_paint_the_same_pixels_however_their_pieces_are_sorted(string page, int dpi, string sha256)
+    {
+        // Issue #335: large strokes sort their edge pieces by radix, not by comparison, and resolve pieces that cross a sample line at
+        // one position in every order before trusting it. The pixels are those the comparison sort gave (recorded before the change):
+        // a stroke-heavy page of every cap, join, dash and stroke adjustment, and strokes whose pieces meet at the same positions
+        // (butt caps ending at one x, overlapping vertical lines, overlapping round and square dashes).
+        const string coincident = "1 0 0 -1 0 792 cm "
+            + "3 w 100.3 50.4 m 300.3 50.4 l 100.3 51.1 m 250.3 51.1 l 100.3 52.3 m 200.3 52.3 l 20 20 m 400 300 l S "
+            + "2 J 2.5 w 300.6 100 m 300.6 400 l 301.2 150 m 301.2 350 l 299.9 200 m 299.9 380 l S "
+            + "[0 1.5] 0 d 1 J 3 w 20 400 m 500 420 l S [2 1] 0.5 d 2 J 2 w 30 500 m 530 520 l 30 501 m 530 521 l S";
+        byte[] pdf = page == "stroke-heavy"
+            ? ContentSamples.OnePage(ContentSamples.StrokeHeavy(64 * 1024), ContentSamples.StrokeHeavyResources)
+            : ContentSamples.OnePage(Encoding.ASCII.GetBytes(coincident));
+        using PdfDocument document = PdfDocument.Open(pdf);
+        using var rasterizer = new SoftwareRasterizer();
+
+        using Bitmap bitmap = rasterizer.Render(document.Pages[0], new RenderOptions().WithDpi(dpi));
+
+        Assert.Equal(sha256, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bitmap.Pixels)));
+    }
+
     private static bool IsBlank(Bitmap bitmap)
     {
         for (int y = 0; y < bitmap.Height; y++)

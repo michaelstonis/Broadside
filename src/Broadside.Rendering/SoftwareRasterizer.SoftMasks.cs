@@ -162,6 +162,7 @@ public sealed partial class SoftwareRasterizer
             }
 
             Backend child = _maskBackend ??= new Backend();
+            child.UseGlyphsOf(this);
             child.Begin(_document!, _maskBitmap, toDevice * Matrix.CreateTranslation(-left, -top), width, height, preview: false, _antiAliasing);
             try
             {

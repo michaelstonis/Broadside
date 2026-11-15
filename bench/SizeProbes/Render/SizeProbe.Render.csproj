@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Broadside/Broadside.csproj" />
+    <ProjectReference Include="../../../src/Broadside.Rendering/Broadside.Rendering.csproj" />
+  </ItemGroup>
+
+</Project>

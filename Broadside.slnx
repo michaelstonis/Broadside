@@ -5,8 +5,16 @@
     <Project Path="bench/Broadside.SampleTimings/Broadside.SampleTimings.csproj" />
     <Project Path="bench/Broadside.Rendering.CoreGraphics.Benchmarks/Broadside.Rendering.CoreGraphics.Benchmarks.csproj" />
     <Project Path="bench/Broadside.Rendering.Direct2D.Benchmarks/Broadside.Rendering.Direct2D.Benchmarks.csproj" />
+    <Project Path="bench/SizeProbes/Empty/SizeProbe.Empty.csproj" />
+    <Project Path="bench/SizeProbes/ExtractText/SizeProbe.ExtractText.csproj" />
+    <Project Path="bench/SizeProbes/FillForm/SizeProbe.FillForm.csproj" />
+    <Project Path="bench/SizeProbes/OpenMetadata/SizeProbe.OpenMetadata.csproj" />
+    <Project Path="bench/SizeProbes/Render/SizeProbe.Render.csproj" />
+    <Project Path="bench/SizeProbes/Save/SizeProbe.Save.csproj" />
+    <Project Path="bench/SizeProbes/Sign/SizeProbe.Sign.csproj" />
   </Folder>
   <Folder Name="/samples/">
+    <Project Path="samples/Broadside.Viewer.Avalonia.Sample/Broadside.Viewer.Avalonia.Sample.csproj" />
     <Project Path="samples/Broadside.Viewer.Blazor.Sample/Broadside.Viewer.Blazor.Sample.csproj" />
     <Project Path="samples/Broadside.Viewer.Wpf.Sample/Broadside.Viewer.Wpf.Sample.csproj" />
     <Project Path="samples/documents/generator/Broadside.SampleDocuments.csproj" />
@@ -31,6 +39,7 @@
     <Project Path="src/Broadside.Rendering.Skia/Broadside.Rendering.Skia.csproj" />
     <Project Path="src/Broadside.Rendering.WebGL/Broadside.Rendering.WebGL.csproj" />
     <Project Path="src/Broadside.Rendering/Broadside.Rendering.csproj" />
+    <Project Path="src/Broadside.Viewer.Avalonia/Broadside.Viewer.Avalonia.csproj" />
     <Project Path="src/Broadside.Viewer.Blazor/Broadside.Viewer.Blazor.csproj" />
     <Project Path="src/Broadside.Viewer.Maui/Broadside.Viewer.Maui.csproj" />
     <Project Path="src/Broadside.Viewer.WinUI/Broadside.Viewer.WinUI.csproj" />
@@ -45,6 +54,7 @@
     <Project Path="tests/Broadside.Globalization.Tests/Broadside.Globalization.Tests.csproj" />
     <Project Path="tests/Broadside.GoldenImages/Broadside.GoldenImages.csproj" />
     <Project Path="tests/Broadside.Layout.Tests/Broadside.Layout.Tests.csproj" />
+    <Project Path="tests/Broadside.Viewer.Avalonia.Tests/Broadside.Viewer.Avalonia.Tests.csproj" />
     <Project Path="tests/Broadside.Viewer.Blazor.BrowserTests/Broadside.Viewer.Blazor.BrowserTests.csproj" />
     <Project Path="tests/Broadside.Viewer.Maui.Tests/Broadside.Viewer.Maui.Tests.csproj" />
     <Project Path="tests/Broadside.Viewer.Tests/Broadside.Viewer.Tests.csproj" />

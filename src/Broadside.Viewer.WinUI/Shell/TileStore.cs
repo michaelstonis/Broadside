@@ -8,7 +8,7 @@ namespace Broadside.Viewer.WinUI;
 /// replacements arrive, so form edits never blink.
 /// </summary>
 /// <remarks>
-/// A background session presents and evicts on worker threads, concurrently (ADR 0013): a present copies the pixels into a pooled
+/// A background session presents and evicts on worker threads, concurrently, because tiles render off the UI thread: a present copies the pixels into a pooled
 /// buffer and queues it; <see cref="Drain"/> on the UI thread turns the queued pixels into the host's images (a <c>WriteableBitmap</c>
 /// can only be made there) and applies evictions in order. Each session presents through <see cref="ForCurrentSession"/>, so tiles a
 /// closed session's workers present late never reach the next document.

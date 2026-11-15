@@ -1,0 +1,16 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!--
+    Native AOT size probes (issue #361): one tiny app per scenario, each calling only the public API that scenario needs, so the
+    trimmer keeps only what the scenario reaches. bench/size-probes.sh publishes them and BenchGate compares their sizes with
+    bench/baselines/gate/sizes.json (bench/baselines/gate/README.md, "Size probes"). Each probe runs its scenario over a corpus
+    file and exits non-zero when the result is wrong, so a trim that removed something the scenario needs fails too.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <PublishAot>true</PublishAot>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <IlcTreatWarningsAsErrors>true</IlcTreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>
