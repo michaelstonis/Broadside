@@ -31,7 +31,7 @@ Broadside targets `net10.0` only. Every package is a prerelease, so pass `--prer
 dotnet add package Broadside --prerelease                    # read, write, edit; text extraction
 dotnet add package Broadside.Rendering --prerelease          # software rasterizer and PNG output
 dotnet add package Broadside.Fonts.Standard14 --prerelease   # glyphs for pages that use non-embedded Standard 14 fonts
-dotnet add package Broadside.Layout --prerelease             # flow layout (FlowDocument, Paragraph)
+dotnet add package Broadside.Layout --prerelease             # document builder and flow layout (FlowDocument, Paragraph)
 ```
 
 Add the other packages from the table below as you need them.
@@ -70,7 +70,6 @@ This compiles and runs against the `0.1.0-preview.1` packages `Broadside`, `Broa
 using Broadside;
 using Broadside.Fonts;
 using Broadside.Graphics;
-using Broadside.Layout.Flow;
 using Broadside.Rendering;
 
 // Write: a new document with one page of text.
@@ -109,20 +108,31 @@ using (FileStream png = File.Create("page-1.png"))
     bitmap.SavePng(png);
 }
 
-// Flow layout: paragraphs broken into lines and flowed across pages.
-using (PdfDocument report = PdfDocument.Create())
-{
-    report.Pages.RemoveAt(0); // the flow appends its own pages
-    PdfCanvasFont body = report.GetStandard14Font(Standard14Font.TimesRoman);
-    var flow = new FlowDocument(PageSetup.Letter);
-    flow.Add(new Paragraph("Broadside lays this paragraph out in lines and pages.", new ParagraphStyle(body, 11)));
-    FlowLayoutResult layout = flow.Render(report);
-    Console.WriteLine($"{layout.Pages.Count} page(s) laid out");
-    report.Save("report.pdf");
-}
 ```
 
 Reading is lenient by default: a damaged file is repaired and every repair is recorded as a `Diagnostic` on the document; `new PdfOptions().UseStrict()` makes the first deviation an error instead.
+
+### Building documents
+
+The document builder in `Broadside.Layout` describes a document as nested content in plain C#, and lays it out through the flow engine into a tagged, accessible `PdfDocument` with its fonts embedded:
+
+```csharp
+using Broadside;
+using Broadside.Layout.Flow;
+
+using PdfDocument pdf = PdfDocument.Create(doc => doc
+    .WithTitle("Hello")
+    .WithLanguage("en-US")
+    .Content(c =>
+    {
+        c.Heading(1, "Hello, Broadside");
+        c.Paragraph("This page is tagged, embeds its font and opens in any reader.");
+    }));
+
+pdf.Save("hello.pdf");
+```
+
+Loops and conditionals drive data-bound documents; headers, footers with page numbers, tables with repeating header rows, images and drawings with alternate text, columns, attached files and PDF/A and PDF/UA profiles are a method away. The builder is experimental in 1.0: it lands after `0.1.0-preview.7`, and code that uses it opts in with `<NoWarn>$(NoWarn);BROADSIDE0001</NoWarn>`. The [Building documents](https://michaelstonis.github.io/Broadside/articles/building-documents/) guide walks through every sample in [`samples/Broadside.BuilderSamples`](https://github.com/michaelstonis/Broadside/tree/main/samples/Broadside.BuilderSamples). The flow engine underneath (`FlowDocument`, `Paragraph`, `Table`) stays available for documents built block by block.
 
 ## What it does
 
@@ -197,6 +207,7 @@ With nothing to size it, the viewer is as wide as its container and min(80vh, 60
 - [`Broadside.Viewer.WinUI.Sample`](https://github.com/michaelstonis/Broadside/blob/main/samples/Broadside.Viewer.WinUI.Sample/README.md) is an unpackaged WinUI 3 app around `PdfView` (pages, zoom, copy, dark mode, find). Build it on Windows with `dotnet build samples/Broadside.Viewer.WinUI.Sample -r win-x64`.
 - [`Broadside.Viewer.Avalonia.Sample`](https://github.com/michaelstonis/Broadside/tree/main/samples/Broadside.Viewer.Avalonia.Sample) is a desktop app around the Avalonia `PdfView` for Windows, macOS and Linux: open, pages, zoom, layout, dark mode, annotations, search, the outline and page thumbnails. Run it with `dotnet run --project samples/Broadside.Viewer.Avalonia.Sample`, optionally followed by `-- <file or address>`.
 - [`Broadside.Viewer.Uno.Sample`](https://github.com/michaelstonis/Broadside/blob/main/samples/Broadside.Viewer.Uno.Sample/README.md) is an Uno Platform app around `PdfView` (documents, pages, zoom, find, dark mode) with a desktop head and a WebAssembly head. Run it with `dotnet build samples/Broadside.Viewer.Uno.Sample -f net10.0-desktop -t:Run`, or publish the browser head with `dotnet publish samples/Broadside.Viewer.Uno.Sample -f net10.0-browserwasm -c Release`.
+- [`Broadside.BuilderSamples`](https://github.com/michaelstonis/Broadside/tree/main/samples/Broadside.BuilderSamples) holds the document builder guide's samples (a report, a styled table, images and a drawn chart, an invoice with an attached XML file, the escape hatches) as a console app. Run it with `dotnet run --project samples/Broadside.BuilderSamples -- out` to write each PDF into `out/`.
 
 ## Status and roadmap
 

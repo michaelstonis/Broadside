@@ -85,6 +85,8 @@ The software rasterizer gives the same bytes for the same package version, page 
 
 Reading is lenient by default: a damaged file is repaired and every repair is recorded as a diagnostic on the document. `new PdfOptions().UseStrict()` makes the first deviation an error instead.
 
+To write reports, invoices and forms rather than single blocks, use the document builder: `PdfDocument.Create(doc => ...)` describes the document as nested content and lays it out tagged and accessible. [Building documents](building-documents.md) walks through it.
+
 ## Trimmed and Native AOT apps
 
 Broadside is trimmable and Native AOT compatible: publishing with `PublishAot` or `PublishTrimmed` gives no warnings, and an app

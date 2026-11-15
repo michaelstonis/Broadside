@@ -28,6 +28,13 @@ internal sealed class BuildContext(PdfDocument document, bool appending)
 
     public bool Tagging { get; set; } = true;
 
+    public PdfUAConformance PdfUA { get; set; }
+
+    public PdfAConformance PdfA { get; set; }
+
+    /// <summary>The files <see cref="DocumentBuilder.AttachFile(string, ReadOnlySpan{byte}, PdfFileRelationship, string)"/> attaches, in order.</summary>
+    public List<AttachmentNode> Attachments { get; } = [];
+
     public List<SectionNode> Sections { get; } = [];
 
     /// <summary>The section <see cref="DocumentBuilder.Content"/> adds to: the last section, or a new one.</summary>
@@ -71,6 +78,9 @@ internal sealed class BuildContext(PdfDocument document, bool appending)
     public void Report(DiagnosticCode code, string message) => Diagnostics.Add(new Diagnostic(code.Name, code.DefaultSeverity, message));
 }
 
+/// <summary>A file attached to the document and associated with it.</summary>
+internal sealed record AttachmentNode(string FileName, byte[] Contents, PdfFileRelationship Relationship, string MediaType);
+
 /// <summary>A section: its page setup, header and footer variants, scope style and content.</summary>
 internal sealed class SectionNode
 {
@@ -93,6 +103,16 @@ internal sealed class SectionNode
     public HeaderFooterNode? EvenPageHeader { get; set; }
 
     public HeaderFooterNode? EvenPageFooter { get; set; }
+
+    public Action<PdfCanvas, PageInfo>? Decoration { get; set; }
+
+    public PdfColor? BackgroundColor { get; set; }
+
+    public ImageSource? BackgroundImage { get; set; }
+
+    public string? Watermark { get; set; }
+
+    public Style? WatermarkStyle { get; set; }
 
     public ContainerNode Content { get; } = new();
 }
@@ -239,6 +259,10 @@ internal sealed class TableNode : BlockNode
     public Length? SpaceBefore { get; set; }
 
     public Length? SpaceAfter { get; set; }
+
+    public Length? Width { get; set; }
+
+    public TextAlignment Alignment { get; set; }
 }
 
 /// <summary>A table row: built cells, or a run of plain strings in <see cref="BuildContext.PlainCells"/>.</summary>
@@ -322,4 +346,40 @@ internal sealed class RuleNode : BlockNode
 internal sealed class RawNode(FlowBlock block) : BlockNode
 {
     public FlowBlock Block { get; } = block;
+}
+
+/// <summary>A vector drawing: a box the callback paints, described or decorative.</summary>
+internal sealed class DrawingNode : BlockNode
+{
+    public required Length Width { get; init; }
+
+    public required Length Height { get; init; }
+
+    public required Action<PdfCanvas, PdfRectangle> Draw { get; init; }
+
+    public string? AlternateText { get; init; }
+
+    public bool FillWidth { get; set; }
+
+    public TextAlignment Alignment { get; set; }
+
+    public string? Caption { get; set; }
+}
+
+/// <summary>Columns side by side, each its own scope of content.</summary>
+internal sealed class ColumnsNode : BlockNode
+{
+    public List<ColumnNode> Columns { get; } = [];
+
+    public Style? Scope { get; set; }
+
+    public Length? Gap { get; set; }
+}
+
+/// <summary>One column: its width and content.</summary>
+internal sealed class ColumnNode(ColumnWidth width)
+{
+    public ColumnWidth Width { get; } = width;
+
+    public ContainerNode Content { get; } = new();
 }

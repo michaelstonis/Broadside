@@ -1,0 +1,148 @@
+﻿== structure ==
+Document
+  H1
+  P
+  H2
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  H2
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  L
+    LI
+      Lbl
+      LBody
+        P
+  H2
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  L
+    LI
+      Lbl
+      LBody
+        P
+    LI
+      Lbl
+      LBody
+        P
+  H2
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+
+== text ==
+--- page 1 ---
+Field report
+Flow was steady across every region this quarter. Two short outages in the east were traced to a failed
+pressure sensor and fixed within the day; every other site met its reading schedule.
+North
+North site 1: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+North site 2: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+North site 3: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+North site 4: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+North site 5: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+North site 6: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+North site 7: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+North site 8: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+North site 9: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+No incidents were reported.
+South
+South site 1: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+South site 2: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+South site 3: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+South site 4: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+South site 5: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+South site 6: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+South site 7: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+South site 8: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+Page 1 of 2
+--- page 2 ---
+• A meter at Riverside read 4% high and was recalibrated.
+East
+East site 1: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+East site 2: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+East site 3: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+East site 4: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+East site 5: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+East site 6: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+East site 7: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+East site 8: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+East site 9: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+East site 10: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+• Pressure sensor failure at Hilltop, 3 hours.
+• Telemetry gap at Marsh Lane, 40 minutes.
+West
+West site 1: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+West site 2: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+West site 3: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+West site 4: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+West site 5: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+West site 6: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+West site 7: the meters were read on schedule, the readings agree with the telemetry within tolerance,
+and the next visit is booked.
+No incidents were reported.
+Field report, Q4 2026 Field Operations
+Page 2 of 2
+
+== sha256 ==
+A8EA8E18DD812D35F044525A8B552736D8EC18C3088AFC002DC6E13606AD9803

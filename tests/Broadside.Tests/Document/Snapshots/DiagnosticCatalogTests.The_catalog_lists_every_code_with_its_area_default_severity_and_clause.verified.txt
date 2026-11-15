@@ -148,6 +148,7 @@ Saving	PdfUANonConformant	Warning	ISO 14289-1 (PDF/UA-1); veraPDF validation pro
 Saving	PdfUANotIdentified	Information	ISO 14289-1 (PDF/UA-1); veraPDF validation profiles
 Saving	WellTaggedNonConformant	Warning	Well-Tagged PDF 1.0; veraPDF validation profiles
 Saving	WellTaggedNotDeclared	Information	Well-Tagged PDF 1.0; veraPDF validation profiles
+Saving	ConformanceOverridden	Information	ISO 19005 (PDF/A); ISO 14289 (PDF/UA)
 Navigation	NameDictionaryInvalid	Warning	ISO 32000-2 §7.7.4
 Navigation	NameTreeNodeInvalid	Warning	ISO 32000-2 §7.9.6 Table 36
 Navigation	NameTreeLimitsInvalid	Warning	ISO 32000-2 §7.9.6 Table 36

@@ -1,0 +1,12 @@
+﻿== structure ==
+Document
+  H1
+  P
+
+== text ==
+--- page 1 ---
+Hello, Broadside
+This page is tagged, embeds its font and opens in any reader.
+
+== sha256 ==
+4BC0F3D4CAE0150F08EDBCB97BE88623B8F8A3F23597F0BD386209611C0A4619

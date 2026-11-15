@@ -14,6 +14,7 @@
     <Project Path="bench/SizeProbes/Sign/SizeProbe.Sign.csproj" />
   </Folder>
   <Folder Name="/samples/">
+    <Project Path="samples/Broadside.BuilderSamples/Broadside.BuilderSamples.csproj" />
     <Project Path="samples/Broadside.Viewer.Avalonia.Sample/Broadside.Viewer.Avalonia.Sample.csproj" />
     <Project Path="samples/Broadside.Viewer.Blazor.Sample/Broadside.Viewer.Blazor.Sample.csproj" />
     <Project Path="samples/Broadside.Viewer.Wpf.Sample/Broadside.Viewer.Wpf.Sample.csproj" />

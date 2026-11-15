@@ -1,0 +1,12 @@
+﻿== structure ==
+Document
+  P
+  Figure Alt="A red square."
+
+== text ==
+--- page 1 ---
+Built with the engine directly.
+SAMPLE
+
+== sha256 ==
+6CC535F12B09640EB21761917A89B35810AC93570FFB3A8130297CEECAE19037
