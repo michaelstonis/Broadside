@@ -727,31 +727,48 @@ internal sealed class ViewerController : IDisposable
 
     // ---- Form fields ----
 
-    /// <summary>Commits the editor's text to the focused text field (or an editable combo box's value).</summary>
-    public bool CommitFieldText(string? text)
+    /// <summary>The native editor's text changed (typing, an input method, a paste): the form filling holds it until the edit ends.</summary>
+    public void EditorInput(string text)
     {
-        if (_annotations is null || _editor is null)
+        if (_filling is { } filling && _editor is { } editor && filling.Target == editor.Target)
         {
-            return false;
+            filling.SetText(text);
         }
+    }
 
-        // One write per edit, to the editor's widget (#218's target setters): what synthetic input through the form filling writes.
-        bool done = _editor.Kind == FieldEditorKind.Text ? _annotations.SetFieldText(_editor.Target, text) : _annotations.SetFieldChoice(_editor.Target, text);
+    /// <summary>
+    /// Ends the edit of the editor's field (focus loss, Enter): the form filling writes it once through the form API when it differs
+    /// from the field's value (#218), which regenerates the field's appearance and redraws only its overlay tiles.
+    /// </summary>
+    public bool CommitFieldEdit()
+    {
+        bool done = _filling?.Commit() ?? false;
         Wake();
         return done;
     }
 
-    /// <summary>Selects option <paramref name="index"/> of the focused choice field.</summary>
-    public bool CommitFieldChoice(int index)
+    /// <summary>Sets the editor's text and ends the edit (the text a native editor holds when it closes).</summary>
+    public bool CommitFieldText(string? text)
     {
-        if (_annotations is null || _editor is not { Kind: FieldEditorKind.Choice })
+        if (_filling is null || _editor is null || _filling.Target != _editor.Target)
         {
             return false;
         }
 
-        bool done = _annotations.SetFieldSelection(_editor.Target, [index]);
-        Wake();
-        return done;
+        _filling.SetText(text ?? string.Empty);
+        return CommitFieldEdit();
+    }
+
+    /// <summary>Picks option <paramref name="index"/> of the editor's choice field and ends the edit.</summary>
+    public bool CommitFieldChoice(int index)
+    {
+        if (_filling is null || _editor is not { Kind: FieldEditorKind.Choice } editor || _filling.Target != editor.Target)
+        {
+            return false;
+        }
+
+        _filling.SetSelectedOptions([index]);
+        return CommitFieldEdit();
     }
 
     /// <summary>Closes the editor (focus leaves the field).</summary>

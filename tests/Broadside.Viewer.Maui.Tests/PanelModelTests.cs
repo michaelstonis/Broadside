@@ -116,6 +116,42 @@ public sealed class PanelModelTests
     });
 
     [Fact]
+    public void Typing_in_the_in_place_editor_writes_once_when_the_edit_ends_and_saves_what_the_api_saves() => UiThread.Run(async () =>
+    {
+        byte[] typed;
+        string name;
+        using (Shell shell = await Shell.OpenAsync(Shell.CorpusFile("acroform-fields.pdf")))
+        {
+            AnnotationLayer layer = shell.Controller.Annotations!;
+            FormFieldItem item = (await FormFields.ListAsync(layer, 1, 1, CancellationToken.None)).First(f => f.Field is Broadside.Forms.PdfTextField { IsReadOnly: false, IsMultiline: false });
+            name = item.Name;
+            LayoutRectangle box = layer.GetScreenRectangle(item.Target, shell.Layout, shell.Viewport);
+            shell.Tap(1, (box.X + (box.Width / 2)) / shell.Ratio, (box.Y + (box.Height / 2)) / shell.Ratio);
+            Assert.Equal(item.Target, shell.Controller.Editor!.Target);
+            string before = ((Broadside.Forms.PdfTextField)item.Field).Value ?? string.Empty;
+
+            shell.Controller.EditorInput("G");
+            shell.Controller.EditorInput("Grace");
+            Assert.Equal(before, ((Broadside.Forms.PdfTextField)item.Field).Value ?? string.Empty); // nothing written while typing
+            Assert.True(shell.Controller.CommitFieldEdit());
+            Assert.False(shell.Controller.CommitFieldEdit()); // once
+            shell.Controller.EndFieldEdit();
+            await shell.SettleAsync();
+            using var stream = new MemoryStream();
+            await shell.Controller.Session!.Document.SaveAsync(stream, TestContext.Current.CancellationToken);
+            typed = stream.ToArray();
+        }
+
+#pragma warning disable CA1849 // the same engine options as the shell's session; there is no asynchronous overload taking options
+        using PdfDocument document = PdfDocument.Open(Shell.CorpusFile("acroform-fields.pdf"), Shell.Options().DocumentOptions!);
+#pragma warning restore CA1849
+        document.AcroForm!.TerminalFields.OfType<Broadside.Forms.PdfTextField>().Single(f => f.FullyQualifiedName == name).SetValue("Grace");
+        using var api = new MemoryStream();
+        await document.SaveAsync(api, TestContext.Current.CancellationToken);
+        Assert.Equal(api.ToArray(), typed);
+    });
+
+    [Fact]
     public void Rotation_turns_by_quarter_turns_and_wraps()
     {
         PageLayoutOptions options = LayoutChanges.Rotate(null, -1);

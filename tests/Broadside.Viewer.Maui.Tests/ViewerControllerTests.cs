@@ -213,7 +213,7 @@ public sealed class ViewerControllerTests
         int overlaysBefore = OverlayItems(shell);
         Assert.True(overlaysBefore > 0);
         shell.Events.Clear();
-        Assert.True(shell.Controller.CommitFieldText("Ada"));
+        Assert.True(shell.Controller.CommitFieldText("Grace Hopper"));
 
         // The evicted overlay tiles stay on screen until their replacements arrive: the composed frame never loses them.
         shell.Controller.Frame();
@@ -225,7 +225,7 @@ public sealed class ViewerControllerTests
             shell.Events.Where(e => e.Kind is TileEventKind.Started or TileEventKind.Presented or TileEventKind.Evicted),
             e => Assert.Equal(DisplayLayers.None, e.Tile.Layers & DisplayLayers.Content));
         var widget = (PdfWidgetAnnotation)layer.GetAnnotation(field);
-        Assert.Equal("Ada", ((PdfTextField)widget.Field!).Value);
+        Assert.Equal("Grace Hopper", ((PdfTextField)widget.Field!).Value);
     });
 
     [Fact]

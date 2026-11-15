@@ -21,6 +21,7 @@ public sealed class PdfFormPanel : ContentView
     private readonly ViewerFollower _follower;
     private readonly Label _status = PanelKit.Hint(string.Empty, "form-status");
     private readonly Label _xfa = PanelKit.Hint(string.Empty, "form-xfa");
+    private readonly Label _required = PanelKit.Hint(string.Empty, "form-required");
     private readonly VerticalStackLayout _list = new() { Spacing = 10, AutomationId = "form-fields" };
     private IReadOnlyList<FormFieldItem> _fields = [];
     private int _generation;
@@ -39,6 +40,8 @@ public sealed class PdfFormPanel : ContentView
                     _status,
                     _xfa,
                     _list,
+                    PanelKit.Button("Check required fields", "form-check-required", CheckRequired),
+                    _required,
                     PanelKit.Hint("Fill a field here or tap it in the page. Values go through the viewer's annotation layer: the field's appearance is regenerated and only its tiles redraw."),
                 },
             },
@@ -116,6 +119,21 @@ public sealed class PdfFormPanel : ContentView
         {
             _list.Children.Add(Row(layer, item));
         }
+    }
+
+    // Through the view's form filling (#218): the fields a submit would refuse (Table 227, Required) that have no value yet.
+    private void CheckRequired()
+    {
+        if (_follower.View?.Forms is not { } forms)
+        {
+            _required.Text = string.Empty;
+            return;
+        }
+
+        IReadOnlyList<PdfTerminalField> missing = forms.GetMissingRequiredFields();
+        _required.Text = missing.Count == 0
+            ? "Every required field has a value."
+            : "Required fields without a value: " + string.Join(", ", missing.Select(f => f.AlternateName ?? f.FullyQualifiedName));
     }
 
     private VerticalStackLayout Row(Broadside.Viewer.AnnotationLayer layer, FormFieldItem item)

@@ -157,13 +157,13 @@ public static class UiTests
         Entry entry = ((IVisualTreeElement)form).GetVisualTreeDescendants().OfType<Entry>().FirstOrDefault(e => e.IsEnabled && e.AutomationId?.StartsWith("field:", StringComparison.Ordinal) == true)
             ?? throw new InvalidOperationException("No editable text field in the form panel.");
         string name = entry.AutomationId["field:".Length..];
-        entry.Text = "Ada Lovelace";
+        entry.Text = "Grace Hopper 1906";
         entry.SendCompleted();
         await WaitAsync(() => page.Document.IsEdited, "the document is marked edited");
 
         byte[] saved = await page.Document.SaveAsync() ?? throw new InvalidOperationException("The document did not save.");
         using PdfDocument reopened = PdfDocument.Open(saved);
-        Check(reopened.AcroForm?.TerminalFields.OfType<Broadside.Forms.PdfTextField>().Any(f => f.FullyQualifiedName == name && f.Value == "Ada Lovelace") == true, "the saved file has the value in " + name);
+        Check(reopened.AcroForm?.TerminalFields.OfType<Broadside.Forms.PdfTextField>().Any(f => f.FullyQualifiedName == name && f.Value == "Grace Hopper 1906") == true, "the saved file has the value in " + name);
 
         // An XFA hybrid: the panel explains that only its AcroForm fields are shown and filled.
         await OpenAsync(page, "documents/application-form-xfa.pdf");

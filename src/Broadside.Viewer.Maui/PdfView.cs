@@ -626,12 +626,22 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
         input.BackgroundColor = Colors.White;
         input.TextColor = Colors.Black;
         bool committed = false;
+
+        // The form filling (#218) holds what is typed and writes it once when the edit ends (focus loss, Enter): filling a field here
+        // saves the same file as filling it through the API.
+        input.TextChanged += (_, e) =>
+        {
+            if (ReferenceEquals(_editorView, input))
+            {
+                _controller.EditorInput(e.NewTextValue ?? string.Empty);
+            }
+        };
         void Commit()
         {
             if (!committed && ReferenceEquals(_editorView, input))
             {
                 committed = true;
-                _controller.CommitFieldText(input.Text);
+                _controller.CommitFieldEdit();
                 _controller.EndFieldEdit();
             }
         }
