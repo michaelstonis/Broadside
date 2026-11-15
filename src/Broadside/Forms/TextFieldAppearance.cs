@@ -69,14 +69,25 @@ internal sealed class TextFieldAppearance
     /// <param name="value">The value to show; <see langword="null"/> for none.</param>
     /// <returns>The appearances, not yet placed on the widgets (<see cref="Apply"/>).</returns>
     /// <exception cref="InvalidOperationException">A character has no glyph in the default appearance font and no font program that has one was found.</exception>
-    public static TextFieldAppearance Build(PdfTextField field, string? value)
+    public static TextFieldAppearance Build(PdfTextField field, string? value) => Build(field, value, transient: false);
+
+    /// <summary>Builds the appearances of every widget of <paramref name="field"/> for <paramref name="value"/>.</summary>
+    /// <param name="field">The field.</param>
+    /// <param name="value">The value to show; <see langword="null"/> for none.</param>
+    /// <param name="transient">
+    /// Whether the appearances are for display only and must not change the document: no font is embedded, so text neither the default
+    /// appearance font nor Helvetica can show throws.
+    /// </param>
+    /// <returns>The appearances, not yet placed on the widgets (<see cref="Apply"/>).</returns>
+    /// <exception cref="InvalidOperationException">A character has no glyph in any font the appearance may use.</exception>
+    public static TextFieldAppearance Build(PdfTextField field, string? value, bool transient)
     {
         PdfDocument document = field.Document;
         PdfDefaultAppearance? appearance = field.ParsedDefaultAppearance;
         bool multiline = field.IsMultiline;
         int? comb = !multiline && !field.IsPassword && !field.IsFileSelect && field.IsComb && field.MaxLength is > 0 and var length ? length : null;
         string text = DisplayText(value ?? string.Empty, field.IsPassword, multiline, comb);
-        return Build(field, text, multiline ? text.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal) : text, multiline, comb, list: null);
+        return Build(field, text, multiline ? text.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal) : text, multiline, comb, list: null, transient: transient);
     }
 
     /// <summary>
@@ -90,18 +101,22 @@ internal sealed class TextFieldAppearance
     /// <param name="scrollToSelection">Whether a list box scrolls so that its first selected option is visible.</param>
     /// <returns>The appearances, not yet placed on the widgets (<see cref="Apply"/>).</returns>
     /// <exception cref="InvalidOperationException">A character has no glyph in the default appearance font and no font program that has one was found.</exception>
-    public static TextFieldAppearance BuildChoice(PdfChoiceField field, IReadOnlyList<int> selected, string? text, int? topIndex, bool scrollToSelection)
+    public static TextFieldAppearance BuildChoice(PdfChoiceField field, IReadOnlyList<int> selected, string? text, int? topIndex, bool scrollToSelection) =>
+        BuildChoice(field, selected, text, topIndex, scrollToSelection, transient: false);
+
+    /// <summary>As <see cref="BuildChoice(PdfChoiceField, IReadOnlyList{int}, string?, int?, bool)"/>; <paramref name="transient"/> embeds no font.</summary>
+    public static TextFieldAppearance BuildChoice(PdfChoiceField field, IReadOnlyList<int> selected, string? text, int? topIndex, bool scrollToSelection, bool transient)
     {
         IReadOnlyList<PdfChoiceOption> options = field.Options;
         if (field is PdfComboBoxField)
         {
             string shown = DisplayText(text ?? (selected.Count > 0 ? options[selected[0]].DisplayText : string.Empty), password: false, multiline: false, comb: null);
-            return Build(field, shown, shown, multiline: false, comb: null, list: null);
+            return Build(field, shown, shown, multiline: false, comb: null, list: null, transient: transient);
         }
 
         string[] lines = [.. options.Select(option => DisplayText(option.DisplayText, password: false, multiline: false, comb: null))];
         var list = new ListContent(lines, selected, Math.Clamp(topIndex ?? field.TopIndex, 0, Math.Max(0, lines.Length - 1)), scrollToSelection);
-        return Build(field, string.Empty, string.Concat(lines), multiline: false, comb: null, list);
+        return Build(field, string.Empty, string.Concat(lines), multiline: false, comb: null, list, transient: transient);
     }
 
     /// <summary>
@@ -112,19 +127,22 @@ internal sealed class TextFieldAppearance
     /// <param name="caption">The caption; empty for none.</param>
     /// <returns>The appearances, not yet placed on the widgets (<see cref="Apply"/>).</returns>
     /// <exception cref="InvalidOperationException">A character has no glyph in the default appearance font and no font program that has one was found.</exception>
-    public static TextFieldAppearance BuildCaption(PdfPushButtonField field, string caption)
+    public static TextFieldAppearance BuildCaption(PdfPushButtonField field, string caption) => BuildCaption(field, caption, transient: false);
+
+    /// <summary>As <see cref="BuildCaption(PdfPushButtonField, string)"/>; <paramref name="transient"/> embeds no font.</summary>
+    public static TextFieldAppearance BuildCaption(PdfPushButtonField field, string caption, bool transient)
     {
         string shown = DisplayText(caption, password: false, multiline: false, comb: null);
-        return Build(field, shown, shown, multiline: false, comb: null, list: null, PdfTextJustification.Centered);
+        return Build(field, shown, shown, multiline: false, comb: null, list: null, transient, PdfTextJustification.Centered);
     }
 
     /// <summary>Builds the appearances of every widget of <paramref name="field"/> showing <paramref name="text"/>, or a list.</summary>
-    private static TextFieldAppearance Build(PdfTerminalField field, string text, string fontText, bool multiline, int? comb, ListContent? list, PdfTextJustification? quadding = null)
+    private static TextFieldAppearance Build(PdfTerminalField field, string text, string fontText, bool multiline, int? comb, ListContent? list, bool transient, PdfTextJustification? quadding = null)
     {
         PdfDocument document = field.Document;
         PdfDefaultAppearance? appearance = field.ParsedDefaultAppearance;
         CosDictionary fontResources = CopyFontResources(document, appearance?.FontResources);
-        (AppearanceFont font, CosName fontName) = ChooseFont(document, appearance, fontResources, fontText);
+        (AppearanceFont font, CosName fontName) = ChooseFont(document, appearance, fontResources, fontText, transient);
         fontResources[fontName] = font.FontObject;
 
         var layout = new Layout(
@@ -152,6 +170,22 @@ internal sealed class TextFieldAppearance
         }
 
         return new TextFieldAppearance(document, appearances, list?.Top ?? list?.RequestedTop ?? 0);
+    }
+
+    /// <summary>Returns the appearance built for <paramref name="widget"/>, or <see langword="null"/> when it is not a widget of the field.</summary>
+    /// <param name="widget">The widget.</param>
+    /// <returns>The appearance stream, a direct object.</returns>
+    public CosStream? StreamFor(PdfWidgetAnnotation widget)
+    {
+        foreach ((PdfWidgetAnnotation candidate, CosStream stream) in _appearances)
+        {
+            if (ReferenceEquals(candidate.Dictionary, widget.Dictionary))
+            {
+                return stream;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Makes each appearance a new indirect object and the normal appearance (<c>AP</c> <c>N</c>) of its widget.</summary>
@@ -261,7 +295,7 @@ internal sealed class TextFieldAppearance
     }
 
     /// <summary>Chooses the font that shows <paramref name="text"/> and the resource name it is shown under.</summary>
-    private static (AppearanceFont Font, CosName Name) ChooseFont(PdfDocument document, PdfDefaultAppearance? appearance, CosDictionary fonts, string text)
+    private static (AppearanceFont Font, CosName Name) ChooseFont(PdfDocument document, PdfDefaultAppearance? appearance, CosDictionary fonts, string text, bool transient)
     {
         if (appearance is { Font: PdfSimpleFont simple, FontName: { } name } && fonts.TryGetValue(name, out CosObject? entry))
         {
@@ -279,7 +313,9 @@ internal sealed class TextFieldAppearance
             return (helvetica, UniqueName(fonts, "Helv"));
         }
 
-        if (CanvasAppearanceFont.CreateEmbedded(document, appearance?.Font, [text], out string? missing) is { } embedded)
+        // Embedding adds the subset font to the document, which a display-only appearance must not change.
+        string? missing = null;
+        if (!transient && CanvasAppearanceFont.CreateEmbedded(document, appearance?.Font, [text], out missing) is { } embedded)
         {
             return (embedded, UniqueName(fonts, "BrsF"));
         }

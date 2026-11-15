@@ -5759,3 +5759,9 @@ Broadside.Diagnostics.LayoutDiagnostics
 static Broadside.Diagnostics.LayoutDiagnostics.DrawingStateUnbalanced.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.LayoutDiagnostics.KeepTogetherTooTall.get -> Broadside.Diagnostics.DiagnosticCode!
 Broadside.PdfDocument.ReportDiagnostic(Broadside.Diagnostics.Diagnostic! diagnostic) -> void
+Broadside.Content.ContentOptions.TransientFieldAppearances.get -> bool
+Broadside.Content.ContentOptions.TransientFieldAppearances.set -> void
+Broadside.Content.ContentOptions.WithTransientFieldAppearances(bool transient) -> Broadside.Content.ContentOptions!
+Broadside.Forms.PdfAcroForm.SelectFields(System.Collections.Generic.IReadOnlyList<Broadside.PdfActionTarget!>? targets, bool exclude) -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfTerminalField!>!
+Broadside.PdfResetFormAction.SelectFields() -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfTerminalField!>!
+Broadside.PdfSubmitFormAction.SelectFields() -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfTerminalField!>!

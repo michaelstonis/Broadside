@@ -43,6 +43,9 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
     // linearized file lies after its pages (Annex F, F.3.10), so resolving a name at activation would need a synchronous fetch.
     private readonly ConcurrentDictionary<CosObject, PdfExplicitDestination?> _namedDestinations = new();
     private AnnotationTarget? _pressed;
+    private volatile XfaFormEventArgs? _xfaForm;
+    private int _xfaChecked;
+    private bool _xfaRaised;
     private PagePoint _pressPoint;
     private bool _dragging;
     private double _dragX;
@@ -68,6 +71,17 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
     /// shell, URIs and other files opened only after asking the user, and scripts never run (<see cref="ViewerActionEventArgs.IsScript"/>).
     /// </summary>
     public event EventHandler<ViewerActionEventArgs>? ActionRequested;
+
+    /// <summary>
+    /// Raised once, after the first page load, when the document's interactive form carries an XFA form: the viewer neither renders
+    /// nor runs XFA, so the shell explains (<see cref="XfaFormEventArgs.Explanation"/>) that only the AcroForm fields are shown and
+    /// filled. Raised on the caller's synchronization context.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §12.7.3 (Table 224, XFA) and Annex K (XFA forms, deprecated in PDF 2.0); spec #33 viewer capability 12.</remarks>
+    public event EventHandler<XfaFormEventArgs>? XfaFormDetected;
+
+    /// <summary>Gets the XFA notice of the document once a page has loaded (see <see cref="XfaFormDetected"/>), or <see langword="null"/>.</summary>
+    public XfaFormEventArgs? XfaForm => _xfaForm;
 
     /// <summary>Raised after an edit changed what part of a page draws (also passed to the scheduler, when there is one).</summary>
     public event EventHandler<PageInvalidatedEventArgs>? Invalidated;
@@ -163,6 +177,11 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
                     _ =>
                     {
                         AnnotationPage model = AnnotationPage.Create(Session.Document, page);
+                        if (Interlocked.Exchange(ref _xfaChecked, 1) == 0)
+                        {
+                            _xfaForm = XfaFormEventArgs.For(Session.Document);
+                        }
+
                         if (Session.IsRemote)
                         {
                             ResolveNamedDestinations(model.Entries);
@@ -174,8 +193,27 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
             },
             cancellationToken).ConfigureAwait(true);
         _pages[pageIndex] ??= created;
+        if (_xfaForm is { } xfa && !_xfaRaised)
+        {
+            _xfaRaised = true;
+            XfaFormDetected?.Invoke(this, xfa);
+        }
 
         return _pages[pageIndex]!.Count;
+    }
+
+    /// <summary>
+    /// Finds the annotation of a loaded page whose dictionary is <paramref name="dictionary"/>, such as an
+    /// <see cref="AccessibleNode.Source"/> the accessibility bridge focused, so the shell can move the layer's focus with it.
+    /// </summary>
+    /// <param name="pageIndex">The zero-based page.</param>
+    /// <param name="dictionary">The annotation dictionary.</param>
+    /// <returns>The annotation, or <see langword="null"/> when the page is not loaded or has no such annotation.</returns>
+    /// <remarks>Spec #33 viewer capabilities 7 and 12.</remarks>
+    public AnnotationTarget? FindTarget(int pageIndex, CosDictionary dictionary)
+    {
+        ArgumentNullException.ThrowIfNull(dictionary);
+        return (uint)pageIndex < (uint)_pages.Length && _pages[pageIndex] is not null ? Find(pageIndex, dictionary) : null;
     }
 
     /// <summary>Gets how many annotations of a page take part: 0 until <see cref="LoadPageAsync"/> loaded it.</summary>
@@ -590,9 +628,16 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
     /// <param name="value">The text, or <see langword="null"/> to clear it.</param>
     /// <returns>Whether a writable text field has focus (nothing changes otherwise).</returns>
     /// <remarks>ISO 32000-2 §12.7.5.3, through <see cref="PdfTextField.SetValue"/> (which regenerates the appearances).</remarks>
-    public bool SetFieldText(string? value)
+    public bool SetFieldText(string? value) => Focused is { } focused && SetFieldText(focused, value);
+
+    /// <summary>Sets a text field's value through one of its widgets, focused or not, and redraws its widgets.</summary>
+    /// <param name="target">A widget of the field, on a loaded page.</param>
+    /// <param name="value">The text, or <see langword="null"/> to clear it.</param>
+    /// <returns>Whether the widget belongs to a writable text field (nothing changes otherwise).</returns>
+    /// <remarks>ISO 32000-2 §12.7.5.3, through <see cref="PdfTextField.SetValue"/>; spec #33 viewer capability 12.</remarks>
+    public bool SetFieldText(AnnotationTarget target, string? value)
     {
-        if (FocusedField is not PdfTextField { IsReadOnly: false } field)
+        if (FieldOf(target) is not PdfTextField { IsReadOnly: false } field)
         {
             return false;
         }
@@ -610,9 +655,16 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
     /// <param name="value">The value, or <see langword="null"/> to select nothing.</param>
     /// <returns>Whether a writable choice field has focus.</returns>
     /// <remarks>ISO 32000-2 §12.7.5.4, through <see cref="PdfChoiceField.SetValue"/>.</remarks>
-    public bool SetFieldChoice(string? value)
+    public bool SetFieldChoice(string? value) => Focused is { } focused && SetFieldChoice(focused, value);
+
+    /// <summary>Sets a choice field's value through one of its widgets, focused or not.</summary>
+    /// <param name="target">A widget of the field, on a loaded page.</param>
+    /// <param name="value">An option's export value or text, any text in an editable combo box, or <see langword="null"/> to select nothing.</param>
+    /// <returns>Whether the widget belongs to a writable choice field.</returns>
+    /// <remarks>ISO 32000-2 §12.7.5.4, through <see cref="PdfChoiceField.SetValue"/>; spec #33 viewer capability 12.</remarks>
+    public bool SetFieldChoice(AnnotationTarget target, string? value)
     {
-        if (FocusedField is not PdfChoiceField { IsReadOnly: false } field)
+        if (FieldOf(target) is not PdfChoiceField { IsReadOnly: false } field)
         {
             return false;
         }
@@ -630,10 +682,17 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
     /// <param name="indices">The option indices.</param>
     /// <returns>Whether a writable choice field has focus.</returns>
     /// <remarks>ISO 32000-2 §12.7.5.4, through <see cref="PdfChoiceField.SetSelectedIndices"/>.</remarks>
-    public bool SetFieldSelection(IEnumerable<int> indices)
+    public bool SetFieldSelection(IEnumerable<int> indices) => Focused is { } focused ? SetFieldSelection(focused, indices) : ThrowIfNull(indices);
+
+    /// <summary>Selects options of a choice field by index through one of its widgets, focused or not.</summary>
+    /// <param name="target">A widget of the field, on a loaded page.</param>
+    /// <param name="indices">The option indices (several in a multi-select list box).</param>
+    /// <returns>Whether the widget belongs to a writable choice field.</returns>
+    /// <remarks>ISO 32000-2 §12.7.5.4, through <see cref="PdfChoiceField.SetSelectedIndices"/>; spec #33 viewer capability 12.</remarks>
+    public bool SetFieldSelection(AnnotationTarget target, IEnumerable<int> indices)
     {
         ArgumentNullException.ThrowIfNull(indices);
-        if (FocusedField is not PdfChoiceField { IsReadOnly: false } field)
+        if (FieldOf(target) is not PdfChoiceField { IsReadOnly: false } field)
         {
             return false;
         }
@@ -659,6 +718,37 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
 
         Toggle(field, widget);
         return true;
+    }
+
+    /// <summary>
+    /// Resets fields to their default values (<c>DV</c>) through the form API and redraws their widgets: a text field gets its default
+    /// text, a choice field its default options, a check box or radio button its default state (off without one). Read-only fields
+    /// are reset too: the flag restricts the user, and a reset-form action is the document's own.
+    /// </summary>
+    /// <param name="fields">The fields, such as a reset-form action's <see cref="PdfResetFormAction.SelectFields"/>.</param>
+    /// <returns>How many fields changed value.</returns>
+    /// <remarks>ISO 32000-2 §12.7.6.3 (reset-form action), §12.7.4.1 (Table 226, <c>DV</c>); spec #33 viewer capability 12.</remarks>
+    public int ResetFields(IEnumerable<PdfTerminalField> fields)
+    {
+        ArgumentNullException.ThrowIfNull(fields);
+        var changed = new List<PdfTerminalField>();
+        using (Session.BeginEdit())
+        {
+            foreach (PdfTerminalField field in fields)
+            {
+                if (Reset(field))
+                {
+                    changed.Add(field);
+                }
+            }
+        }
+
+        foreach (PdfTerminalField field in changed)
+        {
+            InvalidateField(field);
+        }
+
+        return changed.Count;
     }
 
     // ---- Annotation editing ----
@@ -888,6 +978,64 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
             // The page index comes from the hints without I/O (issue #417); asking for it here keeps any read off the UI thread.
             _ = resolved?.PageIndex;
             _namedDestinations.TryAdd(named.Name, resolved);
+        }
+    }
+
+    private static bool ThrowIfNull(IEnumerable<int> indices)
+    {
+        ArgumentNullException.ThrowIfNull(indices);
+        return false;
+    }
+
+    private PdfTerminalField? FieldOf(AnnotationTarget target) => Get(target).Annotation is PdfWidgetAnnotation widget ? widget.Field : null;
+
+    /// <summary>Sets one field to its default value when it has another; whether it changed.</summary>
+    private static bool Reset(PdfTerminalField field)
+    {
+        switch (field)
+        {
+            case PdfTextField text when text.Value != text.DefaultValue:
+                text.SetValue(text.DefaultValue);
+                return true;
+            case PdfChoiceField choice when !choice.Values.SequenceEqual(choice.DefaultValues):
+                IReadOnlyList<PdfChoiceOption> options = choice.Options;
+                int[] indices = [.. choice.DefaultValues.Select(v => IndexOf(options, v)).Where(i => i >= 0).Distinct().Order()];
+                if (indices.Length == 0 && choice.DefaultValues is [var typed, ..])
+                {
+                    choice.SetValue(typed);
+                }
+                else
+                {
+                    choice.SetSelectedIndices(indices);
+                }
+
+                return true;
+            case PdfToggleButtonField toggle when !toggle.Value.Equals(toggle.DefaultValue ?? new CosName("Off")):
+                toggle.SetValue(toggle.DefaultValue ?? new CosName("Off"));
+                return true;
+            default:
+                return false;
+        }
+
+        static int IndexOf(IReadOnlyList<PdfChoiceOption> options, string value)
+        {
+            for (int i = 0; i < options.Count; i++)
+            {
+                if (options[i].ExportValue == value)
+                {
+                    return i;
+                }
+            }
+
+            for (int i = 0; i < options.Count; i++)
+            {
+                if (options[i].DisplayText == value)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
         }
     }
 

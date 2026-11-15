@@ -149,6 +149,14 @@ _Avoid_: Highlight (a highlight is an annotation), range, marquee
 The viewer's model of a document session's annotations, links and form-field widgets: hit-testing, hover, selection and keyboard focus, link activation raised as action requests the shell performs (never scripts), notes, field editing and annotation edits that invalidate only the overlay tiles they touch.
 _Avoid_: Overlay (an overlay is the transparent tile the annotation and form-field layers render into), annotation manager
 
+**Form filling**:
+The viewer's interaction model for a document session's form fields over the annotation layer: focus in each page's tab order, an edit of the focused field (text with a caret, options being picked) written through the form API once when it ends, toggles, reset-form actions and required-field checks; filling through it saves the same file as calling the form API.
+_Avoid_: Form editor, field manager
+
+**Transient appearance**:
+The appearance a widget that lacks one is drawn with in the viewer: what filling would generate from the field's value, built for one display list and never written to the document.
+_Avoid_: Temporary appearance, fallback appearance
+
 **Reading-order provider**:
 What decides the order a page's glyphs are selected and copied in: content order, or the layout tree's structure or detected order.
 _Avoid_: Sorter, text order strategy

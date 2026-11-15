@@ -168,7 +168,21 @@ internal sealed partial class DisplayListBuilder
                 }
             }
 
-            if (annotation.GetAppearance() is not { } appearance)
+            PdfFormXObject? appearance = annotation.GetAppearance();
+            if (options.TransientFieldAppearances && annotation is PdfWidgetAnnotation widget)
+            {
+                // Display only (spec #33 viewer capability 12): the widget is drawn as filling would draw it, the document unchanged.
+                // The appearance's new objects belong to no document, so they must not make this list (or any cache) stale.
+                using (CosMutation.Quiet())
+                {
+                    if (appearance is null || Forms.TransientAppearance.Replaces(widget))
+                    {
+                        appearance = Forms.TransientAppearance.Create(widget) ?? appearance;
+                    }
+                }
+            }
+
+            if (appearance is null)
             {
                 ReportNoAppearance(annotation);
                 continue;
