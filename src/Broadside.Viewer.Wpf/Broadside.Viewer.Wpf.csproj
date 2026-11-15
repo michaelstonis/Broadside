@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The WPF shell of the viewer core (#222). WPF comes from the Windows Desktop SDK (UseWPF), the only dependency beyond Broadside.Viewer
+    (ADR 0001: a shell depends on its platform library). The Windows targeting pack and the WPF build tasks are NuGet packages, so the
+    project builds and packs on every host, as Broadside.Rendering.Direct2D does; it runs, and its tests run, on Windows only.
+    Tiles draw with the managed software rasterizer, bit-identical on every platform; a host can pick another backend through
+    ViewerOptions.UseBackend.
+  -->
+  <PropertyGroup>
+    <Description>WPF viewer for Broadside: a PdfView control on the shared viewer core. Tiles render off the UI thread with the fully managed software rasterizer and are composed as frozen bitmaps; mouse, touch, pen and keyboard input, text selection, links, form fields, find-in-document, smart dark mode and UI Automation (pages, their text in reading order, and the tagged structure). Depends on WPF only.</Description>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
+    <!-- WPF is neither trimmable nor AOT-compatible; the shell itself uses no reflection. -->
+    <IsTrimmable>false</IsTrimmable>
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Broadside.Viewer/Broadside.Viewer.csproj" />
+  </ItemGroup>
+
+</Project>

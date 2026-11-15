@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The WPF shell's tests (#222): the controller (gestures, keys, search, dark mode, frames), the control and its UI Automation peers
+    on an STA thread, and a UI Automation test that drives the sample app (SampleAutomationTests, Category=UIAutomation). They need the
+    Windows Desktop runtime, so they run on Windows only: CI runs this project on its Windows leg (.github/workflows/ci.yml), and it
+    is outside Broadside.Core.slnf. It builds on every host, because the Windows targeting pack is a NuGet package.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- WPF needs culture data (input languages, text services); the repository's invariant mode is for the libraries' own tests. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Viewer.Wpf/Broadside.Viewer.Wpf.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
+    <ProjectReference Include="../Broadside.TestSupport/Broadside.TestSupport.csproj" />
+    <!-- Built first so the UI Automation test can start it; nothing of it is referenced. -->
+    <ProjectReference Include="../../samples/Broadside.Viewer.Wpf.Sample/Broadside.Viewer.Wpf.Sample.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <PackageReference Include="xunit.v3" />
+    <!-- WPF's implicit usings leave System.IO out. -->
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+</Project>

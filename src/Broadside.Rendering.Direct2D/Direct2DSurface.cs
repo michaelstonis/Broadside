@@ -167,17 +167,7 @@ internal sealed unsafe class Direct2DSurface : IDisposable
     }
 
     private static HRESULT CreateDevice(D3D_DRIVER_TYPE type, ID3D11Device** device) =>
-        PInvoke.D3D11CreateDevice(
-            null,
-            type,
-            default,
-            D3D11_CREATE_DEVICE_FLAG.D3D11_CREATE_DEVICE_BGRA_SUPPORT,
-            null,
-            0,
-            PInvoke.D3D11_SDK_VERSION,
-            device,
-            null,
-            null);
+        Direct3D11Native.CreateDevice(type, D3D11_CREATE_DEVICE_FLAG.D3D11_CREATE_DEVICE_BGRA_SUPPORT, device);
 
     private void Create(Direct2DDriver driver)
     {

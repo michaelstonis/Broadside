@@ -686,3 +686,76 @@ Broadside.Layout.Flow.TextDirection.LeftToRight = 1 -> Broadside.Layout.Flow.Tex
 Broadside.Layout.Flow.TextDirection.RightToLeft = 2 -> Broadside.Layout.Flow.TextDirection
 static Broadside.Layout.Flow.Theme.Default.get -> Broadside.Layout.Flow.Theme!
 static Broadside.Layout.Flow.Theme.Letter.get -> Broadside.Layout.Flow.Theme!
+Broadside.Layout.Flow.BlockGroup
+Broadside.Layout.Flow.BlockGroup.BlockGroup(params System.Collections.Generic.IEnumerable<Broadside.Layout.Flow.FlowBlock!>! blocks) -> void
+Broadside.Layout.Flow.BlockGroup.Blocks.get -> System.Collections.Generic.IReadOnlyList<Broadside.Layout.Flow.FlowBlock!>!
+Broadside.Layout.Flow.BlockGroup.IsTagged.get -> bool
+Broadside.Layout.Flow.BlockGroup.IsTagged.init -> void
+Broadside.Layout.Flow.BlockGroup.KeepTogether.get -> bool
+Broadside.Layout.Flow.BlockGroup.KeepTogether.init -> void
+Broadside.Layout.Flow.ColumnsBlock
+Broadside.Layout.Flow.ColumnsBlock.Columns.get -> System.Collections.Generic.IReadOnlyList<Broadside.Layout.Flow.FlowColumn!>!
+Broadside.Layout.Flow.ColumnsBlock.ColumnsBlock(params System.Collections.Generic.IEnumerable<Broadside.Layout.Flow.FlowColumn!>! columns) -> void
+Broadside.Layout.Flow.ColumnsBlock.Gap.get -> double
+Broadside.Layout.Flow.ColumnsBlock.Gap.init -> void
+Broadside.Layout.Flow.ColumnsBlock.SpaceAfter.get -> double
+Broadside.Layout.Flow.ColumnsBlock.SpaceAfter.init -> void
+Broadside.Layout.Flow.ColumnsBlock.SpaceBefore.get -> double
+Broadside.Layout.Flow.ColumnsBlock.SpaceBefore.init -> void
+Broadside.Layout.Flow.DrawingBlock
+Broadside.Layout.Flow.DrawingBlock.Alignment.get -> Broadside.Layout.Flow.TextAlignment
+Broadside.Layout.Flow.DrawingBlock.Alignment.init -> void
+Broadside.Layout.Flow.DrawingBlock.AlternateText.get -> string?
+Broadside.Layout.Flow.DrawingBlock.AlternateText.init -> void
+Broadside.Layout.Flow.DrawingBlock.Draw.get -> System.Action<Broadside.Graphics.PdfCanvas!, Broadside.PdfRectangle>!
+Broadside.Layout.Flow.DrawingBlock.DrawingBlock(double width, double height, System.Action<Broadside.Graphics.PdfCanvas!, Broadside.PdfRectangle>! draw) -> void
+Broadside.Layout.Flow.DrawingBlock.Height.get -> double
+Broadside.Layout.Flow.DrawingBlock.IsDecorative.get -> bool
+Broadside.Layout.Flow.DrawingBlock.IsDecorative.init -> void
+Broadside.Layout.Flow.DrawingBlock.SpaceAfter.get -> double
+Broadside.Layout.Flow.DrawingBlock.SpaceAfter.init -> void
+Broadside.Layout.Flow.DrawingBlock.SpaceBefore.get -> double
+Broadside.Layout.Flow.DrawingBlock.SpaceBefore.init -> void
+Broadside.Layout.Flow.DrawingBlock.Width.get -> double
+Broadside.Layout.Flow.FlowBlock.KeepWithNext.get -> bool
+Broadside.Layout.Flow.FlowBlock.KeepWithNext.init -> void
+Broadside.Layout.Flow.FlowColumn
+Broadside.Layout.Flow.FlowColumn.Blocks.get -> System.Collections.Generic.IReadOnlyList<Broadside.Layout.Flow.FlowBlock!>!
+Broadside.Layout.Flow.FlowColumn.FlowColumn(Broadside.Layout.Flow.ColumnWidth width, params System.Collections.Generic.IEnumerable<Broadside.Layout.Flow.FlowBlock!>! blocks) -> void
+Broadside.Layout.Flow.FlowColumn.FlowColumn(params System.Collections.Generic.IEnumerable<Broadside.Layout.Flow.FlowBlock!>! blocks) -> void
+Broadside.Layout.Flow.FlowColumn.Width.get -> Broadside.Layout.Flow.ColumnWidth
+Broadside.Layout.Flow.PageBreak
+Broadside.Layout.Flow.PageBreak.PageBreak() -> void
+Broadside.Layout.Flow.PageInfo
+Broadside.Layout.Flow.PageInfo.ContentHeight.get -> double
+Broadside.Layout.Flow.PageInfo.ContentWidth.get -> double
+Broadside.Layout.Flow.PageInfo.Count.get -> int
+Broadside.Layout.Flow.PageInfo.Count.init -> void
+Broadside.Layout.Flow.PageInfo.Height.get -> double
+Broadside.Layout.Flow.PageInfo.IsFirstOfSection.get -> bool
+Broadside.Layout.Flow.PageInfo.IsFirstOfSection.init -> void
+Broadside.Layout.Flow.PageInfo.Margins.get -> Broadside.Layout.Flow.PageMargins
+Broadside.Layout.Flow.PageInfo.Number.get -> int
+Broadside.Layout.Flow.PageInfo.Number.init -> void
+Broadside.Layout.Flow.PageInfo.PageInfo() -> void
+Broadside.Layout.Flow.PageInfo.PageInfo(int Number, int Count, int Section, bool IsFirstOfSection, Broadside.Layout.Flow.PageSetup Setup) -> void
+Broadside.Layout.Flow.PageInfo.Section.get -> int
+Broadside.Layout.Flow.PageInfo.Section.init -> void
+Broadside.Layout.Flow.PageInfo.Setup.get -> Broadside.Layout.Flow.PageSetup
+Broadside.Layout.Flow.PageInfo.Setup.init -> void
+Broadside.Layout.Flow.PageInfo.Width.get -> double
+Broadside.Layout.Flow.PageTemplate.Decoration.get -> System.Action<Broadside.Graphics.PdfCanvas!, Broadside.Layout.Flow.PageInfo>?
+Broadside.Layout.Flow.PageTemplate.Decoration.init -> void
+Broadside.Layout.Flow.Rule
+Broadside.Layout.Flow.Rule.Color.get -> Broadside.Graphics.PdfColor?
+Broadside.Layout.Flow.Rule.Color.init -> void
+Broadside.Layout.Flow.Rule.Rule() -> void
+Broadside.Layout.Flow.Rule.SpaceAfter.get -> double
+Broadside.Layout.Flow.Rule.SpaceAfter.init -> void
+Broadside.Layout.Flow.Rule.SpaceBefore.get -> double
+Broadside.Layout.Flow.Rule.SpaceBefore.init -> void
+Broadside.Layout.Flow.Rule.Thickness.get -> double
+Broadside.Layout.Flow.Rule.Thickness.init -> void
+Broadside.Layout.Flow.Spacer
+Broadside.Layout.Flow.Spacer.Height.get -> double
+Broadside.Layout.Flow.Spacer.Spacer(double height) -> void

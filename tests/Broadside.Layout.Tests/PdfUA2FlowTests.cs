@@ -181,6 +181,14 @@ public sealed class PdfUA2FlowTests
     {
         using PdfDocument document = PdfDocument.Create(new PdfOptions().UseStrict());
         document.Pages.RemoveAt(0);
+        if (condition == "figure without alternate text")
+        {
+            // The layout records the missing alternate text on the document (#397), so a strict document refuses it there, before any save.
+            DiagnosticException early = Assert.Throws<DiagnosticException>(() => Build(document, condition));
+            Assert.Equal(StructureDiagnostics.FigureWithoutAlternateText, early.Diagnostic.Kind);
+            return;
+        }
+
         Build(document, condition);
         string before = CosSnapshot.Of(document);
 

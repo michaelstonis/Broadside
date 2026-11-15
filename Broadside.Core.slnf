@@ -13,6 +13,7 @@
       "src/Broadside.Viewer/Broadside.Viewer.csproj",
       "src/Broadside.Viewer.Blazor/Broadside.Viewer.Blazor.csproj",
       "src/Broadside.Viewer.Maui/Broadside.Viewer.Maui.csproj",
+      "src/Broadside.Viewer.Wpf/Broadside.Viewer.Wpf.csproj",
       "tests/Broadside.TestSupport/Broadside.TestSupport.csproj",
       "tests/Broadside.GoldenImages/Broadside.GoldenImages.csproj",
       "tests/Broadside.Tests/Broadside.Tests.csproj",

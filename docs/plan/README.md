@@ -37,7 +37,8 @@ Work outside the phase tickets is tracked as open issues without a milestone: fo
 | `Broadside.Viewer` | Framework-neutral viewer core: document session, page layout, tile scheduler, input model, text selection, annotation layer, accessibility bridge | none |
 | `Broadside.Viewer.Blazor` | Blazor WebAssembly shell (`PdfViewer`) | `Microsoft.AspNetCore.Components.Web` |
 | `Broadside.Viewer.Maui` | .NET MAUI shell (`PdfView`) | `Microsoft.Maui.Controls`, `SkiaSharp.Views.Maui.Controls` |
-| `Broadside.Viewer.*` | Uno, Avalonia, WPF and WinUI shells (provisional, #222 to #225) | per framework |
+| `Broadside.Viewer.Wpf` | WPF shell (`PdfView`) | WPF (Windows Desktop SDK) |
+| `Broadside.Viewer.*` | Uno, Avalonia and WinUI shells (provisional, #223 to #225) | per framework |
 
 Target framework: `net10.0` only. License: MIT.
 

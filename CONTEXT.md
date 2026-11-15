@@ -133,6 +133,14 @@ _Avoid_: Page pair, row
 The part of a page layout a shell shows: a scroll offset and a size in pixels, and a zoom in pixels per point.
 _Avoid_: Window, visible area, camera
 
+**View target**:
+A destination resolved to a place a viewer can show: a page, the view the destination asks for (fit the page, its width, a rectangle, or a position and zoom) and that view's parameters. An outline entry, a named destination and a link all resolve to one, and a page layout turns it into a viewport.
+_Avoid_: Bookmark target, link target, goto
+
+**Thumbnail**:
+A whole page drawn small from the page's cached display list, one at a time and only while the viewer has no tile work waiting; it never builds a display list a tile would not also use.
+_Avoid_: Preview, page image
+
 **Text selection**:
 The selected text of a document session: an anchor and a focus caret between glyphs, in reading order, possibly on different pages; read back as quads per page to draw and as text to copy.
 _Avoid_: Highlight (a highlight is an annotation), range, marquee

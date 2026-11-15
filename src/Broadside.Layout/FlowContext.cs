@@ -1,4 +1,5 @@
 using Broadside.Annotations;
+using Broadside.Diagnostics;
 using Broadside.Graphics;
 
 namespace Broadside.Layout.Flow;
@@ -17,6 +18,9 @@ internal sealed class FlowContext : IDisposable
     /// <summary>Slack for rounding when a line ends exactly at the bottom margin.</summary>
     private const double Tolerance = 1e-9;
 
+    /// <summary>The height of a virtual page that never breaks.</summary>
+    private const double Unbounded = 1e9;
+
     private readonly PdfDocument _document;
     private readonly FlowDocument _flow;
     private readonly List<PdfPage> _pages = [];
@@ -27,25 +31,30 @@ internal sealed class FlowContext : IDisposable
     private readonly double[]? _heights;
     private readonly int _drawPage;
     private readonly double _regionLeft;
-    private readonly List<(PdfPage Page, PageTemplate Template, bool First)> _templated = [];
+    private readonly List<DecoratedPage> _templated = [];
+    private readonly List<Diagnostic> _diagnostics;
     private PageTemplate _template;
     private bool _sectionStart = true;
+    private bool _sectionHasContent;
+    private int _section;
+    private int _advancePage = -1;
     private PdfPage? _page;
     private PdfCanvas? _canvas;
     private int _virtualPage;
     private double _wordSpacing;
 
     public FlowContext(PdfDocument document, FlowDocument flow)
-        : this(document, flow, flow.Services)
+        : this(document, flow, flow.Services, [])
     {
     }
 
-    public FlowContext(PdfDocument document, FlowDocument flow, FlowServices services)
+    public FlowContext(PdfDocument document, FlowDocument flow, FlowServices services, List<Diagnostic> diagnostics)
     {
         _document = document;
         _flow = flow;
         _template = flow.Template;
         Services = services;
+        _diagnostics = diagnostics;
     }
 
     /// <summary>
@@ -62,6 +71,7 @@ internal sealed class FlowContext : IDisposable
         _flow = parent._flow;
         _template = parent._template;
         Services = parent.Services;
+        _diagnostics = parent._diagnostics;
         _heights = heights;
         _drawPage = drawPage;
         _regionLeft = left;
@@ -70,10 +80,20 @@ internal sealed class FlowContext : IDisposable
         Top = top;
         Bottom = top - heights[0];
         CursorY = top;
+        ContentBottom = top;
     }
 
     /// <summary>The replaceable layout steps.</summary>
     public FlowServices Services { get; }
+
+    /// <summary>What the layout found worth reporting, shared by a context and its regions.</summary>
+    public List<Diagnostic> Diagnostics => _diagnostics;
+
+    /// <summary>The lowest the cursor has been after placed content (<see cref="Advance"/>); <see cref="Top"/> before any.</summary>
+    public double ContentBottom { get; private set; }
+
+    /// <summary>The virtual page of the first <see cref="Advance"/> since <see cref="WatchAdvance"/>, or -1 when none happened yet.</summary>
+    public int FirstAdvancePage => _advancePage;
 
     /// <summary>The pages created so far, in order.</summary>
     public IReadOnlyList<PdfPage> Pages => _parent?.Pages ?? _pages;
@@ -340,6 +360,13 @@ internal sealed class FlowContext : IDisposable
         EnsurePage();
         CursorY -= height;
         AtPageTop = false;
+        _sectionHasContent = true;
+        ContentBottom = Math.Min(ContentBottom, CursorY);
+        if (_advancePage == -2)
+        {
+            _advancePage = _virtualPage;
+        }
+
         if (_parent is not null && _virtualPage == 0 && CursorY < Bottom - Tolerance)
         {
             OverflowedFirstPage = true;
@@ -363,6 +390,7 @@ internal sealed class FlowContext : IDisposable
             Left = _regionLeft + Indent;
             Bottom = Top - HeightOf(_virtualPage);
             CursorY = Top;
+            ContentBottom = Top;
             AtPageTop = true;
             if (Drawing)
             {
@@ -390,6 +418,8 @@ internal sealed class FlowContext : IDisposable
     {
         _template = template;
         _sectionStart = true;
+        _sectionHasContent = false;
+        _section++;
         if (_page is not null)
         {
             BreakPage();
@@ -417,7 +447,117 @@ internal sealed class FlowContext : IDisposable
         }
 
         FinishPage();
-        PageDecorations.DrawHeadersAndFooters(_templated, Services.Shaper, _document);
+        PageDecorations.DrawHeadersAndFooters(_templated, Services.Shaper, _diagnostics, _document);
+    }
+
+    /// <summary>
+    /// A <see cref="PageBreak"/>: ends the page, so what follows starts on a new one. Nothing happens before the first content of the
+    /// flow or of a section (which starts on a new page anyway) or inside a region (a table cell or a column); a break right after
+    /// another leaves a blank page.
+    /// </summary>
+    public void BreakPageExplicitly()
+    {
+        if (_parent is not null || !_sectionHasContent)
+        {
+            return;
+        }
+
+        BreakPage();
+    }
+
+    /// <summary>Starts recording the virtual page of the next <see cref="Advance"/> in <see cref="FirstAdvancePage"/>.</summary>
+    public void WatchAdvance() => _advancePage = -2;
+
+    /// <summary>
+    /// Lays <paramref name="blocks"/> out in order, honouring <see cref="FlowBlock.KeepWithNext"/>: before each chain of blocks kept with
+    /// the next, the page breaks when the chain and the first line of the block after it do not fit below the cursor but fit on a new page.
+    /// </summary>
+    public void LayOutBlocks(IReadOnlyList<FlowBlock> blocks)
+    {
+        int kept = 0;
+        for (int index = 0; index < blocks.Count; index++)
+        {
+            if (index >= kept && blocks[index].KeepWithNext)
+            {
+                kept = KeepWithNext(blocks, index, blocks.Count);
+            }
+
+            blocks[index].LayOut(this);
+        }
+    }
+
+    /// <summary>
+    /// Breaks the page before the chain of blocks kept with the next that starts at <paramref name="start"/> when the chain and the first
+    /// line of the block after it do not fit below the cursor but fit on a new page. Returns the index after the chain.
+    /// </summary>
+    public int KeepWithNext(IReadOnlyList<FlowBlock> blocks, int start, int end)
+    {
+        int next = start;
+        while (next < end && blocks[next].KeepWithNext)
+        {
+            next++;
+        }
+
+        if (next >= end || AtPageTop)
+        {
+            return next;
+        }
+
+        double fresh = NextPageHeight;
+        if (!ChainFits(blocks, start, next, [CursorY - Bottom, fresh], continuing: true) && ChainFits(blocks, start, next, [fresh, fresh], continuing: false))
+        {
+            BreakPage();
+        }
+
+        return next;
+    }
+
+    /// <summary>
+    /// Lays <paramref name="blocks"/> out without drawing and returns the height they take from the cursor on one page, whatever its
+    /// size: from the top of a page (space before the first block dropped) when <paramref name="continuing"/> is false, else below content.
+    /// </summary>
+    public double MeasureHeight(IReadOnlyList<FlowBlock> blocks, bool continuing)
+    {
+        using var region = new FlowContext(this, Left, Right, 0, [Unbounded], -1);
+        if (continuing)
+        {
+            region.Advance(0);
+        }
+
+        foreach (FlowBlock block in blocks)
+        {
+            block.LayOut(region);
+        }
+
+        return -region.ContentBottom;
+    }
+
+    /// <summary>
+    /// Lays blocks out without drawing from the cursor on virtual pages of <paramref name="heights"/>: true when every block from
+    /// <paramref name="start"/> to <paramref name="next"/> stays on the first page and the first line of the block at <paramref name="next"/>
+    /// lands there too.
+    /// </summary>
+    private bool ChainFits(IReadOnlyList<FlowBlock> blocks, int start, int next, double[] heights, bool continuing)
+    {
+        using var region = new FlowContext(this, Left, Right, 0, heights, -1);
+        if (continuing)
+        {
+            region.Advance(0);
+        }
+
+        for (int index = start; index < next; index++)
+        {
+            blocks[index].LayOut(region);
+            if (region.PageCount > 1 || region.OverflowedFirstPage)
+            {
+                return false;
+            }
+        }
+
+        region.WatchAdvance();
+        blocks[next].LayOut(region);
+        // A next block that places nothing (a spacer) cannot be separated from.
+        return region.FirstAdvancePage <= 0 && !region.OverflowedFirstPage;
     }
 
     /// <summary>True when structure hooks fire now: a page is open at the root, or this region draws.</summary>
@@ -477,7 +617,7 @@ internal sealed class FlowContext : IDisposable
         _sectionStart = false;
         _page = _document.Pages.Add(new PdfRectangle(0, 0, setup.Width, setup.Height));
         _pages.Add(_page);
-        _templated.Add((_page, _template, first));
+        _templated.Add(new DecoratedPage(_page, _template, first, _section));
         _canvas = _page.CreateCanvas();
         PageDecorations.DrawBackground(_canvas, _template, Services.Shaper);
         (double bottom, double top) = _template.BodyFor(_pages.Count, first);
@@ -486,6 +626,7 @@ internal sealed class FlowContext : IDisposable
         Bottom = bottom;
         Top = top;
         CursorY = Top;
+        ContentBottom = Top;
         AtPageTop = true;
         WordSpacing = 0;
     }
@@ -504,3 +645,6 @@ internal sealed class FlowContext : IDisposable
 /// margin, and the gap between the marker's right edge and that content edge.
 /// </summary>
 internal readonly record struct ListMarker(ListItem Item, string Text, TextStyle Style, double Indent, double Gap);
+
+/// <summary>A page a template decorates once the page count is known: the template, whether it is the first page of its section, and the section's index.</summary>
+internal readonly record struct DecoratedPage(PdfPage Page, PageTemplate Template, bool First, int Section);
