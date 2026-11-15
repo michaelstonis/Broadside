@@ -1,0 +1,4 @@
+# The platform-free half of the shell (compiled into the package and, by link, into its net10.0 tests) shares the control's namespace:
+# the folder separates what the tests can run on every OS, not a namespace.
+[*.cs]
+dotnet_diagnostic.IDE0130.severity = none
