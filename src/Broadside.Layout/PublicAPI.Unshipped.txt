@@ -555,6 +555,43 @@ Broadside.Layout.Flow.ColumnWidthKind.Auto = 0 -> Broadside.Layout.Flow.ColumnWi
 Broadside.Layout.Flow.ColumnWidthKind.Fixed = 1 -> Broadside.Layout.Flow.ColumnWidthKind
 Broadside.Layout.Flow.ColumnWidthKind.Percent = 2 -> Broadside.Layout.Flow.ColumnWidthKind
 Broadside.Layout.Flow.ColumnWidthKind.Proportional = 3 -> Broadside.Layout.Flow.ColumnWidthKind
+Broadside.Layout.Flow.FieldBlock
+Broadside.Layout.Flow.FieldBlock.Choices.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.Layout.Flow.FieldBlock.Choices.init -> void
+Broadside.Layout.Flow.FieldBlock.FieldBlock(Broadside.Layout.Flow.FormFieldType type, string! name, string! label, Broadside.Layout.Flow.ParagraphStyle! labelStyle) -> void
+Broadside.Layout.Flow.FieldBlock.Height.get -> double
+Broadside.Layout.Flow.FieldBlock.Height.init -> void
+Broadside.Layout.Flow.FieldBlock.IsChecked.get -> bool
+Broadside.Layout.Flow.FieldBlock.IsChecked.init -> void
+Broadside.Layout.Flow.FieldBlock.Label.get -> string!
+Broadside.Layout.Flow.FieldBlock.LabelGap.get -> double
+Broadside.Layout.Flow.FieldBlock.LabelGap.init -> void
+Broadside.Layout.Flow.FieldBlock.LabelPosition.get -> Broadside.Layout.Flow.FieldLabelPosition
+Broadside.Layout.Flow.FieldBlock.LabelPosition.init -> void
+Broadside.Layout.Flow.FieldBlock.LabelStyle.get -> Broadside.Layout.Flow.ParagraphStyle!
+Broadside.Layout.Flow.FieldBlock.Name.get -> string!
+Broadside.Layout.Flow.FieldBlock.Options.get -> Broadside.Forms.PdfFieldOptions?
+Broadside.Layout.Flow.FieldBlock.Options.init -> void
+Broadside.Layout.Flow.FieldBlock.SpaceAfter.get -> double
+Broadside.Layout.Flow.FieldBlock.SpaceAfter.init -> void
+Broadside.Layout.Flow.FieldBlock.SpaceBefore.get -> double
+Broadside.Layout.Flow.FieldBlock.SpaceBefore.init -> void
+Broadside.Layout.Flow.FieldBlock.Type.get -> Broadside.Layout.Flow.FormFieldType
+Broadside.Layout.Flow.FieldBlock.Value.get -> string?
+Broadside.Layout.Flow.FieldBlock.Value.init -> void
+Broadside.Layout.Flow.FieldBlock.Width.get -> double
+Broadside.Layout.Flow.FieldBlock.Width.init -> void
+Broadside.Layout.Flow.FieldLabelPosition
+Broadside.Layout.Flow.FieldLabelPosition.Above = 0 -> Broadside.Layout.Flow.FieldLabelPosition
+Broadside.Layout.Flow.FieldLabelPosition.Before = 1 -> Broadside.Layout.Flow.FieldLabelPosition
+Broadside.Layout.Flow.FlowAnchor
+Broadside.Layout.Flow.FlowAnchor.Id.get -> string!
+Broadside.Layout.Flow.FlowAnchor.Left.get -> double
+Broadside.Layout.Flow.FlowAnchor.Page.get -> Broadside.PdfPage!
+Broadside.Layout.Flow.FlowAnchor.PageNumber.get -> int
+Broadside.Layout.Flow.FlowAnchor.Top.get -> double
+Broadside.Layout.Flow.FlowBlock.Id.get -> string?
+Broadside.Layout.Flow.FlowBlock.Id.init -> void
 Broadside.Layout.Flow.Table
 Broadside.Layout.Flow.Table.Add(Broadside.Layout.Flow.TableRow! row) -> Broadside.Layout.Flow.Table!
 Broadside.Layout.Flow.Table.AddRow(params System.Collections.Generic.IEnumerable<Broadside.Layout.Flow.TableCell!>! cells) -> Broadside.Layout.Flow.Table!
@@ -631,6 +668,10 @@ Broadside.Layout.Flow.TableStyle.WithKeepRowsTogether(bool keep) -> Broadside.La
 Broadside.Layout.Flow.TableStyle.WithPadding(Broadside.Layout.Flow.CellPadding padding) -> Broadside.Layout.Flow.TableStyle!
 Broadside.Layout.Flow.TableStyle.WithRepeatHeaderRows(bool repeat) -> Broadside.Layout.Flow.TableStyle!
 Broadside.Layout.Flow.FlowDocument.FlowDocument(Broadside.Layout.Flow.PageTemplate! template) -> void
+Broadside.Layout.Flow.FlowDocument.MaxLayoutPasses.get -> int
+Broadside.Layout.Flow.FlowDocument.MaxLayoutPasses.set -> void
+Broadside.Layout.Flow.FlowDocument.OutlineDepth.get -> int
+Broadside.Layout.Flow.FlowDocument.OutlineDepth.set -> void
 Broadside.Layout.Flow.FlowDocument.StartSection(Broadside.Layout.Flow.PageTemplate! template) -> Broadside.Layout.Flow.FlowDocument!
 Broadside.Layout.Flow.FlowDocument.Template.get -> Broadside.Layout.Flow.PageTemplate!
 Broadside.Layout.Flow.PageOrientation
@@ -683,6 +724,7 @@ Broadside.Layout.Flow.Watermark.Opacity.get -> double
 Broadside.Layout.Flow.Watermark.Opacity.init -> void
 Broadside.Layout.Flow.FlowDocument.Tagging.get -> Broadside.Layout.Flow.FlowTagging?
 Broadside.Layout.Flow.FlowDocument.Tagging.set -> void
+Broadside.Layout.Flow.FlowLayoutResult.Anchors.get -> System.Collections.Generic.IReadOnlyDictionary<string!, Broadside.Layout.Flow.FlowAnchor!>!
 Broadside.Layout.Flow.FlowLayoutResult.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
 Broadside.Layout.Flow.FlowStructureNamespace
 Broadside.Layout.Flow.FlowStructureNamespace.Pdf17 = 1 -> Broadside.Layout.Flow.FlowStructureNamespace
@@ -696,13 +738,40 @@ Broadside.Layout.Flow.FlowTagging.WithLanguage(string? language) -> Broadside.La
 Broadside.Layout.Flow.FlowTagging.WithNamespace(Broadside.Layout.Flow.FlowStructureNamespace ns) -> Broadside.Layout.Flow.FlowTagging!
 Broadside.Layout.Flow.FlowTagging.WithRoleMapping(string! type, string! standardType) -> Broadside.Layout.Flow.FlowTagging!
 Broadside.Layout.Flow.FlowTagging.WithTitle(string? title) -> Broadside.Layout.Flow.FlowTagging!
+Broadside.Layout.Flow.FormFieldType
+Broadside.Layout.Flow.FormFieldType.CheckBox = 1 -> Broadside.Layout.Flow.FormFieldType
+Broadside.Layout.Flow.FormFieldType.ComboBox = 3 -> Broadside.Layout.Flow.FormFieldType
+Broadside.Layout.Flow.FormFieldType.ListBox = 4 -> Broadside.Layout.Flow.FormFieldType
+Broadside.Layout.Flow.FormFieldType.RadioButtons = 2 -> Broadside.Layout.Flow.FormFieldType
+Broadside.Layout.Flow.FormFieldType.Signature = 5 -> Broadside.Layout.Flow.FormFieldType
+Broadside.Layout.Flow.FormFieldType.Text = 0 -> Broadside.Layout.Flow.FormFieldType
+Broadside.Layout.Flow.Leader
+Broadside.Layout.Flow.Leader.Leader(string! text, Broadside.Layout.Flow.TextStyle! style) -> void
+Broadside.Layout.Flow.Leader.Style.get -> Broadside.Layout.Flow.TextStyle!
+Broadside.Layout.Flow.Leader.Text.get -> string!
+Broadside.Layout.Flow.PageReference
+Broadside.Layout.Flow.PageReference.Id.get -> string!
+Broadside.Layout.Flow.PageReference.PageReference(string! id) -> void
+Broadside.Layout.Flow.PageReference.PageReference(string! id, Broadside.Layout.Flow.TextStyle! style) -> void
+Broadside.Layout.Flow.PageReference.Style.get -> Broadside.Layout.Flow.TextStyle?
 static Broadside.Layout.Flow.FlowTagging.Default.get -> Broadside.Layout.Flow.FlowTagging!
 Broadside.Layout.Flow.ParagraphStyle.Direction.get -> Broadside.Layout.Flow.TextDirection
 Broadside.Layout.Flow.ParagraphStyle.WithDirection(Broadside.Layout.Flow.TextDirection direction) -> Broadside.Layout.Flow.ParagraphStyle!
+Broadside.Layout.Flow.TableOfContents
+Broadside.Layout.Flow.TableOfContents.Depth.get -> int
+Broadside.Layout.Flow.TableOfContents.Depth.init -> void
+Broadside.Layout.Flow.TableOfContents.LeaderText.get -> string!
+Broadside.Layout.Flow.TableOfContents.LeaderText.init -> void
+Broadside.Layout.Flow.TableOfContents.LevelIndent.get -> double
+Broadside.Layout.Flow.TableOfContents.LevelIndent.init -> void
+Broadside.Layout.Flow.TableOfContents.Style.get -> Broadside.Layout.Flow.ParagraphStyle!
+Broadside.Layout.Flow.TableOfContents.TableOfContents(Broadside.Layout.Flow.ParagraphStyle! style) -> void
 Broadside.Layout.Flow.TextDirection
 Broadside.Layout.Flow.TextDirection.Auto = 0 -> Broadside.Layout.Flow.TextDirection
 Broadside.Layout.Flow.TextDirection.LeftToRight = 1 -> Broadside.Layout.Flow.TextDirection
 Broadside.Layout.Flow.TextDirection.RightToLeft = 2 -> Broadside.Layout.Flow.TextDirection
+Broadside.Layout.Flow.TextRun.Destination.get -> string?
+Broadside.Layout.Flow.TextRun.Destination.init -> void
 static Broadside.Layout.Flow.Theme.Default.get -> Broadside.Layout.Flow.Theme!
 static Broadside.Layout.Flow.Theme.Letter.get -> Broadside.Layout.Flow.Theme!
 Broadside.Layout.Flow.BlockGroup

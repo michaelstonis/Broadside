@@ -115,20 +115,31 @@ internal sealed class FlowStructure : IStructureSink
         }
     }
 
-    public void AddAnnotation(FlowPart part, PdfAnnotation annotation)
+    public void AddAnnotation(FlowPart part, PdfAnnotation annotation, PdfPage? page)
     {
-        if (annotation.Reference is not { } reference || _page is null)
+        if (annotation.Reference is not { } reference || (page ??= _page) is null)
         {
             return;
         }
 
         Node parent = _stack[^1];
+        if (ReferenceEquals(parent.Owner, part.Owner) && parent.Type == part.StructureType)
+        {
+            // The open element itself: a form field's Form element and its widget (§14.8.4.7.3).
+            if (parent.Kind is NodeKind.Container or NodeKind.Leaf)
+            {
+                Materialize(parent).AddObjectReference(reference, page);
+            }
+
+            return;
+        }
+
         for (int index = parent.Children.Count - 1; index >= 0; index--)
         {
             Node child = parent.Children[index];
             if (ReferenceEquals(child.Owner, part.Owner) && child.Type == part.StructureType)
             {
-                child.Element!.AddObjectReference(reference, _page);
+                child.Element!.AddObjectReference(reference, page);
                 if (annotation.Contents is null && part.Owner is TextRun run)
                 {
                     // PDF/UA-1 §7.18.5: a link annotation describes itself through Contents.
