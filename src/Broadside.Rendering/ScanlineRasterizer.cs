@@ -290,6 +290,56 @@ internal sealed class ScanlineRasterizer : IDisposable
     }
 
     /// <summary>
+    /// Composites <paramref name="color"/> over <paramref name="bitmap"/> by runs of coverage computed earlier (a cached glyph mask),
+    /// moved by <paramref name="left"/> and <paramref name="top"/>, within <see cref="Clip"/>, as <see cref="Fill"/> composites a shape.
+    /// </summary>
+    /// <param name="bitmap">The target; at least as large as the clip.</param>
+    /// <param name="spans">The runs, relative to the mask.</param>
+    /// <param name="left">The bitmap column of the mask's first column.</param>
+    /// <param name="top">The bitmap row of the mask's first row.</param>
+    /// <param name="color">The opaque colour as premultiplied BGRA in memory order.</param>
+    /// <param name="compositor">The alpha and blend mode.</param>
+    public void FillSpans(Bitmap bitmap, ReadOnlySpan<CoverageSpan> spans, int left, int top, uint color, Compositor compositor)
+    {
+        var sink = new ColorSink(bitmap.Pixels, bitmap.Stride, color, compositor);
+        PaintSpans(spans, left, top, ref sink);
+    }
+
+    /// <summary>
+    /// Hands runs of coverage computed earlier (a cached glyph mask), moved by <paramref name="left"/> and <paramref name="top"/> and
+    /// cut to the bitmap, to <paramref name="sink"/> through <see cref="Clip"/> and <see cref="Hook"/>, exactly as <see cref="Paint"/>
+    /// hands over the runs of its sweep. The shape being built is left as it is.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §8.5.4 (the clip applies to every paint) and §10.7.4.</remarks>
+    public void PaintSpans<TSink>(ReadOnlySpan<CoverageSpan> spans, int left, int top, ref TSink sink)
+        where TSink : ICoverageSink, allows ref struct
+    {
+        RasterClip? clip = Clip;
+        if (clip?.IsEmpty == true)
+        {
+            return;
+        }
+
+        clip = clip is { IsWholeBitmap: false } ? clip : null;
+        GroupLayer? hook = Hook;
+        foreach (CoverageSpan span in spans)
+        {
+            int row = span.Row + top;
+            if ((uint)row >= (uint)_height)
+            {
+                continue;
+            }
+
+            int start = Math.Max(span.X + left, 0);
+            int end = Math.Min(span.X + left + span.Count, _width);
+            if (end > start)
+            {
+                Emit(ref sink, clip, zeros: false, hook, row, start, end - start, span.Coverage);
+            }
+        }
+    }
+
+    /// <summary>
     /// Returns the pixel rectangle outside which the shape covers nothing: from the first to the last row with an edge, and from the
     /// leftmost edge to the rightmost one, or to the right border when an edge lies beyond it. False when the shape has no edge.
     /// </summary>
