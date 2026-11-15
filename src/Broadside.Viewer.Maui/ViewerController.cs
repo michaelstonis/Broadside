@@ -56,9 +56,11 @@ internal sealed class ViewerController : IDisposable
     private ProgressiveZoom? _zoom;
     private InputModel? _input;
     private TextSelection? _selection;
+    private DocumentSearch? _search;
     private AnnotationLayer? _annotations;
     private AccessibilityBridge? _bridge;
     private bool _showAnnotations = true;
+    private ColorFilter? _colorFilter;
     private bool _interacted;
     private bool _frameRequested;
     private PointerMode _mode;
@@ -98,17 +100,7 @@ internal sealed class ViewerController : IDisposable
 
         // A background session presents on workers (#357): the frame request goes back to the UI thread.
         _ui = SynchronizationContext.Current;
-        Surface.Presented += (_, _) =>
-        {
-            if (_ui is null || SynchronizationContext.Current == _ui)
-            {
-                Wake();
-            }
-            else if (Interlocked.Exchange(ref _wakePosted, 1) == 0)
-            {
-                _ui.Post(static state => ((ViewerController)state!).WakeFromWorker(), this);
-            }
-        };
+        Surface.Presented += (_, _) => WakeFromAnyThread();
     }
 
     private enum PointerMode
@@ -132,6 +124,9 @@ internal sealed class ViewerController : IDisposable
     public DocumentSession? Session => _session;
 
     public TextSelection? Selection => _selection;
+
+    /// <summary>The find-in-document search of the open document: its matches are drawn over the tiles (#215, #358).</summary>
+    public DocumentSearch? Search => _search;
 
     public AnnotationLayer? Annotations => _annotations;
 
@@ -177,6 +172,11 @@ internal sealed class ViewerController : IDisposable
 
         _session = session;
         _ownsSession = ownsSession;
+        if (_colorFilter is { } filter)
+        {
+            session.ColorFilter = filter;
+        }
+
         if (session.PageCount == 0)
         {
             SetState(_state with { IsLoading = false });
@@ -217,6 +217,10 @@ internal sealed class ViewerController : IDisposable
         _input.Resize(Math.Max(_width, 1), Math.Max(_height, 1));
         _selection = new TextSelection(session);
         _selection.Changed += (_, _) => Wake();
+
+        // Search progress arrives on the indexing thread (a worker in a background session): the frame request goes to the UI thread.
+        _search = new DocumentSearch(session);
+        _search.Changed += (_, _) => WakeFromAnyThread();
         _annotations = new AnnotationLayer(session, _scheduler);
         _annotations.ActionRequested += OnActionRequested;
         _annotations.Changed += OnAnnotationsChanged;
@@ -238,6 +242,72 @@ internal sealed class ViewerController : IDisposable
         _scheduler?.SetLayers(show ? AllLayers : DisplayLayers.Content);
         Wake();
     }
+
+    /// <summary>
+    /// Sets the color filter of the open document and of those opened later; null keeps each session's own. A change redraws every
+    /// tile from the cached display lists (spec #33 viewer capability 9).
+    /// </summary>
+    public void SetColorFilter(ColorFilter? filter)
+    {
+        _colorFilter = filter;
+        if (filter is { } value && _session is { } session && session.ColorFilter != value)
+        {
+            session.ColorFilter = value;
+            Redraw();
+        }
+    }
+
+    /// <summary>Invalidates every tile of every page so that all are drawn again (the old ones stay on screen until then).</summary>
+    public void Redraw()
+    {
+        if (_scheduler is null || _session is null)
+        {
+            return;
+        }
+
+        for (int page = 0; page < _metrics.Length; page++)
+        {
+            _scheduler.Invalidate(page, AllLayers);
+        }
+
+        Wake();
+    }
+
+    /// <summary>Scrolls the least distance that brings an area of a page into view, or centres it when it is not on the screen.</summary>
+    public void Reveal(int pageIndex, PdfRectangle area)
+    {
+        if (_zoom is null || _input is null || (uint)pageIndex >= (uint)_metrics.Length)
+        {
+            return;
+        }
+
+        _interacted = true;
+        PageLayout layout = _zoom.Layout;
+        Viewport viewport = _input.Viewport;
+        if (layout.Mode is PageLayoutMode.SinglePage or PageLayoutMode.TwoUp && layout.GetSpread(pageIndex) != layout.GetSpread(_input.CurrentPage))
+        {
+            viewport = layout.ScrollTo(viewport, pageIndex);
+        }
+
+        LayoutRectangle box = layout.PageToViewport(viewport, pageIndex, area);
+        double margin = 24 * _ratio;
+        double dx = box.X < margin ? box.X - margin : box.X + box.Width > viewport.Width - margin ? box.X + box.Width - viewport.Width + margin : 0;
+        double dy = box.Y < margin ? box.Y - margin : box.Y + box.Height > viewport.Height - margin ? box.Y + box.Height - viewport.Height + margin : 0;
+        if (box.Y + box.Height < 0 || box.Y > viewport.Height)
+        {
+            dy = box.Y + (box.Height / 2) - (viewport.Height / 2);
+        }
+
+        if (dx != 0 || dy != 0 || viewport != _input.Viewport)
+        {
+            _zoom.SetViewport(layout.Clamp(viewport with { X = viewport.X + dx, Y = viewport.Y + dy }));
+        }
+
+        Wake();
+    }
+
+    /// <summary>Whether the open document is drawn with smart dark mode (the frame's background and paper turn dark with it).</summary>
+    public bool IsDark => _session?.ColorFilter == ColorFilter.DarkMode;
 
     public void SetLayoutOptions(PageLayoutOptions? options)
     {
@@ -694,6 +764,7 @@ internal sealed class ViewerController : IDisposable
             ViewerFrame blank = Presenter.Rent();
             blank.Width = _width * _ratio;
             blank.Height = _height * _ratio;
+            blank.IsDark = _colorFilter == ColorFilter.DarkMode;
             Presenter.Publish(blank, Surface.Retired);
             _host.RequestPaint();
             return false;
@@ -716,6 +787,18 @@ internal sealed class ViewerController : IDisposable
         PlaceEditor(viewport);
         SetState(new PdfViewState(_input.CurrentPage, _metrics.Length, viewport.Zoom / _input.ActualSize, false, !_scheduler!.IsIdle));
         return more || unloaded || stale || longPress || _metricsDirty || _input.IsAnimating;
+    }
+
+    private void WakeFromAnyThread()
+    {
+        if (_ui is null || SynchronizationContext.Current == _ui)
+        {
+            Wake();
+        }
+        else if (Interlocked.Exchange(ref _wakePosted, 1) == 0)
+        {
+            _ui.Post(static state => ((ViewerController)state!).WakeFromWorker(), this);
+        }
     }
 
     private void WakeFromWorker()
@@ -962,6 +1045,7 @@ internal sealed class ViewerController : IDisposable
         ViewerFrame frame = Presenter.Rent();
         frame.Width = viewport.Width;
         frame.Height = viewport.Height;
+        frame.IsDark = IsDark;
         int count = _zoom.GetFrame(_parts);
         if (count > _parts.Length)
         {
@@ -997,6 +1081,7 @@ internal sealed class ViewerController : IDisposable
             }
         }
 
+        AddSearchMatches(frame, layout, viewport);
         AddSelection(frame, layout, viewport);
         // Chrome: a pressed link or field, the mouse's hovered one, and the keyboard focus (never a ring after a tap or click).
         if (_annotations!.Pressed is { } pressed)
@@ -1050,6 +1135,49 @@ internal sealed class ViewerController : IDisposable
                 }
             }
         }
+    }
+
+    // Search matches are an overlay over the tiles (#215): highlighting them draws no page again; the current match is drawn distinctly.
+    private void AddSearchMatches(ViewerFrame frame, PageLayout layout, in Viewport viewport)
+    {
+        if (_search is not { MatchCount: > 0 } search)
+        {
+            return;
+        }
+
+        int visible = VisiblePages(layout, viewport);
+        foreach (VisiblePage page in _visible.AsSpan(0, visible))
+        {
+            int quads = search.GetQuads(page.PageIndex, _quads);
+            if (quads > _quads.Length)
+            {
+                _quads = new Quad[quads * 2];
+                quads = search.GetQuads(page.PageIndex, _quads);
+            }
+
+            foreach (Quad quad in _quads.AsSpan(0, quads))
+            {
+                AddQuad(frame, ViewerFrame.ItemKind.SearchMatch, layout, viewport, page.PageIndex, quad);
+            }
+        }
+
+        if (search.Current is { } current)
+        {
+            IReadOnlyList<Quad> quads = current.Quads;
+            for (int i = 0; i < quads.Count; i++)
+            {
+                AddQuad(frame, ViewerFrame.ItemKind.CurrentMatch, layout, viewport, current.PageIndex, quads[i]);
+            }
+        }
+    }
+
+    private static void AddQuad(ViewerFrame frame, ViewerFrame.ItemKind kind, PageLayout layout, in Viewport viewport, int pageIndex, in Quad quad)
+    {
+        SKPoint a = ToPoint(layout.PageToViewport(viewport, pageIndex, quad.BottomLeft.X, quad.BottomLeft.Y));
+        SKPoint b = ToPoint(layout.PageToViewport(viewport, pageIndex, quad.BottomRight.X, quad.BottomRight.Y));
+        SKPoint c = ToPoint(layout.PageToViewport(viewport, pageIndex, quad.TopRight.X, quad.TopRight.Y));
+        SKPoint d = ToPoint(layout.PageToViewport(viewport, pageIndex, quad.TopLeft.X, quad.TopLeft.Y));
+        frame.Add(new ViewerFrame.Item(kind, default, null, a, b, c, d));
     }
 
     private void AddSelection(ViewerFrame frame, PageLayout layout, in Viewport viewport)
@@ -1360,6 +1488,8 @@ internal sealed class ViewerController : IDisposable
         _zoom = null;
         _input = null;
         _selection = null;
+        _search?.Dispose();
+        _search = null;
         if (_annotations is not null)
         {
             _annotations.ActionRequested -= OnActionRequested;
