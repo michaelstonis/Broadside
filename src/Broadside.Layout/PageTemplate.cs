@@ -137,7 +137,7 @@ public sealed class PageTemplate
             {
                 if (text is not null)
                 {
-                    CheckEncodable(HeaderFooter.Expand(text, 1234567890, 1234567890), region.Style, $"The {name} of a page template");
+                    CheckEncodable(region.ExpandSlot(text, 1234567890, 1234567890, static () => "1234567890"), region.Style, $"The {name} of a page template");
                 }
             }
         }
@@ -224,6 +224,68 @@ public sealed class HeaderFooter
 
     private HeaderFooter()
     {
+    }
+
+    /// <summary>The field replaced by the page's label (ISO 32000-2 §12.4.2), or its number when the document has no page labels; only in <see cref="EscapedFields"/> texts.</summary>
+    internal const string PageLabelField = "{label}";
+
+    /// <summary>
+    /// True when the texts are the document builder's encoding: a literal brace is doubled (<c>{{</c>) and <c>{page}</c>, <c>{pages}</c> and
+    /// <c>{label}</c> are fields, so literal text can never become a field.
+    /// </summary>
+    internal bool EscapedFields { get; init; }
+
+    /// <summary>Replaces the fields of a slot's <paramref name="text"/>; <paramref name="label"/> gives the page's label when asked.</summary>
+    internal string ExpandSlot(string text, int pageNumber, int pageCount, Func<string> label)
+    {
+        if (!EscapedFields)
+        {
+            return Expand(text, pageNumber, pageCount);
+        }
+
+        if (!text.Contains('{', StringComparison.Ordinal))
+        {
+            return text;
+        }
+
+        var builder = new StringBuilder(text.Length + 8);
+        int index = 0;
+        while (index < text.Length)
+        {
+            ReadOnlySpan<char> rest = text.AsSpan(index);
+            if (rest[0] != '{')
+            {
+                builder.Append(rest[0]);
+                index++;
+            }
+            else if (rest.StartsWith("{{", StringComparison.Ordinal))
+            {
+                builder.Append('{');
+                index += 2;
+            }
+            else if (rest.StartsWith(PageCountField, StringComparison.Ordinal))
+            {
+                builder.Append(pageCount.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                index += PageCountField.Length;
+            }
+            else if (rest.StartsWith(PageNumberField, StringComparison.Ordinal))
+            {
+                builder.Append(pageNumber.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                index += PageNumberField.Length;
+            }
+            else if (rest.StartsWith(PageLabelField, StringComparison.Ordinal))
+            {
+                builder.Append(label());
+                index += PageLabelField.Length;
+            }
+            else
+            {
+                builder.Append('{');
+                index++;
+            }
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>Replaces the fields of <paramref name="text"/>.</summary>

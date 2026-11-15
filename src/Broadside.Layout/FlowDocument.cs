@@ -74,6 +74,12 @@ public sealed class FlowDocument
     /// <remarks>ISO 32000-2 §14.8. See <see cref="FlowTagging"/> for the structure written.</remarks>
     public FlowTagging? Tagging { get; set; }
 
+    /// <summary>
+    /// The existing structure element the tagged blocks go under instead of a new <c>Document</c> element, when pages are appended to a
+    /// tagged document; null for a new root.
+    /// </summary>
+    internal PdfStructureElement? StructureParent { get; set; }
+
     /// <summary>Appends a block.</summary>
     /// <param name="block">The block.</param>
     /// <returns>This flow, for chaining.</returns>
@@ -155,7 +161,7 @@ public sealed class FlowDocument
     }
 
     /// <summary>Gets or creates the structure tree and writes the document-level tagging entries: <c>Lang</c>, the title and <c>MarkInfo</c>.</summary>
-    private static FlowStructure BeginTagging(PdfDocument document, FlowTagging tagging, List<Diagnostic> diagnostics)
+    private FlowStructure BeginTagging(PdfDocument document, FlowTagging tagging, List<Diagnostic> diagnostics)
     {
         PdfStructureTreeRoot root = document.StructureTree ?? document.CreateStructureTree();
         document.MarkInfo.Marked = true;
@@ -175,11 +181,11 @@ public sealed class FlowDocument
             }
         }
 
-        return new FlowStructure(root, tagging, diagnostics);
+        return new FlowStructure(root, tagging, diagnostics, StructureParent);
     }
 
     /// <summary>A text string (§7.9.2.2): PDFDocEncoding for printable ASCII, else UTF-16BE with a byte order mark.</summary>
-    private static CosString TextString(string text) =>
+    internal static CosString TextString(string text) =>
         new(text.All(static c => c is >= ' ' and <= '~') ? Encoding.ASCII.GetBytes(text) : [0xFE, 0xFF, .. Encoding.BigEndianUnicode.GetBytes(text)]);
 }
 

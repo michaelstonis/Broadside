@@ -15,10 +15,13 @@
     <PublishAot>true</PublishAot>
     <TrimmerSingleWarn>false</TrimmerSingleWarn>
     <IlcTreatWarningsAsErrors>true</IlcTreatWarningsAsErrors>
+    <!-- The document builder is experimental (issue #397); the host opts in. -->
+    <NoWarn>$(NoWarn);BROADSIDE0001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../src/Broadside.Rendering/Broadside.Rendering.csproj" />
+    <ProjectReference Include="../../src/Broadside.Layout/Broadside.Layout.csproj" />
     <!-- The same independent PNG decoder the rendering tests use, to compare with their reviewed snapshots. -->
     <PackageReference Include="StbImageSharp" />
     <Compile Include="../Broadside.TestSupport/CorpusLocator.cs" Link="CorpusLocator.cs" />

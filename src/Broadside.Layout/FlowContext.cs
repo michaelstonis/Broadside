@@ -447,7 +447,7 @@ internal sealed class FlowContext : IDisposable
         }
 
         FinishPage();
-        PageDecorations.DrawHeadersAndFooters(_templated, Services.Shaper, _diagnostics);
+        PageDecorations.DrawHeadersAndFooters(_templated, Services.Shaper, _diagnostics, _document);
     }
 
     /// <summary>
