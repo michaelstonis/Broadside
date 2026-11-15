@@ -270,7 +270,7 @@ An unmet precondition under a profile throws `InvalidOperationException` at `Cre
 - Layout is CPU-bound and synchronous; read inputs asynchronously before building, and save with `SaveAsync` at the I/O boundary.
 - One build is single-threaded, but themes, styles, font families and image sources are immutable: a server builds many documents in parallel from one static theme.
 
-`bench/Broadside.Benchmarks/DocumentBuilderBenchmarks.cs` measures a one-page document, a 100-page report, a 10,000-row table and 1,000 invoices (serially and in parallel), each against the same document built by hand with the flow engine.
+`bench/Broadside.Benchmarks/DocumentBuilderBenchmarks.cs` measures a one-page document, a 100-page report, a 200-row table and 1,000 invoices (serially and in parallel), each against the same document built by hand with the flow engine.
 
 ## Escape hatches
 

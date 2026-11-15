@@ -11,20 +11,22 @@ namespace Broadside.Benchmarks;
 /// The document builder against the same documents built by hand with the flow engine (issue #397, spec section 8 "Benchmarks"): the
 /// builder is a front, so builder plus layout should stay within +5 % of the time and +10 % of the bytes of its <c>*Flow</c> twin. Each
 /// case builds and lays out a whole document (saving is left out): <c>Hello</c> one page; <c>Report100</c> about 100 pages of headings
-/// and paragraphs with a header and a page-numbered footer; <c>Table10k</c> a 10,000-row table through closures and through the
+/// and paragraphs with a header and a page-numbered footer; <c>LongTable</c> a 200-row table over several pages through closures and through the
 /// <c>Row(params ReadOnlySpan&lt;string&gt;)</c> fast path; <c>Invoice</c> 1,000 invoices from one shared theme, serially and in parallel
 /// (the mean is per invoice).
 /// </summary>
 /// <remarks>
 /// The table of contents of the spec's <c>Report100</c> joins this benchmark when the builder's table of contents lands (forward
-/// references, B6); until then the report has no table of contents.
+/// references, B6); until then the report has no table of contents. The spec's 10,000-row table waits for the flow engine: laying out a
+/// table that spans pages grows with the square of its rows today (500 rows about 1 s and 1.9 GB allocated, 1,000 rows about 6 s and
+/// 7.7 GB, the hand-built twin alike), so the case uses 200 rows until that is fixed.
 /// </remarks>
 [MemoryDiagnoser]
 [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "BenchmarkDotNet runs instance methods.")]
 public class DocumentBuilderBenchmarks
 {
     private const int ReportParagraphs = 1_200;
-    private const int TableRows = 10_000;
+    private const int TableRows = 200;
     private const int Invoices = 1_000;
 
     private static readonly Theme SharedTheme = Theme.Default.WithBaseSize(10);
@@ -126,9 +128,9 @@ public class DocumentBuilderBenchmarks
         return document.Pages.Count;
     }
 
-    /// <summary>A 10,000-row table with a repeated header row, each row described through a closure.</summary>
+    /// <summary>A 200-row table with a repeated header row, each row described through a closure.</summary>
     [Benchmark]
-    public int Table10k()
+    public int LongTable()
     {
         string[][] rows = _rows;
         using PdfDocument document = PdfDocument.Create(doc => doc.WithTitle("Table").WithLanguage("en").Content(c => c.Table(t =>
@@ -155,7 +157,7 @@ public class DocumentBuilderBenchmarks
 
     /// <summary>The same table through the <c>Row(params ReadOnlySpan&lt;string&gt;)</c> fast path, which allocates no closure per row.</summary>
     [Benchmark]
-    public int Table10kFastPath()
+    public int LongTableFastPath()
     {
         string[][] rows = _rows;
         using PdfDocument document = PdfDocument.Create(doc => doc.WithTitle("Table").WithLanguage("en").Content(c => c.Table(t =>
@@ -177,7 +179,7 @@ public class DocumentBuilderBenchmarks
 
     /// <summary>The same table built by hand.</summary>
     [Benchmark]
-    public int Table10kFlow()
+    public int LongTableFlow()
     {
         using PdfDocument document = NewDocument();
         (PdfCanvasFont regular, PdfCanvasFont bold) = Fonts(document);
