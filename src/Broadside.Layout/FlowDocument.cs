@@ -90,9 +90,16 @@ public sealed class FlowDocument
     /// styles shall come from <paramref name="document"/>. A flow with no blocks adds no page.
     /// </summary>
     /// <param name="document">The document to append pages to.</param>
-    /// <returns>The pages added.</returns>
+    /// <returns>The pages added, and what the layout found worth reporting.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="document"/> is null.</exception>
     /// <exception cref="ArgumentException">A block cannot be laid out, such as a paragraph with a character its font cannot encode (the message names the block). Nothing is added.</exception>
+    /// <exception cref="DiagnosticException"><paramref name="document"/> is in strict mode (<see cref="PdfOptions.UseStrict"/>) and the layout
+    /// found a problem of severity <see cref="DiagnosticSeverity.Warning"/> or <see cref="DiagnosticSeverity.Error"/>: the first one is thrown
+    /// once every page is laid out, so the pages stay added.</exception>
+    /// <remarks>
+    /// What the layout finds (<see cref="FlowLayoutResult.Diagnostics"/>) is also recorded on <paramref name="document"/> with
+    /// <see cref="PdfDocument.ReportDiagnostic"/>, in the same order, so <see cref="PdfDocument.Diagnostics"/> is the one list to look at.
+    /// </remarks>
     public FlowLayoutResult Render(PdfDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -109,26 +116,42 @@ public sealed class FlowDocument
 
         var diagnostics = new List<Diagnostic>();
         FlowStructure? structure = Tagging is { } tagging ? BeginTagging(document, tagging, diagnostics) : null;
-        using var context = new FlowContext(document, this, structure is null ? Services : Services with { Structure = structure });
-        int section = 0;
-        for (int index = 0; index < _blocks.Count; index++)
+        PdfPage[] pages;
+        using (var context = new FlowContext(document, this, structure is null ? Services : Services with { Structure = structure }, diagnostics))
         {
-            PageTemplate? next = null;
-            while (section < _sections.Count && _sections[section].Block == index)
+            int section = 0;
+            int kept = 0;
+            for (int index = 0; index < _blocks.Count; index++)
             {
-                next = _sections[section++].Template;
+                PageTemplate? next = null;
+                while (section < _sections.Count && _sections[section].Block == index)
+                {
+                    next = _sections[section++].Template;
+                }
+
+                if (next is not null)
+                {
+                    context.StartSection(next);
+                    structure?.BeginSection(next);
+                }
+
+                if (index >= kept && _blocks[index].KeepWithNext)
+                {
+                    kept = context.KeepWithNext(_blocks, index, section < _sections.Count ? _sections[section].Block : _blocks.Count);
+                }
+
+                _blocks[index].LayOut(context);
             }
 
-            if (next is not null)
-            {
-                context.StartSection(next);
-                structure?.BeginSection(next);
-            }
-
-            _blocks[index].LayOut(context);
+            pages = [.. context.Pages];
         }
 
-        return new FlowLayoutResult([.. context.Pages], diagnostics);
+        foreach (Diagnostic diagnostic in diagnostics)
+        {
+            document.ReportDiagnostic(diagnostic);
+        }
+
+        return new FlowLayoutResult(pages, diagnostics);
     }
 
     /// <summary>Gets or creates the structure tree and writes the document-level tagging entries: <c>Lang</c>, the title and <c>MarkInfo</c>.</summary>
@@ -170,8 +193,11 @@ public sealed class FlowLayoutResult
     }
 
     /// <summary>
-    /// Gets what the layout found worth reporting. With <see cref="FlowDocument.Tagging"/> on, a figure (an <see cref="ImageBlock"/> or an
-    /// <see cref="InlineImage"/>) without alternate text records <c>FigureWithoutAlternateText</c> (warning, with the element's reference).
+    /// Gets what the layout found worth reporting, also recorded on the document in <see cref="PdfDocument.Diagnostics"/>. With
+    /// <see cref="FlowDocument.Tagging"/> on, a figure (an <see cref="ImageBlock"/>, a <see cref="DrawingBlock"/> or an
+    /// <see cref="InlineImage"/>) without alternate text records <c>FigureWithoutAlternateText</c> (warning, with the element's reference);
+    /// a drawing or page decoration that leaves the canvas unbalanced records <c>DrawingStateUnbalanced</c>, and a group kept together
+    /// that is taller than a page <c>KeepTogetherTooTall</c> (<see cref="LayoutDiagnostics"/>).
     /// </summary>
     /// <remarks>ISO 32000-2 §14.9.3.</remarks>
     public IReadOnlyList<Diagnostic> Diagnostics { get; }
