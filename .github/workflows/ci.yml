@@ -121,6 +121,13 @@ jobs:
         if: runner.os == 'Windows'
         run: dotnet test --project tests/Broadside.Rendering.Direct2D.Tests -c Release --no-build --minimum-expected-tests 1 --results-directory artifacts/test-results -- --report-xunit-trx
 
+      - name: Test the WPF viewer (Windows)
+        # The WPF shell (issue #222): the controller, the control and its UI Automation peers, then the UI Automation test that starts
+        # the sample app (built above with the solution) and opens, reads, zooms, scrolls, selects and searches the pinned subset
+        # through it. Needs the Windows Desktop runtime and the runner's interactive desktop; outside Broadside.Core.slnf.
+        if: runner.os == 'Windows'
+        run: dotnet test --project tests/Broadside.Viewer.Wpf.Tests -c Release --no-build --minimum-expected-tests 1 --results-directory artifacts/test-results -- --report-xunit-trx
+
       - name: Dry run the Direct2D benchmarks (Windows)
         # bench-dry runs bench/Broadside.Benchmarks on Linux; the Direct2D backend's benchmarks need Windows.
         if: runner.os == 'Windows'
@@ -358,7 +365,7 @@ jobs:
         run: dotnet run --project tools/ConformanceCheck -- --root . --summary --citations --site-page site/articles/conformance.md >> "${GITHUB_STEP_SUMMARY}"
 
   # Checks the formatting of everything dotnet format can see: the core solution filter, and the fuzz, benchmark and Windows-only
-  # Direct2D test and benchmark projects, which are outside it.
+  # Direct2D and WPF test, benchmark and sample projects, which are outside it.
   format:
     name: format
     runs-on: ubuntu-latest
@@ -388,6 +395,8 @@ jobs:
           dotnet format bench/Broadside.Benchmarks/Broadside.Benchmarks.csproj --verify-no-changes
           dotnet format tests/Broadside.Rendering.Direct2D.Tests/Broadside.Rendering.Direct2D.Tests.csproj --verify-no-changes
           dotnet format bench/Broadside.Rendering.Direct2D.Benchmarks/Broadside.Rendering.Direct2D.Benchmarks.csproj --verify-no-changes
+          dotnet format tests/Broadside.Viewer.Wpf.Tests/Broadside.Viewer.Wpf.Tests.csproj --verify-no-changes
+          dotnet format samples/Broadside.Viewer.Wpf.Sample/Broadside.Viewer.Wpf.Sample.csproj --verify-no-changes
           dotnet format tests/Broadside.Viewer.WinUI.UITests/Broadside.Viewer.WinUI.UITests.csproj --verify-no-changes
 
   # Runs every fuzz target in smoke mode for 60 s (tests/Broadside.Fuzz/README.md), the targets of the --list split over

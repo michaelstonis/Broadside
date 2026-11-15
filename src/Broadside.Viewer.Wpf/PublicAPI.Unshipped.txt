@@ -1,0 +1,60 @@
+#nullable enable
+Broadside.Viewer.Wpf.PdfView
+Broadside.Viewer.Wpf.PdfView.Accessibility.get -> Broadside.Viewer.AccessibilityBridge?
+Broadside.Viewer.Wpf.PdfView.ActionRequested -> System.EventHandler<Broadside.Viewer.ViewerActionEventArgs!>?
+Broadside.Viewer.Wpf.PdfView.AllowAnnotationEditing.get -> bool
+Broadside.Viewer.Wpf.PdfView.AllowAnnotationEditing.set -> void
+Broadside.Viewer.Wpf.PdfView.Annotations.get -> Broadside.Viewer.AnnotationLayer?
+Broadside.Viewer.Wpf.PdfView.ColorFilter.get -> Broadside.Rendering.ColorFilter?
+Broadside.Viewer.Wpf.PdfView.ColorFilter.set -> void
+Broadside.Viewer.Wpf.PdfView.CopySelectionAsync() -> System.Threading.Tasks.Task<string?>!
+Broadside.Viewer.Wpf.PdfView.CurrentSession.get -> Broadside.Viewer.DocumentSession?
+Broadside.Viewer.Wpf.PdfView.Dispose() -> void
+Broadside.Viewer.Wpf.PdfView.Error -> System.EventHandler<Broadside.Viewer.Wpf.PdfViewErrorEventArgs!>?
+Broadside.Viewer.Wpf.PdfView.GoToPage(int pageIndex) -> void
+Broadside.Viewer.Wpf.PdfView.LayoutOptions.get -> Broadside.Viewer.PageLayoutOptions?
+Broadside.Viewer.Wpf.PdfView.LayoutOptions.set -> void
+Broadside.Viewer.Wpf.PdfView.NextPage() -> void
+Broadside.Viewer.Wpf.PdfView.Options.get -> Broadside.Viewer.ViewerOptions?
+Broadside.Viewer.Wpf.PdfView.Options.set -> void
+Broadside.Viewer.Wpf.PdfView.PdfView() -> void
+Broadside.Viewer.Wpf.PdfView.PreviousPage() -> void
+Broadside.Viewer.Wpf.PdfView.Reveal(int pageIndex, Broadside.PdfRectangle area) -> void
+Broadside.Viewer.Wpf.PdfView.ScrollBy(double deltaX, double deltaY) -> void
+Broadside.Viewer.Wpf.PdfView.Search.get -> Broadside.Viewer.DocumentSearch?
+Broadside.Viewer.Wpf.PdfView.Selection.get -> Broadside.Viewer.TextSelection?
+Broadside.Viewer.Wpf.PdfView.Session.get -> Broadside.Viewer.DocumentSession?
+Broadside.Viewer.Wpf.PdfView.Session.set -> void
+Broadside.Viewer.Wpf.PdfView.ShowAnnotations.get -> bool
+Broadside.Viewer.Wpf.PdfView.ShowAnnotations.set -> void
+Broadside.Viewer.Wpf.PdfView.Source.get -> string?
+Broadside.Viewer.Wpf.PdfView.Source.set -> void
+Broadside.Viewer.Wpf.PdfView.State.get -> Broadside.Viewer.Wpf.PdfViewState
+Broadside.Viewer.Wpf.PdfView.StateChanged -> System.EventHandler<Broadside.Viewer.Wpf.PdfViewStateChangedEventArgs!>?
+Broadside.Viewer.Wpf.PdfView.ZoomBy(double factor) -> void
+Broadside.Viewer.Wpf.PdfView.ZoomTo(Broadside.Viewer.ZoomMode mode) -> void
+Broadside.Viewer.Wpf.PdfViewErrorEventArgs
+Broadside.Viewer.Wpf.PdfViewErrorEventArgs.Exception.get -> System.Exception!
+Broadside.Viewer.Wpf.PdfViewErrorEventArgs.PdfViewErrorEventArgs(System.Exception! exception) -> void
+Broadside.Viewer.Wpf.PdfViewState
+Broadside.Viewer.Wpf.PdfViewState.IsLoading.get -> bool
+Broadside.Viewer.Wpf.PdfViewState.IsLoading.init -> void
+Broadside.Viewer.Wpf.PdfViewState.IsRendering.get -> bool
+Broadside.Viewer.Wpf.PdfViewState.IsRendering.init -> void
+Broadside.Viewer.Wpf.PdfViewState.PageCount.get -> int
+Broadside.Viewer.Wpf.PdfViewState.PageCount.init -> void
+Broadside.Viewer.Wpf.PdfViewState.PageIndex.get -> int
+Broadside.Viewer.Wpf.PdfViewState.PageIndex.init -> void
+Broadside.Viewer.Wpf.PdfViewState.PdfViewState() -> void
+Broadside.Viewer.Wpf.PdfViewState.PdfViewState(int PageIndex, int PageCount, double Zoom, bool IsLoading, bool IsRendering) -> void
+Broadside.Viewer.Wpf.PdfViewState.Zoom.get -> double
+Broadside.Viewer.Wpf.PdfViewState.Zoom.init -> void
+Broadside.Viewer.Wpf.PdfViewStateChangedEventArgs
+Broadside.Viewer.Wpf.PdfViewStateChangedEventArgs.PdfViewStateChangedEventArgs(Broadside.Viewer.Wpf.PdfViewState state) -> void
+Broadside.Viewer.Wpf.PdfViewStateChangedEventArgs.State.get -> Broadside.Viewer.Wpf.PdfViewState
+static readonly Broadside.Viewer.Wpf.PdfView.AllowAnnotationEditingProperty -> System.Windows.DependencyProperty!
+static readonly Broadside.Viewer.Wpf.PdfView.ColorFilterProperty -> System.Windows.DependencyProperty!
+static readonly Broadside.Viewer.Wpf.PdfView.LayoutOptionsProperty -> System.Windows.DependencyProperty!
+static readonly Broadside.Viewer.Wpf.PdfView.SessionProperty -> System.Windows.DependencyProperty!
+static readonly Broadside.Viewer.Wpf.PdfView.ShowAnnotationsProperty -> System.Windows.DependencyProperty!
+static readonly Broadside.Viewer.Wpf.PdfView.SourceProperty -> System.Windows.DependencyProperty!
