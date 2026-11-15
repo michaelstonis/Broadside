@@ -302,10 +302,7 @@ public sealed class ListBlock : FlowBlock
             context.PushIndent(Style.Indent);
             context.AddMarker(new ListMarker(item, MarkerOf(item, position), Style.MarkerStyle, context.Indent, Style.MarkerGap));
             context.BeginPart(new FlowPart("LBody", item, null));
-            foreach (FlowBlock block in item.Blocks)
-            {
-                block.LayOut(context);
-            }
+            context.LayOutBlocks(item.Blocks);
 
             if (context.HasPendingMarkers)
             {

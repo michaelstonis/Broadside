@@ -96,4 +96,7 @@ public enum DiagnosticArea
 
     /// <summary>Logical structure and tagged PDF (<see cref="StructureDiagnostics"/>; ISO 32000-2 §14.6 to §14.9).</summary>
     Structure,
+
+    /// <summary>Flow layout and building documents (<see cref="LayoutDiagnostics"/>; ISO 32000-2 §7.7.3.3, §8.4.2, §14.6).</summary>
+    Layout,
 }

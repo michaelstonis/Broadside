@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Broadside.Objects;
@@ -27,6 +28,8 @@ public readonly struct PdfColor : IEquatable<PdfColor>
     /// <summary>The most components a colour stores; a DeviceN colour space with more is painted through its alternate.</summary>
     /// <remarks>ISO 32000-2 Annex C, Table C.1: earlier PDF versions limited DeviceN to 32 colourants.</remarks>
     public const int MaxComponents = 32;
+
+    private static readonly SearchValues<char> HexDigits = SearchValues.Create("0123456789abcdefABCDEF");
 
     private readonly PdfColorSpace? _colorSpace;
     private readonly ComponentBuffer _components;
@@ -81,6 +84,47 @@ public readonly struct PdfColor : IEquatable<PdfColor>
     /// <remarks>ISO 32000-2 §8.6.4.4.</remarks>
     public static PdfColor FromCmyk(float cyan, float magenta, float yellow, float black) =>
         new(PdfDeviceCmykColorSpace.Instance, [cyan, magenta, yellow, black]);
+
+    /// <summary>
+    /// Returns a DeviceRGB colour from a CSS-style hexadecimal notation: <c>#RGB</c> (each digit doubled), <c>#RRGGBB</c>, or
+    /// <c>#RRGGBBAA</c> with the alpha <c>FF</c>. The leading <c>#</c> is required; the digits are case-insensitive.
+    /// </summary>
+    /// <param name="hex">The notation, such as <c>#0B5FFF</c>.</param>
+    /// <returns>The colour; each component is the two-digit value divided by 255.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="hex"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="hex"/> is not in one of the three forms, or names an alpha other than <c>FF</c>: a colour has no opacity in PDF,
+    /// which is a graphics state parameter (<c>ca</c> and <c>CA</c>, ISO 32000-2 §11.6.4.4) set with
+    /// <see cref="PdfCanvas.SetFillAlpha"/> and <see cref="PdfCanvas.SetStrokeAlpha"/>.
+    /// </exception>
+    /// <remarks>ISO 32000-2 §8.6.4.3.</remarks>
+    public static PdfColor FromHex(string hex)
+    {
+        ArgumentNullException.ThrowIfNull(hex);
+        ReadOnlySpan<char> digits = hex.AsSpan();
+        if (digits is not ['#', .. var rest] || rest.Length is not (3 or 6 or 8) || rest.ContainsAnyExcept(HexDigits))
+        {
+            throw new ArgumentException($"'{hex}' is not a hexadecimal colour: use #RGB, #RRGGBB or #RRGGBBAA.", nameof(hex));
+        }
+
+        if (rest.Length == 3)
+        {
+            return FromRgb(Nibble(rest[0]) * 17 / 255f, Nibble(rest[1]) * 17 / 255f, Nibble(rest[2]) * 17 / 255f);
+        }
+
+        if (rest.Length == 8 && Byte(rest[6..]) != 255)
+        {
+            throw new ArgumentException(
+                $"'{hex}' has an alpha other than FF. A PDF colour has no opacity: set it on the canvas with SetFillAlpha or SetStrokeAlpha (ISO 32000-2 §11.6.4.4).",
+                nameof(hex));
+        }
+
+        return FromRgb(Byte(rest[..2]) / 255f, Byte(rest[2..4]) / 255f, Byte(rest[4..6]) / 255f);
+
+        static int Nibble(char digit) => digit <= '9' ? digit - '0' : (digit | 0x20) - 'a' + 10;
+
+        static int Byte(ReadOnlySpan<char> pair) => (Nibble(pair[0]) << 4) | Nibble(pair[1]);
+    }
 
     /// <summary>Gets the colour space; DeviceGray for a default instance.</summary>
     public PdfColorSpace ColorSpace => _colorSpace ?? PdfDeviceGrayColorSpace.Instance;
