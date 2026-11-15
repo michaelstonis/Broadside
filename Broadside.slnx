@@ -7,6 +7,7 @@
     <Project Path="bench/Broadside.Rendering.Direct2D.Benchmarks/Broadside.Rendering.Direct2D.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/samples/">
+    <Project Path="samples/Broadside.Viewer.Avalonia.Sample/Broadside.Viewer.Avalonia.Sample.csproj" />
     <Project Path="samples/Broadside.Viewer.Blazor.Sample/Broadside.Viewer.Blazor.Sample.csproj" />
     <Project Path="samples/documents/generator/Broadside.SampleDocuments.csproj" />
   </Folder>
@@ -30,6 +31,7 @@
     <Project Path="src/Broadside.Rendering.Skia/Broadside.Rendering.Skia.csproj" />
     <Project Path="src/Broadside.Rendering.WebGL/Broadside.Rendering.WebGL.csproj" />
     <Project Path="src/Broadside.Rendering/Broadside.Rendering.csproj" />
+    <Project Path="src/Broadside.Viewer.Avalonia/Broadside.Viewer.Avalonia.csproj" />
     <Project Path="src/Broadside.Viewer.Blazor/Broadside.Viewer.Blazor.csproj" />
     <Project Path="src/Broadside.Viewer.Maui/Broadside.Viewer.Maui.csproj" />
     <Project Path="src/Broadside.Viewer/Broadside.Viewer.csproj" />
@@ -42,6 +44,7 @@
     <Project Path="tests/Broadside.Globalization.Tests/Broadside.Globalization.Tests.csproj" />
     <Project Path="tests/Broadside.GoldenImages/Broadside.GoldenImages.csproj" />
     <Project Path="tests/Broadside.Layout.Tests/Broadside.Layout.Tests.csproj" />
+    <Project Path="tests/Broadside.Viewer.Avalonia.Tests/Broadside.Viewer.Avalonia.Tests.csproj" />
     <Project Path="tests/Broadside.Viewer.Blazor.BrowserTests/Broadside.Viewer.Blazor.BrowserTests.csproj" />
     <Project Path="tests/Broadside.Viewer.Maui.Tests/Broadside.Viewer.Maui.Tests.csproj" />
     <Project Path="tests/Broadside.Viewer.Tests/Broadside.Viewer.Tests.csproj" />

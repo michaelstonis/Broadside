@@ -1,0 +1,69 @@
+#nullable enable
+Broadside.Viewer.Avalonia.PdfView
+Broadside.Viewer.Avalonia.PdfView.Accessibility.get -> Broadside.Viewer.AccessibilityBridge?
+Broadside.Viewer.Avalonia.PdfView.ActionRequested -> System.EventHandler<Broadside.Viewer.ViewerActionEventArgs!>?
+Broadside.Viewer.Avalonia.PdfView.AllowAnnotationEditing.get -> bool
+Broadside.Viewer.Avalonia.PdfView.AllowAnnotationEditing.set -> void
+Broadside.Viewer.Avalonia.PdfView.Annotations.get -> Broadside.Viewer.AnnotationLayer?
+Broadside.Viewer.Avalonia.PdfView.ClearSearch() -> void
+Broadside.Viewer.Avalonia.PdfView.ColorFilter.get -> Broadside.Rendering.ColorFilter?
+Broadside.Viewer.Avalonia.PdfView.ColorFilter.set -> void
+Broadside.Viewer.Avalonia.PdfView.CopySelectionAsync() -> System.Threading.Tasks.Task<string?>!
+Broadside.Viewer.Avalonia.PdfView.CurrentSession.get -> Broadside.Viewer.DocumentSession?
+Broadside.Viewer.Avalonia.PdfView.Dispose() -> void
+Broadside.Viewer.Avalonia.PdfView.Error -> System.EventHandler<Broadside.Viewer.Avalonia.PdfViewErrorEventArgs!>?
+Broadside.Viewer.Avalonia.PdfView.Find(string! query, Broadside.Viewer.TextSearchOptions? options = null) -> void
+Broadside.Viewer.Avalonia.PdfView.FindNext() -> Broadside.Viewer.SearchMatch?
+Broadside.Viewer.Avalonia.PdfView.FindPrevious() -> Broadside.Viewer.SearchMatch?
+Broadside.Viewer.Avalonia.PdfView.GoToPage(int pageIndex) -> void
+Broadside.Viewer.Avalonia.PdfView.LayoutOptions.get -> Broadside.Viewer.PageLayoutOptions?
+Broadside.Viewer.Avalonia.PdfView.LayoutOptions.set -> void
+Broadside.Viewer.Avalonia.PdfView.NextPage() -> void
+Broadside.Viewer.Avalonia.PdfView.Options.get -> Broadside.Viewer.ViewerOptions?
+Broadside.Viewer.Avalonia.PdfView.Options.set -> void
+Broadside.Viewer.Avalonia.PdfView.PdfView() -> void
+Broadside.Viewer.Avalonia.PdfView.PreviousPage() -> void
+Broadside.Viewer.Avalonia.PdfView.Redraw() -> void
+Broadside.Viewer.Avalonia.PdfView.Reveal(int pageIndex, Broadside.PdfRectangle area) -> void
+Broadside.Viewer.Avalonia.PdfView.ScrollBy(double deltaX, double deltaY) -> void
+Broadside.Viewer.Avalonia.PdfView.Search.get -> Broadside.Viewer.DocumentSearch?
+Broadside.Viewer.Avalonia.PdfView.Selection.get -> Broadside.Viewer.TextSelection?
+Broadside.Viewer.Avalonia.PdfView.Session.get -> Broadside.Viewer.DocumentSession?
+Broadside.Viewer.Avalonia.PdfView.Session.set -> void
+Broadside.Viewer.Avalonia.PdfView.ShowAnnotations.get -> bool
+Broadside.Viewer.Avalonia.PdfView.ShowAnnotations.set -> void
+Broadside.Viewer.Avalonia.PdfView.Source.get -> string?
+Broadside.Viewer.Avalonia.PdfView.Source.set -> void
+Broadside.Viewer.Avalonia.PdfView.State.get -> Broadside.Viewer.Avalonia.PdfViewState
+Broadside.Viewer.Avalonia.PdfView.StateChanged -> System.EventHandler<Broadside.Viewer.Avalonia.PdfViewStateChangedEventArgs!>?
+Broadside.Viewer.Avalonia.PdfView.ZoomBy(double factor) -> void
+Broadside.Viewer.Avalonia.PdfView.ZoomTo(Broadside.Viewer.ZoomMode mode) -> void
+Broadside.Viewer.Avalonia.PdfViewAutomationPeer
+Broadside.Viewer.Avalonia.PdfViewAutomationPeer.PdfViewAutomationPeer(Broadside.Viewer.Avalonia.PdfView! owner) -> void
+Broadside.Viewer.Avalonia.PdfViewAutomationPeer.Viewer.get -> Broadside.Viewer.Avalonia.PdfView!
+Broadside.Viewer.Avalonia.PdfViewErrorEventArgs
+Broadside.Viewer.Avalonia.PdfViewErrorEventArgs.Exception.get -> System.Exception!
+Broadside.Viewer.Avalonia.PdfViewErrorEventArgs.PdfViewErrorEventArgs(System.Exception! exception) -> void
+Broadside.Viewer.Avalonia.PdfViewState
+Broadside.Viewer.Avalonia.PdfViewState.IsLoading.get -> bool
+Broadside.Viewer.Avalonia.PdfViewState.IsLoading.init -> void
+Broadside.Viewer.Avalonia.PdfViewState.IsRendering.get -> bool
+Broadside.Viewer.Avalonia.PdfViewState.IsRendering.init -> void
+Broadside.Viewer.Avalonia.PdfViewState.PageCount.get -> int
+Broadside.Viewer.Avalonia.PdfViewState.PageCount.init -> void
+Broadside.Viewer.Avalonia.PdfViewState.PageIndex.get -> int
+Broadside.Viewer.Avalonia.PdfViewState.PageIndex.init -> void
+Broadside.Viewer.Avalonia.PdfViewState.PdfViewState() -> void
+Broadside.Viewer.Avalonia.PdfViewState.PdfViewState(int PageIndex, int PageCount, double Zoom, bool IsLoading, bool IsRendering) -> void
+Broadside.Viewer.Avalonia.PdfViewState.Zoom.get -> double
+Broadside.Viewer.Avalonia.PdfViewState.Zoom.init -> void
+Broadside.Viewer.Avalonia.PdfViewStateChangedEventArgs
+Broadside.Viewer.Avalonia.PdfViewStateChangedEventArgs.PdfViewStateChangedEventArgs(Broadside.Viewer.Avalonia.PdfViewState state) -> void
+Broadside.Viewer.Avalonia.PdfViewStateChangedEventArgs.State.get -> Broadside.Viewer.Avalonia.PdfViewState
+override Broadside.Viewer.Avalonia.PdfView.Render(Avalonia.Media.DrawingContext! context) -> void
+static readonly Broadside.Viewer.Avalonia.PdfView.AllowAnnotationEditingProperty -> Avalonia.StyledProperty<bool>!
+static readonly Broadside.Viewer.Avalonia.PdfView.ColorFilterProperty -> Avalonia.StyledProperty<Broadside.Rendering.ColorFilter?>!
+static readonly Broadside.Viewer.Avalonia.PdfView.LayoutOptionsProperty -> Avalonia.StyledProperty<Broadside.Viewer.PageLayoutOptions?>!
+static readonly Broadside.Viewer.Avalonia.PdfView.SessionProperty -> Avalonia.StyledProperty<Broadside.Viewer.DocumentSession?>!
+static readonly Broadside.Viewer.Avalonia.PdfView.ShowAnnotationsProperty -> Avalonia.StyledProperty<bool>!
+static readonly Broadside.Viewer.Avalonia.PdfView.SourceProperty -> Avalonia.StyledProperty<string?>!
