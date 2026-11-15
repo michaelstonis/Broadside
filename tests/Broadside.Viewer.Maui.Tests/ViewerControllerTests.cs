@@ -152,6 +152,26 @@ public sealed class ViewerControllerTests
     });
 
     [Fact]
+    public void A_mouse_selection_draws_no_handles_and_a_later_touch_cannot_grab_one() => UiThread.Run(async () =>
+    {
+        using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("text-render-modes.pdf"));
+        (double x, double y) = FindText(shell);
+        shell.Drag(1, SKTouchDeviceType.Mouse, x, y, x + 60, y);
+        TextSelection selection = shell.Controller.Selection!;
+        Assert.False(selection.IsEmpty);
+        await shell.SettleAsync();
+        Assert.DoesNotContain(shell.Controller.Presenter.Latest!.Items.ToArray(), item => item.Kind == ViewerFrame.ItemKind.Handle);
+
+        // Where the end handle would be: a touch drag there pans (and clears the selection) instead of extending it.
+        TextPosition end = selection.End;
+        var quads = new Quad[16];
+        int count = selection.GetQuads(0, quads);
+        (double hx, double hy) = shell.ToView(0, quads[count - 1].BottomRight.X, quads[count - 1].BottomRight.Y);
+        shell.Drag(2, SKTouchDeviceType.Touch, hx, hy + 6, hx + 20, hy + 60);
+        Assert.False(!selection.IsEmpty && selection.End.Offset > end.Offset, "A touch grabbed a handle the mouse selection never drew.");
+    });
+
+    [Fact]
     public void A_uri_link_is_raised_never_followed_and_an_internal_link_navigates() => UiThread.Run(async () =>
     {
         using (Shell shell = await Shell.OpenAsync(Shell.CorpusFile("annotations-link.pdf")))
@@ -193,7 +213,7 @@ public sealed class ViewerControllerTests
         int overlaysBefore = OverlayItems(shell);
         Assert.True(overlaysBefore > 0);
         shell.Events.Clear();
-        Assert.True(shell.Controller.CommitFieldText("Ada"));
+        Assert.True(shell.Controller.CommitFieldText("Grace Hopper"));
 
         // The evicted overlay tiles stay on screen until their replacements arrive: the composed frame never loses them.
         shell.Controller.Frame();
@@ -205,7 +225,7 @@ public sealed class ViewerControllerTests
             shell.Events.Where(e => e.Kind is TileEventKind.Started or TileEventKind.Presented or TileEventKind.Evicted),
             e => Assert.Equal(DisplayLayers.None, e.Tile.Layers & DisplayLayers.Content));
         var widget = (PdfWidgetAnnotation)layer.GetAnnotation(field);
-        Assert.Equal("Ada", ((PdfTextField)widget.Field!).Value);
+        Assert.Equal("Grace Hopper", ((PdfTextField)widget.Field!).Value);
     });
 
     [Fact]

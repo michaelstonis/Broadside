@@ -4,197 +4,450 @@ using SkiaSharp;
 
 namespace Broadside.Viewer.Maui.Sample;
 
-/// <summary>One gallery entry: an app asset (or an https address, downloaded when opened) and what the gallery calls it.</summary>
-public sealed record GalleryEntry(string File, string Title);
-
-/// <summary>The sample's page: a toolbar over a <see cref="PdfView"/>.</summary>
+/// <summary>
+/// The sample's shell around a <see cref="PdfView"/>, at parity with the Blazor demo (#358). On a phone: a compact top bar (documents,
+/// title, pager, share), the tools in a bottom bar, and each tool's panel in a bottom sheet. On a tablet or desktop (720 units and
+/// wider): a top bar with zoom, a rail of tools on the left and the panel in a sidebar beside the pages.
+/// </summary>
 public sealed class MainPage : ContentPage
 {
-    /// <summary>
-    /// pdf.js's copy of the TraceMonkey paper: its ACM copyright notice does not allow redistribution, so the app does not bundle it
-    /// and downloads it when opened.
-    /// </summary>
-    public const string TraceMonkey = "https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf";
+    /// <summary>The width from which the page uses the tablet and desktop layout.</summary>
+    public const double WideWidth = 720;
 
-    /// <summary>The Blazor demo's gallery: the sample documents (#363) first, then TraceMonkey (downloaded), then the corpus files.</summary>
-    public static readonly GalleryEntry[] Gallery =
-    [
-        new("documents/textbook.pdf", "Textbook chapter (WeasyPrint)"),
-        new("documents/catalogue.pdf", "Product catalogue (WeasyPrint, CMYK and bleed)"),
-        new("documents/newsletter.pdf", "Newsletter (Chrome)"),
-        new("documents/paper.pdf", "Scientific paper with equations (Chrome)"),
-        new("documents/invoice-colourful.pdf", "Invoice, colourful (WeasyPrint)"),
-        new("documents/invoice-conservative-filled.pdf", "Invoice with a filled form (Broadside)"),
-        new("documents/brochure.pdf", "Brochure, print-ready (Broadside)"),
-        new("documents/dictionary.pdf", "Dictionary (WeasyPrint)"),
-        new("documents/showcase.pdf", "Feature showcase with layers"),
-        new("documents/novel-pocket.pdf", "Novel, pocket edition (170 pages)"),
-        new("documents/novel-hardback.pdf", "Novel, hardback edition (tagged)"),
-        new("documents/novel-large-print.pdf", "Novel, large print (Broadside, PDF/UA)"),
-        new("documents/contract-signed.pdf", "Agreement, certified and signed (Broadside)"),
-        new("documents/textbook-aes128.pdf", "Textbook, encrypted (AES-128, copying not allowed)"),
-        new("documents/paper-rc4.pdf", "Paper, encrypted (RC4, printing not allowed)"),
-        new("documents/dictionary-aes256-gcm.pdf", "Dictionary, encrypted (AES-256-GCM, PDF 2.0)"),
-        new("documents/application-form.pdf", "Application form with calculated fields (Broadside)"),
-        new("documents/application-form-xfa.pdf", "Application form, XFA hybrid"),
-        new("documents/paper-reviewed.pdf", "Paper with a referee's annotations"),
-        new("documents/leaflet-multilingual.pdf", "Leaflet in twelve languages (WeasyPrint)"),
-        new("documents/notice-trilingual.pdf", "Notice in English, Arabic and Hebrew (Broadside)"),
-        new("documents/rashomon-vertical.pdf", "Japanese novella in vertical writing (Broadside)"),
-        new("documents/report-1996.pdf", "Technical memo, 1996 style (Type 1, Type 3, LZW)"),
-        new("documents/scan-memo-g4.pdf", "Scanned memo with OCR text (CCITT G4)"),
-        new("documents/scan-memo-jbig2.pdf", "Scanned memo with OCR text (JBIG2)"),
-        new("documents/scan-moon-memo-jpx.pdf", "Scanned memo in color with OCR text (JPEG 2000)"),
-        new("documents/color-guide.pdf", "Color guide: Lab, Indexed, DeviceN, overprint (Broadside)"),
-        new("documents/shakespeare.pdf", "Complete works of Shakespeare (1,168 pages)"),
-        new("documents/contour-map.pdf", "Topographic map: 400,000 contour segments on one A1 page"),
-        new("documents/board-pack.pdf", "Board pack: mixed sizes and rotated pages"),
-        new("documents/portfolio.pdf", "Project portfolio with attached files"),
-        new("documents/invoice-pdfa3.pdf", "Invoice, PDF/A-3b with its XML data"),
-        new("documents/paper-pdfa2b.pdf", "Paper, PDF/A-2b"),
-        new("documents/showcase-broken-xref.pdf", "Damaged: broken cross-reference offsets"),
-        new("documents/novel-large-print-truncated.pdf", "Damaged: interrupted download (157 of 219 pages)"),
-        new(TraceMonkey, "TraceMonkey paper (real world, downloaded)"),
-        new("documents/layout-two-column-tagged.pdf", "Two columns (tagged)"),
-        new("documents/outline-full.pdf", "Outline"),
-        new("documents/acroform-fields.pdf", "Form fields"),
-        new("documents/tagged-structure.pdf", "Tagged structure"),
-        new("documents/layout-tables.pdf", "Tables"),
-        new("documents/signed.pdf", "Signed document"),
-        new("documents/info-dictionary.pdf", "Document information"),
-        new("documents/annotations-link.pdf", "Links"),
-        new("documents/shading-radial-cases.pdf", "Shadings"),
-        new("documents/transparency-blend-modes.pdf", "Transparency"),
-        new("documents/page-rotation.pdf", "Rotated pages"),
-        new("documents/linearized.pdf", "Linearized"),
-    ];
+    private static readonly SamplePanel[] Tools =
+        [SamplePanel.Search, SamplePanel.Outline, SamplePanel.Pages, SamplePanel.Annotate, SamplePanel.Form, SamplePanel.Info, SamplePanel.Signatures, SamplePanel.View, SamplePanel.Create];
 
-    private static readonly ViewerOptions Options = new ViewerOptions()
-        .UseEngine(new PdfEngine(new PdfOptions().UseStandard14Fonts()))
-        .UseBackend(() => new SkiaTileBackend());
-
-    private readonly PdfView _view = new() { ShowAnnotations = true };
-    private readonly Picker _gallery = new() { Title = "Document", ItemsSource = Gallery.Select(g => g.Title).ToList(), WidthRequest = 260 };
-    private readonly Label _status = new() { VerticalTextAlignment = TextAlignment.Center, Margin = new Thickness(8, 0) };
-    private static readonly HttpClient Http = new();
-    private DocumentSession? _session;
+    private readonly SampleDocument _document = new();
+    private readonly PdfView _view = new() { ShowAnnotations = true, AutomationId = "viewer" };
+    private readonly Label _title = new() { FontAttributes = FontAttributes.Bold, LineBreakMode = LineBreakMode.TailTruncation, VerticalTextAlignment = TextAlignment.Center, AutomationId = "document-title" };
+    private readonly Label _edited = new() { Text = "edited", FontSize = 11, TextColor = Colors.White, BackgroundColor = Color.FromRgb(0xB0, 0x6D, 0x00), Padding = new Thickness(6, 1), VerticalOptions = Microsoft.Maui.Controls.LayoutOptions.Center, IsVisible = false, AutomationId = "document-edited" };
+    private readonly Label _page = new() { VerticalTextAlignment = TextAlignment.Center, HorizontalTextAlignment = TextAlignment.Center, MinimumWidthRequest = 56, AutomationId = "page-indicator" };
+    private readonly Label _zoom = new() { VerticalTextAlignment = TextAlignment.Center, MinimumWidthRequest = 48, HorizontalTextAlignment = TextAlignment.Center, AutomationId = "zoom-indicator" };
+    private readonly HorizontalStackLayout _zoomGroup;
+    private readonly Grid _topBar;
+    private readonly Grid _message = new() { Padding = new Thickness(12, 6), BackgroundColor = Color.FromRgb(0xFF, 0xF4, 0xCE), IsVisible = false, AutomationId = "message" };
+    private readonly Label _messageText = new() { TextColor = Colors.Black, FontSize = 13, VerticalTextAlignment = TextAlignment.Center };
+    private readonly Dictionary<SamplePanel, Button> _toolButtons = [];
+    private readonly Dictionary<SamplePanel, View> _panels = [];
+    private readonly Border _sheet;
+    private readonly Label _sheetTitle = new() { FontAttributes = FontAttributes.Bold, FontSize = 17, VerticalTextAlignment = TextAlignment.Center, AutomationId = "sheet-title" };
+    private readonly ContentView _sheetBody = new();
+    private readonly Grid _root = new();
+    private Microsoft.Maui.Controls.Layout _tools = new Grid();
+    private bool? _wide;
+    private SamplePanel _panel;
     private bool _smokeDone;
     private bool _benchStarted;
+    private bool _uiTestStarted;
+    private double _sheetDrag;
+    private AnnotationLayer? _layer;
 
     public MainPage()
     {
         Title = "Broadside Viewer";
-        var annotations = new Switch { IsToggled = true };
-        annotations.Toggled += (_, e) => _view.ShowAnnotations = e.Value;
-        var toolbar = new HorizontalStackLayout
+        NavigationPage.SetHasNavigationBar(this, false);
+        SemanticProperties.SetDescription(_view, "Document");
+
+        PdfSearchPanel search = new() { Viewer = _view };
+        PdfAnnotationsPanel annotate = new() { Viewer = _view };
+        annotate.Edited += (_, _) => _document.MarkEdited();
+        PdfDocumentInfoPanel info = new() { Viewer = _view };
+        var view = new VerticalStackLayout { Spacing = 6, Children = { new PdfViewSettingsPanel { Viewer = _view }, RendererSection() } };
+        _panels[SamplePanel.Open] = new OpenPanel(_document);
+        _panels[SamplePanel.Search] = search;
+        _panels[SamplePanel.Outline] = new PdfOutlinePanel { Viewer = _view };
+        _panels[SamplePanel.Pages] = new PdfThumbnailsPanel { Viewer = _view };
+        _panels[SamplePanel.Annotate] = annotate;
+        PdfFormPanel form = new() { Viewer = _view };
+        form.Edited += (_, _) => _document.MarkEdited();
+        _panels[SamplePanel.Form] = form;
+        _panels[SamplePanel.Info] = info;
+        _panels[SamplePanel.Signatures] = new PdfSignaturesPanel { Viewer = _view };
+        _panels[SamplePanel.View] = new ScrollView { Content = view };
+        _panels[SamplePanel.Create] = new CreatePanel(_document);
+
+        _zoomGroup = new HorizontalStackLayout
         {
-            Spacing = 6,
-            Padding = new Thickness(8, 4),
+            Spacing = 2,
             Children =
             {
-                _gallery,
-                Button("Prev", () => _view.PreviousPage()),
-                Button("Next", () => _view.NextPage()),
-                Button("-", () => _view.ZoomBy(1 / 1.25)),
-                Button("+", () => _view.ZoomBy(1.25)),
-                Button("Fit width", () => _view.ZoomTo(ZoomMode.FitWidth)),
-                Button("Fit page", () => _view.ZoomTo(ZoomMode.FitPage)),
-                Button("Copy", async () => _status.Text = await _view.CopySelectionAsync() is { } text ? $"Copied {text.Length} characters" : "Nothing selected"),
-                new Label { Text = "Annotations", VerticalTextAlignment = TextAlignment.Center },
-                annotations,
-                _status,
+                IconButton("−", "zoom-out-top", "Zoom out", () => _view.ZoomBy(1 / 1.25)),
+                _zoom,
+                IconButton("+", "zoom-in-top", "Zoom in", () => _view.ZoomBy(1.25)),
+                IconButton("↔", "fit-width-top", "Fit width", () => _view.ZoomTo(ZoomMode.FitWidth)),
             },
         };
+        _topBar = new Grid
+        {
+            Padding = new Thickness(4, 2),
+            ColumnSpacing = 2,
+            MinimumHeightRequest = 48,
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Auto),
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Auto),
+                new ColumnDefinition(GridLength.Auto),
+                new ColumnDefinition(GridLength.Auto),
+            },
+        };
+        _topBar.Add(IconButton("☰", "tool-open", "Documents", () => Toggle(SamplePanel.Open)));
+        _topBar.Add(new HorizontalStackLayout { Spacing = 6, Children = { _title, _edited } }, 1, 0);
+        _topBar.Add(new HorizontalStackLayout
+        {
+            Children =
+            {
+                IconButton("‹", "page-previous", "Previous page", () => _view.PreviousPage()),
+                _page,
+                IconButton("›", "page-next", "Next page", () => _view.NextPage()),
+            },
+        }, 2, 0);
+        _topBar.Add(_zoomGroup, 3, 0);
+        _topBar.Add(IconButton("⤴", "share", "Save or share the document with your edits", () => _ = _document.ShareAsync()), 4, 0);
+        _topBar.SetAppThemeColor(BackgroundColorProperty, Color.FromRgb(0xF6, 0xF6, 0xF8), Color.FromRgb(0x1E, 0x1E, 0x22));
 
-        _gallery.SelectedIndexChanged += async (_, _) => await OpenAsync(Gallery[_gallery.SelectedIndex]);
+        _message.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+        _message.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+        _message.Add(_messageText);
+        _message.Add(IconButton("×", "message-dismiss", "Dismiss", () => _document.Report(null)), 1, 0);
+
+        foreach (SamplePanel tool in Tools)
+        {
+            var button = new Button
+            {
+                Text = Glyph(tool) + "\n" + TitleOf(tool),
+                FontSize = 11,
+                LineBreakMode = LineBreakMode.WordWrap,
+                Padding = new Thickness(0, 4),
+                CornerRadius = 0,
+                BackgroundColor = Colors.Transparent,
+                AutomationId = "tool-" + tool.ToString().ToLowerInvariant(),
+            };
+            button.SetAppThemeColor(Button.TextColorProperty, Color.FromRgb(0x30, 0x30, 0x36), Color.FromRgb(0xE0, 0xE0, 0xE6));
+            SemanticProperties.SetDescription(button, TitleOf(tool));
+            button.Clicked += (_, _) => Toggle(tool);
+            _toolButtons[tool] = button;
+        }
+
+        var sheetHeader = new Grid { ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) } };
+        sheetHeader.Add(_sheetTitle);
+        sheetHeader.Add(IconButton("×", "sheet-close", "Close panel", () => Toggle(SamplePanel.None)), 1, 0);
+        var handle = new BoxView { HeightRequest = 5, WidthRequest = 40, CornerRadius = 3, Color = Colors.Gray, HorizontalOptions = Microsoft.Maui.Controls.LayoutOptions.Center, Margin = new Thickness(0, 6, 0, 2) };
+        var pan = new PanGestureRecognizer();
+        pan.PanUpdated += OnSheetPan;
+        var grip = new VerticalStackLayout { Children = { handle, sheetHeader } };
+        grip.GestureRecognizers.Add(pan);
+        var sheetGrid = new Grid { RowDefinitions = { new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Star) }, Padding = new Thickness(12, 0, 12, 8) };
+        sheetGrid.Add(grip);
+        sheetGrid.Add(_sheetBody, 0, 1);
+        _sheet = new Border { Content = sheetGrid, StrokeThickness = 0, AutomationId = "sheet" };
+        _sheet.SetAppThemeColor(BackgroundColorProperty, Colors.White, Color.FromRgb(0x24, 0x24, 0x28));
+
+        _document.Changed += OnDocumentChanged;
         _view.StateChanged += OnStateChanged;
-        _view.Error += (_, e) => _status.Text = e.Exception.Message;
+        _view.DocumentChanged += (_, _) =>
+        {
+            // Any edit that redraws a page (a field filled in place, an annotation moved, a panel's change) marks the document edited.
+            _layer?.Invalidated -= OnLayerInvalidated;
+            _layer = _view.Annotations;
+            _layer?.Invalidated += OnLayerInvalidated;
+        };
+        _view.Error += (_, e) => _document.Report(e.Exception.Message);
         _view.ActionRequested += OnActionRequested;
-
-        var grid = new Grid { RowDefinitions = { new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Star) } };
-        grid.Add(new ScrollView { Orientation = ScrollOrientation.Horizontal, Content = toolbar });
-        grid.Add(_view, 0, 1);
-        Content = grid;
-        _gallery.SelectedIndex = 0;
+        _root.SetAppThemeColor(BackgroundColorProperty, Color.FromRgb(0xF6, 0xF6, 0xF8), Color.FromRgb(0x1E, 0x1E, 0x22));
+        Content = _root;
+        Arrange(false);
+        UpdateState(_view.State);
+        _ = _document.OpenGalleryAsync(SampleDocument.Gallery[0]);
     }
 
-    private static Button Button(string text, Action action)
+    /// <summary>Gets the open document (the UI tests drive it).</summary>
+    public SampleDocument Document => _document;
+
+    /// <summary>Gets the viewer.</summary>
+    public PdfView Viewer => _view;
+
+    /// <summary>Gets the panel shown in the sheet or sidebar.</summary>
+    public SamplePanel CurrentPanel => _panel;
+
+    /// <summary>Gets whether the page uses the tablet and desktop layout.</summary>
+    public bool IsWide => _wide == true;
+
+    /// <summary>Gets the content of a panel (created once, kept while the app runs).</summary>
+    public View PanelView(SamplePanel panel) => _panels[panel];
+
+    /// <summary>Shows a panel, or hides the shown one when it is asked for again (<see cref="SamplePanel.None"/> hides any).</summary>
+    public void Toggle(SamplePanel panel) => Show(_panel == panel ? SamplePanel.None : panel);
+
+    /// <summary>Shows a panel in the sheet (phone) or sidebar (tablet, desktop), or none.</summary>
+    public void Show(SamplePanel panel)
     {
-        var button = new Button { Text = text, Padding = new Thickness(10, 2) };
+        if (_panel == SamplePanel.Search && panel != SamplePanel.Search && _panels[SamplePanel.Search] is PdfSearchPanel search)
+        {
+            search.Clear(); // the highlights go with the panel, as in the Blazor demo
+        }
+
+        _panel = panel;
+        _sheetTitle.Text = TitleOf(panel);
+        _sheetBody.Content = panel == SamplePanel.None ? null : _panels[panel];
+        if (panel == SamplePanel.Info && _panels[panel] is PdfDocumentInfoPanel info)
+        {
+            info.Refresh(); // diagnostics grow as pages are read
+        }
+
+        foreach ((SamplePanel tool, Button button) in _toolButtons)
+        {
+            button.FontAttributes = tool == panel ? FontAttributes.Bold : FontAttributes.None;
+            button.SetAppThemeColor(BackgroundColorProperty, tool == panel ? Color.FromRgb(0xDD, 0xE6, 0xFA) : Colors.Transparent, tool == panel ? Color.FromRgb(0x2C, 0x3A, 0x55) : Colors.Transparent);
+        }
+
+        SizePanel();
+    }
+
+    protected override void OnSizeAllocated(double width, double height)
+    {
+        base.OnSizeAllocated(width, height);
+        if (width > 0)
+        {
+            bool wide = width >= WideWidth;
+            if (wide != _wide)
+            {
+                Arrange(wide);
+            }
+            else
+            {
+                SizePanel();
+            }
+        }
+    }
+
+    // Opening or closing a panel only resizes its row or column: the viewer is never taken out of the page (its canvas stays).
+    private void SizePanel()
+    {
+        bool open = _panel != SamplePanel.None;
+        _sheet.IsVisible = open;
+        if (_wide == true && _root.ColumnDefinitions.Count == 3)
+        {
+            _root.ColumnDefinitions[1].Width = open ? new GridLength(360) : new GridLength(0);
+        }
+        else if (_wide == false && _root.RowDefinitions.Count == 5)
+        {
+            _root.RowDefinitions[3].Height = open ? new GridLength(SheetHeight()) : new GridLength(0);
+        }
+    }
+
+    private double SheetHeight() => Math.Max(240, (Height > 0 ? Height : 800) * 0.5);
+
+    // One page, two arrangements of the same views: the views move between containers, nothing is created again.
+    private void Arrange(bool wide)
+    {
+        _wide = wide;
+        foreach (View child in new View[] { _topBar, _message, _view, _sheet, _tools })
+        {
+            (child.Parent as Microsoft.Maui.Controls.Layout)?.Children.Remove(child);
+        }
+
+        foreach (Button button in _toolButtons.Values)
+        {
+            (button.Parent as Microsoft.Maui.Controls.Layout)?.Children.Remove(button);
+        }
+
+        _root.Children.Clear();
+        _root.RowDefinitions.Clear();
+        _root.ColumnDefinitions.Clear();
+        _zoomGroup.IsVisible = wide;
+        if (wide)
+        {
+            // Top bar / message / [rail | sidebar | pages].
+            var rail = new VerticalStackLayout { Spacing = 2, Padding = new Thickness(2, 6), WidthRequest = 76 };
+            foreach (SamplePanel tool in Tools)
+            {
+                Button button = _toolButtons[tool];
+                button.HeightRequest = 56;
+                rail.Children.Add(button);
+            }
+
+            _tools = rail;
+            _root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            _root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            _root.RowDefinitions.Add(new RowDefinition(GridLength.Star));
+            _root.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            _root.ColumnDefinitions.Add(new ColumnDefinition(_panel == SamplePanel.None ? new GridLength(0) : new GridLength(360)));
+            _root.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+            _root.Add(_topBar, 0, 0);
+            Grid.SetColumnSpan(_topBar, 3);
+            _root.Add(_message, 0, 1);
+            Grid.SetColumnSpan(_message, 3);
+            _root.Add(new ScrollView { Content = rail }, 0, 2);
+            _root.Add(_sheet, 1, 2);
+            _root.Add(_view, 2, 2);
+            _sheet.IsVisible = _panel != SamplePanel.None;
+        }
+        else
+        {
+            // Top bar / message / pages / sheet / tool bar: nine tools share the phone's width, never past its edge.
+            var bar = new Grid { ColumnSpacing = 0, Padding = new Thickness(0, 2) };
+            for (int i = 0; i < Tools.Length; i++)
+            {
+                Button button = _toolButtons[Tools[i]];
+                button.HeightRequest = 54;
+                bar.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+                bar.Add(button, i, 0);
+            }
+
+            bar.SetAppThemeColor(BackgroundColorProperty, Color.FromRgb(0xF6, 0xF6, 0xF8), Color.FromRgb(0x1E, 0x1E, 0x22));
+            _tools = bar;
+            _root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            _root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            _root.RowDefinitions.Add(new RowDefinition(GridLength.Star));
+            _root.RowDefinitions.Add(new RowDefinition(_panel == SamplePanel.None ? new GridLength(0) : new GridLength(SheetHeight())));
+            _root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            _root.Add(_topBar, 0, 0);
+            _root.Add(_message, 0, 1);
+            _root.Add(_view, 0, 2);
+            _root.Add(_sheet, 0, 3);
+            _root.Add(bar, 0, 4);
+            _sheet.IsVisible = _panel != SamplePanel.None;
+        }
+    }
+
+    private void OnSheetPan(object? sender, PanUpdatedEventArgs e)
+    {
+        // Dragging the sheet's handle down far enough closes it, as a native bottom sheet does.
+        if (_wide == true)
+        {
+            return;
+        }
+
+        if (e.StatusType == GestureStatus.Running)
+        {
+            _sheetDrag = e.TotalY;
+            _sheet.TranslationY = Math.Max(0, e.TotalY);
+        }
+        else if (e.StatusType is GestureStatus.Completed or GestureStatus.Canceled)
+        {
+            _sheet.TranslationY = 0;
+            if (_sheetDrag > 80)
+            {
+                Show(SamplePanel.None);
+            }
+
+            _sheetDrag = 0;
+        }
+    }
+
+    private VerticalStackLayout RendererSection()
+    {
+        var skia = new RadioButton { Content = "SkiaSharp", IsChecked = SampleDocument.UseSkia, GroupName = "renderer", AutomationId = "renderer-skia" };
+        var managed = new RadioButton { Content = "Managed rasterizer", IsChecked = !SampleDocument.UseSkia, GroupName = "renderer", AutomationId = "renderer-managed" };
+        skia.CheckedChanged += (_, e) =>
+        {
+            if (SampleDocument.UseSkia != skia.IsChecked)
+            {
+                SampleDocument.UseSkia = skia.IsChecked;
+                _view.Redraw();
+            }
+        };
+        return new VerticalStackLayout
+        {
+            Spacing = 4,
+            Children =
+            {
+                new Label { Text = "Tile renderer", FontAttributes = FontAttributes.Bold, FontSize = 15, Margin = new Thickness(0, 8, 0, 2) },
+                skia,
+                managed,
+                new Label { Text = "Content tiles draw with SkiaSharp or with Broadside's own managed rasterizer (the one the browser demo uses); switching redraws every tile.", FontSize = 12, TextColor = Colors.Gray },
+            },
+        };
+    }
+
+    private static Button IconButton(string text, string automationId, string description, Action action)
+    {
+        var button = new Button { Text = text, FontSize = 20, Padding = new Thickness(0), WidthRequest = 44, HeightRequest = 44, BackgroundColor = Colors.Transparent, AutomationId = automationId };
+        button.SetAppThemeColor(Button.TextColorProperty, Color.FromRgb(0x30, 0x30, 0x36), Color.FromRgb(0xE0, 0xE0, 0xE6));
+        SemanticProperties.SetDescription(button, description);
         button.Clicked += (_, _) => action();
         return button;
     }
 
-    private Task<bool> OpenAsync(GalleryEntry entry) => OpenFileAsync(entry.File);
-
-    private async Task<bool> OpenFileAsync(string file)
+    private static string TitleOf(SamplePanel panel) => panel switch
     {
-        try
+        SamplePanel.Open => "Documents",
+        SamplePanel.Search => "Search",
+        SamplePanel.Outline => "Outline",
+        SamplePanel.Pages => "Pages",
+        SamplePanel.Annotate => "Annotate",
+        SamplePanel.Form => "Form",
+        SamplePanel.Info => "Info",
+        SamplePanel.Signatures => "Signed",
+        SamplePanel.View => "View",
+        SamplePanel.Create => "Create",
+        _ => string.Empty,
+    };
+
+    private static string Glyph(SamplePanel panel) => panel switch
+    {
+        SamplePanel.Search => "⌕",
+        SamplePanel.Outline => "≡",
+        SamplePanel.Pages => "▦",
+        SamplePanel.Annotate => "✎",
+        SamplePanel.Form => "☐",
+        SamplePanel.Info => "ⓘ",
+        SamplePanel.Signatures => "✓",
+        SamplePanel.View => "◐",
+        SamplePanel.Create => "+",
+        _ => string.Empty,
+    };
+
+    private void OnDocumentChanged(object? sender, EventArgs e)
+    {
+        if (!ReferenceEquals(_view.Session, _document.Session))
         {
-            byte[] bytes;
-            if (file.StartsWith("https://", StringComparison.Ordinal))
-            {
-                _status.Text = "Downloading…";
-                bytes = await Http.GetByteArrayAsync(new Uri(file));
-            }
-            else
-            {
-                if (!await FileSystem.AppPackageFileExistsAsync(file))
-                {
-                    return false;
-                }
-
-                await using Stream asset = await FileSystem.OpenAppPackageFileAsync(file);
-                using var buffer = new MemoryStream();
-                await asset.CopyToAsync(buffer);
-                bytes = buffer.ToArray();
-            }
-
-            DocumentSession session = DocumentSession.Open(bytes, Options);
-            DocumentSession? old = _session;
-            _session = session;
-            _view.Session = session;
-            old?.Dispose();
-            return true;
+            _view.Session = _document.Session;
         }
-        catch (Exception exception)
+
+        if (_panels[SamplePanel.Info] is PdfDocumentInfoPanel info)
         {
-            _status.Text = exception.Message;
-            return false;
+            info.FileName = _document.Name;
+        }
+
+        _title.Text = _document.IsOpening ? "Opening…" : _document.Name.Length == 0 ? "Broadside" : _document.Name;
+        _edited.IsVisible = _document.IsEdited;
+        _message.IsVisible = _document.Message is not null;
+        _messageText.Text = _document.Message;
+        if (_document.SuggestedPanel is { } suggested)
+        {
+            _document.SuggestedPanel = null;
+            Show(suggested);
+        }
+        else if (_panel == SamplePanel.Open && _document.Session is not null && !_document.IsOpening && sender is SampleDocument && !_wide.GetValueOrDefault())
+        {
+            Show(SamplePanel.None); // a phone shows the document it just opened
         }
     }
 
-    private void Show(DocumentSession session)
+    private void OnLayerInvalidated(object? sender, PageInvalidatedEventArgs e)
     {
-        DocumentSession? old = _session;
-        _session = session;
-        _view.Session = session;
-        old?.Dispose();
+        if (!_document.IsEdited)
+        {
+            _document.MarkEdited();
+        }
     }
 
     private void OnStateChanged(object? sender, PdfViewStateChangedEventArgs e)
     {
         PdfViewState state = e.State;
-
-        // Only page and zoom changes reach the label: a text change lays the page out again, which a scroll must not pay for each time
-        // the view starts or finishes drawing (#357).
-        string status = state.PageCount == 0
-            ? (state.IsLoading ? "Opening…" : string.Empty)
-            : string.Create(CultureInfo.InvariantCulture, $"Page {state.PageIndex + 1} of {state.PageCount}  {state.Zoom * 100:0}%");
-        if (_status.Text != status)
-        {
-            _status.Text = status;
-        }
+        UpdateState(state);
         if (PhotoBench.Requested && !_benchStarted && state is { PageCount: > 0, IsLoading: false })
         {
             _benchStarted = true;
-            _ = PhotoBench.RunAsync(_view, Show);
+            _ = PhotoBench.RunAsync(_view, session => _view.Session = session);
         }
 
         if (FrameBench.Requested && !_benchStarted && state is { PageCount: > 0, IsLoading: false })
         {
             _benchStarted = true;
-            _ = FrameBench.RunAsync(_view, OpenFileAsync);
+            _ = FrameBench.RunAsync(_view, OpenAssetAsync);
         }
 
         if (SmokeTest.Requested && !_smokeDone && state is { PageCount: > 0, IsLoading: false, IsRendering: false, Zoom: > 0 })
@@ -202,14 +455,56 @@ public sealed class MainPage : ContentPage
             _smokeDone = true;
             _ = RunSmokeAsync();
         }
+
+        if (UiTests.Requested && !_uiTestStarted && state is { PageCount: > 0, IsLoading: false })
+        {
+            _uiTestStarted = true;
+            _ = UiTests.RunAsync(this);
+        }
+    }
+
+    // Only page and zoom changes reach the labels: a text change lays the bar out again, which a scroll must not pay for each
+    // time the view starts or finishes drawing (#357).
+    private void UpdateState(PdfViewState state)
+    {
+        string page = state.PageCount == 0 ? "–" : string.Create(CultureInfo.InvariantCulture, $"{state.PageIndex + 1} / {state.PageCount}");
+        if (_page.Text != page)
+        {
+            _page.Text = page;
+        }
+
+        string zoom = state.PageCount == 0 ? string.Empty : string.Create(CultureInfo.InvariantCulture, $"{state.Zoom * 100:0}%");
+        if (_zoom.Text != zoom)
+        {
+            _zoom.Text = zoom;
+        }
+    }
+
+    private async Task<bool> OpenAssetAsync(string file)
+    {
+        GalleryEntry entry = Array.Find(SampleDocument.Gallery, g => g.File == file) ?? new GalleryEntry(file, file);
+        if (!file.StartsWith("https://", StringComparison.Ordinal) && !await FileSystem.AppPackageFileExistsAsync(file))
+        {
+            return false;
+        }
+
+        await _document.OpenGalleryAsync(entry);
+        return _document.Session is not null && _document.Message is null;
     }
 
     private async void OnActionRequested(object? sender, ViewerActionEventArgs e)
     {
         // The view never opens anything itself: links inside the document already navigated; a web link asks first.
-        if (e.Uri is { } uri && await DisplayAlertAsync("Open link?", uri.ToString(), "Open", "Cancel"))
+        if (e.Uri is { } uri)
         {
-            await Launcher.Default.OpenAsync(uri);
+            if (!UiTests.Requested && await DisplayAlertAsync("This link leaves the document", uri.ToString(), "Open", "Cancel"))
+            {
+                await Launcher.Default.OpenAsync(uri);
+            }
+        }
+        else if (e.Destination is null && e.PageIndex is null)
+        {
+            _document.Report("The document asked for an action: " + e.Kind);
         }
     }
 

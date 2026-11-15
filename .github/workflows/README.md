@@ -76,11 +76,19 @@ Runs Mondays 05:17 UTC, on pull requests that touch `src/Broadside.Rendering.And
 
 ## `maui-android.yml`: the MAUI sample on an emulator, weekly, on MAUI sample pull requests and the "Run workflow" button
 
-Runs Mondays 05:47 UTC, on pull requests that touch `samples/Broadside.Viewer.Maui.Sample/**`, the viewer shells it is built from (`src/Broadside.Viewer/**`, `src/Broadside.Viewer.Maui/**`, `src/Broadside.Rendering.Skia/**`), `tools/ApkAotCheck/**`, `Directory.Build.props`, `Directory.Packages.props`, `global.json` or the workflow itself, and on the "Run workflow" button (spec #33 open decision 9, as for `android.yml`).
+Runs Mondays 05:47 UTC, on pull requests that touch `samples/Broadside.Viewer.Maui.Sample/**`, the viewer shells it is built from (`src/Broadside.Viewer/**`, `src/Broadside.Viewer.Maui/**`, `src/Broadside.Rendering.Skia/**`), `tools/ApkAotCheck/**`, the Blazor demo's `DocumentCreator.cs`, `Directory.Build.props`, `Directory.Packages.props`, `global.json` or the workflow itself, and on the "Run workflow" button (spec #33 open decision 9, as for `android.yml`).
 
 | Job | Runs on | What it does |
 |---|---|---|
-| `smoke (API 35)` | ubuntu | Installs the `maui-android` workload and the SDK packages it needs, builds the sample in Release for `android-x64` with `-warnaserror`, runs `tools/ApkAotCheck` on the APK, enables KVM, boots an x86_64 `google_apis` emulator (SwiftShader GPU) with `reactivecircus/android-emulator-runner` and runs `samples/Broadside.Viewer.Maui.Sample/smoke-android.sh`: install, start the smoke intent, and require `BROADSIDE_SMOKE_OK` in logcat (page 1 of the sample textbook chapter captured from the GPU surface) before a `BROADSIDE_SMOKE_FAILED`, a native abort or 300 s (#368). |
+| `smoke (API 35)` | ubuntu | Installs the `maui-android` workload and the SDK packages it needs, builds the sample in Release for `android-x64` with `-warnaserror`, runs `tools/ApkAotCheck` on the APK, enables KVM, boots an x86_64 `google_apis` emulator (SwiftShader GPU) with `reactivecircus/android-emulator-runner` and runs `samples/Broadside.Viewer.Maui.Sample/smoke-android.sh`: install, start the smoke intent, and require `BROADSIDE_SMOKE_OK` in logcat (page 1 of the sample textbook chapter captured from the GPU surface) before a `BROADSIDE_SMOKE_FAILED`, a native abort or 300 s (#368). Then, on the same emulator, `uitest.sh android`: the intent extra `uitest` runs the sample's UI tests (`UiTests.cs`: every panel through its real controls by automation ID: search, annotate and save, view settings and dark mode, info, signatures, outline, thumbnails, create PDF/A + PDF/UA, and that the phone layout's bars fit the window) and requires `BROADSIDE_UITEST_OK` within 900 s (#358). |
+
+## `maui-ui.yml`: the MAUI sample's UI tests on Mac Catalyst and the iOS simulator
+
+Runs Mondays 06:17 UTC, on pull requests that touch the MAUI sample, `src/Broadside.Viewer/**`, `src/Broadside.Viewer.Maui/**`, `src/Broadside.Rendering.Skia/**`, the Blazor demo's `DocumentCreator.cs` (linked into the sample), the build props or the workflow, and on the "Run workflow" button (#358).
+
+| Job | Runs on | What it does |
+|---|---|---|
+| `ui (catalyst)`, `ui (ios)` | macOS | Selects the image's newest Xcode 27 (the workload's Apple packs need it to bundle an app; without one the job fails and says so in its summary), installs the `maui` workload, builds the sample in Debug for Mac Catalyst or the iOS simulator with `-warnaserror`, boots an iPhone simulator for `ios`, and runs `samples/Broadside.Viewer.Maui.Sample/uitest.sh catalyst|ios`: the app runs `UiTests.cs` (`BROADSIDE_UITEST=1`, `SIMCTL_CHILD_BROADSIDE_UITEST=1` on the simulator) and the job requires `BROADSIDE_UITEST_OK` before `BROADSIDE_UITEST_FAILED`, the app exiting or 900 s. |
 
 ## `fuzz.yml`: real fuzzing, weekly and on the "Run workflow" button
 

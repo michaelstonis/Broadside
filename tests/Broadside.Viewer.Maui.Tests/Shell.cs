@@ -126,6 +126,21 @@ internal sealed class Shell : IViewerHost, IDisposable
         Assert.Fail($"The viewer did not settle (more: {more}, loading pages: {Controller.IsLoadingPages}): " + string.Join(",", Events.GroupBy(e => e.Kind + "/" + e.Priority + "/" + e.Tile.Layers).Select(g => g.Key + "=" + g.Count())) + " stats=" + Controller.Scheduler!.Statistics);
     }
 
+    /// <summary>Settles, then waits (running frames) until a condition holds: background work such as search indexing finishes.</summary>
+    public async Task SettleUntilAsync(Func<bool> condition)
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        while (!condition())
+        {
+            Assert.True(watch.Elapsed < TimeSpan.FromMinutes(2), "The condition did not hold in time.");
+            Clock.Advance(TimeSpan.FromMilliseconds(16));
+            Controller.Frame();
+            await Task.Delay(2);
+        }
+
+        await SettleAsync();
+    }
+
     /// <summary>Sends a SkiaSharp touch event at a point in device-independent units (as SkiaSharp reports it: canvas pixels).</summary>
     public SKTouchEventArgs Touch(long id, SKTouchAction action, SKTouchDeviceType device, double x, double y, int wheelDelta = 0)
     {
