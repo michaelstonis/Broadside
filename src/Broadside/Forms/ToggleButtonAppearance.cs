@@ -69,12 +69,15 @@ internal sealed class ToggleButtonAppearance
 
         double fontSize = Math.Abs(appearance?.FontSize ?? 0);
         PdfColor? color = appearance?.Color;
-        CosName value = field.Value;
-        IReadOnlyList<PdfWidgetAnnotation> selected = field.SelectedWidgets;
+        // A field being created has widgets without appearances yet: reading its value through the checks would report the
+        // appearances it is about to get as missing.
+        bool creating = field.Widgets.Any(static widget => !widget.Dictionary.ContainsKey(AnnotationNames.AP));
+        CosName value = creating ? field.StoredValue : field.Value;
+        IReadOnlyList<PdfWidgetAnnotation> selected = creating && FormNames.Off.Equals(value) ? [] : field.SelectedWidgets;
         var appearances = new List<(PdfWidgetAnnotation, CosName, CosName, CosStream, CosStream)>();
         foreach (PdfWidgetAnnotation widget in field.Widgets)
         {
-            CosName? existing = field.GetOnState(widget);
+            CosName? existing = widget.Dictionary.ContainsKey(AnnotationNames.AP) ? field.GetOnState(widget) : null;
             int index = field.IndexOfWidget(widget.Dictionary);
             CosName on = existing ?? (onStates is not null && index >= 0 && index < onStates.Count ? onStates[index] : field.DefaultOnState(index));
             bool isOn = existing is not null ? selected.Any(other => ReferenceEquals(other.Dictionary, widget.Dictionary)) : on.Equals(value);
