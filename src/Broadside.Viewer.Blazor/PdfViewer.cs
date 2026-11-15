@@ -145,6 +145,14 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
     /// <param name="pageIndex">The zero-based page.</param>
     public void GoToPage(int pageIndex) => _controller?.GoToPage(pageIndex);
 
+    /// <summary>
+    /// Shows a resolved destination (an outline entry's <see cref="OutlineEntry.Target"/>, a named destination): its page, the zoom and
+    /// the position its view asks for, at once. The page is reported through <see cref="OnStateChanged"/> as usual.
+    /// </summary>
+    /// <param name="target">The target.</param>
+    /// <remarks>ISO 32000-2 §12.3.2.2, Table 149. Spec #33 viewer capability 10.</remarks>
+    public void GoTo(ViewTarget target) => _controller?.GoTo(target);
+
     /// <summary>Goes to the next page (or spread).</summary>
     public void NextPage() => _controller?.NextPage();
 

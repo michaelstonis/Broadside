@@ -1,90 +1,106 @@
 @inherits DemoPanel
 
-@if (_needsWholeFile)
+@if (_loading)
 {
-  <NeedsWholeFile />
+  <p class="hint">Reading the outline…</p>
 }
-else if (_items is null || _items.Count == 0)
+else if (_outline is null || _outline.IsEmpty)
 {
   <p class="hint">This document has no outline (bookmarks). Try “Outline and links” in the gallery.</p>
 }
 else
 {
   <ul class="tree outline" role="tree">
-    @foreach (PdfOutlineItem item in _items)
+    @foreach (OutlineEntry entry in _outline.Roots)
     {
-      @Item(item, 0)
+      @Item(entry, 0)
     }
   </ul>
 }
 
 @code {
-  private IReadOnlyList<PdfOutlineItem>? _items;
-  private bool _needsWholeFile;
+  private DocumentOutline? _outline;
+  private bool _loading;
   private int _version = -1;
-  private readonly HashSet<PdfOutlineItem> _open = new(ReferenceEqualityComparer.Instance);
+  private readonly HashSet<int> _open = [];
 
   protected override Task OnDemoChangedAsync()
   {
-    Reload();
+    if (_version != Demo.Version)
+    {
+      _version = Demo.Version;
+      _ = LoadAsync(_version);
+    }
+
     return Task.CompletedTask;
   }
 
-  private void Reload()
+  // The outline is the viewer core's model (DocumentOutline): destinations are resolved to view positions when it loads, off the UI
+  // thread, and the same entry's target goes to PdfViewer.GoTo.
+  private async Task LoadAsync(int version)
   {
-    if (_version == Demo.Version)
+    _open.Clear();
+    _outline = null;
+    if (Demo.Session is not { } session)
     {
       return;
     }
 
-    _version = Demo.Version;
-    _open.Clear();
-    _needsWholeFile = false;
+    _loading = true;
     try
     {
-      _items = Demo.Document?.Outline?.Items;
-      foreach (PdfOutlineItem item in _items ?? [])
+      DocumentOutline outline = await DocumentOutline.LoadAsync(session, Demo.WorkToken);
+      if (version == _version)
       {
-        if (item.IsOpen)
-        {
-          _open.Add(item);
-        }
+        _outline = outline;
+        _open.UnionWith(outline.Entries.Where(entry => entry.IsOpen).Select(entry => entry.Id));
       }
     }
-    catch (PdfRangeNotLoadedException)
+    catch (OperationCanceledException)
     {
-      _needsWholeFile = Demo.RemoteAddress is not null;
+    }
+    catch (ObjectDisposedException)
+    {
+    }
+    finally
+    {
+      if (version == _version)
+      {
+        _loading = false;
+      }
+
+      await InvokeAsync(StateHasChanged);
     }
   }
 
   // Children render only once a node is expanded, so a huge outline costs nothing until it is browsed.
-  private RenderFragment Item(PdfOutlineItem item, int depth) => __builder =>
+  private RenderFragment Item(OutlineEntry entry, int depth) => __builder =>
   {
-    bool hasChildren = item.Children.Count > 0;
-    bool open = _open.Contains(item);
-    int? page = PageOf(item);
+    bool hasChildren = entry.Children.Count > 0;
+    bool open = _open.Contains(entry.Id);
+    string style = Style(entry);
     <li role="treeitem" aria-expanded="@(hasChildren ? (open ? "true" : "false") : null)">
       <div class="tree-row" style="padding-left: @(depth * 14)px">
         @if (hasChildren)
         {
-          <button class="icon small" @onclick="() => Toggle(item)" aria-label="@(open ? "Collapse" : "Expand")">@(open ? "▾" : "▸")</button>
+          <button class="icon small" @onclick="() => Toggle(entry)" aria-label="@(open ? "Collapse" : "Expand")">@(open ? "▾" : "▸")</button>
         }
         else
         {
           <span class="tree-spacer"></span>
         }
-        <button class="tree-label" @onclick="() => Go(page)" disabled="@(page is null)" data-outline="@item.Title">
-          @item.Title
-          @if (page is int p)
+        <button class="tree-label" @onclick="() => Go(entry)" disabled="@(entry.Target is null)" data-outline="@entry.Title" style="@style">
+          @entry.Title
+          @if (entry.PageLabel is { } label)
           {
-            <small>p. @(p + 1)</small>
+            <small>p. @label</small>
           }
         </button>
       </div>
       @if (hasChildren && open)
       {
         <ul role="group">
-          @foreach (PdfOutlineItem child in item.Children)
+          @foreach (OutlineEntry child in entry.Children)
           {
             @Item(child, depth + 1)
           }
@@ -93,40 +109,33 @@ else
     </li>
   };
 
-  private void Toggle(PdfOutlineItem item)
+  // The file's look for the item (Table 151: C color, F bold and italic); black, the default, leaves the theme's own color.
+  private static string Style(OutlineEntry entry)
   {
-    if (!_open.Remove(item))
+    string style = (entry.IsBold ? "font-weight: 700;" : "") + (entry.IsItalic ? "font-style: italic;" : "");
+    PdfRgbColor color = entry.Color;
+    if (color.Red + color.Green + color.Blue > 0)
     {
-      _open.Add(item);
+      style += FormattableString.Invariant($"color: rgb({Math.Round(color.Red * 255)}, {Math.Round(color.Green * 255)}, {Math.Round(color.Blue * 255)});");
+    }
+
+    return style;
+  }
+
+  private void Toggle(OutlineEntry entry)
+  {
+    if (!_open.Remove(entry.Id))
+    {
+      _open.Add(entry.Id);
     }
   }
 
-  private void Go(int? page)
+  // The viewer goes where the destination says (its page, view and zoom); an address is the host's business, never opened here.
+  private void Go(OutlineEntry entry)
   {
-    if (page is int index)
+    if (entry.Target is { } target)
     {
-      Demo.Viewer?.GoToPage(index);
-    }
-  }
-
-  // An outline item goes to its destination, or to the destination of its GoTo action (ISO 32000-2 §12.3.3); named destinations are
-  // looked up in the document.
-  private int? PageOf(PdfOutlineItem item)
-  {
-    try
-    {
-      PdfDestination? destination = item.Destination ?? (item.Action as PdfGoToAction)?.Destination;
-      PdfExplicitDestination? target = destination switch
-      {
-        PdfExplicitDestination explicitDestination => explicitDestination,
-        PdfNamedDestination named => named.Resolve(),
-        _ => null,
-      };
-      return target?.PageIndex;
-    }
-    catch (PdfRangeNotLoadedException)
-    {
-      return null;
+      Demo.Viewer?.GoTo(target);
     }
   }
 }
