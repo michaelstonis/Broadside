@@ -84,7 +84,7 @@ public sealed class BuilderSampleTests
                     foreach (string region in new[] { "North", "South", "East", "West" })
                     {
                         c.Heading(2, region);
-                        for (int note = 1; note <= 6; note++)
+                        for (int note = 1; note <= 14; note++)
                         {
                             c.Paragraph($"{region} note {note}: the meters were read on schedule and the readings agree with the telemetry.");
                         }

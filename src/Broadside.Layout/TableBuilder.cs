@@ -310,6 +310,22 @@ public readonly ref struct TableElement
         return this;
     }
 
+    /// <summary>Keeps the whole table on one page when it fits on one.</summary>
+    /// <returns>This builder.</returns>
+    public TableElement KeepTogether()
+    {
+        Node.KeepTogether = true;
+        return this;
+    }
+
+    /// <summary>Keeps the table on the same page as the element after it.</summary>
+    /// <returns>This builder.</returns>
+    public TableElement KeepWithNext()
+    {
+        Node.KeepWithNext = true;
+        return this;
+    }
+
     /// <summary>Sets the space above the table.</summary>
     /// <param name="space">The space.</param>
     /// <returns>This builder.</returns>

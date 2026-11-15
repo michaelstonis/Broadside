@@ -155,29 +155,47 @@ internal sealed partial class DocumentAssembler
             switch (node)
             {
                 case ParagraphNode paragraph:
-                    add(BuildParagraph(paragraph, scope, language));
+                    add(Kept(paragraph, BuildParagraph(paragraph, scope, language)));
                     break;
                 case ListNode list:
-                    add(BuildList(list, scope, language));
+                    add(Kept(list, BuildList(list, scope, language)));
                     break;
                 case TableNode table:
+                    // A caption stays with its table, and an image with its caption (§14.8.4.4, Table 368).
                     if (table.Caption is { } tableCaption)
                     {
-                        add(Caption(tableCaption, scope, language));
+                        add(new BlockGroup(Caption(tableCaption, scope, language)) { KeepWithNext = true });
                     }
 
-                    add(BuildTable(table, scope, language));
+                    add(Kept(table, BuildTable(table, scope, language)));
                     break;
                 case ImageNode image:
-                    add(BuildImage(image, scope, language));
-                    if (image.Caption is { } imageCaption)
-                    {
-                        add(Caption(imageCaption, scope, language));
-                    }
-
+                    FlowBlock builtImage = BuildImage(image, scope, language);
+                    add(Kept(image, image.Caption is { } imageCaption ? new BlockGroup(builtImage, Caption(imageCaption, scope, language)) { KeepTogether = true } : builtImage));
                     break;
                 case GroupNode group:
-                    AddBlocks(add, group.Content, Merge(scope, group.Scope?.Inherited), language);
+                    add(new BlockGroup(Blocks(group.Content, Merge(scope, group.Scope?.Inherited), language))
+                    {
+                        KeepTogether = group.KeepTogether,
+                        KeepWithNext = group.KeepWithNext,
+                        IsTagged = group.Role is not null,
+                        StructureType = group.Role ?? "Div",
+                    });
+                    break;
+                case SpacerNode spacer:
+                    add(new Spacer(spacer.Height.ToPoints()));
+                    break;
+                case PageBreakNode:
+                    add(new PageBreak());
+                    break;
+                case RuleNode rule:
+                    add(new Rule
+                    {
+                        Thickness = rule.Thickness?.ToPoints() ?? 0.5,
+                        Color = rule.Color ?? _theme.Border,
+                        SpaceBefore = rule.Local?.SpaceBefore?.ToPoints() ?? 6,
+                        SpaceAfter = rule.Local?.SpaceAfter?.ToPoints() ?? 6,
+                    });
                     break;
                 case RawNode raw:
                     add(raw.Block);
@@ -185,6 +203,17 @@ internal sealed partial class DocumentAssembler
             }
         }
     }
+
+    /// <summary>
+    /// <paramref name="block"/> with its element's keep options: wrapped in an untagged group that keeps it on one page, or on the page of
+    /// the next block (a group adds no structure element).
+    /// </summary>
+    private static FlowBlock Kept(BlockNode node, FlowBlock block) =>
+        node.KeepTogether || node.KeepWithNext
+            ? block is BlockGroup { IsTagged: false } group && !group.KeepWithNext
+                ? new BlockGroup(group.Blocks) { KeepTogether = node.KeepTogether || group.KeepTogether, KeepWithNext = node.KeepWithNext }
+                : new BlockGroup(block) { KeepTogether = node.KeepTogether, KeepWithNext = node.KeepWithNext }
+            : block;
 
     private List<FlowBlock> Blocks(ContainerNode container, Style scope, string? language)
     {
@@ -206,8 +235,7 @@ internal sealed partial class DocumentAssembler
             if (node.Level > _lastHeading + 1)
             {
                 _context.Report(
-                    BuilderDiagnostics.HeadingLevelSkipped,
-                    DiagnosticSeverity.Warning,
+                    LayoutDiagnostics.HeadingLevelSkipped,
                     $"The heading \"{Shorten(node.Text)}\" is level {node.Level} after {(_lastHeading == 0 ? "no heading" : $"a level {_lastHeading} heading")}; heading levels should not be skipped (ISO 32000-2 §14.8.4.3.6).");
             }
 
@@ -330,8 +358,7 @@ internal sealed partial class DocumentAssembler
         }
 
         _context.Report(
-            BuilderDiagnostics.CharacterNotEncodable,
-            DiagnosticSeverity.Warning,
+            LayoutDiagnostics.CharacterNotEncodable,
             $"U+{rune.Value:X4} is in no face of the font family {family.Name} or its fallbacks; a question mark is drawn instead.");
         return primary;
     }
@@ -549,8 +576,7 @@ internal sealed partial class DocumentAssembler
         if (node.AlternateText is { } alternate && FileNameLike().IsMatch(alternate))
         {
             _context.Report(
-                BuilderDiagnostics.AlternateTextLooksLikeFileName,
-                DiagnosticSeverity.Warning,
+                LayoutDiagnostics.AlternateTextLooksLikeFileName,
                 $"The alternate text \"{Shorten(alternate)}\" looks like a file name; it should say what the image shows (ISO 32000-2 §14.9.3).");
         }
 
@@ -670,16 +696,14 @@ internal sealed partial class DocumentAssembler
         {
             font = Face(family, FontFace.Regular);
             _context.Report(
-                BuilderDiagnostics.FontFaceMissing,
-                DiagnosticSeverity.Warning,
+                LayoutDiagnostics.FontFaceMissing,
                 $"The font family {family.Name} has no {Describe(face)} face; its regular face is used (a face is never synthesized).");
         }
         else if (font is null)
         {
             font = Face(FontFamily.Standard(Standard14Family.Helvetica), face);
             _context.Report(
-                BuilderDiagnostics.FontNotFound,
-                DiagnosticSeverity.Warning,
+                LayoutDiagnostics.FontNotFound,
                 $"The document's font resolvers found no font named {family.Name}; Helvetica (embedded Liberation Sans) is used instead.");
         }
 
@@ -717,35 +741,4 @@ internal sealed partial class DocumentAssembler
     private readonly record struct TextKey(PdfCanvasFont Font, double Size, PdfColor? Color, bool Underline, bool StrikeThrough, TextShaping? Shaping);
 
     private readonly record struct ParagraphKey(PdfCanvasFont Font, double Size, double LineHeight, TextAlignment Alignment, double FirstLineIndent, double SpaceBefore, double SpaceAfter, TextShaping? Shaping);
-}
-
-/// <summary>The codes of what the document builder reports on <see cref="PdfDocument.Diagnostics"/>.</summary>
-internal static class BuilderDiagnostics
-{
-    /// <summary>A heading is more than one level below the previous heading (ISO 32000-2 §14.8.4.3.6).</summary>
-    public const string HeadingLevelSkipped = "BuilderHeadingLevelSkipped";
-
-    /// <summary>An image's alternate text looks like a file name (ISO 32000-2 §14.9.3).</summary>
-    public const string AlternateTextLooksLikeFileName = "BuilderAlternateTextLooksLikeFileName";
-
-    /// <summary>A font family has no face for the requested weight and style; the regular face is used.</summary>
-    public const string FontFaceMissing = "BuilderFontFaceMissing";
-
-    /// <summary>A font family resolved by name was not found; Helvetica is used.</summary>
-    public const string FontNotFound = "BuilderFontNotFound";
-
-    /// <summary>A character is in no face of a font family or its fallbacks.</summary>
-    public const string CharacterNotEncodable = "BuilderCharacterNotEncodable";
-
-    /// <summary>A tagged document has no language (ISO 32000-2 §14.9.2).</summary>
-    public const string LanguageMissing = "BuilderLanguageMissing";
-
-    /// <summary>A tagged document has no title (ISO 32000-2 §14.3.3).</summary>
-    public const string TitleMissing = "BuilderTitleMissing";
-
-    /// <summary>Tagged pages were appended to an untagged document.</summary>
-    public const string AppendedToUntagged = "BuilderAppendedToUntagged";
-
-    /// <summary>A setting that would overwrite the target document's metadata was ignored.</summary>
-    public const string MetadataKept = "BuilderMetadataKept";
 }

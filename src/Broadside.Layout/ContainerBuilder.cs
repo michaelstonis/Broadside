@@ -130,7 +130,7 @@ public readonly ref struct ContainerBuilder
         return AddImage(new ImageNode { Source = source });
     }
 
-    /// <summary>Adds a group: content that shares a style and adds no structure element of its own.</summary>
+    /// <summary>Adds a group: content that shares a style and adds no structure element of its own unless given a <see cref="GroupElement.Role"/>.</summary>
     /// <param name="build">Describes the content.</param>
     /// <returns>The group's builder.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="build"/> is null.</exception>
@@ -142,6 +142,34 @@ public readonly ref struct ContainerBuilder
         _container!.Blocks.Add(group);
         build(new ContainerBuilder(context, group.Content));
         return new GroupElement(context, group);
+    }
+
+    /// <summary>Adds vertical space; space that would fall at the top of a page is dropped.</summary>
+    /// <param name="height">The space.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="height"/> is negative.</exception>
+    public void Spacer(Length height)
+    {
+        _ = Context;
+        _container!.Blocks.Add(new SpacerNode(height.ToPoints() >= 0 ? height : throw new ArgumentOutOfRangeException(nameof(height), height, "The space shall not be negative.")));
+    }
+
+    /// <summary>Ends the page: what follows starts on a new one. A break before any content, or inside a table cell, does nothing.</summary>
+    /// <remarks>ISO 32000-2 §7.7.3.3 (page objects).</remarks>
+    public void PageBreak()
+    {
+        _ = Context;
+        _container!.Blocks.Add(new PageBreakNode());
+    }
+
+    /// <summary>Adds a horizontal rule across the content width in the theme's border color, drawn as an artifact.</summary>
+    /// <returns>The rule's builder.</returns>
+    /// <remarks>ISO 32000-2 §14.8.2.2 (artifacts).</remarks>
+    public RuleElement Rule()
+    {
+        BuildContext context = Context;
+        var rule = new RuleNode();
+        _container!.Blocks.Add(rule);
+        return new RuleElement(context, rule);
     }
 
     /// <summary>Adds a flow block built with the engine directly; it is laid out as it is, with the styles it carries.</summary>
@@ -498,6 +526,22 @@ public readonly ref struct ParagraphElement
         return this;
     }
 
+    /// <summary>Keeps the element on the same page as the element after it (a heading with its first paragraph).</summary>
+    /// <returns>This builder.</returns>
+    public ParagraphElement KeepWithNext()
+    {
+        Node.KeepWithNext = true;
+        return this;
+    }
+
+    /// <summary>Keeps the element's lines on one page when they fit on one.</summary>
+    /// <returns>This builder.</returns>
+    public ParagraphElement KeepTogether()
+    {
+        Node.KeepTogether = true;
+        return this;
+    }
+
     /// <summary>Names the element, so links and page references can point at it.</summary>
     /// <param name="id">The name, unique in the document.</param>
     /// <returns>This builder.</returns>
@@ -635,6 +679,22 @@ public readonly ref struct ListElement
     public ListElement Indent(Length indent)
     {
         Node.Indent = indent.ToPoints() >= 0 ? indent : throw new ArgumentOutOfRangeException(nameof(indent), indent, "The indent shall not be negative.");
+        return this;
+    }
+
+    /// <summary>Keeps the list on the same page as the element after it.</summary>
+    /// <returns>This builder.</returns>
+    public ListElement KeepWithNext()
+    {
+        Node.KeepWithNext = true;
+        return this;
+    }
+
+    /// <summary>Keeps the whole list on one page when it fits on one.</summary>
+    /// <returns>This builder.</returns>
+    public ListElement KeepTogether()
+    {
+        Node.KeepTogether = true;
         return this;
     }
 
@@ -791,7 +851,15 @@ public readonly ref struct ImageElement
         return this;
     }
 
-    /// <summary>Adds a caption below the image in the theme's caption style, tagged as the figure's <c>Caption</c>.</summary>
+    /// <summary>Keeps the image (and its caption) on the same page as the element after it.</summary>
+    /// <returns>This builder.</returns>
+    public ImageElement KeepWithNext()
+    {
+        Node.KeepWithNext = true;
+        return this;
+    }
+
+    /// <summary>Adds a caption below the image in the theme's caption style, tagged as the figure's <c>Caption</c>; the image stays on its caption's page.</summary>
     /// <param name="caption">The caption.</param>
     /// <returns>This builder.</returns>
     /// <exception cref="ArgumentException"><paramref name="caption"/> is null or empty.</exception>
@@ -835,6 +903,37 @@ public readonly ref struct GroupElement
         }
 
         set => _group!.Scope = value;
+    }
+
+    /// <summary>Keeps the group's content on one page when it fits on one.</summary>
+    /// <returns>This builder.</returns>
+    public GroupElement KeepTogether()
+    {
+        _ = Scope;
+        _group!.KeepTogether = true;
+        return this;
+    }
+
+    /// <summary>Keeps the group on the same page as the element after it.</summary>
+    /// <returns>This builder.</returns>
+    public GroupElement KeepWithNext()
+    {
+        _ = Scope;
+        _group!.KeepWithNext = true;
+        return this;
+    }
+
+    /// <summary>Tags the group as one structure element of <paramref name="structureType"/> (such as <c>Div</c>, <c>Sect</c> or <c>Aside</c>); without it the group adds no element.</summary>
+    /// <param name="structureType">The structure type.</param>
+    /// <returns>This builder.</returns>
+    /// <exception cref="ArgumentException"><paramref name="structureType"/> is null or empty.</exception>
+    /// <remarks>ISO 32000-2 §14.8.4.4 (grouping elements).</remarks>
+    public GroupElement Role(string structureType)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(structureType);
+        _ = Scope;
+        _group!.Role = structureType;
+        return this;
     }
 
     /// <summary>Uses the bold face for the group's text.</summary>
@@ -920,6 +1019,69 @@ public readonly ref struct GroupElement
     {
         ArgumentNullException.ThrowIfNull(style);
         Scope = Scope.Merge(style);
+        return this;
+    }
+}
+
+/// <summary>A rule's modifiers in the document builder.</summary>
+/// <remarks>ISO 32000-2 §14.8.2.2: a rule is a layout artifact.</remarks>
+[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
+public readonly ref struct RuleElement
+{
+    private readonly BuildContext? _context;
+    private readonly RuleNode? _rule;
+
+    internal RuleElement(BuildContext context, RuleNode rule)
+    {
+        _context = context;
+        _rule = rule;
+    }
+
+    private RuleNode Node
+    {
+        get
+        {
+            _ = BuildContext.Check(_context);
+            return _rule!;
+        }
+    }
+
+    /// <summary>Sets the line width; 0.5 points by default.</summary>
+    /// <param name="thickness">The width.</param>
+    /// <returns>This builder.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="thickness"/> is not positive.</exception>
+    public RuleElement Thickness(Length thickness)
+    {
+        Node.Thickness = thickness.ToPoints() > 0 ? thickness : throw new ArgumentOutOfRangeException(nameof(thickness), thickness, "The thickness shall be positive.");
+        return this;
+    }
+
+    /// <summary>Sets the color; the theme's border color by default.</summary>
+    /// <param name="color">The color.</param>
+    /// <returns>This builder.</returns>
+    public RuleElement Color(PdfColor color)
+    {
+        Node.Color = color;
+        return this;
+    }
+
+    /// <summary>Sets the space above the rule; 6 points by default.</summary>
+    /// <param name="space">The space.</param>
+    /// <returns>This builder.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="space"/> is negative.</exception>
+    public RuleElement SpaceBefore(Length space)
+    {
+        Node.Local = (Node.Local ?? Style.Empty) with { SpaceBefore = space };
+        return this;
+    }
+
+    /// <summary>Sets the space below the rule; 6 points by default.</summary>
+    /// <param name="space">The space.</param>
+    /// <returns>This builder.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="space"/> is negative.</exception>
+    public RuleElement SpaceAfter(Length space)
+    {
+        Node.Local = (Node.Local ?? Style.Empty) with { SpaceAfter = space };
         return this;
     }
 }

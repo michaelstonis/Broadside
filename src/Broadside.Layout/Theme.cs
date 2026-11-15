@@ -120,19 +120,19 @@ public sealed record Theme
     public PdfColor Text { get; init; } = PdfColor.FromGray(0);
 
     /// <summary>Gets the color of secondary text.</summary>
-    public PdfColor Muted { get; init; } = Rgb(0x5B, 0x67, 0x70);
+    public PdfColor Muted { get; init; } = PdfColor.FromHex("#5B6770");
 
     /// <summary>Gets the accent color.</summary>
-    public PdfColor Accent { get; init; } = Rgb(0x0B, 0x5F, 0xFF);
+    public PdfColor Accent { get; init; } = PdfColor.FromHex("#0B5FFF");
 
     /// <summary>Gets the color of borders and rules.</summary>
-    public PdfColor Border { get; init; } = Rgb(0xC8, 0xCD, 0xD2);
+    public PdfColor Border { get; init; } = PdfColor.FromHex("#C8CDD2");
 
     /// <summary>Gets the background of alternate table rows.</summary>
-    public PdfColor Subtle { get; init; } = Rgb(0xF2, 0xF4, 0xF6);
+    public PdfColor Subtle { get; init; } = PdfColor.FromHex("#F2F4F6");
 
     /// <summary>Gets the color of negative values and warnings.</summary>
-    public PdfColor Negative { get; init; } = Rgb(0xB4, 0x23, 0x18);
+    public PdfColor Negative { get; init; } = PdfColor.FromHex("#B42318");
 
     /// <summary>Gets the style of body text, the root of every other style.</summary>
     public Style Body { get; init; } = new() { SpaceAfter = 6 };
@@ -153,7 +153,7 @@ public sealed record Theme
     public Style HeaderFooter { get; init; } = new() { FontSize = 8.5 };
 
     /// <summary>Gets the style of tables.</summary>
-    public TableStyle Table { get; init; } = TableStyle.Default.WithBorder(new TableBorder(0.5, Rgb(0xC8, 0xCD, 0xD2)));
+    public TableStyle Table { get; init; } = TableStyle.Default.WithBorder(new TableBorder(0.5, PdfColor.FromHex("#C8CDD2")));
 
     /// <summary>Gets the page size and margins of sections that set none.</summary>
     public PageSetup Page
@@ -205,6 +205,4 @@ public sealed record Theme
     /// <returns>The new theme.</returns>
     /// <exception cref="ArgumentException">The setup leaves no content area.</exception>
     public Theme WithPage(PageSetup page) => this with { Page = page };
-
-    private static PdfColor Rgb(byte red, byte green, byte blue) => PdfColor.FromRgb(red / 255f, green / 255f, blue / 255f);
 }

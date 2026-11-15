@@ -3,6 +3,7 @@ using Broadside.Fonts;
 using Broadside.Fonts.Standard14;
 using Broadside.Layout.Flow;
 using Broadside.Structure;
+using Broadside.Text;
 
 namespace Broadside.Layout.Tests.Builder;
 
@@ -13,6 +14,14 @@ internal static class BuilderTestSupport
 
     /// <summary>Options with a fixed clock, so the same input gives the same bytes.</summary>
     public static PdfOptions Options() => new PdfOptions().UseTimeProvider(new FixedTimeProvider(Now));
+
+    /// <summary>A new document with no pages, as the builder starts from, for hand-built twins.</summary>
+    public static PdfDocument NewTwin()
+    {
+        PdfDocument document = PdfDocument.Create(Options());
+        document.Pages.RemoveAt(0);
+        return document;
+    }
 
     public static byte[] Save(PdfDocument document)
     {
@@ -48,7 +57,7 @@ internal static class BuilderTestSupport
         for (int index = 0; index < document.Pages.Count; index++)
         {
             text.Append("--- page ").Append(index + 1).AppendLine(" ---");
-            text.AppendLine(document.Pages[index].ExtractText().PlainText.TrimEnd());
+            text.AppendLine(document.Pages[index].ExtractText(new TextExtractionOptions().WithArtifacts()).PlainText.TrimEnd());
         }
 
         return text.ToString();

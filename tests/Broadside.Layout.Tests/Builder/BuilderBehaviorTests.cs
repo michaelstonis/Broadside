@@ -5,6 +5,7 @@ using Broadside.Layout.Flow;
 using Broadside.Layout.Flow.Units;
 using Broadside.Structure;
 using Broadside.TestSupport;
+using Broadside.Text;
 using static Broadside.Layout.Tests.Builder.BuilderTestSupport;
 
 namespace Broadside.Layout.Tests.Builder;
@@ -38,7 +39,7 @@ public sealed class BuilderBehaviorTests
         Assert.Equal(841.89, box.Height, 3);
         string bytes = System.Text.Encoding.Latin1.GetString(Save(pdf));
         Assert.Equal(2, CountOf(bytes, "/FontFile2"));
-        Assert.Empty(BuilderDiagnosticSink.Of(pdf));
+        Assert.Empty(pdf.Diagnostics);
     }
 
     [Fact]
@@ -68,8 +69,10 @@ public sealed class BuilderBehaviorTests
                 g.Paragraph("second").FontSize(9);
             }).Style(new Style { Color = red, FontSize = 14, SpaceAfter = 40 })));
 
-        var first = (Paragraph)flow.Blocks[0];
-        var second = (Paragraph)flow.Blocks[1];
+        var group = (BlockGroup)Assert.Single(flow.Blocks);
+        Assert.False(group.IsTagged);
+        var first = (Paragraph)group.Blocks[0];
+        var second = (Paragraph)group.Blocks[1];
         Assert.Equal(14, first.Style.FontSize);
         Assert.Equal(9, second.Style.FontSize);
         Assert.Equal(red, ((TextRun)Assert.Single(first.Content)).Style!.Color);
@@ -150,8 +153,8 @@ public sealed class BuilderBehaviorTests
             c.Heading(2, "Back up");
         }));
 
-        Diagnostic diagnostic = Assert.Single(BuilderDiagnosticSink.Of(pdf));
-        Assert.Equal("BuilderHeadingLevelSkipped", diagnostic.Code);
+        Diagnostic diagnostic = Assert.Single(pdf.Diagnostics);
+        Assert.Equal(LayoutDiagnostics.HeadingLevelSkipped, diagnostic.Kind);
         Assert.Contains("Too deep", diagnostic.Message, StringComparison.Ordinal);
     }
 
@@ -160,7 +163,15 @@ public sealed class BuilderBehaviorTests
     {
         using PdfDocument pdf = PdfDocument.Create(doc => doc.Content(c => c.Paragraph("x")));
 
-        Assert.Equal(["BuilderLanguageMissing", "BuilderTitleMissing"], BuilderDiagnosticSink.Of(pdf).Select(diagnostic => diagnostic.Code).Order());
+        Assert.Equal(["DocumentLanguageMissing", "DocumentTitleMissing"], pdf.Diagnostics.Select(diagnostic => diagnostic.Code).Order());
+    }
+
+    [Fact]
+    public void Strict_mode_throws_the_first_diagnostic()
+    {
+        DiagnosticException exception = Assert.Throws<DiagnosticException>(() => PdfDocument.Create(new PdfOptions().UseStrict(), doc => doc.WithTitle("t").Content(c => c.Paragraph("x"))));
+
+        Assert.Equal("DocumentLanguageMissing", exception.Diagnostic.Code);
     }
 
     [Fact]
@@ -172,7 +183,7 @@ public sealed class BuilderBehaviorTests
         Assert.Null(reopened.StructureTree);
         Assert.Equal("Plain", reopened.Properties.Title);
         Assert.Equal("de", reopened.Language);
-        Assert.Empty(BuilderDiagnosticSink.Of(pdf));
+        Assert.Empty(pdf.Diagnostics);
     }
 
     [Fact]
@@ -188,7 +199,7 @@ public sealed class BuilderBehaviorTests
             c.DecorativeImage(image).Width(60.Mm).AlignCenter();
         }));
 
-        Assert.Equal("BuilderAlternateTextLooksLikeFileName", Assert.Single(BuilderDiagnosticSink.Of(pdf)).Code);
+        Assert.Equal(["AlternateTextLooksLikeFileName"], pdf.Diagnostics.Select(diagnostic => diagnostic.Code + (diagnostic.Code == "AlternateTextLooksLikeFileName" ? string.Empty : ": " + diagnostic.Message)));
         using PdfDocument reopened = PdfDocument.Open(Save(pdf));
         Assert.Equal("Document(Figure,Figure(Caption))", Shape(reopened.StructureTree!.Children));
         Assert.Equal(1, CountOf(System.Text.Encoding.Latin1.GetString(Save(pdf)), "/Subtype /Image"));
@@ -234,7 +245,7 @@ public sealed class BuilderBehaviorTests
             .Header(h => h.Left(data).Right($"{data} | {PageField.Number}/{PageField.Count} {PageField.Label}"))
             .Content(c => c.Paragraph("Body."))));
 
-        string text = pdf.Pages[0].ExtractText().PlainText;
+        string text = pdf.Pages[0].ExtractText(new TextExtractionOptions().WithArtifacts()).PlainText;
         Assert.Contains("{page} of {pages}", text, StringComparison.Ordinal);
         Assert.Contains("{page} of {pages} | 1/1 1", text, StringComparison.Ordinal);
     }
@@ -252,8 +263,8 @@ public sealed class BuilderBehaviorTests
             c.Paragraph("bold again").Bold();
         }));
 
-        Diagnostic diagnostic = Assert.Single(BuilderDiagnosticSink.Of(pdf));
-        Assert.Equal("BuilderFontFaceMissing", diagnostic.Code);
+        Diagnostic diagnostic = Assert.Single(pdf.Diagnostics);
+        Assert.Equal(LayoutDiagnostics.FontFaceMissing, diagnostic.Kind);
     }
 
     [Fact]
@@ -265,8 +276,8 @@ public sealed class BuilderBehaviorTests
         using PdfDocument pdf = PdfDocument.Create(doc => doc.WithTitle("t").WithLanguage("en").WithTheme(Theme.Default.WithBodyFont(body)).Content(c =>
             c.Paragraph("Price: 10 €, name: 山田")));
 
-        Assert.All(BuilderDiagnosticSink.Of(pdf), diagnostic => Assert.Equal("BuilderCharacterNotEncodable", diagnostic.Code));
-        Assert.Equal(2, BuilderDiagnosticSink.Of(pdf).Count);
+        // Recorded once per code, like every diagnostic of the document.
+        Assert.Equal(LayoutDiagnostics.CharacterNotEncodable, Assert.Single(pdf.Diagnostics).Kind);
         Assert.Contains("Price: 10 €, name: ??", pdf.Pages[0].ExtractText().PlainText, StringComparison.Ordinal);
     }
 

@@ -24,8 +24,11 @@ Broadside.Layout.Flow.ContainerBuilder.Group(System.Action<Broadside.Layout.Flow
 Broadside.Layout.Flow.ContainerBuilder.Heading(int level, string! text) -> Broadside.Layout.Flow.ParagraphElement
 Broadside.Layout.Flow.ContainerBuilder.Image(Broadside.Layout.Flow.ImageSource! source, string! alternateText) -> Broadside.Layout.Flow.ImageElement
 Broadside.Layout.Flow.ContainerBuilder.List(System.Action<Broadside.Layout.Flow.ListBuilder>! build) -> Broadside.Layout.Flow.ListElement
+Broadside.Layout.Flow.ContainerBuilder.PageBreak() -> void
 Broadside.Layout.Flow.ContainerBuilder.Paragraph(string! text) -> Broadside.Layout.Flow.ParagraphElement
 Broadside.Layout.Flow.ContainerBuilder.Paragraph(System.Action<Broadside.Layout.Flow.TextBuilder>! build) -> Broadside.Layout.Flow.ParagraphElement
+Broadside.Layout.Flow.ContainerBuilder.Rule() -> Broadside.Layout.Flow.RuleElement
+Broadside.Layout.Flow.ContainerBuilder.Spacer(Broadside.Layout.Flow.Length height) -> void
 Broadside.Layout.Flow.ContainerBuilder.Table(System.Action<Broadside.Layout.Flow.TableBuilder>! build) -> Broadside.Layout.Flow.TableElement
 Broadside.Layout.Flow.ContainerBuilder.Theme.get -> Broadside.Layout.Flow.Theme!
 Broadside.Layout.Flow.DocumentBuilder
@@ -67,7 +70,10 @@ Broadside.Layout.Flow.GroupElement.Font(Broadside.Layout.Flow.FontFamily! family
 Broadside.Layout.Flow.GroupElement.FontSize(double size) -> Broadside.Layout.Flow.GroupElement
 Broadside.Layout.Flow.GroupElement.GroupElement() -> void
 Broadside.Layout.Flow.GroupElement.Italic() -> Broadside.Layout.Flow.GroupElement
+Broadside.Layout.Flow.GroupElement.KeepTogether() -> Broadside.Layout.Flow.GroupElement
+Broadside.Layout.Flow.GroupElement.KeepWithNext() -> Broadside.Layout.Flow.GroupElement
 Broadside.Layout.Flow.GroupElement.Language(string! language) -> Broadside.Layout.Flow.GroupElement
+Broadside.Layout.Flow.GroupElement.Role(string! structureType) -> Broadside.Layout.Flow.GroupElement
 Broadside.Layout.Flow.GroupElement.Style(Broadside.Layout.Flow.Style! style) -> Broadside.Layout.Flow.GroupElement
 Broadside.Layout.Flow.HeaderFooterBuilder
 Broadside.Layout.Flow.HeaderFooterBuilder.Center(Broadside.Layout.Flow.PageText text) -> Broadside.Layout.Flow.HeaderFooterBuilder
@@ -98,6 +104,7 @@ Broadside.Layout.Flow.ImageElement.Caption(string! caption) -> Broadside.Layout.
 Broadside.Layout.Flow.ImageElement.FillWidth() -> Broadside.Layout.Flow.ImageElement
 Broadside.Layout.Flow.ImageElement.Height(Broadside.Layout.Flow.Length height) -> Broadside.Layout.Flow.ImageElement
 Broadside.Layout.Flow.ImageElement.ImageElement() -> void
+Broadside.Layout.Flow.ImageElement.KeepWithNext() -> Broadside.Layout.Flow.ImageElement
 Broadside.Layout.Flow.ImageElement.Size(Broadside.Layout.Flow.Length width, Broadside.Layout.Flow.Length height) -> Broadside.Layout.Flow.ImageElement
 Broadside.Layout.Flow.ImageElement.SpaceAfter(Broadside.Layout.Flow.Length space) -> Broadside.Layout.Flow.ImageElement
 Broadside.Layout.Flow.ImageElement.SpaceBefore(Broadside.Layout.Flow.Length space) -> Broadside.Layout.Flow.ImageElement
@@ -122,6 +129,8 @@ Broadside.Layout.Flow.ListElement.Color(Broadside.Graphics.PdfColor color) -> Br
 Broadside.Layout.Flow.ListElement.FontSize(double size) -> Broadside.Layout.Flow.ListElement
 Broadside.Layout.Flow.ListElement.Indent(Broadside.Layout.Flow.Length indent) -> Broadside.Layout.Flow.ListElement
 Broadside.Layout.Flow.ListElement.Italic() -> Broadside.Layout.Flow.ListElement
+Broadside.Layout.Flow.ListElement.KeepTogether() -> Broadside.Layout.Flow.ListElement
+Broadside.Layout.Flow.ListElement.KeepWithNext() -> Broadside.Layout.Flow.ListElement
 Broadside.Layout.Flow.ListElement.Language(string! language) -> Broadside.Layout.Flow.ListElement
 Broadside.Layout.Flow.ListElement.ListElement() -> void
 Broadside.Layout.Flow.ListElement.Numbered() -> Broadside.Layout.Flow.ListElement
@@ -188,6 +197,8 @@ Broadside.Layout.Flow.ParagraphElement.FontSize(double size) -> Broadside.Layout
 Broadside.Layout.Flow.ParagraphElement.Id(string! id) -> Broadside.Layout.Flow.ParagraphElement
 Broadside.Layout.Flow.ParagraphElement.Italic() -> Broadside.Layout.Flow.ParagraphElement
 Broadside.Layout.Flow.ParagraphElement.Justify() -> Broadside.Layout.Flow.ParagraphElement
+Broadside.Layout.Flow.ParagraphElement.KeepTogether() -> Broadside.Layout.Flow.ParagraphElement
+Broadside.Layout.Flow.ParagraphElement.KeepWithNext() -> Broadside.Layout.Flow.ParagraphElement
 Broadside.Layout.Flow.ParagraphElement.Language(string! language) -> Broadside.Layout.Flow.ParagraphElement
 Broadside.Layout.Flow.ParagraphElement.LineHeight(double multiple) -> Broadside.Layout.Flow.ParagraphElement
 Broadside.Layout.Flow.ParagraphElement.ParagraphElement() -> void
@@ -231,6 +242,12 @@ Broadside.Layout.Flow.RowElement.KeepTogether(bool keep = true) -> Broadside.Lay
 Broadside.Layout.Flow.RowElement.MinHeight(Broadside.Layout.Flow.Length height) -> Broadside.Layout.Flow.RowElement
 Broadside.Layout.Flow.RowElement.RowElement() -> void
 Broadside.Layout.Flow.RowElement.Style(Broadside.Layout.Flow.Style! style) -> Broadside.Layout.Flow.RowElement
+Broadside.Layout.Flow.RuleElement
+Broadside.Layout.Flow.RuleElement.Color(Broadside.Graphics.PdfColor color) -> Broadside.Layout.Flow.RuleElement
+Broadside.Layout.Flow.RuleElement.RuleElement() -> void
+Broadside.Layout.Flow.RuleElement.SpaceAfter(Broadside.Layout.Flow.Length space) -> Broadside.Layout.Flow.RuleElement
+Broadside.Layout.Flow.RuleElement.SpaceBefore(Broadside.Layout.Flow.Length space) -> Broadside.Layout.Flow.RuleElement
+Broadside.Layout.Flow.RuleElement.Thickness(Broadside.Layout.Flow.Length thickness) -> Broadside.Layout.Flow.RuleElement
 Broadside.Layout.Flow.SectionBuilder
 Broadside.Layout.Flow.SectionBuilder.Content(System.Action<Broadside.Layout.Flow.ContainerBuilder>! build) -> Broadside.Layout.Flow.SectionBuilder
 Broadside.Layout.Flow.SectionBuilder.EvenPageFooter(System.Action<Broadside.Layout.Flow.HeaderFooterBuilder>! build) -> Broadside.Layout.Flow.SectionBuilder
@@ -306,6 +323,8 @@ Broadside.Layout.Flow.TableElement.Caption(string! caption) -> Broadside.Layout.
 Broadside.Layout.Flow.TableElement.FontSize(double size) -> Broadside.Layout.Flow.TableElement
 Broadside.Layout.Flow.TableElement.HeaderBackground(Broadside.Graphics.PdfColor? color) -> Broadside.Layout.Flow.TableElement
 Broadside.Layout.Flow.TableElement.KeepRowsTogether(bool keep = true) -> Broadside.Layout.Flow.TableElement
+Broadside.Layout.Flow.TableElement.KeepTogether() -> Broadside.Layout.Flow.TableElement
+Broadside.Layout.Flow.TableElement.KeepWithNext() -> Broadside.Layout.Flow.TableElement
 Broadside.Layout.Flow.TableElement.Language(string! language) -> Broadside.Layout.Flow.TableElement
 Broadside.Layout.Flow.TableElement.Padding(Broadside.Layout.Flow.Length padding) -> Broadside.Layout.Flow.TableElement
 Broadside.Layout.Flow.TableElement.RepeatHeaderRows(bool repeat) -> Broadside.Layout.Flow.TableElement

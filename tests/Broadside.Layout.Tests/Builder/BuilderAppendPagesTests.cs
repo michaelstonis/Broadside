@@ -9,7 +9,7 @@ namespace Broadside.Layout.Tests.Builder;
 
 /// <summary>
 /// <c>AppendPages(doc =&gt; ...)</c> into opened documents (issue #397, B9): under a tagged document's existing <c>Document</c> element, into
-/// an untagged one with a diagnostic, keeping the target's metadata, and through an incremental save that leaves a signature valid
+/// an untagged one with a diagnostic, keeping the target's metadata, and through an incremental save that leaves the signed revision intact
 /// (ISO 32000-2 §7.5.6, §12.8).
 /// </summary>
 public sealed class BuilderAppendPagesTests
@@ -50,7 +50,7 @@ public sealed class BuilderAppendPagesTests
         Assert.Equal("Document(H1,P,H1,Table(THead(TR(TH(P),TH(P))),TBody(TR(TD(P),TD(P)))))", Shape(reopened.StructureTree!.Children));
         Assert.Equal("Contract", reopened.Properties.Title);
         Assert.Equal("en-GB", reopened.Language);
-        Assert.Equal(["BuilderMetadataKept", "BuilderMetadataKept"], BuilderDiagnosticSink.Of(document).Select(diagnostic => diagnostic.Code));
+        Assert.Equal("DocumentMetadataKept", Assert.Single(document.Diagnostics).Code);
         Assert.Contains("Schedule A: Equipment", reopened.Pages[1].ExtractText().PlainText, StringComparison.Ordinal);
     }
 
@@ -66,14 +66,14 @@ public sealed class BuilderAppendPagesTests
         using PdfDocument document = PdfDocument.Open(plain);
         document.AppendPages(doc => doc.Content(c => c.Paragraph("New page.")));
 
-        Assert.Contains(BuilderDiagnosticSink.Of(document), diagnostic => diagnostic.Code == "BuilderAppendedToUntagged");
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "AppendedToUntaggedDocument");
         using PdfDocument reopened = PdfDocument.Open(Save(document));
         Assert.Equal("Document(P)", Shape(reopened.StructureTree!.Children));
         Assert.Equal(2, reopened.Pages.Count);
     }
 
     [Fact]
-    public void A_signed_document_stays_valid_after_appended_pages_are_saved_incrementally()
+    public void A_signed_revision_stays_intact_after_appended_pages_are_saved_incrementally()
     {
         using X509Certificate2 certificate = SelfSigned();
         byte[] signed;
@@ -98,7 +98,11 @@ public sealed class BuilderAppendPagesTests
         using PdfDocument result = PdfDocument.Open(updated);
         Assert.Equal(2, result.Pages.Count);
         PdfSignatureValidation validation = Assert.Single(result.ValidateSignatures(new PdfSignatureValidationOptions().WithTrustAnchors(certificate)));
-        Assert.Equal(PdfSignatureStatus.Valid, validation.Status);
+        // The signed revision is intact and its signature verifies: the only problems are the reported modifications, because adding
+        // pages after a signature is a change its default permissions (P 3) do not cover (§12.8.2.2.2, Table 257).
+        Assert.NotEmpty(validation.Problems);
+        Assert.All(validation.Problems, problem => Assert.Equal(PdfSignatureProblemKind.ModificationNotPermitted, problem.Kind));
+        Assert.Contains(validation.Modifications, modification => modification.Kind == PdfModificationKind.Pages);
     }
 
     private static X509Certificate2 SelfSigned()

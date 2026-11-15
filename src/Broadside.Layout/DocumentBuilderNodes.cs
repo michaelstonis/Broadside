@@ -68,7 +68,7 @@ internal sealed class BuildContext(PdfDocument document, bool appending)
         return context;
     }
 
-    public void Report(string code, DiagnosticSeverity severity, string message) => Diagnostics.Add(new Diagnostic(code, severity, message));
+    public void Report(DiagnosticCode code, string message) => Diagnostics.Add(new Diagnostic(code.Name, code.DefaultSeverity, message));
 }
 
 /// <summary>A section: its page setup, header and footer variants, scope style and content.</summary>
@@ -121,6 +121,12 @@ internal sealed class ContainerNode
 internal abstract class BlockNode
 {
     public Style? Local { get; set; }
+
+    /// <summary>True when the element stays on the page of the element after it.</summary>
+    public bool KeepWithNext { get; set; }
+
+    /// <summary>True when the element stays on one page when it fits on one.</summary>
+    public bool KeepTogether { get; set; }
 }
 
 /// <summary>A paragraph or a heading: plain text or spans.</summary>
@@ -134,10 +140,6 @@ internal sealed class ParagraphNode : BlockNode
     public int Level { get; set; }
 
     public string? Id { get; set; }
-
-    public bool KeepWithNext { get; set; }
-
-    public bool KeepTogether { get; set; }
 }
 
 /// <summary>A span of a paragraph: text, a link or a line break.</summary>
@@ -203,7 +205,8 @@ internal sealed class GroupNode : BlockNode
 
     public Style? Scope { get; set; }
 
-    public bool KeepTogether { get; set; }
+    /// <summary>The structure type the group is tagged as, or null for a group that adds no element.</summary>
+    public string? Role { get; set; }
 }
 
 /// <summary>A table: columns, header rows, body rows and its options.</summary>
@@ -294,6 +297,25 @@ internal sealed class CellNode
     public PdfColor? Background { get; set; }
 
     public Length? Padding { get; set; }
+}
+
+/// <summary>Vertical space, dropped at the top of a page.</summary>
+internal sealed class SpacerNode(Length height) : BlockNode
+{
+    public Length Height { get; } = height;
+}
+
+/// <summary>A page break.</summary>
+internal sealed class PageBreakNode : BlockNode
+{
+}
+
+/// <summary>A horizontal rule.</summary>
+internal sealed class RuleNode : BlockNode
+{
+    public Length? Thickness { get; set; }
+
+    public PdfColor? Color { get; set; }
 }
 
 /// <summary>An engine block added as it is.</summary>

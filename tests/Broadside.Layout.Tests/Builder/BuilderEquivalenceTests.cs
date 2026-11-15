@@ -23,7 +23,7 @@ public sealed class BuilderEquivalenceTests
                 c.Paragraph("This page is tagged, embeds its font and opens in any reader.");
             }));
 
-        using PdfDocument twin = PdfDocument.Create(Options());
+        using PdfDocument twin = NewTwin();
         PdfCanvasFont bold = Embed(twin, Standard14Font.HelveticaBold);
         PdfCanvasFont regular = Embed(twin, Standard14Font.Helvetica);
         var flow = new FlowDocument(new PageTemplate(PageSetup.A4)) { Tagging = FlowTagging.Default.WithLanguage("en-US").WithTitle("Hello") };
@@ -50,7 +50,7 @@ public sealed class BuilderEquivalenceTests
                 t.Text(" Merci.").Language("fr");
             }).Justify()));
 
-        using PdfDocument twin = PdfDocument.Create(Options());
+        using PdfDocument twin = NewTwin();
         PdfCanvasFont regular = Embed(twin, Standard14Font.Helvetica);
         PdfCanvasFont bold = Embed(twin, Standard14Font.HelveticaBold);
         var accent = PdfColor.FromRgb(0x0B / 255f, 0x5F / 255f, 0xFF / 255f);
@@ -99,12 +99,12 @@ public sealed class BuilderEquivalenceTests
             .Striped()
             .Border(0.5, PdfColor.FromGray(0.5f))));
 
-        using PdfDocument twin = PdfDocument.Create(Options());
+        using PdfDocument twin = NewTwin();
         // The builder embeds each face when it first resolves a style that uses it, in document order: the caption, the header, the body.
         PdfCanvasFont italic = Embed(twin, Standard14Font.HelveticaOblique);
         PdfCanvasFont bold = Embed(twin, Standard14Font.HelveticaBold);
         PdfCanvasFont regular = Embed(twin, Standard14Font.Helvetica);
-        var caption = new ParagraphStyle(italic, 9);
+        var caption = new ParagraphStyle(italic, 9).WithSpaceBefore(3).WithSpaceAfter(9);
         var cell = new ParagraphStyle(regular, 11);
         var right = cell.WithAlignment(TextAlignment.Right);
         var header = new ParagraphStyle(bold, 11);
@@ -121,11 +121,46 @@ public sealed class BuilderEquivalenceTests
         table.Add(new TableRow(new TableCell("South", cell), new TableCell("98", cell), new TableCell("104", cell)) { Background = subtle });
         table.AddRow(new TableCell(new Paragraph("Figures are provisional.", new ParagraphStyle(italic, 11))) { ColumnSpan = 3 });
         var flow = new FlowDocument(new PageTemplate(PageSetup.A4)) { Tagging = FlowTagging.Default.WithLanguage("en-GB").WithTitle("Results") };
-        flow.Add(new Paragraph("Table 1. Units shipped by region", caption) { StructureType = "Caption" });
+        flow.Add(new BlockGroup(new Paragraph("Table 1. Units shipped by region", caption) { StructureType = "Caption" }) { KeepWithNext = true });
         flow.Add(table);
         flow.Render(twin);
 
         Assert.Equal(Save(twin), Save(built));
+    }
+
+    [Fact]
+    public void Spacers_rules_page_breaks_groups_and_keep_options_write_the_same_bytes_as_the_hand_built_blocks()
+    {
+        using PdfDocument built = PdfDocument.Create(Options(), doc => doc
+            .WithTitle("Blocks")
+            .WithLanguage("en")
+            .Content(c =>
+            {
+                c.Heading(2, "Kept with the next paragraph").KeepWithNext();
+                c.Paragraph("First.");
+                c.Spacer(10);
+                c.Rule();
+                c.PageBreak();
+                c.Group(g => g.Paragraph("Aside text.")).Role("Aside").KeepTogether();
+                c.Paragraph("Kept together.").KeepTogether();
+            }));
+
+        using PdfDocument twin = NewTwin();
+        PdfCanvasFont bold = Embed(twin, Standard14Font.HelveticaBold);
+        PdfCanvasFont regular = Embed(twin, Standard14Font.Helvetica);
+        var body = new ParagraphStyle(regular, 11).WithSpaceAfter(6);
+        var flow = new FlowDocument(new PageTemplate(PageSetup.A4)) { Tagging = FlowTagging.Default.WithLanguage("en").WithTitle("Blocks") };
+        flow.Add(new BlockGroup(new Paragraph("Kept with the next paragraph", new ParagraphStyle(bold, 11 * 1.6).WithSpaceBefore(12).WithSpaceAfter(6)) { StructureType = "H2" }) { KeepWithNext = true });
+        flow.Add(new Paragraph("First.", body));
+        flow.Add(new Spacer(10));
+        flow.Add(new Rule { Color = PdfColor.FromHex("#C8CDD2") });
+        flow.Add(new PageBreak());
+        flow.Add(new BlockGroup(new Paragraph("Aside text.", body)) { KeepTogether = true, IsTagged = true, StructureType = "Aside" });
+        flow.Add(new BlockGroup(new Paragraph("Kept together.", body)) { KeepTogether = true });
+        flow.Render(twin);
+
+        Assert.Equal(Save(twin), Save(built));
+        Assert.Equal(2, built.Pages.Count);
     }
 
     [Fact]
@@ -148,7 +183,7 @@ public sealed class BuilderEquivalenceTests
                 });
             }).Numbered()));
 
-        using PdfDocument twin = PdfDocument.Create(Options());
+        using PdfDocument twin = NewTwin();
         PdfCanvasFont regular = Embed(twin, Standard14Font.Helvetica);
         var body = new ParagraphStyle(regular, 11).WithSpaceAfter(6);
         var marker = new TextStyle(regular, 11);
@@ -185,7 +220,7 @@ public sealed class BuilderEquivalenceTests
                     }
                 })));
 
-        using PdfDocument twin = PdfDocument.Create(Options());
+        using PdfDocument twin = NewTwin();
         PdfCanvasFont regular = Embed(twin, Standard14Font.Helvetica);
         var muted = PdfColor.FromRgb(0x5B / 255f, 0x67 / 255f, 0x70 / 255f);
         var region = new TextStyle(regular, 8.5).WithColor(muted);

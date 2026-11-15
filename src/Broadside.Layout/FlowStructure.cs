@@ -79,6 +79,8 @@ internal sealed class FlowStructure : IStructureSink
     {
         NodeKind kind = block switch
         {
+            // A block of type Artifact (a decorative image) is a layout artifact, never an element (§14.8.2.2).
+            { StructureType: "Artifact" } => NodeKind.Artifact,
             Paragraph { IsPlain: true } or ImageBlock or DrawingBlock => NodeKind.Leaf,
             _ => NodeKind.Container,
         };

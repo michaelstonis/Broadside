@@ -50,6 +50,12 @@ public static class PdfDocumentBuilderExtensions
             PdfDocument document = PdfDocument.Create(options);
             try
             {
+                // A created document starts with one empty page; the builder's document holds only the pages it lays out.
+                while (document.Pages.Count > 0)
+                {
+                    document.Pages.RemoveAt(0);
+                }
+
                 Build(document, appending: false, build);
                 return document;
             }
@@ -97,8 +103,14 @@ public static class PdfDocumentBuilderExtensions
 
         FlowDocument flow = new DocumentAssembler(context).Assemble();
         WriteDocumentEntries(context, flow);
-        FlowLayoutResult result = flow.Render(document);
-        BuilderDiagnosticSink.Report(document, [.. context.Diagnostics, .. result.Diagnostics]);
+
+        // One list to look at: the builder's findings, then the layout's (Render records those), on the document; strict mode throws the first.
+        foreach (Diagnostic diagnostic in context.Diagnostics)
+        {
+            document.ReportDiagnostic(diagnostic);
+        }
+
+        _ = flow.Render(document);
     }
 
     /// <summary>Writes the metadata and sets up tagging: the catalog's language, the title with <c>DisplayDocTitle</c>, the other Info entries.</summary>
@@ -111,13 +123,13 @@ public static class PdfDocumentBuilderExtensions
         {
             if (title is not null && document.Properties.Title is { Length: > 0 } existingTitle)
             {
-                context.Report(BuilderDiagnostics.MetadataKept, DiagnosticSeverity.Information, $"The document's title \"{existingTitle}\" is kept; the appended content's title is ignored.");
+                context.Report(LayoutDiagnostics.DocumentMetadataKept, $"The document's title \"{existingTitle}\" is kept; the appended content's title is ignored.");
                 title = null;
             }
 
             if (language is not null && document.Language is { Length: > 0 } existingLanguage)
             {
-                context.Report(BuilderDiagnostics.MetadataKept, DiagnosticSeverity.Information, $"The document's language \"{existingLanguage}\" is kept; the appended content's language is ignored.");
+                context.Report(LayoutDiagnostics.DocumentMetadataKept, $"The document's language \"{existingLanguage}\" is kept; the appended content's language is ignored.");
                 language = null;
             }
         }
@@ -156,13 +168,13 @@ public static class PdfDocumentBuilderExtensions
         {
             if ((language ?? document.Language) is null)
             {
-                context.Report(BuilderDiagnostics.LanguageMissing, DiagnosticSeverity.Warning, "The tagged document has no language; set one with WithLanguage (ISO 32000-2 §14.9.2).");
+                context.Report(LayoutDiagnostics.DocumentLanguageMissing, "The tagged document has no language; set one with WithLanguage (ISO 32000-2 §14.9.2).");
             }
         }
 
         if ((title ?? document.Properties.Title) is null)
         {
-            context.Report(BuilderDiagnostics.TitleMissing, DiagnosticSeverity.Warning, "The tagged document has no title; set one with WithTitle (ISO 32000-2 §14.3.3).");
+            context.Report(LayoutDiagnostics.DocumentTitleMissing, "The tagged document has no title; set one with WithTitle (ISO 32000-2 §14.3.3).");
         }
 
         if (context.Appending)
@@ -174,8 +186,7 @@ public static class PdfDocumentBuilderExtensions
             else if (document.Pages.Count > 0)
             {
                 context.Report(
-                    BuilderDiagnostics.AppendedToUntagged,
-                    DiagnosticSeverity.Warning,
+                    LayoutDiagnostics.AppendedToUntaggedDocument,
                     "Tagged pages were appended to an untagged document, so its earlier pages stay untagged; tag them first with AutoTag (ISO 32000-2 §14.8).");
             }
         }

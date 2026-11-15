@@ -5758,4 +5758,13 @@ Broadside.Rendering.DisplayImage.Geometry.get -> Broadside.Images.ImageGeometry
 Broadside.Diagnostics.LayoutDiagnostics
 static Broadside.Diagnostics.LayoutDiagnostics.DrawingStateUnbalanced.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.LayoutDiagnostics.KeepTogetherTooTall.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.HeadingLevelSkipped.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.AlternateTextLooksLikeFileName.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.FontFaceMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.FontNotFound.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.CharacterNotEncodable.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.DocumentLanguageMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.DocumentTitleMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.AppendedToUntaggedDocument.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.DocumentMetadataKept.get -> Broadside.Diagnostics.DiagnosticCode!
 Broadside.PdfDocument.ReportDiagnostic(Broadside.Diagnostics.Diagnostic! diagnostic) -> void
