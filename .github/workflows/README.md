@@ -98,7 +98,7 @@ Runs Mondays 06:17 UTC, on pull requests that touch the MAUI sample, `src/Broads
 
 | Job | Runs on | What it does |
 |---|---|---|
-| `ui (catalyst)`, `ui (ios)` | macOS | Selects the image's newest Xcode 27 (the workload's Apple packs need it to bundle an app; without one the job fails and says so in its summary), installs the `maui` workload, builds the sample in Debug for Mac Catalyst or the iOS simulator with `-warnaserror`, boots an iPhone simulator for `ios`, and runs `samples/Broadside.Viewer.Maui.Sample/uitest.sh catalyst|ios`: the app runs `UiTests.cs` (`BROADSIDE_UITEST=1`, `SIMCTL_CHILD_BROADSIDE_UITEST=1` on the simulator) and the job requires `BROADSIDE_UITEST_OK` before `BROADSIDE_UITEST_FAILED`, the app exiting or 900 s. |
+| `ui (catalyst)`, `ui (ios)` | macOS | Selects the image's newest Xcode 27 (the workload's Apple packs need it to bundle an app; without one the job warns, says so in its summary and skips the rest, so the image lacking Xcode 27 does not block PRs), installs the `maui` workload, builds the sample in Debug for Mac Catalyst or the iOS simulator with `-warnaserror`, boots an iPhone simulator for `ios`, and runs `samples/Broadside.Viewer.Maui.Sample/uitest.sh catalyst|ios`: the app runs `UiTests.cs` (`BROADSIDE_UITEST=1`, `SIMCTL_CHILD_BROADSIDE_UITEST=1` on the simulator) and the job requires `BROADSIDE_UITEST_OK` before `BROADSIDE_UITEST_FAILED`, the app exiting or 900 s. |
 
 ## `fuzz.yml`: real fuzzing, weekly and on the "Run workflow" button
 

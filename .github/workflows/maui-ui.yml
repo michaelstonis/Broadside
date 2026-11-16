@@ -61,31 +61,37 @@ jobs:
           restore-keys: nuget-maui-${{ runner.os }}-
 
       # The workload's Apple SDK packs want Xcode 27 (see ci.yml's maui job): an app bundle can only be linked with it. Select the
-      # newest Xcode 27 on the image; without one the UI tests cannot run, which the job summary says (and the job fails, so it is seen).
+      # newest Xcode 27 on the image; without one the UI tests cannot run: the job warns, says so in its summary and skips the remaining steps, so a runner image without Xcode 27 does not block every PR.
       - name: Select Xcode 27
+        id: xcode
         run: |
           xcode=$(ls -d /Applications/Xcode_27*.app 2>/dev/null | sort -V | tail -n 1 || true)
           if [[ -z "$xcode" ]]; then
             echo "### The MAUI UI tests did not run: this runner image has no Xcode 27" >> "$GITHUB_STEP_SUMMARY"
             ls -d /Applications/Xcode*.app >> "$GITHUB_STEP_SUMMARY" || true
-            exit 1
+            echo "::warning title=MAUI UI tests::This runner image has no Xcode 27; the UI tests were skipped."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          echo "available=true" >> "$GITHUB_OUTPUT"
           sudo xcode-select -s "$xcode"
           xcodebuild -version
 
       - name: Install the maui workload
+        if: steps.xcode.outputs.available == 'true'
         timeout-minutes: 20
         run: dotnet workload install maui
 
       - name: Build the sample for Mac Catalyst
-        if: matrix.platform == 'catalyst'
+        if: steps.xcode.outputs.available == 'true' && matrix.platform == 'catalyst'
         run: dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-maccatalyst -warnaserror -p:ValidateXcodeVersion=false
 
       - name: Build the sample for the iOS simulator
-        if: matrix.platform == 'ios'
+        if: steps.xcode.outputs.available == 'true' && matrix.platform == 'ios'
         run: dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-ios -p:RuntimeIdentifier=iossimulator-arm64 -warnaserror -p:ValidateXcodeVersion=false
 
       - name: Find the app
+        if: steps.xcode.outputs.available == 'true'
         run: |
           case "${{ matrix.platform }}" in
             catalyst) app=$(find artifacts/bin/Broadside.Viewer.Maui.Sample -path '*maccatalyst*' -name '*.app' -maxdepth 4 | head -n 1) ;;
@@ -95,11 +101,12 @@ jobs:
           echo "APP=$app" >> "$GITHUB_ENV"
 
       - name: Boot an iPhone simulator
-        if: matrix.platform == 'ios'
+        if: steps.xcode.outputs.available == 'true' && matrix.platform == 'ios'
         run: |
           device=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for r,l in sorted(d.items(), reverse=True) if 'iOS' in r for x in l if x['name'].startswith('iPhone')))")
           xcrun simctl boot "$device"
           xcrun simctl bootstatus "$device" -b
 
       - name: Run the UI tests
+        if: steps.xcode.outputs.available == 'true'
         run: bash samples/Broadside.Viewer.Maui.Sample/uitest.sh ${{ matrix.platform }} "$APP" 900
