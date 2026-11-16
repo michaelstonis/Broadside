@@ -115,20 +115,31 @@ internal sealed class FlowStructure : IStructureSink
         }
     }
 
-    public void AddAnnotation(FlowPart part, PdfAnnotation annotation)
+    public void AddAnnotation(FlowPart part, PdfAnnotation annotation, PdfPage? page)
     {
-        if (annotation.Reference is not { } reference || _page is null)
+        if (annotation.Reference is not { } reference || (page ??= _page) is null)
         {
             return;
         }
 
         Node parent = _stack[^1];
+        if (ReferenceEquals(parent.Owner, part.Owner) && parent.Type == part.StructureType)
+        {
+            // The open element itself: a form field's Form element and its widget (§14.8.4.7.3).
+            if (parent.Kind is NodeKind.Container or NodeKind.Leaf)
+            {
+                Materialize(parent).AddObjectReference(reference, page);
+            }
+
+            return;
+        }
+
         for (int index = parent.Children.Count - 1; index >= 0; index--)
         {
             Node child = parent.Children[index];
             if (ReferenceEquals(child.Owner, part.Owner) && child.Type == part.StructureType)
             {
-                child.Element!.AddObjectReference(reference, _page);
+                child.Element!.AddObjectReference(reference, page);
                 if (annotation.Contents is null && part.Owner is TextRun run)
                 {
                     // PDF/UA-1 §7.18.5: a link annotation describes itself through Contents.
@@ -276,7 +287,7 @@ internal sealed class FlowStructure : IStructureSink
         }
 
         Node? parent = node.Parent;
-        if (parent is not null && node.Type == "Caption" && node.Owner is FlowBlock && parent.Children is [.., { Owner: ImageBlock or Table } captioned] && captioned.Type == ((FlowBlock)captioned.Owner!).StructureType)
+        if (parent is not null && node.Type == "Caption" && node.Owner is FlowBlock && parent.Children is [.., { Owner: ImageBlock or DrawingBlock or Table } captioned] && captioned.Type == ((FlowBlock)captioned.Owner!).StructureType)
         {
             // A caption right after a figure or table belongs to it (§14.8.4.4, Table 368).
             node.Parent = parent = captioned;
@@ -311,7 +322,7 @@ internal sealed class FlowStructure : IStructureSink
                 break;
         }
 
-        if (node.Owner is ImageBlock or Table && node.Type == ((FlowBlock)node.Owner).StructureType && parent is not null)
+        if (node.Owner is ImageBlock or DrawingBlock or Table && node.Type == ((FlowBlock)node.Owner).StructureType && parent is not null)
         {
             AdoptCaption(parent, node);
         }

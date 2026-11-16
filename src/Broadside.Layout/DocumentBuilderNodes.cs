@@ -1,4 +1,5 @@
 using Broadside.Diagnostics;
+using Broadside.Forms;
 using Broadside.Graphics;
 
 namespace Broadside.Layout.Flow;
@@ -27,6 +28,16 @@ internal sealed class BuildContext(PdfDocument document, bool appending)
     public string? Language { get; set; }
 
     public bool Tagging { get; set; } = true;
+
+    /// <summary>The deepest heading level the outline lists; 0 for no outline.</summary>
+    public int OutlineDepth { get; set; } = 3;
+
+    public PdfUAConformance PdfUA { get; set; }
+
+    public PdfAConformance PdfA { get; set; }
+
+    /// <summary>The files <see cref="DocumentBuilder.AttachFile(string, ReadOnlySpan{byte}, PdfFileRelationship, string)"/> attaches, in order.</summary>
+    public List<AttachmentNode> Attachments { get; } = [];
 
     public List<SectionNode> Sections { get; } = [];
 
@@ -71,6 +82,9 @@ internal sealed class BuildContext(PdfDocument document, bool appending)
     public void Report(DiagnosticCode code, string message) => Diagnostics.Add(new Diagnostic(code.Name, code.DefaultSeverity, message));
 }
 
+/// <summary>A file attached to the document and associated with it.</summary>
+internal sealed record AttachmentNode(string FileName, byte[] Contents, PdfFileRelationship Relationship, string MediaType);
+
 /// <summary>A section: its page setup, header and footer variants, scope style and content.</summary>
 internal sealed class SectionNode
 {
@@ -93,6 +107,16 @@ internal sealed class SectionNode
     public HeaderFooterNode? EvenPageHeader { get; set; }
 
     public HeaderFooterNode? EvenPageFooter { get; set; }
+
+    public Action<PdfCanvas, PageInfo>? Decoration { get; set; }
+
+    public PdfColor? BackgroundColor { get; set; }
+
+    public ImageSource? BackgroundImage { get; set; }
+
+    public string? Watermark { get; set; }
+
+    public Style? WatermarkStyle { get; set; }
 
     public ContainerNode Content { get; } = new();
 }
@@ -127,6 +151,9 @@ internal abstract class BlockNode
 
     /// <summary>True when the element stays on one page when it fits on one.</summary>
     public bool KeepTogether { get; set; }
+
+    /// <summary>The anchor id links, page references and the outline reach the element by, or null.</summary>
+    public string? Id { get; set; }
 }
 
 /// <summary>A paragraph or a heading: plain text or spans.</summary>
@@ -138,8 +165,6 @@ internal sealed class ParagraphNode : BlockNode
 
     /// <summary>The heading level, 1 to 6, or 0 for a paragraph.</summary>
     public int Level { get; set; }
-
-    public string? Id { get; set; }
 }
 
 /// <summary>A span of a paragraph: text, a link or a line break.</summary>
@@ -150,6 +175,12 @@ internal sealed class SpanNode
     public Style? Local { get; set; }
 
     public Uri? Link { get; init; }
+
+    /// <summary>The anchor id the span links to, or null.</summary>
+    public string? Destination { get; init; }
+
+    /// <summary>The anchor id whose page number the span shows, or null.</summary>
+    public string? PageOf { get; init; }
 
     public bool LineBreak { get; init; }
 }
@@ -239,6 +270,10 @@ internal sealed class TableNode : BlockNode
     public Length? SpaceBefore { get; set; }
 
     public Length? SpaceAfter { get; set; }
+
+    public Length? Width { get; set; }
+
+    public TextAlignment Alignment { get; set; }
 }
 
 /// <summary>A table row: built cells, or a run of plain strings in <see cref="BuildContext.PlainCells"/>.</summary>
@@ -322,4 +357,76 @@ internal sealed class RuleNode : BlockNode
 internal sealed class RawNode(FlowBlock block) : BlockNode
 {
     public FlowBlock Block { get; } = block;
+}
+
+/// <summary>A vector drawing: a box the callback paints, described or decorative.</summary>
+internal sealed class DrawingNode : BlockNode
+{
+    public required Length Width { get; init; }
+
+    public required Length Height { get; init; }
+
+    public required Action<PdfCanvas, PdfRectangle> Draw { get; init; }
+
+    public string? AlternateText { get; init; }
+
+    public bool FillWidth { get; set; }
+
+    public TextAlignment Alignment { get; set; }
+
+    public string? Caption { get; set; }
+}
+
+/// <summary>Columns side by side, each its own scope of content.</summary>
+internal sealed class ColumnsNode : BlockNode
+{
+    public List<ColumnNode> Columns { get; } = [];
+
+    public Style? Scope { get; set; }
+
+    public Length? Gap { get; set; }
+}
+
+/// <summary>One column: its width and content.</summary>
+internal sealed class ColumnNode(ColumnWidth width)
+{
+    public ColumnWidth Width { get; } = width;
+
+    public ContainerNode Content { get; } = new();
+}
+
+/// <summary>A table of contents: its title, depth and leader.</summary>
+internal sealed class TocNode : BlockNode
+{
+    public string? Title { get; set; }
+
+    public int Depth { get; set; } = 3;
+
+    public string? Leader { get; set; }
+}
+
+/// <summary>A form field with its label.</summary>
+internal sealed class FieldNode : BlockNode
+{
+    public required FormFieldType Type { get; init; }
+
+    public required string Name { get; init; }
+
+    public required string Label { get; init; }
+
+    public IReadOnlyList<string> Choices { get; init; } = [];
+
+    public Length? Width { get; set; }
+
+    public Length? Height { get; set; }
+
+    public int Lines { get; set; }
+
+    public string? Value { get; set; }
+
+    public bool Checked { get; set; }
+
+    public PdfFieldFlags Flags { get; set; }
+
+    public FieldLabelPosition LabelPosition { get; set; }
 }

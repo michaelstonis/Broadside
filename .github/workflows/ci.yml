@@ -101,6 +101,14 @@ jobs:
       - name: Test
         run: dotnet test Broadside.Core.slnf -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
 
+      - name: Run the document builder samples (Linux)
+        # The builder guide's samples (issue #397) compile with the solution; running them writes each PDF, fails on any diagnostic
+        # above information, and qpdf checks every file. Their snapshots and veraPDF checks run in Broadside.Layout.Tests.
+        if: runner.os == 'Linux'
+        run: |
+          dotnet run --project samples/Broadside.BuilderSamples -c Release --no-build -- "$RUNNER_TEMP/builder-samples"
+          for file in "$RUNNER_TEMP"/builder-samples/*.pdf; do qpdf --check "$file" > /dev/null; done
+
       - name: Test the SIMD kernels without hardware intrinsics (Linux)
         # The SimdKernel category again with Vector128.IsHardwareAccelerated false (issue #470): each kernel's dispatcher takes its
         # scalar path and the vector method runs on the software fallback. Seconds: the build above is reused. A test project with
@@ -440,6 +448,7 @@ jobs:
           dotnet format bench/Broadside.Rendering.Direct2D.Benchmarks/Broadside.Rendering.Direct2D.Benchmarks.csproj --verify-no-changes
           dotnet format tests/Broadside.Viewer.Wpf.Tests/Broadside.Viewer.Wpf.Tests.csproj --verify-no-changes
           dotnet format samples/Broadside.Viewer.Wpf.Sample/Broadside.Viewer.Wpf.Sample.csproj --verify-no-changes
+          dotnet format samples/Broadside.BuilderSamples/Broadside.BuilderSamples.csproj --verify-no-changes
           dotnet format tests/Broadside.Viewer.WinUI.UITests/Broadside.Viewer.WinUI.UITests.csproj --verify-no-changes
 
   # Runs every fuzz target in smoke mode for 60 s (tests/Broadside.Fuzz/README.md), the targets of the --list split over
@@ -549,6 +558,13 @@ jobs:
     uses: ./.github/workflows/blazor-wasm.yml
     with:
       browsers: ${{ (github.event_name == 'push' || github.base_ref == 'main') && 'firefox webkit' || 'firefox' }}
+
+  # The Uno Platform viewer sample (#225) on its WebAssembly head (Playwright: Chrome and WebKit) and its desktop head (Linux under
+  # Xvfb, macOS, Windows), driven by tests/Broadside.Viewer.Uno.UITests; the job is in uno.yml. The shell library and its controller
+  # tests build and run in build-test (Broadside.Core.slnf).
+  uno:
+    name: uno
+    uses: ./.github/workflows/uno.yml
 
   # The .NET MAUI viewer sample (#226) for Mac Catalyst, the iOS simulator and Android. It needs the maui workload, so it is not in
   # Broadside.slnx; the shell library's platform targets also build in build-test (macOS) and its tests run in Broadside.Core.slnf.

@@ -101,8 +101,21 @@ public static class PdfDocumentBuilderExtensions
             context.Closed = true;
         }
 
+        List<string> unmet = Preconditions(context);
         FlowDocument flow = new DocumentAssembler(context).Assemble();
+        if (context.PdfUA == PdfUAConformance.PdfUA1 && context.Diagnostics.Find(diagnostic => diagnostic.Code == LayoutDiagnostics.HeadingLevelSkipped.Name) is { } skipped)
+        {
+            unmet.Add($"PDF/UA-1 does not allow a skipped heading level: {skipped.Message}");
+        }
+
+        if (unmet.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"The document does not meet what its declared conformance requires:{Environment.NewLine}- {string.Join(Environment.NewLine + "- ", unmet)}");
+        }
+
         WriteDocumentEntries(context, flow);
+        AttachFiles(context);
 
         // One list to look at: the builder's findings, then the layout's (Render records those), on the document; strict mode throws the first.
         foreach (Diagnostic diagnostic in context.Diagnostics)
@@ -111,6 +124,77 @@ public static class PdfDocumentBuilderExtensions
         }
 
         _ = flow.Render(document);
+        if (context.PdfA != PdfAConformance.None || context.PdfUA != PdfUAConformance.None)
+        {
+            document.DefaultSaveOptions = new PdfSaveOptions().WithPdfAConformance(context.PdfA).WithPdfUAConformance(context.PdfUA);
+        }
+    }
+
+    /// <summary>
+    /// What a declared PDF/UA or PDF/A conformance requires that the description lacks, each as a sentence: checked before anything is
+    /// laid out, so asking for a conformance never silently writes a file without it.
+    /// </summary>
+    private static List<string> Preconditions(BuildContext context)
+    {
+        var unmet = new List<string>();
+        PdfDocument document = context.Document;
+        PdfUAConformance ua = context.PdfUA;
+        PdfAConformance a = context.PdfA;
+        if (ua != PdfUAConformance.None)
+        {
+            string name = ua == PdfUAConformance.PdfUA1 ? "PDF/UA-1" : "PDF/UA-2";
+            if (!context.Tagging)
+            {
+                unmet.Add($"{name} needs tagged output; remove WithTagging(false) (ISO 32000-2 §14.8).");
+            }
+
+            if (context.Language is null && (!context.Appending || document.Language is not { Length: > 0 }))
+            {
+                unmet.Add($"{name} needs the document's language; set it with WithLanguage (ISO 32000-2 §14.9.2).");
+            }
+
+            if (context.Title is null && (!context.Appending || document.Properties.Title is not { Length: > 0 }))
+            {
+                unmet.Add($"{name} needs a title; set it with WithTitle (ISO 32000-2 §14.3.3).");
+            }
+
+            if (context.Appending && document.StructureTree is null && document.Pages.Count > 0)
+            {
+                unmet.Add($"{name} cannot append to an untagged document, whose earlier pages would stay untagged; tag them first with AutoTag (ISO 32000-2 §14.8).");
+            }
+
+            bool part4 = a is PdfAConformance.PdfA4 or PdfAConformance.PdfA4f;
+            if (a != PdfAConformance.None && (ua == PdfUAConformance.PdfUA1) == part4)
+            {
+                unmet.Add(ua == PdfUAConformance.PdfUA1
+                    ? "PDF/UA-1 is written as PDF 1.7 and PDF/A-4 as PDF 2.0; combine PDF/UA-1 with PDF/A-2 or PDF/A-3, or PDF/A-4 with PDF/UA-2."
+                    : "PDF/UA-2 is written as PDF 2.0 and PDF/A-2 and PDF/A-3 as PDF 1.7; combine PDF/UA-2 with PDF/A-4, or PDF/A-2 or PDF/A-3 with PDF/UA-1.");
+            }
+        }
+
+        if (a != PdfAConformance.None && context.Attachments.Count > 0
+            && a is not (PdfAConformance.PdfA3b or PdfAConformance.PdfA3u or PdfAConformance.PdfA4f))
+        {
+            unmet.Add($"PDF/A-{(a is PdfAConformance.PdfA4 ? "4" : "2")} does not allow attaching files of any kind; use PDF/A-3 or PDF/A-4f to attach {context.Attachments[0].FileName} (ISO 19005-3, 6.8; ISO 19005-4, 6.9).");
+        }
+
+        return unmet;
+    }
+
+    /// <summary>Embeds each attached file, lists it among the document's attachments and associates it with the catalog.</summary>
+    private static void AttachFiles(BuildContext context)
+    {
+        PdfDocument document = context.Document;
+        foreach (AttachmentNode attachment in context.Attachments)
+        {
+            PdfEmbeddedFileOptions options = new PdfEmbeddedFileOptions()
+                .WithMediaType(attachment.MediaType)
+                .WithRelationship(attachment.Relationship)
+                .WithModificationDate(document.Properties.CreationDate);
+            PdfFileSpecification file = document.CreateEmbeddedFile(attachment.FileName, attachment.Contents, options);
+            _ = document.AddEmbeddedFile(attachment.FileName, file);
+            document.AddAssociatedFile(document.Catalog, file);
+        }
     }
 
     /// <summary>Writes the metadata and sets up tagging: the catalog's language, the title with <c>DisplayDocTitle</c>, the other Info entries.</summary>
@@ -191,7 +275,19 @@ public static class PdfDocumentBuilderExtensions
             }
         }
 
-        flow.Tagging = FlowTagging.Default.WithLanguage(language).WithTitle(title);
+        FlowTagging tagging = FlowTagging.Default.WithLanguage(language).WithTitle(title);
+
+        // The namespace the declared profile reads: PDF 1.7 for PDF/UA-1, PDF/A-2 and PDF/A-3; PDF 2.0 for PDF/UA-2 and PDF/A-4 (§14.8.6).
+        if (context.PdfUA == PdfUAConformance.PdfUA1 || context.PdfA is PdfAConformance.PdfA2b or PdfAConformance.PdfA2u or PdfAConformance.PdfA3b or PdfAConformance.PdfA3u)
+        {
+            tagging = tagging.WithNamespace(FlowStructureNamespace.Pdf17);
+        }
+        else if (context.PdfUA == PdfUAConformance.PdfUA2 || context.PdfA is PdfAConformance.PdfA4 or PdfAConformance.PdfA4f)
+        {
+            tagging = tagging.WithNamespace(FlowStructureNamespace.Pdf20);
+        }
+
+        flow.Tagging = tagging;
     }
 
     /// <summary>The structure tree's root <c>Document</c> element, or null when its root holds anything else.</summary>

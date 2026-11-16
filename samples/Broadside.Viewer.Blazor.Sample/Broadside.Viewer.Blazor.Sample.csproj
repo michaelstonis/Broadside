@@ -29,6 +29,8 @@
     <BroadsideAot Condition="'$(BroadsideAot)' == ''">true</BroadsideAot>
     <!-- BroadsideAot=hot: the assemblies compiled ahead of time; everything else is interpreted. -->
     <BroadsideAotAssemblies Condition="'$(BroadsideAotAssemblies)' == ''">Broadside;Broadside.Rendering;System.Private.CoreLib</BroadsideAotAssemblies>
+    <!-- The document builder (#397) is experimental until 1.1. -->
+    <NoWarn>$(NoWarn);BROADSIDE0001</NoWarn>
   </PropertyGroup>
 
   <!-- The WebAssembly SDK publishes in a nested build that clears _IsPublishing and sets _WasmIsPublishing instead. -->

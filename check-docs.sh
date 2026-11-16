@@ -87,6 +87,7 @@ for route in \
     404.html \
     articles/index.html \
     articles/getting-started/index.html \
+    articles/building-documents/index.html \
     articles/architecture/index.html \
     articles/roadmap/index.html \
     articles/conformance/index.html \

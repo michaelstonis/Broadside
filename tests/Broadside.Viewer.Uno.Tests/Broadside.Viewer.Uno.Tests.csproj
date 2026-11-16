@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Uno shell's logic on plain net10.0 (#225): gestures, keys, search, dark mode, accessibility text and frames through the
+    controller both heads share. The shell's framework-free sources (src/Broadside.Viewer.Uno/Core) are compiled in, so the tests
+    need neither the Uno SDK nor a running Uno host; the Uno control itself is driven end to end by the sample's UI tests.
+  -->
+  <ItemGroup>
+    <Compile Include="../../src/Broadside.Viewer.Uno/Core/**/*.cs" LinkBase="Core" />
+    <ProjectReference Include="../../src/Broadside.Viewer/Broadside.Viewer.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
+    <ProjectReference Include="../Broadside.TestSupport/Broadside.TestSupport.csproj" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+</Project>

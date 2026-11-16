@@ -5763,7 +5763,10 @@ Broadside.Rendering.DisplayListBuild.Dispose() -> void
 Broadside.Rendering.DisplayListBuild.IsCompleted.get -> bool
 Broadside.Rendering.DisplayListBuild.Result.get -> Broadside.Rendering.DisplayList!
 Broadside.Diagnostics.LayoutDiagnostics
+static Broadside.Diagnostics.LayoutDiagnostics.AnchorDuplicate.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.AnchorNotFound.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.LayoutDiagnostics.DrawingStateUnbalanced.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.ForwardReferencesNotConverged.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.LayoutDiagnostics.KeepTogetherTooTall.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.LayoutDiagnostics.HeadingLevelSkipped.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.LayoutDiagnostics.AlternateTextLooksLikeFileName.get -> Broadside.Diagnostics.DiagnosticCode!
@@ -5781,3 +5784,6 @@ Broadside.Content.ContentOptions.WithTransientFieldAppearances(bool transient) -
 Broadside.Forms.PdfAcroForm.SelectFields(System.Collections.Generic.IReadOnlyList<Broadside.PdfActionTarget!>? targets, bool exclude) -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfTerminalField!>!
 Broadside.PdfResetFormAction.SelectFields() -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfTerminalField!>!
 Broadside.PdfSubmitFormAction.SelectFields() -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfTerminalField!>!
+Broadside.PdfDocument.DefaultSaveOptions.get -> Broadside.PdfSaveOptions?
+Broadside.PdfDocument.DefaultSaveOptions.set -> void
+static Broadside.Diagnostics.SavingDiagnostics.ConformanceOverridden.get -> Broadside.Diagnostics.DiagnosticCode!

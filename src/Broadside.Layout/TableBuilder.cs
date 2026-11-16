@@ -245,6 +245,28 @@ public readonly ref struct TableElement
         return this;
     }
 
+    /// <summary>Sets the table's width, which its columns share instead of the width of the space it is in.</summary>
+    /// <param name="width">The width; one wider than the space is narrowed to it.</param>
+    /// <returns>This builder.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="width"/> is not positive.</exception>
+    public TableElement Width(Length width)
+    {
+        Node.Width = width.ToPoints() > 0 ? width : throw new ArgumentOutOfRangeException(nameof(width), width, "The width shall be positive.");
+        return this;
+    }
+
+    /// <summary>Places a table narrower than the space it is in at the left edge (the default).</summary>
+    /// <returns>This builder.</returns>
+    public TableElement AlignLeft() => Align(TextAlignment.Left);
+
+    /// <summary>Centers a table narrower than the space it is in.</summary>
+    /// <returns>This builder.</returns>
+    public TableElement AlignCenter() => Align(TextAlignment.Center);
+
+    /// <summary>Places a table narrower than the space it is in at the right edge, such as the totals of an invoice.</summary>
+    /// <returns>This builder.</returns>
+    public TableElement AlignRight() => Align(TextAlignment.Right);
+
     /// <summary>Fills alternate body rows (the second, fourth, ...) with the theme's <see cref="Theme.Subtle"/> color.</summary>
     /// <param name="striped">False to turn striping off.</param>
     /// <returns>This builder.</returns>
@@ -376,6 +398,24 @@ public readonly ref struct TableElement
     {
         ArgumentNullException.ThrowIfNull(style);
         Node.Scope = (_table!.Scope ?? Flow.Style.Empty).Merge(style);
+        return this;
+    }
+
+    /// <summary>Names the element, so links and page references can point at it.</summary>
+    /// <param name="id">The name, unique in the document.</param>
+    /// <returns>This builder.</returns>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is null or empty.</exception>
+    /// <remarks>ISO 32000-2 §12.3.2.4 (named destinations, PDF 1.2).</remarks>
+    public TableElement Id(string id)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(id);
+        Node.Id = id;
+        return this;
+    }
+
+    private TableElement Align(TextAlignment alignment)
+    {
+        Node.Alignment = alignment;
         return this;
     }
 }

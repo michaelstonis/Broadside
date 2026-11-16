@@ -33,11 +33,15 @@ internal sealed class FlowContext : IDisposable
     private readonly double _regionLeft;
     private readonly List<DecoratedPage> _templated = [];
     private readonly List<Diagnostic> _diagnostics;
+    private readonly bool _measuring;
+    private readonly FlowReferences? _references;
     private PageTemplate _template;
     private bool _sectionStart = true;
     private bool _sectionHasContent;
     private int _section;
     private int _advancePage = -1;
+    private int _measuredPages;
+    private bool _measuredPageOpen;
     private PdfPage? _page;
     private PdfCanvas? _canvas;
     private int _virtualPage;
@@ -58,6 +62,17 @@ internal sealed class FlowContext : IDisposable
     }
 
     /// <summary>
+    /// A paginator that resolves <paramref name="references"/> (anchors, links, page references): when <paramref name="measuring"/>, it
+    /// only counts pages and places blocks, adding no page and drawing nothing, so a layout pass finds where the anchors land.
+    /// </summary>
+    public FlowContext(PdfDocument document, FlowDocument flow, FlowServices services, List<Diagnostic> diagnostics, FlowReferences? references, bool measuring)
+        : this(document, flow, services, diagnostics)
+    {
+        _references = references;
+        _measuring = measuring;
+    }
+
+    /// <summary>
     /// A region of <paramref name="parent"/> (a table cell): content laid out between <paramref name="left"/> and
     /// <paramref name="right"/> from <paramref name="top"/> down, on virtual pages whose content heights are
     /// <paramref name="heights"/> (the last repeating). Only virtual page <paramref name="drawPage"/> draws, on the parent's canvas
@@ -72,6 +87,7 @@ internal sealed class FlowContext : IDisposable
         _template = parent._template;
         Services = parent.Services;
         _diagnostics = parent._diagnostics;
+        _references = parent._references;
         _heights = heights;
         _drawPage = drawPage;
         _regionLeft = left;
@@ -99,10 +115,19 @@ internal sealed class FlowContext : IDisposable
     public IReadOnlyList<PdfPage> Pages => _parent?.Pages ?? _pages;
 
     /// <summary>The number of pages started so far (virtual pages in a region): changes exactly when a page breaks.</summary>
-    public int PageCount => _parent is null ? _pages.Count : _virtualPage + 1;
+    public int PageCount => _parent is null ? (_measuring ? _measuredPages : _pages.Count) : _virtualPage + 1;
 
-    /// <summary>True when what blocks draw now lands on a page: always at the root, on its drawn virtual page in a region.</summary>
-    public bool Drawing => _parent is null || (_virtualPage == _drawPage && _parent.Drawing);
+    /// <summary>True when what blocks draw now lands on a page: at the root unless measuring, on its drawn virtual page in a region.</summary>
+    public bool Drawing => _parent is null ? !_measuring : _virtualPage == _drawPage && _parent.Drawing;
+
+    /// <summary>True when what blocks place now is where it lands on the page (drawn or, in a measuring pass, would be drawn).</summary>
+    public bool Placing => _parent is null || (_virtualPage == _drawPage && _parent.Placing);
+
+    /// <summary>The anchors, links and page references of the flow, or null when it has none.</summary>
+    public FlowReferences? References => _references;
+
+    /// <summary>The number of the flow's page that content placed now lands on, from 1.</summary>
+    public int PageNumber => _parent?.PageNumber ?? PageCount;
 
     /// <summary>The content height of the page a break would start next.</summary>
     public double NextPageHeight
@@ -114,7 +139,7 @@ internal sealed class FlowContext : IDisposable
                 return HeightOf(_virtualPage + 1);
             }
 
-            (double bottom, double top) = _template.BodyFor(_pages.Count + 1, _page is null && _sectionStart);
+            (double bottom, double top) = _template.BodyFor(PageCount + 1, !PageOpen && _sectionStart);
             return top - bottom;
         }
     }
@@ -196,9 +221,19 @@ internal sealed class FlowContext : IDisposable
         }
     }
 
-    /// <summary>Starts a block: its portions on each page are reported to the structure sink. Blocks nest inside open blocks and parts.</summary>
+    /// <summary>
+    /// Starts a block: its portions on each page are reported to the structure sink, and where it starts is recorded when it is an
+    /// anchor (<see cref="FlowReferences"/>). Blocks nest inside open blocks and parts.
+    /// </summary>
     public void BeginBlock(FlowBlock block)
     {
+        if (_references is not null && Placing && _references.Tracks(block))
+        {
+            // An anchor needs a page, even for a block that has drawn nothing yet (a list before its first line).
+            EnsurePage();
+            _references.Place(block, PageNumber, Drawing ? Page : null, Left, CursorY);
+        }
+
         _open.Add(block);
         if (Live)
         {
@@ -245,7 +280,16 @@ internal sealed class FlowContext : IDisposable
     }
 
     /// <summary>Reports an annotation added for <paramref name="part"/> to the structure sink.</summary>
-    public void AddAnnotation(FlowPart part, PdfAnnotation annotation) => Services.Structure?.AddAnnotation(part, annotation);
+    public void AddAnnotation(FlowPart part, PdfAnnotation annotation) => Services.Structure?.AddAnnotation(part, annotation, null);
+
+    /// <summary>
+    /// Reports an annotation on <paramref name="page"/> for <paramref name="part"/> to the structure sink: the open block or part itself
+    /// (a form field's widget), or its child (a link over a run).
+    /// </summary>
+    public void AddAnnotation(FlowPart part, PdfAnnotation annotation, PdfPage page) => Services.Structure?.AddAnnotation(part, annotation, page);
+
+    /// <summary>The document the flow renders into.</summary>
+    public PdfDocument Document => _document;
 
     /// <summary>Narrows the content area by <paramref name="amount"/> on the left, on this page and the next, until <see cref="PopIndent"/>.</summary>
     public void PushIndent(double amount)
@@ -420,7 +464,7 @@ internal sealed class FlowContext : IDisposable
         _sectionStart = true;
         _sectionHasContent = false;
         _section++;
-        if (_page is not null)
+        if (PageOpen)
         {
             BreakPage();
         }
@@ -563,11 +607,14 @@ internal sealed class FlowContext : IDisposable
     /// <summary>True when structure hooks fire now: a page is open at the root, or this region draws.</summary>
     private bool Live => _parent is null ? _page is not null : Drawing;
 
+    /// <summary>True when a page (a counted one, when measuring) is open at the root.</summary>
+    private bool PageOpen => _page is not null || _measuredPageOpen;
+
     private double HeightOf(int virtualPage) => _heights![Math.Min(virtualPage, _heights.Length - 1)];
 
     private void EnsurePage()
     {
-        if (_parent is null && _page is null)
+        if (_parent is null && !PageOpen)
         {
             StartPage();
             BeginOpen();
@@ -615,12 +662,21 @@ internal sealed class FlowContext : IDisposable
         PageSetup setup = _template.Setup;
         bool first = _sectionStart;
         _sectionStart = false;
-        _page = _document.Pages.Add(new PdfRectangle(0, 0, setup.Width, setup.Height));
-        _pages.Add(_page);
-        _templated.Add(new DecoratedPage(_page, _template, first, _section));
-        _canvas = _page.CreateCanvas();
-        PageDecorations.DrawBackground(_canvas, _template, Services.Shaper);
-        (double bottom, double top) = _template.BodyFor(_pages.Count, first);
+        if (_measuring)
+        {
+            _measuredPages++;
+            _measuredPageOpen = true;
+        }
+        else
+        {
+            _page = _document.Pages.Add(new PdfRectangle(0, 0, setup.Width, setup.Height));
+            _pages.Add(_page);
+            _templated.Add(new DecoratedPage(_page, _template, first, _section));
+            _canvas = _page.CreateCanvas();
+            PageDecorations.DrawBackground(_canvas, _template, Services.Shaper);
+        }
+
+        (double bottom, double top) = _template.BodyFor(PageCount, first);
         Left = setup.Margins.Left + Indent;
         Right = setup.Width - setup.Margins.Right;
         Bottom = bottom;
@@ -637,6 +693,7 @@ internal sealed class FlowContext : IDisposable
         _canvas?.Dispose();
         _canvas = null;
         _page = null;
+        _measuredPageOpen = false;
     }
 }
 

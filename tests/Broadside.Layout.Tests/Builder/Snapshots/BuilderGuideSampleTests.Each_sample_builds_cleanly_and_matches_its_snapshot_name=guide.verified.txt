@@ -1,0 +1,72 @@
+﻿== structure ==
+Document
+  H1
+  P
+  TOC
+    TOCI
+      Link
+    TOCI
+      Link
+    TOCI
+      Link
+    TOCI
+      Link
+  H2
+  L
+    LI
+      Lbl
+      LBody
+        P
+    LI
+      Lbl
+      LBody
+        P
+        L
+          LI
+            Lbl
+            LBody
+              P
+          LI
+            Lbl
+            LBody
+              P
+  H2
+  P
+    Link
+    Link
+  H3
+  P
+  H2
+  P
+
+== text ==
+--- page 1 ---
+Broadside user guide
+Contents
+Broadside user guide 1
+Installing 2
+Reading files 2
+Writing files 2
+.........................................................................................................................
+........................................................................................................................................
+.................................................................................................................................
+...................................................................................................................................
+Page 1 of 2
+--- page 2 ---
+Installing
+1. Add the Broadside package.
+2. Add the optional packages you need:
+– Broadside.Rendering, for PNG output
+– Broadside.Fonts.Standard14, for non-embedded fonts
+Reading files
+Install the packages first (see Installing on page 2), or read the online guide.
+Repairs and diagnostics
+Reading is lenient: a damaged file is repaired, and every repair is recorded as a diagnostic on the
+document.
+Writing files
+Save with Save or SaveAsync; a document built for a PDF/A or PDF/UA profile saves with it by
+default.
+Page 2 of 2
+
+== sha256 ==
+86A8C5137EC023ADF2070AEFB0130679110B4CFD58FF60F6743FB41B28B858AC

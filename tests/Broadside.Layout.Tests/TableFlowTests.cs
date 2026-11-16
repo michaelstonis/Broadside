@@ -84,6 +84,32 @@ public sealed class TableFlowTests
     }
 
     [Fact]
+    public void A_table_with_a_width_shares_it_among_its_columns_and_sits_where_its_alignment_puts_it()
+    {
+        using PdfDocument document = NewDocument();
+        PdfCanvasFont font = document.GetStandard14Font(Standard14Font.Helvetica);
+        var text = new ParagraphStyle(font, 10);
+        var right = new Table(ColumnWidth.Proportional(), ColumnWidth.Fixed(60)) { Width = 200, Alignment = TextAlignment.Right, SpaceAfter = 20 };
+        right.AddRow(new TableCell("Total", text), new TableCell("12.00", text));
+        var centered = new Table(ColumnWidth.Proportional()) { Width = 100, Alignment = TextAlignment.Center, SpaceAfter = 20 };
+        centered.AddRow(new TableCell("Middle", text));
+        var tooWide = new Table(ColumnWidth.Proportional()) { Width = 10_000, Alignment = TextAlignment.Right };
+        tooWide.AddRow(new TableCell("Whole width", text));
+
+        new FlowDocument(PageSetup.Letter.WithMargins(new PageMargins(Margin))).Add(right).Add(centered).Add(tooWide).Render(document);
+
+        using PdfDocument reopened = PdfDocument.Open(Saved(document));
+        FlowContentRecorder page = FlowContentRecorder.Record(reopened.Pages[0]);
+        PdfRectangle[] boxes = [.. page.Strokes.Select(stroke => stroke.Bounds).OrderByDescending(bounds => bounds.Top).ThenBy(bounds => bounds.Left)];
+        Assert.Equal(4, boxes.Length);
+        AssertRectangle(boxes[0], 612 - Margin - 200, boxes[0].Bottom, 140, boxes[0].Height);
+        AssertRectangle(boxes[1], 612 - Margin - 60, boxes[1].Bottom, 60, boxes[1].Height);
+        AssertRectangle(boxes[2], 306 - 50, boxes[2].Bottom, 100, boxes[2].Height);
+        AssertRectangle(boxes[3], Margin, boxes[3].Bottom, 612 - (2 * Margin), boxes[3].Height);
+        Assert.Throws<ArgumentOutOfRangeException>(() => new Table(ColumnWidth.Auto) { Width = 0 });
+    }
+
+    [Fact]
     public void Content_sized_columns_fit_their_widest_unbreakable_content()
     {
         using PdfDocument document = NewDocument();

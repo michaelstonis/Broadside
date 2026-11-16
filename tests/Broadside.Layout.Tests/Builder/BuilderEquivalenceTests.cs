@@ -26,7 +26,7 @@ public sealed class BuilderEquivalenceTests
         using PdfDocument twin = NewTwin();
         PdfCanvasFont bold = Embed(twin, Standard14Font.HelveticaBold);
         PdfCanvasFont regular = Embed(twin, Standard14Font.Helvetica);
-        var flow = new FlowDocument(new PageTemplate(PageSetup.A4)) { Tagging = FlowTagging.Default.WithLanguage("en-US").WithTitle("Hello") };
+        var flow = new FlowDocument(new PageTemplate(PageSetup.A4)) { Tagging = FlowTagging.Default.WithLanguage("en-US").WithTitle("Hello"), OutlineDepth = 3 };
         flow.Add(new Paragraph("Hello, Broadside", new ParagraphStyle(bold, 22).WithSpaceBefore(12).WithSpaceAfter(6)) { StructureType = "H1" });
         flow.Add(new Paragraph("This page is tagged, embeds its font and opens in any reader.", new ParagraphStyle(regular, 11).WithSpaceAfter(6)));
         flow.Render(twin);
@@ -55,7 +55,7 @@ public sealed class BuilderEquivalenceTests
         PdfCanvasFont bold = Embed(twin, Standard14Font.HelveticaBold);
         var accent = PdfColor.FromRgb(0x0B / 255f, 0x5F / 255f, 0xFF / 255f);
         var style = new ParagraphStyle(regular, 11).WithSpaceAfter(6).WithAlignment(TextAlignment.Justify);
-        var flow = new FlowDocument(new PageTemplate(PageSetup.A4)) { Tagging = FlowTagging.Default.WithLanguage("en").WithTitle("Spans") };
+        var flow = new FlowDocument(new PageTemplate(PageSetup.A4)) { Tagging = FlowTagging.Default.WithLanguage("en").WithTitle("Spans"), OutlineDepth = 3 };
         flow.Add(new Paragraph(
             [
                 new TextRun("Pay by bank transfer to "),
@@ -120,9 +120,46 @@ public sealed class BuilderEquivalenceTests
         table.AddRow(new TableCell("North", header) { Scope = TableHeaderScope.Row }, new TableCell("120", right), new TableCell("135", right));
         table.Add(new TableRow(new TableCell("South", cell), new TableCell("98", cell), new TableCell("104", cell)) { Background = subtle });
         table.AddRow(new TableCell(new Paragraph("Figures are provisional.", new ParagraphStyle(italic, 11))) { ColumnSpan = 3 });
-        var flow = new FlowDocument(new PageTemplate(PageSetup.A4)) { Tagging = FlowTagging.Default.WithLanguage("en-GB").WithTitle("Results") };
+        var flow = new FlowDocument(new PageTemplate(PageSetup.A4)) { Tagging = FlowTagging.Default.WithLanguage("en-GB").WithTitle("Results"), OutlineDepth = 3 };
         flow.Add(new BlockGroup(new Paragraph("Table 1. Units shipped by region", caption) { StructureType = "Caption" }) { KeepWithNext = true });
         flow.Add(table);
+        flow.Render(twin);
+
+        Assert.Equal(Save(twin), Save(built));
+    }
+
+    [Fact]
+    public void A_narrow_right_aligned_totals_table_writes_the_same_bytes_as_the_hand_built_table()
+    {
+        using PdfDocument built = PdfDocument.Create(Options(), doc => doc
+            .WithTitle("Totals")
+            .WithLanguage("en-GB")
+            .Content(c => c.Table(t =>
+            {
+                t.Columns(ColumnWidth.Proportional(1), Length.Millimeters(30));
+                t.Row(r =>
+                {
+                    r.HeaderCell("Subtotal");
+                    r.Cell("1,000.00").AlignRight();
+                });
+            })
+            .Width(Length.Millimeters(80)).AlignRight().KeepTogether().Border(TableBorder.None)));
+
+        using PdfDocument twin = NewTwin();
+        PdfCanvasFont bold = Embed(twin, Standard14Font.HelveticaBold);
+        PdfCanvasFont regular = Embed(twin, Standard14Font.Helvetica);
+        var table = new Table(ColumnWidth.Proportional(1), ColumnWidth.Fixed(30 * 72 / 25.4))
+        {
+            Style = Theme.Default.Table.WithBorder(TableBorder.None),
+            SpaceAfter = 6,
+            Width = 80 * 72 / 25.4,
+            Alignment = TextAlignment.Right,
+        };
+        table.AddRow(
+            new TableCell("Subtotal", new ParagraphStyle(bold, 11)) { Scope = TableHeaderScope.Row },
+            new TableCell("1,000.00", new ParagraphStyle(regular, 11).WithAlignment(TextAlignment.Right)));
+        var flow = new FlowDocument(new PageTemplate(PageSetup.A4)) { Tagging = FlowTagging.Default.WithLanguage("en-GB").WithTitle("Totals"), OutlineDepth = 3 };
+        flow.Add(new BlockGroup(table) { KeepTogether = true });
         flow.Render(twin);
 
         Assert.Equal(Save(twin), Save(built));
@@ -149,7 +186,7 @@ public sealed class BuilderEquivalenceTests
         PdfCanvasFont bold = Embed(twin, Standard14Font.HelveticaBold);
         PdfCanvasFont regular = Embed(twin, Standard14Font.Helvetica);
         var body = new ParagraphStyle(regular, 11).WithSpaceAfter(6);
-        var flow = new FlowDocument(new PageTemplate(PageSetup.A4)) { Tagging = FlowTagging.Default.WithLanguage("en").WithTitle("Blocks") };
+        var flow = new FlowDocument(new PageTemplate(PageSetup.A4)) { Tagging = FlowTagging.Default.WithLanguage("en").WithTitle("Blocks"), OutlineDepth = 3 };
         flow.Add(new BlockGroup(new Paragraph("Kept with the next paragraph", new ParagraphStyle(bold, 11 * 1.6).WithSpaceBefore(12).WithSpaceAfter(6)) { StructureType = "H2" }) { KeepWithNext = true });
         flow.Add(new Paragraph("First.", body));
         flow.Add(new Spacer(10));
@@ -193,7 +230,7 @@ public sealed class BuilderEquivalenceTests
         var outer = new ListBlock(new ListStyle(marker).WithNumbering(ListNumbering.Decimal));
         outer.Add(new ListItem("Add the Broadside package.", body));
         outer.Add(new ListItem(new Paragraph("Add the optional packages you need:", body), inner));
-        var flow = new FlowDocument(new PageTemplate(PageSetup.A4)) { Tagging = FlowTagging.Default.WithLanguage("en").WithTitle("Lists") };
+        var flow = new FlowDocument(new PageTemplate(PageSetup.A4)) { Tagging = FlowTagging.Default.WithLanguage("en").WithTitle("Lists"), OutlineDepth = 3 };
         flow.Add(outer);
         flow.Render(twin);
 
@@ -231,7 +268,7 @@ public sealed class BuilderEquivalenceTests
             Footer = new HeaderFooter(region) { Center = "Page {page} of {pages}" },
         };
         var body = new ParagraphStyle(regular, 11).WithSpaceAfter(6);
-        var flow = new FlowDocument(template) { Tagging = FlowTagging.Default.WithLanguage("en").WithTitle("Report") };
+        var flow = new FlowDocument(template) { Tagging = FlowTagging.Default.WithLanguage("en").WithTitle("Report"), OutlineDepth = 3 };
         for (int index = 0; index < 120; index++)
         {
             flow.Add(new Paragraph($"Note {index}: the north site reported steady flow.", body));
