@@ -19,6 +19,9 @@
     <!-- The Windows targeting pack and the Windows App SDK are NuGet packages: no workload, any host. -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <AppxGeneratePriEnabled>false</AppxGeneratePriEnabled>
+    <!-- Also stop advertising a project .pri: the MSIX build tools add one to the library's packaging outputs (so an app's PRI step
+         expects it, PRI252, and pack looks for it, NU5026) whether or not one was generated. -->
+    <IncludeProjectPriFile>false</IncludeProjectPriFile>
     <!-- WinUI's own projections are trim- and AOT-safe with CsWinRT; the shell uses no reflection. -->
     <IsTrimmable>true</IsTrimmable>
     <IsAotCompatible>true</IsAotCompatible>
