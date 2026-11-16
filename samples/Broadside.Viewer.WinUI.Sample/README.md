@@ -24,4 +24,6 @@ arrows, Page Up/Down, Home/End and +/-, H/T/L/K to move the reading focus betwee
 other screen readers read the page text in reading order through the control's automation peers.
 
 The UI tests in `tests/Broadside.Viewer.WinUI.UITests` drive this app through UI Automation (CI's `winui` job); every control has an
-automation id, and the status line (`Page 3 of 8 | Zoom 125% | Ready`) and the match line (`3 matches | complete`) are what they read.
+automation id, and the status line (`Page 3 of 8 | Zoom 125% | Ready`), the match line (`3 matches | complete`) and the selection line
+(`Selected 1:4-1:38`) are what they read. With `BROADSIDE_WINUI_TRACE=1` (the UI tests set it) the app also logs every pointer press,
+move with a button down, release and lost capture the view gets, with the selection after each, to the log file above.

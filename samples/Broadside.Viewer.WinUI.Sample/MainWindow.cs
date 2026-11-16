@@ -24,9 +24,11 @@ public sealed partial class MainWindow : Window
     private readonly TextBlock _status = Label("Status", "Opening");
     private readonly TextBlock _matches = Label("MatchCount", string.Empty);
     private readonly TextBlock _copied = Label("Copied", string.Empty);
+    private readonly TextBlock _selected = Label("Selection", "No selection");
     private readonly TextBox _query = new() { Width = 180, PlaceholderText = "Find" };
     private readonly DispatcherQueue _dispatcher;
     private DocumentSearch? _search;
+    private TextSelection? _selection;
     private bool _revealFirst;
     private int _searchUpdatePosted;
 
@@ -67,6 +69,7 @@ public sealed partial class MainWindow : Window
         status.Children.Add(_status);
         status.Children.Add(_matches);
         status.Children.Add(_copied);
+        status.Children.Add(_selected);
 
         var grid = new Grid();
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -83,6 +86,11 @@ public sealed partial class MainWindow : Window
         _view.Error += (_, e) => _status.Text = "Error: " + e.Exception.Message;
         _view.ActionRequested += (_, e) => _copied.Text = e.Uri is { } uri ? "Link: " + uri : _copied.Text;
         Closed += (_, _) => _view.Dispose();
+        if (PointerTrace.IsOn)
+        {
+            PointerTrace.Attach(_view);
+        }
+
         _view.Source = path;
     }
 
@@ -114,7 +122,20 @@ public sealed partial class MainWindow : Window
             _search = _view.Search;
             _search?.Changed += OnSearchChanged;
         }
+
+        if (!ReferenceEquals(_selection, _view.Selection))
+        {
+            _selection?.Changed -= OnSelectionChanged;
+            _selection = _view.Selection;
+            _selection?.Changed += OnSelectionChanged;
+            ShowSelection();
+        }
     }
+
+    private void OnSelectionChanged(object? sender, EventArgs e) => _dispatcher.TryEnqueue(ShowSelection);
+
+    // "Selected 1:4-1:38" (page:offset, one-based pages) or "No selection": the UI tests read it after a drag, before they copy.
+    private void ShowSelection() => _selected.Text = PointerTrace.Describe(_view.Selection);
 
     private void Find()
     {
@@ -172,6 +193,11 @@ public sealed partial class MainWindow : Window
 
     private async void CopyAsync()
     {
+        if (PointerTrace.IsOn)
+        {
+            StartupLog.Write("Copy: " + PointerTrace.Describe(_view.Selection));
+        }
+
         string? text = await _view.CopySelectionAsync();
         _copied.Text = text is null ? "Nothing selected" : string.Create(CultureInfo.InvariantCulture, $"Copied {text.Length} characters");
     }

@@ -115,6 +115,23 @@ public sealed class ViewerControllerTests
     });
 
     [Fact]
+    public void A_mouse_release_away_from_the_press_selects_up_to_it_when_no_move_arrived_between() => UiThread.Run(async () =>
+    {
+        // Windows does not always deliver a move before the release (input that only repositions the cursor, a move folded into the
+        // release): the release point still ends the selection.
+        using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("text-render-modes.pdf"));
+        (double x, double y) = FindText(shell);
+        Viewport before = shell.Viewport;
+
+        shell.Press(1, PointerKind.Mouse, x, y);
+        Assert.True(shell.Controller.Selection!.IsEmpty);
+        shell.Controller.PointerUp(1, x + 60, y);
+        Assert.False(shell.Controller.Selection.IsEmpty);
+        Assert.False(string.IsNullOrWhiteSpace(await shell.Controller.GetSelectedTextAsync()));
+        Assert.Equal(before, shell.Viewport);
+    });
+
+    [Fact]
     public void A_double_click_selects_a_word_and_a_right_click_is_left_to_the_host() => UiThread.Run(async () =>
     {
         using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("text-render-modes.pdf"));
