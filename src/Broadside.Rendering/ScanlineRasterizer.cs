@@ -832,10 +832,11 @@ internal sealed class ScanlineRasterizer : IDisposable
     {
         ReadOnlySpan<Piece> pieces = _pieces.AsSpan(0, _count);
 
-        // Each sample line's winding and clamped coverage along the row so far, kept in locals rather than an array: every edge
-        // pixel reads and writes them, and in registers they leave the sums' order (and so their bits) as it was.
-        double w0 = 0, w1 = 0, w2 = 0, w3 = 0;
-        double c0 = 0, c1 = 0, c2 = 0, c3 = 0;
+        // Each sample line's winding and clamped coverage along the row so far. They live on the stack rather than in eight locals:
+        // as locals, together with the walk's temporaries, they outnumber the 16 vector registers a processor without AVX-512 has,
+        // and the spills made the resolve 1.4 to 1.8 times slower there (issue #335).
+        Span<double> winding = stackalloc double[SampleLines];
+        Span<double> coverage = stackalloc double[SampleLines];
         int resolved = 0;
         long row = -1;
         int index = 0;
@@ -845,8 +846,8 @@ internal sealed class ScanlineRasterizer : IDisposable
             if (key >> 32 != row)
             {
                 row = key >> 32;
-                (w0, w1, w2, w3) = (0, 0, 0, 0);
-                (c0, c1, c2, c3) = (0, 0, 0, 0);
+                winding.Clear();
+                coverage.Clear();
             }
 
             int end = index + 1;
@@ -867,22 +868,22 @@ internal sealed class ScanlineRasterizer : IDisposable
                 int last = Math.Min(SampleLines - 1, (int)Math.Ceiling(high * SampleLines) - 1);
                 if (first <= 0 && last >= 0)
                 {
-                    One(piece, low, high, 0, ref w0, ref c0, ref cover, ref area);
+                    One(piece, low, high, 0, ref winding[0], ref coverage[0], ref cover, ref area);
                 }
 
                 if (first <= 1 && last >= 1)
                 {
-                    One(piece, low, high, 1, ref w1, ref c1, ref cover, ref area);
+                    One(piece, low, high, 1, ref winding[1], ref coverage[1], ref cover, ref area);
                 }
 
                 if (first <= 2 && last >= 2)
                 {
-                    One(piece, low, high, 2, ref w2, ref c2, ref cover, ref area);
+                    One(piece, low, high, 2, ref winding[2], ref coverage[2], ref cover, ref area);
                 }
 
                 if (last >= 3)
                 {
-                    One(piece, low, high, 3, ref w3, ref c3, ref cover, ref area);
+                    One(piece, low, high, 3, ref winding[3], ref coverage[3], ref cover, ref area);
                 }
             }
             else if (end - index == 2)
@@ -890,10 +891,10 @@ internal sealed class ScanlineRasterizer : IDisposable
                 // Two edges, the most common case of several (both sides of a thin line).
                 Piece a = pieces[order[index]];
                 Piece b = pieces[order[index + 1]];
-                bool tied = Two(a, b, 0, ref w0, ref c0, ref cover, ref area);
-                tied |= Two(a, b, 1, ref w1, ref c1, ref cover, ref area);
-                tied |= Two(a, b, 2, ref w2, ref c2, ref cover, ref area);
-                tied |= Two(a, b, 3, ref w3, ref c3, ref cover, ref area);
+                bool tied = Two(a, b, 0, ref winding[0], ref coverage[0], ref cover, ref area);
+                tied |= Two(a, b, 1, ref winding[1], ref coverage[1], ref cover, ref area);
+                tied |= Two(a, b, 2, ref winding[2], ref coverage[2], ref cover, ref area);
+                tied |= Two(a, b, 3, ref winding[3], ref coverage[3], ref cover, ref area);
                 if (tied && !exact)
                 {
                     return -1;
@@ -902,8 +903,6 @@ internal sealed class ScanlineRasterizer : IDisposable
             else
             {
                 // Several edges cross this pixel: walk each sample line's crossings in order of position.
-                Span<double> winding = [w0, w1, w2, w3];
-                Span<double> coverage = [c0, c1, c2, c3];
                 for (int line = 0; line < SampleLines; line++)
                 {
                     int crossings = 0;
@@ -929,9 +928,6 @@ internal sealed class ScanlineRasterizer : IDisposable
                         return -1;
                     }
                 }
-
-                (w0, w1, w2, w3) = (winding[0], winding[1], winding[2], winding[3]);
-                (c0, c1, c2, c3) = (coverage[0], coverage[1], coverage[2], coverage[3]);
             }
 
             keys[resolved] = key;
