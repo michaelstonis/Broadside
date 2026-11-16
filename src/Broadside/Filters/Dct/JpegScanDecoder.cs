@@ -31,29 +31,84 @@ internal static class JpegScanDecoder
     public static void Decode<TSink>(JpegFrame frame, ReadOnlySpan<byte> data, ref int position, ref TSink sink)
         where TSink : struct, IJpegRowSink
     {
+        Begin(frame, data, position);
+        Continue(frame, data, ref sink, out position);
+    }
+
+    /// <summary>Starts decoding one scan's entropy-coded data: the state <see cref="Continue"/> works from.</summary>
+    /// <param name="frame">The image, at a usable scan header.</param>
+    /// <param name="data">The JPEG data.</param>
+    /// <param name="position">Where the entropy-coded data starts.</param>
+    /// <remarks>ITU-T T.81 §E.2.3 (Figure E.7) and §F.1.4.4, §G.1.3 (statistics reset at the start of the scan).</remarks>
+    public static void Begin(JpegFrame frame, ReadOnlySpan<byte> data, int position)
+    {
         JpegScan scan = frame.Scan;
-        bool single = scan.Length == 1;
-        JpegComponent first = frame.Components[scan.Components[0]];
-        int mcusPerRow = single ? first.BlocksWide : frame.McusX;
-        int mcuRows = single ? first.BlocksHigh : frame.McusY;
         for (int j = 0; j < scan.Length; j++)
         {
             frame.Components[scan.Components[j]].Scanned = true;
         }
 
         scan.ResetEntropyState(frame.Components, frame.Arithmetic);
-        var reader = new JpegBitReader(data, position);
-        var arithmetic = new ArithmeticDecoder(data, position);
-        bool exhausted = JpegMarkerReader.StartsAtMarker(data, position);
-        int intervalLeft = frame.RestartInterval;
-        int expectedRestart = 0;
-        bool exhaustedArithmetic = false;
+        JpegScanProgress progress = frame.ScanProgress;
+        progress.McuRow = 0;
+        progress.Reader = new JpegBitReader(data, position).Save();
+        progress.Arithmetic = new ArithmeticDecoder(data, position).Save();
+        progress.Exhausted = JpegMarkerReader.StartsAtMarker(data, position);
+        progress.IntervalLeft = frame.RestartInterval;
+        progress.ExpectedRestart = 0;
+        progress.ExhaustedArithmetic = false;
+    }
+
+    /// <summary>
+    /// Decodes MCU rows of the scan <see cref="Begin"/> started, from where the last call stopped, until the scan ends or, after at
+    /// least one row, the reporter's <see cref="Codecs.CodecReporter.Deadline"/> has passed (issue #365: a decode in slices).
+    /// </summary>
+    /// <typeparam name="TSink">The row destination.</typeparam>
+    /// <param name="frame">The image.</param>
+    /// <param name="data">The JPEG data, the same on every call.</param>
+    /// <param name="sink">The destination of the output rows of a streaming decode.</param>
+    /// <param name="end">When the scan is done, where its entropy-coded data ends.</param>
+    /// <returns><see langword="true"/> when the scan is done; <see langword="false"/> when it paused between two MCU rows.</returns>
+    /// <remarks>
+    /// ITU-T T.81 §E.2.3 to §E.2.5 (Figures E.7 to E.10). Between two rows the scan's whole state is the entropy decoder's registers,
+    /// the restart interval's count and the DC predictors and EOBRUN its components and scan keep, so a paused scan resumes exactly
+    /// where it stopped and the samples equal an unpaused decode's.
+    /// </remarks>
+    public static bool Continue<TSink>(JpegFrame frame, ReadOnlySpan<byte> data, ref TSink sink, out int end)
+        where TSink : struct, IJpegRowSink
+    {
+        JpegScan scan = frame.Scan;
+        JpegScanProgress progress = frame.ScanProgress;
+        bool single = scan.Length == 1;
+        JpegComponent first = frame.Components[scan.Components[0]];
+        int mcusPerRow = single ? first.BlocksWide : frame.McusX;
+        int mcuRows = single ? first.BlocksHigh : frame.McusY;
+        var reader = new JpegBitReader(data, progress.Reader);
+        var arithmetic = new ArithmeticDecoder(data, progress.Arithmetic);
+        bool exhausted = progress.Exhausted;
+        int intervalLeft = progress.IntervalLeft;
+        int expectedRestart = progress.ExpectedRestart;
+        bool exhaustedArithmetic = progress.ExhaustedArithmetic;
 
         // Rows a later progressive scan leaves incomplete were decoded by the first DC scan: they still count as decoded.
         bool countsRows = scan.Kind is JpegScanKind.Sequential or JpegScanKind.DcFirst;
-        for (int mcuRow = 0; mcuRow < mcuRows; mcuRow++)
+        int firstRow = progress.McuRow;
+        for (int mcuRow = firstRow; mcuRow < mcuRows; mcuRow++)
         {
             frame.Reporter.ThrowIfCancellationRequested();
+            if (mcuRow > firstRow && frame.Reporter.ShouldPause)
+            {
+                progress.McuRow = mcuRow;
+                progress.Reader = reader.Save();
+                progress.Arithmetic = arithmetic.Save();
+                progress.Exhausted = exhausted;
+                progress.IntervalLeft = intervalLeft;
+                progress.ExpectedRestart = expectedRestart;
+                progress.ExhaustedArithmetic = exhaustedArithmetic;
+                end = 0;
+                return false;
+            }
+
             int frameRow = !countsRows ? int.MaxValue : single ? mcuRow / first.V : mcuRow;
             if (frame.Streaming)
             {
@@ -71,8 +126,8 @@ internal static class JpegScanDecoder
                     if (intervalLeft == 0)
                     {
                         exhaustedArithmetic |= arithmetic.Exhausted;
-                        int end = EndOfEntropyCodedData(frame, data, ref reader, ref arithmetic);
-                        exhausted = Restart(frame, data, end, ref expectedRestart, out int next);
+                        int intervalEnd = EndOfEntropyCodedData(frame, data, ref reader, ref arithmetic);
+                        exhausted = Restart(frame, data, intervalEnd, ref expectedRestart, out int next);
                         reader = new JpegBitReader(data, next);
                         arithmetic = new ArithmeticDecoder(data, next);
                         scan.ResetEntropyState(frame.Components, frame.Arithmetic);
@@ -127,7 +182,8 @@ internal static class JpegScanDecoder
             frame.MarkTruncated(int.MaxValue, "The arithmetic-coded DCT data ends without a marker; the rest of the scan was decoded from zero bits.");
         }
 
-        position = EndOfEntropyCodedData(frame, data, ref reader, ref arithmetic);
+        end = EndOfEntropyCodedData(frame, data, ref reader, ref arithmetic);
+        return true;
     }
 
     /// <summary>

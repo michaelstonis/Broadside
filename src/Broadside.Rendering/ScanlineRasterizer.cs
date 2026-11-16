@@ -277,6 +277,69 @@ internal sealed class ScanlineRasterizer : IDisposable
     }
 
     /// <summary>
+    /// Paints the shape as <see cref="Paint"/> does, from the cell <paramref name="next"/> on, a whole row at a time, until the last row
+    /// or, after at least one row, until <see cref="System.Diagnostics.Stopwatch"/> reaches <paramref name="deadline"/> (issue #365: a
+    /// long image paint in slices). The shape is kept either way; <see cref="Reset"/> once done.
+    /// </summary>
+    /// <param name="rule">The fill rule.</param>
+    /// <param name="sink">The sink, which must paint as it did in the earlier calls.</param>
+    /// <param name="next">The first cell to paint, 0 at first; on return, where to resume.</param>
+    /// <param name="deadline">The timestamp to stop at.</param>
+    /// <returns><see langword="true"/> when every row is painted.</returns>
+    /// <remarks>Rows are independent (the winding accumulates within a row), so the pixels equal one <see cref="Paint"/>'s.</remarks>
+    public bool PaintRows<TSink>(FillRule rule, ref TSink sink, ref int next, long deadline)
+        where TSink : ICoverageSink, allows ref struct
+    {
+        RasterClip? clip = Clip;
+        if (_count == 0 || clip?.IsEmpty == true)
+        {
+            return true;
+        }
+
+        Sort();
+        clip = clip is { IsWholeBitmap: false } ? clip : null;
+        Span<long> keys = _keys.AsSpan(0, _count);
+        Span<Cell> cells = _cells.AsSpan(0, _count);
+        int index = next;
+        int first = index;
+        while (index < cells.Length)
+        {
+            if (index > first && System.Diagnostics.Stopwatch.GetTimestamp() >= deadline)
+            {
+                next = index;
+                return false;
+            }
+
+            int row = (int)(keys[index] >> 32);
+            double accumulated = 0;
+            while (index < cells.Length && (int)(keys[index] >> 32) == row)
+            {
+                int x = (int)(uint)keys[index];
+                double cover = 0;
+                double area = 0;
+                do
+                {
+                    cover += cells[index].Cover;
+                    area += cells[index].Area;
+                    index++;
+                }
+                while (index < cells.Length && keys[index] == keys[index - 1]);
+
+                Emit(ref sink, clip, false, Hook, row, x, 1, Coverage(accumulated + cover - area, rule, Rule));
+                accumulated += cover;
+                int following = index < cells.Length && (int)(keys[index] >> 32) == row ? (int)(uint)keys[index] : _width;
+                if (following > x + 1)
+                {
+                    Emit(ref sink, clip, false, Hook, row, x + 1, following - x - 1, Coverage(accumulated, rule, Rule));
+                }
+            }
+        }
+
+        next = index;
+        return true;
+    }
+
+    /// <summary>
     /// Hands the raw coverage of the shape to <paramref name="sink"/>, not clipped: for every row with an edge, every pixel from the
     /// first edge to the right border, zeros included. The shape stays; <see cref="Reset"/> starts a new one.
     /// </summary>

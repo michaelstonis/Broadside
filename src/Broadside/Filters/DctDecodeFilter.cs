@@ -57,7 +57,7 @@ namespace Broadside.Filters;
 /// Stateless and thread-safe; a decode allocates nothing per block or row (the per-image buffers are pooled).
 /// </para>
 /// </remarks>
-public sealed class DctDecodeFilter : IImageFilter
+public sealed class DctDecodeFilter : IImageFilter, ISlicedImageFilter
 {
     /// <inheritdoc/>
     /// <remarks>ISO 32000-2 §7.4.8: <c>DCTDecode</c>; abbreviated <c>DCT</c> in inline images (§8.9.7, Table 92).</remarks>
@@ -173,6 +173,111 @@ public sealed class DctDecodeFilter : IImageFilter
         {
             image?.Dispose();
             JpegDecoder.Return(decoder);
+        }
+    }
+
+    /// <summary>Starts a decode of the image path that runs in slices, pausing between MCU rows (issue #365).</summary>
+    /// <param name="encoded">The data.</param>
+    /// <param name="context">The image's values and limits.</param>
+    /// <returns>The job; its samples equal <see cref="DecodeImage"/>'s.</returns>
+    /// <remarks>ISO 32000-2 §7.4.8; ITU-T T.81 §E.2.3.</remarks>
+    ImageDecodeJob ISlicedImageFilter.BeginDecodeImage(ReadOnlyMemory<byte> encoded, ImageFilterContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        return new SlicedDecode(encoded, context);
+    }
+
+    /// <summary>A DCT decode in slices: the decoder (rented for the job) and the image being written keep the state between them.</summary>
+    private sealed class SlicedDecode(ReadOnlyMemory<byte> encoded, ImageFilterContext context) : ImageDecodeJob
+    {
+        private JpegDecoder? _decoder;
+        private DecodedImageBuilder? _image;
+        private bool _done;
+
+        public override bool Continue(long deadline, CancellationToken cancellationToken)
+        {
+            if (_done)
+            {
+                return true;
+            }
+
+            bool finished = false;
+            try
+            {
+                ReadOnlySpan<byte> data = encoded.Span;
+                if (_decoder is null)
+                {
+                    _decoder = JpegDecoder.Rent();
+                    if (!_decoder.ReadHeaders(data, context.Filter, silent: false, context.Geometry.Height))
+                    {
+                        finished = true;
+                        return true;
+                    }
+
+                    _decoder.SelectColorTransform(ReadColorTransform(context.Filter));
+                    _decoder.SetReduction(context.Reduction);
+                    if (!context.TryCreateImage(new ImageGeometry(_decoder.OutputWidth, _decoder.OutputHeight, _decoder.ComponentCount, 8), out _image))
+                    {
+                        finished = true;
+                        return true;
+                    }
+                }
+
+                if (_image is null)
+                {
+                    finished = true;
+                    return true;
+                }
+
+                _decoder.Reporter.Deadline = deadline;
+                _decoder.Reporter.SliceToken = cancellationToken;
+                var sink = new ImageRowSink(_image);
+                JpegDecodeResult result = _decoder.Continue(data, ref sink, context.MaxDecodedLength);
+                if (result == JpegDecodeResult.Paused)
+                {
+                    return false;
+                }
+
+                finished = true;
+                if (result == JpegDecodeResult.Done)
+                {
+                    _image.DecodedRows = _decoder.DecodedRows;
+                    _image.Reduction = _decoder.Reduction;
+                    _image.ColorModel = _decoder.ColorModel;
+                    _image.AdobeTransform = _decoder.AdobeTransform;
+                    _image.ColorTransformApplied = _decoder.ColorTransformApplied;
+                    Result = _image.Build();
+                    _image = null;
+                }
+
+                return true;
+            }
+            catch
+            {
+                finished = true;
+                throw;
+            }
+            finally
+            {
+                if (finished)
+                {
+                    Release();
+                }
+            }
+        }
+
+        public override void Dispose() => Release();
+
+        private void Release()
+        {
+            _done = true;
+            _image?.Dispose();
+            _image = null;
+            if (_decoder is not null)
+            {
+                JpegDecoder.Return(_decoder);
+                _decoder = null;
+            }
         }
     }
 

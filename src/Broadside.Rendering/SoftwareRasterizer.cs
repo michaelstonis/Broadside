@@ -241,6 +241,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         }
         finally
         {
+            _backend.EndPreparation();
             _backend.End();
         }
     }
@@ -263,6 +264,22 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
     /// <summary>Returns whether <paramref name="replay"/> is the progressive render this rasterizer is drawing.</summary>
     internal bool IsDrawing(DisplayListReplay replay) => !_disposed && ReferenceEquals(_progressive, replay);
+
+    /// <summary>
+    /// Prepares the images of the progressive render of <paramref name="render"/> until they are ready or <paramref name="deadline"/>
+    /// has passed (issue #365; see <see cref="ProgressiveRender.Continue"/>).
+    /// </summary>
+    internal bool ContinuePreparation(DisplayListReplay render, long deadline) =>
+        !ReferenceEquals(_progressive, render) || _backend.ContinuePreparation(deadline);
+
+    /// <summary>Sets the deadline of a progressive render's slice for its image paints (issue #365; <see cref="long.MaxValue"/>: none).</summary>
+    internal void SetPaintDeadline(long deadline) => _backend.SetPaintDeadline(deadline);
+
+    /// <summary>Finishes, until the paint deadline, an image paint a slice left (issue #365); true when none is left.</summary>
+    internal bool ContinueSlicedPaint() => _backend.ContinueSlicedPaint();
+
+    /// <summary>Gets a value indicating whether an image paint a slice left is still to be finished.</summary>
+    internal bool HasSlicedPaint => _backend.HasSlicedPaint;
 
     /// <summary>Ends the progressive render of <paramref name="render"/>: releases the per-render state, so the rasterizer may render again.</summary>
     internal void EndProgressive(DisplayListReplay render)
@@ -463,9 +480,12 @@ public sealed partial class SoftwareRasterizer : IDisposable
     private ProgressiveRender Begin(DisplayList list, Bitmap target, in Matrix device, int width, int height, AntiAliasing antiAliasing, bool cull, bool preview, double imageSamplesPerPixel, ColorFilter colorFilter, IProgress<double>? progress, CancellationToken cancellationToken)
     {
         _backend.Begin(list.Document, target, device, width, height, preview, antiAliasing, imageSamplesPerPixel, colorFilter, cancellationToken);
-        DisplayListReplay replay = cull && TryGetRegion(device, width, height, out PdfRectangle region)
+        PdfRectangle region = default;
+        bool culled = cull && TryGetRegion(device, width, height, out region);
+        DisplayListReplay replay = culled
             ? list.BeginReplay(_backend, region, cancellationToken, progress)
             : list.BeginReplay(_backend, cancellationToken, progress);
+        _backend.BeginPreparation(list, culled ? region : null);
         _progressive = replay;
         return new ProgressiveRender(this, replay, target);
     }

@@ -5,6 +5,8 @@ using Broadside.TestSupport;
 namespace Broadside.Viewer.Tests;
 
 /// <summary>Page thumbnails (issue #216, viewer capability 10): low resolution, from the shared display-list cache, behind the main view.</summary>
+/// <remarks>In the Heavy collection: the tests count display-list cache misses, and the cache's epoch is process-wide.</remarks>
+[Collection(HeavyTestCollection.Name)]
 public sealed class PageThumbnailsTests
 {
     private static CancellationToken Token => TestContext.Current.CancellationToken;

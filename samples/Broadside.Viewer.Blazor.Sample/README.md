@@ -62,6 +62,10 @@ The screenshots come from the browser tests (`BROADSIDE_BROWSER_SCREENSHOTS=<fol
 Sizes include the 17 MB of gallery documents, which a browser downloads only when one is picked. A host that compresses responses
 sends about a quarter of the rest.
 
+- **AOT of the rendering path.** `--hot-aot` (MSBuild: `-p:BroadsideAot=hot`) compiles only `Broadside`, `Broadside.Rendering` and
+  `System.Private.CoreLib` ahead of time, optimized for size, and interprets the rest (Blazor, the viewer shell, layout, fonts). Pages
+  draw at AOT speed and the runtime module is 16.6 MiB instead of 24.5 MB: still just over a 16 MB per-file limit. It builds in
+  `obj/hotaot` and `bin/hotaot`. See `docs/benchmarks/smooth-browser-viewer.md` (#365) for its frame times and what remains to fit.
 - **Per-file size limits.** `--no-aot` skips ahead-of-time compilation: the IL runs in the .NET interpreter (slower pages, a much
   smaller runtime), so no file comes near a 16 MB per-file limit. It builds in its own `obj/noaot` and `bin/noaot` folders, because a
   non-AOT build over AOT intermediates produces a runtime that fails at startup. The MSBuild switch is `-p:BroadsideAot=false`.

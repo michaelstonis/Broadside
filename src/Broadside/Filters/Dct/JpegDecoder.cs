@@ -40,6 +40,9 @@ internal sealed class JpegDecoder
 
     private readonly JpegFrame _frame = new();
 
+    /// <summary>Gets the reporter of the image's deviations, which also carries a sliced decode's deadline (#365).</summary>
+    public Codecs.CodecReporter Reporter => _frame.Reporter;
+
     /// <summary>Gets the number of samples per row (X).</summary>
     public int Width => _frame.Width;
 
@@ -140,68 +143,158 @@ internal sealed class JpegDecoder
     public bool Decode<TSink>(ReadOnlySpan<byte> data, ref TSink sink, long maxBytes)
         where TSink : struct, IJpegRowSink
     {
+        _frame.Reporter.Deadline = long.MaxValue;
+        return Continue(data, ref sink, maxBytes) == JpegDecodeResult.Done;
+    }
+
+    /// <summary>
+    /// Decodes from where the last call stopped until the image is done or, after at least one MCU row, the reporter's
+    /// <see cref="Codecs.CodecReporter.Deadline"/> has passed: a decode in slices (issue #365), whose samples equal
+    /// <see cref="Decode"/>'s. Pauses only between two MCU rows of a scan or of a buffered decode's output.
+    /// </summary>
+    /// <typeparam name="TSink">The row destination.</typeparam>
+    /// <param name="data">The JPEG data given to <see cref="ReadHeaders"/>, the same on every call.</param>
+    /// <param name="sink">The destination.</param>
+    /// <param name="maxBytes">The most bytes the whole-image coefficient buffer may take.</param>
+    /// <returns>Whether the decode is done, failed (as <see cref="Decode"/> returning <see langword="false"/>) or paused.</returns>
+    /// <remarks>ITU-T T.81 §E.2.2 and §E.2.3 (Figures E.6, E.7: decode frame, decode scan).</remarks>
+    public JpegDecodeResult Continue<TSink>(ReadOnlySpan<byte> data, ref TSink sink, long maxBytes)
+        where TSink : struct, IJpegRowSink
+    {
+        JpegFrame frame = _frame;
+        if (frame.Stage == JpegDecodeStage.NotStarted)
+        {
+            frame.ResumePosition = frame.Position;
+            frame.FirstMissingRow = int.MaxValue;
+            frame.Stage = JpegDecodeStage.ScanHeader;
+        }
+
+        while (true)
+        {
+            switch (frame.Stage)
+            {
+                case JpegDecodeStage.ScanHeader:
+                    if (!StartScan(data, maxBytes))
+                    {
+                        frame.Stage = JpegDecodeStage.Done;
+                        return JpegDecodeResult.Failed;
+                    }
+
+                    break;
+                case JpegDecodeStage.InScan:
+                    if (!JpegScanDecoder.Continue(frame, data, ref sink, out int end))
+                    {
+                        return JpegDecodeResult.Paused;
+                    }
+
+                    frame.ResumePosition = end;
+                    frame.ScansDecoded++;
+                    frame.Stage = JpegDecodeStage.BetweenScans;
+                    break;
+                case JpegDecodeStage.BetweenScans:
+                    if (NextScan(data))
+                    {
+                        frame.Stage = JpegDecodeStage.ScanHeader;
+                        break;
+                    }
+
+                    if (!FinishScans())
+                    {
+                        frame.Stage = JpegDecodeStage.Done;
+                        return JpegDecodeResult.Failed;
+                    }
+
+                    frame.Stage = JpegDecodeStage.Emitting;
+                    break;
+                case JpegDecodeStage.Emitting:
+                    int first = frame.EmitRow;
+                    if (!frame.Streaming)
+                    {
+                        for (int row = first; row < frame.McusY; row++)
+                        {
+                            frame.Reporter.ThrowIfCancellationRequested();
+                            if (row > first && frame.Reporter.ShouldPause)
+                            {
+                                frame.EmitRow = row;
+                                return JpegDecodeResult.Paused;
+                            }
+
+                            JpegSampleWriter.EmitMcuRow(frame, row, ref sink);
+                        }
+                    }
+
+                    frame.EmitRow = frame.McusY;
+                    frame.Stage = JpegDecodeStage.Done;
+                    return JpegDecodeResult.Done;
+                default:
+                    return JpegDecodeResult.Done;
+            }
+        }
+    }
+
+    /// <summary>Reads a scan header and starts its scan, or skips it; false when nothing can be decoded.</summary>
+    private bool StartScan(ReadOnlySpan<byte> data, long maxBytes)
+    {
         JpegFrame frame = _frame;
         JpegScan scan = frame.Scan;
-        int position = frame.Position;
-        frame.FirstMissingRow = int.MaxValue;
-        bool ended = false;
-        while (!ended)
+        int position = frame.ResumePosition;
+        ReadOnlySpan<byte> header = JpegMarkerReader.ReadSegment(frame, data, ref position);
+        bool usable = JpegMarkerReader.ReadScanHeader(frame, header);
+        if (usable && !frame.StorageReady && !AllocateStorage(maxBytes))
         {
-            // At a scan header.
-            ReadOnlySpan<byte> header = JpegMarkerReader.ReadSegment(frame, data, ref position);
-            bool usable = JpegMarkerReader.ReadScanHeader(frame, header);
-            if (usable && !frame.StorageReady && !AllocateStorage(maxBytes))
+            return false;
+        }
+
+        if (usable && frame.Streaming && frame.ScansDecoded > 0)
+        {
+            frame.Report(DctDiagnostics.DctScanInvalid, DiagnosticSeverity.Warning, "A DCT scan repeats components an earlier scan decoded; it was ignored.");
+            usable = false;
+        }
+
+        if (usable && !JpegMarkerReader.LatchQuantization(frame))
+        {
+            return false;
+        }
+
+        bool skipped = false;
+        if (usable && frame.Progressive && scan.SpectralStart > 0 && frame.DcOnly)
+        {
+            // Every component's 1 x 1 IDCT reads the DC alone, so the AC scans change nothing in the output (issue #362).
+            for (int j = 0; j < scan.Length; j++)
             {
-                return false;
+                frame.Components[scan.Components[j]].Scanned = true;
             }
 
-            if (usable && frame.Streaming && frame.ScansDecoded > 0)
-            {
-                frame.Report(DctDiagnostics.DctScanInvalid, DiagnosticSeverity.Warning, "A DCT scan repeats components an earlier scan decoded; it was ignored.");
-                usable = false;
-            }
+            usable = false;
+            skipped = true;
+        }
 
-            if (usable && !JpegMarkerReader.LatchQuantization(frame))
-            {
-                return false;
-            }
+        if (usable)
+        {
+            JpegScanDecoder.Begin(frame, data, position);
+            frame.Stage = JpegDecodeStage.InScan;
+            return true;
+        }
 
-            bool skipped = false;
-            if (usable && frame.Progressive && scan.SpectralStart > 0 && frame.DcOnly)
-            {
-                // Every component's 1 x 1 IDCT reads the DC alone, so the AC scans change nothing in the output (issue #362).
-                for (int j = 0; j < scan.Length; j++)
-                {
-                    frame.Components[scan.Components[j]].Scanned = true;
-                }
+        // The whole scan, its restart intervals included; or a scan that was reported, whose entropy-coded data is not extraneous.
+        frame.ResumePosition = skipped ? JpegMarkerReader.SkipScan(data, position) : JpegMarkerReader.SkipEntropyCodedData(data, position);
+        frame.Stage = JpegDecodeStage.BetweenScans;
+        return true;
+    }
 
-                usable = false;
-                skipped = true;
-            }
-
-            if (usable)
-            {
-                JpegScanDecoder.Decode(frame, data, ref position, ref sink);
-                frame.ScansDecoded++;
-            }
-            else if (skipped)
-            {
-                // The whole scan, its restart intervals included.
-                position = JpegMarkerReader.SkipScan(data, position);
-            }
-            else
-            {
-                // A skipped scan was reported; its entropy-coded data is not extraneous.
-                position = JpegMarkerReader.SkipEntropyCodedData(data, position);
-            }
-
-            // Between scans: tables and miscellaneous segments, the next scan or the end.
+    /// <summary>Reads the segments between scans: true at the next scan header, false at the end of the image.</summary>
+    private bool NextScan(ReadOnlySpan<byte> data)
+    {
+        JpegFrame frame = _frame;
+        int position = frame.ResumePosition;
+        try
+        {
             while (true)
             {
                 int marker = JpegMarkerReader.NextMarker(frame, data, ref position);
                 if (marker == JpegMarkers.Sos)
                 {
-                    break;
+                    return true;
                 }
 
                 if (marker is < 0 or JpegMarkers.Eoi)
@@ -211,15 +304,13 @@ internal sealed class JpegDecoder
                         frame.Report(DctDiagnostics.DctEndMissing, DiagnosticSeverity.Warning, "The DCT data ends without the EOI marker.");
                     }
 
-                    ended = true;
-                    break;
+                    return false;
                 }
 
                 if (JpegMarkers.IsStartOfFrame((byte)marker))
                 {
                     frame.Report(DctDiagnostics.DctFrameRepeated, DiagnosticSeverity.Warning, "The DCT data has a second frame; only the first is decoded.");
-                    ended = true;
-                    break;
+                    return false;
                 }
 
                 if (!JpegMarkers.IsStandalone((byte)marker))
@@ -228,7 +319,16 @@ internal sealed class JpegDecoder
                 }
             }
         }
+        finally
+        {
+            frame.ResumePosition = position;
+        }
+    }
 
+    /// <summary>After the last scan: false when nothing was decoded; reports the components no scan reached.</summary>
+    private bool FinishScans()
+    {
+        JpegFrame frame = _frame;
         if (!frame.StorageReady)
         {
             return false;
@@ -242,18 +342,9 @@ internal sealed class JpegDecoder
             }
         }
 
-        if (!frame.Streaming)
-        {
-            for (int row = 0; row < frame.McusY; row++)
-            {
-                frame.Reporter.ThrowIfCancellationRequested();
-                JpegSampleWriter.EmitMcuRow(frame, row, ref sink);
-            }
-        }
-
+        frame.EmitRow = 0;
         return true;
     }
-
 
     /// <summary>Chooses streaming or buffering at the first usable scan and rents the buffers.</summary>
     private bool AllocateStorage(long maxBytes)
@@ -296,4 +387,17 @@ internal sealed class JpegDecoder
         frame.StorageReady = true;
         return true;
     }
+}
+
+/// <summary>What a slice of a DCT decode ended with (#365).</summary>
+internal enum JpegDecodeResult
+{
+    /// <summary>The image is decoded.</summary>
+    Done,
+
+    /// <summary>Nothing could be decoded.</summary>
+    Failed,
+
+    /// <summary>The slice's deadline passed between two MCU rows; continue later.</summary>
+    Paused,
 }

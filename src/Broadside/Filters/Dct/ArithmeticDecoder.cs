@@ -76,6 +76,25 @@ internal ref struct ArithmeticDecoder
         Failed = false;
     }
 
+    /// <summary>Initializes a new instance of the <see cref="ArithmeticDecoder"/> struct where <see cref="Save"/> left a decoder.</summary>
+    /// <param name="data">The whole JPEG data, the same as the saved decoder's.</param>
+    /// <param name="state">The saved state.</param>
+    public ArithmeticDecoder(ReadOnlySpan<byte> data, in ArithmeticDecoderState state)
+    {
+        _data = data;
+        _position = state.Position;
+        _c = state.C;
+        _a = state.A;
+        _ct = state.Ct;
+        _atMarker = state.AtMarker;
+        Exhausted = state.Exhausted;
+        Failed = state.Failed;
+    }
+
+    /// <summary>Returns the decoder's state, from which <see cref="ArithmeticDecoder(ReadOnlySpan{byte}, in ArithmeticDecoderState)"/> resumes (#365).</summary>
+    /// <returns>The state.</returns>
+    public readonly ArithmeticDecoderState Save() => new(_position, _c, _a, _ct, _atMarker, Exhausted, Failed);
+
     /// <summary>Gets the position of the first byte not yet read: the marker that ended the segment, once it was reached.</summary>
     public readonly int Position => _position;
 
@@ -189,3 +208,13 @@ internal ref struct ArithmeticDecoder
         return 0;
     }
 }
+
+/// <summary>An <see cref="ArithmeticDecoder"/>'s state between two slices of a decode (#365).</summary>
+/// <param name="Position">The first byte not yet read.</param>
+/// <param name="C">The code register.</param>
+/// <param name="A">The interval register.</param>
+/// <param name="Ct">The bit counter.</param>
+/// <param name="AtMarker">Whether a marker or the end was reached.</param>
+/// <param name="Exhausted">Whether the data ended without a marker.</param>
+/// <param name="Failed">Whether the decoded values became impossible.</param>
+internal readonly record struct ArithmeticDecoderState(int Position, long C, int A, int Ct, bool AtMarker, bool Exhausted, bool Failed);

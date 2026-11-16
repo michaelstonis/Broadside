@@ -54,8 +54,8 @@ public sealed class ScrollFrameTests(BrowserHost host)
         var table = new StringBuilder();
         table.AppendLine(CultureInfo.InvariantCulture, $"## {label}: rAF intervals while scrolling (ms)");
         table.AppendLine();
-        table.AppendLine("| Device | Document | Worker | Frames while scrolling | Mean | p95 | Max | Over 17 ms | Settling 1.5 s after: max, over 17 ms | Loading (first tile + 4 s): max, over 50 ms | Worker boot (ms) | First tile (ms) | Page wasm+JS / worker wasm (MiB) |");
-        table.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+        table.AppendLine("| Device | Document | Worker | Frames while scrolling | Mean | p95 | Max | Over 17 ms | Settling 1.5 s after: max, over 17 ms | Loading (first tile + 4 s): max, over 50 ms | Rendering the first view: max frame, over 50 ms | Viewer's own work while rendering: max frame | Worker boot (ms) | First tile (ms) | First view presented (ms) | Page wasm+JS / worker wasm (MiB) |");
+        table.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
         // BROADSIDE_FRAME_BENCH_DOCUMENTS replaces the documents: paths separated by ';', absolute or under the corpus directory,
         // shown at the fitted zoom (issue #362 measures the catalogue-class page this way).
         (string File, int ZoomSteps)[] documents = Environment.GetEnvironmentVariable("BROADSIDE_FRAME_BENCH_DOCUMENTS") is { Length: > 0 } list
@@ -78,7 +78,7 @@ public sealed class ScrollFrameTests(BrowserHost host)
                     Run run = await MeasureAsync(served, zoomSteps, useWorker, width, height, scale, mobile, throttle);
                     double[] frames = [.. run.Frames.Order()];
                     double p95 = frames.Length == 0 ? 0 : frames[Math.Max(0, (int)Math.Ceiling(frames.Length * 0.95) - 1)];
-                    table.AppendLine(CultureInfo.InvariantCulture, $"| {device} | {Path.GetFileName(file)} | {run.Worker} | {frames.Length} | {frames.DefaultIfEmpty().Average():0.0} | {p95:0.0} | {(frames.Length == 0 ? 0 : frames[^1]):0} | {frames.Count(f => f > 17)} | {run.Tail.DefaultIfEmpty().Max():0}, {run.Tail.Count(f => f > 17)} | {run.Load.DefaultIfEmpty().Max():0}, {run.Load.Count(f => f > 50)} | {(run.BootMs < 0 ? "-" : run.BootMs.ToString("0", CultureInfo.InvariantCulture))} | {run.FirstTileMs:0} | {Mib(run.PageBytes)} / {Mib(run.WorkerBytes)} |");
+                    table.AppendLine(CultureInfo.InvariantCulture, $"| {device} | {Path.GetFileName(file)} | {run.Worker} | {frames.Length} | {frames.DefaultIfEmpty().Average():0.0} | {p95:0.0} | {(frames.Length == 0 ? 0 : frames[^1]):0} | {frames.Count(f => f > 17)} | {run.Tail.DefaultIfEmpty().Max():0}, {run.Tail.Count(f => f > 17)} | {run.Load.DefaultIfEmpty().Max():0}, {run.Load.Count(f => f > 50)} | {run.Render.DefaultIfEmpty().Max():0}, {run.Render.Count(f => f > 50)} | {run.ViewerMaxMs:0} | {(run.BootMs < 0 ? "-" : run.BootMs.ToString("0", CultureInfo.InvariantCulture))} | {run.FirstTileMs:0} | {(run.PresentedMs < 0 ? "-" : run.PresentedMs.ToString("0", CultureInfo.InvariantCulture))} | {Mib(run.PageBytes)} / {Mib(run.WorkerBytes)} |");
                 }
             }
         }
@@ -93,21 +93,43 @@ public sealed class ScrollFrameTests(BrowserHost host)
 
     private async Task<Run> MeasureAsync(string document, int zoomSteps, bool useWorker, int width, int height, float scale, bool mobile, int throttle)
     {
-        await using IBrowserContext context = await host.Browser.NewContextAsync(new BrowserNewContextOptions
+        // BROADSIDE_FRAME_BENCH_BROWSER=webkit measures in WebKit (issue #365: there the page decodes JPEG with the managed codec);
+        // WebKit has no CPU throttling, so its "phone" runs at the machine's speed.
+        string browserName = Environment.GetEnvironmentVariable("BROADSIDE_FRAME_BENCH_BROWSER") ?? "chromium";
+        IBrowser browser = browserName == "chromium" ? host.Browser : await host.GetBrowserAsync(browserName);
+        await using IBrowserContext context = await browser.NewContextAsync(new BrowserNewContextOptions
         {
             ViewportSize = new ViewportSize { Width = width, Height = height },
             DeviceScaleFactor = scale,
-            IsMobile = mobile,
-            HasTouch = mobile,
+            IsMobile = mobile && browserName == "chromium", // WebKit cannot scroll a mobile page with the wheel
+            HasTouch = mobile && browserName == "chromium",
         });
         IPage page = await context.NewPageAsync();
-        ICDPSession cdp = await context.NewCDPSessionAsync(page);
-        await cdp.SendAsync("Emulation.setCPUThrottlingRate", new Dictionary<string, object> { ["rate"] = throttle });
+        if (browserName == "chromium")
+        {
+            ICDPSession cdp = await context.NewCDPSessionAsync(page);
+            await cdp.SendAsync("Emulation.setCPUThrottlingRate", new Dictionary<string, object> { ["rate"] = throttle });
+        }
         await page.AddInitScriptAsync("""
             globalThis.__loadFrames = [];
+            globalThis.__renderFrames = [];
             globalThis.__loadRecording = true;
+            globalThis.__viewerStart = -1;
+            globalThis.__lastTile = -1;
+            let __tiles = 0;
             let __last = performance.now();
-            const __tick = (now) => { globalThis.__loadFrames.push(now - __last); __last = now; if (globalThis.__loadRecording) requestAnimationFrame(__tick); };
+            const __tick = (now) => {
+              const delta = now - __last;
+              globalThis.__loadFrames.push(delta);
+              __last = now;
+              // Issue #365: the frames from the viewer's first frame on, and when the last tile of the first view arrived.
+              const d = document.querySelector('.bs-viewer')?.dataset;
+              if (globalThis.__viewerStart < 0 && d && Number(d.frames) > 0) globalThis.__viewerStart = now;
+              if (globalThis.__viewerStart >= 0) globalThis.__renderFrames.push([now, delta]);
+              const tiles = d ? Number(d.tilesPresented) : 0;
+              if (tiles !== __tiles) { __tiles = tiles; globalThis.__lastTile = now; }
+              if (globalThis.__loadRecording) requestAnimationFrame(__tick);
+            };
             requestAnimationFrame(__tick);
             """);
         await page.GotoAsync(new Uri(host.AppAddress, $"?file=../files/{Uri.EscapeDataString(document)}{(useWorker ? "" : "&worker=0")}").ToString());
@@ -117,6 +139,20 @@ public sealed class ScrollFrameTests(BrowserHost host)
         await page.WaitForTimeoutAsync(4000);
 
         // The frames while the page loads and its tiles render (issue #362: decoding a large image blocks frames there).
+        // The first view presented (issue #365): no tile arrived for 3 s; the time is the last tile's, up to 3 minutes.
+        try
+        {
+            await page.WaitForFunctionAsync("() => globalThis.__lastTile > 0 && performance.now() - globalThis.__lastTile > 3000", null, new PageWaitForFunctionOptions { Timeout = 180_000, PollingInterval = 100 });
+        }
+        catch (TimeoutException)
+        {
+        }
+
+        double presented = await page.EvaluateAsync<double>("() => globalThis.__lastTile");
+
+        // The longest frame of the viewer's own work (its tile scheduler and drawing) so far, beside the page's rAF intervals.
+        double viewerMax = await page.EvaluateAsync<double>("() => Number(document.querySelector('.bs-viewer')?.dataset.maxFrameMs ?? -1)");
+        double[] render = await page.EvaluateAsync<double[]>("() => (globalThis.__renderFrames ?? []).filter(f => f[0] <= globalThis.__lastTile).map(f => f[1])");
         double[] load = await page.EvaluateAsync<double[]>("() => { const f = globalThis.__loadFrames ?? []; globalThis.__loadRecording = false; return f; }");
         ILocator viewer = page.Locator(".bs-viewer");
         LocatorBoundingBoxResult box = (await viewer.BoundingBoxAsync())!;
@@ -154,7 +190,7 @@ public sealed class ScrollFrameTests(BrowserHost host)
             workerBytes = Math.Max(workerBytes, await w.EvaluateAsync<double>(WorkerMemory));
         }
 
-        return new Run(frames, tail, worker, boot, firstTile, pageBytes, workerBytes, load);
+        return new Run(frames, tail, worker, boot, firstTile, pageBytes, workerBytes, load, render, presented, viewerMax);
     }
 
     private static string FindRoot()
@@ -168,5 +204,5 @@ public sealed class ScrollFrameTests(BrowserHost host)
         return directory?.FullName ?? AppContext.BaseDirectory;
     }
 
-    private sealed record Run(double[] Frames, double[] Tail, string Worker, double BootMs, double FirstTileMs, double PageBytes, double WorkerBytes, double[] Load);
+    private sealed record Run(double[] Frames, double[] Tail, string Worker, double BootMs, double FirstTileMs, double PageBytes, double WorkerBytes, double[] Load, double[] Render, double PresentedMs, double ViewerMaxMs);
 }

@@ -30,6 +30,9 @@ namespace Broadside.Viewer;
 /// </remarks>
 public sealed class DocumentSession : IDisposable, IAsyncDisposable
 {
+    /// <summary>The most paused list builds a cooperative session keeps (issue #365).</summary>
+    private const int MaxSlicedBuilds = 4;
+
     private readonly bool _remote;
     private readonly bool _cooperative;
     private readonly TimeSpan _sliceBudget;
@@ -46,6 +49,8 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     private readonly Stack<ITileBackend> _idleBackends = new();
     private readonly PageMetrics?[] _metrics;
     private readonly Dictionary<(int Page, DisplayLayers Layers), PendingBuild> _builds = [];
+    private readonly Dictionary<(int Page, DisplayLayers Layers), DisplayListBuild> _slicedBuilds = [];
+    private readonly Queue<(int Page, DisplayLayers Layers)> _slicedOrder = new();
     private readonly DocumentGate? _reads;
     private int _pending;
     private bool _closed;
@@ -468,6 +473,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     /// </remarks>
     public IDisposable BeginEdit()
     {
+        DropSlicedBuilds(-1); // a paused list build must not continue over an edit (issue #365)
         if (_reads is not { } reads)
         {
             return EditScope.None;
@@ -695,6 +701,96 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     internal DisplayList CreateDisplayList(PdfPage page, DisplayLayers layers, CancellationToken token) =>
         page.CreateDisplayList(layers, _intent, ListOptions(token));
 
+    /// <summary>
+    /// Continues the build of a page's list on the calling thread for about <paramref name="budget"/> (issue #365: the tile scheduler's
+    /// cooperative path): the list once it is built, or <see langword="null"/> when the slice ended first. The build is the session's,
+    /// shared by every tile of the page, so a tile cancelled between two slices leaves it for the next.
+    /// </summary>
+    internal DisplayList? ContinueDisplayList(int pageIndex, PdfPage page, DisplayLayers layers, TimeSpan budget, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        (int, DisplayLayers) key = (pageIndex, layers);
+        DisplayListBuild? build;
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_closed, this);
+            if (!_slicedBuilds.TryGetValue(key, out build))
+            {
+                build = page.BeginDisplayList(layers, _intent, new ContentOptions().WithCancellation(_closing.Token));
+                if (!build.IsCompleted)
+                {
+                    while (_slicedBuilds.Count >= MaxSlicedBuilds && _slicedOrder.Count > 0)
+                    {
+                        // The oldest paused build is dropped (its page has most likely scrolled away).
+                        (int, DisplayLayers) oldest = _slicedOrder.Dequeue();
+                        if (_slicedBuilds.Remove(oldest, out DisplayListBuild? dropped))
+                        {
+                            dropped.Dispose();
+                        }
+                    }
+
+                    _slicedBuilds.Add(key, build);
+                    _slicedOrder.Enqueue(key);
+                }
+            }
+        }
+
+        bool done;
+        try
+        {
+            done = build.Continue(budget);
+        }
+        catch
+        {
+            ForgetSlicedBuild(key, build);
+            throw;
+        }
+
+        if (!done)
+        {
+            return null;
+        }
+
+        ForgetSlicedBuild(key, build);
+        return build.Result;
+    }
+
+    /// <summary>Drops the paused list builds of a page (all pages when <paramref name="pageIndex"/> is negative): after an edit.</summary>
+    internal void DropSlicedBuilds(int pageIndex)
+    {
+        List<DisplayListBuild>? dropped = null;
+        lock (_gate)
+        {
+            foreach ((int Page, DisplayLayers Layers) key in _slicedBuilds.Keys.ToArray())
+            {
+                if (pageIndex < 0 || key.Page == pageIndex)
+                {
+                    _slicedBuilds.Remove(key, out DisplayListBuild? build);
+                    (dropped ??= []).Add(build!);
+                }
+            }
+        }
+
+        if (dropped is not null)
+        {
+            foreach (DisplayListBuild build in dropped)
+            {
+                build.Dispose();
+            }
+        }
+    }
+
+    private void ForgetSlicedBuild((int, DisplayLayers) key, DisplayListBuild build)
+    {
+        lock (_gate)
+        {
+            if (_slicedBuilds.TryGetValue(key, out DisplayListBuild? current) && current == build)
+            {
+                _slicedBuilds.Remove(key);
+            }
+        }
+    }
+
     /// <summary>The device transform that draws <paramref name="tile"/>'s region of <paramref name="page"/> at the bitmap's origin.</summary>
     internal static Matrix GetTileTransform(PdfPage page, in Tile tile) =>
         new RenderOptions().WithScale(tile.Scale).WithRotation(tile.Rotation).GetDeviceTransform(page)
@@ -799,9 +895,17 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
             {
                 if (_cooperative)
                 {
+                    // Issue #365: in slices of the slice budget, with a yield before the build and between its slices.
                     await _yield(token).ConfigureAwait(false);
                     token.ThrowIfCancellationRequested();
-                    return page.CreateDisplayList(layers, _intent, options);
+                    using DisplayListBuild build = page.BeginDisplayList(layers, _intent, options);
+                    while (!build.Continue(_sliceBudget == Timeout.InfiniteTimeSpan ? Timeout.InfiniteTimeSpan : _sliceBudget))
+                    {
+                        await _yield(token).ConfigureAwait(false);
+                        token.ThrowIfCancellationRequested();
+                    }
+
+                    return build.Result;
                 }
 
                 // A read: an edit stops the build and it starts again after the edit.
@@ -932,6 +1036,8 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
             backends = [.. _idleBackends];
             _idleBackends.Clear();
         }
+
+        DropSlicedBuilds(-1);
 
         foreach (ITileBackend idle in backends)
         {
