@@ -116,7 +116,8 @@ public sealed partial class SampleAutomationTests
         // The sample's options: the bundled Standard 14 fonts and predefined CMaps, the system's fonts for the rest.
         var options = new ViewerOptions().WithDocumentOptions(new PdfOptions().UseStandard14Fonts().UsePredefinedCMaps()).WithThreading(ViewerThreading.Cooperative);
         await using DocumentSession session = DocumentSession.Open(path, options);
-        var bridge = new AccessibilityBridge(session);
+        // Built the way the control builds its bridge (over an annotation layer), so form fields are nodes here as they are in the app.
+        var bridge = new AccessibilityBridge(session, new AnnotationLayer(session));
         AccessibleNode page = await bridge.LoadPageAsync(0, TestContext.Current.CancellationToken);
         return (session.PageCount, ReadingOrder.TextOf(page));
     }
