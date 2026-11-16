@@ -85,6 +85,15 @@ internal sealed class Shell : IViewerHost, IDisposable
         return shell;
     }
 
+    /// <summary>Shows a session the test opened, owned by the test when <paramref name="ownsSession"/> is false (as the sample's are).</summary>
+    public static async Task<Shell> OpenAsync(DocumentSession session, bool ownsSession, double width = 400, double height = 600, double ratio = 2)
+    {
+        var shell = new Shell(width, height, ratio);
+        await shell.Controller.OpenAsync(_ => Task.FromResult(session), ownsSession, null);
+        await shell.SettleAsync();
+        return shell;
+    }
+
     /// <summary>
     /// Runs frames (16 ms apart on the test clock) until the controller needs no more and no page load is pending. Page loads run
     /// through the session's own tasks, so a slow runner gets real time for them: the limit is wall-clock time, not a frame count.

@@ -1006,8 +1006,18 @@ internal sealed class ViewerController : IDisposable
         {
             CancellationToken token = _closing.Token;
             await annotations.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            if (generation != _generation)
+            {
+                return;
+            }
+
             Wake();
             await selection.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            if (generation != _generation)
+            {
+                return;
+            }
+
             await bridge.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
             if (generation == _generation)
             {
