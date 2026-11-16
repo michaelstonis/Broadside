@@ -46,17 +46,19 @@ public sealed class SampleTests
         app.WaitForState(s => s.Zoom >= zoom * 1.2, "zoom in");
         int zoomed = app.ReadStatus().Zoom;
         Mouse.MoveTo(new Point(viewer.X + (viewer.Width / 2), viewer.Y + (viewer.Height / 2)));
+        // Ctrl stays down until the zoom shows: WinUI handles injected key events before an injected wheel event sent with them, so a
+        // release sent right after the wheel would arrive first and the wheel would scroll.
         Keyboard.Press(VirtualKeyShort.CONTROL);
         try
         {
             Mouse.Scroll(2);
+            app.WaitForState(s => s.Zoom > zoomed, "ctrl+wheel zoom");
         }
         finally
         {
             Keyboard.Release(VirtualKeyShort.CONTROL);
         }
 
-        app.WaitForState(s => s.Zoom > zoomed, "ctrl+wheel zoom");
         app.Click("FitWidth");
         app.WaitForState(s => Math.Abs(s.Zoom - zoom) <= 1 && s.Activity == "Ready", "fit width");
 
