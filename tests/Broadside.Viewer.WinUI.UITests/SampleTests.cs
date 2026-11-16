@@ -88,7 +88,7 @@ public sealed class SampleTests
         app.Click("FindNext");
 
         // Dark mode draws the pages again without an error.
-        app.Click("DarkMode");
+        app.Toggle("DarkMode");
         app.WaitForState(s => s.Activity == "Ready", "dark mode drawn");
     }
 
