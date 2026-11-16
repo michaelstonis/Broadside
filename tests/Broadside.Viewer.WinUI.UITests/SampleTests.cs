@@ -67,7 +67,7 @@ public sealed class SampleTests
         Rectangle line = text.BoundingRectangle;
         Assert.False(line.IsEmpty, "the first text node has no bounds");
         int y = line.Y + (line.Height / 2);
-        Mouse.Drag(new Point(line.X + 2, y), new Point(line.Right - 2, y));
+        DragSlowly(new Point(line.X + 2, y), new Point(line.Right - 2, y));
         app.Click("Copy");
         app.WaitForText("Copied", s => s.StartsWith("Copied ", StringComparison.Ordinal) && !s.StartsWith("Copied 0 ", StringComparison.Ordinal), "the dragged selection copied");
         app.Viewer.Focus();
@@ -141,5 +141,25 @@ public sealed class SampleTests
             .Where(n => n.Length > 0)];
 
         static IEnumerable<AccessibleNode> Flatten(AccessibleNode node) => node.Children.SelectMany(child => (IEnumerable<AccessibleNode>)[child, .. Flatten(child)]);
+    }
+
+    // A drag the way a hand makes one: press, a few moves, release, with pauses between. Injected input sent all at once can reach
+    // WinUI out of order (as Ctrl+wheel showed), so a one-shot drag may arrive as a click.
+    private static void DragSlowly(Point from, Point to)
+    {
+        Mouse.MoveTo(from);
+        Thread.Sleep(100);
+        Mouse.Down(MouseButton.Left);
+        Thread.Sleep(100);
+        const int steps = 12;
+        for (int step = 1; step <= steps; step++)
+        {
+            Mouse.MoveTo(new Point(from.X + ((to.X - from.X) * step / steps), from.Y + ((to.Y - from.Y) * step / steps)));
+            Thread.Sleep(30);
+        }
+
+        Thread.Sleep(100);
+        Mouse.Up(MouseButton.Left);
+        Thread.Sleep(100);
     }
 }
