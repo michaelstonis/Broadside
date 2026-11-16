@@ -408,6 +408,36 @@ public sealed class ViewerControllerTests
         return count;
     }
 
+    [Fact]
+    public void A_document_opened_while_a_late_page_of_the_previous_one_loads_never_sees_that_page_index() => UiThread.Run(async () =>
+    {
+        // #358: the outline moved a long novel to page 202; opening the 8-page textbook while a late page's text, links and
+        // accessibility nodes still loaded handed that page's index to the textbook's layers ("pageIndex (201) must be less than 8").
+        // The sample's sessions belong to it: the novel's stays open until the view has moved to the textbook.
+        await using DocumentSession novel = DocumentSession.Open(ManyPagesDocument.Create(250), Shell.Options());
+        using Shell shell = await Shell.OpenAsync(novel, ownsSession: false);
+        shell.Controller.GoToPage(201);
+
+        // Frames until the scroll reaches page 202 and its pages start loading (a busy frame leaves the loads to the next one).
+        for (int i = 0; i < 200 && !(shell.Controller.State.PageIndex == 201 && shell.Controller.IsLoadingPages); i++)
+        {
+            shell.Clock.Advance(TimeSpan.FromMilliseconds(16));
+            shell.Controller.Frame();
+        }
+
+        Assert.True(shell.Controller.State.PageIndex == 201 && shell.Controller.IsLoadingPages);
+
+#pragma warning disable CA2000 // the controller owns the session (ownsSession: true) and disposes it
+        DocumentSession next = DocumentSession.Open(Shell.SampleDocument("textbook.pdf"), Shell.Options());
+#pragma warning restore CA2000
+        await shell.Controller.OpenAsync(_ => Task.FromResult(next), ownsSession: true, null);
+        await shell.SettleAsync();
+
+        Assert.Empty(shell.Errors);
+        Assert.Equal(new PdfViewState(0, 8, shell.Controller.State.Zoom, false, false), shell.Controller.State);
+        Assert.All(shell.Controller.AccessiblePages, page => Assert.InRange(page, 0, 7));
+    });
+
     private static AnnotationTarget FindField<T>(AnnotationLayer layer)
         where T : PdfTerminalField
     {

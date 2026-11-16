@@ -905,14 +905,29 @@ internal sealed class ViewerController : IDisposable
 
     private async Task LoadPageAsync(int pageIndex, int generation)
     {
+        // The open document's layers, held here: a document opened while this page loads replaces the fields, and the page index
+        // belongs to this document, never to the next one (#358: a late page of a novel reached an 8-page textbook's layers).
+        AnnotationLayer annotations = _annotations!;
+        TextSelection selection = _selection!;
+        AccessibilityBridge bridge = _bridge!;
         _pendingLoads++;
         try
         {
             CancellationToken token = _closing.Token;
-            await _annotations!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            await annotations.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            if (generation != _generation)
+            {
+                return;
+            }
+
             Wake();
-            await _selection!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
-            await _bridge!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            await selection.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            if (generation != _generation)
+            {
+                return;
+            }
+
+            await bridge.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
             if (generation == _generation)
             {
                 RefreshAccessiblePages();
@@ -925,7 +940,11 @@ internal sealed class ViewerController : IDisposable
         catch (Exception exception)
 #pragma warning restore CA1031
         {
-            _host.Error(exception);
+            // A closed document's failure is no longer the host's concern.
+            if (generation == _generation)
+            {
+                _host.Error(exception);
+            }
         }
         finally
         {

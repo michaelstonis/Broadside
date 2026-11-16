@@ -988,18 +988,33 @@ internal sealed class ViewerController : IAsyncDisposable
 
     private async Task LoadPageAsync(int pageIndex, int generation)
     {
+        // The open document's layers, held here: a document opened while this page loads replaces the fields, and the page index
+        // belongs to this document, never to the next one (#358: a late page of a novel reached an 8-page textbook's layers).
+        AnnotationLayer annotations = _annotations!;
+        TextSelection selection = _selection!;
+        AccessibilityBridge bridge = _bridge!;
         try
         {
             CancellationToken token = _closing.Token;
             // Links and fields first: they are cheap and make the page interactive; text selection extracts the page's layout (#350).
-            await _annotations!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            await annotations.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
 
             // Text selection builds the page's display list and accessibility extracts its layout on this thread, each one long task:
             // with a render worker they wait until the view is still, so a scroll that starts meanwhile is not held up (#357).
             await SettledAsync(token).ConfigureAwait(true);
-            await _selection!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            if (generation != _generation)
+            {
+                return;
+            }
+
+            await selection.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
             await SettledAsync(token).ConfigureAwait(true);
-            await _bridge!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            if (generation != _generation)
+            {
+                return;
+            }
+
+            await bridge.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
             if (generation == _generation)
             {
                 RefreshAccessiblePages();
@@ -1012,7 +1027,11 @@ internal sealed class ViewerController : IAsyncDisposable
         catch (Exception exception)
 #pragma warning restore CA1031
         {
-            _owner.ReportError(exception);
+            // A closed document's failure is no longer the host's concern.
+            if (generation == _generation)
+            {
+                _owner.ReportError(exception);
+            }
         }
 
         Wake();
