@@ -1470,8 +1470,9 @@ public sealed partial class PdfDocument : IDisposable
     /// refuse it, on the document as it is: what the document's edits leave broken (<see cref="ReportBeforeSave"/>), what the writer
     /// cannot write (encryption it refuses, in strict mode a deviation found loading the objects to write), a version later than the
     /// document's in strict mode, deprecated encryption, the rules of a PDF/A conformance level (#201). Then what a save changes in
-    /// the document: grown font subsets completed (#285), the modification dated (#162), the PDF/A output intent and identification
-    /// (#201), the catalog's extensions and version (#141), and the file planned again when any of them changed something.
+    /// the document: a page tree for recovered pages written (#258), grown font subsets completed (#285), the modification dated
+    /// (#162), the PDF/A output intent and identification (#201), the catalog's extensions and version (#141), and the file planned
+    /// again when any of them changed something.
     /// </summary>
     /// <param name="options">The save's options.</param>
     /// <param name="changes">
@@ -1520,7 +1521,10 @@ public sealed partial class PdfDocument : IDisposable
     /// </summary>
     private FileWriter ApplySaveChanges(PdfSaveOptions options, VersionedSave planned, bool archival, AccessibleSave accessible)
     {
-        bool changed = CompleteFontSubsets();
+        // Issue #258: pages recovered from the page objects of a file without a usable page tree are written under a page tree,
+        // so the saved file has the pages the document reads.
+        bool changed = Pages.WriteRecoveredPageTree();
+        changed |= CompleteFontSubsets();
         changed |= DateModification(options);
 
         // Issues #291 and #301: the metadata takes the layout and date form of the version the save writes, read before the

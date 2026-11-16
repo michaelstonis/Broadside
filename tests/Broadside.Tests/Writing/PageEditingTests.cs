@@ -425,6 +425,55 @@ public sealed class PageEditingTests
             string.Join('|', document.Pages.Select(page => string.Join(' ', page.Annotations.Select(annotation => annotation.Contents))));
     }
 
+    [Theory]
+    [MemberData(nameof(Saves))]
+    public void Pages_recovered_from_a_catalog_without_pages_are_saved_under_a_page_tree(bool incremental)
+    {
+        using PdfDocument source = PdfDocument.Open(new TestPdf().Build(
+            "<< /Type /Catalog >>",
+            "<< /Type /Pages /Kids [4 0 R 3 0 R] /Count 2 /MediaBox [0 0 100 100] >>",
+            "<< /Type /Page /Parent 2 0 R /Resources << >> /UserUnit 2 >>",
+            "<< /Type /Page /Parent 2 0 R /Resources << >> /UserUnit 1 >>",
+            "<< /Type /Page /Parent 6 0 R /Resources << >> /UserUnit 3 >>",
+            "<< /Type /Pages /Parent 7 0 R /Count 0 /MediaBox [0 0 50 50] >>",
+            "<< /Type /Pages /Kids [6 0 R] /Count 0 >>"));
+        Assert.Equal(3, source.Pages.Count);
+
+        byte[] file = Save(source, incremental);
+
+        // Issue #258: the saved file holds the pages the document read, in the same order, each with what it inherited.
+        using PdfDocument saved = PdfDocument.Open(file);
+        Assert.Equal([1.0, 2.0, 3.0], saved.Pages.Select(static page => page.UserUnit));
+        Assert.Equal(
+            [new PdfRectangle(0, 0, 100, 100), new PdfRectangle(0, 0, 100, 100), new PdfRectangle(0, 0, 50, 50)],
+            saved.Pages.Select(static page => page.MediaBox));
+        Assert.DoesNotContain(saved.Diagnostics, static diagnostic => diagnostic.Code is "PagesMissing" or "PageTreeCountMismatch");
+        AssertQpdfCheck(file);
+    }
+
+    [Theory]
+    [MemberData(nameof(Saves))]
+    public void An_encrypted_file_whose_catalog_lost_its_pages_entry_saves_the_page_it_reads(bool incremental)
+    {
+        // The catalog of encrypted-rc4-length-missing.pdf with its Pages entry blanked, offsets unchanged: the fuzz finding's shape.
+        byte[] damaged = Corpus.Bytes("encrypted-rc4-length-missing.pdf");
+        int entry = System.Text.Encoding.Latin1.GetString(damaged).IndexOf("/Pages 2 0 R", StringComparison.Ordinal);
+        Assert.True(entry > 0);
+        damaged.AsSpan(entry, "/Pages 2 0 R".Length).Fill((byte)' ');
+
+        using PdfDocument source = PdfDocument.Open(damaged);
+        Assert.Equal(new PdfRectangle(0, 0, 612, 792), Assert.Single(source.Pages).MediaBox);
+        Assert.Contains(source.Diagnostics, static diagnostic => diagnostic is { Code: "PagesMissing", Severity: DiagnosticSeverity.Warning });
+
+        byte[] file = Save(source, incremental);
+
+        using PdfDocument saved = PdfDocument.Open(file);
+        PdfPage page = Assert.Single(saved.Pages);
+        Assert.Equal(new PdfRectangle(0, 0, 612, 792), page.MediaBox);
+        Assert.NotNull(page.Resources);
+        Assert.DoesNotContain(saved.Diagnostics, static diagnostic => diagnostic.Code == "PagesMissing");
+    }
+
     /// <summary>Saves the document; <c>dated: false</c> leaves the modification date alone so an update writes only the edit.</summary>
     private static byte[] Save(PdfDocument document, bool incremental, bool dated = true)
     {
