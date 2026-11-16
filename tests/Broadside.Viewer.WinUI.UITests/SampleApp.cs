@@ -20,6 +20,7 @@ internal sealed partial class SampleApp : IDisposable
     private readonly StringBuilder _output = new();
     private readonly Stopwatch _sinceStart = Stopwatch.StartNew();
     private readonly string _exe;
+    private readonly int _processId;
     private bool _closing;
 
     private SampleApp(string document)
@@ -35,6 +36,7 @@ internal sealed partial class SampleApp : IDisposable
         };
         start.ArgumentList.Add(document);
         _process = Process.Start(start) ?? throw new InvalidOperationException($"Could not start {_exe}.");
+        _processId = _process.Id;
         _process.OutputDataReceived += (_, e) => Capture("stdout", e.Data);
         _process.ErrorDataReceived += (_, e) => Capture("stderr", e.Data);
         _process.BeginOutputReadLine();
@@ -168,18 +170,27 @@ internal sealed partial class SampleApp : IDisposable
 
     public void Dispose()
     {
-        // An app that went away during the test (rather than being closed here) says why in the test's output.
-        if (_process.HasExited)
+        // Cleanup never throws: an exception here would replace the test's own failure in the report.
+        bool exited = Exited();
+        if (exited && !_closing)
         {
+            // An app that went away during the test (rather than being closed here) says why in the test's output.
             TestContext.Current.TestOutputHelper?.WriteLine("The sample exited during the test." + Environment.NewLine + Diagnostics());
         }
 
         try
         {
             _closing = true;
-            if (!_process.HasExited)
+            if (!exited)
             {
-                _app.Close();
+                try
+                {
+                    _app.Close();
+                }
+                catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception or System.Runtime.InteropServices.COMException)
+                {
+                    // The window or the process went away first; Stop ends what is left.
+                }
             }
 
             Stop();
@@ -189,6 +200,27 @@ internal sealed partial class SampleApp : IDisposable
             _app.Dispose();
             _process.Dispose();
             Automation.Dispose();
+        }
+    }
+
+    // Process.HasExited throws once the Process object no longer tracks the process (FlaUI shares it); ask by id then.
+    private bool Exited()
+    {
+        try
+        {
+            return _process.HasExited;
+        }
+        catch (InvalidOperationException)
+        {
+            try
+            {
+                using Process current = Process.GetProcessById(_processId);
+                return current.HasExited;
+            }
+            catch (Exception e) when (e is ArgumentException or InvalidOperationException)
+            {
+                return true;
+            }
         }
     }
 
@@ -208,18 +240,23 @@ internal sealed partial class SampleApp : IDisposable
     private void Stop()
     {
         _closing = true;
+        if (Exited())
+        {
+            return;
+        }
+
         try
         {
-            if (!_process.HasExited && !_process.WaitForExit(TimeSpan.FromSeconds(5)))
+            using Process current = Process.GetProcessById(_processId);
+            if (!current.WaitForExit(TimeSpan.FromSeconds(5)))
             {
-                _process.Kill(entireProcessTree: true);
+                current.Kill(entireProcessTree: true);
+                current.WaitForExit(TimeSpan.FromSeconds(5));
             }
-
-            _process.WaitForExit(TimeSpan.FromSeconds(5));
         }
-        catch (InvalidOperationException)
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
         {
-            // Never started or already gone.
+            // Already gone.
         }
     }
 
@@ -231,12 +268,19 @@ internal sealed partial class SampleApp : IDisposable
     private string Diagnostics()
     {
         var report = new StringBuilder();
-        report.AppendLine(CultureInfo.InvariantCulture, $"--- sample: {_exe} (pid {_process.Id}), {_sinceStart.Elapsed.TotalSeconds:0.0} s since launch");
-        if (_process.HasExited)
+        report.AppendLine(CultureInfo.InvariantCulture, $"--- sample: {_exe} (pid {_processId}), {_sinceStart.Elapsed.TotalSeconds:0.0} s since launch");
+        if (Exited())
         {
-            _process.WaitForExit(); // Drains the redirected output.
-            int code = _process.ExitCode;
-            report.AppendLine(CultureInfo.InvariantCulture, $"--- exit code: {code} (0x{code:X8}){(_closing ? ", after the test closed it" : string.Empty)}");
+            try
+            {
+                _process.WaitForExit(); // Drains the redirected output.
+                int code = _process.ExitCode;
+                report.AppendLine(CultureInfo.InvariantCulture, $"--- exit code: {code} (0x{code:X8}){(_closing ? ", after the test closed it" : string.Empty)}");
+            }
+            catch (InvalidOperationException)
+            {
+                report.AppendLine("--- exited (exit code unavailable)");
+            }
         }
         else
         {
