@@ -109,7 +109,7 @@ internal static class PageTreeReader
         {
             if (walk.IsUnvisited(dictionary, reference) && added.Add(dictionary))
             {
-                var page = new PdfPage(document, dictionary, reference, AncestorsOf(document, dictionary));
+                var page = new PdfPage(document, dictionary, reference, AncestorsOf(document, dictionary, reference, diagnostics));
                 CheckPage(page, diagnostics);
                 pages.Add(page);
             }
@@ -124,8 +124,12 @@ internal static class PageTreeReader
         return pages;
     }
 
-    /// <summary>The chain of dictionaries a page object's <c>Parent</c> entries lead to, nearest first, for inheritance (§7.7.3.4).</summary>
-    private static PageTreeAncestor? AncestorsOf(PdfDocument document, CosDictionary page)
+    /// <summary>
+    /// The chain of dictionaries a page object's <c>Parent</c> entries lead to, nearest first, for inheritance (§7.7.3.4). The chain
+    /// stops before a page object: a page is a leaf of the tree (§7.7.3.3), never a node another page inherits from or is listed
+    /// under. The stop is reported as <c>PageTreeParentMismatch</c>.
+    /// </summary>
+    private static PageTreeAncestor? AncestorsOf(PdfDocument document, CosDictionary page, CosReference reference, DiagnosticSink diagnostics)
     {
         var chain = new List<(CosDictionary Node, CosReference? Reference)>();
         var seen = new HashSet<CosDictionary>(ReferenceEqualityComparer.Instance) { page };
@@ -135,6 +139,16 @@ internal static class PageTreeReader
             && document.Resolve(parent) is CosDictionary node
             && seen.Add(node))
         {
+            if (node.TryGetValue(KnownNames.Type, out CosObject? type) && KnownNames.Page.Equals(type))
+            {
+                diagnostics.Report(
+                    PageDiagnostics.PageTreeParentMismatch,
+                    DiagnosticSeverity.Warning,
+                    "A Parent entry on the page's chain refers to a page object, not a page tree node; the page inherits nothing from it or past it.",
+                    objectReference: reference);
+                break;
+            }
+
             chain.Add((node, parent as CosReference));
             current = node;
         }

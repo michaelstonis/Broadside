@@ -490,10 +490,20 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
         return true;
     }
 
-    /// <summary>Rebuilds the page tree around <paramref name="pages"/> and makes them the list.</summary>
+    /// <summary>
+    /// Rebuilds the page tree around <paramref name="pages"/> and makes them the list. The first rebuild of pages recovered without
+    /// a usable catalog <c>Pages</c> entry (issue #258) reuses none of the nodes they were found under, and removes none: those are
+    /// objects of the file no tree of the catalog holds, which a damaged file can make anything (the catalog itself, a page).
+    /// </summary>
     private void Commit(IReadOnlyList<PdfPage> previous, List<PdfPage> pages)
     {
-        _nodes = PageTreeEditor.Rebuild(_document, previous, pages, _nodes);
+        IReadOnlyList<CosReference>? nodes = _nodes;
+        if (nodes is null && _document.Resolve(_document.Catalog.GetValueOrDefault(KnownNames.Pages)) is not CosDictionary)
+        {
+            nodes = [];
+        }
+
+        _nodes = PageTreeEditor.Rebuild(_document, previous, pages, nodes);
         _edited = new PageList(pages.ToArray());
     }
 
