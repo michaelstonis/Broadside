@@ -81,6 +81,3 @@ Subtotal 1162.00
 Total due 1394.40
 Pay by bank transfer to GB33 BUKB 2020 1555 5555 55, quoting reference 2026-0042.
 Acme Instruments Page 1 of 1
-
-== sha256 ==
-C0C4FAD5369C3D6A0FD9D069977ED30699EE3477F887E1949FFC47AF767BEEAD

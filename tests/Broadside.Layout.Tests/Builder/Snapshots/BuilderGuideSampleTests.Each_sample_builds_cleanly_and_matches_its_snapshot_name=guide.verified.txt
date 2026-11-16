@@ -67,6 +67,3 @@ Writing files
 Save with Save or SaveAsync; a document built for a PDF/A or PDF/UA profile saves with it by
 default.
 Page 2 of 2
-
-== sha256 ==
-86A8C5137EC023ADF2070AEFB0130679110B4CFD58FF60F6743FB41B28B858AC

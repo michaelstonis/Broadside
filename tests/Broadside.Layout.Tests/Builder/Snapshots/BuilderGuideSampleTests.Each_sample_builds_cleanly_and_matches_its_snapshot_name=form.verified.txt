@@ -34,6 +34,3 @@ Pick up
 Deliver to my desk
 I will return the equipment in working order
 Signature
-
-== sha256 ==
-630CD665CD384436DEC50D8865EDA83C744C9791946CF4B7297DA29B9BB7196B

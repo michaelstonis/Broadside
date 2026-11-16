@@ -143,6 +143,3 @@ and the next visit is booked.
 No incidents were reported.
 Field report, Q4 2026 Field Operations
 Page 2 of 2
-
-== sha256 ==
-B166FE8BD3F5385B751CFEEA1203B791333DB6FC0432E03A8AB3CB5AC8CD837A

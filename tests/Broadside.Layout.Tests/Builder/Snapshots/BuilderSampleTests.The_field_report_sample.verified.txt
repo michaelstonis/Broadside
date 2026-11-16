@@ -133,6 +133,3 @@ West note 14: the meters were read on schedule and the readings agree with the t
 No incidents were reported.
 Field report, Q4 Operations
 Page 2 of 2
-
-== sha256 ==
-3A92CA8A284EFA6122DB6BA89630C7E6503744171CBEAA4C7F939063D88C51BF

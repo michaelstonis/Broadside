@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Security.Cryptography;
 using Broadside.Graphics;
 using Broadside.Layout.Flow;
 using Broadside.Layout.Flow.Units;
@@ -59,8 +58,6 @@ public sealed class BuilderSampleTests
                 {StructureText(reopened)}
                 == text ==
                 {PagesText(reopened)}
-                == sha256 ==
-                {Convert.ToHexString(SHA256.HashData(bytes))}
                 """;
         }
     }

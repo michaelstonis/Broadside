@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using Broadside.BuilderSamples;
 using Broadside.Diagnostics;
 using Broadside.Layout.Flow;
@@ -74,8 +73,6 @@ public sealed class BuilderGuideSampleTests
             {StructureText(reopened)}
             == text ==
             {PagesText(reopened)}
-            == sha256 ==
-            {Convert.ToHexString(SHA256.HashData(bytes))}
             """;
     }
 

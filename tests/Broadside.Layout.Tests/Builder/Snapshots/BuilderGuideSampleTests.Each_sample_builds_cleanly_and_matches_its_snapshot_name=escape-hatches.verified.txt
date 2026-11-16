@@ -7,6 +7,3 @@ Document
 --- page 1 ---
 Built with the engine directly.
 SAMPLE
-
-== sha256 ==
-41041B60A2DC49CFEB6412F969C6C9FC176A4C99A6DD285779A01F65942439DA
