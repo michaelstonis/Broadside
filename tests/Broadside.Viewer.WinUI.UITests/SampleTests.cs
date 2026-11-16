@@ -62,12 +62,14 @@ public sealed class SampleTests
         app.Click("FitWidth");
         app.WaitForState(s => Math.Abs(s.Zoom - zoom) <= 1 && s.Activity == "Ready", "fit width");
 
-        // Select: a mouse drag across the first line of text the peers place on screen, then Ctrl+A; Copy reports what it copied.
+        // Select: a mouse drag across the first line of text the peers place on screen (the selection line shows it), then Ctrl+A;
+        // Copy reports what it copied.
         AutomationElement text = FirstText(app);
         Rectangle line = text.BoundingRectangle;
         Assert.False(line.IsEmpty, "the first text node has no bounds");
         int y = line.Y + (line.Height / 2);
         DragSlowly(new Point(line.X + 2, y), new Point(line.Right - 2, y));
+        app.WaitForText("Selection", s => s.StartsWith("Selected ", StringComparison.Ordinal), "the drag's selection");
         app.Click("Copy");
         app.WaitForText("Copied", s => s.StartsWith("Copied ", StringComparison.Ordinal) && !s.StartsWith("Copied 0 ", StringComparison.Ordinal), "the dragged selection copied");
         app.Viewer.Focus();
@@ -144,22 +146,50 @@ public sealed class SampleTests
     }
 
     // A drag the way a hand makes one: press, a few moves, release, with pauses between. Injected input sent all at once can reach
-    // WinUI out of order (as Ctrl+wheel showed), so a one-shot drag may arrive as a click.
+    // WinUI out of order (as Ctrl+wheel showed), so a one-shot drag may arrive as a click. Every step is a SendInput mouse event at
+    // an absolute position, as a real mouse sends: FlaUI's Mouse.MoveTo only repositions the cursor (SetCursorPos), and nothing
+    // promises that WinUI's pointer input reports that as a move with the button down.
     private static void DragSlowly(Point from, Point to)
     {
-        Mouse.MoveTo(from);
+        Send(from, MouseEventFlags.MOUSEEVENTF_MOVE);
         Thread.Sleep(100);
-        Mouse.Down(MouseButton.Left);
+        Send(from, MouseEventFlags.MOUSEEVENTF_MOVE | MouseEventFlags.MOUSEEVENTF_LEFTDOWN);
         Thread.Sleep(100);
         const int steps = 12;
         for (int step = 1; step <= steps; step++)
         {
-            Mouse.MoveTo(new Point(from.X + ((to.X - from.X) * step / steps), from.Y + ((to.Y - from.Y) * step / steps)));
+            Send(new Point(from.X + ((to.X - from.X) * step / steps), from.Y + ((to.Y - from.Y) * step / steps)), MouseEventFlags.MOUSEEVENTF_MOVE);
             Thread.Sleep(30);
         }
 
         Thread.Sleep(100);
-        Mouse.Up(MouseButton.Left);
+        Send(to, MouseEventFlags.MOUSEEVENTF_MOVE | MouseEventFlags.MOUSEEVENTF_LEFTUP);
         Thread.Sleep(100);
+    }
+
+    // One mouse event at a screen point (physical pixels), in the 0..65535 coordinates SendInput takes across the virtual desktop.
+    private static void Send(Point point, MouseEventFlags flags)
+    {
+        int left = User32.GetSystemMetrics(SystemMetric.SM_XVIRTUALSCREEN);
+        int top = User32.GetSystemMetrics(SystemMetric.SM_YVIRTUALSCREEN);
+        int width = Math.Max(User32.GetSystemMetrics(SystemMetric.SM_CXVIRTUALSCREEN) - 1, 1);
+        int height = Math.Max(User32.GetSystemMetrics(SystemMetric.SM_CYVIRTUALSCREEN) - 1, 1);
+        INPUT[] input =
+        [
+            new INPUT
+            {
+                type = InputType.INPUT_MOUSE,
+                u = new INPUTUNION
+                {
+                    mi = new MOUSEINPUT
+                    {
+                        dx = (int)Math.Round((point.X - left) * 65535.0 / width),
+                        dy = (int)Math.Round((point.Y - top) * 65535.0 / height),
+                        dwFlags = flags | MouseEventFlags.MOUSEEVENTF_ABSOLUTE | MouseEventFlags.MOUSEEVENTF_VIRTUALDESK,
+                    },
+                },
+            },
+        ];
+        Assert.Equal(1u, User32.SendInput(1, input, INPUT.Size));
     }
 }

@@ -35,6 +35,7 @@ internal sealed partial class SampleApp : IDisposable
             RedirectStandardError = true,
         };
         start.ArgumentList.Add(document);
+        start.Environment["BROADSIDE_WINUI_TRACE"] = "1"; // the sample logs the pointer events it gets: a timed-out wait prints them
 
         _process = Process.Start(start) ?? throw new InvalidOperationException($"Could not start {_exe}.");
         _processId = _process.Id;
