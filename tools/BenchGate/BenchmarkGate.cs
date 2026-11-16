@@ -121,6 +121,11 @@ public static class BenchmarkGate
     {
         foreach (string name in head)
         {
+            if (results.Allocations.NotGated.Contains(name))
+            {
+                continue;
+            }
+
             if (!results.Allocations.Head.TryGetValue(name, out List<long>? values) || values.Count == 0)
             {
                 findings.Add(new GateFinding(name, FindingKind.NoAllocationFigure, "ran, but the allocation measurement (--gate-allocations) has no figure for it; see the measure job's log"));
@@ -150,7 +155,7 @@ public static class BenchmarkGate
 
         foreach ((string name, long expected) in baseline.Allocations)
         {
-            if (!options.Subset && !head.Contains(name))
+            if (!options.Subset && !head.Contains(name) && !results.Allocations.NotGated.Contains(name))
             {
                 findings.Add(new GateFinding(name, FindingKind.NotRun, "is in the baseline but did not run", expected));
             }

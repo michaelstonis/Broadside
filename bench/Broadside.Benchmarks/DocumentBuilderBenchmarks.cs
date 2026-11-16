@@ -20,6 +20,13 @@ namespace Broadside.Benchmarks;
 /// page numbers settle). The spec's 10,000-row table waits for the flow engine: laying out a
 /// table that spans pages grows with the square of its rows today (500 rows about 1 s and 1.9 GB allocated, 1,000 rows about 6 s and
 /// 7.7 GB, the hand-built twin alike), so the case uses 200 rows until that is fixed.
+/// <para>
+/// Every case except <c>Hello</c> and <c>HelloFlow</c> is in the <see cref="GateAllocations.NoAllocationGate"/> category (the
+/// regression gate compares their time but not their allocated bytes exactly): they allocate 350 MB to 6 GB per call, so garbage
+/// collections run inside the call, and each one can clear weakly held caches halfway through it; the figure then moves by bytes to
+/// tens of kilobytes with where the collection falls, in the hand-built twins alike. <c>InvoiceParallel</c> also depends on how the
+/// thread pool schedules its work. <c>bench/baselines/gate/README.md</c> has the rule.
+/// </para>
 /// </remarks>
 [MemoryDiagnoser]
 [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "BenchmarkDotNet runs instance methods.")]
@@ -73,6 +80,7 @@ public class DocumentBuilderBenchmarks
 
     /// <summary>About 100 pages of headings and paragraphs with a header and a "Page n of N" footer, through the builder.</summary>
     [Benchmark]
+    [BenchmarkCategory(GateAllocations.NoAllocationGate)]
     public int Report100()
     {
         string[] paragraphs = _paragraphs;
@@ -102,6 +110,7 @@ public class DocumentBuilderBenchmarks
 
     /// <summary>The same report built by hand.</summary>
     [Benchmark]
+    [BenchmarkCategory(GateAllocations.NoAllocationGate)]
     public int Report100Flow()
     {
         using PdfDocument document = NewDocument();
@@ -135,6 +144,7 @@ public class DocumentBuilderBenchmarks
 
     /// <summary>A 200-row table with a repeated header row, each row described through a closure.</summary>
     [Benchmark]
+    [BenchmarkCategory(GateAllocations.NoAllocationGate)]
     public int LongTable()
     {
         string[][] rows = _rows;
@@ -162,6 +172,7 @@ public class DocumentBuilderBenchmarks
 
     /// <summary>The same table through the <c>Row(params ReadOnlySpan&lt;string&gt;)</c> fast path, which allocates no closure per row.</summary>
     [Benchmark]
+    [BenchmarkCategory(GateAllocations.NoAllocationGate)]
     public int LongTableFastPath()
     {
         string[][] rows = _rows;
@@ -184,6 +195,7 @@ public class DocumentBuilderBenchmarks
 
     /// <summary>The same table built by hand.</summary>
     [Benchmark]
+    [BenchmarkCategory(GateAllocations.NoAllocationGate)]
     public int LongTableFlow()
     {
         using PdfDocument document = NewDocument();
@@ -205,6 +217,7 @@ public class DocumentBuilderBenchmarks
 
     /// <summary>1,000 one-page invoices from one shared theme, one after another, through the builder; the mean is per invoice.</summary>
     [Benchmark(OperationsPerInvoke = Invoices)]
+    [BenchmarkCategory(GateAllocations.NoAllocationGate)]
     public int InvoiceSerial()
     {
         int pages = 0;
@@ -218,6 +231,7 @@ public class DocumentBuilderBenchmarks
 
     /// <summary>The same 1,000 invoices built on every core at once from the same theme; the mean is per invoice.</summary>
     [Benchmark(OperationsPerInvoke = Invoices)]
+    [BenchmarkCategory(GateAllocations.NoAllocationGate)]
     public int InvoiceParallel()
     {
         int pages = 0;
@@ -227,6 +241,7 @@ public class DocumentBuilderBenchmarks
 
     /// <summary>The same 1,000 invoices built by hand, one after another; the mean is per invoice.</summary>
     [Benchmark(OperationsPerInvoke = Invoices)]
+    [BenchmarkCategory(GateAllocations.NoAllocationGate)]
     public int InvoiceSerialFlow()
     {
         int pages = 0;

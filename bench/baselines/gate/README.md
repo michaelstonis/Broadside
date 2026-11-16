@@ -122,6 +122,26 @@ concurrent table a `DeterministicTable` (one fixed lock), and those cases now me
 figures differ between processes fails the gate ("varies between processes") whatever the baseline says: fix its determinism in
 the library (a new per-document concurrent table must come from `DeterministicTable.Create`), do not widen the baseline.
 
+### Cases whose allocations legitimately vary
+
+A benchmark may opt out of the exact allocation comparison with `[BenchmarkCategory(GateAllocations.NoAllocationGate)]`
+(the string `"NoAllocationGate"`). It stays a normal BenchmarkDotNet benchmark and **its time is still compared** against the base
+commit by the time rule below. What changes: `--gate-allocations` does not measure it (it lists the name under `NotGated` in its
+output file), the gate neither wants a baseline entry for it nor reports it as missing, and `allocations.json` has no key for it.
+
+Allowed only when the figure cannot be made exact, and the reason goes in the benchmark's XML doc:
+
+- **Parallel work**: the allocations of one call depend on how the thread pool schedules it (per-thread caches, how many workers
+  start), so they differ by megabytes between runs. The gate measures the calling thread only, which is not the cost either.
+- **Multi-gigabyte, collection-sensitive cases**: a call that allocates hundreds of megabytes or more cannot finish without garbage
+  collections, and a collection inside the call clears weakly held caches (`ConditionalWeakTable`) halfway through it, so the figure
+  moves by bytes to a megabyte with where the collection falls. The gate's "no collection during the call" filter cannot find a
+  clean call for these, even with the 256 MB generation-0 budget.
+
+Not allowed: a case that is small and merely not yet deterministic (fix the library, see "No ranges"), or one that is simply
+inconvenient to re-record. A deterministic case, however large, stays gated. Keep the small deterministic twin of an opted-out case
+in the gate (for the document builder, `Hello` and `HelloFlow`) so the allocation behavior it shares is still locked.
+
 ## The time rule
 
 For each case, with B the base commit's measured iterations and P the pull request's, pooled over both rounds, the case fails
