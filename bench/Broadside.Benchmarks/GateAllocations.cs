@@ -26,6 +26,12 @@ internal static class GateAllocations
     /// <summary>The command-line switch that selects this mode.</summary>
     public const string Option = "--gate-allocations";
 
+    /// <summary>
+    /// The <c>[BenchmarkCategory]</c> that takes a case out of the exact allocation comparison (see "Cases whose allocations
+    /// legitimately vary" in <c>bench/baselines/gate/README.md</c>). The case stays a normal benchmark and its time is still compared.
+    /// </summary>
+    public const string NoAllocationGate = "NoAllocationGate";
+
     private const BindingFlags MemberFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
     private const int WarmUpCalls = 30;
     private const int MeasuredCalls = 10;
@@ -45,6 +51,7 @@ internal static class GateAllocations
         var filter = new GlobFilter(patterns);
 
         var results = new SortedDictionary<string, long>(StringComparer.Ordinal);
+        var ungated = new SortedSet<string>(StringComparer.Ordinal);
         int failures = 0;
         foreach (Type type in typeof(GateAllocations).Assembly.GetTypes()
             .Where(static type => type.IsPublic && !type.IsAbstract && type.GetMethods().Any(static method => method.GetCustomAttribute<BenchmarkAttribute>() is not null))
@@ -53,6 +60,13 @@ internal static class GateAllocations
             foreach (BenchmarkCase benchmark in BenchmarkConverter.TypeToBenchmarks(type).BenchmarksCases.Where(filter.Predicate))
             {
                 string name = FullNameProvider.GetBenchmarkName(benchmark);
+                if (benchmark.Descriptor.Categories.Contains(NoAllocationGate, StringComparer.Ordinal))
+                {
+                    ungated.Add(name);
+                    Console.WriteLine($"{"not gated",14}  {name}");
+                    continue;
+                }
+
                 try
                 {
                     results[name] = Measure(benchmark);
@@ -79,8 +93,14 @@ internal static class GateAllocations
         }
 
         var options = new JsonSerializerOptions { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
-        File.WriteAllText(output, new JsonObject { ["Unit"] = "bytes per call", ["Benchmarks"] = benchmarks }.ToJsonString(options));
-        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{results.Count} case(s) measured, {failures} failed; written to {output}."));
+        var document = new JsonObject { ["Unit"] = "bytes per call", ["Benchmarks"] = benchmarks };
+        if (ungated.Count > 0)
+        {
+            document["NotGated"] = new JsonArray([.. ungated.Select(static name => (JsonNode?)JsonValue.Create(name))]);
+        }
+
+        File.WriteAllText(output, document.ToJsonString(options));
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{results.Count} case(s) measured, {ungated.Count} not gated, {failures} failed; written to {output}."));
         return failures == 0 ? 0 : 1;
     }
 
