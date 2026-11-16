@@ -67,7 +67,7 @@ public readonly struct PageField : IEquatable<PageField>
 /// holding <c>{page}</c> prints <c>{page}</c>, so data can never inject a field); an interpolated string fills a <see cref="PageField"/> in
 /// per page and formats every other hole as the string would.
 /// </summary>
-/// <remarks>ISO 32000-2 §14.8.2.2.2: headers and footers are drawn as pagination artifacts.</remarks>
+/// <remarks>ISO 32000-2 §14.8.2.2.2: headers and footers are drawn as pagination artifacts. <see cref="PageField"/> values read page numbers and the page labels of §12.4.2.</remarks>
 [Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 [InterpolatedStringHandler]
 public readonly struct PageText : IEquatable<PageText>

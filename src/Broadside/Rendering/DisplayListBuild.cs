@@ -23,7 +23,7 @@ namespace Broadside.Rendering;
 /// <para>
 /// Not thread-safe: one thread at a time continues a build. The document must not be edited while a build is in progress; an
 /// edit between two slices leaves a list that the cache does not keep. Dispose an unfinished build to abandon it. ISO 32000-2
-/// §7.8.2 and §8.2.
+/// §7.8.2, §8.2 and §10.7.1.
 /// </para>
 /// </remarks>
 public sealed class DisplayListBuild : IDisposable

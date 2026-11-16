@@ -28,6 +28,7 @@ public enum FormFieldType
 }
 
 /// <summary>Where a <see cref="FieldBlock"/>'s label is drawn.</summary>
+/// <remarks>ISO 32000-2 §12.7.4.1: wherever it is drawn, the label is also the field's <c>TU</c> entry, its name for assistive technology.</remarks>
 public enum FieldLabelPosition
 {
     /// <summary>Above the field, across the content width.</summary>

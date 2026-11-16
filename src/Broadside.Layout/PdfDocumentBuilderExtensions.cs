@@ -20,6 +20,7 @@ namespace Broadside.Layout.Flow;
 /// Programming errors (a null text, a heading level of 7, a column span past the last column) throw at the call. Content problems found
 /// while building (a skipped heading level, a character no face encodes, a missing face) are diagnostics on the document.
 /// </para>
+/// <para>The documents are tagged PDF (ISO 32000-2 §14.8) by default.</para>
 /// </remarks>
 [Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 [SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "C# 14 extension blocks, which the analyzer sees as nested types.")]

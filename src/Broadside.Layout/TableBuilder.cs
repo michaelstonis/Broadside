@@ -421,6 +421,7 @@ public readonly ref struct TableElement
 }
 
 /// <summary>A row's modifiers in the document builder: its background, pagination and the style its cells inherit.</summary>
+/// <remarks>ISO 32000-2 §14.8.4: a row is tagged <c>TR</c>.</remarks>
 [Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct RowElement
 {
@@ -501,7 +502,7 @@ public readonly ref struct RowElement
 }
 
 /// <summary>A cell's modifiers in the document builder: spans, background, padding, alignment and the style its content inherits.</summary>
-/// <remarks>ISO 32000-2 §14.8.5.7, Table 384 (<c>RowSpan</c>, <c>ColSpan</c>).</remarks>
+/// <remarks>ISO 32000-2 §14.8.4.8 (<c>TD</c> and <c>TH</c>) and §14.8.5.7, Table 384 (<c>RowSpan</c>, <c>ColSpan</c>).</remarks>
 [Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct CellElement
 {

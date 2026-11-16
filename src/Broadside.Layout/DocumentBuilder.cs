@@ -517,7 +517,7 @@ public readonly ref struct SectionBuilder
 /// A header or footer of the document builder: one line with up to three slots (left, center and right), each literal text with
 /// <see cref="PageField"/> values filled in per page: <c>f.Center($"Page {PageField.Number} of {PageField.Count}")</c>.
 /// </summary>
-/// <remarks>ISO 32000-2 §14.8.2.2.2, Table 363: drawn as a pagination artifact (<c>Subtype</c> <c>Header</c> or <c>Footer</c>).</remarks>
+/// <remarks>ISO 32000-2 §14.8.2.2.2, Table 363: drawn as a pagination artifact (<c>Subtype</c> <c>Header</c> or <c>Footer</c>). Page fields read the page labels of §12.4.2.</remarks>
 [Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct HeaderFooterBuilder
 {
