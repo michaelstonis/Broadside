@@ -202,6 +202,14 @@ public sealed class ImageIODecoder : IPlatformImageDecoder
                 return null;
             }
 
+            // Older systems ignore kCGImageSourceAllowableTypes, so the type the data parsed as is checked too: JPEG data under a JPX
+            // request (or the other way round) is no image.
+            IntPtr parsed = Native.CGImageSourceGetType(source);
+            if (parsed == IntPtr.Zero || !Native.CFEqual(parsed, options.Type.Handle))
+            {
+                return null;
+            }
+
             image = Native.CGImageSourceCreateImageAtIndex(source, 0, options.Image[subsample].Handle);
             if (image == IntPtr.Zero)
             {
@@ -369,11 +377,15 @@ public sealed class ImageIODecoder : IPlatformImageDecoder
     /// <summary>The source and image option dictionaries, made once.</summary>
     private sealed class Options
     {
-        private Options(NSDictionary source, NSDictionary[] image)
+        private Options(NSString type, NSDictionary source, NSDictionary[] image)
         {
+            Type = type;
             Source = source;
             Image = image;
         }
+
+        /// <summary>Gets the only type identifier a decode with these options accepts (<c>public.jpeg</c> or <c>public.jpeg-2000</c>).</summary>
+        public NSString Type { get; }
 
         /// <summary>Gets the source's options: no caching, the type (<c>public.jpeg</c> or <c>public.jpeg-2000</c>) as the hint and, where the system has the key, as the only type allowed.</summary>
         public NSDictionary Source { get; }
@@ -406,7 +418,7 @@ public sealed class ImageIODecoder : IPlatformImageDecoder
                     : NSDictionary.FromObjectsAndKeys(new NSObject[] { NSNumber.FromBoolean(true), NSNumber.FromBoolean(false), NSNumber.FromInt32(1 << i) }, new NSObject[] { immediately, cache, factor });
             }
 
-            return new Options(source, image);
+            return new Options(hint, source, image);
         }
     }
 
@@ -440,6 +452,13 @@ public sealed class ImageIODecoder : IPlatformImageDecoder
 
         [DllImport(Constants.ImageIOLibrary)]
         public static extern nint CGImageSourceGetCount(IntPtr source);
+
+        [DllImport(Constants.ImageIOLibrary)]
+        public static extern IntPtr CGImageSourceGetType(IntPtr source);
+
+        [DllImport(Constants.CoreFoundationLibrary)]
+        [return: MarshalAs(UnmanagedType.U1)]
+        public static extern bool CFEqual(IntPtr first, IntPtr second);
 
         [DllImport(Constants.ImageIOLibrary)]
         public static extern IntPtr CGImageSourceCreateImageAtIndex(IntPtr source, nint index, IntPtr options);
