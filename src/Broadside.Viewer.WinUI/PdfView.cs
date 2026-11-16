@@ -319,7 +319,10 @@ public sealed partial class PdfView : UserControl, IDisposable
     private void OnPointerWheelChanged(object sender, PointerRoutedEventArgs e)
     {
         PointerPoint point = e.GetCurrentPoint(_surface);
-        _controller.MouseWheel(point.Properties.MouseWheelDelta, point.Properties.IsHorizontalMouseWheel, KeyNames.Modifiers(e.KeyModifiers), point.Position.X, point.Position.Y);
+
+        // The event's own modifiers can miss a key held by injected or remote input (the keyboard state still has it), so both count.
+        InputModifiers modifiers = KeyNames.Modifiers(e.KeyModifiers) | KeyNames.Current();
+        _controller.MouseWheel(point.Properties.MouseWheelDelta, point.Properties.IsHorizontalMouseWheel, modifiers, point.Position.X, point.Position.Y);
         e.Handled = true;
     }
 
