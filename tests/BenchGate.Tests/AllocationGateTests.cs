@@ -213,7 +213,7 @@ public sealed class AllocationGateTests
     [Fact]
     public void A_case_that_opted_out_of_the_allocation_gate_needs_no_figure_and_still_has_its_time_compared()
     {
-        // `[BenchmarkCategory("NoAllocationGate")]`: --gate-allocations lists the case under NotGated and writes no figure; the
+        // `[BenchmarkCategory("no-allocation-gate")]`: --gate-allocations lists the case under NotGated and writes no figure; the
         // timing rounds still run it. It is neither "no figure" nor "not in the baseline", and a slowdown still fails.
         using var tree = new ResultsTree();
         tree.AddRounds("base", 2, ResultsTree.Flate, 8, ResultsTree.Around(1000))

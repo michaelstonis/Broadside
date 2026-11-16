@@ -30,7 +30,7 @@ internal static class GateAllocations
     /// The <c>[BenchmarkCategory]</c> that takes a case out of the exact allocation comparison (see "Cases whose allocations
     /// legitimately vary" in <c>bench/baselines/gate/README.md</c>). The case stays a normal benchmark and its time is still compared.
     /// </summary>
-    public const string NoAllocationGate = "NoAllocationGate";
+    public const string NoAllocationGate = "no-allocation-gate";
 
     private const BindingFlags MemberFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
     private const int WarmUpCalls = 30;

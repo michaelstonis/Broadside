@@ -125,7 +125,7 @@ the library (a new per-document concurrent table must come from `DeterministicTa
 ### Cases whose allocations legitimately vary
 
 A benchmark may opt out of the exact allocation comparison with `[BenchmarkCategory(GateAllocations.NoAllocationGate)]`
-(the string `"NoAllocationGate"`). It stays a normal BenchmarkDotNet benchmark and **its time is still compared** against the base
+(the string `"no-allocation-gate"`). It stays a normal BenchmarkDotNet benchmark and **its time is still compared** against the base
 commit by the time rule below. What changes: `--gate-allocations` does not measure it (it lists the name under `NotGated` in its
 output file), the gate neither wants a baseline entry for it nor reports it as missing, and `allocations.json` has no key for it.
 

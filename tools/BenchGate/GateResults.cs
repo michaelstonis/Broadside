@@ -274,7 +274,7 @@ public sealed class AllocationPass
     public Dictionary<string, List<long>> Head { get; } = new(StringComparer.Ordinal);
 
     /// <summary>
-    /// The cases that opted out of the exact allocation comparison (<c>[BenchmarkCategory("NoAllocationGate")]</c>), from either
+    /// The cases that opted out of the exact allocation comparison (<c>[BenchmarkCategory("no-allocation-gate")]</c>), from either
     /// side. They have no figure and no baseline entry, and their time is still compared.
     /// </summary>
     public HashSet<string> NotGated { get; } = new(StringComparer.Ordinal);
