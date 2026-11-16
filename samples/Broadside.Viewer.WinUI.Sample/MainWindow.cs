@@ -198,7 +198,19 @@ public sealed partial class MainWindow : Window
             StartupLog.Write("Copy: " + PointerTrace.Describe(_view.Selection));
         }
 
-        string? text = await _view.CopySelectionAsync();
-        _copied.Text = text is null ? "Nothing selected" : string.Create(CultureInfo.InvariantCulture, $"Copied {text.Length} characters");
+        // The line says "Copying" until this copy ends, so a reader of it never takes the previous copy's count for this one's.
+        _copied.Text = "Copying…";
+        try
+        {
+            string? text = await _view.CopySelectionAsync();
+            _copied.Text = text is null ? "Nothing selected" : string.Create(CultureInfo.InvariantCulture, $"Copied {text.Length} characters");
+        }
+#pragma warning disable CA1031 // an async void handler: an exception that escapes it ends the app, so it is reported instead
+        catch (Exception exception)
+#pragma warning restore CA1031
+        {
+            _copied.Text = "Copy failed: " + exception.Message;
+            StartupLog.Write("Copy failed: " + exception);
+        }
     }
 }

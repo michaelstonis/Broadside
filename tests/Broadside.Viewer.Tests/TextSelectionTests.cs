@@ -185,6 +185,38 @@ public sealed class TextSelectionTests
         Assert.Throws<InvalidOperationException>(() => SelectableText.Create(page, page.CreateHitTestIndex(list), new Twice()));
     }
 
+    [Fact]
+    public async Task A_page_load_that_joined_a_list_build_its_starter_canceled_still_loads_the_page()
+    {
+        // Requests for a page's list share one build; one that stops waiting leaves the build to the others (#357). The build is held
+        // at its first yield, so the text load surely joins the build a tile started before the tile is canceled.
+        var held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int yields = 0;
+        await using DocumentSession session = DocumentSession.Open(
+            ManyPagesDocument.CreateWithText(1),
+            new ViewerOptions()
+                .WithDocumentOptions(new PdfOptions().UseStandard14Fonts())
+                .WithThreading(ViewerThreading.Cooperative)
+                .UseYield(async token =>
+                {
+                    Interlocked.Increment(ref yields);
+                    await held.Task.WaitAsync(token);
+                }));
+        using var tile = new CancellationTokenSource();
+        ValueTask<DisplayList> list = session.GetDisplayListAsync(0, DisplayLayers.All, tile.Token);
+        var selection = new TextSelection(session);
+        ValueTask<SelectableText> text = selection.LoadPageAsync(0, Token);
+        Assert.Equal(1, yields);
+
+        await tile.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await list);
+        held.SetResult();
+
+        Assert.True((await text).Length > 0);
+        selection.SelectAll();
+        Assert.StartsWith("The quick brown fox", await selection.GetTextAsync(Token), StringComparison.Ordinal);
+    }
+
     internal static DocumentSession Open(string fileName) =>
         DocumentSession.Open(Corpus.Bytes(fileName), ViewerTestSupport.OptionsFor(fileName, ViewerThreading.Background));
 

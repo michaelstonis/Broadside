@@ -102,6 +102,9 @@ internal sealed partial class SampleApp : IDisposable
 
     public void Click(string automationId) => Find(automationId).AsButton().Invoke();
 
+    /// <summary>Flips a toggle button (UIA's Toggle pattern: a ToggleButton has no Invoke pattern).</summary>
+    public void Toggle(string automationId) => Find(automationId).AsToggleButton().Toggle();
+
     /// <summary>The status line ("Page 3 of 8 | Zoom 125% | Ready").</summary>
     public Status ReadStatus()
     {
