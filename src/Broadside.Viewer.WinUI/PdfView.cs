@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Globalization;
 using Broadside.Forms;
 using Broadside.Rendering;
 using Microsoft.UI;
@@ -51,6 +53,10 @@ public sealed partial class PdfView : UserControl, IDisposable
 
     private static readonly Lazy<HttpClient> SharedHttp = new(() => new HttpClient());
 
+    // How long a modifier's last key-down counts as held when no keyboard state says so: longer than the longest key-repeat delay
+    // (1 s), since a held key repeats its key-down; a key released where the window does not see it stops counting after this.
+    private static readonly TimeSpan HeldKeyWindow = TimeSpan.FromSeconds(1.5);
+
     private readonly ViewerController _controller;
     private readonly Canvas _surface = new();
     private readonly Canvas _editorLayer = new();
@@ -64,6 +70,11 @@ public sealed partial class PdfView : UserControl, IDisposable
     private PdfViewAutomationPeer? _peer;
     private FrameworkElement? _editorView;
     private XamlRoot? _xamlRoot;
+    private UIElement? _keyRoot;
+    private InputModifiers _heldKeys;
+    private long _heldKeysTime;
+    private KeyEventHandler? _anyKeyDown;
+    private KeyEventHandler? _anyKeyUp;
     private bool _framePending;
     private bool _renderingHooked;
     private bool _loaded;
@@ -204,6 +215,12 @@ public sealed partial class PdfView : UserControl, IDisposable
 
     internal FrameworkElement? EditorView => _editorView;
 
+    /// <summary>
+    /// Receives a line for every wheel turn and modifier key the view sees (what the event, WinUI's and Win32's keyboard state said,
+    /// and what the controller did), or null (the default) for none. The sample sets it when BROADSIDE_WINUI_TRACE is 1.
+    /// </summary>
+    internal Action<string>? InputTrace { get; set; }
+
     /// <summary>Shows a page (zero-based).</summary>
     /// <param name="pageIndex">The page.</param>
     public void GoToPage(int pageIndex) => _controller.GoToPage(pageIndex);
@@ -265,7 +282,7 @@ public sealed partial class PdfView : UserControl, IDisposable
     protected override void OnKeyDown(KeyRoutedEventArgs e)
     {
         ArgumentNullException.ThrowIfNull(e);
-        if (_editorView is null && KeyNames.Name(e.Key) is { } name && _controller.KeyDown(name, KeyNames.Current()))
+        if (_editorView is null && KeyNames.Name(e.Key) is { } name && _controller.KeyDown(name, KeyNames.Current() | HeldKeys()))
         {
             e.Handled = true;
             return;
@@ -319,12 +336,54 @@ public sealed partial class PdfView : UserControl, IDisposable
     private void OnPointerWheelChanged(object sender, PointerRoutedEventArgs e)
     {
         PointerPoint point = e.GetCurrentPoint(_surface);
+        bool arrivedHandled = e.Handled;
 
-        // The event's own modifiers can miss a key held by injected or remote input (the keyboard state still has it), so both count.
-        InputModifiers modifiers = KeyNames.Modifiers(e.KeyModifiers) | KeyNames.Current();
+        // The event's own modifiers can miss a key held by injected or remote input, and so can either keyboard state (WinUI's and
+        // Win32's), so each of them counts, and so does a modifier whose key-down the window saw and whose key-up it has not.
+        InputModifiers fromEvent = KeyNames.Modifiers(e.KeyModifiers);
+        InputModifiers xaml = KeyNames.Xaml();
+        InputModifiers win32 = KeyNames.Win32();
+        InputModifiers held = HeldKeys();
+        InputModifiers modifiers = fromEvent | xaml | win32 | held;
+        Viewport before = _controller.Zoom?.Viewport ?? default;
         _controller.MouseWheel(point.Properties.MouseWheelDelta, point.Properties.IsHorizontalMouseWheel, modifiers, point.Position.X, point.Position.Y);
         e.Handled = true;
+        if (InputTrace is { } trace)
+        {
+            Viewport after = _controller.Zoom?.Viewport ?? default;
+            string action = after.Zoom != before.Zoom ? "zoom" : after.X != before.X || after.Y != before.Y ? "scroll" : "nothing";
+            trace(string.Create(
+                CultureInfo.InvariantCulture,
+                $"wheel: delta {point.Properties.MouseWheelDelta}, horizontal {point.Properties.IsHorizontalMouseWheel}, at ({point.Position.X:0}, {point.Position.Y:0}), source {e.OriginalSource?.GetType().Name ?? "null"}, arrived handled {arrivedHandled}; " +
+                $"event modifiers {e.KeyModifiers}, WinUI key state {xaml}, Win32 key state {win32}, held keys {held} -> {modifiers}; " +
+                $"{action}: zoom {before.Zoom:0.####} -> {after.Zoom:0.####}, offset ({before.X:0}, {before.Y:0}) -> ({after.X:0}, {after.Y:0})"));
+        }
     }
+
+    // Every key the window's content sees, handled or not: a modifier's key-down (or repeat) marks it held, its key-up clears it.
+    private void OnAnyKeyDown(object sender, KeyRoutedEventArgs e) => TrackKey(e, down: true);
+
+    private void OnAnyKeyUp(object sender, KeyRoutedEventArgs e) => TrackKey(e, down: false);
+
+    private void TrackKey(KeyRoutedEventArgs e, bool down)
+    {
+        InputModifiers modifier = KeyNames.ModifierOf(e.Key);
+        if (modifier != InputModifiers.None)
+        {
+            _heldKeys = down ? _heldKeys | modifier : _heldKeys & ~modifier;
+            _heldKeysTime = Stopwatch.GetTimestamp();
+        }
+
+        if (InputTrace is { } trace && (modifier != InputModifiers.None || KeyNames.Name(e.Key) is not null))
+        {
+            trace(string.Create(
+                CultureInfo.InvariantCulture,
+                $"key {(down ? "down" : "up")}: {e.Key}, repeat {e.KeyStatus.WasKeyDown}, handled {e.Handled}, source {e.OriginalSource?.GetType().Name ?? "null"}; WinUI key state {KeyNames.Xaml()}, Win32 key state {KeyNames.Win32()}, held keys {_heldKeys}"));
+        }
+    }
+
+    private InputModifiers HeldKeys() =>
+        _heldKeys != InputModifiers.None && Stopwatch.GetElapsedTime(_heldKeysTime) <= HeldKeyWindow ? _heldKeys : InputModifiers.None;
 
     private static PointerKind Kind(PointerDeviceType type) => type switch
     {
@@ -346,6 +405,8 @@ public sealed partial class PdfView : UserControl, IDisposable
             root.Changed += OnXamlRootChanged;
         }
 
+        HookKeys(XamlRoot?.Content);
+
         UpdateSize();
         if (_framePending)
         {
@@ -359,6 +420,27 @@ public sealed partial class PdfView : UserControl, IDisposable
         Unhook();
         _xamlRoot?.Changed -= OnXamlRootChanged;
         _xamlRoot = null;
+        HookKeys(null);
+    }
+
+    // The window's content hears every key (bubbling, handled ones too), wherever the focus is: the modifiers held for a wheel turn.
+    private void HookKeys(UIElement? root)
+    {
+        if (ReferenceEquals(root, _keyRoot))
+        {
+            return;
+        }
+
+        if (_keyRoot is { } old)
+        {
+            old.RemoveHandler(KeyDownEvent, _anyKeyDown);
+            old.RemoveHandler(KeyUpEvent, _anyKeyUp);
+        }
+
+        _keyRoot = root;
+        _heldKeys = InputModifiers.None;
+        root?.AddHandler(KeyDownEvent, _anyKeyDown ??= OnAnyKeyDown, handledEventsToo: true);
+        root?.AddHandler(KeyUpEvent, _anyKeyUp ??= OnAnyKeyUp, handledEventsToo: true);
     }
 
     private void OnXamlRootChanged(XamlRoot sender, XamlRootChangedEventArgs args) => UpdateSize();

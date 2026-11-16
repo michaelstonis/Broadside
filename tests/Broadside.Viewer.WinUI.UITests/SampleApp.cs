@@ -10,7 +10,8 @@ namespace Broadside.Viewer.WinUI.UITests;
 /// <summary>
 /// The sample app running one document, driven through UI Automation (FlaUI, UIA3). The sample is started here with its stdout and
 /// stderr captured, so when it exits early (or its window never opens) the failure carries its exit code, its output, its startup
-/// log and the Application event log entries written since the launch.
+/// log and the Application event log entries written since the launch. It runs with BROADSIDE_WINUI_TRACE=1, so its log also has
+/// every wheel turn and modifier key the view handled and every status line; a timed-out wait carries all of it too.
 /// </summary>
 internal sealed partial class SampleApp : IDisposable
 {
@@ -35,6 +36,9 @@ internal sealed partial class SampleApp : IDisposable
             RedirectStandardError = true,
         };
         start.ArgumentList.Add(document);
+
+        // The sample logs every wheel turn and modifier key its view handles, and what it did, so a timed-out wait shows where input stopped.
+        start.Environment["BROADSIDE_WINUI_TRACE"] = "1";
         _process = Process.Start(start) ?? throw new InvalidOperationException($"Could not start {_exe}.");
         _processId = _process.Id;
         _process.OutputDataReceived += (_, e) => Capture("stdout", e.Data);
@@ -124,7 +128,7 @@ internal sealed partial class SampleApp : IDisposable
             Assert.False(last.Text.StartsWith("Error", StringComparison.Ordinal), last.Text);
             return done(last);
         });
-        Assert.True(ok, $"Timed out waiting for {what}; status: '{last.Text}'.");
+        Assert.True(ok, $"Timed out waiting for {what}; status: '{last.Text}'.{Environment.NewLine}{Diagnostics()}");
         return last;
     }
 
@@ -132,7 +136,7 @@ internal sealed partial class SampleApp : IDisposable
     {
         string last = string.Empty;
         bool ok = Poll(() => done(last = Find(automationId).Name));
-        Assert.True(ok, $"Timed out waiting for {what}; {automationId}: '{last}'.");
+        Assert.True(ok, $"Timed out waiting for {what}; {automationId}: '{last}'.{Environment.NewLine}{Diagnostics()}");
         return last;
     }
 

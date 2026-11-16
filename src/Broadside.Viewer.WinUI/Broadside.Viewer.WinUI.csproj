@@ -28,6 +28,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The sample turns on the view's input trace (PdfView.InputTrace) for the UI tests' diagnostics. -->
+    <InternalsVisibleTo Include="Broadside.Viewer.WinUI.Sample" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../Broadside.Viewer/Broadside.Viewer.csproj" />
     <PackageReference Include="Microsoft.WindowsAppSDK" />
   </ItemGroup>
