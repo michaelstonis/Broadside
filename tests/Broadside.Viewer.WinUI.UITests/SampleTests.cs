@@ -62,6 +62,11 @@ public sealed class SampleTests
         app.Click("FitWidth");
         app.WaitForState(s => Math.Abs(s.Zoom - zoom) <= 1 && s.Activity == "Ready", "fit width");
 
+        // The zoom kept the point under the mouse in place, so page 1's first lines may now be above the viewport: back to the top.
+        app.Viewer.Focus();
+        Keyboard.Type(VirtualKeyShort.HOME);
+        app.WaitForState(s => s.Page == 1 && s.Activity == "Ready", "back on page 1 after zooming");
+
         // Select: a mouse drag across the first line of text the peers place on screen (the selection line shows it), then Ctrl+A;
         // Copy reports what it copied.
         AutomationElement text = FirstText(app);
