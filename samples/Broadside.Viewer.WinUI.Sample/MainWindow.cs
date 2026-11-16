@@ -80,6 +80,11 @@ public sealed partial class MainWindow : Window
         Content = grid;
 
         _view.StateChanged += (_, e) => ShowState(e.State);
+        if (Environment.GetEnvironmentVariable("BROADSIDE_WINUI_TRACE") == "1")
+        {
+            Trace(grid);
+        }
+
         _view.Error += (_, e) => _status.Text = "Error: " + e.Exception.Message;
         _view.ActionRequested += (_, e) => _copied.Text = e.Uri is { } uri ? "Link: " + uri : _copied.Text;
         Closed += (_, _) => _view.Dispose();
@@ -99,6 +104,32 @@ public sealed partial class MainWindow : Window
         AutomationProperties.SetAutomationId(button, id);
         button.Click += (_, _) => click();
         return button;
+    }
+
+    // Input diagnostics for the UI tests (BROADSIDE_WINUI_TRACE=1): every wheel turn and modifier key the view handles, what it did,
+    // every wheel turn that reaches the window's content (handled or not, wherever it lands) and every status line, in StartupLog.
+    private void Trace(Grid root)
+    {
+        _view.InputTrace = line => StartupLog.Write("trace view " + line);
+        root.AddHandler(
+            UIElement.PointerWheelChangedEvent,
+            new Microsoft.UI.Xaml.Input.PointerEventHandler((_, e) =>
+            {
+                Microsoft.UI.Input.PointerPoint point = e.GetCurrentPoint(root);
+                StartupLog.Write(string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"trace window wheel: delta {point.Properties.MouseWheelDelta}, at ({point.Position.X:0}, {point.Position.Y:0}), source {e.OriginalSource?.GetType().Name ?? "null"}, handled {e.Handled}, event modifiers {e.KeyModifiers}"));
+            }),
+            handledEventsToo: true);
+        string last = string.Empty;
+        _view.StateChanged += (_, _) =>
+        {
+            if (_status.Text != last)
+            {
+                last = _status.Text;
+                StartupLog.Write("trace status " + last);
+            }
+        };
     }
 
     // "Page 3 of 8 | Zoom 125% | Ready": the UI tests parse this line.
