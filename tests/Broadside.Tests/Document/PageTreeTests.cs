@@ -209,6 +209,21 @@ public sealed class PageTreeTests
     }
 
     [Fact]
+    public void A_recovered_page_whose_parent_chain_reaches_a_page_inherits_nothing_from_it_with_a_diagnostic()
+    {
+        using PdfDocument document = PdfDocument.Open(new TestPdf().Build(
+            "<< /Type /Catalog >>",
+            "<< /Type /Page /Parent 4 0 R /MediaBox [0 0 100 100] /Resources << >> /Rotate 90 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 50 50] /Resources << >> >>",
+            "<< /Type /Pages /Count 0 /Rotate 180 >>"));
+
+        // Page 3's Parent is page 2, a leaf (§7.7.3.3): page 3 inherits neither page 2's Rotate nor the node's past it.
+        Assert.Equal([90, 0], document.Pages.Select(static page => page.Rotation));
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics, static diagnostic => diagnostic.Code == "PageTreeParentMismatch");
+        Assert.Equal(new CosReference(3, 0), diagnostic.ObjectReference);
+    }
+
+    [Fact]
     public void Strict_mode_throws_for_a_catalog_whose_pages_entry_does_not_resolve()
     {
         PdfOptions strict = new PdfOptions().UseStrict();

@@ -453,6 +453,49 @@ public sealed class PageEditingTests
 
     [Theory]
     [MemberData(nameof(Saves))]
+    public void A_recovered_page_whose_parent_is_another_page_is_saved_with_that_page(bool incremental)
+    {
+        // The flatten fuzz finding's shape: the catalog's Pages does not resolve, and one page's Parent names another page.
+        using PdfDocument source = PdfDocument.Open(new TestPdf().Build(
+            "<< /Type /Catalog /Pages 9 0 R >>",
+            "<< /Type /Page /MediaBox [0 0 100 100] /Resources << >> /UserUnit 1 >>",
+            "<< /Type /Page /MediaBox [0 0 100 100] /Resources << >> /UserUnit 2 >>",
+            "<< /Type /Page /Parent 3 0 R /MediaBox [0 0 50 50] /Resources << >> /UserUnit 3 >>"));
+        Assert.Equal([1.0, 2.0, 3.0], source.Pages.Select(static page => page.UserUnit));
+
+        byte[] file = Save(source, incremental);
+
+        // The saved tree keeps page 3 0 R as a page, not as a leftover node of the recovered chain.
+        using PdfDocument saved = PdfDocument.Open(file);
+        Assert.Equal([1.0, 2.0, 3.0], saved.Pages.Select(static page => page.UserUnit));
+        Assert.Equal(
+            [new PdfRectangle(0, 0, 100, 100), new PdfRectangle(0, 0, 100, 100), new PdfRectangle(0, 0, 50, 50)],
+            saved.Pages.Select(static page => page.MediaBox));
+        Assert.DoesNotContain(saved.Diagnostics, static diagnostic => diagnostic.Code is "PagesMissing" or "PageTreeCountMismatch" or "PageTreeKidInvalid");
+        AssertQpdfCheck(file);
+    }
+
+    [Theory]
+    [MemberData(nameof(Saves))]
+    public void A_catalog_that_reads_as_the_recovered_page_tree_node_is_kept_by_the_save(bool incremental)
+    {
+        // A flatten fuzz finding's shape: the catalog lost its Pages entry and reads as a parentless page tree node listing the page.
+        using PdfDocument source = PdfDocument.Open(new TestPdf().Build(
+            "<< /Type /Pages /Kids [2 0 R] /Count 1 /Lang (en) >>",
+            "<< /Type /Page /Parent 1 0 R /MediaBox [0 0 100 100] /Resources << >> >>"));
+        Assert.Equal(new PdfRectangle(0, 0, 100, 100), Assert.Single(source.Pages).MediaBox);
+
+        byte[] file = Save(source, incremental);
+
+        // The new page tree is written beside the catalog, which is neither reused as a node nor removed as a leftover one.
+        using PdfDocument saved = PdfDocument.Open(file);
+        Assert.Equal(new PdfRectangle(0, 0, 100, 100), Assert.Single(saved.Pages).MediaBox);
+        Assert.Equal("en", saved.Language);
+        Assert.DoesNotContain(saved.Diagnostics, static diagnostic => diagnostic.Code is "PagesMissing" or "PageTreeCountMismatch");
+    }
+
+    [Theory]
+    [MemberData(nameof(Saves))]
     public void An_encrypted_file_whose_catalog_lost_its_pages_entry_saves_the_page_it_reads(bool incremental)
     {
         // The catalog of encrypted-rc4-length-missing.pdf with its Pages entry blanked, offsets unchanged: the fuzz finding's shape.
