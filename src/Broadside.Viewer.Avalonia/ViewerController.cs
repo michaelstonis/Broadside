@@ -733,15 +733,28 @@ internal sealed class ViewerController : IDisposable
         return handled;
     }
 
-    /// <summary>The selected text (null when nothing is selected); pages the selection spans load first.</summary>
+    /// <summary>
+    /// The selected text (null when nothing is selected); pages the selection spans load first. A copy the document's closing
+    /// overtakes while those pages load (another document opened, the view disposed) has nothing left to copy: it returns null rather
+    /// than throwing into the host's click handler.
+    /// </summary>
     public async Task<string?> GetSelectedTextAsync()
     {
-        if (_selection is null || _selection.IsEmpty)
+        if (_selection is not { IsEmpty: false } selection)
         {
             return null;
         }
 
-        return await _selection.GetTextAsync(_closing.Token).ConfigureAwait(true);
+        try
+        {
+            return await selection.GetTextAsync(_closing.Token).ConfigureAwait(true);
+        }
+        catch (Exception exception) when ((exception is OperationCanceledException or ObjectDisposedException)
+            && (!ReferenceEquals(selection, _selection) || _closing.IsCancellationRequested))
+        {
+            // The document closed under the copy and its session stopped the page loads.
+            return null;
+        }
     }
 
     // ---- Form fields ----

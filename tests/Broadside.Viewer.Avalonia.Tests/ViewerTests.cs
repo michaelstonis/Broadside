@@ -8,6 +8,7 @@ using Broadside.Annotations;
 using Broadside.Forms;
 using Broadside.Graphics;
 using Broadside.Rendering;
+using Broadside.TestSupport;
 
 namespace Broadside.Viewer.Avalonia.Tests;
 
@@ -24,6 +25,43 @@ public sealed class ViewerTests
         Assert.Equal(viewer.Layout.GetZoom(ZoomMode.FitWidth, viewport.Width, viewport.Height, 0, 2 * 96.0 / 72), viewport.Zoom, 9);
         Assert.Equal(new PdfViewState(0, 1, viewport.Zoom / (2 * 96.0 / 72), false, false), viewer.Viewer.State);
         PinnedSubsetTests.AssertTilesOnScreen(viewer, 0);
+    });
+
+    [Fact]
+    public Task A_copy_still_loading_its_pages_when_the_document_is_replaced_or_the_view_closes_copies_nothing_and_does_not_throw() => Ui.RunAsync(async () =>
+    {
+        // Select all of a long document, then Copy: its pages load one by one. Opening another document, or closing the view, stops
+        // the loads; the copy has nothing to copy and returns null rather than throwing into the host's click handler.
+        string path = Path.Combine(Path.GetTempPath(), $"broadside-copy-{Guid.NewGuid():N}.pdf");
+        await File.WriteAllBytesAsync(path, ManyPagesDocument.CreateWithText(40), TestContext.Current.CancellationToken);
+        try
+        {
+            ViewerHarness viewer = await ViewerHarness.OpenAsync(path);
+            Task<string?> copy;
+            try
+            {
+                viewer.Viewer.Selection!.SelectAll();
+                copy = viewer.Viewer.CopySelectionAsync();
+                Assert.False(copy.IsCompleted);
+                await viewer.Controller.OpenAsync(_ => Task.FromResult(DocumentSession.Open(ManyPagesDocument.CreateWithText(40), viewer.Viewer.Options)), ownsSession: true, null);
+                Assert.Null(await copy);
+
+                await viewer.SettleAsync();
+                viewer.Viewer.Selection!.SelectAll();
+                copy = viewer.Viewer.CopySelectionAsync();
+                Assert.False(copy.IsCompleted);
+            }
+            finally
+            {
+                viewer.Dispose();
+            }
+
+            Assert.Null(await copy);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     });
 
     [Fact]

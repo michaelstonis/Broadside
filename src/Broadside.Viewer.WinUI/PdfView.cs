@@ -235,7 +235,7 @@ public sealed partial class PdfView : UserControl, IDisposable
     public void Reveal(int pageIndex, PdfRectangle area) => _controller.Reveal(pageIndex, area);
 
     /// <summary>Copies the selected text to the clipboard.</summary>
-    /// <returns>The copied text, or null when nothing is selected.</returns>
+    /// <returns>The copied text, or null when nothing is selected or the document closed before the selection's pages loaded.</returns>
     public async Task<string?> CopySelectionAsync()
     {
         string? text = await _controller.GetSelectedTextAsync().ConfigureAwait(true);

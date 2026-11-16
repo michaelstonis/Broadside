@@ -10,6 +10,34 @@ namespace Broadside.Viewer.Wpf.Tests;
 public sealed class ViewerControllerTests
 {
     [Fact]
+    public void A_copy_still_loading_its_pages_when_the_document_is_replaced_or_the_view_closes_copies_nothing_and_does_not_throw() => UiThread.Run(async () =>
+    {
+        // Select all of a long document, then Copy: its pages load one by one. Opening another document, or closing the view, stops
+        // the loads; the copy has nothing to copy and returns null rather than throwing into the host's click handler.
+        Shell shell = await Shell.OpenAsync(ManyPagesDocument.CreateWithText(40));
+        Task<string?> copy;
+        try
+        {
+            shell.Controller.Selection!.SelectAll();
+            copy = shell.Controller.GetSelectedTextAsync();
+            Assert.False(copy.IsCompleted);
+            await shell.Controller.OpenAsync(_ => Task.FromResult(DocumentSession.Open(ManyPagesDocument.CreateWithText(40), Shell.Options())), ownsSession: true, null);
+            Assert.Null(await copy);
+
+            await shell.SettleAsync();
+            shell.Controller.Selection!.SelectAll();
+            copy = shell.Controller.GetSelectedTextAsync();
+            Assert.False(copy.IsCompleted);
+        }
+        finally
+        {
+            shell.Dispose();
+        }
+
+        Assert.Null(await copy);
+    });
+
+    [Fact]
     public void The_sample_textbook_opens_at_the_top_of_page_one_at_fit_width_with_every_visible_tile_drawn() => UiThread.Run(async () =>
     {
         using Shell shell = await Shell.OpenAsync(Shell.SampleDocument("textbook.pdf"));

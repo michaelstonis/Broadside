@@ -92,7 +92,7 @@ internal sealed class MainWindow : Window
         toolbar.Children.Add(Button("+", "ZoomIn", () => _view.ZoomBy(1.25), "Zoom in"));
         toolbar.Children.Add(Button("Fit width", "FitWidth", () => _view.ZoomTo(ZoomMode.FitWidth)));
         toolbar.Children.Add(Button("Select all", "SelectAll", () => _view.Selection?.SelectAll()));
-        toolbar.Children.Add(Button("Copy", "Copy", () => _ = _view.CopySelectionAsync()));
+        toolbar.Children.Add(Button("Copy", "Copy", Copy));
         toolbar.Children.Add(_query);
         toolbar.Children.Add(Button("Find", "Find", Find));
         toolbar.Children.Add(Button("↑", "PreviousMatch", () => Step(-1), "Previous match"));
@@ -170,6 +170,21 @@ internal sealed class MainWindow : Window
                 // Raised on the indexing thread: the status follows on the UI thread.
                 search.Changed += (_, _) => Dispatcher.InvokeAsync(() => ShowSearch(search));
             }
+        }
+    }
+
+    // An async void handler: an exception that escapes it ends the app, so it is shown on the message line instead.
+    private async void Copy()
+    {
+        try
+        {
+            await _view.CopySelectionAsync();
+        }
+#pragma warning disable CA1031 // reported, never rethrown into the dispatcher
+        catch (Exception exception)
+#pragma warning restore CA1031
+        {
+            _message.Text = "Copy failed: " + exception.Message;
         }
     }
 

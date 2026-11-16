@@ -240,7 +240,7 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
     public void ScrollBy(double deltaX, double deltaY) => HandleScroll(deltaX, deltaY, InputModifiers.None, Width / 2, Height / 2);
 
     /// <summary>Copies the selected text to the clipboard.</summary>
-    /// <returns>The copied text, or null when nothing is selected.</returns>
+    /// <returns>The copied text, or null when nothing is selected or the document closed before the selection's pages loaded.</returns>
     public async Task<string?> CopySelectionAsync()
     {
         string? text = await _controller.GetSelectedTextAsync().ConfigureAwait(true);

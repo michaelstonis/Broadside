@@ -132,6 +132,35 @@ public sealed class ViewerControllerTests
     });
 
     [Fact]
+    public void A_copy_still_loading_its_pages_when_the_document_is_replaced_or_the_view_closes_copies_nothing_and_does_not_throw() => UiThread.Run(async () =>
+    {
+        // Select all of a long document, then Copy: its pages load one by one. Opening another document, or closing the view (the
+        // sample's window closing), stops the loads; the copy has nothing to copy and returns null rather than throwing into the
+        // host's click handler.
+        Shell shell = await Shell.OpenAsync(ManyPagesDocument.CreateWithText(40));
+        Task<string?> copy;
+        try
+        {
+            shell.Controller.Selection!.SelectAll();
+            copy = shell.Controller.GetSelectedTextAsync();
+            Assert.False(copy.IsCompleted);
+            await shell.Controller.OpenAsync(_ => Task.FromResult(DocumentSession.Open(ManyPagesDocument.CreateWithText(40), Shell.Options())), ownsSession: true, null);
+            Assert.Null(await copy);
+
+            await shell.SettleAsync();
+            shell.Controller.Selection!.SelectAll();
+            copy = shell.Controller.GetSelectedTextAsync();
+            Assert.False(copy.IsCompleted);
+        }
+        finally
+        {
+            shell.Dispose();
+        }
+
+        Assert.Null(await copy);
+    });
+
+    [Fact]
     public void A_double_click_selects_a_word_and_a_right_click_is_left_to_the_host() => UiThread.Run(async () =>
     {
         using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("text-render-modes.pdf"));
