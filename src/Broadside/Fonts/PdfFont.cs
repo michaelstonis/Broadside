@@ -24,6 +24,7 @@ public abstract class PdfFont
 {
     private PdfFontDescriptor? _descriptor;
     private int _unicodeReports;
+    private LastProgram? _lastProgram;
 
     private protected PdfFont(PdfDocument document, CosDictionary dictionary, CosReference? reference, PdfFontType fontType)
     {
@@ -173,11 +174,33 @@ public abstract class PdfFont
         {
             if (descriptor.TryGetValue(key, out CosObject? value) && Document.Resolve(value) is CosStream stream)
             {
-                return Document.GetFontProgram(stream, value as CosReference, source, isCidFont, this);
+                // The text interpreter asks for the program on every shown code, so the last answer is kept here: while the stream,
+                // its versions and the document's objects are as they were, the document's cache would return the same program.
+                int objectsVersion = Document.ObjectsVersion;
+                if (_lastProgram is { } last && last.Matches(stream, isCidFont, objectsVersion))
+                {
+                    return last.Program;
+                }
+
+                FontProgram? program = Document.GetFontProgram(stream, value as CosReference, source, isCidFont, this);
+                _lastProgram = new LastProgram(stream, stream.Version, stream.Dictionary.Version, objectsVersion, isCidFont, program);
+                return program;
             }
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// The program <see cref="GetProgram"/> returned last, and what it was read at. Replaced whole, so a reader on another thread sees
+    /// one answer or the other, never a mix.
+    /// </summary>
+    private sealed record LastProgram(CosStream Stream, int Version, int DictionaryVersion, int ObjectsVersion, bool IsCidFont, FontProgram? Program)
+    {
+        /// <summary>Gets whether the program was read from <paramref name="stream"/> as it is now.</summary>
+        public bool Matches(CosStream stream, bool isCidFont, int objectsVersion) =>
+            ReferenceEquals(Stream, stream) && Version == stream.Version && DictionaryVersion == stream.Dictionary.Version
+            && ObjectsVersion == objectsVersion && IsCidFont == isCidFont;
     }
 
     /// <summary>The font descriptor entries that hold a program, and what each holds (Table 120).</summary>
