@@ -9,6 +9,8 @@
     version of ours meets Uno's own.
   -->
   <PropertyGroup>
+    <!-- Uno.Sdk builds its project references even when packing without a build, which the .NET SDK refuses (NETSDK1085). -->
+    <BuildProjectReferences Condition="'$(NoBuild)' == 'true'">false</BuildProjectReferences>
     <Description>Uno Platform viewer for Broadside: a PdfView control on the shared viewer core for Uno's desktop (Skia) and WebAssembly heads, with tiles, touch, mouse and keyboard input, text selection, search, smart dark mode and automation peers. Depends on Uno.WinUI.</Description>
     <TargetFrameworks>net10.0</TargetFrameworks>
     <!-- Uno's generated XAML infrastructure is not trimming- or AOT-annotated; the shell itself uses no reflection. -->
