@@ -72,8 +72,20 @@ public sealed class SampleTests
         AutomationElement text = FirstText(app);
         Rectangle line = text.BoundingRectangle;
         Assert.False(line.IsEmpty, "the first text node has no bounds");
-        int y = line.Y + (line.Height / 2);
-        DragSlowly(new Point(line.X + 2, y), new Point(line.Right - 2, y));
+
+        // A node's bounds cover its line boxes, not its glyphs: a drag along the middle of a heading's box can pass between its glyphs
+        // or above a line clipped at the viewport's top. Try a few heights across the box, reading the bounds again each time.
+        foreach (double at in (double[])[0.5, 0.35, 0.65, 0.2, 0.8])
+        {
+            line = text.BoundingRectangle;
+            int y = line.Y + (int)(line.Height * at);
+            DragSlowly(new Point(line.X + 2, y), new Point(line.Right - 2, y));
+            if (Selected(app, TimeSpan.FromSeconds(3)))
+            {
+                break;
+            }
+        }
+
         app.WaitForText("Selection", s => s.StartsWith("Selected ", StringComparison.Ordinal), "the drag's selection");
         app.Click("Copy");
         app.WaitForText("Copied", s => s.StartsWith("Copied ", StringComparison.Ordinal) && !s.StartsWith("Copied 0 ", StringComparison.Ordinal), "the dragged selection copied");
@@ -130,6 +142,22 @@ public sealed class SampleTests
 
     private static int Characters(string copied) =>
         int.TryParse(copied.Split(' ')[1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int n) ? n : 0;
+
+    private static bool Selected(SampleApp app, TimeSpan within)
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        while (watch.Elapsed < within)
+        {
+            if (app.Find("Selection").Name.StartsWith("Selected ", StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            Thread.Sleep(100);
+        }
+
+        return false;
+    }
 
     private static string TrimToLetters(string word)
     {

@@ -11,6 +11,18 @@ platform=${1:?usage: uitest.sh android|catalyst|ios <app or apk> [timeout in sec
 app=${2:?usage: uitest.sh android|catalyst|ios <app or apk> [timeout in seconds]}
 timeout=${3:-900}
 package=dev.broadside.viewer.sample
+
+# Whether the app's process runs: 0 it runs, 1 it is gone, 2 adb could not tell (the device went offline for a moment; adb exits
+# 255 then). A failed adb is never taken for an app that exited.
+app_state() {
+  local out rc
+  out=$(adb shell pidof "$package" 2>/dev/null) && rc=0 || rc=$?
+  out=${out//$'\r'/}
+  if (( rc == 0 )) && [[ -n "$out" ]]; then return 0; fi
+  if (( rc == 0 || rc == 1 )); then return 1; fi # older adb exits 0 with no output when pidof finds nothing
+  adb wait-for-device || true
+  return 2
+}
 log=$(mktemp -t broadside-uitest.XXXXXX)
 start=$SECONDS
 
@@ -41,7 +53,8 @@ case "$platform" in
         fi
         exit $v
       fi
-      if [[ -z "$(adb shell pidof "$package" | tr -d '\r' || true)" ]]; then
+      set +e; app_state; state=$?; set -e
+      if (( state == 1 )); then
         report
         echo "The app exited after $(( SECONDS - start )) s without a verdict."
         adb logcat -d | grep -E "monodroid|DOTNET|AndroidRuntime|libc|DEBUG|$package" | tail -n 200 || true
