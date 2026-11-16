@@ -54,9 +54,18 @@ with api.dotnet
     }
     # SkiaSharp types in public signatures (SkiaBackend renders to an SKCanvas or SKBitmap) and Android types
     # (AndroidCanvasBackend renders to a Canvas or Bitmap) link to their Microsoft Learn pages.
+    # The Avalonia and Uno viewer shells inherit from, and the WinUI shell references, types of their UI frameworks
+    # that Microsoft's xref service does not know (Avalonia.Visual, Uno.UI.DataBinding.IWeakReferenceProvider,
+    # Windows.Foundation.Rect, WinRT.IWinRTObject, ...). Mapping the namespace prefixes makes Lunet link them to the
+    # framework's own documentation instead of logging "Unable to find xref" for each one, which ./check-docs.sh
+    # treats as a failure. Broadside.* and System.* types are not mapped, so an unresolved one still fails the build.
     external_apis = [
         { uid_prefix: "SkiaSharp.", url: "https://learn.microsoft.com/dotnet/api/" },
-        { uid_prefix: "Android.", url: "https://learn.microsoft.com/dotnet/api/" }
+        { uid_prefix: "Android.", url: "https://learn.microsoft.com/dotnet/api/" },
+        { uid_prefix: "Avalonia.", url: "https://api-docs.avaloniaui.net/docs/" },
+        { uid_prefix: "Uno.", url: "https://api.platform.uno/api/" },
+        { uid_prefix: "Windows.", url: "https://learn.microsoft.com/uwp/api/" },
+        { uid_prefix: "WinRT.", url: "https://learn.microsoft.com/dotnet/api/" }
     ]
     projects = [
         { name: "Broadside", path: "../src/Broadside/Broadside.csproj" },
