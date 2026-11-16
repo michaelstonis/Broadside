@@ -1,25 +1,69 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 using FlaUI.Core.AutomationElements;
 using FlaUI.UIA3;
 
 namespace Broadside.Viewer.WinUI.UITests;
 
-/// <summary>The sample app running one document, driven through UI Automation (FlaUI, UIA3).</summary>
+/// <summary>
+/// The sample app running one document, driven through UI Automation (FlaUI, UIA3). The sample is started here with its stdout and
+/// stderr captured, so when it exits early (or its window never opens) the failure carries its exit code, its output, its startup
+/// log and the Application event log entries written since the launch.
+/// </summary>
 internal sealed partial class SampleApp : IDisposable
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(60);
+    private readonly Process _process;
     private readonly FlaUI.Core.Application _app;
+    private readonly StringBuilder _output = new();
+    private readonly Stopwatch _sinceStart = Stopwatch.StartNew();
+    private readonly string _exe;
+    private bool _closing;
 
     private SampleApp(string document)
     {
         Document = document;
-        string exe = FindSample();
-        var start = new ProcessStartInfo(exe, $"\"{document}\"") { WorkingDirectory = Path.GetDirectoryName(exe)! };
-        _app = FlaUI.Core.Application.Launch(start);
-        Window = _app.GetMainWindow(Automation, Timeout) ?? throw new InvalidOperationException("The sample's window did not open.");
-        Viewer = WaitFor(() => Window.FindFirstDescendant(cf => cf.ByAutomationId("Viewer")), "the viewer");
+        _exe = FindSample();
+        var start = new ProcessStartInfo(_exe)
+        {
+            WorkingDirectory = Path.GetDirectoryName(_exe)!,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        start.ArgumentList.Add(document);
+        _process = Process.Start(start) ?? throw new InvalidOperationException($"Could not start {_exe}.");
+        _process.OutputDataReceived += (_, e) => Capture("stdout", e.Data);
+        _process.ErrorDataReceived += (_, e) => Capture("stderr", e.Data);
+        _process.BeginOutputReadLine();
+        _process.BeginErrorReadLine();
+        try
+        {
+            // Wait for the window here rather than in FlaUI, which only reports "Could not find process" when the app has exited.
+            bool shown = Poll(() =>
+            {
+                _process.Refresh();
+                return _process.HasExited || _process.MainWindowHandle != IntPtr.Zero;
+            });
+            if (_process.HasExited || !shown)
+            {
+                throw new InvalidOperationException(_process.HasExited ? "The sample exited before opening its window." : "The sample's window did not open.");
+            }
+
+            _app = FlaUI.Core.Application.Attach(_process);
+            Window = _app.GetMainWindow(Automation, Timeout) ?? throw new InvalidOperationException("The sample's window did not open.");
+            Viewer = WaitFor(() => Window.FindFirstDescendant(cf => cf.ByAutomationId("Viewer")), "the viewer");
+        }
+        catch (Exception e)
+        {
+            string diagnostics = Diagnostics();
+            Stop();
+            _process.Dispose();
+            Automation.Dispose();
+            throw new InvalidOperationException($"{e.Message}{Environment.NewLine}{diagnostics}", e);
+        }
     }
 
     public string Document { get; }
@@ -124,18 +168,138 @@ internal sealed partial class SampleApp : IDisposable
 
     public void Dispose()
     {
+        // An app that went away during the test (rather than being closed here) says why in the test's output.
+        if (_process.HasExited)
+        {
+            TestContext.Current.TestOutputHelper?.WriteLine("The sample exited during the test." + Environment.NewLine + Diagnostics());
+        }
+
         try
         {
-            _app.Close();
-            if (!_app.HasExited)
+            _closing = true;
+            if (!_process.HasExited)
             {
-                _app.Kill();
+                _app.Close();
             }
+
+            Stop();
         }
         finally
         {
             _app.Dispose();
+            _process.Dispose();
             Automation.Dispose();
+        }
+    }
+
+    private void Capture(string stream, string? line)
+    {
+        if (line is null)
+        {
+            return;
+        }
+
+        lock (_output)
+        {
+            _output.Append(stream).Append(": ").AppendLine(line);
+        }
+    }
+
+    private void Stop()
+    {
+        _closing = true;
+        try
+        {
+            if (!_process.HasExited && !_process.WaitForExit(TimeSpan.FromSeconds(5)))
+            {
+                _process.Kill(entireProcessTree: true);
+            }
+
+            _process.WaitForExit(TimeSpan.FromSeconds(5));
+        }
+        catch (InvalidOperationException)
+        {
+            // Never started or already gone.
+        }
+    }
+
+    /// <summary>
+    /// What the sample left behind: exit code, stdout and stderr, its startup log lines (Broadside.Viewer.WinUI.Sample.log next to the
+    /// exe, this process's lines) and the crash entries (.NET Runtime, Application Error, Windows Error Reporting, SideBySide) the
+    /// Application event log recorded since the launch.
+    /// </summary>
+    private string Diagnostics()
+    {
+        var report = new StringBuilder();
+        report.AppendLine(CultureInfo.InvariantCulture, $"--- sample: {_exe} (pid {_process.Id}), {_sinceStart.Elapsed.TotalSeconds:0.0} s since launch");
+        if (_process.HasExited)
+        {
+            _process.WaitForExit(); // Drains the redirected output.
+            int code = _process.ExitCode;
+            report.AppendLine(CultureInfo.InvariantCulture, $"--- exit code: {code} (0x{code:X8}){(_closing ? ", after the test closed it" : string.Empty)}");
+        }
+        else
+        {
+            report.AppendLine("--- still running");
+        }
+
+        lock (_output)
+        {
+            report.AppendLine("--- stdout/stderr:").Append(_output.Length == 0 ? "(none)" + Environment.NewLine : _output.ToString());
+        }
+
+        string log = Path.Combine(Path.GetDirectoryName(_exe)!, "Broadside.Viewer.WinUI.Sample.log");
+        string marker = string.Create(CultureInfo.InvariantCulture, $"[{_process.Id}]");
+        report.AppendLine(CultureInfo.InvariantCulture, $"--- {log}:");
+        try
+        {
+            string[] lines = File.Exists(log) ? [.. File.ReadAllLines(log).Where(l => l.Contains(marker, StringComparison.Ordinal))] : [];
+            report.AppendLine(lines.Length == 0 ? "(no lines for this process)" : string.Join(Environment.NewLine, lines));
+        }
+        catch (IOException e)
+        {
+            report.AppendLine("(unreadable: " + e.Message + ")");
+        }
+
+        report.AppendLine("--- Application event log since the launch:").AppendLine(ApplicationEvents(_sinceStart.Elapsed + TimeSpan.FromSeconds(10)));
+        return report.ToString();
+    }
+
+    // Windows Error Reporting writes its entries a moment after the crash: wait briefly, then ask PowerShell (always on Windows).
+    private static string ApplicationEvents(TimeSpan since)
+    {
+        Thread.Sleep(TimeSpan.FromSeconds(3));
+        string script = string.Create(
+            CultureInfo.InvariantCulture,
+            $"Get-WinEvent -FilterHashtable @{{LogName='Application'; StartTime=(Get-Date).AddSeconds(-{Math.Ceiling(since.TotalSeconds + 3)})}} -ErrorAction SilentlyContinue | Where-Object {{ $_.ProviderName -in '.NET Runtime','Application Error','Windows Error Reporting','Application Hang','SideBySide' }} | Format-List TimeCreated,ProviderName,Id,LevelDisplayName,Message | Out-String -Width 400");
+        try
+        {
+            var start = new ProcessStartInfo("powershell.exe")
+            {
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            };
+            start.ArgumentList.Add("-NoProfile");
+            start.ArgumentList.Add("-NonInteractive");
+            start.ArgumentList.Add("-Command");
+            start.ArgumentList.Add(script);
+            using Process shell = Process.Start(start)!;
+            Task<string> output = shell.StandardOutput.ReadToEndAsync();
+            Task<string> errors = shell.StandardError.ReadToEndAsync();
+            if (!shell.WaitForExit(TimeSpan.FromSeconds(60)))
+            {
+                shell.Kill();
+                return "(Get-WinEvent timed out)";
+            }
+
+            string text = (output.Result + errors.Result).Trim();
+            return text.Length == 0 ? "(no matching entries)" : text;
+        }
+        catch (System.ComponentModel.Win32Exception e)
+        {
+            return "(could not run PowerShell: " + e.Message + ")";
         }
     }
 

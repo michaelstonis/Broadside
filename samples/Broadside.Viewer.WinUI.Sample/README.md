@@ -13,6 +13,11 @@ artifacts/bin/Broadside.Viewer.WinUI.Sample/debug_win-x64/Broadside.Viewer.WinUI
 
 Without a path it opens the sample textbook chapter (`documents/textbook.pdf` next to the exe).
 
+Startup steps and any unhandled exception go to stderr and to `Broadside.Viewer.WinUI.Sample.log` next to the exe: if the app exits
+without a window, that file says how far it got. There is no App.xaml, so the app loads WinUI's control styles in code and serves
+WinUI's XAML type information itself (`App` is its own `IXamlMetadataProvider`); its resource index
+(`Broadside.Viewer.WinUI.Sample.pri`, generated on Windows) must sit next to the exe.
+
 Try: drag, the wheel or a touchpad to scroll, Ctrl+wheel or pinch to zoom, double-tap to toggle 2x fit-width, drag over text with a
 mouse (double click: word) or long-press on touch and drag the handles to select, Ctrl+C or Copy to copy, Tab between form fields,
 arrows, Page Up/Down, Home/End and +/-, H/T/L/K to move the reading focus between headings, tables, lists and links. Narrator and

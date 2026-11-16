@@ -15,6 +15,15 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- Unpackaged and self-contained, as the deployment guide sets it up: the runtime is loaded from the app's folder through the
+         reg-free WinRT entries merged into the manifest (UndockedRegFreeWinRT), never through the bootstrapper, which finds an
+         installed framework package. No single-project MSIX: the MRT Core tooling still builds the app's own resource index
+         (Broadside.Viewer.WinUI.Sample.pri, with WinUI's control resources merged in), which the XAML control templates load from.
+         Only the library turns its PRI off; this app must keep AppxGeneratePriEnabled at its default (true). -->
+    <EnableMsixTooling>false</EnableMsixTooling>
+    <WindowsAppSdkUndockedRegFreeWinRTInitialize>true</WindowsAppSdkUndockedRegFreeWinRTInitialize>
+    <WindowsAppSdkBootstrapInitialize>false</WindowsAppSdkBootstrapInitialize>
+    <WindowsAppSdkDeploymentManagerInitialize>false</WindowsAppSdkDeploymentManagerInitialize>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
@@ -35,5 +44,14 @@
     <None Include="../documents/pdf/textbook.pdf;../documents/pdf/newsletter.pdf;../documents/pdf/paper.pdf;../documents/pdf/novel-hardback.pdf;../documents/pdf/application-form.pdf" LinkBase="documents" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../tests/Corpus/tagged-structure.pdf" LinkBase="documents" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <!-- An app without its resource index (or without WinUI's control resources) exits as soon as a control template loads: say in
+       the build log which resource indexes landed next to the exe (MakePri runs only on Windows, so other hosts skip this). -->
+  <Target Name="ReportWinUIResourceIndexes" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <ItemGroup>
+      <_SampleResourceIndex Include="$(OutDir)*.pri" />
+    </ItemGroup>
+    <Message Importance="high" Text="WinUI sample: AppxGeneratePriEnabled=$(AppxGeneratePriEnabled), expected app index $(ProjectPriFileName); resource indexes in $(OutDir): @(_SampleResourceIndex->'%(Filename)%(Extension)', ', ')" />
+  </Target>
 
 </Project>
