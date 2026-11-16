@@ -128,7 +128,12 @@ internal sealed partial class SampleApp : IDisposable
             Assert.False(last.Text.StartsWith("Error", StringComparison.Ordinal), last.Text);
             return done(last);
         });
-        Assert.True(ok, $"Timed out waiting for {what}; status: '{last.Text}'.{Environment.NewLine}{Diagnostics()}");
+        if (!ok)
+        {
+            // Built only on a timeout: the diagnostics wait for the event log and read the process.
+            Assert.Fail($"Timed out waiting for {what}; status: '{last.Text}'.{Environment.NewLine}{Diagnostics()}");
+        }
+
         return last;
     }
 
@@ -136,7 +141,11 @@ internal sealed partial class SampleApp : IDisposable
     {
         string last = string.Empty;
         bool ok = Poll(() => done(last = Find(automationId).Name));
-        Assert.True(ok, $"Timed out waiting for {what}; {automationId}: '{last}'.{Environment.NewLine}{Diagnostics()}");
+        if (!ok)
+        {
+            Assert.Fail($"Timed out waiting for {what}; {automationId}: '{last}'.{Environment.NewLine}{Diagnostics()}");
+        }
+
         return last;
     }
 
@@ -297,7 +306,7 @@ internal sealed partial class SampleApp : IDisposable
         }
 
         string log = Path.Combine(Path.GetDirectoryName(_exe)!, "Broadside.Viewer.WinUI.Sample.log");
-        string marker = string.Create(CultureInfo.InvariantCulture, $"[{_process.Id}]");
+        string marker = string.Create(CultureInfo.InvariantCulture, $"[{_processId}]");
         report.AppendLine(CultureInfo.InvariantCulture, $"--- {log}:");
         try
         {
