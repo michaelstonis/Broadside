@@ -150,9 +150,23 @@ public sealed class SampleTests
     private static AutomationElement FirstText(SampleApp app)
     {
         AutomationElement page = SampleApp.WaitFor(() => app.Viewer.FindFirstDescendant(cf => cf.ByAutomationId("page-0")), "page 1's peer");
-        return SampleApp.WaitFor(
-            () => page.FindAllDescendants().FirstOrDefault(e => e.ControlType == ControlType.Text && e.Name.Trim().Length > 12 && !e.BoundingRectangle.IsEmpty),
-            "a text node on page 1");
+        AutomationElement? found = null;
+        if (SampleApp.Poll(() => (found = page.FindAllDescendants().FirstOrDefault(e => e.ControlType == ControlType.Text && e.Name.Trim().Length > 12 && !e.BoundingRectangle.IsEmpty)) is not null))
+        {
+            return found!;
+        }
+
+        // Say what page 1 exposed instead: each node's type, name and bounds, against the viewer's bounds.
+        var seen = new System.Text.StringBuilder();
+        seen.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"viewer {app.Viewer.BoundingRectangle}, page 1 {page.BoundingRectangle}; status '{app.ReadStatus().Text}'");
+        foreach (AutomationElement node in page.FindAllDescendants().Take(40))
+        {
+            string name = node.Name.Length > 60 ? node.Name[..60] : node.Name;
+            seen.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"  {node.ControlType} '{name}' {node.BoundingRectangle}");
+        }
+
+        Assert.Fail("Timed out waiting for a text node on page 1." + Environment.NewLine + seen);
+        return null!;
     }
 
     // What the viewer core says page 1 reads, in order: the text-like nodes, named as the peers name them.
