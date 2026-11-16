@@ -172,7 +172,7 @@ public sealed class FlowDocument
             pages = [.. context.Pages];
         }
 
-        IReadOnlyDictionary<string, FlowAnchor>? anchors = references?.Finish(OutlineDepth);
+        IReadOnlyDictionary<string, FlowAnchor>? anchors = references?.Finish(OutlineDepth, structure is { Pdf20: true } ? structure : null);
         foreach (Diagnostic diagnostic in diagnostics)
         {
             document.ReportDiagnostic(diagnostic);

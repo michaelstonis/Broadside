@@ -46,15 +46,18 @@ public enum FieldLabelPosition
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §12.7 (interactive forms, PDF 1.2), §12.7.4.1 (Table 226, <c>TU</c>), §12.5.6.19 (widget annotations). The field is made
-/// through <see cref="PdfAcroForm"/> with an appearance for every widget; the form is created when the document has none. A label and
-/// field keep together on one page.
+/// through <see cref="PdfAcroForm"/> with an appearance for every widget, in the label's font (<see cref="PdfFieldOptions.Font"/>), so a
+/// flow whose fonts are embedded has appearances that use no other font (ISO 14289-1 §7.21.4.1); the form is created when the document
+/// has none. A label and field keep together on one page.
 /// </para>
 /// <para>
 /// ISO 32000-2 §14.8.4.7.3 (<c>Form</c>) and §12.5 (<c>Tabs</c>, PDF 1.5): tagged, the block is a <c>Form</c> element holding a <c>Lbl</c>
-/// with the label's text and the widget's object reference; radio buttons are a <c>Div</c> holding the group's label (<c>P</c>) and a
+/// with the label's text and the widget's object reference, with a <c>PrintField</c> <c>Role</c> attribute (§14.8.5.6) so that PDF/UA-1
+/// accepts the label beside the widget and PDF/UA-2 finds it there (ISO 14289-2 §8.10.2.2); radio buttons are a <c>Div</c> holding the group's label (<c>P</c>) and a
 /// <c>Form</c> per button, with its choice as <c>Lbl</c>. A tagged flow gives each page with a field the structure tab order
 /// (<c>/Tabs /S</c>).
 /// </para>
+/// <para>ISO 14289-1 §7.18 and §7.21; ISO 14289-2 §8.10.</para>
 /// </remarks>
 public sealed class FieldBlock : FlowBlock
 {
@@ -431,10 +434,13 @@ public sealed class FieldBlock : FlowBlock
         label.LayOut(region);
     }
 
-    /// <summary>A copy of the options with the label as the alternate name (<c>TU</c>).</summary>
+    /// <summary>
+    /// A copy of the options with the label as the alternate name (<c>TU</c>) and, unless the options name a font, the label's font as the
+    /// font of the field's appearances: the flow's fonts are embedded, so the appearances use no font that is not (ISO 14289-1 §7.21.4.1).
+    /// </summary>
     private PdfFieldOptions OptionsFor(string label)
     {
-        var options = new PdfFieldOptions { AlternateName = label };
+        var options = new PdfFieldOptions { AlternateName = label, Font = Options?.Font ?? LabelStyle.Font };
         if (Options is { } given)
         {
             options.Flags = given.Flags;

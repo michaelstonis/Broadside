@@ -75,7 +75,7 @@ internal static class FieldCreation
         PdfDocument document = form.Document;
         string[] parts = Split(name);
         PdfFieldFlags flags = CheckFlags(kind, options);
-        CheckOptions(kind, options);
+        CheckOptions(document, kind, options);
         foreach ((PdfPage page, PdfRectangle rectangle, _) in widgets)
         {
             CheckPlacement(document, page, rectangle);
@@ -85,7 +85,8 @@ internal static class FieldCreation
         try
         {
             (CosDictionary? parent, CosReference? parentReference) = FindOrCreateParents(form, parts, log);
-            (CosName helvetica, CosName zapfDingbats) = EnsureDefaults(form, log);
+            (CosName helvetica, CosName zapfDingbats, CosDictionary defaultFonts) = EnsureDefaults(form, log);
+            CosName? chosen = options.Font is { } chosenFont ? FindOrAddFont(defaultFonts, chosenFont.Reference, log) : null;
 
             var field = new CosDictionary
             {
@@ -110,7 +111,7 @@ internal static class FieldCreation
 
             if (kind != Kind.Signature)
             {
-                field[FormNames.DA] = new CosString(DefaultAppearance(kind is Kind.CheckBox or Kind.RadioButton ? zapfDingbats : helvetica, options));
+                field[FormNames.DA] = new CosString(DefaultAppearance(chosen ?? (kind is Kind.CheckBox or Kind.RadioButton ? zapfDingbats : helvetica), options));
             }
 
             if (options.Quadding != PdfTextJustification.Left && kind is Kind.Text or Kind.ComboBox or Kind.ListBox)
@@ -219,7 +220,7 @@ internal static class FieldCreation
         return flags | selecting;
     }
 
-    private static void CheckOptions(Kind kind, PdfFieldOptions options)
+    private static void CheckOptions(PdfDocument document, Kind kind, PdfFieldOptions options)
     {
         if (options.MaxLength is not null && kind != Kind.Text)
         {
@@ -229,6 +230,11 @@ internal static class FieldCreation
         if (options.Caption is not null && kind is not (Kind.CheckBox or Kind.RadioButton or Kind.PushButton))
         {
             throw new ArgumentException($"A caption applies to buttons only, not to a {Describe(kind)} (ISO 32000-2 §12.5.6.19, Table 192).", nameof(options));
+        }
+
+        if (options.Font is { } font && !ReferenceEquals(font.Document, document))
+        {
+            throw new ArgumentException("The options' font shall be a font of the form's document (ISO 32000-2 §12.7.3, Table 224, DR).", nameof(options));
         }
     }
 
@@ -331,9 +337,9 @@ internal static class FieldCreation
 
     /// <summary>
     /// The resource names of Helvetica and ZapfDingbats in the form's default resources, adding the fonts (and the <c>DR</c> and its
-    /// <c>Font</c> dictionary) when they are missing, and the form's default appearance when it has none.
+    /// <c>Font</c> dictionary) when they are missing, and the form's default appearance when it has none; and that <c>Font</c> dictionary.
     /// </summary>
-    private static (CosName Helvetica, CosName ZapfDingbats) EnsureDefaults(PdfAcroForm form, MutationLog log)
+    private static (CosName Helvetica, CosName ZapfDingbats, CosDictionary Fonts) EnsureDefaults(PdfAcroForm form, MutationLog log)
     {
         PdfDocument document = form.Document;
         if (document.Resolve(form.Dictionary.TryGetValue(FormNames.DR, out CosObject? dr) ? dr : null) is not CosDictionary resources)
@@ -355,7 +361,7 @@ internal static class FieldCreation
             log.Set(form.Dictionary, FormNames.DA, new CosString(System.Text.Encoding.ASCII.GetBytes($"/{helvetica.Value} 0 Tf 0 g")));
         }
 
-        return (helvetica, zapfDingbats);
+        return (helvetica, zapfDingbats, fonts);
     }
 
     /// <summary>The name of the standard Type 1 font <paramref name="baseFont"/> in <paramref name="fonts"/>, added under a new name when absent.</summary>
@@ -373,6 +379,23 @@ internal static class FieldCreation
 
         CosName added = TextFieldAppearance.UniqueName(fonts, stem);
         log.Set(fonts, added, log.AddObject(StandardFont(baseFont)));
+        return added;
+    }
+
+    /// <summary>The name <paramref name="font"/> has in <paramref name="fonts"/>, added under a new name when it has none.</summary>
+    /// <remarks>ISO 32000-2 §12.7.3, Table 224 (<c>DR</c>), and §12.7.4.3: the default appearance's font is a font of the default resources.</remarks>
+    private static CosName FindOrAddFont(CosDictionary fonts, CosReference font, MutationLog log)
+    {
+        foreach (KeyValuePair<CosName, CosObject> entry in fonts)
+        {
+            if (font.Equals(entry.Value))
+            {
+                return entry.Key;
+            }
+        }
+
+        CosName added = TextFieldAppearance.UniqueName(fonts, "BrsF");
+        log.Set(fonts, added, font);
         return added;
     }
 

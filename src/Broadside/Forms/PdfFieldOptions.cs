@@ -1,4 +1,5 @@
 using Broadside.Annotations;
+using Broadside.Fonts;
 
 namespace Broadside.Forms;
 
@@ -144,6 +145,20 @@ public sealed class PdfFieldOptions
     /// <remarks>ISO 32000-2 §12.5.6.19, Table 192, and §12.7.5.2.</remarks>
     public string? Caption { get; set; }
 
+    /// <summary>
+    /// Gets or sets the font the field's default appearance names and its appearances show text in: added to the form's default
+    /// resources (<c>DR</c>) and named by the field's <c>DA</c>; <see langword="null"/>, the default, for the form's Helvetica (and
+    /// ZapfDingbats for a check box's or radio button's mark). With an embedded font (<see cref="PdfDocument.EmbedFont(ReadOnlyMemory{byte}, int)"/>)
+    /// the generated appearances use no font that is not embedded, as PDF/A and PDF/UA require: text is shown through the font's shared
+    /// subset (with its <c>ToUnicode</c> CMap), and a check box's or radio button's mark (a check, a dot, a cross, a diamond, a square
+    /// or a star) is drawn as a path. It shall be a font of the form's document.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §12.7.3 (Table 224, <c>DR</c>) and §12.7.4.3 (the default appearance's <c>Tf</c> names a font of the default
+    /// resources). ISO 14289-1 §7.21.4.1 and §7.21.7 (fonts used for rendering embedded and mapped to Unicode); ISO 19005-2 §6.2.11.4.1.
+    /// </remarks>
+    public PdfCanvasFont? Font { get; set; }
+
     /// <summary>Sets <see cref="Flags"/>.</summary>
     /// <param name="flags">The flags.</param>
     /// <returns>These options.</returns>
@@ -161,6 +176,16 @@ public sealed class PdfFieldOptions
     public PdfFieldOptions WithAlternateName(string? alternateName)
     {
         AlternateName = alternateName;
+        return this;
+    }
+
+    /// <summary>Sets <see cref="Font"/>.</summary>
+    /// <param name="font">The font, a font of the form's document, or <see langword="null"/> for the form's Helvetica.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §12.7.4.3.</remarks>
+    public PdfFieldOptions WithFont(PdfCanvasFont? font)
+    {
+        Font = font;
         return this;
     }
 

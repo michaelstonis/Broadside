@@ -28,7 +28,9 @@ namespace Broadside.Forms;
 /// multi-line text at 12 points, shrinking until the lines fit (at least 4 points).
 /// </para>
 /// <para>
-/// Font: the default appearance font when it is a simple font whose encoding has every character; Helvetica (WinAnsi, not embedded)
+/// Font: the default appearance font when it is the Type 0 font of one of the document's shared subsets (<see cref="PdfFieldOptions.Font"/>)
+/// whose program has every character, shown through that subset; the default appearance font when it is a simple font whose encoding
+/// has every character; Helvetica (WinAnsi, not embedded)
 /// when the string names no usable font; otherwise a TrueType program from the engine's font resolvers, embedded as a subset Type 0
 /// font (§9.7, §9.9.2, §9.10.3).
 /// </para>
@@ -297,6 +299,14 @@ internal sealed class TextFieldAppearance
     /// <summary>Chooses the font that shows <paramref name="text"/> and the resource name it is shown under.</summary>
     private static (AppearanceFont Font, CosName Name) ChooseFont(PdfDocument document, PdfDefaultAppearance? appearance, CosDictionary fonts, string text, bool transient)
     {
+        // An embedded font of the document's own (PdfFieldOptions.Font): shown through its shared subset, so the appearance uses no font
+        // that is not embedded. A display-only appearance must not grow the subset, so it takes the other paths.
+        if (!transient && appearance?.FontName is { } subsetName && fonts.TryGetValue(subsetName, out CosObject? subsetEntry)
+            && CanvasAppearanceFont.FromSharedSubset(document, subsetEntry) is { } shared && shared.CanEncode(text))
+        {
+            return (shared, subsetName);
+        }
+
         if (appearance is { Font: PdfSimpleFont simple, FontName: { } name } && fonts.TryGetValue(name, out CosObject? entry))
         {
             var candidate = new SimpleAppearanceFont(simple, entry);

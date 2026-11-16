@@ -3,6 +3,7 @@ using Broadside.Diagnostics;
 using Broadside.Fonts;
 using Broadside.Fonts.Standard14;
 using Broadside.Layout.Flow;
+using Broadside.Objects;
 using Broadside.Structure;
 using Broadside.Tests.Writing;
 using Broadside.Text;
@@ -79,8 +80,19 @@ public sealed class ForwardReferenceFlowTests
         using PdfDocument reopened = PdfDocument.Open(saved);
         PdfLinkAnnotation[] links = [.. reopened.Pages[0].Annotations.OfType<PdfLinkAnnotation>()];
         Assert.Equal(3, links.Length);
-        Assert.Equal("install", Assert.IsType<PdfNamedDestination>(links[1].Destination).Text);
-        Assert.Equal(reading - 1, Assert.IsType<PdfExplicitDestination>(links[2].Destination).PageIndex);
+        // Tagged in the PDF 2.0 namespace, each entry goes to its heading through a go-to action with a structure destination (SD) to the
+        // heading's element and the page destination (D) kept: a name for a heading with an id, else an explicit destination.
+        PdfGoToAction install = Assert.IsType<PdfGoToAction>(links[1].Action);
+        Assert.Equal("install", Assert.IsType<PdfNamedDestination>(install.Destination).Text);
+        PdfGoToAction readingAction = Assert.IsType<PdfGoToAction>(links[2].Action);
+        Assert.Equal(reading - 1, Assert.IsType<PdfExplicitDestination>(readingAction.Destination).PageIndex);
+        Assert.All(links, link =>
+        {
+            Assert.Null(link.Destination);
+            PdfExplicitDestination structure = Assert.IsType<PdfGoToAction>(link.Action).StructureDestination!;
+            Assert.Matches("^H[1-6]$", ((CosName)structure.StructureElement![new CosName("S")]).Value);
+        });
+        Assert.Equal(reading - 1, readingAction.StructureDestination!.PageIndex);
         PdfStructureElement toc = reopened.StructureTree!.Elements.Single(element => element.StructureType?.Value == "TOC");
         Assert.Equal(["TOCI", "TOCI", "TOCI"], toc.Children.OfType<PdfStructureElement>().Select(element => element.StructureType!.Value));
         Assert.All(toc.Children.OfType<PdfStructureElement>(), entry =>
