@@ -151,12 +151,14 @@ public sealed class SampleTests
     {
         AutomationElement page = SampleApp.WaitFor(() => app.Viewer.FindFirstDescendant(cf => cf.ByAutomationId("page-0")), "page 1's peer");
         AutomationElement? found = null;
-        // The longest line on screen: in a short window a page's long paragraphs can sit below the viewport (their peers report no
-        // bounds), leaving a heading such as the newsletter's masthead as the only text in view.
-        if (SampleApp.Poll(() => (found = page.FindAllDescendants()
-            .Where(e => e.ControlType == ControlType.Text && e.Name.Trim().Length >= 5 && !e.BoundingRectangle.IsEmpty)
-            .OrderByDescending(e => e.Name.Trim().Length)
-            .FirstOrDefault()) is not null))
+        // The first line on screen in reading order with some length; in a short window a page's paragraphs can sit below the
+        // viewport (their peers report no bounds), leaving only a short heading such as the newsletter's masthead in view.
+        if (SampleApp.Poll(() =>
+        {
+            AutomationElement[] shown = [.. page.FindAllDescendants().Where(e => e.ControlType == ControlType.Text && !e.BoundingRectangle.IsEmpty)];
+            found = shown.FirstOrDefault(e => e.Name.Trim().Length > 12) ?? shown.FirstOrDefault(e => e.Name.Trim().Length >= 5);
+            return found is not null;
+        }))
         {
             return found!;
         }
