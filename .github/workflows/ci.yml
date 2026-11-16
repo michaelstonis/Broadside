@@ -669,6 +669,41 @@ jobs:
           $env:BROADSIDE_WINUI_SAMPLE = (Resolve-Path "artifacts/bin/Broadside.Viewer.WinUI.Sample/release_win-x64/Broadside.Viewer.WinUI.Sample.exe").Path
           dotnet test --project tests/Broadside.Viewer.WinUI.UITests -c Release --no-build --minimum-expected-tests 1 --results-directory artifacts/test-results -- --report-xunit-trx
 
+      # When the sample fails, keep what explains it: the output folder's listing (is the runtime, the resource index, the manifest
+      # there?), the manifest the build embedded, the sample's startup log and the Application event log's crash entries.
+      - name: Collect the sample's diagnostics
+        if: failure()
+        shell: pwsh
+        run: |
+          $out = "artifacts/bin/Broadside.Viewer.WinUI.Sample/release_win-x64"
+          $diag = New-Item -ItemType Directory -Force artifacts/winui-diagnostics
+          if (Test-Path $out) {
+            Get-ChildItem -Recurse -File $out | Select-Object @{n='Path';e={$_.FullName.Substring((Resolve-Path $out).Path.Length + 1)}}, Length, LastWriteTime |
+              Format-Table -AutoSize | Out-String -Width 400 | Set-Content "$diag/sample-output-files.txt"
+            Get-Content "$diag/sample-output-files.txt"
+            if (Test-Path "$out/Broadside.Viewer.WinUI.Sample.log") {
+              Copy-Item "$out/Broadside.Viewer.WinUI.Sample.log" $diag
+              Write-Host "--- sample log"; Get-Content "$out/Broadside.Viewer.WinUI.Sample.log"
+            }
+          } else {
+            Write-Host "No sample output folder at $out"
+          }
+          Get-ChildItem -Recurse -File artifacts/obj/Broadside.Viewer.WinUI.Sample -Filter *.manifest -ErrorAction SilentlyContinue | ForEach-Object {
+            Copy-Item $_.FullName (Join-Path $diag ($_.Directory.Name + "-" + $_.Name))
+          }
+          Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=(Get-Date).AddHours(-1)} -ErrorAction SilentlyContinue |
+            Where-Object { $_.ProviderName -in '.NET Runtime','Application Error','Windows Error Reporting','Application Hang','SideBySide' } |
+            Format-List TimeCreated, ProviderName, Id, LevelDisplayName, Message | Out-String -Width 400 | Set-Content "$diag/application-events.txt"
+          Write-Host "--- Application event log (crash entries, last hour)"; Get-Content "$diag/application-events.txt"
+
+      - name: Upload the sample's diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: winui-sample-diagnostics
+          path: artifacts/winui-diagnostics/
+          if-no-files-found: warn
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
