@@ -78,11 +78,24 @@ public sealed class AnchorFlowTests
         byte[] saved = Saved(document);
         AssertQpdfPasses(saved);
         using PdfDocument reopened = PdfDocument.Open(saved);
+        // Tagged in the PDF 2.0 namespace: a go-to action whose D is the name and whose SD is a structure destination to the paragraph
+        // (ISO 32000-2 §12.6.4.2, §12.3.2.3; ISO 14289-2 §8.8).
         PdfLinkAnnotation forward = Assert.Single(reopened.Pages[0].Annotations.OfType<PdfLinkAnnotation>());
-        Assert.Equal("results", Assert.IsType<PdfNamedDestination>(forward.Destination).Text);
-        Assert.Equal(reopened.Pages.Count - 1, Assert.IsType<PdfNamedDestination>(forward.Destination).Resolve()!.PageIndex);
+        Assert.Null(forward.Destination);
+        PdfGoToAction forwardAction = Assert.IsType<PdfGoToAction>(forward.Action);
+        Assert.Equal("results", Assert.IsType<PdfNamedDestination>(forwardAction.Destination).Text);
+        Assert.Equal(reopened.Pages.Count - 1, Assert.IsType<PdfNamedDestination>(forwardAction.Destination).Resolve()!.PageIndex);
+        PdfExplicitDestination forwardStructure = forwardAction.StructureDestination!;
+        Assert.Equal(new CosName("P"), forwardStructure.StructureElement![new CosName("S")]);
+        Assert.Equal(reopened.Pages.Count - 1, forwardStructure.PageIndex);
         PdfLinkAnnotation back = Assert.Single(reopened.Pages[^1].Annotations.OfType<PdfLinkAnnotation>());
-        Assert.Equal(0, Assert.IsType<PdfNamedDestination>(back.Destination).Resolve()!.PageIndex);
+        PdfGoToAction backAction = Assert.IsType<PdfGoToAction>(back.Action);
+        Assert.Equal(0, Assert.IsType<PdfNamedDestination>(backAction.Destination).Resolve()!.PageIndex);
+        Assert.Equal(0, backAction.StructureDestination!.PageIndex);
+
+        // The named destinations carry the structure destination too (§12.3.2.4: a dictionary with D and SD).
+        Assert.Equal(reopened.Pages.Count - 1, ((PdfNamedDestination)forwardAction.Destination!).ResolveStructureDestination()!.PageIndex);
+        Assert.Equal(0, ((PdfNamedDestination)backAction.Destination!).ResolveStructureDestination()!.PageIndex);
 
         PdfStructureElement[] links = [.. reopened.StructureTree!.Elements.Where(element => element.StructureType?.Value == "Link")];
         Assert.Equal(2, links.Length);
@@ -171,6 +184,73 @@ public sealed class AnchorFlowTests
         PdfExplicitDestination reading = Assert.IsType<PdfExplicitDestination>(guide.Children[1].Destination);
         Assert.Equal(result.Pages.Count - 1, reading.PageIndex);
         Assert.Equal(0, Assert.IsType<PdfExplicitDestination>(guide.Destination).PageIndex);
+    }
+
+    [Fact]
+    public void A_flow_tagged_in_the_PDF_2_0_namespace_goes_to_its_headings_through_structure_destinations()
+    {
+        using PdfDocument document = NewDocument();
+        ParagraphStyle body = Body(document);
+        var flow = new FlowDocument(PageSetup.Letter) { OutlineDepth = 2, Tagging = FlowTagging.Default.WithLanguage("en") };
+        flow.Add(new Paragraph("Guide", body) { StructureType = "H1" });
+        flow.Add(new Paragraph("Installing", body) { StructureType = "H2", Id = "install" });
+        flow.Add(new Paragraph(Filler, body));
+        flow.Add(new Paragraph("Reading files", body) { StructureType = "H2" });
+
+        FlowLayoutResult result = flow.Render(document);
+
+        Assert.Empty(result.Diagnostics);
+        byte[] saved = Saved(document);
+        AssertQpdfPasses(saved);
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        PdfOutlineItem guide = Assert.Single(reopened.Outline!.Items);
+        PdfOutlineItem[] items = [guide, .. guide.Children];
+        Assert.Equal(["Guide", "Installing", "Reading files"], items.Select(item => item.Title));
+
+        // ISO 14289-2 §8.8: every destination within the document is a structure destination (ISO 32000-2 §12.3.2.3); the go-to action
+        // (§12.6.4.2, Table 202) keeps the page destination as D for readers before PDF 2.0, and the item has no Dest (§12.3.3, Table 151).
+        string[] headings = ["H1", "H2", "H2"];
+        int[] pages = [0, 0, result.Pages.Count - 1];
+        for (int index = 0; index < items.Length; index++)
+        {
+            Assert.False(items[index].Dictionary.ContainsKey(new CosName("Dest")));
+            PdfGoToAction action = Assert.IsType<PdfGoToAction>(items[index].Action);
+            PdfExplicitDestination structure = action.StructureDestination!;
+            Assert.Equal(new CosName(headings[index]), structure.StructureElement![new CosName("S")]);
+            Assert.Equal(PdfDestinationView.Xyz, structure.View);
+            Assert.Equal(pages[index], structure.PageIndex);
+            Assert.NotNull(action.Destination);
+        }
+
+        Assert.Equal("install", Assert.IsType<PdfNamedDestination>(Assert.IsType<PdfGoToAction>(items[1].Action).Destination).Text);
+        PdfNamedDestination install = Assert.IsType<PdfNamedDestination>(Assert.IsType<PdfGoToAction>(items[1].Action).Destination);
+        Assert.Equal(0, install.ResolveStructureDestination()!.PageIndex);
+        Assert.Equal(0, install.Resolve()!.PageIndex);
+    }
+
+    [Fact]
+    public void A_flow_tagged_in_the_PDF_1_7_namespace_keeps_page_destinations()
+    {
+        using PdfDocument document = NewDocument();
+        ParagraphStyle body = Body(document);
+        var flow = new FlowDocument(PageSetup.Letter)
+        {
+            OutlineDepth = 1,
+            Tagging = FlowTagging.Default.WithLanguage("en").WithNamespace(FlowStructureNamespace.Pdf17),
+        };
+        flow.Add(new Paragraph([new TextRun("Back to the "), new TextRun("guide") { Destination = "guide" }], body));
+        flow.Add(new Paragraph("Guide", body) { StructureType = "H1", Id = "guide" });
+
+        flow.Render(document);
+
+        using PdfDocument reopened = PdfDocument.Open(Saved(document));
+        PdfOutlineItem guide = Assert.Single(reopened.Outline!.Items);
+        Assert.Null(guide.Action);
+        Assert.Equal("guide", Assert.IsType<PdfNamedDestination>(guide.Destination).Text);
+        Assert.Null(Assert.IsType<PdfNamedDestination>(guide.Destination).ResolveStructureDestination());
+        PdfLinkAnnotation link = Assert.Single(reopened.Pages[0].Annotations.OfType<PdfLinkAnnotation>());
+        Assert.Null(link.Action);
+        Assert.Equal("guide", Assert.IsType<PdfNamedDestination>(link.Destination).Text);
     }
 
     [Fact]

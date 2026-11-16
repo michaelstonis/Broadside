@@ -18,12 +18,20 @@ namespace Broadside.Layout.Flow;
 /// </para>
 /// <para>
 /// Links are drawn before every target is on a page, so a link to a block of the flow gets its destination once the flow is drawn: the
-/// block's name when it has an <see cref="FlowBlock.Id"/> (written as a named destination), else an explicit <c>XYZ</c> destination.
+/// block's name when it has an <see cref="FlowBlock.Id"/> (written as a named destination), else an explicit <c>XYZ</c> destination. In
+/// a flow tagged in the PDF 2.0 namespace every such destination (links, outline items, named destinations) also carries a structure
+/// destination to the block's element (§12.3.2.3, <c>SD</c>), as ISO 14289-2 §8.8 requires.
 /// </para>
 /// </remarks>
 internal sealed class FlowReferences
 {
     private static readonly CosName DestKey = new("Dest");
+    private static readonly CosName ActionKey = new("A");
+    private static readonly CosName ActionTypeKey = new("S");
+    private static readonly CosName GoTo = new("GoTo");
+    private static readonly CosName DKey = new("D");
+    private static readonly CosName SDKey = new("SD");
+    private static readonly CosName Xyz = new("XYZ");
 
     private readonly PdfDocument _document;
     private readonly Dictionary<string, FlowBlock> _ids = new(StringComparer.Ordinal);
@@ -270,7 +278,17 @@ internal sealed class FlowReferences
     /// After the drawing pass: writes a named destination for each anchor with an id, gives the links their destinations, adds the headings
     /// down to <paramref name="outlineDepth"/> to the outline and returns the anchors by id.
     /// </summary>
-    public IReadOnlyDictionary<string, FlowAnchor> Finish(int outlineDepth)
+    /// <param name="outlineDepth">The deepest heading level the outline lists; 0 for no outline.</param>
+    /// <param name="structure">
+    /// The structure of a flow tagged in the PDF 2.0 namespace, or <see langword="null"/>: with it, every destination to a tagged block is
+    /// also a structure destination (<c>SD</c>) to the block's element, the page destination kept as the go-to action's <c>D</c>.
+    /// </param>
+    /// <remarks>
+    /// ISO 32000-2 §12.3.2.3 (structure destinations, PDF 2.0), §12.3.2.4 (a named destination's value: a dictionary whose <c>D</c> is
+    /// the destination and whose <c>SD</c> is a structure destination) and §12.6.4.2 (Table 202, the go-to action's <c>D</c> and
+    /// <c>SD</c>). ISO 14289-2 §8.8: every destination within the document is a structure destination.
+    /// </remarks>
+    public IReadOnlyDictionary<string, FlowAnchor> Finish(int outlineDepth, FlowStructure? structure)
     {
         var anchors = new Dictionary<string, FlowAnchor>(StringComparer.Ordinal);
         var named = new Dictionary<FlowBlock, PdfDestination>(ReferenceEqualityComparer.Instance);
@@ -279,7 +297,13 @@ internal sealed class FlowReferences
             if (_placed.TryGetValue(block, out Placement placement) && placement.Page is { } page)
             {
                 anchors[id] = new FlowAnchor(id, page, placement.PageNumber, placement.Left, placement.Top);
-                named[block] = _document.SetNamedDestination(id, Explicit(placement));
+                PdfExplicitDestination explicitDestination = Explicit(placement);
+                PdfNamedDestination name = _document.SetNamedDestination(id, explicitDestination);
+                named[block] = name;
+                if (StructureDestination(block, structure) is { } element && name.Name is CosString key && _document.Names?.Dests is { } tree)
+                {
+                    tree.Set(key, new CosDictionary { [DKey] = explicitDestination.Value, [SDKey] = element });
+                }
             }
         }
 
@@ -287,16 +311,57 @@ internal sealed class FlowReferences
         {
             if (DestinationOf(target, named) is { } destination)
             {
-                annotation.Dictionary[DestKey] = destination.Value;
+                Point(annotation.Dictionary, destination, target, structure);
             }
         }
 
         if (outlineDepth > 0)
         {
-            AddOutline(outlineDepth, named);
+            AddOutline(outlineDepth, named, structure);
         }
 
         return anchors;
+    }
+
+    /// <summary>
+    /// Makes <paramref name="dictionary"/> (a link annotation's or an outline item's) go to <paramref name="destination"/>: a <c>Dest</c>
+    /// entry, or, when <paramref name="target"/> has a structure element, a go-to action with the destination as <c>D</c> and the structure
+    /// destination as <c>SD</c>.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §12.5.6.5 (Table 176, <c>A</c> and <c>Dest</c>), §12.3.3 (Table 151) and §12.6.4.2 (Table 202).</remarks>
+    private void Point(CosDictionary dictionary, PdfDestination destination, FlowBlock target, FlowStructure? structure)
+    {
+        if (StructureDestination(target, structure) is { } element)
+        {
+            _ = dictionary.Remove(DestKey);
+            dictionary[ActionKey] = new CosDictionary { [ActionTypeKey] = GoTo, [DKey] = destination.Value, [SDKey] = element };
+        }
+        else
+        {
+            dictionary[DestKey] = destination.Value;
+        }
+    }
+
+    /// <summary>
+    /// A structure destination to <paramref name="target"/>'s element, with the view of its page destination (<c>XYZ</c> at the top left
+    /// of its first line); <see langword="null"/> without a structure, or when the block was not tagged or never placed.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §12.3.2.3: the destination syntax of Table 149 with the structure element in place of the page.</remarks>
+    private CosArray? StructureDestination(FlowBlock target, FlowStructure? structure)
+    {
+        if (structure?.ElementOf(target) is not { Reference: { } element } || !_placed.TryGetValue(Key(target), out Placement placement) || placement.Page is null)
+        {
+            return null;
+        }
+
+        return [element, Xyz, Coordinate(placement.Left), Coordinate(placement.Top), CosNull.Instance];
+    }
+
+    /// <summary>A coordinate as <see cref="PdfDocument.CreateDestination"/> writes it: rounded to hundredths, an integer when whole.</summary>
+    private static CosObject Coordinate(double value)
+    {
+        double rounded = Math.Round(value, 2);
+        return double.IsInteger(rounded) ? new CosInteger((long)rounded) : new CosReal(rounded);
     }
 
     /// <summary>Where a link or outline item to <paramref name="target"/> goes: its name when it has one, else where it is; null when it was never placed.</summary>
@@ -311,7 +376,7 @@ internal sealed class FlowReferences
     }
 
     /// <summary>Adds the headings down to <paramref name="depth"/> to the document outline, nested by level.</summary>
-    private void AddOutline(int depth, Dictionary<FlowBlock, PdfDestination> named)
+    private void AddOutline(int depth, Dictionary<FlowBlock, PdfDestination> named, FlowStructure? structure)
     {
         PdfOutline? outline = null;
         var open = new List<(int Level, PdfOutlineItem Item)>();
@@ -339,7 +404,7 @@ internal sealed class FlowReferences
                 item = outline.Add(title);
             }
 
-            item.Destination = destination;
+            Point(item.Dictionary, destination, heading, structure);
             open.Add((level, item));
         }
     }

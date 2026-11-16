@@ -105,12 +105,71 @@ public sealed class FieldFlowTests
             PdfObjectReference widget = Assert.Single(element.Children.OfType<PdfObjectReference>());
             Assert.Equal("Widget", ((CosName)((CosDictionary)widget.ReferencedObject)[new CosName("Subtype")]).Value);
             Assert.Same(element.Dictionary, root.FindElementForObject(widget.ReferencedObject)?.Dictionary);
+
+            // PDF/UA-1 (veraPDF 7.18.4-2): a Form element that holds more than the widget's object reference has a Role attribute
+            // (ISO 32000-2 §14.8.5.6, Table 383); PDF/UA-2 §8.10.2.2 wants the label as a Lbl in that same Form element.
+            PdfAttributeObject printField = Assert.Single(element.Attributes, attributes => attributes.Owner?.Value == "PrintField");
+            PdfWidgetAnnotation annotation = reopened.Pages.SelectMany(page => page.Annotations).OfType<PdfWidgetAnnotation>()
+                .Single(candidate => ReferenceEquals(candidate.Dictionary, widget.ReferencedObject));
+            string expected = annotation.Field switch
+            {
+                PdfRadioButtonField => "rb",
+                PdfCheckBoxField => "cb",
+                PdfListBoxField => "lb",
+                _ => "tv",
+            };
+            Assert.Equal(new CosName(expected), printField.GetValue(new CosName("Role")));
         }
 
         Assert.Equal(new CosName("S"), reopened.Pages[0].Dictionary[new CosName("Tabs")]);
         FlowContentRecorder recorder = FlowContentRecorder.Record(reopened.Pages[0]);
         Assert.Equal(0, recorder.Untagged);
         Assert.Equal(0, recorder.Mixed);
+    }
+
+    [Fact]
+    public void With_an_embedded_label_font_every_appearance_shows_text_only_in_embedded_fonts_mapped_to_Unicode()
+    {
+        using PdfDocument document = AnchorFlowTests.NewDocument();
+        PdfCanvasFont font = document.EmbedTrueTypeFont(Standard14FontResolver.GetProgram(Standard14Font.Helvetica));
+        Form(document, FlowTagging.Default.WithLanguage("en"), new ParagraphStyle(font, 10)).Render(document);
+
+        byte[] saved = AnchorFlowTests.Saved(document);
+        AnchorFlowTests.AssertQpdfPasses(saved);
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        PdfAcroForm form = reopened.AcroForm!;
+        var appearances = new List<CosStream>();
+        foreach (PdfWidgetAnnotation widget in form.Fields.OfType<PdfTerminalField>().SelectMany(field => field.Widgets))
+        {
+            CosObject normal = reopened.Resolve(((CosDictionary)reopened.Resolve(widget.Dictionary[new CosName("AP")]))[new CosName("N")]);
+            appearances.AddRange(normal is CosStream stream
+                ? [stream]
+                : ((CosDictionary)normal).Select(state => (CosStream)reopened.Resolve(state.Value)));
+        }
+
+        // Every widget has a normal appearance: on and Off states for the check box and each radio button.
+        Assert.Equal(1 + 2 + 4 + 1 + 1 + 1, appearances.Count);
+        int shown = 0;
+        foreach (CosStream appearance in appearances)
+        {
+            string content = System.Text.Encoding.Latin1.GetString(reopened.DecodeStream(appearance).Span);
+            foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(content, @"/(\S+)\s+[-0-9.]+\s+Tf"))
+            {
+                // ISO 14289-1 §7.21.4.1 and §7.21.7 (veraPDF 7.21.4.1-1, 7.21.7-1): the font is embedded and has a ToUnicode CMap.
+                var resources = (CosDictionary)reopened.Resolve(appearance.Dictionary[new CosName("Resources")]);
+                var fonts = (CosDictionary)reopened.Resolve(resources[new CosName("Font")]);
+                PdfFont used = reopened.GetFont(fonts[new CosName(match.Groups[1].Value)])!;
+                PdfType0Font composite = Assert.IsType<PdfType0Font>(used);
+                Assert.True(composite.DescendantFont!.IsEmbedded, $"{used.BaseFont} is embedded");
+                Assert.True(used.Dictionary.ContainsKey(new CosName("ToUnicode")), $"{used.BaseFont} maps its codes to Unicode");
+                shown++;
+            }
+        }
+
+        // The text field, combo box and list box show text; the check box's and radio buttons' marks are paths.
+        Assert.Equal(3, shown);
+        Assert.Equal("Ada", Assert.IsType<PdfTextField>(form.FindField("name")).Value);
+        Assert.Contains("BrsF", ((CosString)Assert.IsType<PdfCheckBoxField>(form.FindField("terms")).Dictionary[new CosName("DA")]).DecodeText(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -207,9 +266,9 @@ public sealed class FieldFlowTests
         Assert.Empty(VeraPdf.FailedRules(saved, "ua1"));
     }
 
-    private static FlowDocument Form(PdfDocument document, FlowTagging? tagging)
+    private static FlowDocument Form(PdfDocument document, FlowTagging? tagging, ParagraphStyle? style = null)
     {
-        ParagraphStyle body = AnchorFlowTests.Body(document);
+        ParagraphStyle body = style ?? AnchorFlowTests.Body(document);
         var flow = new FlowDocument(PageSetup.Letter) { Tagging = tagging };
         flow.Add(new Paragraph("Complete every field.", body));
         flow.Add(new FieldBlock(FormFieldType.Text, "name", "Full name", body) { Value = "Ada" });

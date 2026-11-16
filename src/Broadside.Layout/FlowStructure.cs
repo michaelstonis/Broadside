@@ -1,6 +1,7 @@
 using System.Text;
 using Broadside.Annotations;
 using Broadside.Diagnostics;
+using Broadside.Forms;
 using Broadside.Graphics;
 using Broadside.Objects;
 using Broadside.Structure;
@@ -26,6 +27,7 @@ namespace Broadside.Layout.Flow;
 /// object that it began outside one, so the sequences nest properly with <c>BT</c>/<c>ET</c>.
 /// </para>
 /// <para>ISO 14289-2 §8.2.</para>
+/// <para>ISO 14289-1 §7.18 (a field's <c>Form</c> element and its <c>PrintField</c> role) and ISO 14289-2 §8.8 (the elements structure destinations point at).</para>
 /// <para>Well-Tagged PDF 1.0 §8.2.</para>
 /// </remarks>
 internal sealed class FlowStructure : IStructureSink
@@ -39,6 +41,8 @@ internal sealed class FlowStructure : IStructureSink
     private static readonly CosName ColSpanKey = new("ColSpan");
     private static readonly CosName ScopeKey = new("Scope");
     private static readonly CosName HeadersKey = new("Headers");
+    private static readonly CosName PrintFieldOwner = new("PrintField");
+    private static readonly CosName RoleKey = new("Role");
     private static readonly CosName KidsKey = new("K");
     private static readonly CosName ParentKey = new("P");
 
@@ -49,6 +53,7 @@ internal sealed class FlowStructure : IStructureSink
     private readonly List<Node> _sequences = [];
     private readonly HashSet<string> _mapped = new(StringComparer.Ordinal);
     private readonly Dictionary<TableCell, PdfStructureElement> _cells = [];
+    private readonly Dictionary<FlowBlock, PdfStructureElement> _blocks = new(ReferenceEqualityComparer.Instance);
     private PdfPage? _page;
     private int _ids;
 
@@ -64,6 +69,13 @@ internal sealed class FlowStructure : IStructureSink
 
     /// <summary>Gets the <c>Document</c> element, or <see langword="null"/> when nothing was tagged.</summary>
     public PdfStructureElement? Document => _stack[0].Element;
+
+    /// <summary>Gets whether elements are in the PDF 2.0 structure namespace, where links and the outline use structure destinations.</summary>
+    public bool Pdf20 => _tagging.Namespace == FlowStructureNamespace.Pdf20;
+
+    /// <summary>The element <paramref name="block"/> (or the paragraph it was copied from) was tagged as, or <see langword="null"/>.</summary>
+    public PdfStructureElement? ElementOf(FlowBlock block) =>
+        _blocks.GetValueOrDefault(block is Paragraph { Origin: { } origin } ? origin : block);
 
     public void BeginSection(PageTemplate template)
     {
@@ -128,7 +140,9 @@ internal sealed class FlowStructure : IStructureSink
             // The open element itself: a form field's Form element and its widget (§14.8.4.7.3).
             if (parent.Kind is NodeKind.Container or NodeKind.Leaf)
             {
-                Materialize(parent).AddObjectReference(reference, page);
+                PdfStructureElement element = Materialize(parent);
+                element.AddObjectReference(reference, page);
+                DescribeField(parent, element, annotation);
             }
 
             return;
@@ -140,6 +154,7 @@ internal sealed class FlowStructure : IStructureSink
             if (ReferenceEquals(child.Owner, part.Owner) && child.Type == part.StructureType)
             {
                 child.Element!.AddObjectReference(reference, page);
+                DescribeField(child, child.Element, annotation);
                 if (annotation.Contents is null && part.Owner is TextRun run)
                 {
                     // PDF/UA-1 §7.18.5: a link annotation describes itself through Contents.
@@ -149,6 +164,33 @@ internal sealed class FlowStructure : IStructureSink
                 return;
             }
         }
+    }
+
+    /// <summary>
+    /// Gives a <c>Form</c> element holding a widget a <c>PrintField</c> attribute object with the field's <c>Role</c>, so it may hold the
+    /// field's label (<c>Lbl</c>) beside the widget's object reference.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §14.8.5.6 (Table 383: <c>Role</c> <c>rb</c>, <c>cb</c>, <c>pb</c>, <c>tv</c>, and <c>lb</c> in PDF 2.0). PDF/UA-1 (veraPDF
+    /// rule 7.18.4-2): a <c>Form</c> element without a <c>Role</c> attribute holds only the widget's object reference; ISO 14289-2 §8.10.2.2:
+    /// a widget's label is a <c>Lbl</c> directly in the <c>Form</c> element that holds the widget. The attribute satisfies both.
+    /// </remarks>
+    private void DescribeField(Node node, PdfStructureElement element, PdfAnnotation annotation)
+    {
+        if (node.Type != "Form" || annotation is not PdfWidgetAnnotation widget || element.Attributes.Any(static attributes => PrintFieldOwner.Equals(attributes.Owner)))
+        {
+            return;
+        }
+
+        string role = widget.Field switch
+        {
+            PdfRadioButtonField => "rb",
+            PdfCheckBoxField => "cb",
+            PdfPushButtonField => "pb",
+            PdfListBoxField when _tagging.Namespace == FlowStructureNamespace.Pdf20 => "lb",
+            _ => "tv",
+        };
+        element.AddAttributes(PrintFieldOwner).SetValue(RoleKey, new CosName(role));
     }
 
     private void Begin(string type, object? owner, string? language, NodeKind kind, PdfPage page, PdfCanvas canvas)
@@ -296,6 +338,11 @@ internal sealed class FlowStructure : IStructureSink
         PdfStructureType type = TypeOf(node);
         PdfStructureElement element = parent is null ? _root.AddElement(type) : Materialize(parent).AddElement(type);
         node.Element = element;
+        if (node.Owner is FlowBlock block && node.Type == block.StructureType)
+        {
+            _ = _blocks.TryAdd(block is Paragraph { Origin: { } origin } ? origin : block, element);
+        }
+
         parent?.Children.Add(node);
         if (node.Language is { } language)
         {

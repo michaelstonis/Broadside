@@ -1,6 +1,7 @@
 using System.Security.Cryptography.X509Certificates;
 using Broadside.Annotations;
 using Broadside.Diagnostics;
+using Broadside.Fonts;
 using Broadside.Forms;
 using Broadside.Objects;
 using Broadside.Signatures;
@@ -306,6 +307,87 @@ public sealed class FieldCreationTests
         }
 
         return TextFieldFillTests.Save(document);
+    }
+
+    [Fact]
+    public void A_field_given_an_embedded_font_names_it_in_its_default_appearance_and_its_appearances_use_no_other_font()
+    {
+        using PdfDocument document = PdfDocument.Create();
+        PdfPage page = document.Pages[0];
+        PdfCanvasFont font = document.EmbedTrueTypeFont(EmbeddableProgram());
+        PdfAcroForm form = document.CreateAcroForm();
+        var options = new PdfFieldOptions().WithFont(font).WithFontSize(12);
+
+        PdfTextField text = form.AddTextField("code", page, new PdfRectangle(72, 700, 272, 724), options);
+        text.SetValue("CD");
+        PdfCheckBoxField check = form.AddCheckBox("agree", page, new PdfRectangle(72, 660, 92, 680), options);
+        check.SetChecked(true);
+        PdfRadioButtonField radio = form.AddRadioButtons(
+            "pick",
+            [new PdfRadioButton(page, new PdfRectangle(72, 620, 92, 640), "A"), new PdfRadioButton(page, new PdfRectangle(100, 620, 120, 640), "B")],
+            new PdfFieldOptions().WithFont(font).WithCaption("8"));
+        radio.SetValue(new CosName("A"));
+
+        using PdfDocument reopened = PdfDocument.Open(TextFieldFillTests.Save(document));
+        AssertNoWarnings(reopened);
+        PdfAcroForm reread = reopened.AcroForm!;
+        var fonts = (CosDictionary)reopened.Resolve(reread.DefaultResources![new CosName("Font")]);
+        KeyValuePair<CosName, CosObject> added = Assert.Single(fonts, entry => reopened.GetFont(entry.Value) is PdfType0Font);
+        Assert.Equal($"/{added.Key.Value} 12 Tf 0 g", reread.FindField("code")!.DefaultAppearance);
+        Assert.Equal($"/{added.Key.Value} 12 Tf 0 g", reread.FindField("agree")!.DefaultAppearance);
+
+        // The text field's value is shown in the font (two-byte codes, §9.7.6), the marks are drawn as paths with no font at all.
+        string shown = Content(reopened, (CosStream)Normal(reopened, Assert.Single(((PdfTerminalField)reread.FindField("code")!).Widgets)));
+        Assert.Contains($"/{added.Key.Value} 12 Tf", shown, StringComparison.Ordinal);
+        Assert.Contains("> Tj", shown, StringComparison.Ordinal);
+        foreach (PdfWidgetAnnotation widget in ((PdfTerminalField)reread.FindField("agree")!).Widgets.Concat(((PdfTerminalField)reread.FindField("pick")!).Widgets))
+        {
+            var normal = (CosDictionary)Normal(reopened, widget);
+            foreach (KeyValuePair<CosName, CosObject> state in normal)
+            {
+                var stream = (CosStream)reopened.Resolve(state.Value);
+                Assert.DoesNotContain(" Tf", Content(reopened, stream), StringComparison.Ordinal);
+                Assert.DoesNotContain("ZaDb", Content(reopened, stream), StringComparison.Ordinal);
+            }
+        }
+
+        var checkStates = (CosDictionary)Normal(reopened, Assert.Single(((PdfTerminalField)reread.FindField("agree")!).Widgets));
+        Assert.Matches(@"\sm\s.*\sl\s.*\sl\sS\sQ", Content(reopened, (CosStream)reopened.Resolve(checkStates[new CosName("Yes")])).ReplaceLineEndings(" "));
+        Assert.True(Assert.IsType<PdfCheckBoxField>(reread.FindField("agree")).IsChecked);
+    }
+
+    [Fact]
+    public void A_font_of_another_document_is_refused_and_nothing_changes()
+    {
+        using PdfDocument document = PdfDocument.Create();
+        using PdfDocument other = PdfDocument.Create();
+        PdfAcroForm form = document.CreateAcroForm();
+        string before = CosSnapshot.Of(document);
+
+        Assert.Throws<ArgumentException>(() => form.AddTextField("a", document.Pages[0], new PdfRectangle(72, 700, 272, 724), new PdfFieldOptions().WithFont(other.EmbedTrueTypeFont(EmbeddableProgram()))));
+
+        Assert.Equal(before, CosSnapshot.Of(document));
+    }
+
+    private static CosObject Normal(PdfDocument document, PdfWidgetAnnotation widget) =>
+        document.Resolve(((CosDictionary)document.Resolve(widget.Dictionary[new CosName("AP")]))[new CosName("N")]);
+
+    private static string Content(PdfDocument document, CosStream stream) => System.Text.Encoding.Latin1.GetString(document.DecodeStream(stream).Span);
+
+    /// <summary>A TrueType program with rectangles for 'C' and 'D'.</summary>
+    private static byte[] EmbeddableProgram()
+    {
+        var builder = new TrueTypeBuilder
+        {
+            Cmap = TrueTypeBuilder.CmapTable((3, 1, TrueTypeBuilder.Format4((67, 68, -66)))),
+        };
+        builder.Glyphs.AddRange(
+        [
+            TrueTypeBuilder.Rectangle(50, 0, 450, 700),
+            TrueTypeBuilder.Rectangle(100, 0, 500, 700),
+            TrueTypeBuilder.Rectangle(60, 0, 500, 500),
+        ]);
+        return builder.Build();
     }
 
     private static void AssertNoWarnings(PdfDocument document) =>

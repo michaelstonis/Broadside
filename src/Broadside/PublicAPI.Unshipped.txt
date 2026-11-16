@@ -4054,6 +4054,9 @@ Broadside.Forms.PdfFieldOptions.WithBackgroundColor(Broadside.Annotations.PdfDev
 Broadside.Forms.PdfFieldOptions.WithBorderWidth(double width) -> Broadside.Forms.PdfFieldOptions!
 Broadside.Forms.PdfFieldOptions.WithMaxLength(int? maxLength) -> Broadside.Forms.PdfFieldOptions!
 Broadside.Forms.PdfFieldOptions.WithCaption(string? caption) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.Font.get -> Broadside.Fonts.PdfCanvasFont?
+Broadside.Forms.PdfFieldOptions.Font.set -> void
+Broadside.Forms.PdfFieldOptions.WithFont(Broadside.Fonts.PdfCanvasFont? font) -> Broadside.Forms.PdfFieldOptions!
 Broadside.Rendering.DisplayList.Replay(Broadside.Rendering.IRenderingBackend! backend, Broadside.PdfRectangle region) -> void
 Broadside.PdfEncryptionRecipient
 Broadside.PdfEncryptionRecipient.Access.get -> Broadside.PdfAccessLevel
