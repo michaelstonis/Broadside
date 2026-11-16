@@ -76,16 +76,16 @@ public sealed class EngineSharedTableTests
     [Fact]
     public void Concurrent_first_use_builds_each_table_once()
     {
-        const int Threads = 32;
+        const int threadCount = 32;
         var resolver = new CountingResolver(new PredefinedCMapResolver());
         var engine = new PdfEngine(new PdfOptions().UseFontResolver(resolver));
-        PdfDocument[] documents = [.. Enumerable.Range(0, Threads).Select(_ => engine.Open(Japan1File()))];
+        PdfDocument[] documents = [.. Enumerable.Range(0, threadCount).Select(_ => engine.Open(Japan1File()))];
         try
         {
-            using var barrier = new Barrier(Threads);
-            string[] results = new string[Threads];
+            using var barrier = new Barrier(threadCount);
+            string[] results = new string[threadCount];
 
-            Parallel.For(0, Threads, new ParallelOptions { MaxDegreeOfParallelism = Threads }, index =>
+            Parallel.For(0, threadCount, new ParallelOptions { MaxDegreeOfParallelism = threadCount }, index =>
             {
                 barrier.SignalAndWait();
                 results[index] = FontPdf.Font(documents[index]).GetUnicode(new CharacterCode(0x003D, 2, IsValid: true));
@@ -106,16 +106,16 @@ public sealed class EngineSharedTableTests
     [Fact]
     public void Concurrent_first_use_of_a_predefined_CMap_and_the_one_it_uses_parses_each_once()
     {
-        const int Threads = 32;
+        const int threadCount = 32;
         var resolver = new CountingResolver(new PredefinedCMapResolver());
         var engine = new PdfEngine(new PdfOptions().UseFontResolver(resolver));
-        PdfDocument[] documents = [.. Enumerable.Range(0, Threads).Select(_ => engine.Open(CMapFile("90ms-RKSJ-V")))];
+        PdfDocument[] documents = [.. Enumerable.Range(0, threadCount).Select(_ => engine.Open(CMapFile("90ms-RKSJ-V")))];
         try
         {
-            using var barrier = new Barrier(Threads);
-            string[] parents = new string[Threads];
+            using var barrier = new Barrier(threadCount);
+            string[] parents = new string[threadCount];
 
-            Parallel.For(0, Threads, new ParallelOptions { MaxDegreeOfParallelism = Threads }, index =>
+            Parallel.For(0, threadCount, new ParallelOptions { MaxDegreeOfParallelism = threadCount }, index =>
             {
                 barrier.SignalAndWait();
                 CMap encoding = ((PdfType0Font)FontPdf.Font(documents[index])).Encoding;
