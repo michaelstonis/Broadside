@@ -37,4 +37,33 @@ public sealed class PanelTests
             }, null);
         }
     }
+
+    // Android throws "the specified child already has a parent" when a second layout adds a native view the first still holds, so the
+    // info panel's list views must keep one parent however often a document change shows their tab again (#358).
+    [Fact]
+    public void The_info_panel_keeps_one_parent_for_its_lists_when_another_document_shows_the_same_tab()
+    {
+        var panel = new PdfDocumentInfoPanel();
+        foreach ((int tab, string list) in new[] { (1, "info-diagnostics"), (2, "info-tags") })
+        {
+            using PdfDocument first = PdfDocument.Open(Shell.CorpusFile("tagged-structure.pdf"));
+            panel.SelectTab(tab);
+            panel.Refresh(first);
+            Microsoft.Maui.Controls.CollectionView view = Find<Microsoft.Maui.Controls.CollectionView>(panel, list);
+            Microsoft.Maui.Controls.Element? parent = view.Parent;
+            Assert.NotNull(parent);
+
+            using PdfDocument second = PdfDocument.Open(Shell.CorpusFile("tagged-structure.pdf"));
+            panel.Refresh(second);
+            panel.Refresh(null);
+            panel.Refresh(second);
+            Assert.Same(view, Find<Microsoft.Maui.Controls.CollectionView>(panel, list));
+            Assert.Same(parent, view.Parent);
+            panel.Refresh(null); // before the documents close
+        }
+    }
+
+    private static T Find<T>(Microsoft.Maui.Controls.Element root, string automationId)
+        where T : Microsoft.Maui.Controls.Element =>
+        ((Microsoft.Maui.IVisualTreeElement)root).GetVisualTreeDescendants().OfType<T>().First(e => e.AutomationId == automationId);
 }

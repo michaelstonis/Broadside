@@ -27,6 +27,14 @@ public sealed class PdfDocumentInfoPanel : ContentView
     private readonly ContentView _body = new();
     private readonly CollectionView _diagnostics = new() { AutomationId = "info-diagnostics" };
     private readonly CollectionView _tags = new() { SelectionMode = SelectionMode.Single, AutomationId = "info-tags" };
+
+    // The two tabs that hold a CollectionView are built once: a view can have one parent only (Android throws when a second layout
+    // adds a native view that is still attached to the first), so a tab shows again by changing what it lists, never by a new grid.
+    private readonly Label _diagnosticCount = PanelKit.Hint(string.Empty, "info-diagnostic-count");
+    private readonly Label _tagHint = PanelKit.Hint("The logical structure, as assistive technology reads it. Tap an element to expand it.", "info-tag-count");
+    private readonly Grid _diagnosticsTab;
+    private readonly Grid _tagsTab;
+    private PdfDocument? _document;
     private TagTree? _tree;
     private int _tab;
 
@@ -66,6 +74,8 @@ public sealed class PdfDocumentInfoPanel : ContentView
             }
         };
 
+        _diagnosticsTab = Tab(_diagnosticCount, _diagnostics);
+        _tagsTab = Tab(_tagHint, _tags);
         var root = new Grid { RowDefinitions = { new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Star) }, RowSpacing = 6 };
         root.Add(PanelKit.Wrap(_tabs));
         root.Add(_body, 0, 1);
@@ -90,15 +100,24 @@ public sealed class PdfDocumentInfoPanel : ContentView
     /// <summary>Reads the document again: diagnostics grow as pages are read, and an edit can change the facts.</summary>
     public void Refresh()
     {
-        _tree = _follower?.View?.CurrentSession?.Document is { } document ? new TagTree(document) : null;
+        Refresh(_follower?.View?.CurrentSession?.Document);
+    }
+
+    // The view's document, or (a unit test without a platform) any document: the tab shown again keeps the views it built before.
+    internal void Refresh(PdfDocument? document)
+    {
+        _tree = document is not null ? new TagTree(document) : null;
+        _document = document;
         ShowTab(_tab);
     }
+
+    internal void SelectTab(int tab) => ShowTab(tab);
 
     private void ShowTab(int tab)
     {
         _tab = tab;
         PanelKit.Select(_tabs, _tabs[tab]);
-        PdfDocument? document = _follower?.View?.CurrentSession?.Document;
+        PdfDocument? document = _document;
         if (document is null)
         {
             _body.Content = PanelKit.Hint("No document.");
@@ -120,14 +139,10 @@ public sealed class PdfDocumentInfoPanel : ContentView
             case 1:
                 IReadOnlyList<Diagnostic> diagnostics = document.Diagnostics;
                 _diagnostics.ItemsSource = diagnostics.Take(MaxDiagnostics).Select(DiagnosticItem.From).ToList();
-                var grid = new Grid { RowDefinitions = { new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Star) }, RowSpacing = 4 };
-                grid.Add(PanelKit.Hint(
-                    diagnostics.Count == 0
-                        ? "No diagnostics: the file read cleanly so far."
-                        : string.Create(CultureInfo.InvariantCulture, $"{diagnostics.Count} diagnostic(s): what the reader repaired or noticed while opening and reading this file."),
-                    "info-diagnostic-count"));
-                grid.Add(_diagnostics, 0, 1);
-                _body.Content = grid;
+                _diagnosticCount.Text = diagnostics.Count == 0
+                    ? "No diagnostics: the file read cleanly so far."
+                    : string.Create(CultureInfo.InvariantCulture, $"{diagnostics.Count} diagnostic(s): what the reader repaired or noticed while opening and reading this file.");
+                _body.Content = _diagnosticsTab;
                 break;
             default:
                 ShowTags();
@@ -145,10 +160,15 @@ public sealed class PdfDocumentInfoPanel : ContentView
 
         _tags.SelectedItem = null;
         _tags.ItemsSource = _tree.Rows().Select(row => new TagItem(row)).ToList();
+        _body.Content = _tagsTab;
+    }
+
+    private static Grid Tab(Label hint, CollectionView list)
+    {
         var grid = new Grid { RowDefinitions = { new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Star) }, RowSpacing = 4 };
-        grid.Add(PanelKit.Hint("The logical structure, as assistive technology reads it. Tap an element to expand it.", "info-tag-count"));
-        grid.Add(_tags, 0, 1);
-        _body.Content = grid;
+        grid.Add(hint);
+        grid.Add(list, 0, 1);
+        return grid;
     }
 
     /// <summary>One listed diagnostic.</summary>
