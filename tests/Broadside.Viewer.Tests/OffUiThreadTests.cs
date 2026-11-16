@@ -54,9 +54,9 @@ public sealed class OffUiThreadTests
     {
         // Ctrl+A then Copy loads every page's text in turn while the view keeps drawing: tiles scrolled away are canceled and list
         // requests stop waiting. A cancellation is its requester's alone, never the copy's.
-        const int Pages = 60, Lines = 10;
+        const int pageCount = 60, lineCount = 10;
         await using DocumentSession session = DocumentSession.Open(
-            ManyPagesDocument.CreateWithText(Pages, Lines),
+            ManyPagesDocument.CreateWithText(pageCount, lineCount),
             new ViewerOptions().WithDocumentOptions(new PdfOptions().UseStandard14Fonts()).WithThreading(ViewerThreading.Background));
         PageLayout layout = await PageLayout.CreateAsync(session, cancellationToken: TestContext.Current.CancellationToken);
         var selection = new TextSelection(session);
@@ -67,7 +67,7 @@ public sealed class OffUiThreadTests
         {
             using var scheduler = new TileScheduler(session, layout, new NullSurface());
             var viewport = new Viewport(0, 0, 600, 800, 1);
-            for (int page = 0; !stop.IsCancellationRequested; page = (page + 1) % Pages)
+            for (int page = 0; !stop.IsCancellationRequested; page = (page + 1) % pageCount)
             {
                 scheduler.Update(layout.ScrollTo(viewport, page));
                 scheduler.RunFrame(TimeSpan.FromMilliseconds(4));
@@ -80,7 +80,7 @@ public sealed class OffUiThreadTests
             for (int request = 0; !stop.IsCancellationRequested; request++)
             {
                 using var cancel = new CancellationTokenSource();
-                ValueTask<DisplayList> list = session.GetDisplayListAsync((request * 7) % Pages, DisplayLayers.All, cancel.Token);
+                ValueTask<DisplayList> list = session.GetDisplayListAsync((request * 7) % pageCount, DisplayLayers.All, cancel.Token);
                 await Task.Delay(request % 3, TestContext.Current.CancellationToken);
                 await cancel.CancelAsync();
                 try
@@ -105,7 +105,7 @@ public sealed class OffUiThreadTests
             await lists;
         }
 
-        Assert.Equal(Pages * Lines, text.Split('\n').Length);
+        Assert.Equal(pageCount * lineCount, text.Split('\n').Length);
     }
 
     [Fact]

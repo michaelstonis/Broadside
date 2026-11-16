@@ -22,7 +22,8 @@ adb shell am start -W -n "$package/.MainActivity" --ez smoke true
 pid=$(adb shell pidof "$package" | tr -d '\r' || true)
 
 while (( SECONDS - start < timeout )); do
-  log=$(adb logcat -d)
+  # adb can fail for a moment (exit 255) while the device is busy; poll again rather than let set -e end the run.
+  log=$(adb logcat -d || true)
   if grep -q "BROADSIDE_SMOKE_OK" <<<"$log"; then
     grep -m 1 "BROADSIDE_SMOKE_OK" <<<"$log"
     echo "Smoke run passed in $(( SECONDS - start )) s."

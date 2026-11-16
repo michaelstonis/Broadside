@@ -32,7 +32,7 @@ case "$platform" in
     adb logcat -c
     adb shell am start -W -n "$package/.MainActivity" --ez uitest true
     while (( SECONDS - start < timeout )); do
-      adb logcat -d > "$log"
+      adb logcat -d > "$log" || true
       set +e; verdict; v=$?; set -e
       if (( v != 2 )); then
         report
