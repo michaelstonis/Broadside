@@ -76,10 +76,12 @@ public sealed class WebAssemblyHeadTests(UnoHost host)
         await page.Mouse.MoveAsync((float)(x + 160), (float)(y + 60), new MouseMoveOptions { Steps = 5 });
         await page.Mouse.UpAsync();
         state = await WaitAsync(page, s => s.GetProperty("selection").GetString() is { Length: > 3 }, "a selection", console);
-        string dragged = state.GetProperty("selection").GetString()!;
+        // Escape clears the drag's selection, so the double click's word is seen even when the drag happened to select that same word.
+        await page.Keyboard.PressAsync("Escape");
+        await WaitAsync(page, s => s.GetProperty("selection").GetString() is not { Length: > 0 }, "the selection cleared", console);
         await Task.Delay(600, TestContext.Current.CancellationToken); // past the multi-click interval: the drag's press does not count towards the double click
         await page.Mouse.DblClickAsync((float)x, (float)y);
-        state = await WaitAsync(page, s => s.GetProperty("selection").GetString() is { Length: > 0 } text && text != dragged && !text.Contains(' ', StringComparison.Ordinal), "a selected word", console);
+        state = await WaitAsync(page, s => s.GetProperty("selection").GetString() is { Length: > 0 } text && !text.Contains(' ', StringComparison.Ordinal), "a selected word", console);
 
         // Search: Ctrl+F focuses the find box; typing and Enter highlight every match and show the first.
         await page.Keyboard.PressAsync("Control+f");
