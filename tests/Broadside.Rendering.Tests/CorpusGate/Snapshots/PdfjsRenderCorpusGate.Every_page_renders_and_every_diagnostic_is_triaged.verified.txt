@@ -9,7 +9,7 @@ outcomes:
   Rejected: 2
   Crash: 0
   Timeout: 0
-pages rendered: 1831
+pages rendered: 1834
 render diagnostics on well-formed files (files, total):
   AppearanceResourcesMissing: 8, 61
   CMapCodeInvalid: 1, 1
