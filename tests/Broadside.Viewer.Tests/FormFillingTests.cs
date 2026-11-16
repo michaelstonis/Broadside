@@ -79,7 +79,7 @@ public sealed class FormFillingTests
             input = stream.ToArray();
 
             // The API, in the same order with the same values.
-            using PdfDocument document = await PdfDocument.OpenAsync(Corpus.Bytes("acroform-fields.pdf"), Token);
+            using PdfDocument document = await PdfDocument.OpenAsync(Corpus.Bytes("acroform-fields.pdf"), new PdfOptions().UseTimeProvider(FixedTimeProvider.Instance), Token);
             PdfAcroForm form = document.AcroForm!;
             ((PdfTextField)form.FindField("name")!).SetValue("Ada Lovelace");
             ((PdfTextField)form.FindField("person.first")!).SetValue("Mary");
@@ -261,7 +261,7 @@ public sealed class FormFillingTests
     {
         byte[] file = Corpus.Bytes("acroform-fields.pdf");
         await using DocumentSession session = Open(file);
-        await using DocumentSession plain = DocumentSession.Open(file, new ViewerOptions().WithThreading(ViewerThreading.Background).WithTransientFieldAppearances(false));
+        await using DocumentSession plain = DocumentSession.Open(file, new ViewerOptions().WithDocumentOptions(new PdfOptions().UseTimeProvider(FixedTimeProvider.Instance)).WithThreading(ViewerThreading.Background).WithTransientFieldAppearances(false));
         foreach (DocumentSession s in new[] { session, plain })
         {
             ((PdfTextField)s.Document.AcroForm!.FindField("name")!).Widgets[0].Dictionary.Remove(new CosName("AP"));
@@ -315,7 +315,14 @@ public sealed class FormFillingTests
         }
     }
 
-    private static DocumentSession Open(string fileName) => TextSelectionTests.Open(fileName);
+    // Saves are compared byte for byte, so the documents write their dates from a fixed clock.
+    private static DocumentSession Open(string fileName)
+    {
+        ViewerOptions options = ViewerTestSupport.OptionsFor(fileName, ViewerThreading.Background);
+        options.DocumentOptions!.UseTimeProvider(FixedTimeProvider.Instance);
+        return DocumentSession.Open(Corpus.Bytes(fileName), options);
+    }
 
-    private static DocumentSession Open(byte[] file) => DocumentSession.Open(file, new ViewerOptions().WithThreading(ViewerThreading.Background));
+    private static DocumentSession Open(byte[] file) =>
+        DocumentSession.Open(file, new ViewerOptions().WithDocumentOptions(new PdfOptions().UseTimeProvider(FixedTimeProvider.Instance)).WithThreading(ViewerThreading.Background));
 }

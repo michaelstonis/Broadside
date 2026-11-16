@@ -54,7 +54,7 @@ internal sealed class Shell : IViewerHost, IDisposable
     public static string SampleDocument(string name) => Path.Combine(Corpus.Directory, "..", "..", "samples", "documents", "pdf", name);
 
     public static ViewerOptions Options() => new ViewerOptions()
-        .WithDocumentOptions(new PdfOptions().UseStandard14Fonts().UsePredefinedCMaps().UseSystemFontResolver(null))
+        .WithDocumentOptions(new PdfOptions().UseStandard14Fonts().UsePredefinedCMaps().UseSystemFontResolver(null).UseTimeProvider(FixedTimeProvider.Instance))
         .WithThreading(ViewerThreading.Cooperative)
         .UseBackend(() => new SkiaTileBackend());
 
