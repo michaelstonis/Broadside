@@ -20,6 +20,8 @@
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <IsTrimmable>false</IsTrimmable>
+    <!-- CA5392 fires in the Windows App SDK auto-initializer source the package compiles into the app, not in our code. -->
+    <NoWarn>$(NoWarn);CA5392</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
