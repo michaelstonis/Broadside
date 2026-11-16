@@ -79,7 +79,13 @@ public sealed class SampleTests
         Assert.True(Characters(all) > 20, all);
 
         // Search: a word of page 1's text, found and revealed with every match counted once the index is complete.
-        string word = text.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(w => new string([.. w.Where(char.IsLetter)])).OrderByDescending(w => w.Length).First();
+        // A whole word of the page's text: surrounding punctuation trimmed, and only words that are letters throughout (dropping the
+        // inner hyphen of "two-term" would search for "twoterm", which the page does not have).
+        string word = text.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(TrimToLetters)
+            .Where(w => w.Length > 0 && w.All(char.IsLetter))
+            .OrderByDescending(w => w.Length)
+            .First();
         Assert.True(word.Length >= 3, $"no word in '{text.Name}'");
         app.Find("SearchBox").AsTextBox().Text = word;
         app.Click("Find");
@@ -119,6 +125,22 @@ public sealed class SampleTests
 
     private static int Characters(string copied) =>
         int.TryParse(copied.Split(' ')[1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int n) ? n : 0;
+
+    private static string TrimToLetters(string word)
+    {
+        int start = 0, end = word.Length;
+        while (start < end && !char.IsLetter(word[start]))
+        {
+            start++;
+        }
+
+        while (end > start && !char.IsLetter(word[end - 1]))
+        {
+            end--;
+        }
+
+        return word[start..end];
+    }
 
     private static AutomationElement FirstText(SampleApp app)
     {
