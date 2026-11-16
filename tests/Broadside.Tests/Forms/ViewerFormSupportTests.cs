@@ -10,6 +10,7 @@ namespace Broadside.Tests.Forms;
 /// What form filling in a viewer needs from the core: the fields a submit-form or reset-form action selects, descendants included
 /// (ISO 32000-2 §12.7.6.2-12.7.6.3), and transient appearances for widgets that lack one (§12.7.3, §12.7.4.3).
 /// </summary>
+[Collection(Document.HeavyTestCollection.Name)]
 public sealed class ViewerFormSupportTests
 {
     private static readonly CosName AP = new("AP");
