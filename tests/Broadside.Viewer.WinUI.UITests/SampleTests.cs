@@ -238,7 +238,7 @@ public sealed class SampleTests
         static bool[] Selected(AutomationElement[] items) => [.. items.Select(item => item.AsListBoxItem().IsSelected)];
 
         AutomationElement[] options = OpenList();
-        Assert.Equal([true, false, false], Selected(options));
+        Assert.True(SampleApp.Poll(() => Selected(options) is [true, false, false]), $"the list opens on Red: {string.Join(", ", Selected(options))}");
 
         // Blue on (Red and Blue picked), then Red off: a pick that replaced the selection would end on Red.
         ShowAndClick(options[2]);

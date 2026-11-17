@@ -647,9 +647,10 @@ public sealed partial class PdfView : UserControl, IDisposable
             list.Items.Add(item);
         }
 
+        // Through the selector's own selection: an item's IsSelected set before the list has applied its template does not stick.
         foreach (int index in editor.SelectedIndices)
         {
-            ((ListBoxItem)list.Items[index]).IsSelected = true;
+            list.SelectedItems.Add(list.Items[index]);
         }
 
         // Every change hands the whole selection to the form filling, which holds it until focus leaves the list and then writes it
