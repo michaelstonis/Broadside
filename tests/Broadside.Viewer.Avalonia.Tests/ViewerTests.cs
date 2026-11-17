@@ -107,6 +107,24 @@ public sealed class ViewerTests
     });
 
     [Fact]
+    public Task A_mouse_release_away_from_the_press_selects_up_to_it_when_no_move_arrived_between() => Ui.RunAsync(async () =>
+    {
+        // A fast drag can end before a move reaches the view at the release point: the release still ends the selection there.
+        using ViewerHarness viewer = await ViewerHarness.OpenAsync(ViewerHarness.CorpusFile("text-render-modes.pdf"));
+        Point start = FindText(viewer);
+        Viewport before = viewer.Viewport;
+
+        viewer.Window.MouseDown(start, MouseButton.Left);
+        TextSelection selection = viewer.Viewer.Selection!;
+        Assert.True(selection.IsEmpty);
+        viewer.Window.MouseUp(start + new Point(80, 0), MouseButton.Left);
+        await viewer.SettleAsync();
+        Assert.False(selection.IsEmpty);
+        Assert.False(string.IsNullOrWhiteSpace(await selection.GetTextAsync()));
+        Assert.Equal(before, viewer.Viewport);
+    });
+
+    [Fact]
     public Task A_double_click_selects_a_word_and_ctrl_a_selects_the_page() => Ui.RunAsync(async () =>
     {
         using ViewerHarness viewer = await ViewerHarness.OpenAsync(ViewerHarness.CorpusFile("text-standard14.pdf"));

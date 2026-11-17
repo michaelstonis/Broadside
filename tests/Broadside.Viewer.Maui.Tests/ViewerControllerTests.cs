@@ -153,6 +153,22 @@ public sealed class ViewerControllerTests
     });
 
     [Fact]
+    public void A_mouse_release_away_from_the_press_selects_up_to_it_when_no_move_arrived_between() => UiThread.Run(async () =>
+    {
+        // A fast drag can end before a move reaches the view at the release point: the release still ends the selection there.
+        using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("text-render-modes.pdf"));
+        (double x, double y) = FindText(shell);
+        Viewport before = shell.Viewport;
+
+        shell.Touch(1, SKTouchAction.Pressed, SKTouchDeviceType.Mouse, x, y);
+        Assert.True(shell.Controller.Selection!.IsEmpty);
+        shell.Touch(1, SKTouchAction.Released, SKTouchDeviceType.Mouse, x + 60, y);
+        Assert.False(shell.Controller.Selection.IsEmpty);
+        Assert.False(string.IsNullOrWhiteSpace(await shell.Controller.GetSelectedTextAsync()));
+        Assert.Equal(before, shell.Viewport);
+    });
+
+    [Fact]
     public void A_long_press_on_text_selects_a_word_and_its_handle_extends_the_selection() => UiThread.Run(async () =>
     {
         using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("text-render-modes.pdf"));
