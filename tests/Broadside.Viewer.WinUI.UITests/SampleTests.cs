@@ -161,11 +161,29 @@ public sealed class SampleTests
         using SampleApp app = SampleApp.Open(SampleApp.CorpusFile("acroform-filling.pdf"));
         WaitUntilStill(app);
         AutomationElement page = SampleApp.WaitFor(() => app.Viewer.FindFirstDescendant(cf => cf.ByAutomationId("page-0")), "page 1's peer");
-        Point At(double x, double y)
+
+        // The page peer's bounds are clipped to the viewport. Scrolled to the top, the page's top edge shows, and its width gives the
+        // scale; zoom out until the widget (to 370 pt up the page) shows above the viewport's bottom.
+        Rectangle viewer = app.Viewer.BoundingRectangle;
+        Rectangle box = default;
+        for (int step = 0; ; step++)
         {
-            Rectangle box = page.BoundingRectangle;
-            return new Point(box.X + (int)(box.Width * x / 612), box.Y + (int)(box.Height * (792 - y) / 792));
+            app.Viewer.Focus();
+            Keyboard.Type(VirtualKeyShort.HOME);
+            app.WaitForState(s => s.Activity == "Ready", "back at the top");
+            WaitUntilStill(app);
+            box = page.BoundingRectangle;
+            if (box.Y + (box.Width * (792 - 370) / 612.0) < viewer.Bottom - 8 || step == 6)
+            {
+                break;
+            }
+
+            int zoom = app.ReadStatus().Zoom;
+            app.Click("ZoomOut");
+            app.WaitForState(s => s.Zoom < zoom && s.Activity == "Ready", "zoom out");
         }
+
+        Point At(double x, double y) => new(box.X + (int)(box.Width * x / 612), box.Y + (int)(box.Width * (792 - y) / 612));
 
         AutomationElement[] OpenList()
         {
@@ -183,19 +201,25 @@ public sealed class SampleTests
             return items;
         }
 
+        static void ShowAndClick(AutomationElement item)
+        {
+            item.Patterns.ScrollItem.PatternOrDefault?.ScrollIntoView();
+            Click(item.GetClickablePoint());
+        }
+
         static bool[] Selected(AutomationElement[] items) => [.. items.Select(item => item.AsListBoxItem().IsSelected)];
 
         AutomationElement[] options = OpenList();
         Assert.Equal([true, false, false], Selected(options));
 
         // Blue on (Red and Blue picked), then Red off: a pick that replaced the selection would end on Red.
-        Click(options[2].GetClickablePoint());
+        ShowAndClick(options[2]);
         Assert.True(SampleApp.Poll(() => Selected(options) is [true, false, true]), "Blue toggled on beside Red");
-        Click(options[0].GetClickablePoint());
+        ShowAndClick(options[0]);
         Assert.True(SampleApp.Poll(() => Selected(options) is [false, false, true]), "Red toggled off");
 
         // A click on the page away from the fields ends the edit; the list opened again shows the field's value.
-        Click(At(450, 720));
+        Click(At(450, 470));
         Assert.True(SampleApp.Poll(() => app.Viewer.FindFirstDescendant(cf => cf.ByControlType(ControlType.List).And(cf.ByName("Form field"))) is null), "the list closed");
         options = OpenList();
         Assert.True(SampleApp.Poll(() => Selected(options) is [false, false, true]), "the field holds Blue");
