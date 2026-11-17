@@ -512,6 +512,15 @@ internal sealed class ViewerController : IAsyncDisposable
             case PointerMode.Pan:
                 _input.PointerUp(pointerId, x, y);
                 break;
+            case PointerMode.Select:
+                // The release point ends the drag too: a last move the browser folded into the release, or one it never delivered
+                // (a fast drag), still selects up to where the pointer let go.
+                if (TryGetPagePoint(x, y, out PagePoint released))
+                {
+                    _selection!.Extend(released);
+                }
+
+                break;
         }
 
         Wake();
