@@ -326,10 +326,10 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// Gets or sets how the renders of a display list given to this rasterizer
     /// (<see cref="Render(DisplayList, Bitmap, in Matrix)"/> and
     /// <see cref="BeginRender(DisplayList, Bitmap, in Matrix, CancellationToken, IProgress{double})"/>) position filled glyphs;
-    /// <see cref="Rendering.GlyphPositioning.Exact"/> by default. Page renders take <see cref="RenderOptions.GlyphPositioning"/> instead.
+    /// <see cref="Rendering.GlyphPositioning.Quantized"/> by default. Page renders take <see cref="RenderOptions.GlyphPositioning"/> instead.
     /// </summary>
     /// <remarks>See <see cref="Rendering.GlyphPositioning"/>. ISO 32000-2 §9.4.4 and §10.7.4.</remarks>
-    public GlyphPositioning GlyphPositioning { get; set; }
+    public GlyphPositioning GlyphPositioning { get; set; } = GlyphPositioning.Quantized;
 
     /// <summary>
     /// Gets or sets the most bytes this rasterizer's glyph cache holds: the coverage of each filled glyph, kept per font program,
