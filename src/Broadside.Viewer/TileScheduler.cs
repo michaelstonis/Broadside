@@ -38,6 +38,9 @@ namespace Broadside.Viewer;
 /// </remarks>
 public sealed class TileScheduler : IDisposable
 {
+    /// <summary>The clock frames are measured on in the current async flow, when a test sets one; otherwise the system clock.</summary>
+    private static readonly AsyncLocal<TimeProvider?> AmbientClock = new();
+
     private readonly DocumentSession _session;
     private readonly IRenderSurface _surface;
     private readonly Lock _gate = new();
@@ -52,7 +55,6 @@ public sealed class TileScheduler : IDisposable
     private readonly int _maxConcurrency;
     private readonly Action<TileSchedulerEvent>? _observer;
     private readonly bool _separateOverlays;
-    private readonly TimeProvider _clock;
     private DisplayLayers _layers = DisplayLayers.All;
     private readonly Dictionary<Tile, TileJob> _jobs = [];
     private List<TileJob> _wanted = [];
@@ -108,7 +110,6 @@ public sealed class TileScheduler : IDisposable
         _maxConcurrency = options.MaxConcurrency;
         _observer = options.Observer;
         _separateOverlays = options.SeparateOverlays;
-        _clock = options.Clock;
     }
 
     /// <summary>
@@ -425,6 +426,17 @@ public sealed class TileScheduler : IDisposable
     }
 
     /// <summary>
+    /// Gets or sets the clock that measures frame budgets for schedulers run from the current async flow (<see langword="null"/>, the
+    /// default, is <see cref="TimeProvider.System"/>). Tests set a clock that advances with the work done, so a frame's length does not
+    /// depend on the machine's speed; it is ambient rather than an option so a scheduler carries no field for it.
+    /// </summary>
+    internal static TimeProvider? Clock
+    {
+        get => AmbientClock.Value;
+        set => AmbientClock.Value = value;
+    }
+
+    /// <summary>
     /// Does one frame's work: with a cooperative session, draws wanted tiles in priority order until <paramref name="budget"/> is
     /// spent; with a background session, starts renders up to the concurrency limit.
     /// </summary>
@@ -442,7 +454,8 @@ public sealed class TileScheduler : IDisposable
             throw new ArgumentOutOfRangeException(nameof(budget), budget, "A frame budget must not be negative.");
         }
 
-        long start = _clock.GetTimestamp();
+        TimeProvider clock = AmbientClock.Value ?? TimeProvider.System;
+        long start = clock.GetTimestamp();
         List<CancellationTokenSource>? cancel = null;
         bool more;
         lock (_gate)
@@ -461,7 +474,7 @@ public sealed class TileScheduler : IDisposable
 
             if (_cooperative)
             {
-                RunCooperative(start, budget);
+                RunCooperative(clock, start, budget);
             }
             else
             {
@@ -473,7 +486,7 @@ public sealed class TileScheduler : IDisposable
                 SweepStale();
             }
 
-            _longestFrame = Math.Max(_longestFrame, _clock.GetElapsedTime(start).Ticks);
+            _longestFrame = Math.Max(_longestFrame, clock.GetElapsedTime(start).Ticks);
             // Work the budget cannot make room for waits for the viewport to move (or, on workers, for running renders to end).
             more = HasWork() && (!_blocked || _running > 0);
         }
@@ -967,13 +980,13 @@ public sealed class TileScheduler : IDisposable
 
     // ---- Cooperative frames ----
 
-    private void RunCooperative(long start, TimeSpan budget)
+    private void RunCooperative(TimeProvider clock, long start, TimeSpan budget)
     {
         long budgetTicks = budget == Timeout.InfiniteTimeSpan ? long.MaxValue : budget.Ticks;
         TimeSpan slice = _session.SliceBudget;
         while (true)
         {
-            long remaining = budgetTicks - _clock.GetElapsedTime(start).Ticks;
+            long remaining = budgetTicks - clock.GetElapsedTime(start).Ticks;
             if (remaining <= 0)
             {
                 return;

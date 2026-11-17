@@ -48,7 +48,8 @@ public sealed class TileSchedulerTests
             new ViewerOptions().WithThreading(ViewerThreading.Cooperative).UseBackend(HeldBackend.Factory(backends, clock)));
         PageLayout layout = await PageLayout.CreateAsync(session, cancellationToken: TestContext.Current.CancellationToken);
         var events = new List<TileSchedulerEvent>();
-        using var scheduler = new TileScheduler(session, layout, surface, new TileSchedulerOptions().UseObserver(events.Add).UseClock(clock));
+        using var scheduler = new TileScheduler(session, layout, surface, new TileSchedulerOptions().UseObserver(events.Add));
+        TileScheduler.Clock = clock;
 
         HeldBackend.Hold = true;
         try
@@ -321,7 +322,8 @@ public sealed class TileSchedulerTests
             }
         }
 
-        using var scheduler = new TileScheduler(session, layout, surface, new TileSchedulerOptions().WithMemoryBudget(budget).UseObserver(Observe).UseClock(clock));
+        using var scheduler = new TileScheduler(session, layout, surface, new TileSchedulerOptions().WithMemoryBudget(budget).UseObserver(Observe));
+        TileScheduler.Clock = clock;
         double end = layout.ContentHeight * Zoom;
         int step = 0;
         for (var viewport = new Viewport(0, 0, 500, 700, Zoom); viewport.Y < end; viewport = viewport with { Y = viewport.Y + 280 }, step++)
