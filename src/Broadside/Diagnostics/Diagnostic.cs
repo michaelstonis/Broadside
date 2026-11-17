@@ -72,6 +72,13 @@ public sealed class Diagnostic
         ? known
         : new DiagnosticCode(Code, DiagnosticArea.None, Severity, clause: null);
 
+    /// <summary>
+    /// Gets the typed code this diagnostic was made with, or <see langword="null"/> when it was made from a plain string and
+    /// <see cref="Kind"/> has not been read yet. Never looks the name up in <see cref="DiagnosticCatalog"/>: code that only passes a
+    /// diagnostic on uses this, so an app that never reads <see cref="Kind"/> does not keep every catalog class (issue #361).
+    /// </summary>
+    internal DiagnosticCode? TypedKind => _kind;
+
     /// <summary>Gets how much the repair may have changed the document.</summary>
     public DiagnosticSeverity Severity { get; }
 

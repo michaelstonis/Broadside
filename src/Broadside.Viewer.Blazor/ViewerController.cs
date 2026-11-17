@@ -57,9 +57,15 @@ internal sealed class ViewerController : IAsyncDisposable
     private ProgressiveZoom? _zoom;
     private InputModel? _input;
     private TextSelection? _selection;
+    private DocumentSearch? _search;
     private AnnotationLayer? _annotations;
     private AccessibilityBridge? _bridge;
+    private FormFilling? _filling;
+    private AnnotationTarget? _editorTarget;
+    private string _editorShown = string.Empty;
+    private bool _fromEditor;
     private bool _showAnnotations = true;
+    private ColorFilter? _colorFilter;
 
     private TaskCompletionSource? _wake;
     private bool _needsFrame = true;
@@ -139,6 +145,10 @@ internal sealed class ViewerController : IAsyncDisposable
 
         _session = session;
         _ownsSession = ownsSession;
+        if (_colorFilter is { } filter)
+        {
+            session.ColorFilter = filter;
+        }
         if (session.PageCount == 0)
         {
             SetState(_state with { IsLoading = false });
@@ -191,11 +201,16 @@ internal sealed class ViewerController : IAsyncDisposable
 
         _selection = new TextSelection(session);
         _selection.Changed += (_, _) => Wake();
+        _search = new DocumentSearch(session);
+        _search.Changed += (_, _) => Wake();
         _annotations = new AnnotationLayer(session, _scheduler);
         _annotations.ActionRequested += OnActionRequested;
         _annotations.Changed += (_, _) => Wake();
         _bridge = new AccessibilityBridge(session, _annotations) { Viewer = _zoom, Observer = OnAccessibilityChange };
         _annotations.Accessibility = _bridge;
+        _annotations.XfaFormDetected += (_, e) => _owner.RaiseXfaForm(e);
+        _filling = new FormFilling(_annotations);
+        _filling.Changed += OnFillingChanged;
 
         SetState(_state with { IsLoading = false, PageCount = session.PageCount });
         _ = SweepMetricsAsync(session, generation);
@@ -221,6 +236,20 @@ internal sealed class ViewerController : IAsyncDisposable
         Wake();
     }
 
+    /// <summary>
+    /// Sets the color filter of the open document and of those opened later; null keeps each session's own. A change redraws every
+    /// tile from the cached display lists (spec #33 viewer capability 9).
+    /// </summary>
+    public void SetColorFilter(ColorFilter? filter)
+    {
+        _colorFilter = filter;
+        if (filter is { } value && _session is { } session && session.ColorFilter != value)
+        {
+            session.ColorFilter = value;
+            Redraw();
+        }
+    }
+
     /// <summary>Shows or hides the annotation and form-field layers.</summary>
     public void SetShowAnnotations(bool show)
     {
@@ -233,6 +262,15 @@ internal sealed class ViewerController : IAsyncDisposable
     {
         _input?.GoToPage(pageIndex);
         Wake();
+    }
+
+    public void GoTo(ViewTarget target)
+    {
+        if (_zoom is not null && _input is not null)
+        {
+            _zoom.SetViewport(target.GetViewport(_zoom.Layout, _input.Viewport, _input.ActualSize, _zoom.MinZoom, _zoom.MaxZoom));
+            Wake();
+        }
     }
 
     public void NextPage()
@@ -265,8 +303,14 @@ internal sealed class ViewerController : IAsyncDisposable
     /// <summary>Gets the text selection of the open document.</summary>
     public TextSelection? Selection => _selection;
 
+    /// <summary>Gets the find-in-document search of the open document.</summary>
+    public DocumentSearch? Search => _search;
+
     /// <summary>Gets the annotation layer of the open document.</summary>
     public AnnotationLayer? Annotations => _annotations;
+
+    /// <summary>Gets the form filling of the open document.</summary>
+    public FormFilling? Forms => _filling;
 
     /// <summary>Applies new layout options to the open document, keeping the current page in view; options equal to the current ones change nothing.</summary>
     public void SetLayoutOptions(PageLayoutOptions? options)
@@ -520,10 +564,31 @@ internal sealed class ViewerController : IAsyncDisposable
 
     private bool HandleKey(string key, bool shift, bool command, InputModifiers modifiers)
     {
+        // Form fields first (#218): Tab commits the field's edit and moves on, Space toggles, arrows pick options, Enter commits.
+        InputKey fieldKey = key switch
+        {
+            "Tab" => InputKey.Tab,
+            "Enter" => InputKey.Enter,
+            "Escape" => InputKey.Escape,
+            " " => InputKey.Space,
+            "ArrowUp" => InputKey.ArrowUp,
+            "ArrowDown" => InputKey.ArrowDown,
+            "Home" => InputKey.Home,
+            "End" => InputKey.End,
+            _ => InputKey.None,
+        };
+        if (fieldKey == InputKey.Tab)
+        {
+            return _filling!.KeyDown(fieldKey, modifiers);
+        }
+
+        if (fieldKey != InputKey.None && !command && _filling!.Kind is FieldEditKind.Button or FieldEditKind.Choice && _filling.KeyDown(fieldKey, modifiers))
+        {
+            return true;
+        }
+
         switch (key)
         {
-            case "Tab":
-                return shift ? _annotations!.FocusPrevious() : _annotations!.FocusNext();
             case "Enter" when _annotations!.Focused is { } focused:
                 _annotations.Activate(focused);
                 return true;
@@ -623,8 +688,132 @@ internal sealed class ViewerController : IAsyncDisposable
         if (_bridge is not null && NodesById.TryGetValue(elementId, out AccessibleNode? node) && !ReferenceEquals(_bridge.Focus, node))
         {
             _bridge.SetFocus(node);
+
+            // A form field or link reached through the accessible tree takes the layer's keyboard focus too (#218), so a screen
+            // reader's Tab opens the field's editor as the viewer's own Tab does.
+            if (node.Source is Broadside.Objects.CosDictionary source && _annotations is { } layer && layer.FindTarget(node.PageIndex, source) is { } target)
+            {
+                layer.Focus(target);
+            }
+
             Wake();
         }
+    }
+
+    // ---- Form fields (#218) ----
+
+    /// <summary>The native editor's text changed (typing, an input method, a paste).</summary>
+    public void EditorInput(string value, int caret)
+    {
+        // The editor already shows the text: the change it raises must not write it back (that would move the caret).
+        _fromEditor = true;
+        try
+        {
+            _filling?.SetText(value, caret);
+        }
+        finally
+        {
+            _fromEditor = false;
+        }
+    }
+
+    /// <summary>The native picker's options changed: picked and committed at once.</summary>
+    public void EditorSelect(string indices)
+    {
+        if (_filling is null)
+        {
+            return;
+        }
+
+        var picked = new List<int>();
+        foreach (string part in indices.Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (int.TryParse(part, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int index))
+            {
+                picked.Add(index);
+            }
+        }
+
+        if (_filling.SetSelectedOptions(picked))
+        {
+            _filling.Commit();
+        }
+
+        Wake();
+    }
+
+    /// <summary>The native editor lost focus: its edit is written through the form API.</summary>
+    public void EditorCommit()
+    {
+        _filling?.Commit();
+        Wake();
+    }
+
+    /// <summary>A key in the native editor that the viewer handles: Tab, Enter in a single line, Escape.</summary>
+    public bool EditorKey(string key, InputModifiers modifiers)
+    {
+        if (_filling is null)
+        {
+            return false;
+        }
+
+        InputKey input = key switch
+        {
+            "Tab" => InputKey.Tab,
+            "Enter" => InputKey.Enter,
+            "Escape" => InputKey.Escape,
+            _ => InputKey.None,
+        };
+        bool handled = input != InputKey.None && _filling.KeyDown(input, modifiers);
+        if (input == InputKey.Escape && handled)
+        {
+            ViewerInterop.SetEditorValue(Id, _filling.Text);
+        }
+
+        Wake();
+        return handled;
+    }
+
+    private void OnFillingChanged(object? sender, EventArgs e)
+    {
+        FormFilling filling = _filling!;
+        AnnotationTarget? target = filling.IsReadOnly ? null : filling.Kind switch
+        {
+            FieldEditKind.Text or FieldEditKind.Choice => filling.Target,
+            _ => null,
+        };
+        string shown = target is null ? string.Empty : filling.Text + "\u0001" + string.Join(',', filling.SelectedOptions);
+        if (target == _editorTarget && (target is null || shown == _editorShown || _fromEditor))
+        {
+            _editorShown = shown;
+            Wake();
+            return;
+        }
+
+        _editorTarget = target;
+        _editorShown = shown;
+        if (target is { } t && filling.Field is { } field)
+        {
+            // 1 single line, 2 multi-line, 3 password, 4 combo box, 5 single-select list box, 6 multi-select list box.
+            int kind = field switch
+            {
+                Broadside.Forms.PdfTextField { IsPassword: true } => 3,
+                Broadside.Forms.PdfTextField { IsMultiline: true } => 2,
+                Broadside.Forms.PdfTextField => 1,
+                Broadside.Forms.PdfComboBoxField => 4,
+                Broadside.Forms.PdfChoiceField { IsMultiSelect: true } => 6,
+                _ => 5,
+            };
+            string[] options = field is Broadside.Forms.PdfChoiceField choice ? [.. choice.Options.Select(o => o.DisplayText)] : [];
+            string selected = string.Join(',', filling.SelectedOptions.Select(i => i.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            ViewerInterop.OpenEditor(Id, kind, filling.Text, filling.MaxLength ?? 0, options, selected, _annotations!.GetAccessibleName(t), filling.IsRequired);
+        }
+        else
+        {
+            ViewerInterop.CloseEditor(Id);
+        }
+
+        Wake();
     }
 
     // ---- Frames ----
@@ -799,18 +988,33 @@ internal sealed class ViewerController : IAsyncDisposable
 
     private async Task LoadPageAsync(int pageIndex, int generation)
     {
+        // The open document's layers, held here: a document opened while this page loads replaces the fields, and the page index
+        // belongs to this document, never to the next one (#358: a late page of a novel reached an 8-page textbook's layers).
+        AnnotationLayer annotations = _annotations!;
+        TextSelection selection = _selection!;
+        AccessibilityBridge bridge = _bridge!;
         try
         {
             CancellationToken token = _closing.Token;
             // Links and fields first: they are cheap and make the page interactive; text selection extracts the page's layout (#350).
-            await _annotations!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            await annotations.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
 
             // Text selection builds the page's display list and accessibility extracts its layout on this thread, each one long task:
             // with a render worker they wait until the view is still, so a scroll that starts meanwhile is not held up (#357).
             await SettledAsync(token).ConfigureAwait(true);
-            await _selection!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            if (generation != _generation)
+            {
+                return;
+            }
+
+            await selection.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
             await SettledAsync(token).ConfigureAwait(true);
-            await _bridge!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            if (generation != _generation)
+            {
+                return;
+            }
+
+            await bridge.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
             if (generation == _generation)
             {
                 RefreshAccessiblePages();
@@ -823,7 +1027,11 @@ internal sealed class ViewerController : IAsyncDisposable
         catch (Exception exception)
 #pragma warning restore CA1031
         {
-            _owner.ReportError(exception);
+            // A closed document's failure is no longer the host's concern.
+            if (generation == _generation)
+            {
+                _owner.ReportError(exception);
+            }
         }
 
         Wake();
@@ -914,6 +1122,34 @@ internal sealed class ViewerController : IAsyncDisposable
             }
         }
 
+        // Search matches are an overlay over the tiles (#215): highlighting them draws no page again.
+        if (_search!.MatchCount > 0)
+        {
+            SearchMatch? current = _search.Current;
+            int visible = Math.Min(layout.GetVisiblePages(viewport, _visible), _visible.Length);
+            foreach (VisiblePage page in _visible.AsSpan(0, visible))
+            {
+                int quads = _search.GetQuads(page.PageIndex, _quads);
+                if (quads > _quads.Length)
+                {
+                    _quads = new Quad[quads * 2];
+                    quads = _search.GetQuads(page.PageIndex, _quads);
+                }
+
+                AddQuads(ref records, 6, layout, viewport, page.PageIndex, _quads.AsSpan(0, quads));
+            }
+
+            if (current is not null)
+            {
+                IReadOnlyList<Quad> quads = current.Quads;
+                for (int i = 0; i < quads.Count; i++)
+                {
+                    Quad quad = quads[i];
+                    AddQuads(ref records, 7, layout, viewport, current.PageIndex, new ReadOnlySpan<Quad>(in quad));
+                }
+            }
+        }
+
         if (!_selection!.IsEmpty)
         {
             int visible = Math.Min(layout.GetVisiblePages(viewport, _visible), _visible.Length);
@@ -950,6 +1186,13 @@ internal sealed class ViewerController : IAsyncDisposable
             Add(ref records, 5, r.X, r.Y, r.Width, r.Height, 1);
         }
 
+        // The native field editor sits over its widget (#218): op 8 (x, y, w, h) in canvas pixels.
+        if (_editorTarget is { } editing && annotations.GetCount(editing.PageIndex) > editing.Index)
+        {
+            LayoutRectangle r = annotations.GetScreenRectangle(editing, layout, viewport);
+            Add(ref records, 8, r.X, r.Y, r.Width, r.Height);
+        }
+
         double scale = 1 / _ratio;
         foreach (int page in _accessiblePages)
         {
@@ -964,7 +1207,20 @@ internal sealed class ViewerController : IAsyncDisposable
         header[2] = _input!.CurrentPage;
         header[3] = viewport.Zoom / _input.ActualSize;
         header[4] = _surface.Presented;
+        header[5] = _session?.ColorFilter == ColorFilter.DarkMode ? 1 : 0; // dark paper and surroundings
         ViewerInterop.Draw(Id, _commands.AsSpan(0, (records + 1) * Stride));
+    }
+
+    private void AddQuads(ref int records, double op, PageLayout layout, in Viewport viewport, int pageIndex, ReadOnlySpan<Quad> quads)
+    {
+        foreach (Quad quad in quads)
+        {
+            PathPoint a = layout.PageToViewport(viewport, pageIndex, quad.BottomLeft.X, quad.BottomLeft.Y);
+            PathPoint b = layout.PageToViewport(viewport, pageIndex, quad.BottomRight.X, quad.BottomRight.Y);
+            PathPoint c = layout.PageToViewport(viewport, pageIndex, quad.TopRight.X, quad.TopRight.Y);
+            PathPoint e = layout.PageToViewport(viewport, pageIndex, quad.TopLeft.X, quad.TopLeft.Y);
+            Add(ref records, op, a.X, a.Y, b.X, b.Y, c.X, c.Y, e.X, e.Y);
+        }
     }
 
     private void Add(ref int records, double op, double a = 0, double b = 0, double c = 0, double d = 0, double e = 0, double f = 0, double g = 0, double h = 0)
@@ -1021,8 +1277,17 @@ internal sealed class ViewerController : IAsyncDisposable
         _zoom = null;
         _input = null;
         _selection = null;
+        _search?.Dispose();
+        _search = null;
         _annotations?.ActionRequested -= OnActionRequested;
         _annotations = null;
+        _filling?.Changed -= OnFillingChanged;
+        _filling = null;
+        if (_editorTarget is not null)
+        {
+            _editorTarget = null;
+            ViewerInterop.CloseEditor(Id);
+        }
         _bridge = null;
         _surface.Clear();
         _requested.Clear();

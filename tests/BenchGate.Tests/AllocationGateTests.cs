@@ -209,4 +209,45 @@ public sealed class AllocationGateTests
         Assert.True(report.Passed);
         Assert.Equal(FindingKind.BaselineStale, Assert.Single(report.Findings).Kind);
     }
+
+    [Fact]
+    public void A_case_that_opted_out_of_the_allocation_gate_needs_no_figure_and_still_has_its_time_compared()
+    {
+        // `[BenchmarkCategory("no-allocation-gate")]`: --gate-allocations lists the case under NotGated and writes no figure; the
+        // timing rounds still run it. It is neither "no figure" nor "not in the baseline", and a slowdown still fails.
+        using var tree = new ResultsTree();
+        tree.AddRounds("base", 2, ResultsTree.Flate, 8, ResultsTree.Around(1000))
+            .AddRounds("head", 2, ResultsTree.Flate, 99, ResultsTree.Around(1300));
+        foreach (string file in Directory.EnumerateFiles(tree.Root, "*.json", SearchOption.AllDirectories).Where(static file => file.Contains("allocations", StringComparison.Ordinal)))
+        {
+            File.Delete(file);
+        }
+
+        foreach (string side in new[] { "base", "head" })
+        {
+            tree.AddNotGated($"allocations/{side}", "allocations", ResultsTree.Flate);
+        }
+
+        string baseline = tree.WriteBaseline();
+
+        GateReport report = BenchmarkGate.Run(baseline, tree.Root);
+
+        GateFinding finding = Assert.Single(report.Failures);
+        Assert.Equal(FindingKind.Slower, finding.Kind);
+        Assert.Equal(ResultsTree.Flate, finding.Benchmark);
+    }
+
+    [Fact]
+    public void An_opted_out_case_is_not_reported_missing_when_a_shard_only_lists_it()
+    {
+        using var tree = new ResultsTree();
+        tree.AddNotGated("shard-0/allocations/head", "allocations", ResultsTree.Flate)
+            .AddAllocation("shard-0/allocations/head", "allocations", ResultsTree.Lexer, 0);
+        string baseline = tree.WriteBaseline((ResultsTree.Lexer, 0), (ResultsTree.Flate, 16));
+
+        GateReport report = BenchmarkGate.Run(baseline, tree.Root);
+
+        Assert.True(report.Passed);
+        Assert.Empty(report.Failures);
+    }
 }

@@ -307,6 +307,23 @@ public sealed partial class PdfDocument : IDisposable
     /// </remarks>
     public IReadOnlyList<Diagnostic> Diagnostics => _diagnostics.Snapshot();
 
+    /// <summary>
+    /// Records a diagnostic found while building or changing the document, such as one flow layout finds while laying content out, so
+    /// that <see cref="Diagnostics"/> is the one list to look at. It is recorded like a diagnostic of reading: once per code, offset
+    /// and object, observed by the engine's logger, and thrown in strict mode.
+    /// </summary>
+    /// <param name="diagnostic">The diagnostic; codes from the catalog (such as <see cref="LayoutDiagnostics"/>) or made with
+    /// <see cref="DiagnosticCode.Create"/>.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="diagnostic"/> is null.</exception>
+    /// <exception cref="DiagnosticException">The document was opened or created in strict mode (<see cref="PdfOptions.UseStrict"/>) and
+    /// the diagnostic's severity is not <see cref="DiagnosticSeverity.Information"/>; it is recorded first.</exception>
+    /// <remarks>Repairs are recorded rather than swallowed, and refused in strict mode, the same for writing as for reading (ISO 32000-2 §7.5).</remarks>
+    public void ReportDiagnostic(Diagnostic diagnostic)
+    {
+        ArgumentNullException.ThrowIfNull(diagnostic);
+        _diagnostics.Report(diagnostic);
+    }
+
     /// <summary>Opens the PDF file at <paramref name="path"/> with default options.</summary>
     /// <param name="path">The file path. The file is memory-mapped and shared for reading: do not change it until the document is disposed.</param>
     /// <returns>The document. Dispose it when done.</returns>
@@ -463,6 +480,18 @@ public sealed partial class PdfDocument : IDisposable
     /// </remarks>
     public static PdfDocument Create(PdfOptions options) => new PdfEngine(options).Create();
 
+    /// <summary>
+    /// Gets or sets the options the saves that take none use (<see cref="Save(Stream)"/>, <see cref="Save(string)"/> and their asynchronous
+    /// counterparts), such as the PDF/A and PDF/UA conformance a document was built for; <see langword="null"/> (the default) for new
+    /// default <see cref="PdfSaveOptions"/> each time.
+    /// </summary>
+    /// <remarks>
+    /// ISO 19005 (PDF/A) and ISO 14289 (PDF/UA). Options passed to a save explicitly win; when their PDF/A or PDF/UA conformance differs from
+    /// these, the save records a <c>ConformanceOverridden</c> diagnostic (Information). The options object is used as it is, not copied: a
+    /// change to it applies to later saves. A mutation: no read may run concurrently with it.
+    /// </remarks>
+    public PdfSaveOptions? DefaultSaveOptions { get; set; }
+
     /// <summary>Writes the document to <paramref name="stream"/> as a complete file with a classic cross-reference table.</summary>
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
     /// <exception cref="NotSupportedException">
@@ -472,8 +501,8 @@ public sealed partial class PdfDocument : IDisposable
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
-    /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
-    public void Save(Stream stream) => Save(stream, new PdfSaveOptions());
+    /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with <see cref="DefaultSaveOptions"/>, or default <see cref="PdfSaveOptions"/> when it is null.</remarks>
+    public void Save(Stream stream) => Save(stream, DefaultSaveOptions ?? new PdfSaveOptions());
 
     /// <summary>Writes the document to <paramref name="stream"/> as a complete file.</summary>
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
@@ -481,8 +510,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
-    /// or a linearized save would carry an integrity MAC.
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead).
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
@@ -540,6 +568,7 @@ public sealed partial class PdfDocument : IDisposable
     public void Save(Stream stream, PdfSaveOptions options)
     {
         ArgumentNullException.ThrowIfNull(stream);
+        ReportOverriddenConformance(options);
         FileWriter writer = PlanSave(options);
         WriteTo(writer, stream);
         Rebase(writer);
@@ -554,8 +583,8 @@ public sealed partial class PdfDocument : IDisposable
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
-    /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
-    public void Save(string path) => Save(path, new PdfSaveOptions());
+    /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(string, PdfSaveOptions)"/> with <see cref="DefaultSaveOptions"/>, or default <see cref="PdfSaveOptions"/> when it is null.</remarks>
+    public void Save(string path) => Save(path, DefaultSaveOptions ?? new PdfSaveOptions());
 
     /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it.</summary>
     /// <param name="path">The file path. Do not name the file the document was opened from.</param>
@@ -563,8 +592,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
-    /// or a linearized save would carry an integrity MAC.
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead).
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
@@ -572,6 +600,7 @@ public sealed partial class PdfDocument : IDisposable
     public void Save(string path, PdfSaveOptions options)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
+        ReportOverriddenConformance(options);
 
         // Planned before the file is created, so a document that cannot be saved leaves an existing file alone.
         FileWriter writer = PlanSave(options);
@@ -590,8 +619,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
-    /// or a linearized save would carry an integrity MAC.
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead).
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
@@ -599,7 +627,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <remarks>
     /// ISO 32000-2 §7.5. The asynchronous counterpart of <see cref="Save(Stream)"/>.
     /// </remarks>
-    public Task SaveAsync(Stream stream, CancellationToken cancellationToken = default) => SaveAsync(stream, new PdfSaveOptions(), cancellationToken);
+    public Task SaveAsync(Stream stream, CancellationToken cancellationToken = default) => SaveAsync(stream, DefaultSaveOptions ?? new PdfSaveOptions(), cancellationToken);
 
     /// <summary>Writes the document to <paramref name="stream"/> as a complete file, writing asynchronously.</summary>
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
@@ -609,8 +637,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
-    /// or a linearized save would carry an integrity MAC.
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead).
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
@@ -622,6 +649,7 @@ public sealed partial class PdfDocument : IDisposable
     public async Task SaveAsync(Stream stream, PdfSaveOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
+        ReportOverriddenConformance(options);
         FileWriter writer = PlanSave(options);
         await WriteToAsync(writer, stream, cancellationToken).ConfigureAwait(false);
         Rebase(writer);
@@ -634,8 +662,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
-    /// or a linearized save would carry an integrity MAC.
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead).
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
@@ -643,7 +670,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <remarks>
     /// ISO 32000-2 §7.5. The asynchronous counterpart of <see cref="Save(string)"/>. The file is written to a temporary file beside <paramref name="path"/> and moved over it only once complete, so a canceled or failed save leaves an existing file at <paramref name="path"/> as it was and creates no file there.
     /// </remarks>
-    public Task SaveAsync(string path, CancellationToken cancellationToken = default) => SaveAsync(path, new PdfSaveOptions(), cancellationToken);
+    public Task SaveAsync(string path, CancellationToken cancellationToken = default) => SaveAsync(path, DefaultSaveOptions ?? new PdfSaveOptions(), cancellationToken);
 
     /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it, writing asynchronously.</summary>
     /// <param name="path">The file path. Do not name the file the document was opened from.</param>
@@ -653,8 +680,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
-    /// or a linearized save would carry an integrity MAC.
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead).
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
@@ -665,6 +691,7 @@ public sealed partial class PdfDocument : IDisposable
     public async Task SaveAsync(string path, PdfSaveOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
+        ReportOverriddenConformance(options);
 
         // Planned before any file is created, so a document that cannot be saved leaves an existing file alone.
         FileWriter writer = PlanSave(options);
@@ -744,6 +771,34 @@ public sealed partial class PdfDocument : IDisposable
     /// <param name="value">The loaded object.</param>
     /// <returns><see langword="true"/> when the object has been loaded.</returns>
     internal bool TryGetLoaded(CosReference reference, [NotNullWhen(true)] out CosObject? value) => _loader.TryGetLoaded(reference, out value);
+
+    /// <summary>
+    /// Returns a reference to every object the file holds, in object number order: each entry the cross-reference information lists
+    /// in use, and each object header found by scanning the file. For repairs only: the first call scans the whole file.
+    /// </summary>
+    /// <returns>The references, without repeats.</returns>
+    internal IReadOnlyList<CosReference> ObjectsInFile()
+    {
+        var references = new HashSet<CosReference>();
+        foreach ((int number, XrefEntry entry) in _loader.CrossReference.Entries)
+        {
+            int generation = entry.Kind == XrefEntryKind.Compressed ? 0 : entry.Generation;
+            if (entry.Kind != XrefEntryKind.Free && number > 0 && generation is >= 0 and <= CosReference.MaxGeneration)
+            {
+                references.Add(new CosReference(number, generation));
+            }
+        }
+
+        foreach (ScannedObject found in _loader.Scan.Value.Objects)
+        {
+            if (found.Number > 0 && found.Generation is >= 0 and <= CosReference.MaxGeneration)
+            {
+                references.Add(new CosReference(found.Number, found.Generation));
+            }
+        }
+
+        return [.. references.OrderBy(static reference => reference.ObjectNumber).ThenBy(static reference => reference.Generation)];
+    }
 
     /// <summary>Returns <paramref name="value"/>, or the indirect object it refers to when it is a <see cref="CosReference"/>.</summary>
     /// <param name="value">A COS object from this document, or <see langword="null"/>.</param>
@@ -1216,7 +1271,8 @@ public sealed partial class PdfDocument : IDisposable
     /// <remarks>ISO 32000-2 §9.9.</remarks>
     internal FontProgram? GetFontProgram(CosStream stream, CosReference? reference, FontProgramSource source, bool isCidFont, PdfFont font) =>
         _fontPrograms.GetOrCreate(
-            new FontFileKey(stream, stream.Version),
+            new FontFileKey(stream, stream.Version, stream.Dictionary.Version),
+            DecodeStamp.Of(this, stream),
             (Document: this, Reference: reference, Source: source, IsCidFont: isCidFont, Font: font),
             static (key, state) => new Created<FontProgram?>(state.Document.ParseFontProgram(key.Stream, state.Reference, state.Source, state.IsCidFont, state.Font.FaceName)),
             static (_, _) => null);
@@ -1392,13 +1448,31 @@ public sealed partial class PdfDocument : IDisposable
         }
     }
 
+    /// <summary>Records explicit save options whose PDF/A or PDF/UA conformance differs from <see cref="DefaultSaveOptions"/>.</summary>
+    private void ReportOverriddenConformance(PdfSaveOptions options)
+    {
+        if (DefaultSaveOptions is not { } defaults || ReferenceEquals(options, defaults) || options is null)
+        {
+            return;
+        }
+
+        if (options.PdfAConformance != defaults.PdfAConformance || options.PdfUAConformance != defaults.PdfUAConformance)
+        {
+            _diagnostics.Report(
+                SavingDiagnostics.ConformanceOverridden,
+                DiagnosticSeverity.Information,
+                $"The save's options (PDF/A {options.PdfAConformance}, PDF/UA {options.PdfUAConformance}) override the document's default save options (PDF/A {defaults.PdfAConformance}, PDF/UA {defaults.PdfUAConformance}).");
+        }
+    }
+
     /// <summary>
     /// Plans a save in two steps, so that a save refused changes nothing in the document (issue #300). First every check that can
     /// refuse it, on the document as it is: what the document's edits leave broken (<see cref="ReportBeforeSave"/>), what the writer
     /// cannot write (encryption it refuses, in strict mode a deviation found loading the objects to write), a version later than the
     /// document's in strict mode, deprecated encryption, the rules of a PDF/A conformance level (#201). Then what a save changes in
-    /// the document: grown font subsets completed (#285), the modification dated (#162), the PDF/A output intent and identification
-    /// (#201), the catalog's extensions and version (#141), and the file planned again when any of them changed something.
+    /// the document: a page tree for recovered pages written (#258), grown font subsets completed (#285), the modification dated
+    /// (#162), the PDF/A output intent and identification (#201), the catalog's extensions and version (#141), and the file planned
+    /// again when any of them changed something.
     /// </summary>
     /// <param name="options">The save's options.</param>
     /// <param name="changes">
@@ -1447,7 +1521,10 @@ public sealed partial class PdfDocument : IDisposable
     /// </summary>
     private FileWriter ApplySaveChanges(PdfSaveOptions options, VersionedSave planned, bool archival, AccessibleSave accessible)
     {
-        bool changed = CompleteFontSubsets();
+        // Issue #258: pages recovered from the page objects of a file without a usable page tree are written under a page tree,
+        // so the saved file has the pages the document reads.
+        bool changed = Pages.WriteRecoveredPageTree();
+        changed |= CompleteFontSubsets();
         changed |= DateModification(options);
 
         // Issues #291 and #301: the metadata takes the layout and date form of the version the save writes, read before the
@@ -1609,6 +1686,20 @@ public sealed partial class PdfDocument : IDisposable
                     source, loader, streams, configuration.SecurityHandlers, offered, diagnostics, reportUnusable: true, out _);
                 catalog = ReadCatalog(loader, diagnostics, reportUnusableRoot: true)!;
             }
+            else if (!reconstructed && !loader.CrossReference.IsDeferred && !ListsPageTreeRoot(loader, catalog)
+                && RebuildForPageTree(source, header, scan.Value, streams, diagnostics) is { } rebuilt)
+            {
+                // §7.7.2: Pages is required. A catalog whose Pages is absent or names an object the cross-reference information
+                // does not list is a table that misses the page tree (or a catalog an update left behind): rebuild it by scanning
+                // when the scan finds a catalog with a page tree, as pdf.js and poppler do. Otherwise the page tree reader
+                // recovers the page objects the file holds.
+                crossReference = rebuilt;
+                loader = new ObjectLoader(source, header, crossReference, diagnostics, new ObjectLoaderHooks(), streams) { Scan = scan, Logger = configuration.Logger };
+                streams.CryptFilter = IdentityCryptFilterHandler.Instance;
+                security = DocumentSecurity.Open(
+                    source, loader, streams, configuration.SecurityHandlers, offered, diagnostics, reportUnusable: true, out _);
+                catalog = ReadCatalog(loader, diagnostics, reportUnusableRoot: true)!;
+            }
 
             // A linearized file whose length is its L has one revision (F.3.4, G.7), ending with the file; its tail is not read for it.
             IReadOnlyList<PdfRevision> revisions = loader.CrossReference.IsDeferred
@@ -1729,6 +1820,50 @@ public sealed partial class PdfDocument : IDisposable
         }
 
         return crossReference;
+    }
+
+    /// <summary>
+    /// Whether the catalog's <c>Pages</c> entry (§7.7.2, Table 29) is a dictionary or a reference the cross-reference information
+    /// lists in use. Decided without loading the page tree root, so opening a file still parses the catalog and nothing else; a
+    /// listed root that does not load as a dictionary is the page tree reader's to recover.
+    /// </summary>
+    private static bool ListsPageTreeRoot(ObjectLoader loader, CosDictionary catalog) =>
+        catalog.TryGetValue(KnownNames.Pages, out CosObject? pages)
+        && pages switch
+        {
+            CosDictionary => true,
+            CosReference reference => loader.CrossReference.TryGetEntry(reference.ObjectNumber, out XrefEntry entry) && entry.Kind != XrefEntryKind.Free,
+            _ => false,
+        };
+
+    /// <summary>
+    /// Rebuilds the cross-reference information by scanning, for a catalog whose <c>Pages</c> the file's own does not list (§7.7.2, §7.7.3),
+    /// and keeps it only when the scan finds a catalog with a page tree; in strict mode, throws instead.
+    /// </summary>
+    /// <returns>The rebuilt cross-reference information, or <see langword="null"/> to keep the file's own.</returns>
+    private static CrossReference? RebuildForPageTree(PdfSource source, FileHeader header, FileScan scan, StreamDecoder streams, DiagnosticSink diagnostics)
+    {
+        const string message = "The catalog has no Pages entry, or one naming an object the cross-reference information does not list; the cross-reference information is rebuilt by scanning the file, which finds a catalog with a page tree.";
+        if (diagnostics.IsStrict)
+        {
+            diagnostics.Report(DocumentDiagnostics.PagesMissing, DiagnosticSeverity.Error, message);
+        }
+
+        // What the rebuild reports is kept only when its result is: a scan that finds no catalog with a page tree changes nothing.
+        var attempt = new DiagnosticSink(strict: false);
+        CrossReference? rebuilt = CrossReferenceReconstructor.Reconstruct(source, header, scan, streams, attempt, reportMissingTrailer: false);
+        if (rebuilt is null)
+        {
+            return null;
+        }
+
+        diagnostics.Report(DocumentDiagnostics.PagesMissing, DiagnosticSeverity.Warning, message);
+        foreach (Diagnostic diagnostic in attempt.Snapshot())
+        {
+            diagnostics.Report(diagnostic.Code, diagnostic.Severity, diagnostic.Message, diagnostic.Offset, diagnostic.ObjectReference);
+        }
+
+        return rebuilt;
     }
 
     /// <summary>Loads the catalog through the trailer's <c>Root</c> and checks its <c>Type</c> and <c>Version</c> (§7.7.2).</summary>

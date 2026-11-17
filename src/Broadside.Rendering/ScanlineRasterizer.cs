@@ -1,4 +1,6 @@
 using System.Buffers;
+using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Broadside.Graphics;
 
@@ -40,6 +42,18 @@ internal sealed class ScanlineRasterizer : IDisposable
     /// <summary>The height of one sample line, in pixels.</summary>
     private const double SampleHeight = 1.0 / SampleLines;
 
+    /// <summary>The fewest pieces a union shape sorts with a radix sort; fewer are cheaper to sort by comparison.</summary>
+    private const int RadixThreshold = 64;
+
+    /// <summary>The most crossings at one position whose every order is tried before a shape falls back to the comparison sort.</summary>
+    private const int MaxTiedRun = 4;
+
+    /// <summary>The bits of a pixel's position one radix sort pass orders by.</summary>
+    private const int RadixBits = 8;
+
+    /// <summary>The buckets of one radix sort pass.</summary>
+    private const int RadixBuckets = 1 << RadixBits;
+
     private long[] _keys = ArrayPool<long>.Shared.Rent(1024);
     private Cell[] _cells = ArrayPool<Cell>.Shared.Rent(1024);
     private int _count;
@@ -56,6 +70,13 @@ internal sealed class ScanlineRasterizer : IDisposable
     private Piece[] _pieces = ArrayPool<Piece>.Shared.Rent(1024);
     private double[] _crossingX = new double[8];
     private double[] _crossingDy = new double[8];
+
+    // Sorting a union shape's pieces, rented on first use: their order, and the radix sort's keys, spare order and sorted keys.
+    private int[] _order = [];
+    private int[] _spareOrder = [];
+    private uint[] _radix = [];
+    private uint[] _spareRadix = [];
+    private long[] _sortedKeys = [];
 
     /// <summary>Starts a new shape clipped to <c>[0, width) × [0, height)</c>.</summary>
     public void Reset(int width, int height)
@@ -102,9 +123,9 @@ internal sealed class ScanlineRasterizer : IDisposable
     /// pixel row is cut into <see cref="SampleLines"/> sample lines, an edge crosses each line it reaches once per pixel column, at
     /// the middle of its piece there and with the height of that piece, and a walk along the line, crossings in order of position,
     /// clamps the winding to the line's height between every two of them. Edges are kept as pieces, one per pixel, sorted like cells;
-    /// each pixel's clamped coverage becomes one ordinary cell in place, so the sweep, the clip and the hook stay the same. A shape
-    /// without overlaps gets the exact area of every pixel, as before; an overlap is exact along the line and within a sample line
-    /// across it. The walk costs about as much again as scan conversion itself, so only strokes use it.
+    /// each pixel's clamped coverage becomes one ordinary cell, so the sweep, the clip and the hook stay the same. A shape without
+    /// overlaps gets the exact area of every pixel, as before; an overlap is exact along the line and within a sample line across it.
+    /// The walk adds about a third to scan conversion (after issue #335 cut it from about as much again), so only strokes use it.
     /// </remarks>
     public bool Union
     {
@@ -256,6 +277,69 @@ internal sealed class ScanlineRasterizer : IDisposable
     }
 
     /// <summary>
+    /// Paints the shape as <see cref="Paint"/> does, from the cell <paramref name="next"/> on, a whole row at a time, until the last row
+    /// or, after at least one row, until <see cref="System.Diagnostics.Stopwatch"/> reaches <paramref name="deadline"/> (issue #365: a
+    /// long image paint in slices). The shape is kept either way; <see cref="Reset"/> once done.
+    /// </summary>
+    /// <param name="rule">The fill rule.</param>
+    /// <param name="sink">The sink, which must paint as it did in the earlier calls.</param>
+    /// <param name="next">The first cell to paint, 0 at first; on return, where to resume.</param>
+    /// <param name="deadline">The timestamp to stop at.</param>
+    /// <returns><see langword="true"/> when every row is painted.</returns>
+    /// <remarks>Rows are independent (the winding accumulates within a row), so the pixels equal one <see cref="Paint"/>'s.</remarks>
+    public bool PaintRows<TSink>(FillRule rule, ref TSink sink, ref int next, long deadline)
+        where TSink : ICoverageSink, allows ref struct
+    {
+        RasterClip? clip = Clip;
+        if (_count == 0 || clip?.IsEmpty == true)
+        {
+            return true;
+        }
+
+        Sort();
+        clip = clip is { IsWholeBitmap: false } ? clip : null;
+        Span<long> keys = _keys.AsSpan(0, _count);
+        Span<Cell> cells = _cells.AsSpan(0, _count);
+        int index = next;
+        int first = index;
+        while (index < cells.Length)
+        {
+            if (index > first && System.Diagnostics.Stopwatch.GetTimestamp() >= deadline)
+            {
+                next = index;
+                return false;
+            }
+
+            int row = (int)(keys[index] >> 32);
+            double accumulated = 0;
+            while (index < cells.Length && (int)(keys[index] >> 32) == row)
+            {
+                int x = (int)(uint)keys[index];
+                double cover = 0;
+                double area = 0;
+                do
+                {
+                    cover += cells[index].Cover;
+                    area += cells[index].Area;
+                    index++;
+                }
+                while (index < cells.Length && keys[index] == keys[index - 1]);
+
+                Emit(ref sink, clip, false, Hook, row, x, 1, Coverage(accumulated + cover - area, rule, Rule));
+                accumulated += cover;
+                int following = index < cells.Length && (int)(keys[index] >> 32) == row ? (int)(uint)keys[index] : _width;
+                if (following > x + 1)
+                {
+                    Emit(ref sink, clip, false, Hook, row, x + 1, following - x - 1, Coverage(accumulated, rule, Rule));
+                }
+            }
+        }
+
+        next = index;
+        return true;
+    }
+
+    /// <summary>
     /// Hands the raw coverage of the shape to <paramref name="sink"/>, not clipped: for every row with an edge, every pixel from the
     /// first edge to the right border, zeros included. The shape stays; <see cref="Reset"/> starts a new one.
     /// </summary>
@@ -265,6 +349,56 @@ internal sealed class ScanlineRasterizer : IDisposable
         if (_count > 0)
         {
             Sweep(rule, ref sink, null, zeros: true, hook: null);
+        }
+    }
+
+    /// <summary>
+    /// Composites <paramref name="color"/> over <paramref name="bitmap"/> by runs of coverage computed earlier (a cached glyph mask),
+    /// moved by <paramref name="left"/> and <paramref name="top"/>, within <see cref="Clip"/>, as <see cref="Fill"/> composites a shape.
+    /// </summary>
+    /// <param name="bitmap">The target; at least as large as the clip.</param>
+    /// <param name="spans">The runs, relative to the mask.</param>
+    /// <param name="left">The bitmap column of the mask's first column.</param>
+    /// <param name="top">The bitmap row of the mask's first row.</param>
+    /// <param name="color">The opaque colour as premultiplied BGRA in memory order.</param>
+    /// <param name="compositor">The alpha and blend mode.</param>
+    public void FillSpans(Bitmap bitmap, ReadOnlySpan<CoverageSpan> spans, int left, int top, uint color, Compositor compositor)
+    {
+        var sink = new ColorSink(bitmap.Pixels, bitmap.Stride, color, compositor);
+        PaintSpans(spans, left, top, ref sink);
+    }
+
+    /// <summary>
+    /// Hands runs of coverage computed earlier (a cached glyph mask), moved by <paramref name="left"/> and <paramref name="top"/> and
+    /// cut to the bitmap, to <paramref name="sink"/> through <see cref="Clip"/> and <see cref="Hook"/>, exactly as <see cref="Paint"/>
+    /// hands over the runs of its sweep. The shape being built is left as it is.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §8.5.4 (the clip applies to every paint) and §10.7.4.</remarks>
+    public void PaintSpans<TSink>(ReadOnlySpan<CoverageSpan> spans, int left, int top, ref TSink sink)
+        where TSink : ICoverageSink, allows ref struct
+    {
+        RasterClip? clip = Clip;
+        if (clip?.IsEmpty == true)
+        {
+            return;
+        }
+
+        clip = clip is { IsWholeBitmap: false } ? clip : null;
+        GroupLayer? hook = Hook;
+        foreach (CoverageSpan span in spans)
+        {
+            int row = span.Row + top;
+            if ((uint)row >= (uint)_height)
+            {
+                continue;
+            }
+
+            int start = Math.Max(span.X + left, 0);
+            int end = Math.Min(span.X + left + span.Count, _width);
+            if (end > start)
+            {
+                Emit(ref sink, clip, zeros: false, hook, row, start, end - start, span.Coverage);
+            }
         }
     }
 
@@ -373,9 +507,19 @@ internal sealed class ScanlineRasterizer : IDisposable
         ArrayPool<long>.Shared.Return(_keys);
         ArrayPool<Cell>.Shared.Return(_cells);
         ArrayPool<Piece>.Shared.Return(_pieces);
+        ArrayPool<int>.Shared.Return(_order);
+        ArrayPool<int>.Shared.Return(_spareOrder);
+        ArrayPool<uint>.Shared.Return(_radix);
+        ArrayPool<uint>.Shared.Return(_spareRadix);
+        ArrayPool<long>.Shared.Return(_sortedKeys);
         _keys = [];
         _cells = [];
         _pieces = [];
+        _order = [];
+        _spareOrder = [];
+        _radix = [];
+        _spareRadix = [];
+        _sortedKeys = [];
         _count = 0;
     }
 
@@ -526,8 +670,16 @@ internal sealed class ScanlineRasterizer : IDisposable
     /// <summary>
     /// Turns the pieces of a union shape into cells, once. Along each sample line, in order of position, the winding clamped to the
     /// line's height is the line's coverage; every change of it adds to the cell of its pixel. The pieces are sorted by pixel, as the
-    /// cells are, so the cells come out in place and sorted.
+    /// cells are, so the cells come out sorted.
     /// </summary>
+    /// <remarks>
+    /// Pieces in different pixels resolve the same in any order, and so do the pieces of one pixel unless two of them cross a sample
+    /// line at exactly the same position as different crossings: then the order they are walked in can change the last bit of the
+    /// sums. Larger shapes are sorted by a stable radix sort first, several times cheaper than a comparison sort; such a tie is walked
+    /// in every order, and should any order end differently (or the tie be too large to try), the shape is resolved again from pieces
+    /// sorted by <see cref="MemoryExtensions.Sort{TKey, TValue}(Span{TKey}, Span{TValue})"/>, the order every shape had before. The
+    /// cells, and so the pixels, are bit for bit the same whichever sort ran.
+    /// </remarks>
     private void Resolve()
     {
         if (!_union || _resolved)
@@ -536,9 +688,153 @@ internal sealed class ScanlineRasterizer : IDisposable
         }
 
         _resolved = true;
+        if (_order.Length < _count)
+        {
+            ArrayPool<int>.Shared.Return(_order);
+            _order = ArrayPool<int>.Shared.Rent(_count);
+        }
+
+        if (_count >= RadixThreshold && TryRadixSort())
+        {
+            int resolved = ResolvePieces(_sortedKeys.AsSpan(0, _count), _order.AsSpan(0, _count), exact: false);
+            if (resolved >= 0)
+            {
+                (_keys, _sortedKeys) = (_sortedKeys, _keys);
+                _count = resolved;
+                _sorted = true;
+                return;
+            }
+        }
+
+        // The pieces are sorted through their indices: the sort compares keys only, so it puts them in the same order as sorting
+        // the pieces themselves would, while moving a quarter of the bytes.
         Span<long> keys = _keys.AsSpan(0, _count);
-        Span<Piece> pieces = _pieces.AsSpan(0, _count);
-        keys.Sort(pieces);
+        Span<int> order = _order.AsSpan(0, _count);
+        for (int i = 0; i < order.Length; i++)
+        {
+            order[i] = i;
+        }
+
+        keys.Sort(order);
+        _count = ResolvePieces(keys, order, exact: true);
+        _sorted = true;
+    }
+
+    /// <summary>
+    /// Sorts the pieces' indices into <c>_order</c> by pixel, and their keys into <c>_sortedKeys</c>, with a stable
+    /// least-significant-digit radix sort over the pixel's row and column relative to the shape's bounds. False, leaving it to the
+    /// comparison sort, when those need more than 32 bits.
+    /// </summary>
+    private bool TryRadixSort()
+    {
+        int count = _count;
+        ReadOnlySpan<long> keys = _keys.AsSpan(0, count);
+        long top = long.MaxValue;
+        long bottom = long.MinValue;
+        uint left = uint.MaxValue;
+        uint right = 0;
+        foreach (long key in keys)
+        {
+            long row = key >> 32;
+            uint column = (uint)key;
+            top = Math.Min(top, row);
+            bottom = Math.Max(bottom, row);
+            left = Math.Min(left, column);
+            right = Math.Max(right, column);
+        }
+
+        int columnBits = 32 - BitOperations.LeadingZeroCount(right - left);
+        int rowBits = 64 - BitOperations.LeadingZeroCount((ulong)(bottom - top));
+        if (columnBits + rowBits > 32)
+        {
+            return false;
+        }
+
+        if (_radix.Length < count)
+        {
+            ArrayPool<uint>.Shared.Return(_radix);
+            ArrayPool<uint>.Shared.Return(_spareRadix);
+            ArrayPool<int>.Shared.Return(_spareOrder);
+            _radix = ArrayPool<uint>.Shared.Rent(count);
+            _spareRadix = ArrayPool<uint>.Shared.Rent(count);
+            _spareOrder = ArrayPool<int>.Shared.Rent(count);
+        }
+
+        if (_sortedKeys.Length < count)
+        {
+            ArrayPool<long>.Shared.Return(_sortedKeys);
+            _sortedKeys = ArrayPool<long>.Shared.Rent(count);
+        }
+
+        Span<uint> radix = _radix.AsSpan(0, count);
+        Span<int> order = _order.AsSpan(0, count);
+        for (int i = 0; i < count; i++)
+        {
+            long key = keys[i];
+            radix[i] = ((uint)((key >> 32) - top) << columnBits) | ((uint)key - left);
+            order[i] = i;
+        }
+
+        Span<uint> spareRadix = _spareRadix.AsSpan(0, count);
+        Span<int> spareOrder = _spareOrder.AsSpan(0, count);
+        Span<int> histogram = stackalloc int[RadixBuckets];
+        for (int shift = 0; shift < columnBits + rowBits; shift += RadixBits)
+        {
+            histogram.Clear();
+            foreach (uint value in radix)
+            {
+                histogram[(int)((value >> shift) & (RadixBuckets - 1))]++;
+            }
+
+            int sum = 0;
+            for (int bucket = 0; bucket < RadixBuckets; bucket++)
+            {
+                (histogram[bucket], sum) = (sum, sum + histogram[bucket]);
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                uint value = radix[i];
+                int target = histogram[(int)((value >> shift) & (RadixBuckets - 1))]++;
+                spareRadix[target] = value;
+                spareOrder[target] = order[i];
+            }
+
+            Span<uint> nextRadix = spareRadix;
+            spareRadix = radix;
+            radix = nextRadix;
+            Span<int> nextOrder = spareOrder;
+            spareOrder = order;
+            order = nextOrder;
+        }
+
+        if (!order.Overlaps(_order))
+        {
+            order.CopyTo(_order);
+        }
+
+        Span<long> sorted = _sortedKeys.AsSpan(0, count);
+        for (int i = 0; i < count; i++)
+        {
+            sorted[i] = keys[_order[i]];
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves the pieces in the order <paramref name="order"/> gives, whose keys <paramref name="keys"/> holds in that order, into
+    /// cells: each pixel's key back into <paramref name="keys"/> and its cell into <c>_cells</c>, from the start. Returns the number
+    /// of cells, or -1 when <paramref name="exact"/> is false and two crossings of a pixel tie, so that their order could change the
+    /// sums (see <see cref="Resolve"/>).
+    /// </summary>
+    private int ResolvePieces(Span<long> keys, ReadOnlySpan<int> order, bool exact)
+    {
+        ReadOnlySpan<Piece> pieces = _pieces.AsSpan(0, _count);
+
+        // Each sample line's winding and clamped coverage along the row so far. They live on the stack rather than in eight locals:
+        // as locals, together with the walk's temporaries, they outnumber the 16 vector registers a processor without AVX-512 has,
+        // and the spills made the resolve 1.4 to 1.8 times slower there (issue #335).
         Span<double> winding = stackalloc double[SampleLines];
         Span<double> coverage = stackalloc double[SampleLines];
         int resolved = 0;
@@ -564,16 +860,44 @@ internal sealed class ScanlineRasterizer : IDisposable
             double area = 0;
             if (end - index == 1)
             {
-                // One edge in this pixel: only the lines it reaches.
-                Piece piece = pieces[index];
-                int first = Math.Max(0, (int)(Math.Min(piece.Y0, piece.Y1) * SampleLines));
-                int last = Math.Min(SampleLines - 1, (int)Math.Ceiling(Math.Max(piece.Y0, piece.Y1) * SampleLines) - 1);
-                for (int line = first; line <= last; line++)
+                // One edge in this pixel: only the lines it reaches, in order.
+                Piece piece = pieces[order[index]];
+                float low = Math.Min(piece.Y0, piece.Y1);
+                float high = Math.Max(piece.Y0, piece.Y1);
+                int first = Math.Max(0, (int)(low * SampleLines));
+                int last = Math.Min(SampleLines - 1, (int)Math.Ceiling(high * SampleLines) - 1);
+                if (first <= 0 && last >= 0)
                 {
-                    if (piece.Cross(line, out double x, out double dy))
-                    {
-                        Walk(ref winding[line], ref coverage[line], x, dy, ref cover, ref area);
-                    }
+                    One(piece, low, high, 0, ref winding[0], ref coverage[0], ref cover, ref area);
+                }
+
+                if (first <= 1 && last >= 1)
+                {
+                    One(piece, low, high, 1, ref winding[1], ref coverage[1], ref cover, ref area);
+                }
+
+                if (first <= 2 && last >= 2)
+                {
+                    One(piece, low, high, 2, ref winding[2], ref coverage[2], ref cover, ref area);
+                }
+
+                if (last >= 3)
+                {
+                    One(piece, low, high, 3, ref winding[3], ref coverage[3], ref cover, ref area);
+                }
+            }
+            else if (end - index == 2)
+            {
+                // Two edges, the most common case of several (both sides of a thin line).
+                Piece a = pieces[order[index]];
+                Piece b = pieces[order[index + 1]];
+                bool tied = Two(a, b, 0, ref winding[0], ref coverage[0], ref cover, ref area);
+                tied |= Two(a, b, 1, ref winding[1], ref coverage[1], ref cover, ref area);
+                tied |= Two(a, b, 2, ref winding[2], ref coverage[2], ref cover, ref area);
+                tied |= Two(a, b, 3, ref winding[3], ref coverage[3], ref cover, ref area);
+                if (tied && !exact)
+                {
+                    return -1;
                 }
             }
             else
@@ -584,7 +908,7 @@ internal sealed class ScanlineRasterizer : IDisposable
                     int crossings = 0;
                     for (int i = index; i < end; i++)
                     {
-                        if (pieces[i].Cross(line, out double x, out double dy))
+                        if (pieces[order[i]].Cross(line, out double x, out double dy))
                         {
                             if (crossings == _crossingX.Length)
                             {
@@ -598,25 +922,273 @@ internal sealed class ScanlineRasterizer : IDisposable
                         }
                     }
 
-                    _crossingX.AsSpan(0, crossings).Sort(_crossingDy.AsSpan(0, crossings));
-                    for (int i = 0; i < crossings; i++)
+                    SortCrossings(_crossingX.AsSpan(0, crossings), _crossingDy.AsSpan(0, crossings));
+                    if (!WalkCrossings(_crossingX.AsSpan(0, crossings), _crossingDy.AsSpan(0, crossings), exact, ref winding[line], ref coverage[line], ref cover, ref area))
                     {
-                        Walk(ref winding[line], ref coverage[line], _crossingX[i], _crossingDy[i], ref cover, ref area);
+                        return -1;
                     }
                 }
             }
 
-            _keys[resolved] = key;
+            keys[resolved] = key;
             _cells[resolved] = new Cell { Cover = cover, Area = area };
             resolved++;
             index = end;
         }
 
-        _count = resolved;
-        _sorted = true;
+        return resolved;
+    }
+
+    /// <summary>Walks sample line <paramref name="line"/> over the one edge of a pixel: <see cref="Piece.Cross"/>, then <see cref="Walk"/>.</summary>
+    /// <param name="piece">The edge.</param>
+    /// <param name="low">The lesser of its heights in the pixel.</param>
+    /// <param name="high">The greater of its heights in the pixel.</param>
+    /// <param name="line">The sample line.</param>
+    /// <param name="winding">The line's winding so far along the row.</param>
+    /// <param name="coverage">The line's clamped coverage so far along the row.</param>
+    /// <param name="cover">The pixel's cover.</param>
+    /// <param name="area">The pixel's area.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void One(Piece piece, float low, float high, int line, ref double winding, ref double coverage, ref double cover, ref double area)
+    {
+        double top = Math.Max(low, line * SampleHeight);
+        double bottom = Math.Min(high, (line + 1) * SampleHeight);
+        if (bottom <= top)
+        {
+            return;
+        }
+
+        double x = piece.X0 + (piece.Slope * (((top + bottom) / 2) - piece.Y0));
+        double dy = piece.Y1 > piece.Y0 ? bottom - top : top - bottom;
+        Walk(ref winding, ref coverage, x, dy, ref cover, ref area);
+    }
+
+    /// <summary>
+    /// Walks sample line <paramref name="line"/> over the two edges of a pixel, the left crossing first. Returns whether they cross
+    /// it at the same position (or at NaN) without being the same crossing, so that their order matters.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool Two(Piece a, Piece b, int line, ref double winding, ref double coverage, ref double cover, ref double area)
+    {
+        bool crossesA = a.Cross(line, out double xa, out double dya);
+        bool crossesB = b.Cross(line, out double xb, out double dyb);
+        if (crossesA && crossesB)
+        {
+            (double startWinding, double startCoverage, double startCover, double startArea) = (winding, coverage, cover, area);
+
+            // The order sorting the two crossings gives (a NaN first, then a swap only when strictly greater), so that the sums
+            // come out bit for bit as they always have.
+            if ((double.IsNaN(xb) && !double.IsNaN(xa)) || xa > xb)
+            {
+                Walk(ref winding, ref coverage, xb, dyb, ref cover, ref area);
+                Walk(ref winding, ref coverage, xa, dya, ref cover, ref area);
+            }
+            else
+            {
+                Walk(ref winding, ref coverage, xa, dya, ref cover, ref area);
+                Walk(ref winding, ref coverage, xb, dyb, ref cover, ref area);
+            }
+
+            if (xa < xb || xa > xb || Same(xa, dya, xb, dyb))
+            {
+                return false;
+            }
+
+            if (double.IsNaN(xa) || double.IsNaN(xb))
+            {
+                return true;
+            }
+
+            // At one position the walk went a, then b; the order matters only if b, then a, ends anywhere else.
+            Walk(ref startWinding, ref startCoverage, xb, dyb, ref startCover, ref startArea);
+            Walk(ref startWinding, ref startCoverage, xa, dya, ref startCover, ref startArea);
+            return !(Same(startWinding, startCoverage, winding, coverage) && Same(startCover, startArea, cover, area));
+        }
+
+        if (crossesA)
+        {
+            Walk(ref winding, ref coverage, xa, dya, ref cover, ref area);
+        }
+        else if (crossesB)
+        {
+            Walk(ref winding, ref coverage, xb, dyb, ref cover, ref area);
+        }
+
+        return false;
+    }
+
+    /// <summary>Gets whether two crossings are the same bits, so that either order of them walks the same.</summary>
+    private static bool Same(double x0, double dy0, double x1, double dy1) =>
+        BitConverter.DoubleToInt64Bits(x0) == BitConverter.DoubleToInt64Bits(x1) &&
+        BitConverter.DoubleToInt64Bits(dy0) == BitConverter.DoubleToInt64Bits(dy1);
+
+    /// <summary>
+    /// Walks a sample line over its crossings in order. Unless <paramref name="exact"/>, crossings at one position that are not the
+    /// same bits may have arrived in another order than the comparison sort of <see cref="Resolve"/> would have given them: up to
+    /// <see cref="MaxTiedRun"/> of them are walked in every order, which must all end the same; more of them, or a NaN, fail.
+    /// </summary>
+    /// <returns>False when the order of tied crossings could change the sums.</returns>
+    private static bool WalkCrossings(ReadOnlySpan<double> x, ReadOnlySpan<double> dy, bool exact, ref double winding, ref double coverage, ref double cover, ref double area)
+    {
+        Span<int> permutation = stackalloc int[MaxTiedRun];
+        Span<int> counters = stackalloc int[MaxTiedRun];
+        int i = 0;
+        while (i < x.Length)
+        {
+            int end = i + 1;
+            bool same = true;
+            if (!exact)
+            {
+                while (end < x.Length && !(x[i] < x[end] || x[i] > x[end]))
+                {
+                    same &= Same(x[i], dy[i], x[end], dy[end]);
+                    end++;
+                }
+            }
+
+            if (end - i == 1 || same)
+            {
+                for (; i < end; i++)
+                {
+                    Walk(ref winding, ref coverage, x[i], dy[i], ref cover, ref area);
+                }
+
+                continue;
+            }
+
+            int run = end - i;
+            if (run > MaxTiedRun)
+            {
+                return false;
+            }
+
+            for (int k = i; k < end; k++)
+            {
+                if (double.IsNaN(x[k]))
+                {
+                    return false;
+                }
+            }
+
+            (double startWinding, double startCoverage, double startCover, double startArea) = (winding, coverage, cover, area);
+            for (int k = i; k < end; k++)
+            {
+                Walk(ref winding, ref coverage, x[k], dy[k], ref cover, ref area);
+            }
+
+            // Every other order of the run (Heap's algorithm) must end the same.
+            for (int k = 0; k < run; k++)
+            {
+                permutation[k] = k;
+                counters[k] = 0;
+            }
+
+            int level = 1;
+            while (level < run)
+            {
+                if (counters[level] < level)
+                {
+                    int other = level % 2 == 0 ? 0 : counters[level];
+                    (permutation[other], permutation[level]) = (permutation[level], permutation[other]);
+                    (double w, double c, double v, double a) = (startWinding, startCoverage, startCover, startArea);
+                    for (int k = 0; k < run; k++)
+                    {
+                        int at = i + permutation[k];
+                        Walk(ref w, ref c, x[at], dy[at], ref v, ref a);
+                    }
+
+                    if (!(Same(w, c, winding, coverage) && Same(v, a, cover, area)))
+                    {
+                        return false;
+                    }
+
+                    counters[level]++;
+                    level = 1;
+                }
+                else
+                {
+                    counters[level] = 0;
+                    level++;
+                }
+            }
+
+            i = end;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Sorts a sample line's crossings by position, carrying their heights. A few crossings are sorted in place exactly as
+    /// <see cref="MemoryExtensions.Sort{TKey, TValue}(Span{TKey}, Span{TValue})"/> sorts up to 16 keys (a compare-and-swap network for
+    /// two or three, an insertion sort beyond), without its call and NaN pass; equal positions keep the order that sort gives them, so
+    /// the coverage sums stay bit for bit the same. More crossings, or a NaN among them, go to that sort itself.
+    /// </summary>
+    private static void SortCrossings(Span<double> x, Span<double> dy)
+    {
+        int n = x.Length;
+        if (n <= 1)
+        {
+            return;
+        }
+
+        if (n > 16)
+        {
+            x.Sort(dy);
+            return;
+        }
+
+        foreach (double value in x)
+        {
+            if (double.IsNaN(value))
+            {
+                x.Sort(dy);
+                return;
+            }
+        }
+
+        if (n == 2)
+        {
+            SwapIfGreater(x, dy, 0, 1);
+            return;
+        }
+
+        if (n == 3)
+        {
+            SwapIfGreater(x, dy, 0, 1);
+            SwapIfGreater(x, dy, 0, 2);
+            SwapIfGreater(x, dy, 1, 2);
+            return;
+        }
+
+        for (int i = 0; i < n - 1; i++)
+        {
+            double key = x[i + 1];
+            double value = dy[i + 1];
+            int j = i;
+            while (j >= 0 && key < x[j])
+            {
+                x[j + 1] = x[j];
+                dy[j + 1] = dy[j];
+                j--;
+            }
+
+            x[j + 1] = key;
+            dy[j + 1] = value;
+        }
+    }
+
+    private static void SwapIfGreater(Span<double> x, Span<double> dy, int i, int j)
+    {
+        if (x[i] > x[j])
+        {
+            (x[i], x[j]) = (x[j], x[i]);
+            (dy[i], dy[j]) = (dy[j], dy[i]);
+        }
     }
 
     /// <summary>Steps along a sample line over a crossing: the winding changes, and so may the line's clamped coverage.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Walk(ref double winding, ref double coverage, double x, double dy, ref double cover, ref double area)
     {
         winding += dy;
@@ -706,6 +1278,7 @@ internal sealed class ScanlineRasterizer : IDisposable
     private readonly record struct Piece(float Y0, float Y1, float X0, float Slope)
     {
         /// <summary>Gets where the piece crosses sample line <paramref name="line"/> (the middle of its part there) and the signed height of that part.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Cross(int line, out double x, out double dy)
         {
             double top = Math.Max(Math.Min(Y0, Y1), line * SampleHeight);

@@ -1,0 +1,13 @@
+{
+  "Probes": {
+    "osx-arm64": {
+      "empty": 1102768,
+      "extract-text": 6423848,
+      "fill-form": 11993648,
+      "open-metadata": 4551704,
+      "render": 7551568,
+      "save": 11412960,
+      "sign": 11846624
+    }
+  }
+}

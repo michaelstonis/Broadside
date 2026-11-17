@@ -54,7 +54,7 @@ internal sealed class Shell : IViewerHost, IDisposable
     public static string SampleDocument(string name) => Path.Combine(Corpus.Directory, "..", "..", "samples", "documents", "pdf", name);
 
     public static ViewerOptions Options() => new ViewerOptions()
-        .WithDocumentOptions(new PdfOptions().UseStandard14Fonts().UsePredefinedCMaps().UseSystemFontResolver(null))
+        .WithDocumentOptions(new PdfOptions().UseStandard14Fonts().UsePredefinedCMaps().UseSystemFontResolver(null).UseTimeProvider(FixedTimeProvider.Instance))
         .WithThreading(ViewerThreading.Cooperative)
         .UseBackend(() => new SkiaTileBackend());
 
@@ -81,6 +81,15 @@ internal sealed class Shell : IViewerHost, IDisposable
         DocumentSession session = DocumentSession.Open(bytes, Options());
 #pragma warning restore CA2000
         await shell.Controller.OpenAsync(_ => Task.FromResult(session), ownsSession: true, null);
+        await shell.SettleAsync();
+        return shell;
+    }
+
+    /// <summary>Shows a session the test opened, owned by the test when <paramref name="ownsSession"/> is false (as the sample's are).</summary>
+    public static async Task<Shell> OpenAsync(DocumentSession session, bool ownsSession, double width = 400, double height = 600, double ratio = 2)
+    {
+        var shell = new Shell(width, height, ratio);
+        await shell.Controller.OpenAsync(_ => Task.FromResult(session), ownsSession, null);
         await shell.SettleAsync();
         return shell;
     }
@@ -124,6 +133,21 @@ internal sealed class Shell : IViewerHost, IDisposable
         }
 
         Assert.Fail($"The viewer did not settle (more: {more}, loading pages: {Controller.IsLoadingPages}): " + string.Join(",", Events.GroupBy(e => e.Kind + "/" + e.Priority + "/" + e.Tile.Layers).Select(g => g.Key + "=" + g.Count())) + " stats=" + Controller.Scheduler!.Statistics);
+    }
+
+    /// <summary>Settles, then waits (running frames) until a condition holds: background work such as search indexing finishes.</summary>
+    public async Task SettleUntilAsync(Func<bool> condition)
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        while (!condition())
+        {
+            Assert.True(watch.Elapsed < TimeSpan.FromMinutes(2), "The condition did not hold in time.");
+            Clock.Advance(TimeSpan.FromMilliseconds(16));
+            Controller.Frame();
+            await Task.Delay(2);
+        }
+
+        await SettleAsync();
     }
 
     /// <summary>Sends a SkiaSharp touch event at a point in device-independent units (as SkiaSharp reports it: canvas pixels).</summary>

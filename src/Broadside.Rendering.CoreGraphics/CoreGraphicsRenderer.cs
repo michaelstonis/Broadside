@@ -49,6 +49,12 @@ namespace Broadside.Rendering.CoreGraphics;
 /// mode. Transparency groups and soft masks are not drawn yet (#128).
 /// </para>
 /// <para>
+/// Color filters (<see cref="RenderOptions.ColorFilter"/>, smart dark mode): a page render with a filter falls back to the software
+/// path. <see cref="SoftwareRasterizer"/> renders the page, filter included, and the result is drawn into the bitmap context as an
+/// image, so <see cref="Diagnostics"/> is empty. A display list drawn onto a context is never filtered; a viewer's tile backend draws
+/// filtered tiles through the software rasterizer.
+/// </para>
+/// <para>
 /// Reuse one instance for many renders: its working buffers are kept, so a warm replay allocates nothing per path, segment or
 /// dash. An instance renders one page at a time; use one per thread to render in parallel (a document is safe for concurrent
 /// renders while nobody changes it), each onto its own context.
@@ -58,6 +64,7 @@ public sealed class CoreGraphicsRenderer : IDisposable
 {
     private readonly CoreGraphicsBackend _backend = new();
     private double _imageSamplesPerPixel = RenderOptions.DefaultImageSamplesPerPixel;
+    private SoftwareRasterizer? _filtered;
     private bool _disposed;
 
     /// <summary>Initializes a renderer; reuse it for many renders.</summary>
@@ -89,6 +96,12 @@ public sealed class CoreGraphicsRenderer : IDisposable
         if (width < size.Width || height < size.Height)
         {
             throw new ArgumentException($"The page needs {size.Width} x {size.Height} pixels; the bitmap context has {width} x {height}.", nameof(target));
+        }
+
+        if (options.ColorFilter != ColorFilter.None && !options.OverprintPreview)
+        {
+            DrawFiltered(page, target, options, size, height);
+            return;
         }
 
         Matrix device = options.GetDeviceTransform(page);
@@ -224,6 +237,35 @@ public sealed class CoreGraphicsRenderer : IDisposable
     {
         _disposed = true;
         _backend.Dispose();
+        _filtered?.Dispose();
+    }
+
+    /// <summary>
+    /// The software path of a page render with a color filter (spec #33 viewer capability 9): the rasterizer renders the page with the
+    /// options, filter included, and the pixels are drawn into the top-left page area of the bitmap context, one image pixel per pixel.
+    /// </summary>
+    private void DrawFiltered(PdfPage page, CGBitmapContext target, RenderOptions options, PixelSize size, long height)
+    {
+        _backend.Diagnostics.Clear();
+        byte[] pixels = new byte[size.Width * size.Height * 4];
+        using (var bitmap = new Bitmap(pixels, size.Width, size.Height, size.Width * 4))
+        {
+            (_filtered ??= new SoftwareRasterizer()).Render(page, bitmap, options);
+        }
+
+        using PixelImage image = PixelImage.Own(pixels, size.Width, size.Height, 4);
+        target.SaveState();
+        try
+        {
+            // The context's user space is its pixels with the origin at the bottom left: the page's area is its top rows.
+            target.InterpolationQuality = CGInterpolationQuality.None;
+            target.SetBlendMode(CGBlendMode.Normal);
+            target.DrawImage(new CGRect(0, height - size.Height, size.Width, size.Height), image.Image);
+        }
+        finally
+        {
+            target.RestoreState();
+        }
     }
 
     /// <summary>The part of default user space a <paramref name="width"/> × <paramref name="height"/> area shows, two pixels wider; false without an inverse.</summary>

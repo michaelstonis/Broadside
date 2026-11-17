@@ -51,6 +51,45 @@ public static class JpxEditing
     }
 
     /// <summary>
+    /// A JPX file whose codestream is not in a <c>jp2c</c> box but in fragments listed by a fragment table box (ISO/IEC 15444-2
+    /// <c>ftbl</c> holding an <c>flst</c>): the codestream is cut at <paramref name="cuts"/>, each piece is stored in a <c>free</c> box,
+    /// the pieces in the order <paramref name="storage"/> gives (a permutation of piece indices), and the fragment list names them in
+    /// codestream order with their offsets from the start of the file and data reference 0 (this file). The piece at
+    /// <paramref name="externalPiece"/>, when not negative, is listed with data reference 1 instead (another file or URL).
+    /// </summary>
+    public static byte[] Fragmented(byte[] codestream, int[] cuts, int[] storage, int externalPiece = -1)
+    {
+        byte[] whole = Jp2(codestream);
+        byte[] prefix = whole[..(whole.Length - (8 + codestream.Length))];
+        int[] bounds = [0, .. cuts, codestream.Length];
+        var pieces = new List<byte[]>();
+        for (int i = 0; i + 1 < bounds.Length; i++)
+        {
+            pieces.Add(codestream[bounds[i]..bounds[i + 1]]);
+        }
+
+        var offsets = new long[pieces.Count];
+        var stored = new List<byte>(prefix);
+        foreach (int index in storage)
+        {
+            offsets[index] = stored.Count + 8;
+            stored.AddRange(Box("free", pieces[index]));
+        }
+
+        byte[] list = new byte[2 + (14 * pieces.Count)];
+        BinaryPrimitives.WriteUInt16BigEndian(list, (ushort)pieces.Count);
+        for (int i = 0; i < pieces.Count; i++)
+        {
+            Span<byte> entry = list.AsSpan(2 + (14 * i));
+            BinaryPrimitives.WriteInt64BigEndian(entry, offsets[i]);
+            BinaryPrimitives.WriteInt32BigEndian(entry[8..], pieces[i].Length);
+            BinaryPrimitives.WriteUInt16BigEndian(entry[12..], (ushort)(i == externalPiece ? 1 : 0));
+        }
+
+        return [.. stored, .. Box("ftbl", Box("flst", list))];
+    }
+
+    /// <summary>
     /// Inserts a CAP marker segment (T.800 A.5.2, Table A.11bis) after the SIZ marker segment of <paramref name="codestream"/>:
     /// <c>Pcap</c> and one 16-bit <c>Ccap</c> per set bit; sets the second-most-significant bit of Rsiz.
     /// </summary>

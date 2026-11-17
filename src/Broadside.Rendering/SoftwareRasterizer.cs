@@ -82,10 +82,11 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ThrowIfBusy();
         PageGeometry geometry = options.Measure(page);
         DisplayList list = Build(page, options);
+        _backend.GlyphPositioning = options.GlyphPositioning;
         var bitmap = new Bitmap(geometry.PixelWidth, geometry.PixelHeight);
         try
         {
-            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, options.TransparentBackground ? null : White, options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, ImageSamples(options), options.CancellationToken, DrawingProgress(options));
+            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, options.TransparentBackground ? null : White, options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, ImageSamples(options), options.ColorFilter, DrawingProgress(options), options.CancellationToken);
         }
         catch
         {
@@ -114,7 +115,8 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(options);
         ThrowIfBusy();
         PageGeometry geometry = CheckTarget(page, target, options);
-        Draw(Build(page, options), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, Background(options), options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, ImageSamples(options), options.CancellationToken, DrawingProgress(options));
+        _backend.GlyphPositioning = options.GlyphPositioning;
+        Draw(Build(page, options), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, Background(options), options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, ImageSamples(options), options.ColorFilter, DrawingProgress(options), options.CancellationToken);
     }
     /// <summary>
     /// Builds <paramref name="page"/>'s display list and starts drawing it into the top-left <see cref="RenderOptions.GetPixelSize"/>
@@ -143,7 +145,8 @@ public sealed partial class SoftwareRasterizer : IDisposable
         PageGeometry geometry = CheckTarget(page, target, options);
         DisplayList list = Build(page, options);
         Fill(target, geometry.PixelWidth, geometry.PixelHeight, Background(options));
-        return Begin(list, target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, ImageSamples(options), options.CancellationToken, DrawingProgress(options));
+        _backend.GlyphPositioning = options.GlyphPositioning;
+        return Begin(list, target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, ImageSamples(options), options.ColorFilter, DrawingProgress(options), options.CancellationToken);
     }
 
     /// <summary>
@@ -163,7 +166,8 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
         ThrowIfBusy();
-        return Begin(list, target, deviceTransform, target.Width, target.Height, AntiAliasing.All, cull: true, preview: false, ListImageSamples, cancellationToken, progress);
+        _backend.GlyphPositioning = GlyphPositioning;
+        return Begin(list, target, deviceTransform, target.Width, target.Height, AntiAliasing.All, cull: true, preview: false, ListImageSamples, ColorFilter, progress, cancellationToken);
     }
 
     /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, without a background.</summary>
@@ -184,7 +188,8 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
         ThrowIfBusy();
-        Draw(list, target, deviceTransform, target.Width, target.Height, background: null, AntiAliasing.All, cull: true, preview: false, ListImageSamples, CancellationToken.None, progress: null);
+        _backend.GlyphPositioning = GlyphPositioning;
+        Draw(list, target, deviceTransform, target.Width, target.Height, background: null, AntiAliasing.All, cull: true, preview: false, ListImageSamples, ColorFilter, progress: null, CancellationToken.None);
     }
 
     /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, anti-aliasing only the kinds of painting given.</summary>
@@ -198,7 +203,8 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
         ThrowIfBusy();
-        Draw(list, target, deviceTransform, target.Width, target.Height, background: null, antiAliasing, cull: true, preview: false, ListImageSamples, CancellationToken.None, progress: null);
+        _backend.GlyphPositioning = GlyphPositioning;
+        Draw(list, target, deviceTransform, target.Width, target.Height, background: null, antiAliasing, cull: true, preview: false, ListImageSamples, ColorFilter, progress: null, CancellationToken.None);
     }
 
     /// <summary>
@@ -225,6 +231,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(target);
         ThrowIfBusy();
+        _backend.GlyphPositioning = GlyphPositioning;
         _backend.Begin(document, target, deviceTransform, target.Width, target.Height, preview: false, AntiAliasing.All);
         try
         {
@@ -234,6 +241,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         }
         finally
         {
+            _backend.EndPreparation();
             _backend.End();
         }
     }
@@ -257,6 +265,22 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// <summary>Returns whether <paramref name="replay"/> is the progressive render this rasterizer is drawing.</summary>
     internal bool IsDrawing(DisplayListReplay replay) => !_disposed && ReferenceEquals(_progressive, replay);
 
+    /// <summary>
+    /// Prepares the images of the progressive render of <paramref name="render"/> until they are ready or <paramref name="deadline"/>
+    /// has passed (issue #365; see <see cref="ProgressiveRender.Continue"/>).
+    /// </summary>
+    internal bool ContinuePreparation(DisplayListReplay render, long deadline) =>
+        !ReferenceEquals(_progressive, render) || _backend.ContinuePreparation(deadline);
+
+    /// <summary>Sets the deadline of a progressive render's slice for its image paints (issue #365; <see cref="long.MaxValue"/>: none).</summary>
+    internal void SetPaintDeadline(long deadline) => _backend.SetPaintDeadline(deadline);
+
+    /// <summary>Finishes, until the paint deadline, an image paint a slice left (issue #365); true when none is left.</summary>
+    internal bool ContinueSlicedPaint() => _backend.ContinueSlicedPaint();
+
+    /// <summary>Gets a value indicating whether an image paint a slice left is still to be finished.</summary>
+    internal bool HasSlicedPaint => _backend.HasSlicedPaint;
+
     /// <summary>Ends the progressive render of <paramref name="render"/>: releases the per-render state, so the rasterizer may render again.</summary>
     internal void EndProgressive(DisplayListReplay render)
     {
@@ -266,6 +290,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             if (render.IsCompleted)
             {
                 _backend.FinishPreview(); // As Draw does after the replay: a completed overprint preview is converted for display.
+                _backend.FinishColorFilter(); // and the color filter runs over the finished pixels.
             }
 
             _backend.End();
@@ -280,6 +305,66 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// </summary>
     /// <remarks>For viewers only, never for printing or export: see <see cref="RenderOptions.ScaledImageDecode"/>.</remarks>
     public bool ScaledImageDecode { get; set; }
+
+    /// <summary>
+    /// Gets or sets the color filter the renders of a display list given to this rasterizer apply when they finish
+    /// (<see cref="Render(DisplayList, Bitmap, in Matrix)"/> and
+    /// <see cref="BeginRender(DisplayList, Bitmap, in Matrix, CancellationToken, IProgress{double})"/>);
+    /// <see cref="Rendering.ColorFilter.None"/> by default. Page renders take <see cref="RenderOptions.ColorFilter"/> instead.
+    /// </summary>
+    /// <remarks>
+    /// Spec #33 viewer capability 9. The filter runs over the whole bitmap the list is drawn into, the pixels it held before (a tile's
+    /// white paper) included, so a viewer switches dark mode on and off by redrawing its tiles from the same display lists. For display
+    /// only, never for printing or export: see <see cref="Rendering.ColorFilter.DarkMode"/>. ISO 32000-2 §10.7.1.
+    /// </remarks>
+    public ColorFilter ColorFilter { get; set; }
+
+    /// <summary>The default of <see cref="GlyphCacheBudget"/>: 4 MiB.</summary>
+    public const long DefaultGlyphCacheBudget = 4L << 20;
+
+    /// <summary>
+    /// Gets or sets how the renders of a display list given to this rasterizer
+    /// (<see cref="Render(DisplayList, Bitmap, in Matrix)"/> and
+    /// <see cref="BeginRender(DisplayList, Bitmap, in Matrix, CancellationToken, IProgress{double})"/>) position filled glyphs;
+    /// <see cref="Rendering.GlyphPositioning.Exact"/> by default. Page renders take <see cref="RenderOptions.GlyphPositioning"/> instead.
+    /// </summary>
+    /// <remarks>See <see cref="Rendering.GlyphPositioning"/>. ISO 32000-2 §9.4.4 and §10.7.4.</remarks>
+    public GlyphPositioning GlyphPositioning { get; set; }
+
+    /// <summary>
+    /// Gets or sets the most bytes this rasterizer's glyph cache holds: the coverage of each filled glyph, kept per font program,
+    /// glyph, size and rotation, and offset inside the pixel, so that a glyph shown again is painted without being scan converted
+    /// again; <see cref="DefaultGlyphCacheBudget"/> by default. Zero keeps nothing. Setting a new value empties the cache.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
+    /// <remarks>
+    /// <para>
+    /// The output never depends on the budget: every glyph the cache takes is painted from the coverage computed for its key, whether
+    /// the coverage was kept or not (see <see cref="Rendering.GlyphPositioning"/>). The least recently used glyphs are evicted when an
+    /// addition would exceed the budget; a glyph larger than 512 pixels either way, under a transform that cannot be inverted, or
+    /// shown in a clipping text rendering mode is filled in place and not cached.
+    /// </para>
+    /// <para>
+    /// The cache belongs to this rasterizer and is used by one render at a time; a viewer's tile backends each have their own, so it
+    /// needs no locking. It is emptied when the rasterizer renders another document. ISO 32000-2 §9.2.4 and §10.7.4.
+    /// </para>
+    /// </remarks>
+    public long GlyphCacheBudget
+    {
+        get => _backend.Glyphs.Budget;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _backend.Glyphs.Budget = value;
+        }
+    }
+
+    /// <summary>Gets the counters of this rasterizer's glyph cache (<see cref="GlyphCacheBudget"/>): bytes, entries, hits, misses and evictions.</summary>
+    /// <remarks>
+    /// One lookup is counted for each glyph painted from the cache: a hit when its coverage was kept, a miss when it was scan converted.
+    /// Glyphs wholly outside the clip (another tile's) are not counted. ISO 32000-2 §10.7.4.
+    /// </remarks>
+    public PdfCacheStatistics GlyphCacheStatistics => _backend.Glyphs.Statistics;
 
     /// <summary>
     /// Gets or sets the fewest decoded samples per device pixel a reduced image keeps when <see cref="ScaledImageDecode"/> is on: 2
@@ -392,24 +477,27 @@ public sealed partial class SoftwareRasterizer : IDisposable
         }
     }
 
-    private ProgressiveRender Begin(DisplayList list, Bitmap target, in Matrix device, int width, int height, AntiAliasing antiAliasing, bool cull, bool preview, double imageSamplesPerPixel, CancellationToken cancellationToken, IProgress<double>? progress)
+    private ProgressiveRender Begin(DisplayList list, Bitmap target, in Matrix device, int width, int height, AntiAliasing antiAliasing, bool cull, bool preview, double imageSamplesPerPixel, ColorFilter colorFilter, IProgress<double>? progress, CancellationToken cancellationToken)
     {
-        _backend.Begin(list.Document, target, device, width, height, preview, antiAliasing, imageSamplesPerPixel, cancellationToken);
-        DisplayListReplay replay = cull && TryGetRegion(device, width, height, out PdfRectangle region)
+        _backend.Begin(list.Document, target, device, width, height, preview, antiAliasing, imageSamplesPerPixel, colorFilter, cancellationToken);
+        PdfRectangle region = default;
+        bool culled = cull && TryGetRegion(device, width, height, out region);
+        DisplayListReplay replay = culled
             ? list.BeginReplay(_backend, region, cancellationToken, progress)
             : list.BeginReplay(_backend, cancellationToken, progress);
+        _backend.BeginPreparation(list, culled ? region : null);
         _progressive = replay;
         return new ProgressiveRender(this, replay, target);
     }
 
-    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, uint? background, AntiAliasing antiAliasing, bool cull, bool preview, double imageSamplesPerPixel, CancellationToken cancellationToken, IProgress<double>? progress)
+    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, uint? background, AntiAliasing antiAliasing, bool cull, bool preview, double imageSamplesPerPixel, ColorFilter colorFilter, IProgress<double>? progress, CancellationToken cancellationToken)
     {
         if (background is { } pixel)
         {
             Fill(target, width, height, pixel);
         }
 
-        _backend.Begin(list.Document, target, device, width, height, preview, antiAliasing, imageSamplesPerPixel, cancellationToken);
+        _backend.Begin(list.Document, target, device, width, height, preview, antiAliasing, imageSamplesPerPixel, colorFilter, cancellationToken);
         try
         {
             PdfRectangle region = default;
@@ -436,6 +524,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             }
 
             _backend.FinishPreview();
+            _backend.FinishColorFilter();
         }
         finally
         {
@@ -517,9 +606,11 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
         public Backend() => _stroker = new Stroker(_scan);
 
-        public void Begin(PdfDocument document, Bitmap target, in Matrix device, int width, int height, bool preview, AntiAliasing antiAliasing = AntiAliasing.All, double imageSamplesPerPixel = 0, CancellationToken cancellationToken = default)
+        public void Begin(PdfDocument document, Bitmap target, in Matrix device, int width, int height, bool preview, AntiAliasing antiAliasing = AntiAliasing.All, double imageSamplesPerPixel = 0, ColorFilter colorFilter = ColorFilter.None, CancellationToken cancellationToken = default)
         {
             SetAntiAliasing(antiAliasing);
+            BeginGlyphs(document);
+            BeginColorFilter(preview ? ColorFilter.None : colorFilter, width, height);
             _imageSamplesPerPixel = preview ? 0 : imageSamplesPerPixel;
             _cancellationToken = cancellationToken;
             _document = document;
@@ -554,6 +645,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             EndPreview();
             EndGroups();
             EndSoftMasks();
+            EndColorFilter();
         }
 
         public void SaveState()
@@ -691,12 +783,14 @@ public sealed partial class SoftwareRasterizer : IDisposable
         {
             _scan.Dispose();
             _clip.Dispose();
+            DisposeGlyphs();
             DisposeImages();
             DisposeGroups();
             DisposeTiling();
             DisposeSoftMasks();
             DisposeMeshes();
             DisposePreview();
+            DisposeColorFilter();
         }
 
         /// <summary>

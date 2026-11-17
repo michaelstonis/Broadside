@@ -19,7 +19,8 @@ const STYLE = `
 .bs-a11y [data-bs-node]{white-space:pre;line-height:1;font-size:8px;margin:0;padding:0}
 .bs-a11y [data-bs-box]{position:absolute}
 .bs-a11y :focus{outline:none}
-.bs-a11y :focus-visible{outline:2px solid #1a73e8;outline-offset:0}`;
+.bs-a11y :focus-visible{outline:2px solid #1a73e8;outline-offset:0}
+.bs-viewer>.bs-field{position:absolute;display:none;box-sizing:border-box;margin:0;padding:0 2px;border:1px solid #1a73e8;background:#fff;color:#000;font-family:Helvetica,Arial,sans-serif;resize:none;outline:none;user-select:text;-webkit-user-select:text;touch-action:auto}`;
 
 async function exportsOf() {
   if (interop === null) {
@@ -76,7 +77,9 @@ export async function attach(id, elementId) {
     x.OnResize(id, Math.max(1, r.width), Math.max(1, r.height), ratio);
   };
 
+  const inEditor = (e) => v.editor && v.editor.contains(e.target);
   host.addEventListener("pointerdown", (e) => {
+    if (inEditor(e)) return; // the field editor places its own caret (#218)
     if (e.pointerType === "mouse" && e.button !== 0) return;
     host.setPointerCapture(e.pointerId);
     host.focus({ preventScroll: true });
@@ -103,6 +106,7 @@ export async function attach(id, elementId) {
     e.preventDefault();
   }, { signal, passive: false });
   host.addEventListener("keydown", (e) => {
+    if (inEditor(e)) return; // handled by the field editor's own listener
     if (x.OnKeyDown(id, e.key, modifiers(e))) e.preventDefault();
   }, { signal });
   host.addEventListener("copy", (e) => {
@@ -113,7 +117,7 @@ export async function attach(id, elementId) {
     }
   }, { signal });
   host.addEventListener("focusin", (e) => {
-    if (e.target !== host && e.target.id) x.OnNodeFocused(id, e.target.id);
+    if (e.target !== host && e.target.id && !inEditor(e)) x.OnNodeFocused(id, e.target.id);
   }, { signal });
 
   const observer = new ResizeObserver(resize);
@@ -298,17 +302,18 @@ export function workerClose(doc) {
   worker?.postMessage({ type: "close", doc });
 }
 
-export function workerRender(job, doc, page, scale, rotation, x, y, width, height, layers, samples) {
-  worker?.postMessage({ type: "render", job, doc, page, scale, rotation, x, y, width, height, layers, samples });
+export function workerRender(job, doc, page, scale, rotation, x, y, width, height, layers, samples, filter) {
+  worker?.postMessage({ type: "render", job, doc, page, scale, rotation, x, y, width, height, layers, samples, filter });
 }
 
 export function workerCancel(job) {
   worker?.postMessage({ type: "cancel", job });
 }
 
-// Header: [records, pageCount, currentPage, zoom, tilesPresented, 0, 0, 0, 0]; then records of 9 numbers:
+// Header: [records, pageCount, currentPage, zoom, tilesPresented, dark, 0, 0, 0]; then records of 9 numbers:
 // 1 paper (x, y, w, h) | 2 tile (key, x, y, w, h) | 3 selection quad (x1, y1 ... x4, y4) | 4 text layer (page, a, b, c, d, e, f) |
-// 5 live link or field (x, y, w, h, 1 hover | 2 pressed).
+// 5 live link or field (x, y, w, h, 1 hover | 2 pressed) | 6 search match quad | 7 current search match quad (x1, y1 ... x4, y4) |
+// 8 form-field editor (x, y, w, h).
 export function draw(id, commands) {
   const v = viewers.get(id);
   if (!v) return;
@@ -331,19 +336,24 @@ export function draw(id, commands) {
   d.meanFrameMs = (v.sum / v.frames).toFixed(2);
   d.longFrames = v.long;
   d.linkState = link;
+  d.searchHighlights = v.searchHighlights;
 }
 
 // Returns the state of the link or field drawn live: "pressed", "hover" or "".
 function paint(v, c) {
   let link = "";
+  let editor = false;
+  v.searchHighlights = 0;
   const g = v.context;
-  g.fillStyle = "#e6e6e6";
+  // Dark mode (header 5, #219): the paper a page shows before its tiles arrive is black, as the filtered tiles' paper is.
+  const dark = c[5] === 1;
+  g.fillStyle = dark ? "#2b2b2b" : "#e6e6e6";
   g.fillRect(0, 0, v.canvas.width, v.canvas.height);
   const records = c[0];
   for (let i = 0, o = 9; i < records; i++, o += 9) {
     switch (c[o]) {
       case 1:
-        g.fillStyle = "#ffffff";
+        g.fillStyle = dark ? "#000000" : "#ffffff";
         g.shadowColor = "rgba(0,0,0,0.25)";
         g.shadowBlur = 4;
         g.fillRect(c[o + 1], c[o + 2], c[o + 3], c[o + 4]);
@@ -356,7 +366,10 @@ function paint(v, c) {
         break;
       }
       case 3:
-        g.fillStyle = "rgba(26,115,232,0.3)";
+      case 6:
+      case 7:
+        g.fillStyle = c[o] === 3 ? "rgba(26,115,232,0.3)" : c[o] === 6 ? "rgba(255,200,0,0.4)" : "rgba(255,120,0,0.55)";
+        if (c[o] === 6) v.searchHighlights++;
         g.beginPath();
         g.moveTo(c[o + 1], c[o + 2]);
         g.lineTo(c[o + 3], c[o + 4]);
@@ -386,9 +399,14 @@ function paint(v, c) {
         link = pressed ? "pressed" : "hover";
         break;
       }
+      case 8:
+        editor = true;
+        placeEditor(v, c[o + 1], c[o + 2], c[o + 3], c[o + 4]);
+        break;
     }
   }
 
+  if (v.editor && v.editor.style.display !== "none" && !editor) v.editor.style.visibility = "hidden"; // its page is not drawn
   return link;
 }
 
@@ -402,6 +420,8 @@ export function focusNode(id, elementId, follow) {
   // e.g. through AnnotationLayer.Focus while the user types in the host's own form, must not take the keyboard from that element.
   const active = document.activeElement;
   const v = viewers.get(id);
+  // The field editor keeps the keyboard while it is open (#218): the accessible focus is on the same field.
+  if (v && v.editor && v.editor.style.display !== "none" && active === v.editor) return true;
   if (active && active !== document.body && v && !v.host.contains(active)) return true;
   if (active !== element) element.focus({ preventScroll: true });
   return true;
@@ -409,4 +429,107 @@ export function focusNode(id, elementId, follow) {
 
 export function writeClipboard(text) {
   if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+}
+
+// ---- The form-field editor (#218) ----
+// A native input, textarea or select over the focused field's widget: typing, input methods and on-screen keyboards work as in any
+// page, the text goes to FormFilling as it changes, and the value is written through the form API once, when the field loses focus.
+
+function placeEditor(v, x, y, w, h) {
+  const e = v.editor;
+  if (!e || e.style.display === "none") return;
+  const ratio = window.devicePixelRatio || 1;
+  e.style.visibility = "visible";
+  e.style.left = x / ratio + "px";
+  e.style.top = y / ratio + "px";
+  e.style.width = w / ratio + "px";
+  e.style.height = h / ratio + "px";
+  const share = e.tagName === "INPUT" ? 0.65 : 0.35;
+  e.style.fontSize = Math.max(8, Math.min((h / ratio) * share, 24)) + "px";
+}
+
+async function makeEditor(v, id, tag) {
+  const x = await exportsOf();
+  const e = document.createElement(tag);
+  e.className = "bs-field";
+  e.addEventListener("input", () => {
+    if (e.tagName !== "SELECT") x.OnEditorInput(id, e.value, e.selectionEnd ?? e.value.length);
+  });
+  e.addEventListener("change", () => {
+    if (e.tagName === "SELECT") x.OnEditorSelect(id, Array.from(e.selectedOptions).map((o) => o.index).join(","));
+  });
+  e.addEventListener("keydown", (k) => {
+    const single = e.tagName === "INPUT";
+    if (k.key === "Tab" || k.key === "Escape" || (k.key === "Enter" && single)) {
+      if (x.OnEditorKey(id, k.key, modifiers(k))) k.preventDefault();
+    }
+    k.stopPropagation();
+  });
+  e.addEventListener("blur", () => {
+    if (!v.closing) x.OnEditorCommit(id);
+  });
+  return e;
+}
+
+// kind: 1 single line, 2 multi-line, 3 password, 4 combo box, 5 single-select list box, 6 multi-select list box.
+export async function openEditor(id, kind, value, maxLength, options, selected, label, required) {
+  const v = viewers.get(id);
+  if (!v) return;
+  const tag = kind === 1 || kind === 3 ? "input" : kind === 2 ? "textarea" : "select";
+  if (!v.editors) v.editors = {};
+  let e = v.editors[tag];
+  if (!e) {
+    e = await makeEditor(v, id, tag);
+    v.editors[tag] = e;
+    v.host.appendChild(e);
+  }
+  if (v.editor && v.editor !== e) hideEditor(v);
+  v.editor = e;
+  v.host.dataset.fieldEditor = tag;
+  e.setAttribute("aria-label", label);
+  e.required = !!required;
+  if (tag === "select") {
+    e.multiple = kind === 6;
+    e.size = kind === 4 ? 0 : Math.max(2, Math.min(options.length, 6));
+    const picked = new Set(selected ? selected.split(",").map(Number) : []);
+    e.replaceChildren(...options.map((text, i) => {
+      const o = document.createElement("option");
+      o.textContent = text;
+      o.selected = picked.has(i);
+      return o;
+    }));
+    if (picked.size === 0) e.selectedIndex = -1;
+  } else {
+    if (tag === "input") e.type = kind === 3 ? "password" : "text";
+    if (maxLength > 0) e.maxLength = maxLength; else e.removeAttribute("maxlength");
+    e.value = value;
+  }
+  e.style.display = "block";
+  e.style.visibility = "hidden"; // until the next frame places it over the widget
+  // The editor takes the keyboard only from the viewer (or nobody): a field focused from the host page's own form keeps that form's.
+  const active = document.activeElement;
+  if (active !== e && (!active || active === document.body || v.host.contains(active))) {
+    e.focus({ preventScroll: true });
+    if (tag !== "select") e.select();
+  }
+}
+
+function hideEditor(v) {
+  const e = v.editor;
+  if (!e) return;
+  v.closing = true;
+  e.style.display = "none";
+  delete v.host.dataset.fieldEditor;
+  if (document.activeElement === e) v.host.focus({ preventScroll: true });
+  v.closing = false;
+}
+
+export function closeEditor(id) {
+  const v = viewers.get(id);
+  if (v) hideEditor(v);
+}
+
+export function setEditorValue(id, value) {
+  const v = viewers.get(id);
+  if (v && v.editor && v.editor.tagName !== "SELECT") v.editor.value = value;
 }

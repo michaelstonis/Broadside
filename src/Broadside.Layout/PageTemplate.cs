@@ -74,6 +74,18 @@ public sealed class PageTemplate
     /// <summary>Text drawn across the middle of every page under the body; null for none.</summary>
     public Watermark? Watermark { get; init; }
 
+    /// <summary>
+    /// Draws on every page of the template once the flow is laid out, over the body and before the header and footer: crop marks, a page
+    /// border, letterhead art. It receives the page's canvas in default user space (points, origin at the bottom-left corner of the
+    /// page) and the page's number, the page count, its section and its setup. Null for none.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §14.8.2.2.2, Table 363: what it draws is a pagination artifact (<c>/Artifact &lt;&lt;/Type /Pagination&gt;&gt;</c>), never
+    /// real content, in a saved graphics state (§8.4.2). It runs once per page, in page order; what it leaves unbalanced on the canvas is
+    /// balanced and recorded as <see cref="Diagnostics.LayoutDiagnostics.DrawingStateUnbalanced"/>.
+    /// </remarks>
+    public Action<PdfCanvas, PageInfo>? Decoration { get; init; }
+
     /// <summary>The header of the page numbered <paramref name="pageNumber"/>, the first of its section when <paramref name="first"/>.</summary>
     internal HeaderFooter? HeaderFor(int pageNumber, bool first) => Pick(first ? FirstPageHeader : null, pageNumber % 2 == 0 ? EvenPageHeader : null, Header);
 
@@ -125,7 +137,7 @@ public sealed class PageTemplate
             {
                 if (text is not null)
                 {
-                    CheckEncodable(HeaderFooter.Expand(text, 1234567890, 1234567890), region.Style, $"The {name} of a page template");
+                    CheckEncodable(region.ExpandSlot(text, 1234567890, 1234567890, static () => "1234567890"), region.Style, $"The {name} of a page template");
                 }
             }
         }
@@ -214,6 +226,68 @@ public sealed class HeaderFooter
     {
     }
 
+    /// <summary>The field replaced by the page's label (ISO 32000-2 §12.4.2), or its number when the document has no page labels; only in <see cref="EscapedFields"/> texts.</summary>
+    internal const string PageLabelField = "{label}";
+
+    /// <summary>
+    /// True when the texts are the document builder's encoding: a literal brace is doubled (<c>{{</c>) and <c>{page}</c>, <c>{pages}</c> and
+    /// <c>{label}</c> are fields, so literal text can never become a field.
+    /// </summary>
+    internal bool EscapedFields { get; init; }
+
+    /// <summary>Replaces the fields of a slot's <paramref name="text"/>; <paramref name="label"/> gives the page's label when asked.</summary>
+    internal string ExpandSlot(string text, int pageNumber, int pageCount, Func<string> label)
+    {
+        if (!EscapedFields)
+        {
+            return Expand(text, pageNumber, pageCount);
+        }
+
+        if (!text.Contains('{', StringComparison.Ordinal))
+        {
+            return text;
+        }
+
+        var builder = new StringBuilder(text.Length + 8);
+        int index = 0;
+        while (index < text.Length)
+        {
+            ReadOnlySpan<char> rest = text.AsSpan(index);
+            if (rest[0] != '{')
+            {
+                builder.Append(rest[0]);
+                index++;
+            }
+            else if (rest.StartsWith("{{", StringComparison.Ordinal))
+            {
+                builder.Append('{');
+                index += 2;
+            }
+            else if (rest.StartsWith(PageCountField, StringComparison.Ordinal))
+            {
+                builder.Append(pageCount.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                index += PageCountField.Length;
+            }
+            else if (rest.StartsWith(PageNumberField, StringComparison.Ordinal))
+            {
+                builder.Append(pageNumber.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                index += PageNumberField.Length;
+            }
+            else if (rest.StartsWith(PageLabelField, StringComparison.Ordinal))
+            {
+                builder.Append(label());
+                index += PageLabelField.Length;
+            }
+            else
+            {
+                builder.Append('{');
+                index++;
+            }
+        }
+
+        return builder.ToString();
+    }
+
     /// <summary>Replaces the fields of <paramref name="text"/>.</summary>
     internal static string Expand(string text, int pageNumber, int pageCount) =>
         text.Contains('{', StringComparison.Ordinal)
@@ -261,4 +335,29 @@ public sealed class Watermark
         get;
         init => field = value is >= 0 and <= 1 ? value : throw new ArgumentOutOfRangeException(nameof(value), value, "The opacity shall be from 0 to 1.");
     } = 0.2;
+}
+
+/// <summary>The page a <see cref="PageTemplate.Decoration"/> draws on: its number, the page count, its section and its setup.</summary>
+/// <param name="Number">The page's number, 1 for the first page the flow laid out.</param>
+/// <param name="Count">The number of pages the flow laid out.</param>
+/// <param name="Section">The page's section: 0 for the first, then 1 for each <see cref="FlowDocument.StartSection"/> in turn.</param>
+/// <param name="IsFirstOfSection">True on the first page of its section.</param>
+/// <param name="Setup">The page's size and margins.</param>
+/// <remarks>ISO 32000-2 §7.7.3.3 (page objects; the media box is <c>[0 0 Width Height]</c>) and §14.11.2 (page boundaries).</remarks>
+public readonly record struct PageInfo(int Number, int Count, int Section, bool IsFirstOfSection, PageSetup Setup)
+{
+    /// <summary>The page width in points.</summary>
+    public double Width => Setup.Width;
+
+    /// <summary>The page height in points.</summary>
+    public double Height => Setup.Height;
+
+    /// <summary>The page margins.</summary>
+    public PageMargins Margins => Setup.Margins;
+
+    /// <summary>The width of the content area: the page width less the left and right margins.</summary>
+    public double ContentWidth => Setup.ContentWidth;
+
+    /// <summary>The height of the content area: the page height less the top and bottom margins.</summary>
+    public double ContentHeight => Setup.ContentHeight;
 }

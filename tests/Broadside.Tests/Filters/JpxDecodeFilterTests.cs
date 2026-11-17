@@ -290,7 +290,7 @@ public sealed class JpxDecodeFilterTests
     }
 
     [Fact]
-    public void A_JPX_file_with_a_fragment_table_reports_that_the_fragmented_codestream_is_not_read()
+    public void A_fragment_table_after_the_contiguous_codestream_is_reported_and_not_read()
     {
         byte[] fragmentList = new byte[2 + 14];
         fragmentList[1] = 1;
@@ -300,5 +300,48 @@ public sealed class JpxDecodeFilterTests
 
         Assert.Equal(JpxSamples.WorkedExampleSamples, image.Samples.ToArray());
         Assert.Equal(["JpxCodestreamsIgnored"], codes);
+    }
+
+    [Fact]
+    public void A_codestream_in_fragments_stored_out_of_order_decodes_as_the_unfragmented_one()
+    {
+        byte[] codestream = JpxSamples.Vector("Tiled").Data;
+        using DecodedImage expected = JpxTesting.DecodeImage(JpxEditing.Jp2(codestream), out _);
+        byte[] fragmented = JpxEditing.Fragmented(codestream, [40, codestream.Length / 2], [2, 0, 1]);
+
+        using DecodedImage image = JpxTesting.DecodeImage(fragmented, out string[] codes);
+
+        Assert.Equal(expected.Samples.ToArray(), image.Samples.ToArray());
+        Assert.Empty(codes);
+    }
+
+    [Fact]
+    public void A_fragment_that_references_another_file_is_refused_with_a_diagnostic_and_nothing_is_decoded()
+    {
+        byte[] fragmented = JpxEditing.Fragmented(JpxSamples.WorkedExample, [30], [0, 1], externalPiece: 1);
+
+        DecodedImage? image = JpxTesting.TryDecodeImage(fragmented, out string[] codes);
+
+        Assert.Null(image);
+        Assert.Contains("JpxFragmentExternal", codes);
+    }
+
+    [Fact]
+    public void A_fragment_that_references_another_file_throws_in_strict_mode()
+    {
+        byte[] fragmented = JpxEditing.Fragmented(JpxSamples.WorkedExample, [30], [0, 1], externalPiece: 1);
+
+        Assert.ThrowsAny<Exception>(() => JpxTesting.TryDecodeImage(fragmented, out _, mode: PdfReadingMode.Strict));
+    }
+
+    [Fact]
+    public void A_fragment_past_the_end_of_the_file_is_reported_and_the_codestream_before_it_is_kept()
+    {
+        byte[] fragmented = JpxEditing.Fragmented(JpxSamples.WorkedExample, [30], [0, 1]);
+        fragmented[^14] = 0x7F; // the second entry's offset, most significant byte
+
+        using DecodedImage? image = JpxTesting.TryDecodeImage(fragmented, out string[] codes);
+
+        Assert.Contains("JpxBoxInvalid", codes);
     }
 }

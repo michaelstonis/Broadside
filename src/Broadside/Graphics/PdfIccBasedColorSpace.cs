@@ -1,3 +1,4 @@
+using Broadside.Caching;
 using Broadside.Diagnostics;
 using Broadside.Graphics.Colors;
 using Broadside.Graphics.Functions;
@@ -99,17 +100,26 @@ public sealed class PdfIccBasedColorSpace : PdfColorSpace
     public CosStream? Metadata => Cache!.Resolve(Stream.Dictionary.GetValueOrDefault(ColorSpaceNames.Metadata)) as CosStream;
 
     /// <summary>Gets the profile's header, or <see langword="null"/> when the stream does not decode to an ICC profile.</summary>
-    /// <remarks>ICC.1:2022 §7.2. Read once, and again when the stream changes.</remarks>
+    /// <remarks>
+    /// ICC.1:2022 §7.2. Read once, and again when the stream changes, or, for a stream whose <c>Filter</c> or <c>DecodeParms</c> holds
+    /// an indirect reference, when an object is added or removed (ISO 32000-2 §7.3.10).
+    /// </remarks>
     public IccProfileHeader? ProfileHeader
     {
         get
         {
             CosStream stream = Stream;
             HeaderState? state = Volatile.Read(ref _header);
-            if (state is null || !ReferenceEquals(state.Stream, stream) || state.Version != stream.Version)
+            PdfDocument document = Cache!.Document;
+            if (state is null || !state.IsCurrent(stream, document))
             {
-                ReadOnlyMemory<byte> data = Cache!.Document.DecodeStream(stream);
-                state = new HeaderState(stream, stream.Version, IccProfileHeader.Parse(data.Span), data.Length);
+                int version = stream.Version;
+                int? stamp = DecodeStamp.Of(document, stream);
+                ReadOnlyMemory<byte> data = document.DecodeStream(stream);
+                IccProfileHeader? header = IccProfileHeader.Parse(data.Span);
+                state = stamp is int objectsVersion
+                    ? new StampedHeaderState(stream, version, header, data.Length, objectsVersion)
+                    : new HeaderState(stream, version, header, data.Length);
                 Volatile.Write(ref _header, state);
             }
 
@@ -282,5 +292,20 @@ public sealed class PdfIccBasedColorSpace : PdfColorSpace
     }
 
     /// <summary>The header read from one version of the stream.</summary>
-    private sealed record HeaderState(CosStream Stream, int Version, IccProfileHeader? Header, int Length);
+    private record HeaderState(CosStream Stream, int Version, IccProfileHeader? Header, int Length)
+    {
+        /// <summary>Returns whether the header was read from <paramref name="stream"/> as it is now.</summary>
+        public virtual bool IsCurrent(CosStream stream, PdfDocument document) => ReferenceEquals(Stream, stream) && Version == stream.Version;
+    }
+
+    /// <summary>
+    /// The header of a stream decoded through a referenced <c>Filter</c> or <c>DecodeParms</c>: also read again after an object is
+    /// added or removed, which can change what the reference resolves to (ISO 32000-2 §7.3.10, issue #305).
+    /// </summary>
+    private sealed record StampedHeaderState(CosStream Stream, int Version, IccProfileHeader? Header, int Length, int ObjectsVersion)
+        : HeaderState(Stream, Version, Header, Length)
+    {
+        /// <inheritdoc/>
+        public override bool IsCurrent(CosStream stream, PdfDocument document) => base.IsCurrent(stream, document) && document.ObjectsVersion == ObjectsVersion;
+    }
 }

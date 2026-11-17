@@ -65,6 +65,23 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         }
     }
 
+    /// <summary>Takes this thread's builder, or a new one when it is in use (a build in slices holds its own, issue #365).</summary>
+    /// <returns>The builder; give it back with <see cref="Return"/>.</returns>
+    public static DisplayListBuilder Rent()
+    {
+        DisplayListBuilder builder = _cached ?? new DisplayListBuilder();
+        _cached = null;
+        return builder;
+    }
+
+    /// <summary>Forgets what <paramref name="builder"/> built and keeps it for this thread's next build.</summary>
+    /// <param name="builder">The builder from <see cref="Rent"/>.</param>
+    public static void Return(DisplayListBuilder builder)
+    {
+        builder.Reset();
+        _cached = builder;
+    }
+
     /// <summary>Copies what was built into a list of exactly the needed size.</summary>
     /// <param name="document">The document the content came from.</param>
     /// <returns>The list.</returns>

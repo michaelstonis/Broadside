@@ -301,12 +301,13 @@ public sealed class ParagraphFlowTests
     }
 
     [Fact]
-    public void The_package_depends_only_on_the_core()
+    public void The_package_depends_only_on_the_core_and_its_standard_14_fonts()
     {
         AssemblyName[] references = typeof(FlowDocument).Assembly.GetReferencedAssemblies();
 
+        // The document builder embeds the Liberation programs as its default fonts (issue #397, owner decision 5).
         Assert.All(references, reference => Assert.True(
-            reference.Name is "Broadside" or "System" or "netstandard" || reference.Name!.StartsWith("System.", StringComparison.Ordinal),
+            reference.Name is "Broadside" or "Broadside.Fonts.Standard14" or "System" or "netstandard" || reference.Name!.StartsWith("System.", StringComparison.Ordinal),
             $"Broadside.Layout references {reference.Name}."));
         Assert.Contains(references, static reference => reference.Name == "Broadside");
     }

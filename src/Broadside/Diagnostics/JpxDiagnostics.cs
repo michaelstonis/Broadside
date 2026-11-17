@@ -50,6 +50,10 @@ public static class JpxDiagnostics
     /// <remarks>ITU-T T.800 Annex I, Annex A</remarks>
     public static DiagnosticCode JpxCodestreamsIgnored { get; } = new(nameof(JpxCodestreamsIgnored), DiagnosticArea.Jpx, DiagnosticSeverity.Warning, "ITU-T T.800 Annex I, Annex A");
 
+    /// <summary>Gets the <c>JpxFragmentExternal</c> code.</summary>
+    /// <remarks>ISO 32000-2 §7.4.9; ISO/IEC 15444-2 fragment table box</remarks>
+    public static DiagnosticCode JpxFragmentExternal { get; } = new(nameof(JpxFragmentExternal), DiagnosticArea.Jpx, DiagnosticSeverity.Error, "ISO 32000-2 §7.4.9; ISO/IEC 15444-2 fragment table box");
+
     /// <summary>Gets the <c>JpxHighThroughputUnsupported</c> code.</summary>
     /// <remarks>ITU-T T.800 Annex I, Annex A</remarks>
     public static DiagnosticCode JpxHighThroughputUnsupported { get; } = new(nameof(JpxHighThroughputUnsupported), DiagnosticArea.Jpx, DiagnosticSeverity.Error, "ITU-T T.800 Annex I, Annex A");
@@ -112,6 +116,7 @@ public static class JpxDiagnostics
         JpxPpmInvalid,
         JpxCodestreamRaw,
         JpxCodestreamsIgnored,
+        JpxFragmentExternal,
         JpxHighThroughputUnsupported,
         JpxPacketHeaderTruncated,
         JpxEphMissing,

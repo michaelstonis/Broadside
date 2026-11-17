@@ -42,6 +42,16 @@ internal sealed class JpxTileDecoder : IDisposable
     // The highest resolution any component keeps in a reduced decode; packets above it can end a resolution-major sequence.
     private int _keptResolution;
 
+    // Issue #365: where Continue resumes: the component, its stage (0 to start, 1 code-blocks, 2 wavelet), the next code-block
+    // (resolution, precinct-band, block) and the next wavelet level.
+    private int _reduction;
+    private int _component;
+    private int _componentStage;
+    private int _blockResolution;
+    private int _blockPrecinct;
+    private int _blockIndex;
+    private int _level;
+
     public JpxTileDecoder(CodecReporter reporter) => _reporter = reporter;
 
     /// <summary>
@@ -66,6 +76,26 @@ internal sealed class JpxTileDecoder : IDisposable
     /// <returns>The tile-components; <see langword="null"/> when the tile's structure is over the limits.</returns>
     public JpxTileComponent[]? Decode(JpxImageSize size, JpxTileParameters parameters, int tile, ReadOnlySpan<byte> data, byte[]? headers, int[][] buffers, int reduction = 0)
     {
+        if (Begin(size, parameters, tile, data, headers, reduction) is null)
+        {
+            return null;
+        }
+
+        Continue(data, buffers, long.MaxValue);
+        return Components;
+    }
+
+    /// <summary>Gets the tile-components of the tile <see cref="Begin"/> read, reduced as <see cref="Continue"/> reconstructed them.</summary>
+    public JpxTileComponent[]? Components { get; private set; }
+
+    /// <summary>
+    /// Builds the tile's structure and reads its packets (tier-2): the first half of <see cref="Decode"/>; <see cref="Continue"/> decodes
+    /// the code-blocks and reconstructs the components.
+    /// </summary>
+    /// <returns>The tile-components; <see langword="null"/> when the tile's structure is over the limits.</returns>
+    public JpxTileComponent[]? Begin(JpxImageSize size, JpxTileParameters parameters, int tile, ReadOnlySpan<byte> data, byte[]? headers, int reduction = 0)
+    {
+        Components = null;
         _chunkCount = 0;
         _structures = 0;
         (long tx0, long ty0, long tx1, long ty1) = size.TileBounds(tile);
@@ -88,30 +118,89 @@ internal sealed class JpxTileDecoder : IDisposable
 
         var cursor = new PacketCursor(data, headers);
         ReadPackets(parameters, components, (tx0, ty0, tx1, ty1), ref cursor, reduction > 0);
-        for (int c = 0; c < components.Length; c++)
+        Components = components;
+        _reduction = reduction;
+        _component = 0;
+        _componentStage = 0;
+        return components;
+    }
+
+    /// <summary>
+    /// Decodes the code-blocks of the tile <see cref="Begin"/> read (tier-1) and reconstructs each component (inverse DWT), from where
+    /// the last call stopped, until done or, after at least one unit of work, <see cref="System.Diagnostics.Stopwatch"/> reaches
+    /// <paramref name="deadline"/>: a code-block, or one wavelet level of a component (issue #365).
+    /// </summary>
+    /// <param name="data">The tile's packets, the same as <see cref="Begin"/>'s.</param>
+    /// <param name="buffers">One buffer per component, the same on every call.</param>
+    /// <param name="deadline">The timestamp to pause at; <see cref="long.MaxValue"/> runs to the end.</param>
+    /// <returns><see langword="true"/> when every component is reconstructed (then <see cref="Components"/>).</returns>
+    public bool Continue(ReadOnlySpan<byte> data, int[][] buffers, long deadline)
+    {
+        JpxTileComponent[] components = Components!;
+        bool sliced = deadline != long.MaxValue;
+        bool worked = false;
+        while (_component < components.Length)
         {
-            JpxTileComponent component = components[c];
-            int top = Math.Max(0, component.Style.Levels - reduction);
-            int[] buffer = buffers[c];
-            buffer.AsSpan(0, component.Width * component.Height).Clear();
-            DecodeBlocks(component, data, buffer, top);
-            _reporter.ThrowIfCancellationRequested();
-            if (component.Style.Reversible)
+            JpxTileComponent component = components[_component];
+            int top = Math.Max(0, component.Style.Levels - _reduction);
+            int[] buffer = buffers[_component];
+            if (_componentStage == 0)
             {
-                JpxWavelet.Inverse53(component, buffer, _reporter, top);
+                buffer.AsSpan(0, component.Width * component.Height).Clear();
+                _blockResolution = 0;
+                _blockPrecinct = 0;
+                _blockIndex = 0;
+                _componentStage = 1;
             }
-            else
+
+            if (_componentStage == 1)
             {
-                JpxWavelet.Inverse97(component, MemoryMarshal.Cast<int, float>(buffer.AsSpan()), _reporter, top);
+                if (!sliced)
+                {
+                    DecodeBlocks(component, data, buffer, top);
+                }
+                else if (!DecodeBlocksSliced(component, data, buffer, top, deadline, ref worked))
+                {
+                    return false;
+                }
+
+                _reporter.ThrowIfCancellationRequested();
+                _componentStage = 2;
+                _level = 1;
+            }
+
+            // The inverse DWT, one level at a time when sliced.
+            while (_level <= top)
+            {
+                if (sliced && worked && System.Diagnostics.Stopwatch.GetTimestamp() >= deadline)
+                {
+                    return false;
+                }
+
+                int last = sliced ? _level : top;
+                if (component.Style.Reversible)
+                {
+                    JpxWavelet.Inverse53(component, buffer, _reporter, last, _level);
+                }
+                else
+                {
+                    JpxWavelet.Inverse97(component, MemoryMarshal.Cast<int, float>(buffer.AsSpan()), _reporter, last, _level);
+                }
+
+                _level = last + 1;
+                worked = true;
             }
 
             if (top < component.Resolutions.Length - 1)
             {
-                components[c] = Reduced(component, buffer, top);
+                components[_component] = Reduced(component, buffer, top);
             }
+
+            _component++;
+            _componentStage = 0;
         }
 
-        return components;
+        return true;
     }
 
     /// <summary>
@@ -805,8 +894,6 @@ internal sealed class JpxTileDecoder : IDisposable
             return;
         }
 
-        int stride = component.Width;
-        int roi = component.RoiShift;
         foreach (JpxResolution resolution in component.Resolutions.AsSpan(0, kept + 1))
         {
             int bandCount = resolution.Bands.Length;
@@ -815,51 +902,94 @@ internal sealed class JpxTileDecoder : IDisposable
                 JpxBand band = resolution.Bands[p % bandCount];
                 foreach (ref JpxCodeBlock block in resolution.PrecinctBands[p].Blocks.AsSpan())
                 {
-                    if (block.Passes == 0)
-                    {
-                        continue;
-                    }
-
-                    _reporter.ThrowIfCancellationRequested();
-                    int planes = band.MagnitudeBits + roi;
-                    int top = planes - 1 - block.ZeroPlanes;
-                    if (planes > 30 || roi >= 31)
-                    {
-                        _reporter.Report(
-                            JpxDiagnostics.JpxPrecisionUnsupported,
-                            DiagnosticSeverity.Information,
-                            $"A JPEG 2000 sub-band has {planes} magnitude bit-planes (with the region-of-interest shift); more than 30 are not decoded and those code-blocks are left empty.");
-                        continue;
-                    }
-
-                    if (top < 0)
-                    {
-                        _reporter.Report(
-                            JpxDiagnostics.JpxCodeBlockInvalid,
-                            DiagnosticSeverity.Warning,
-                            "A JPEG 2000 code-block claims more missing bit-planes than its sub-band has; it is left empty.");
-                        continue;
-                    }
-
-                    ReadOnlySpan<byte> joined = Join(_chunks, block.FirstChunk, block.DataLength, data, ref _joined, ref _segments, out int segments);
-                    int width = block.X1 - block.X0;
-                    int height = block.Y1 - block.Y0;
-                    int origin = ((band.BufferY + block.Y0) * stride) + band.BufferX + block.X0;
-                    bool symbols = _blocks.Decode(
-                        joined,
-                        _segments.AsSpan(0, segments),
-                        new JpxBlockCoding(width, height, band.Orientation, component.Style.BlockStyle, top, roi, band.Scale),
-                        buffer.AsSpan(origin),
-                        stride);
-                    if (!symbols)
-                    {
-                        _reporter.Report(
-                            JpxDiagnostics.JpxSegmentationSymbolMismatch,
-                            DiagnosticSeverity.Warning,
-                            "A JPEG 2000 code-block's segmentation symbol is not 1010 (D.5); the data is decoded anyway.");
-                    }
+                    DecodeBlock(component, band, ref block, data, buffer);
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// <see cref="DecodeBlocks"/> on this thread from the code-block where the last call stopped, until every code-block is decoded or,
+    /// after at least one with data, the deadline has passed (issue #365).
+    /// </summary>
+    private bool DecodeBlocksSliced(JpxTileComponent component, ReadOnlySpan<byte> data, int[] buffer, int kept, long deadline, ref bool worked)
+    {
+        for (; _blockResolution <= kept; _blockResolution++, _blockPrecinct = 0)
+        {
+            JpxResolution resolution = component.Resolutions[_blockResolution];
+            int bandCount = resolution.Bands.Length;
+            for (; _blockPrecinct < resolution.PrecinctBands.Length; _blockPrecinct++, _blockIndex = 0)
+            {
+                JpxBand band = resolution.Bands[_blockPrecinct % bandCount];
+                Span<JpxCodeBlock> blocks = resolution.PrecinctBands[_blockPrecinct].Blocks.AsSpan();
+                for (; _blockIndex < blocks.Length; _blockIndex++)
+                {
+                    if (blocks[_blockIndex].Passes == 0)
+                    {
+                        continue;
+                    }
+
+                    if (worked && System.Diagnostics.Stopwatch.GetTimestamp() >= deadline)
+                    {
+                        return false;
+                    }
+
+                    DecodeBlock(component, band, ref blocks[_blockIndex], data, buffer);
+                    worked = true;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Decodes one code-block into the component's buffer, with the reconstruction of E.1.1.</summary>
+    private void DecodeBlock(JpxTileComponent component, JpxBand band, ref JpxCodeBlock block, ReadOnlySpan<byte> data, int[] buffer)
+    {
+        if (block.Passes == 0)
+        {
+            return;
+        }
+
+        int stride = component.Width;
+        int roi = component.RoiShift;
+        _reporter.ThrowIfCancellationRequested();
+        int planes = band.MagnitudeBits + roi;
+        int top = planes - 1 - block.ZeroPlanes;
+        if (planes > 30 || roi >= 31)
+        {
+            _reporter.Report(
+                JpxDiagnostics.JpxPrecisionUnsupported,
+                DiagnosticSeverity.Information,
+                $"A JPEG 2000 sub-band has {planes} magnitude bit-planes (with the region-of-interest shift); more than 30 are not decoded and those code-blocks are left empty.");
+            return;
+        }
+
+        if (top < 0)
+        {
+            _reporter.Report(
+                JpxDiagnostics.JpxCodeBlockInvalid,
+                DiagnosticSeverity.Warning,
+                "A JPEG 2000 code-block claims more missing bit-planes than its sub-band has; it is left empty.");
+            return;
+        }
+
+        ReadOnlySpan<byte> joined = Join(_chunks, block.FirstChunk, block.DataLength, data, ref _joined, ref _segments, out int segments);
+        int width = block.X1 - block.X0;
+        int height = block.Y1 - block.Y0;
+        int origin = ((band.BufferY + block.Y0) * stride) + band.BufferX + block.X0;
+        bool symbols = _blocks.Decode(
+            joined,
+            _segments.AsSpan(0, segments),
+            new JpxBlockCoding(width, height, band.Orientation, component.Style.BlockStyle, top, roi, band.Scale),
+            buffer.AsSpan(origin),
+            stride);
+        if (!symbols)
+        {
+            _reporter.Report(
+                JpxDiagnostics.JpxSegmentationSymbolMismatch,
+                DiagnosticSeverity.Warning,
+                "A JPEG 2000 code-block's segmentation symbol is not 1010 (D.5); the data is decoded anyway.");
         }
     }
 

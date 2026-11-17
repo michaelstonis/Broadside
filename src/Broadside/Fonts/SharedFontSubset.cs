@@ -611,6 +611,20 @@ internal sealed class SharedFontSubsets
         return subset;
     }
 
+    /// <summary>The intact shared subset whose Type 0 font is <paramref name="font"/>, or <see langword="null"/> when no subset of the document has it.</summary>
+    public SharedFontSubset? FindByFont(PdfDocument document, CosReference font)
+    {
+        foreach (SharedFontSubset subset in _subsets.Values)
+        {
+            if (subset.Font.Equals(font) && subset.IsIntact(document))
+            {
+                return subset;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Records <paramref name="subset"/> as the program's shared subset.</summary>
     public void Add(FontResolution resolution, SharedFontSubset subset) => _subsets[(resolution.Data, resolution.FaceIndex)] = subset;
 

@@ -72,6 +72,12 @@ namespace Broadside.Rendering.Skia;
 /// (cells nested more than eight deep, or overlapping their neighbours more than 256 times per tile).
 /// </para>
 /// <para>
+/// Color filters (<see cref="RenderOptions.ColorFilter"/>, smart dark mode): a page render with a filter falls back to the software
+/// path. <see cref="SoftwareRasterizer"/> renders the page, filter included, and the result is drawn onto the canvas as an image, so
+/// the page is the rasterizer's, glyphs included. A display list drawn onto a canvas is never filtered; a viewer's Skia tile backend
+/// draws filtered tiles through the software rasterizer.
+/// </para>
+/// <para>
 /// Reuse one instance for many renders (one per surface): it keeps its paints and caches every Skia path it builds, keyed by the
 /// path's geometry, so replaying the same list again (a repaint, a cached display list) allocates nothing per operation. The cache
 /// holds at most 2^21 coordinates and 2^16 paths and is emptied when it would grow past them; typefaces are kept per font program
@@ -92,6 +98,7 @@ public sealed partial class SkiaBackend : IDisposable
     private readonly Replayer _replayer = new();
     private readonly ReadOnlyCollection<Diagnostic> _diagnostics;
     private double _imageSamplesPerPixel = RenderOptions.DefaultImageSamplesPerPixel;
+    private SoftwareRasterizer? _filtered;
     private bool _disposed;
 
     /// <summary>Initializes a new instance of the <see cref="SkiaBackend"/> class.</summary>
@@ -157,6 +164,12 @@ public sealed partial class SkiaBackend : IDisposable
         ArgumentNullException.ThrowIfNull(canvas);
         ArgumentNullException.ThrowIfNull(options);
         ObjectDisposedException.ThrowIf(_disposed, this);
+        if (options.ColorFilter != ColorFilter.None && !options.OverprintPreview)
+        {
+            DrawFiltered(page, canvas, options);
+            return;
+        }
+
         PixelSize size = options.GetPixelSize(page);
         Matrix device = options.GetDeviceTransform(page);
         double samplesPerPixel = options.ScaledImageDecode && !options.OverprintPreview ? options.ImageSamplesPerPixel : 0;
@@ -270,7 +283,22 @@ public sealed partial class SkiaBackend : IDisposable
         {
             _disposed = true;
             _replayer.Dispose();
+            _filtered?.Dispose();
         }
+    }
+
+    /// <summary>
+    /// The software path of a page render with a color filter: the rasterizer renders the page with the options, filter included, and
+    /// the bitmap is drawn at the canvas's origin under its transform and clip (spec #33 viewer capability 9).
+    /// </summary>
+    private void DrawFiltered(PdfPage page, SKCanvas canvas, RenderOptions options)
+    {
+        _replayer.Diagnostics.Clear();
+        SoftwareRasterizer rasterizer = _filtered ??= new SoftwareRasterizer();
+        using Bitmap bitmap = rasterizer.Render(page, options);
+        var info = new SKImageInfo(bitmap.Width, bitmap.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+        using SKImage image = SKImage.FromPixelCopy(info, bitmap.Pixels, bitmap.Stride);
+        canvas.DrawImage(image, 0, 0, new SKSamplingOptions(SKFilterMode.Nearest, SKMipmapMode.None));
     }
 
     /// <summary>Gets how many typefaces this backend has created from font programs (one per TrueType or OpenType program it drew natively).</summary>

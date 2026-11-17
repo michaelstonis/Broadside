@@ -5,6 +5,8 @@
     <RootNamespace>Broadside.Benchmarks</RootNamespace>
     <!-- BenchmarkDotNet needs the benchmark assembly to be optimized; a Debug build is refused by its validator. -->
     <Optimize>true</Optimize>
+    <!-- The document builder (issue #397) is experimental until 1.1; DocumentBuilderBenchmarks opts in. -->
+    <NoWarn>$(NoWarn);BROADSIDE0001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

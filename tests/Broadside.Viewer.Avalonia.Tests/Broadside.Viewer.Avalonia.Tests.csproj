@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    UI tests of the Avalonia viewer (#224), headless: Avalonia.Headless drives a real window with real input events (mouse, touch,
+    wheel, keys) and Avalonia.Skia draws its frames, which the tests read back. Runs on Linux in CI (job "avalonia") with no display.
+  -->
+  <PropertyGroup>
+    <!-- Avalonia.Skia needs its own SkiaSharp (3.x); the version pinned centrally is the Skia backend's (4.x), which it must not get. -->
+    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
+    <!-- Frames are read back from locked framebuffers. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Viewer.Avalonia/Broadside.Viewer.Avalonia.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
+    <ProjectReference Include="../Broadside.TestSupport/Broadside.TestSupport.csproj" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Avalonia.Headless" />
+    <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+  </ItemGroup>
+
+</Project>

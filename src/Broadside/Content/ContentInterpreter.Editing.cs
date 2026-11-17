@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Broadside.Graphics;
 
 namespace Broadside.Content;
@@ -40,7 +41,7 @@ internal sealed partial class ContentInterpreter
             IntersectBox(box);
         }
 
-        _frames[0] = new RunFrame(form.Stream, matrix, State);
+        SetFrame(ref CollectionsMarshal.AsSpan(_frames)[0], form.Stream, matrix);
         Execute(_context.GetContent(form.Stream).Span);
         End();
     }

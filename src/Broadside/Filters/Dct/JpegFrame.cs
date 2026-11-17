@@ -50,6 +50,18 @@ internal sealed class JpegFrame
     /// <summary>Gets the current scan.</summary>
     public JpegScan Scan { get; } = new();
 
+    /// <summary>Gets where the current scan's decode stands between two slices (#365).</summary>
+    public JpegScanProgress ScanProgress { get; } = new();
+
+    /// <summary>Gets or sets the stage of a decode run in slices (#365): where <see cref="JpegDecoder.Continue"/> resumes.</summary>
+    public JpegDecodeStage Stage { get; set; }
+
+    /// <summary>Gets or sets where a decode run in slices reads next: at a scan header, or between scans.</summary>
+    public int ResumePosition { get; set; }
+
+    /// <summary>Gets or sets the next MCU row a buffered decode outputs.</summary>
+    public int EmitRow { get; set; }
+
     /// <summary>Gets the component records; the first <see cref="ComponentCount"/> are the frame's.</summary>
     public JpegComponent[] Components { get; private set; } = [new(), new(), new(), new()];
 
@@ -229,7 +241,58 @@ internal sealed class JpegFrame
         Reduction = 0;
         MinScaled = 8;
         Scan.Reset();
+        Stage = JpegDecodeStage.NotStarted;
+        ResumePosition = 0;
+        EmitRow = 0;
         Width = 0;
         Height = 0;
     }
+}
+
+/// <summary>Where a DCT decode run in slices resumes (#365).</summary>
+internal enum JpegDecodeStage
+{
+    /// <summary>Nothing decoded yet.</summary>
+    NotStarted,
+
+    /// <summary>At a scan header.</summary>
+    ScanHeader,
+
+    /// <summary>Inside a scan's entropy-coded data, between two MCU rows.</summary>
+    InScan,
+
+    /// <summary>After a scan: tables and miscellaneous segments, the next scan or the end.</summary>
+    BetweenScans,
+
+    /// <summary>Every scan read; a buffered decode outputs its MCU rows.</summary>
+    Emitting,
+
+    /// <summary>Done (or failed).</summary>
+    Done,
+}
+
+/// <summary>A scan's decode between two slices: the entropy decoders' registers and the restart interval's count (#365).</summary>
+/// <remarks>ITU-T T.81 §E.2.3 to §E.2.5. The DC predictors, EOBRUN and arithmetic statistics live in the scan and components.</remarks>
+internal sealed class JpegScanProgress
+{
+    /// <summary>Gets or sets the next MCU row.</summary>
+    public int McuRow { get; set; }
+
+    /// <summary>Gets or sets the Huffman bit reader's state.</summary>
+    public JpegBitReaderState Reader { get; set; }
+
+    /// <summary>Gets or sets the arithmetic decoder's state.</summary>
+    public ArithmeticDecoderState Arithmetic { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the current interval has no more data.</summary>
+    public bool Exhausted { get; set; }
+
+    /// <summary>Gets or sets the MCUs left in the restart interval.</summary>
+    public int IntervalLeft { get; set; }
+
+    /// <summary>Gets or sets the restart marker expected next.</summary>
+    public int ExpectedRestart { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether an earlier interval's arithmetic data ended without a marker.</summary>
+    public bool ExhaustedArithmetic { get; set; }
 }

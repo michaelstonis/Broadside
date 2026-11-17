@@ -45,7 +45,7 @@ namespace Broadside.Filters;
 /// Stateless and thread-safe.
 /// </para>
 /// </remarks>
-public sealed class JpxDecodeFilter : IImageFilter
+public sealed class JpxDecodeFilter : IImageFilter, ISlicedImageFilter
 {
     /// <inheritdoc/>
     /// <remarks>ISO 32000-2 §7.4.9: <c>JPXDecode</c>; it has no abbreviation and shall not be used in inline images (§8.9.7).</remarks>
@@ -80,5 +80,16 @@ public sealed class JpxDecodeFilter : IImageFilter
     {
         ArgumentNullException.ThrowIfNull(context);
         return JpxDecoder.Decode(encoded.Span, context);
+    }
+
+    /// <summary>Starts a decode of the image path that runs in slices, pausing between code-blocks, wavelet levels and tiles (issue #365).</summary>
+    /// <param name="encoded">The data.</param>
+    /// <param name="context">The image's values and limits.</param>
+    /// <returns>The job; its samples equal <see cref="DecodeImage"/>'s.</returns>
+    /// <remarks>ISO 32000-2 §7.4.9; ITU-T T.800 Annexes B to F.</remarks>
+    ImageDecodeJob ISlicedImageFilter.BeginDecodeImage(ReadOnlyMemory<byte> encoded, ImageFilterContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        return new JpxDecoder.SlicedDecode(encoded, context);
     }
 }

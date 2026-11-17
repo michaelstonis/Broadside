@@ -360,7 +360,8 @@ public sealed partial class PdfDocument
 
     /// <summary>
     /// Returns the XMP packet of a metadata stream: parsed once and kept while the stream is unchanged, parsed again on every read once it
-    /// has been changed (dirty tracking is sticky, so a changed stream is never served from the cache).
+    /// has been changed (dirty tracking is sticky, so a changed stream is never served from the cache). A stream whose <c>Filter</c> or
+    /// <c>DecodeParms</c> holds an indirect reference is also parsed again after an object is added or removed (§7.3.10, issue #305).
     /// </summary>
     internal XmpPacket? ReadXmpPacket(CosStream stream, CosReference? reference)
     {
@@ -368,6 +369,7 @@ public sealed partial class PdfDocument
             ? Parse((stream, reference, this))
             : _xmpPackets.GetOrCreate(
                 stream,
+                DecodeStamp.Of(this, stream),
                 (stream, reference, this),
                 static (_, state) => new Created<XmpPacket?>(Parse(state)),
                 static (_, _) => null);

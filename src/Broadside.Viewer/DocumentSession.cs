@@ -30,10 +30,14 @@ namespace Broadside.Viewer;
 /// </remarks>
 public sealed class DocumentSession : IDisposable, IAsyncDisposable
 {
+    /// <summary>The most paused list builds a cooperative session keeps (issue #365).</summary>
+    private const int MaxSlicedBuilds = 4;
+
     private readonly bool _remote;
     private readonly bool _cooperative;
     private readonly TimeSpan _sliceBudget;
     private readonly DisplayIntent _intent;
+    private readonly bool _transientFieldAppearances;
     private readonly Func<ITileBackend>? _backendFactory;
     private readonly bool _scaledImageDecode;
     private readonly double _imageSamplesPerPixel;
@@ -45,6 +49,8 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     private readonly Stack<ITileBackend> _idleBackends = new();
     private readonly PageMetrics?[] _metrics;
     private readonly Dictionary<(int Page, DisplayLayers Layers), PendingBuild> _builds = [];
+    private readonly Dictionary<(int Page, DisplayLayers Layers), DisplayListBuild> _slicedBuilds = [];
+    private readonly Queue<(int Page, DisplayLayers Layers)> _slicedOrder = new();
     private readonly DocumentGate? _reads;
     private int _pending;
     private bool _closed;
@@ -54,6 +60,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     private long _presented;
     private long _cancelled;
     private int _liveBackends;
+    private volatile ColorFilter _colorFilter;
 
     private DocumentSession(PdfDocument document, ViewerOptions options, bool remote)
     {
@@ -62,6 +69,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         _cooperative = options.IsCooperative;
         _sliceBudget = options.SliceBudget;
         _intent = options.Intent;
+        _transientFieldAppearances = options.TransientFieldAppearances;
         _backendFactory = options.BackendFactory;
         _scaledImageDecode = options.ScaledImageDecode;
         _imageSamplesPerPixel = options.ImageSamplesPerPixel;
@@ -71,6 +79,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         _metrics = new PageMetrics?[document.Pages.Count];
         _reads = _cooperative ? null : new DocumentGate();
         RemoteRenderer = options.RemoteRenderer;
+        _colorFilter = options.ColorFilter;
     }
 
     /// <summary>Gets the document. The session owns it and disposes it when it closes.</summary>
@@ -89,6 +98,9 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     /// <summary>Gets the longest piece of drawing work run between yields in cooperative mode.</summary>
     internal TimeSpan SliceBudget => _sliceBudget;
 
+    /// <summary>Yields between cooperative slices of work (the options' yield): what background work in the browser waits on.</summary>
+    internal ValueTask PauseAsync(CancellationToken cancellationToken) => _yield(cancellationToken);
+
     /// <summary>Gets the most tiles drawn at once.</summary>
     internal int MaxConcurrency { get; }
 
@@ -100,6 +112,31 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
 
     /// <summary>Gets the number of pages.</summary>
     public int PageCount => _metrics.Length;
+
+    /// <summary>
+    /// Gets or sets the color filter tiles are drawn with from now on, such as <see cref="Rendering.ColorFilter.DarkMode"/>; the
+    /// options' <see cref="ViewerOptions.ColorFilter"/> at first.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Spec #33 viewer capability 9 (smart dark mode). The filter runs over each finished tile, its paper included, and leaves the
+    /// pixels images cover as they are (see <see cref="Rendering.ColorFilter.DarkMode"/>). It never changes a display list: changing it
+    /// builds nothing again. Tiles already drawn keep their pixels, so redraw them after a change
+    /// (<see cref="TileScheduler.Invalidate(int, DisplayLayers)"/> for every page; the old pixels stay on screen until the new ones
+    /// replace them).
+    /// </para>
+    /// <para>
+    /// The backend draws the filter itself when it can (<see cref="SoftwareTileBackend"/>) and otherwise through the software
+    /// rasterizer (<see cref="ITileBackend.Begin(DisplayList, Bitmap, in Matrix, Rendering.ColorFilter, CancellationToken)"/>); a remote
+    /// renderer that cannot draw it leaves the tiles to the session (<see cref="IRemoteTileRenderer.CanRender(in Tile, Rendering.ColorFilter)"/>).
+    /// Safe to set from any thread; a tile takes the filter in force when its drawing starts.
+    /// </para>
+    /// </remarks>
+    public ColorFilter ColorFilter
+    {
+        get => _colorFilter;
+        set => _colorFilter = value;
+    }
 
     /// <summary>Gets a value indicating whether the session has been closed.</summary>
     public bool IsClosed
@@ -436,6 +473,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     /// </remarks>
     public IDisposable BeginEdit()
     {
+        DropSlicedBuilds(-1); // a paused list build must not continue over an edit (issue #365)
         if (_reads is not { } reads)
         {
             return EditScope.None;
@@ -486,6 +524,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
 
     private async Task DrawAndPresentAsync(Tile tile, IRenderSurface surface, ITileBackend backend, DisplayList list, Matrix transform, CancellationToken token)
     {
+        ColorFilter filter = _colorFilter;
         using var target = new Bitmap(tile.Region.Width, tile.Region.Height);
         long bytes = (long)target.Stride * target.Height;
         Interlocked.Add(ref _pixelBytes, bytes);
@@ -502,7 +541,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
             {
                 // The render outlives the presentation: a tile its backend left on the device (ADR 0012) is read back for a surface
                 // that reads pixels, and dropped by the render's disposal before the bitmap is released (#380).
-                using ITileRender rendering = backend.Begin(list, target, transform, token);
+                using ITileRender rendering = backend.Begin(list, target, transform, filter, token);
                 while (!rendering.RenderSlice(_sliceBudget))
                 {
                     await _yield(token).ConfigureAwait(true);
@@ -522,7 +561,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
                 await Task.Run(
                     () =>
                     {
-                        using ITileRender rendering = backend.Begin(list, target, transform, token);
+                        using ITileRender rendering = backend.Begin(list, target, transform, filter, token);
                         rendering.RenderSlice(Timeout.InfiniteTimeSpan);
                         rendering.ReadBack(); // the render ends before the tile is presented
                     },
@@ -652,11 +691,105 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         reads.ReadAsync(_ => GetTileTransform(page, tile), token);
 
     private Task<DisplayList> BuildOnWorkerAsync(PdfPage page, DisplayLayers layers, CancellationToken token) =>
-        _reads!.ReadAsync(read => page.CreateDisplayList(layers, _intent, new ContentOptions().WithCancellation(read)), token);
+        _reads!.ReadAsync(read => page.CreateDisplayList(layers, _intent, ListOptions(read)), token);
 
     /// <summary>Builds (or takes from the document's cache) a page's list on the calling thread: the tile scheduler's cooperative path.</summary>
+    // Form-field widgets without an appearance draw a transient one (#218): display only, the document is left as it is.
+    private ContentOptions ListOptions(CancellationToken token) =>
+        new ContentOptions().WithCancellation(token).WithTransientFieldAppearances(_transientFieldAppearances);
+
     internal DisplayList CreateDisplayList(PdfPage page, DisplayLayers layers, CancellationToken token) =>
-        page.CreateDisplayList(layers, _intent, new ContentOptions().WithCancellation(token));
+        page.CreateDisplayList(layers, _intent, ListOptions(token));
+
+    /// <summary>
+    /// Continues the build of a page's list on the calling thread for about <paramref name="budget"/> (issue #365: the tile scheduler's
+    /// cooperative path): the list once it is built, or <see langword="null"/> when the slice ended first. The build is the session's,
+    /// shared by every tile of the page, so a tile cancelled between two slices leaves it for the next.
+    /// </summary>
+    internal DisplayList? ContinueDisplayList(int pageIndex, PdfPage page, DisplayLayers layers, TimeSpan budget, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        (int, DisplayLayers) key = (pageIndex, layers);
+        DisplayListBuild? build;
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_closed, this);
+            if (!_slicedBuilds.TryGetValue(key, out build))
+            {
+                build = page.BeginDisplayList(layers, _intent, new ContentOptions().WithCancellation(_closing.Token));
+                if (!build.IsCompleted)
+                {
+                    while (_slicedBuilds.Count >= MaxSlicedBuilds && _slicedOrder.Count > 0)
+                    {
+                        // The oldest paused build is dropped (its page has most likely scrolled away).
+                        (int, DisplayLayers) oldest = _slicedOrder.Dequeue();
+                        if (_slicedBuilds.Remove(oldest, out DisplayListBuild? dropped))
+                        {
+                            dropped.Dispose();
+                        }
+                    }
+
+                    _slicedBuilds.Add(key, build);
+                    _slicedOrder.Enqueue(key);
+                }
+            }
+        }
+
+        bool done;
+        try
+        {
+            done = build.Continue(budget);
+        }
+        catch
+        {
+            ForgetSlicedBuild(key, build);
+            throw;
+        }
+
+        if (!done)
+        {
+            return null;
+        }
+
+        ForgetSlicedBuild(key, build);
+        return build.Result;
+    }
+
+    /// <summary>Drops the paused list builds of a page (all pages when <paramref name="pageIndex"/> is negative): after an edit.</summary>
+    internal void DropSlicedBuilds(int pageIndex)
+    {
+        List<DisplayListBuild>? dropped = null;
+        lock (_gate)
+        {
+            foreach ((int Page, DisplayLayers Layers) key in _slicedBuilds.Keys.ToArray())
+            {
+                if (pageIndex < 0 || key.Page == pageIndex)
+                {
+                    _slicedBuilds.Remove(key, out DisplayListBuild? build);
+                    (dropped ??= []).Add(build!);
+                }
+            }
+        }
+
+        if (dropped is not null)
+        {
+            foreach (DisplayListBuild build in dropped)
+            {
+                build.Dispose();
+            }
+        }
+    }
+
+    private void ForgetSlicedBuild((int, DisplayLayers) key, DisplayListBuild build)
+    {
+        lock (_gate)
+        {
+            if (_slicedBuilds.TryGetValue(key, out DisplayListBuild? current) && current == build)
+            {
+                _slicedBuilds.Remove(key);
+            }
+        }
+    }
 
     /// <summary>The device transform that draws <paramref name="tile"/>'s region of <paramref name="page"/> at the bitmap's origin.</summary>
     internal static Matrix GetTileTransform(PdfPage page, in Tile tile) =>
@@ -755,16 +888,24 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
 
     private async ValueTask<DisplayList> BuildCoreAsync(PdfPage page, DisplayLayers layers, CancellationToken token)
     {
-        ContentOptions options = new ContentOptions().WithCancellation(token);
+        ContentOptions options = ListOptions(token);
         for (int attempt = 0; ; attempt++)
         {
             try
             {
                 if (_cooperative)
                 {
+                    // Issue #365: in slices of the slice budget, with a yield before the build and between its slices.
                     await _yield(token).ConfigureAwait(false);
                     token.ThrowIfCancellationRequested();
-                    return page.CreateDisplayList(layers, _intent, options);
+                    using DisplayListBuild build = page.BeginDisplayList(layers, _intent, options);
+                    while (!build.Continue(_sliceBudget == Timeout.InfiniteTimeSpan ? Timeout.InfiniteTimeSpan : _sliceBudget))
+                    {
+                        await _yield(token).ConfigureAwait(false);
+                        token.ThrowIfCancellationRequested();
+                    }
+
+                    return build.Result;
                 }
 
                 // A read: an edit stops the build and it starts again after the edit.
@@ -895,6 +1036,8 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
             backends = [.. _idleBackends];
             _idleBackends.Clear();
         }
+
+        DropSlicedBuilds(-1);
 
         foreach (ITileBackend idle in backends)
         {

@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <!-- The document builder is experimental in 1.0 (issue #397); its tests opt in. -->
+    <NoWarn>$(NoWarn);BROADSIDE0001</NoWarn>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="../../src/Broadside.Layout/Broadside.Layout.csproj" />
     <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
@@ -12,6 +17,10 @@
     <Compile Include="../Broadside.Tests/Writing/VeraPdf.cs" Link="Shared/VeraPdf.cs" />
     <Compile Include="../Broadside.Tests/Writing/CosGraph.cs" Link="Shared/CosGraph.cs" />
     <Compile Include="../Broadside.Tests/Writing/CosSnapshot.cs" Link="Shared/CosSnapshot.cs" />
+    <!-- The document builder guide's samples (issue #397), snapshotted and validated as they are shipped. -->
+    <Compile Include="../../samples/Broadside.BuilderSamples/Samples.cs" Link="BuilderSamples/Samples.cs" />
+    <Compile Include="../../samples/Broadside.BuilderSamples/SampleData.cs" Link="BuilderSamples/SampleData.cs" />
+    <None Include="../../samples/Broadside.BuilderSamples/assets/logo.png" Link="BuilderSamples/logo.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

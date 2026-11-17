@@ -446,10 +446,64 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
         return list;
     }
 
-    /// <summary>Rebuilds the page tree around <paramref name="pages"/> and makes them the list.</summary>
+    /// <summary>
+    /// Before a save, writes a page tree for pages recovered from the page objects of a file whose catalog has no usable
+    /// <c>Pages</c> entry (issue #258), so that the saved file has the pages the document reads; a page tree is only written when
+    /// the list was not edited here (an edit already wrote one) and holds at least one page.
+    /// </summary>
+    /// <returns><see langword="true"/> when a page tree was written.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.2 (Table 29: <c>Pages</c> is required) and §7.7.3. The recovery was reported when the pages were read
+    /// (<c>PagesMissing</c>); writing it is a save's change like any other, so a save refused after it reverts it, the list and the
+    /// pages' links to their tree included (<see cref="CosChangeLog"/>).
+    /// </remarks>
+    internal bool WriteRecoveredPageTree()
+    {
+        if (_edited is not null || _document.Resolve(_document.Catalog.GetValueOrDefault(KnownNames.Pages)) is CosDictionary)
+        {
+            return false;
+        }
+
+        IReadOnlyList<PdfPage> previous = Pages;
+        if (previous.Count == 0)
+        {
+            return false;
+        }
+
+        var links = new (PdfPage Page, CosReference? Reference, PageTreeAncestor? Ancestors)[previous.Count];
+        for (int index = 0; index < previous.Count; index++)
+        {
+            links[index] = (previous[index], previous[index].Reference, previous[index].Ancestors);
+        }
+
+        List<CosReference>? nodes = _nodes;
+        CosChangeLog.OnRevert(() =>
+        {
+            _edited = null;
+            _nodes = nodes;
+            foreach ((PdfPage page, CosReference? reference, PageTreeAncestor? ancestors) in links)
+            {
+                page.Relink(reference!, ancestors);
+            }
+        });
+        Commit(previous, [.. previous]);
+        return true;
+    }
+
+    /// <summary>
+    /// Rebuilds the page tree around <paramref name="pages"/> and makes them the list. The first rebuild of pages recovered without
+    /// a usable catalog <c>Pages</c> entry (issue #258) reuses none of the nodes they were found under, and removes none: those are
+    /// objects of the file no tree of the catalog holds, which a damaged file can make anything (the catalog itself, a page).
+    /// </summary>
     private void Commit(IReadOnlyList<PdfPage> previous, List<PdfPage> pages)
     {
-        _nodes = PageTreeEditor.Rebuild(_document, previous, pages, _nodes);
+        IReadOnlyList<CosReference>? nodes = _nodes;
+        if (nodes is null && _document.Resolve(_document.Catalog.GetValueOrDefault(KnownNames.Pages)) is not CosDictionary)
+        {
+            nodes = [];
+        }
+
+        _nodes = PageTreeEditor.Rebuild(_document, previous, pages, nodes);
         _edited = new PageList(pages.ToArray());
     }
 

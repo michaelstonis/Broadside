@@ -339,7 +339,7 @@ internal sealed partial class DisplayListBuilder
     /// (cancelled, or strict mode; issue #97). Images from, or given to, the document's image cache (issue #103) are left alone:
     /// other lists may hold them.
     /// </summary>
-    private void ReleaseImages()
+    internal void ReleaseImages()
     {
         foreach (object owned in _owned.AsSpan(0, _ownedCount))
         {

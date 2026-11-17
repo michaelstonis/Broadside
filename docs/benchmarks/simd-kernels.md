@@ -181,10 +181,38 @@ runs.
 Pixels each path composited per render of the samples (counted with a temporary probe, two passes): the showcase's first page sends
 about 3.6 million pixels a pass through group source-over at full coverage and 0.25 million through partial-coverage fills; the
 catalogue sends 7.4 million through image source-over (`ImagePainter`), where sampling the image costs far more than compositing it
-(`Compositor.Over` was 0.9% of its samples). Not vectorized yet, each under 1% of every sample measured: source-over for image spans
-(`ImagePainter` composites while it samples, so it needs a sampled row first), `Mix` (non-isolated groups in Normal), `KnockOut`,
-`RemoveBackdrop` and `Union` (knockout and alpha-tracking groups, absent from the samples), and soft-mask and clip-mask multiplication
-(`RasterClip`, `SoftMaskPlane`, under 0.3%).
+(`Compositor.Over` was 0.9% of its samples). The rows below were under 1% of every sample measured, and #473's remaining kernels
+were added for completeness. Source-over for image spans already goes through `OverRow` (`ImagePainter` samples a row first, then
+`Compositor.CompositeRow`). Not vectorized: `Union` (alpha and shape tracking groups, absent from the samples), the per-pixel loop of
+`GroupSink.Composite` when a group tracks alpha or shape (it mixes `RemoveBackdrop`, `Union` and `Divide255` per pixel), and
+soft-mask multiplication, which is a scalar per run of equal mask values (`SoftMaskPlane.Run`), not a row operation.
+
+### Mix, knockout, backdrop removal and mask scaling (#473)
+
+`MixRow` (a non-isolated group composited onto its backdrop, no tracking), `KnockOutRow` (a paint in a knockout group),
+`RemoveBackdropRow` (a non-isolated group's result, per-pixel group alpha) and `ScaleRow` (a clip mask row at partial coverage), in
+byte lanes (mix, knockout) and 16-bit lanes. Items are pixels (`ScaleRow`: mask bytes), random bytes, coverage or shape 100; mix and
+knockout copy their input into the destination first in both paths. Local runs under load, M4 Max (the machine was shared with other
+builds, so absolute times are noisy; the ratios are the figure). Native AOT and CI browser figures: from the `blazor-wasm` job.
+
+| Build | Mix: scalar | vector | speed-up | Knockout: scalar | vector | speed-up | Remove backdrop: scalar | vector | speed-up | Scale: scalar | vector | speed-up |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| JIT | 13.898 | 0.452 | 30.76x | 21.771 | 0.798 | 27.27x | 9.912 | 0.697 | 14.22x | 0.384 | 0.056 | 6.80x |
+| Browser interpreter, local | 62.364 | 4.383 | 14.23x | 83.110 | 7.684 | 10.82x | 57.594 | 5.783 | 9.96x | 3.275 | 0.479 | 6.83x |
+| Browser AOT, local | 12.972 | 0.959 | 13.53x | 12.022 | 1.102 | 10.91x | 2.812 | 1.104 | 2.55x | 0.517 | 0.176 | 2.93x |
+
+BenchmarkDotNet, `CompositingRowBenchmarks`, 794 pixels (a mask row for `ScaleRow`), JIT, M4 Max, `--job short --inProcess`
+(`Allocated` is `-` for all twelve cases, the rows of #492 included):
+
+| Method | Scalar | Vector |
+|---|---:|---:|
+| Mix | 2,751.4 ns | 323.8 ns |
+| Knockout | 2,416.7 ns | 469.4 ns |
+| Remove backdrop | 2,020.5 ns | 428.9 ns |
+| Scale | 291.9 ns | 43.2 ns |
+
+No kernel is slower than its scalar path in any build measured. Knockout selects the composited pixel where the group already held
+the backdrop with a `uint` lane `Equals`, because the scalar path returns that pixel without holding its colors to its alpha.
 
 ## Box filter (`BoxFilter`, #475)
 

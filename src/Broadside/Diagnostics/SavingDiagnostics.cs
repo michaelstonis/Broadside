@@ -46,6 +46,10 @@ public static class SavingDiagnostics
     /// <remarks>Well-Tagged PDF 1.0; veraPDF validation profiles</remarks>
     public static DiagnosticCode WellTaggedNotDeclared { get; } = new(nameof(WellTaggedNotDeclared), DiagnosticArea.Saving, DiagnosticSeverity.Information, "Well-Tagged PDF 1.0; veraPDF validation profiles");
 
+    /// <summary>Gets the <c>ConformanceOverridden</c> code.</summary>
+    /// <remarks>ISO 19005 (PDF/A); ISO 14289 (PDF/UA)</remarks>
+    public static DiagnosticCode ConformanceOverridden { get; } = new(nameof(ConformanceOverridden), DiagnosticArea.Saving, DiagnosticSeverity.Information, "ISO 19005 (PDF/A); ISO 14289 (PDF/UA)");
+
     /// <summary>Gets every code of this area, in declaration order.</summary>
     internal static DiagnosticCode[] Codes { get; } =
     [
@@ -59,5 +63,6 @@ public static class SavingDiagnostics
         PdfUANotIdentified,
         WellTaggedNonConformant,
         WellTaggedNotDeclared,
+        ConformanceOverridden,
     ];
 }

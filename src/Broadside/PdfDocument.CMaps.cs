@@ -1,6 +1,7 @@
 using Broadside.Caching;
 using Broadside.Diagnostics;
 using Broadside.Fonts;
+using Broadside.Fonts.Resolution;
 using Broadside.Objects;
 
 namespace Broadside;
@@ -18,7 +19,8 @@ public sealed partial class PdfDocument
     /// <remarks>ISO 32000-2 §9.9 and §9.7.4.2.</remarks>
     internal FontProgram? GetFontProgram(CosStream stream, CosReference? reference, FontProgramSource source, string? faceName) =>
         _fontPrograms.GetOrCreate(
-            new FontFileKey(stream, stream.Version),
+            new FontFileKey(stream, stream.Version, stream.Dictionary.Version),
+            DecodeStamp.Of(this, stream),
             (Document: this, Reference: reference, Source: source, FaceName: faceName),
             static (key, state) => new Created<FontProgram?>(state.Document.ParseFontProgram(key.Stream, state.Reference, state.Source, isCidFont: true, state.FaceName)),
             static (_, _) => null);
@@ -33,13 +35,14 @@ public sealed partial class PdfDocument
     /// <returns>The CMap; <see langword="null"/> only when the stream is reached again through its own <c>UseCMap</c> chain.</returns>
     /// <remarks>
     /// ISO 32000-2 §9.7.5.3, Table 118, and §9.7.5.4; Adobe TN 5014 §5.4 and §7.4 (usecmap nests at most five levels). A CMap whose
-    /// <c>UseCMap</c> is an indirect reference also records the document's <c>ObjectsVersion</c>: after an object is added or removed
-    /// the reference may resolve to something else (§7.3.10), so it is parsed again and replaces the stale entry (issue #304).
+    /// <c>UseCMap</c> is an indirect reference, or whose <c>Filter</c> or <c>DecodeParms</c> holds one, also records the document's
+    /// <c>ObjectsVersion</c>: after an object is added or removed the reference may resolve to something else (§7.3.10), so it is
+    /// parsed again and replaces the stale entry (issues #304 and #305).
     /// </remarks>
     internal CMap? GetCMap(CosStream stream, CosReference? reference, int depth = 0) =>
         _cmaps.GetOrCreate(
             new CMapKey(stream, stream.Version, stream.Dictionary.Version),
-            UseCMapStamp(stream),
+            CMapStamp(stream),
             (Document: this, Reference: reference, Depth: depth),
             static (key, state) => new Created<CMap?>(state.Document.ParseCMap(key.Stream, state.Reference, state.Depth)),
             static (key, state) =>
@@ -132,8 +135,8 @@ public sealed partial class PdfDocument
 
     /// <summary>
     /// Returns a predefined CMap by name (§9.7.5.2, Table 116): Identity-H and Identity-V are built in; any other comes from the
-    /// engine's font resolvers (issue #59, <see cref="FontResourceKind.CMap"/>), parsed once per document, with the CMap its
-    /// <c>usecmap</c> names found the same way.
+    /// engine's font resolvers (issue #59, <see cref="FontResourceKind.CMap"/>), parsed once per engine (shared by every document it opens),
+    /// with the CMap its <c>usecmap</c> names found the same way.
     /// </summary>
     /// <param name="name">The CMap's name.</param>
     /// <param name="depth">How many CMaps use this one through <c>usecmap</c> on the way here.</param>
@@ -165,27 +168,31 @@ public sealed partial class PdfDocument
             });
     }
 
-    /// <summary>Reads a predefined CMap a font resolver supplies (TN 5014 text syntax) and the CMap it uses.</summary>
+    /// <summary>
+    /// Takes a predefined CMap a font resolver supplies (TN 5014 text syntax) and the CMap it uses from the engine's cache, where it
+    /// is parsed once for every document, and records here what its parse found.
+    /// </summary>
     private CMap? LoadPredefinedCMap(string name, int depth)
     {
-        if (!FontResolvers.TryResolveResource(FontResourceKind.CMap, name, out ReadOnlyMemory<byte> data))
+        SharedFontResource<CMap> resource = FontResolvers.Resources.GetCMap(FontResolvers, name, depth);
+        foreach (Diagnostic diagnostic in resource.Diagnostics)
         {
-            return null;
+            _diagnostics.Report(diagnostic.Code, diagnostic.Severity, diagnostic.Message);
         }
 
-        var context = new CMapContext(_diagnostics, objectReference: null);
-        CMapFile file = Fonts.CMapParser.Parse(data.Span, context);
-        CMap? parent = file.UseCMapName is { } used ? FindPredefinedCMap(used, context, depth) : null;
-        return CMap.Create(file, parent, file.WMode ?? 0, context);
+        return resource.Value;
     }
 
     /// <summary>
     /// What a parsed CMap stream (an encoding or a ToUnicode CMap) records besides its key: the document's <c>ObjectsVersion</c> when
-    /// its <c>UseCMap</c> is an indirect reference, which an object added or removed can make resolve to something else (§7.3.10,
-    /// issue #304); nothing otherwise, so other CMaps are not parsed again after every added object.
+    /// its <c>UseCMap</c> is an indirect reference (issue #304), or its <c>Filter</c> or <c>DecodeParms</c> is or holds one (issue
+    /// #305), which an object added or removed can make resolve to something else (§7.3.10); nothing otherwise, so other CMaps are
+    /// not parsed again after every added object.
     /// </summary>
-    private int? UseCMapStamp(CosStream stream) =>
-        stream.Dictionary.TryGetValue(CompositeFontNames.UseCMap, out CosObject? use) && use is CosReference ? ObjectsVersion : null;
+    private int? CMapStamp(CosStream stream) =>
+        (stream.Dictionary.TryGetValue(CompositeFontNames.UseCMap, out CosObject? use) && use is CosReference) || DecodeStamp.ReadsReferences(stream.Dictionary)
+            ? ObjectsVersion
+            : null;
 
     /// <summary>A CMap stream at one version of its data and dictionary: a changed stream is parsed again.</summary>
     private readonly record struct CMapKey(CosStream Stream, int Version, int DictionaryVersion);

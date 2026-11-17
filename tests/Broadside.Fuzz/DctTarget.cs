@@ -11,7 +11,8 @@ namespace Broadside.Fuzz;
 /// height x components bytes, within the limit; a decoded image has 1 to 4 components of 8 bits, the §8.9.3 stride, no more
 /// decoded rows than rows, the size its header gave, and the same samples as the plain path. Issue #362: the image is decoded
 /// again at a reduction chosen from the input length (1/2, 1/4 or 1/8), which must give ⌈W / s⌉ x ⌈H / s⌉ samples of the same
-/// components and layout, the reduction asked for and no more decoded rows than rows.
+/// components and layout, the reduction asked for and no more decoded rows than rows. Issue #365: a decode in slices that pauses
+/// at every MCU row decodes the same samples.
 /// </summary>
 /// <remarks>ISO 32000-2 §7.4.8; ITU-T T.81.</remarks>
 internal static class DctTarget
@@ -51,6 +52,21 @@ internal static class DctTarget
         if (output.WrittenCount > 0 && !output.WrittenSpan.SequenceEqual(image.Samples))
         {
             throw new InvalidOperationException("The plain filter path and the image path decoded different samples.");
+        }
+
+        // Issue #365: a decode in slices that pauses at every MCU row gives the same samples.
+        var slicedContext = new ImageFilterContext(new FilterContext { MaxDecodedLength = MaxBytes }) { MaxPixels = 1 << 20 };
+        using (ImageDecodeJob job = ((ISlicedImageFilter)filter).BeginDecodeImage(input, slicedContext))
+        {
+            while (!job.Continue(0, CancellationToken.None))
+            {
+            }
+
+            using DecodedImage? sliced = job.Result;
+            if (sliced is null || !sliced.Samples.SequenceEqual(image.Samples) || sliced.DecodedRows != image.DecodedRows)
+            {
+                throw new InvalidOperationException("The decode in slices and the whole decode decoded different samples.");
+            }
         }
 
         int reduction = 1 + (data.Length % 3);

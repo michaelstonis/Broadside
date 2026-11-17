@@ -32,15 +32,20 @@ internal static class JpxDecoder
     {
         header = default;
         var reporter = new CodecReporter(context.Filter);
-        if (JpxCodestreamReader.Locate(data, reporter) is not { } range
-            || JpxCodestreamReader.ReadSize(data.Slice(range.Offset, range.Length), reporter) is not { } size)
+        if (JpxCodestreamReader.Locate(data, reporter, out byte[]? assembled) is not { } range)
+        {
+            return false;
+        }
+
+        ReadOnlySpan<byte> source = assembled is null ? data : assembled;
+        if (JpxCodestreamReader.ReadSize(source.Slice(range.Offset, range.Length), reporter) is not { } size)
         {
             return false;
         }
 
         var quiet = new CodecReporter(context.Filter, silent: true);
         JpxOutputPlan plan = JpxOutputPlan.Create(size, JpxFileHeader.Read(data, quiet), context, quiet);
-        int maxReduction = OnReducedGrid(size, JpxCodestreamReader.ReadMainHeaderLevels(data.Slice(range.Offset, range.Length), size.Components.Length));
+        int maxReduction = OnReducedGrid(size, JpxCodestreamReader.ReadMainHeaderLevels(source.Slice(range.Offset, range.Length), size.Components.Length));
         header = new ImageHeader(new ImageGeometry(
             (int)Math.Min(size.Width - size.OriginX, int.MaxValue),
             (int)Math.Min(size.Height - size.OriginY, int.MaxValue),
@@ -113,98 +118,382 @@ internal static class JpxDecoder
     /// <summary>Decodes the image, or returns <see langword="null"/> after reporting why it cannot be.</summary>
     public static DecodedImage? Decode(ReadOnlySpan<byte> data, ImageFilterContext context)
     {
-        var reporter = new CodecReporter(context.Filter);
-        if (JpxCodestreamReader.Locate(data, reporter) is not { } range)
+        using var run = new JpxDecodeRun(context);
+        run.Continue(data, long.MaxValue);
+        return run.TakeResult();
+    }
+
+    /// <summary>
+    /// A JPEG 2000 decode that runs in slices (issue #365): <see cref="Continue"/> works until the image is done or, after at least one
+    /// unit of work, the deadline has passed, between two code-blocks, two wavelet levels or two tiles; the next call resumes there.
+    /// <see cref="Decode"/> runs one to the end, so the samples are the same however a decode is sliced.
+    /// </summary>
+    /// <remarks>ITU-T T.800 Annexes B, D, E and F; ISO 32000-2 §7.4.9. One decode at a time; it owns pooled buffers until disposed.</remarks>
+    internal sealed class JpxDecodeRun : IDisposable
+    {
+        private readonly ImageFilterContext _context;
+        private readonly CodecReporter _reporter;
+        private Stage _stage;
+        private byte[]? _assembled;
+        private (int Offset, int Length) _range;
+        private JpxCodestream? _stream;
+        private JpxImageSize? _output;
+        private JpxOutputPlan? _plan;
+        private int _reduction;
+        private DecodedImageBuilder? _builder;
+        private DecodedImageBuilder? _alpha;
+        private JpxPlane?[] _planes = [];
+        private JpxTileDecoder? _tiles;
+        private int _tile;
+        private DecodedImage? _result;
+
+        // The tile in progress: its joined tile-parts, its buffers, its parameters and components.
+        private byte[]? _joined;
+        private int _joinedLength;
+        private int[][]? _buffers;
+        private JpxTileParameters? _parameters;
+        private JpxTileComponent[]? _components;
+
+        public JpxDecodeRun(ImageFilterContext context)
         {
-            reporter.Report(JpxDiagnostics.JpxSignatureInvalid, DiagnosticSeverity.Error, "The JPXDecode data holds no JPEG 2000 codestream.");
-            return null;
+            _context = context;
+            _reporter = new CodecReporter(context.Filter);
         }
 
-        JpxFileHeader file = JpxFileHeader.Read(data, reporter);
-        ReadOnlySpan<byte> codestream = data.Slice(range.Offset, range.Length);
-        if (JpxCodestreamReader.Read(codestream, reporter) is not { } stream)
+        private enum Stage
         {
-            return null;
+            Setup,
+            TileStart,
+            TileBlocks,
+            Compose,
+            Done,
         }
 
-        if (stream.HighThroughput)
+        /// <summary>Gets the reporter, which carries a sliced decode's deadline and slice token.</summary>
+        public CodecReporter Reporter => _reporter;
+
+        /// <summary>Returns the image once the run is done (the caller owns it), or <see langword="null"/>.</summary>
+        public DecodedImage? TakeResult()
         {
-            reporter.Report(
-                JpxDiagnostics.JpxHighThroughputUnsupported,
-                DiagnosticSeverity.Error,
-                "The JPEG 2000 codestream uses high-throughput block coding (HTJ2K, ISO/IEC 15444-15), which is outside the JPX baseline ISO 32000-2 §7.4.9 limits PDF images to; the image is not decoded.");
-            return null;
+            DecodedImage? result = _result;
+            _result = null;
+            return result;
         }
 
-        JpxImageSize size = stream.Size;
-        int reduction = context.Reduction > 0 ? Math.Min(context.Reduction, MaxReduction(stream, codestream)) : 0;
-        JpxImageSize output = Reduce(size, reduction);
-        long width = output.Width - output.OriginX;
-        long height = output.Height - output.OriginY;
-        if (width > int.MaxValue || height > int.MaxValue)
+        /// <summary>Decodes from where the last call stopped; true when the run is done.</summary>
+        /// <param name="data">The JPXDecode data, the same on every call.</param>
+        /// <param name="deadline">The <see cref="System.Diagnostics.Stopwatch"/> timestamp to pause at.</param>
+        public bool Continue(ReadOnlySpan<byte> data, long deadline)
         {
-            reporter.Report(JpxDiagnostics.JpxLimitExceeded, DiagnosticSeverity.Error, $"The JPEG 2000 image of {width} x {height} samples is too large.");
-            return null;
-        }
-
-        JpxOutputPlan plan = JpxOutputPlan.Create(size, file, context, reporter);
-        if (!CheckLimits(stream, output, plan, context, reporter))
-        {
-            return null;
-        }
-
-        DecodedImageBuilder? builder = null;
-        var planes = new JpxPlane?[size.Components.Length];
-        try
-        {
-            if (!context.TryCreateImage(new ImageGeometry((int)width, (int)height, Math.Clamp(plan.Colors.Length, 1, ImageGeometry.MaxComponents), plan.Bits), out builder))
+            _reporter.Deadline = deadline;
+            while (true)
             {
-                return null;
+                switch (_stage)
+                {
+                    case Stage.Setup:
+                        if (!Setup(data))
+                        {
+                            Finish();
+                            return true;
+                        }
+
+                        _stage = Stage.TileStart;
+                        break;
+                    case Stage.TileStart:
+                        if (_tile >= _stream!.Tiles.Count)
+                        {
+                            _stage = Stage.Compose;
+                            break;
+                        }
+
+                        _reporter.ThrowIfCancellationRequested();
+                        if (StartTile(Codestream(data)))
+                        {
+                            _stage = Stage.TileBlocks;
+                        }
+                        else
+                        {
+                            EndTile();
+                            _tile++;
+                        }
+
+                        break;
+                    case Stage.TileBlocks:
+                        if (!_tiles!.Continue(TileData(data), _buffers!, deadline))
+                        {
+                            return false;
+                        }
+
+                        FinishTile();
+                        EndTile();
+                        _tile++;
+                        _stage = Stage.TileStart;
+                        if (_reporter.ShouldPause)
+                        {
+                            return false;
+                        }
+
+                        break;
+                    case Stage.Compose:
+                        _reporter.ThrowIfCancellationRequested();
+                        Compose();
+                        Finish();
+                        return true;
+                    default:
+                        return true;
+                }
+            }
+        }
+
+        private ReadOnlySpan<byte> Codestream(ReadOnlySpan<byte> data) => (_assembled is null ? data : _assembled).Slice(_range.Offset, _range.Length);
+
+        private ReadOnlySpan<byte> TileData(ReadOnlySpan<byte> data)
+        {
+            if (_joined is not null)
+            {
+                return _joined.AsSpan(0, _joinedLength);
             }
 
-            DecodedImageBuilder? alpha = null;
-            if (plan.Alpha is { } opacity && !builder.TryCreateAlpha(opacity.Depth, plan.Premultiplied, out alpha))
+            (int _, int offset, int length) = _stream!.Tiles[_tile].Parts[0];
+            return Codestream(data).Slice(offset, length);
+        }
+
+        private bool Setup(ReadOnlySpan<byte> data)
+        {
+            if (JpxCodestreamReader.Locate(data, _reporter, out _assembled) is not { } range)
             {
-                alpha = null;
+                _reporter.Report(JpxDiagnostics.JpxSignatureInvalid, DiagnosticSeverity.Error, "The JPXDecode data holds no JPEG 2000 codestream.");
+                return false;
             }
 
-            for (int c = 0; c < planes.Length; c++)
+            _range = range;
+            JpxFileHeader file = JpxFileHeader.Read(data, _reporter);
+            ReadOnlySpan<byte> codestream = Codestream(data);
+            if (JpxCodestreamReader.Read(codestream, _reporter) is not { } stream)
+            {
+                return false;
+            }
+
+            if (stream.HighThroughput)
+            {
+                _reporter.Report(
+                    JpxDiagnostics.JpxHighThroughputUnsupported,
+                    DiagnosticSeverity.Error,
+                    "The JPEG 2000 codestream uses high-throughput block coding (HTJ2K, ISO/IEC 15444-15), which is outside the JPX baseline ISO 32000-2 §7.4.9 limits PDF images to; the image is not decoded.");
+                return false;
+            }
+
+            _stream = stream;
+            JpxImageSize size = stream.Size;
+            _reduction = _context.Reduction > 0 ? Math.Min(_context.Reduction, MaxReduction(stream, codestream)) : 0;
+            _output = Reduce(size, _reduction);
+            long width = _output.Width - _output.OriginX;
+            long height = _output.Height - _output.OriginY;
+            if (width > int.MaxValue || height > int.MaxValue)
+            {
+                _reporter.Report(JpxDiagnostics.JpxLimitExceeded, DiagnosticSeverity.Error, $"The JPEG 2000 image of {width} x {height} samples is too large.");
+                return false;
+            }
+
+            JpxOutputPlan plan = JpxOutputPlan.Create(size, file, _context, _reporter);
+            _plan = plan;
+            if (!CheckLimits(stream, _output, plan, _context, _reporter))
+            {
+                return false;
+            }
+
+            _planes = new JpxPlane?[size.Components.Length];
+            if (!_context.TryCreateImage(new ImageGeometry((int)width, (int)height, Math.Clamp(plan.Colors.Length, 1, ImageGeometry.MaxComponents), plan.Bits), out _builder))
+            {
+                return false;
+            }
+
+            if (plan.Alpha is { } opacity && !_builder.TryCreateAlpha(opacity.Depth, plan.Premultiplied, out _alpha))
+            {
+                _alpha = null;
+            }
+
+            for (int c = 0; c < _planes.Length; c++)
             {
                 if (plan.UsedComponents[c])
                 {
-                    planes[c] = new JpxPlane(output, c);
+                    _planes[c] = new JpxPlane(_output, c);
                 }
             }
 
-            using (var tiles = new JpxTileDecoder(reporter))
+            _tiles = new JpxTileDecoder(_reporter);
+            return true;
+        }
+
+        /// <summary>Joins the tile's parts, rents its buffers and reads its packets; false when the tile is skipped.</summary>
+        private bool StartTile(ReadOnlySpan<byte> codestream)
+        {
+            JpxCodestream stream = _stream!;
+            JpxTile tile = stream.Tiles[_tile];
+            JpxImageSize size = stream.Size;
+            (long tx0, long ty0, long tx1, long ty1) = size.TileBounds(tile.Index);
+            int count = size.Components.Length;
+            long area = (tx1 - tx0) * (ty1 - ty0);
+            int length = 0;
+            foreach ((int _, int _, int partLength) in tile.Parts)
             {
-                foreach (JpxTile tile in stream.Tiles)
+                length += partLength;
+            }
+
+            if (tile.Parts.Count != 1)
+            {
+                _joined = ArrayPool<byte>.Shared.Rent(Math.Max(1, length));
+                _joinedLength = length;
+                int written = 0;
+                foreach ((int _, int offset, int partLength) in tile.Parts)
                 {
-                    reporter.ThrowIfCancellationRequested();
-                    DecodeTile(stream, tile, codestream, tiles, planes, reporter, reduction);
+                    codestream.Slice(offset, partLength).CopyTo(_joined.AsSpan(written));
+                    written += partLength;
                 }
             }
 
-            reporter.ThrowIfCancellationRequested();
-            JpxComposer.Compose(output, plan, planes, builder, alpha, reporter);
-            builder.Reduction = reduction;
+            _buffers = new int[count][];
+            for (int c = 0; c < count; c++)
+            {
+                _buffers[c] = ArrayPool<int>.Shared.Rent((int)Math.Max(1, area));
+            }
+
+            _parameters = JpxTileParameters.Resolve(stream.Main, tile.Markers);
+            byte[]? headers = tile.PackedHeaders();
+            if (headers is null && stream.HasMainPacketHeaders)
+            {
+                headers = [];
+            }
+
+            ReadOnlySpan<byte> data = _joined is not null ? _joined.AsSpan(0, _joinedLength) : codestream.Slice(tile.Parts[0].Offset, tile.Parts[0].Length);
+            _components = _tiles!.Begin(size, _parameters, tile.Index, data, headers, _reduction);
+            return _components is not null;
+        }
+
+        /// <summary>The tile's component transform, then its samples into the planes.</summary>
+        private void FinishTile()
+        {
+            JpxTileComponent[] components = _components!;
+            JpxTileComponent[] reconstructed = _tiles!.Components!;
+            ApplyComponentTransform(_parameters!, reconstructed, _buffers!, _reporter);
+            for (int c = 0; c < reconstructed.Length; c++)
+            {
+                _planes[c]?.Write(reconstructed[c], _buffers![c], !reconstructed[c].Style.Reversible, _reporter);
+            }
+
+            _ = components;
+        }
+
+        /// <summary>Returns the tile's pooled buffers.</summary>
+        private void EndTile()
+        {
+            if (_joined is not null)
+            {
+                ArrayPool<byte>.Shared.Return(_joined);
+                _joined = null;
+            }
+
+            if (_buffers is not null)
+            {
+                foreach (int[]? buffer in _buffers)
+                {
+                    if (buffer is not null)
+                    {
+                        ArrayPool<int>.Shared.Return(buffer);
+                    }
+                }
+
+                _buffers = null;
+            }
+
+            _components = null;
+            _parameters = null;
+        }
+
+        private void Compose()
+        {
+            JpxOutputPlan plan = _plan!;
+            DecodedImageBuilder builder = _builder!;
+            JpxComposer.Compose(_output!, plan, _planes, builder, _alpha, _reporter);
+            builder.Reduction = _reduction;
             builder.ColorModel = plan.Model;
             if (plan.IccProfile is { } profile)
             {
                 builder.IccProfile = profile;
             }
 
-            DecodedImage image = builder.Build();
-            builder = null;
-            return image;
+            _result = builder.Build();
+            _builder = null;
         }
-        finally
+
+        private void Finish()
         {
-            builder?.Dispose();
-            foreach (JpxPlane? plane in planes)
+            _stage = Stage.Done;
+            Release();
+        }
+
+        private void Release()
+        {
+            EndTile();
+            _tiles?.Dispose();
+            _tiles = null;
+            _builder?.Dispose();
+            _builder = null;
+            foreach (JpxPlane? plane in _planes)
             {
                 plane?.Dispose();
             }
+
+            _planes = [];
+        }
+
+        public void Dispose()
+        {
+            _stage = Stage.Done;
+            Release();
+            _result?.Dispose();
+            _result = null;
+        }
+    }
+
+    /// <summary>A JPEG 2000 decode in slices for the image path (issue #365), over the data it keeps.</summary>
+    internal sealed class SlicedDecode(ReadOnlyMemory<byte> encoded, ImageFilterContext context) : ImageDecodeJob
+    {
+        private readonly JpxDecodeRun _run = new(context);
+        private bool _done;
+
+        public override bool Continue(long deadline, CancellationToken cancellationToken)
+        {
+            if (_done)
+            {
+                return true;
+            }
+
+            _run.Reporter.SliceToken = cancellationToken;
+            try
+            {
+                if (!_run.Continue(encoded.Span, deadline))
+                {
+                    return false;
+                }
+            }
+            catch
+            {
+                _done = true;
+                _run.Dispose();
+                throw;
+            }
+
+            _done = true;
+            Result = _run.TakeResult();
+            _run.Dispose();
+            return true;
+        }
+
+        public override void Dispose()
+        {
+            _done = true;
+            _run.Dispose();
         }
     }
 
@@ -244,80 +533,6 @@ internal static class JpxDecoder
         }
 
         return true;
-    }
-
-    private static void DecodeTile(JpxCodestream stream, JpxTile tile, ReadOnlySpan<byte> codestream, JpxTileDecoder decoder, JpxPlane?[] planes, CodecReporter reporter, int reduction)
-    {
-        JpxImageSize size = stream.Size;
-        (long tx0, long ty0, long tx1, long ty1) = size.TileBounds(tile.Index);
-        int count = size.Components.Length;
-        long area = (tx1 - tx0) * (ty1 - ty0);
-        int length = 0;
-        foreach ((int _, int _, int partLength) in tile.Parts)
-        {
-            length += partLength;
-        }
-
-        byte[]? joined = null;
-        int[][] buffers = new int[count][];
-        try
-        {
-            ReadOnlySpan<byte> data;
-            if (tile.Parts.Count == 1)
-            {
-                data = codestream.Slice(tile.Parts[0].Offset, tile.Parts[0].Length);
-            }
-            else
-            {
-                joined = ArrayPool<byte>.Shared.Rent(Math.Max(1, length));
-                int written = 0;
-                foreach ((int _, int offset, int partLength) in tile.Parts)
-                {
-                    codestream.Slice(offset, partLength).CopyTo(joined.AsSpan(written));
-                    written += partLength;
-                }
-
-                data = joined.AsSpan(0, length);
-            }
-
-            for (int c = 0; c < count; c++)
-            {
-                buffers[c] = ArrayPool<int>.Shared.Rent((int)Math.Max(1, area));
-            }
-
-            JpxTileParameters parameters = JpxTileParameters.Resolve(stream.Main, tile.Markers);
-            byte[]? headers = tile.PackedHeaders();
-            if (headers is null && stream.HasMainPacketHeaders)
-            {
-                headers = [];
-            }
-
-            if (decoder.Decode(size, parameters, tile.Index, data, headers, buffers, reduction) is not { } components)
-            {
-                return;
-            }
-
-            ApplyComponentTransform(parameters, components, buffers, reporter);
-            for (int c = 0; c < count; c++)
-            {
-                planes[c]?.Write(components[c], buffers[c], !components[c].Style.Reversible, reporter);
-            }
-        }
-        finally
-        {
-            if (joined is not null)
-            {
-                ArrayPool<byte>.Shared.Return(joined);
-            }
-
-            foreach (int[]? buffer in buffers)
-            {
-                if (buffer is not null)
-                {
-                    ArrayPool<int>.Shared.Return(buffer);
-                }
-            }
-        }
     }
 
     /// <summary>How many samples a whole-component loop handles between cancellation checks, less one (a mask: 64 Ki samples).</summary>

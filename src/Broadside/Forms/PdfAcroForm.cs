@@ -251,7 +251,7 @@ public sealed class PdfAcroForm
     /// </summary>
     /// <param name="target">The target.</param>
     /// <returns>The fields; empty when the target names nothing in the form (a hide target may be an annotation that is no widget).</returns>
-    /// <remarks>ISO 32000-2 §12.6.4.11, Table 214, and §12.7.6.2-12.7.6.3, Tables 239 and 241; names per §12.7.4.2. Descendants are not added.</remarks>
+    /// <remarks>ISO 32000-2 §12.6.4.11, Table 214, and §12.7.6.2-12.7.6.3, Tables 239 and 241; names per §12.7.4.2. Descendants are not added (<see cref="SelectFields"/> adds them).</remarks>
     public IReadOnlyList<PdfField> FindFields(PdfActionTarget target)
     {
         ArgumentNullException.ThrowIfNull(target);
@@ -272,6 +272,55 @@ public sealed class PdfAcroForm
         }
 
         return tree.ByWidget.TryGetValue(dictionary, out PdfTerminalField? owner) ? [owner] : [];
+    }
+
+    /// <summary>
+    /// Returns the terminal fields a submit-form or reset-form action's <c>Fields</c> entry selects: every field it names with all of
+    /// that field's descendants in the field hierarchy, or, when <paramref name="exclude"/> is set, every terminal field of the form
+    /// except those (and their descendants); every terminal field when <paramref name="targets"/> is <see langword="null"/>.
+    /// </summary>
+    /// <param name="targets">The action's <c>Fields</c>, or <see langword="null"/> when it has none.</param>
+    /// <param name="exclude">The action's Include/Exclude flag; ignored when <paramref name="targets"/> is <see langword="null"/>.</param>
+    /// <returns>The terminal fields, in the form's tree order, each once.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §12.7.6.2 ("the submission consists of all fields listed in the Fields array, along with any descendants of those
+    /// fields in the field hierarchy") and §12.7.6.3, Table 242 ("All descendants of the specified fields in the field hierarchy are
+    /// reset as well"); names per §12.7.4.2, so a name selects every field with it. Targets that name nothing in the form are skipped.
+    /// </remarks>
+    public IReadOnlyList<PdfTerminalField> SelectFields(IReadOnlyList<PdfActionTarget>? targets, bool exclude)
+    {
+        FieldTree tree = Tree;
+        if (targets is null)
+        {
+            return [.. tree.All.OfType<PdfTerminalField>()];
+        }
+
+        var named = new HashSet<CosDictionary>(ReferenceEqualityComparer.Instance);
+        foreach (PdfActionTarget target in targets)
+        {
+            foreach (PdfField field in FindFields(target))
+            {
+                AddSubtree(field, named);
+            }
+        }
+
+        return [.. tree.All.OfType<PdfTerminalField>().Where(field => named.Contains(field.Dictionary) != exclude)];
+
+        static void AddSubtree(PdfField field, HashSet<CosDictionary> into)
+        {
+            if (!into.Add(field.Dictionary))
+            {
+                return;
+            }
+
+            if (field is PdfNonTerminalField parent)
+            {
+                foreach (PdfField child in parent.Children)
+                {
+                    AddSubtree(child, into);
+                }
+            }
+        }
     }
 
     /// <summary>Creates a text field with one widget on <paramref name="page"/>.</summary>

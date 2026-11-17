@@ -81,8 +81,19 @@ internal sealed class StreamDecoder
 
     /// <summary>Records a diagnostic; throws it in strict mode.</summary>
     /// <param name="diagnostic">The diagnostic.</param>
-    public void Report(Diagnostic diagnostic) =>
-        _diagnostics.Report(diagnostic.Kind, diagnostic.Severity, diagnostic.Message, diagnostic.Offset, diagnostic.ObjectReference);
+    public void Report(Diagnostic diagnostic)
+    {
+        // Passed on as made: a plain-string code stays a string, so its Kind is looked up only if someone reads it, and nothing
+        // here keeps the whole catalog (issue #361).
+        if (diagnostic.TypedKind is { } kind)
+        {
+            _diagnostics.Report(kind, diagnostic.Severity, diagnostic.Message, diagnostic.Offset, diagnostic.ObjectReference);
+        }
+        else
+        {
+            _diagnostics.Report(diagnostic.Code, diagnostic.Severity, diagnostic.Message, diagnostic.Offset, diagnostic.ObjectReference);
+        }
+    }
 
     /// <summary>Decodes a stream into a new array.</summary>
     /// <param name="stream">The stream.</param>

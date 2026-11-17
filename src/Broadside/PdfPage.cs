@@ -506,6 +506,28 @@ public sealed partial class PdfPage
         return DisplayListBuilder.BuildCached(this, _document, layers & DisplayLayers.All, intent, options);
     }
 
+    /// <summary>
+    /// Starts building the page's display list in time slices (issue #365): the list
+    /// <see cref="CreateDisplayList(DisplayLayers, DisplayIntent, ContentOptions)"/> returns, built by
+    /// <see cref="DisplayListBuild.Continue"/> a slice at a time, so that a single-threaded viewer can build a heavy page between frames.
+    /// </summary>
+    /// <param name="layers">The layers the list holds.</param>
+    /// <param name="intent">Whether the list is for the screen or for printing.</param>
+    /// <param name="options">Limits, cancellation and an optional-content state, as for <see cref="CreateDisplayList(DisplayLayers, DisplayIntent, ContentOptions)"/>.</param>
+    /// <returns>The build, complete at once when the document's cache holds the list.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="intent"/> is not defined.</exception>
+    /// <remarks>ISO 32000-2 §7.8.2 and §8.2; viewer capability 2. See <see cref="DisplayListBuild"/>.</remarks>
+    public DisplayListBuild BeginDisplayList(DisplayLayers layers, DisplayIntent intent, ContentOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (!Enum.IsDefined(intent))
+        {
+            throw new ArgumentOutOfRangeException(nameof(intent), intent, "The intent must be View or Print.");
+        }
+
+        return new DisplayListBuild(this, _document, layers & DisplayLayers.All, intent, options);
+    }
+
     /// <summary>Reads a page boundary; for an inheritable one, from the nearest node that has it.</summary>
     internal PageAttributeState ReadBox(CosName key, bool inheritable, out PdfRectangle box)
     {

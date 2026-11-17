@@ -619,7 +619,7 @@ internal ref struct Type1CharStringInterpreter
 
     private bool LineTo(double x, double y)
     {
-        if (!StartContour(1, double.IsFinite(x) && double.IsFinite(y)))
+        if (!StartContour(1, double.IsFinite(_originX + x + _originY + y)))
         {
             return false;
         }
@@ -639,7 +639,7 @@ internal ref struct Type1CharStringInterpreter
 
     private bool CurveTo(PathPoint c1, PathPoint c2, PathPoint end)
     {
-        if (!StartContour(3, double.IsFinite(c1.X + c1.Y + c2.X + c2.Y + end.X + end.Y)))
+        if (!StartContour(3, double.IsFinite(c1.X + c1.Y + c2.X + c2.Y + end.X + end.Y + _originX + _originY)))
         {
             return false;
         }

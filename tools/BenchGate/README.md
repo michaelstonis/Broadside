@@ -9,6 +9,7 @@ dotnet run --project tools/BenchGate -- record --results artifacts/bench-gate --
 dotnet run --project tools/BenchGate -- suspects --results artifacts/bench-gate --out suspects.txt
 dotnet run --project tools/BenchGate -- shard --list methods.txt --baseline bench/baselines/gate/allocations.json --count 4 --index 0 --out shard.txt \
   --split Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk
+dotnet run --project tools/BenchGate -- sizes --baseline bench/baselines/gate/sizes.json --results artifacts/size-probes/sizes.json [--record bench/baselines/gate/sizes.json]
 ```
 
 | Command | Does |
@@ -16,6 +17,7 @@ dotnet run --project tools/BenchGate -- shard --list methods.txt --baseline benc
 | `compare` | The verdict. Exit 0 when nothing fails, 1 on a regression; one `::error` annotation per regression, the Markdown summary on stdout and appended to `--summary <file>` (CI passes `$GITHUB_STEP_SUMMARY`). `--record <file>` also writes the re-recorded baseline. `--base-name` labels the base commit in the summary; `--fail-ratio` overrides the time threshold for experiments; `--subset true` (local runs of a few methods) does not report baseline cases that did not run. |
 | `record` | Writes the pull request side's allocation figures as a baseline file (sorted, one line per case). |
 | `suspects` | Writes the full names of the cases the rounds find slower (BenchmarkDotNet `--filter` matches a full name with its parameters), for `bench/run-gate.sh`'s confirmation rerun. |
+| `sizes` | The Native AOT size probes' verdict (issue #361): compares `bench/size-probes.sh`'s sizes with the baseline, per runtime identifier. Exit 1 when a probe grows by more than `--tolerance` (default 0.01), is new or is missing; a probe that shrinks past it passes with a request to re-record. `--summary` and `--record <file>` as for `compare` (recording replaces the measured runtimes' sizes and keeps the others). |
 | `shard` | Splits the methods of `--list flat` over `--count` runners, balanced by the baseline's case count per method; the `--split` methods go to every runner (they partition their own cases). |
 
 Exit code 2 is a bad command line or an unreadable input.
@@ -37,6 +39,7 @@ runners.
 - `AllocationBaseline.cs`: the baseline file (one exact number of bytes per case; ranges are refused).
 - `BenchmarkGate.cs`: the allocation and time rules, sharding and suspects; `GateOptions.cs` holds the thresholds.
 - `GateReport.cs`: findings and the job summary.
+- `SizeGate.cs`: the size probes' baseline file, rule and summary.
 - `Program.cs`: argument parsing and console output only.
 
 `tests/BenchGate.Tests` drives the rules with synthetic reports and reads a real one from `bench/baselines/phase1/`, so

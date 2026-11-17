@@ -170,12 +170,77 @@ internal sealed class ImageSource : IDisposable
                 return converted;
             }
 
+            if (slot.Pending is PendingConversion pending && pending.Matches(samples, soft is not null, converter, model))
+            {
+                // A conversion begun in slices (issue #365) is finished from where it stopped.
+                Convert(image, samples, soft, converter, baseConverter, model, pending.Pixels, pending.Row);
+                return Publish(shared, slot, pending);
+            }
+
             uint[] pixels = GC.AllocateUninitializedArray<uint>(samples.Width * samples.Height);
             Convert(image, samples, soft, converter, baseConverter, model, pixels);
             var made = new SharedPixels(pixels, samples, soft is not null, converter, model);
             shared.Publish(slot, made, (long)pixels.Length * sizeof(uint));
             return made;
         }
+    }
+
+    /// <summary>
+    /// Converts rows of <paramref name="samples"/> into the shared cache until they are all converted and published or, after at
+    /// least one row, <see cref="System.Diagnostics.Stopwatch"/> reaches <paramref name="deadline"/>: a conversion in slices (issue
+    /// #365), which a later call or <see cref="Lease"/> resumes. The arguments are those of <see cref="Lease"/>.
+    /// </summary>
+    /// <returns><see langword="true"/> when the cache holds the converted image.</returns>
+    /// <remarks>ISO 32000-2 §8.9.5. Rows convert independently, so the pixels equal one whole conversion's.</remarks>
+    public bool ContinueShared(SharedImageCache<SharedPixels> shared, DisplayImage image, DisplayImageSamples samples, DisplayImageSamples? soft, PdfColorConverter converter, PdfColorConverter? baseConverter, PixelModel model, long deadline)
+    {
+        SharedImageCache<SharedPixels>.Slot slot = shared.SlotOf(image);
+        if (LeaseMatching(shared, slot, samples, soft is not null, converter, model) is { } kept)
+        {
+            shared.Release(kept);
+            return true;
+        }
+
+        lock (slot.Converting)
+        {
+            if (LeaseMatching(shared, slot, samples, soft is not null, converter, model) is { } converted)
+            {
+                shared.Release(converted);
+                return true;
+            }
+
+            PendingConversion pending = Pending(slot, samples, soft is not null, converter, model);
+            pending.Row = Convert(image, samples, soft, converter, baseConverter, model, pending.Pixels, pending.Row, deadline);
+            if (pending.Row < samples.Height)
+            {
+                return false;
+            }
+
+            shared.Release(Publish(shared, slot, pending));
+            return true;
+        }
+    }
+
+    /// <summary>The slot's conversion in progress when it converts these samples this way; otherwise a new one (under the slot's lock).</summary>
+    private static PendingConversion Pending(SharedImageCache<SharedPixels>.Slot slot, DisplayImageSamples samples, bool folded, PdfColorConverter converter, PixelModel model)
+    {
+        if (slot.Pending is PendingConversion pending && pending.Matches(samples, folded, converter, model))
+        {
+            return pending;
+        }
+
+        pending = new PendingConversion(GC.AllocateUninitializedArray<uint>(samples.Width * samples.Height), samples, folded, converter, model);
+        slot.Pending = pending;
+        return pending;
+    }
+
+    /// <summary>Publishes a finished conversion and returns it leased (under the slot's lock).</summary>
+    private static SharedPixels Publish(SharedImageCache<SharedPixels> shared, SharedImageCache<SharedPixels>.Slot slot, PendingConversion pending)
+    {
+        slot.Pending = null;
+        var made = new SharedPixels(pending.Pixels, pending.Samples, pending.Folded, pending.Converter, pending.Model);
+        shared.Publish(slot, made, (long)pending.Pixels.Length * sizeof(uint));
+        return made;
     }
 
     private static SharedPixels? LeaseMatching(SharedImageCache<SharedPixels> shared, SharedImageCache<SharedPixels>.Slot slot, DisplayImageSamples samples, bool folded, PdfColorConverter converter, PixelModel model)
@@ -190,8 +255,12 @@ internal sealed class ImageSource : IDisposable
         return pixels;
     }
 
-    /// <summary>Converts <paramref name="samples"/> into <paramref name="destination"/> (see <see cref="Prepare"/>), with this source's scratch buffers.</summary>
-    private void Convert(DisplayImage image, DisplayImageSamples samples, DisplayImageSamples? soft, PdfColorConverter converter, PdfColorConverter? baseConverter, PixelModel model, uint[] destination)
+    /// <summary>
+    /// Converts the rows of <paramref name="samples"/> from <paramref name="firstRow"/> into <paramref name="destination"/> (see
+    /// <see cref="Prepare"/>), with this source's scratch buffers, until the last row or, after at least one, until
+    /// <see cref="System.Diagnostics.Stopwatch"/> reaches <paramref name="deadline"/>; returns the first row not converted.
+    /// </summary>
+    private int Convert(DisplayImage image, DisplayImageSamples samples, DisplayImageSamples? soft, PdfColorConverter converter, PdfColorConverter? baseConverter, PixelModel model, uint[] destination, int firstRow = 0, long deadline = long.MaxValue)
     {
         int outputs = model.Components;
 
@@ -250,8 +319,13 @@ internal sealed class ImageSource : IDisposable
         Span<ushort> raw = _raw.AsSpan(0, values);
         Span<byte> bytes = _bytes.AsSpan(0, values);
         Span<byte> opacity = alpha ? _alpha.AsSpan(0, width) : default;
-        for (int y = 0; y < height; y++)
+        for (int y = firstRow; y < height; y++)
         {
+            if (deadline != long.MaxValue && y > firstRow && System.Diagnostics.Stopwatch.GetTimestamp() >= deadline)
+            {
+                return y;
+            }
+
             ReadOnlySpan<byte> row = samples.GetRow(y);
             if (kind != RowKind.Bytes || colorKey)
             {
@@ -334,6 +408,8 @@ internal sealed class ImageSource : IDisposable
                 pixelBytes.Slice(i, 4).Reverse();
             }
         }
+
+        return height;
     }
 
     /// <summary>Forgets the image converted last, so that nothing it belongs to is kept alive; the buffers stay.</summary>
@@ -433,4 +509,31 @@ internal sealed class ImageSource : IDisposable
         /// <summary>Indexed with a Matte: the table's colours as base-space component values, so the matte can be removed (§11.6.5.2).</summary>
         TableValues,
     }
+}
+
+/// <summary>A shared conversion begun in slices (issue #365): the pixels so far and the first row not converted.</summary>
+/// <remarks>ISO 32000-2 §8.9.5. Kept in the image's slot of the shared cache, under its converting lock.</remarks>
+internal sealed class PendingConversion(uint[] pixels, DisplayImageSamples samples, bool folded, PdfColorConverter converter, PixelModel model)
+{
+    /// <summary>Gets the pixels being converted.</summary>
+    public uint[] Pixels { get; } = pixels;
+
+    /// <summary>Gets the samples converted.</summary>
+    public DisplayImageSamples Samples { get; } = samples;
+
+    /// <summary>Gets a value indicating whether the soft mask is folded in.</summary>
+    public bool Folded { get; } = folded;
+
+    /// <summary>Gets the converter.</summary>
+    public PdfColorConverter Converter { get; } = converter;
+
+    /// <summary>Gets the pixel model.</summary>
+    public PixelModel Model { get; } = model;
+
+    /// <summary>Gets or sets the first row not yet converted.</summary>
+    public int Row { get; set; }
+
+    /// <summary>Whether this converts <paramref name="samples"/> this way.</summary>
+    public bool Matches(DisplayImageSamples samples, bool folded, PdfColorConverter converter, PixelModel model) =>
+        samples == Samples && folded == Folded && ReferenceEquals(converter, Converter) && model == Model;
 }

@@ -5,6 +5,8 @@
     Needs the maui workload (UseMaui), so it is not part of Broadside.slnx; the ci.yml "maui" job builds it. Run on Mac Catalyst:
       dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-maccatalyst -t:Run
     TraceMonkey is downloaded from pdf.js's copy when opened (its licence does not allow bundling it).
+    With BROADSIDE_UITEST=1 (Android: the intent extra "uitest") it runs its UI tests (UiTests.cs) through every panel and quits; uitest.sh runs
+    them in CI on Mac Catalyst, the iOS simulator and an Android emulator (.github/workflows/maui-ui.yml).
     With the environment variable BROADSIDE_SMOKE=1 (Android: the intent extra "smoke"), it opens the textbook sample, waits for page 1,
     captures the GPU frame and logs "BROADSIDE_SMOKE_OK" with what it measured, then quits.
   -->
@@ -38,7 +40,7 @@
     <RuntimeIdentifier Condition="'$(TargetFramework)' == 'net10.0-maccatalyst' and '$(Configuration)' != 'Release'">maccatalyst-arm64</RuntimeIdentifier>
     <!-- The generated platform code (Resource designer, registrar) is not held to the repository's analyzers. -->
     <AnalysisLevel>latest-recommended</AnalysisLevel>
-    <NoWarn>$(NoWarn);IDE0130;CA1001;CA1031;CA1303;CA1848;CA2007;XC0022;XC0025</NoWarn>
+    <NoWarn>$(NoWarn);IDE0130;CA1001;CA1031;CA1303;CA1848;CA2007;XC0022;XC0025;BROADSIDE0001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -62,6 +64,11 @@
     <MauiAsset Include="$(BROADSIDE_CORPUS_DIR)/pdfjs/issue5567.pdf" LogicalName="documents/issue5567.pdf" Link="Resources/Raw/documents/issue5567.pdf" />
   </ItemGroup>
 
+  <!-- The Create panel builds its document with the Blazor demo's creator (one copy for both samples). -->
+  <ItemGroup>
+    <Compile Include="../Broadside.Viewer.Blazor.Sample/DocumentCreator.cs" Link="DocumentCreator.cs" />
+  </ItemGroup>
+
   <!-- The large-photo bench's page (#428), generated at run time from public API (never a real catalogue). -->
   <ItemGroup>
     <Compile Include="../../tests/Broadside.TestSupport/CatalogueSamples.cs" Link="CatalogueSamples.cs" />
@@ -70,6 +77,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Broadside.Viewer.Maui/Broadside.Viewer.Maui.csproj" />
     <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <ProjectReference Include="../../src/Broadside.Layout/Broadside.Layout.csproj" />
     <PackageReference Include="Microsoft.Maui.Controls" />
   </ItemGroup>
 

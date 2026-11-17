@@ -1,0 +1,9 @@
+﻿== structure ==
+Document
+  P
+  Figure Alt="A red square."
+
+== text ==
+--- page 1 ---
+Built with the engine directly.
+SAMPLE

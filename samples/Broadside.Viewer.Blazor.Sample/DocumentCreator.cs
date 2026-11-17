@@ -1,3 +1,4 @@
+using System.Globalization;
 using Broadside.Diagnostics;
 using Broadside.Fonts;
 using Broadside.Fonts.Standard14;
@@ -36,13 +37,107 @@ public sealed class CreateRequest
 public sealed record CreateResult(byte[] Bytes, int Pages, IReadOnlyList<Diagnostic> Diagnostics);
 
 /// <summary>
-/// Builds a document with the flow layout package (#171–#179) and saves it with the chosen PDF/A (ISO 19005) and PDF/UA (ISO 14289)
-/// conformance (#201–#206): embedded Liberation fonts (the Standard 14 metric-compatible programs bundled with the app), tagging by
-/// construction, a header and footer, a list, a table with a header row, a figure with alternate text and a link.
+/// Builds a document and saves it with the chosen PDF/A (ISO 19005) and PDF/UA (ISO 14289) conformance (#201–#206): embedded Liberation
+/// fonts (the Standard 14 metric-compatible programs bundled with the app), tagging by construction, a header and footer, a list, a table
+/// with a header row, a figure with alternate text and a link.
 /// </summary>
+/// <remarks>
+/// The before-and-after showcase of the document builder (#397): <see cref="Create"/> describes the document with
+/// <c>PdfDocument.Create(doc =&gt; ...)</c>, and <see cref="CreateWithFlowEngine"/> builds the same kind of document by hand with the flow
+/// engine's blocks, fonts and styles (#171–#179), as the demo did before the builder existed. The builder chooses the structure namespace
+/// from the declared conformance, embeds the fonts, resolves the styles from its theme, puts layout diagnostics on the document and makes
+/// the conformance the default for <c>Save</c>.
+/// </remarks>
 public static class DocumentCreator
 {
+    private static readonly (string Region, int Q3, int Q4)[] Results = [("North", 120, 135), ("South", 98, 104), ("East", 143, 151), ("West", 87, 112)];
+
+    /// <summary>Builds the document with the document builder and saves it.</summary>
+    /// <param name="request">What the Create panel asks for.</param>
+    /// <returns>The saved file and what building and saving it reported.</returns>
+    /// <exception cref="InvalidOperationException">The chosen PDF/A and PDF/UA conformance cannot be combined.</exception>
     public static CreateResult Create(CreateRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        string title = string.IsNullOrWhiteSpace(request.Title) ? "Untitled" : request.Title.Trim();
+        using PdfDocument document = PdfDocument.Create(doc => doc
+            .WithTitle(title)
+            .WithAuthor(request.Author)
+            .WithLanguage("en-US")
+            .WithPdfAConformance(request.Archival)
+            .WithPdfUAConformance(request.Accessible)
+            .Section(s => s
+                .Header(h => h.Left(title).Right(request.Author))
+                .Footer(f => f.Center($"Page {PageField.Number}"))
+                .Content(c =>
+                {
+                    c.Heading(1, title);
+                    foreach (string paragraph in request.Body.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    {
+                        c.Paragraph(paragraph).LineHeight(1.35);
+                    }
+
+                    c.Heading(2, "Highlights");
+                    c.List(l =>
+                    {
+                        l.Item("Fully managed: no native code, so it runs in WebAssembly as it runs on a server.");
+                        l.Item("Reads, renders, edits and writes PDF 2.0.");
+                        l.Item("Accessible and archival output by construction.");
+                    });
+
+                    if (request.IncludeTable)
+                    {
+                        c.Heading(2, "Results by region");
+                        c.Table(t =>
+                        {
+                            t.Columns(ColumnWidth.Proportional(2), ColumnWidth.Proportional(1), ColumnWidth.Proportional(1));
+                            t.Header(h =>
+                            {
+                                h.Cell("Region");
+                                h.Cell("Q3");
+                                h.Cell("Q4");
+                            });
+                            foreach ((string region, int q3, int q4) in Results)
+                            {
+                                t.Row(region, q3.ToString(CultureInfo.InvariantCulture), q4.ToString(CultureInfo.InvariantCulture));
+                            }
+                        }).HeaderBackground(PdfColor.FromHex("#E0EBF7")).Striped();
+                    }
+
+                    if (request.IncludeFigure)
+                    {
+                        c.Heading(2, "Figure");
+                        c.Drawing(240, 120, "A colour gradient from blue to orange.", static (canvas, box) =>
+                        {
+                            const int steps = 48;
+                            for (int step = 0; step < steps; step++)
+                            {
+                                float t = step / (float)(steps - 1);
+                                canvas.SetFillColor(PdfColor.FromRgb((40 + (215 * t)) / 255f, (90 + (60 * t)) / 255f, (200 - (170 * t)) / 255f));
+                                canvas.Rectangle(box.Width * step / steps, 0, (box.Width / steps) + 0.5, box.Height);
+                                canvas.Fill();
+                            }
+                        }).Caption("Figure 1. A gradient drawn on the page's canvas.");
+                    }
+
+                    c.Paragraph(t =>
+                    {
+                        t.Text("Learn more at ");
+                        t.Link("github.com/michaelstonis/Broadside", new Uri("https://github.com/michaelstonis/Broadside"));
+                        t.Text(".");
+                    });
+                })));
+
+        // The declared conformance is the default for this save; the layout's findings are already on the document.
+        using var stream = new MemoryStream();
+        document.Save(stream);
+        return new CreateResult(stream.ToArray(), document.Pages.Count, [.. document.Diagnostics]);
+    }
+
+    /// <summary>The same kind of document built by hand with the flow engine: the "before" of <see cref="Create"/>.</summary>
+    /// <param name="request">What the Create panel asks for.</param>
+    /// <returns>The saved file and what laying it out and saving it reported.</returns>
+    public static CreateResult CreateWithFlowEngine(CreateRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         using PdfDocument document = PdfDocument.Create();

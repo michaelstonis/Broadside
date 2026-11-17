@@ -30,7 +30,7 @@ requests, so page 1 of a linearized file shows before the rest arrives (the serv
 | | | |
 |---|---|---|
 | ![Search](docs/demo-search.png) | ![Outline](docs/demo-outline.png) | ![Tags](docs/demo-tags.png) |
-| **Search.** Text in reading order from the viewer's selection model; each match is selected and scrolled into view. Copy it, or drag with a mouse to extend it. | **Outline.** Bookmarks resolved to their pages (destinations and GoTo actions, named destinations included). **Pages** shows thumbnails rendered by the same rasterizer. | **Info.** Version, metadata, PDF/A and PDF/UA identification, the reader's diagnostics (what it repaired), and the tag tree as assistive technology reads it. |
+| **Search.** The viewer's `DocumentSearch` indexes each page's words between frames and lists matches as they arrive (case, whole word and diacritics options); every match is highlighted over the pages without drawing them again, and the current one is scrolled into view. | **Outline.** Bookmarks resolved to their pages (destinations and GoTo actions, named destinations included). **Pages** shows thumbnails rendered by the same rasterizer. | **Info.** Version, metadata, PDF/A and PDF/UA identification, the reader's diagnostics (what it repaired), and the tag tree as assistive technology reads it. |
 | ![Annotate](docs/demo-annotate.png) | ![Form](docs/demo-form.png) | ![Create](docs/demo-create.png) |
 | **Annotate.** Add a note, box, text, stamp, or a highlight over the selected text; list and remove annotations. Only the tiles an edit touches redraw. | **Form.** Fill text fields, check boxes, radio buttons and choices; tapping a field in the page opens it here. ⤓ downloads the document with your edits. | **Create.** A report laid out with the flow layout package (headings, list, table, figure, link, header and footer), tagged by construction and saved as PDF/A-2u, -3u, -4 and PDF/UA-1 or -2. |
 
@@ -62,6 +62,10 @@ The screenshots come from the browser tests (`BROADSIDE_BROWSER_SCREENSHOTS=<fol
 Sizes include the 17 MB of gallery documents, which a browser downloads only when one is picked. A host that compresses responses
 sends about a quarter of the rest.
 
+- **AOT of the rendering path.** `--hot-aot` (MSBuild: `-p:BroadsideAot=hot`) compiles only `Broadside`, `Broadside.Rendering` and
+  `System.Private.CoreLib` ahead of time, optimized for size, and interprets the rest (Blazor, the viewer shell, layout, fonts). Pages
+  draw at AOT speed and the runtime module is 16.6 MiB instead of 24.5 MB: still just over a 16 MB per-file limit. It builds in
+  `obj/hotaot` and `bin/hotaot`. See `docs/benchmarks/smooth-browser-viewer.md` (#365) for its frame times and what remains to fit.
 - **Per-file size limits.** `--no-aot` skips ahead-of-time compilation: the IL runs in the .NET interpreter (slower pages, a much
   smaller runtime), so no file comes near a 16 MB per-file limit. It builds in its own `obj/noaot` and `bin/noaot` folders, because a
   non-AOT build over AOT intermediates produces a runtime that fails at startup. The MSBuild switch is `-p:BroadsideAot=false`.

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    UI Automation tests of the WinUI viewer's sample app (#223), Windows only: they launch samples/Broadside.Viewer.WinUI.Sample (built
+    first; BROADSIDE_WINUI_SAMPLE names its exe, otherwise the artifacts folder is searched), drive it through FlaUI (UIA3) and read
+    the PdfView's automation peers. The expected reading order comes from the viewer core itself (AccessibilityBridge). Run by CI's
+    winui job on the Windows runner; outside Broadside.Core.slnf.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Viewer/Broadside.Viewer.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="FlaUI.UIA3" />
+  </ItemGroup>
+
+</Project>

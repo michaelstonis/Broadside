@@ -49,7 +49,7 @@ public sealed class PdfPublicKeyEncryptionOptions
     /// <remarks>
     /// ISO/TS 32004 §5.1 and §6: every recipient's permissions clear bit 13 (Table 4), the encryption dictionary gets a random 32-byte
     /// <c>KDFSalt</c>, and the trailer's <c>AuthCode</c> holds a MAC over the whole file keyed from the <c>DefaultCryptFilter</c> key
-    /// (§6.4). The catalog declares the ISO/TS 32004 extension. A linearized save cannot carry the MAC and is refused.
+    /// (§6.4). The catalog declares the ISO/TS 32004 extension. A linearized save carries the MAC in its first-page trailer (ISO 32000-2 Annex F.3.4).
     /// </remarks>
     public bool IntegrityProtection { get; set; }
 

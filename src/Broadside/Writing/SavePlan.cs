@@ -188,13 +188,8 @@ internal static class SavePlan
             trailer[KnownNames.Encrypt] = reference;
         }
 
-        // A linearized file (Annex F) orders and numbers its objects by part; nothing is freed. Its writer does not compose the PDF MAC
-        // token (ISO/TS 32004 §5.2.3), so a save that must carry one is not linearized rather than written without it.
-        if (options.Linearize && encryption.Integrity is not null)
-        {
-            throw new NotSupportedException("A file with an integrity MAC (ISO/TS 32004) cannot be saved linearized.");
-        }
-
+        // A linearized file (Annex F) orders and numbers its objects by part; nothing is freed. Its writer carries the PDF MAC token
+        // (ISO/TS 32004 §5.2.3) in the first-page trailer, the document's trailer (F.3.4), over the whole file (§6.5.1).
         LinearizedLayout? linearized = options.Linearize
             ? LinearizedLayout.Create(trailer, kept, options.CrossReferenceLayout, value => value is not (CosStream or CosReference))
             : null;

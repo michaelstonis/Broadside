@@ -3,13 +3,16 @@
 # size and largest file. The site works from any sub-path (relative base href) on any static host that serves the standard web media
 # types (.html, .js, .css, .wasm, .pdf); no server-side code, no precompressed copies.
 #
-#   samples/Broadside.Viewer.Blazor.Sample/publish-static.sh [--no-aot] [--runtime-folder <name>] <output-folder>
+#   samples/Broadside.Viewer.Blazor.Sample/publish-static.sh [--no-aot | --hot-aot] [--runtime-folder <name>] <output-folder>
 #
 #   (default)                 trimmed and compiled ahead of time to WebAssembly: fastest, but the runtime module is ~21 MB.
 #   --no-aot                  trimmed, no ahead-of-time compilation (the IL runs in the interpreter): ~14 MB besides the gallery documents,
 #                             and no file over ~4.5 MB besides them (the largest sample PDF is 8.1 MB), for hosts with a
 #                             per-file size limit. Builds in its own obj/bin folders (obj/noaot, bin/noaot):
 #                             a non-AOT build over AOT intermediates produces a runtime that fails at startup.
+#   --hot-aot                 compiles only the rendering path ahead of time (Broadside, Broadside.Rendering and the core
+#                             library), optimized for size, and interprets the rest: pages draw at AOT speed with a 16.6 MiB runtime
+#                             module instead of ~24.5 MB (issue #365; just over a 16 MB per-file limit). Builds in obj/hotaot, bin/hotaot.
 #   --runtime-folder <name>   puts the runtime in <name>/ instead of _framework/ and component assets in <name>-content/ instead of
 #                             _content/, for hosts that reserve paths starting with "_" (see README.md).
 #
@@ -17,7 +20,7 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: $0 [--no-aot] [--runtime-folder <name>] <output-folder>" >&2
+  echo "usage: $0 [--no-aot | --hot-aot] [--runtime-folder <name>] <output-folder>" >&2
   exit 2
 }
 
@@ -27,6 +30,7 @@ target=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --no-aot) aot=false; shift ;;
+    --hot-aot) aot=hot; shift ;;
     --runtime-folder) [ $# -ge 2 ] || usage; folder="$2"; shift 2 ;;
     -*) usage ;;
     *) [ -z "$target" ] || usage; target="$1"; shift ;;
@@ -42,6 +46,8 @@ trap 'rm -rf "$work"' EXIT
 args=(-c Release -o "$work" -nologo -p:BroadsideAot="$aot")
 if [ "$aot" = false ]; then
   args+=(-p:IntermediateOutputPath=obj/noaot/ -p:OutputPath=bin/noaot/)
+elif [ "$aot" = hot ]; then
+  args+=(-p:IntermediateOutputPath=obj/hotaot/ -p:OutputPath=bin/hotaot/)
 fi
 if [ -n "$folder" ]; then
   args+=(-p:BroadsideRuntimeFolder="$folder")
@@ -63,7 +69,7 @@ count=$(find "$out" -type f | wc -l | tr -d ' ')
 bytes=$(find "$out" -type f -exec cat {} + | wc -c | tr -d ' ')
 largest=$(find "$out" -type f -exec wc -c {} + | grep -v ' total$' | sort -n | tail -1 | awk '{printf "%s (%.1f MB)", $2, $1 / 1048576}')
 
-echo "Published to $out ($([ "$aot" = true ] && echo AOT || echo no AOT)): $count files, $bytes bytes ($(awk -v b="$bytes" 'BEGIN {printf "%.1f MB", b / 1048576}'))"
+echo "Published to $out ($([ "$aot" = true ] && echo AOT || { [ "$aot" = hot ] && echo "AOT, rendering path only" || echo no AOT; })): $count files, $bytes bytes ($(awk -v b="$bytes" 'BEGIN {printf "%.1f MB", b / 1048576}'))"
 echo "Largest file: ${largest#"$out"/}"
 echo "Types:"
 find "$out" -type f | sed -E 's/.*\.([^./]+)$/.\1/' | sort | uniq -c

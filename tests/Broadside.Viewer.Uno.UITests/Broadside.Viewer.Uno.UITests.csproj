@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    UI tests of the Uno Platform viewer sample (#225) on both heads. Not in Broadside.Core.slnf: the heads must be built first (the
+    WebAssembly head needs the wasm-tools workload), so CI runs these in the uno job.
+    WebAssembly head: Kestrel serves the PUBLISHED sample and Playwright drives Chromium and WebKit with real mouse, wheel and keyboard
+    input. Publish it first:
+      dotnet publish samples/Broadside.Viewer.Uno.Sample -f net10.0-browserwasm -c Release -o artifacts/uno-sample-wasm
+    Desktop head: the built head runs its automation script (BROADSIDE_UNO_SCRIPT=1) in a real window (on Linux under Xvfb). Build it:
+      dotnet build samples/Broadside.Viewer.Uno.Sample -f net10.0-desktop -c Release
+    Without a built head its tests skip, unless BROADSIDE_UNO_REQUIRED=1 (CI) makes that a failure.
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Playwright" />
+  </ItemGroup>
+
+</Project>

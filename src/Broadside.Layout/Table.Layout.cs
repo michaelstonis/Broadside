@@ -174,10 +174,7 @@ public sealed partial class Table
         double left = x + padding.Left;
         double right = Math.Max(left, x + width - padding.Right);
         using var region = new FlowContext(context, left, right, top - padding.Top, heights, drawPage);
-        foreach (FlowBlock block in cell.Blocks)
-        {
-            block.LayOut(region);
-        }
+        region.LayOutBlocks(cell.Blocks);
 
         return new CellResult(region.PageCount, region.Top - region.CursorY, region.OverflowedFirstPage);
     }
@@ -614,7 +611,7 @@ public sealed partial class Table
         Placement[] cells = Place(-1);
         (double[] min, double[] max) = ColumnContent(cells, context.Services);
         int columns = Columns.Count;
-        double available = context.Width;
+        double available = Width is { } tableWidth ? Math.Min(tableWidth, context.Width) : context.Width;
         var widths = new double[columns];
         double rest = available;
         double autoMin = 0;
@@ -665,7 +662,20 @@ public sealed partial class Table
             }
         }
 
+        // A table narrower than the space sits where its alignment puts it: the offsets start there.
+        double total = 0;
+        foreach (double columnWidth in widths)
+        {
+            total += columnWidth;
+        }
+
         var offsets = new double[columns + 1];
+        offsets[0] = Math.Max(0, Alignment switch
+        {
+            TextAlignment.Right => context.Width - total,
+            TextAlignment.Center => (context.Width - total) / 2,
+            _ => 0,
+        });
         for (int column = 0; column < columns; column++)
         {
             offsets[column + 1] = offsets[column] + widths[column];

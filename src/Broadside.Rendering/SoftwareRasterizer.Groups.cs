@@ -58,6 +58,19 @@ public sealed partial class SoftwareRasterizer
         /// </remarks>
         public void DrawGroup(in DisplayGroup group)
         {
+            _nested++;
+            try
+            {
+                DrawGroupCore(group);
+            }
+            finally
+            {
+                _nested--;
+            }
+        }
+
+        private void DrawGroupCore(in DisplayGroup group)
+        {
             if (_clip.IsEmpty || !TryGroupBounds(group, out int left, out int top, out int right, out int bottom))
             {
                 return;
@@ -184,6 +197,7 @@ public sealed partial class SoftwareRasterizer
             }
 
             Backend child = _cellBackend ??= new Backend();
+            child.UseGlyphsOf(this);
             child.Begin(_document!, _groundBitmap, Matrix.Identity, width, height, preview: false, _antiAliasing);
             child._pixelModel = _pixelModel;
             try
@@ -224,10 +238,7 @@ public sealed partial class SoftwareRasterizer
                     Span<uint> backdrop = layer.BackdropRow(pass, row, 0, width);
                     Span<byte> alpha = layer.AlphaRow(row, 0, width);
                     Span<uint> destination = result.Slice(row * width, width);
-                    for (int x = 0; x < width; x++)
-                    {
-                        destination[x] = Compositor.RemoveBackdrop(plane[x], backdrop[x], alpha[x]);
-                    }
+                    CompositingRows.RemoveBackdropRow(plane, backdrop, alpha, destination);
                 }
 
                 layer.Forget();
@@ -683,6 +694,13 @@ public sealed partial class SoftwareRasterizer
                 {
                     // The common case, an isolated group (or one already converted) in Normal: source-over of the row at one coverage.
                     CompositingRows.OverRow(_source.Slice(start, count), target, compositor.Scale(coverage));
+                    return;
+                }
+
+                if (backdrop.IsEmpty && !tracksAlpha && !tracksShape && !_isolatedSource)
+                {
+                    // A non-isolated group in any blend mode and no knockout or alpha tracking: the mix with what it started from.
+                    CompositingRows.MixRow(target, _source.Slice(start, count), compositor.Scale(coverage));
                     return;
                 }
 

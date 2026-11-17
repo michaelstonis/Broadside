@@ -87,6 +87,10 @@ _Avoid_: Platform renderer, OS renderer
 A platform's own image codec (a browser's WebCodecs, an operating system codec) that decodes the images a viewer is about to draw, asynchronously and before the tile is replayed, behind one eligibility rule in the core; the managed codec stays the fallback and the only decoder for extraction and export.
 _Avoid_: Native filter, hardware decoder, image plugin
 
+**Color filter**:
+A display-only transform a render runs over its finished pixels, outside the pixels images cover; smart dark mode inverts the lightness of text and vector colors while keeping their hue. It never changes the page or its display list.
+_Avoid_: Theme, night mode, invert (which would invert images and hue too)
+
 ### Viewer
 
 **Document session**:
@@ -129,6 +133,14 @@ _Avoid_: Page pair, row
 The part of a page layout a shell shows: a scroll offset and a size in pixels, and a zoom in pixels per point.
 _Avoid_: Window, visible area, camera
 
+**View target**:
+A destination resolved to a place a viewer can show: a page, the view the destination asks for (fit the page, its width, a rectangle, or a position and zoom) and that view's parameters. An outline entry, a named destination and a link all resolve to one, and a page layout turns it into a viewport.
+_Avoid_: Bookmark target, link target, goto
+
+**Thumbnail**:
+A whole page drawn small from the page's cached display list, one at a time and only while the viewer has no tile work waiting; it never builds a display list a tile would not also use.
+_Avoid_: Preview, page image
+
 **Text selection**:
 The selected text of a document session: an anchor and a focus caret between glyphs, in reading order, possibly on different pages; read back as quads per page to draw and as text to copy.
 _Avoid_: Highlight (a highlight is an annotation), range, marquee
@@ -136,6 +148,14 @@ _Avoid_: Highlight (a highlight is an annotation), range, marquee
 **Annotation layer**:
 The viewer's model of a document session's annotations, links and form-field widgets: hit-testing, hover, selection and keyboard focus, link activation raised as action requests the shell performs (never scripts), notes, field editing and annotation edits that invalidate only the overlay tiles they touch.
 _Avoid_: Overlay (an overlay is the transparent tile the annotation and form-field layers render into), annotation manager
+
+**Form filling**:
+The viewer's interaction model for a document session's form fields over the annotation layer: focus in each page's tab order, an edit of the focused field (text with a caret, options being picked) written through the form API once when it ends, toggles, reset-form actions and required-field checks; filling through it saves the same file as calling the form API.
+_Avoid_: Form editor, field manager
+
+**Transient appearance**:
+The appearance a widget that lacks one is drawn with in the viewer: what filling would generate from the field's value, built for one display list and never written to the document.
+_Avoid_: Temporary appearance, fallback appearance
 
 **Reading-order provider**:
 What decides the order a page's glyphs are selected and copied in: content order, or the layout tree's structure or detected order.
@@ -154,6 +174,10 @@ _Avoid_: Document structure (ambiguous with the structure tree), semantic tree, 
 **Structure tree**:
 The tagged-PDF hierarchy stored in the file itself, as defined by ISO 32000-2 clause 14.7.
 _Avoid_: Tag tree, logical structure (as a term), accessibility tree
+
+**Document builder**:
+The fluent front over flow layout. It describes a document as nested content in C# and lays it out through the flow engine into a `PdfDocument`.
+_Avoid_: DSL, composer, template engine, fluent layout
 
 ### Conformance
 

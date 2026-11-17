@@ -12,6 +12,34 @@ namespace Broadside.Viewer.Maui.Tests;
 public sealed class ViewerControllerTests
 {
     [Fact]
+    public void A_copy_still_loading_its_pages_when_the_document_is_replaced_or_the_view_closes_copies_nothing_and_does_not_throw() => UiThread.Run(async () =>
+    {
+        // Select all of a long document, then Copy: its pages load one by one. Opening another document, or closing the view, stops
+        // the loads; the copy has nothing to copy and returns null rather than throwing into the host's click handler.
+        Shell shell = await Shell.OpenAsync(ManyPagesDocument.CreateWithText(40));
+        Task<string?> copy;
+        try
+        {
+            shell.Controller.Selection!.SelectAll();
+            copy = shell.Controller.GetSelectedTextAsync();
+            Assert.False(copy.IsCompleted);
+            await shell.Controller.OpenAsync(_ => Task.FromResult(DocumentSession.Open(ManyPagesDocument.CreateWithText(40), Shell.Options())), ownsSession: true, null);
+            Assert.Null(await copy);
+
+            await shell.SettleAsync();
+            shell.Controller.Selection!.SelectAll();
+            copy = shell.Controller.GetSelectedTextAsync();
+            Assert.False(copy.IsCompleted);
+        }
+        finally
+        {
+            shell.Dispose();
+        }
+
+        Assert.Null(await copy);
+    });
+
+    [Fact]
     public void The_sample_textbook_opens_at_the_top_of_page_one_at_fit_width_and_draws_it_with_skia() => UiThread.Run(async () =>
     {
         // The size arrives after the document (as MAUI lays out after the source is set): the first real size still shows page 1's top.
@@ -152,6 +180,26 @@ public sealed class ViewerControllerTests
     });
 
     [Fact]
+    public void A_mouse_selection_draws_no_handles_and_a_later_touch_cannot_grab_one() => UiThread.Run(async () =>
+    {
+        using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("text-render-modes.pdf"));
+        (double x, double y) = FindText(shell);
+        shell.Drag(1, SKTouchDeviceType.Mouse, x, y, x + 60, y);
+        TextSelection selection = shell.Controller.Selection!;
+        Assert.False(selection.IsEmpty);
+        await shell.SettleAsync();
+        Assert.DoesNotContain(shell.Controller.Presenter.Latest!.Items.ToArray(), item => item.Kind == ViewerFrame.ItemKind.Handle);
+
+        // Where the end handle would be: a touch drag there pans (and clears the selection) instead of extending it.
+        TextPosition end = selection.End;
+        var quads = new Quad[16];
+        int count = selection.GetQuads(0, quads);
+        (double hx, double hy) = shell.ToView(0, quads[count - 1].BottomRight.X, quads[count - 1].BottomRight.Y);
+        shell.Drag(2, SKTouchDeviceType.Touch, hx, hy + 6, hx + 20, hy + 60);
+        Assert.False(!selection.IsEmpty && selection.End.Offset > end.Offset, "A touch grabbed a handle the mouse selection never drew.");
+    });
+
+    [Fact]
     public void A_uri_link_is_raised_never_followed_and_an_internal_link_navigates() => UiThread.Run(async () =>
     {
         using (Shell shell = await Shell.OpenAsync(Shell.CorpusFile("annotations-link.pdf")))
@@ -193,7 +241,7 @@ public sealed class ViewerControllerTests
         int overlaysBefore = OverlayItems(shell);
         Assert.True(overlaysBefore > 0);
         shell.Events.Clear();
-        Assert.True(shell.Controller.CommitFieldText("Ada"));
+        Assert.True(shell.Controller.CommitFieldText("Grace Hopper"));
 
         // The evicted overlay tiles stay on screen until their replacements arrive: the composed frame never loses them.
         shell.Controller.Frame();
@@ -205,7 +253,7 @@ public sealed class ViewerControllerTests
             shell.Events.Where(e => e.Kind is TileEventKind.Started or TileEventKind.Presented or TileEventKind.Evicted),
             e => Assert.Equal(DisplayLayers.None, e.Tile.Layers & DisplayLayers.Content));
         var widget = (PdfWidgetAnnotation)layer.GetAnnotation(field);
-        Assert.Equal("Ada", ((PdfTextField)widget.Field!).Value);
+        Assert.Equal("Grace Hopper", ((PdfTextField)widget.Field!).Value);
     });
 
     [Fact]
@@ -387,6 +435,36 @@ public sealed class ViewerControllerTests
 
         return count;
     }
+
+    [Fact]
+    public void A_document_opened_while_a_late_page_of_the_previous_one_loads_never_sees_that_page_index() => UiThread.Run(async () =>
+    {
+        // #358: the outline moved a long novel to page 202; opening the 8-page textbook while a late page's text, links and
+        // accessibility nodes still loaded handed that page's index to the textbook's layers ("pageIndex (201) must be less than 8").
+        // The sample's sessions belong to it: the novel's stays open until the view has moved to the textbook.
+        await using DocumentSession novel = DocumentSession.Open(ManyPagesDocument.Create(250), Shell.Options());
+        using Shell shell = await Shell.OpenAsync(novel, ownsSession: false);
+        shell.Controller.GoToPage(201);
+
+        // Frames until the scroll reaches page 202 and its pages start loading (a busy frame leaves the loads to the next one).
+        for (int i = 0; i < 200 && !(shell.Controller.State.PageIndex == 201 && shell.Controller.IsLoadingPages); i++)
+        {
+            shell.Clock.Advance(TimeSpan.FromMilliseconds(16));
+            shell.Controller.Frame();
+        }
+
+        Assert.True(shell.Controller.State.PageIndex == 201 && shell.Controller.IsLoadingPages);
+
+#pragma warning disable CA2000 // the controller owns the session (ownsSession: true) and disposes it
+        DocumentSession next = DocumentSession.Open(Shell.SampleDocument("textbook.pdf"), Shell.Options());
+#pragma warning restore CA2000
+        await shell.Controller.OpenAsync(_ => Task.FromResult(next), ownsSession: true, null);
+        await shell.SettleAsync();
+
+        Assert.Empty(shell.Errors);
+        Assert.Equal(new PdfViewState(0, 8, shell.Controller.State.Zoom, false, false), shell.Controller.State);
+        Assert.All(shell.Controller.AccessiblePages, page => Assert.InRange(page, 0, 7));
+    });
 
     private static AnnotationTarget FindField<T>(AnnotationLayer layer)
         where T : PdfTerminalField

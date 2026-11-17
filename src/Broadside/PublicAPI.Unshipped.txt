@@ -4054,6 +4054,9 @@ Broadside.Forms.PdfFieldOptions.WithBackgroundColor(Broadside.Annotations.PdfDev
 Broadside.Forms.PdfFieldOptions.WithBorderWidth(double width) -> Broadside.Forms.PdfFieldOptions!
 Broadside.Forms.PdfFieldOptions.WithMaxLength(int? maxLength) -> Broadside.Forms.PdfFieldOptions!
 Broadside.Forms.PdfFieldOptions.WithCaption(string? caption) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.Font.get -> Broadside.Fonts.PdfCanvasFont?
+Broadside.Forms.PdfFieldOptions.Font.set -> void
+Broadside.Forms.PdfFieldOptions.WithFont(Broadside.Fonts.PdfCanvasFont? font) -> Broadside.Forms.PdfFieldOptions!
 Broadside.Rendering.DisplayList.Replay(Broadside.Rendering.IRenderingBackend! backend, Broadside.PdfRectangle region) -> void
 Broadside.PdfEncryptionRecipient
 Broadside.PdfEncryptionRecipient.Access.get -> Broadside.PdfAccessLevel
@@ -4313,6 +4316,7 @@ Broadside.Graphics.PdfCanvas.Stroke() -> void
 Broadside.Graphics.PdfCanvas.Transform(Broadside.Graphics.Matrix matrix) -> void
 Broadside.Graphics.PdfCanvas.Translate(double x, double y) -> void
 static Broadside.Graphics.PdfColor.FromCmyk(float cyan, float magenta, float yellow, float black) -> Broadside.Graphics.PdfColor
+static Broadside.Graphics.PdfColor.FromHex(string! hex) -> Broadside.Graphics.PdfColor
 static Broadside.Graphics.PdfColor.FromGray(float gray) -> Broadside.Graphics.PdfColor
 static Broadside.Graphics.PdfColor.FromRgb(float red, float green, float blue) -> Broadside.Graphics.PdfColor
 Broadside.Graphics.PdfFormXObject.CreateCanvas() -> Broadside.Graphics.PdfCanvas!
@@ -5097,6 +5101,7 @@ Broadside.Diagnostics.DiagnosticArea.Action = 27 -> Broadside.Diagnostics.Diagno
 Broadside.Diagnostics.DiagnosticArea.Annotation = 28 -> Broadside.Diagnostics.DiagnosticArea
 Broadside.Diagnostics.DiagnosticArea.Form = 29 -> Broadside.Diagnostics.DiagnosticArea
 Broadside.Diagnostics.DiagnosticArea.Structure = 30 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.DiagnosticArea.Layout = 31 -> Broadside.Diagnostics.DiagnosticArea
 Broadside.Diagnostics.FileStructureDiagnostics
 static Broadside.Diagnostics.FileStructureDiagnostics.HeaderMissing.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.FileStructureDiagnostics.HeaderVersionInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
@@ -5377,6 +5382,7 @@ static Broadside.Diagnostics.JpxDiagnostics.JpxPocInvalid.get -> Broadside.Diagn
 static Broadside.Diagnostics.JpxDiagnostics.JpxPpmInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.JpxDiagnostics.JpxCodestreamRaw.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.JpxDiagnostics.JpxCodestreamsIgnored.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.JpxDiagnostics.JpxFragmentExternal.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.JpxDiagnostics.JpxHighThroughputUnsupported.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.JpxDiagnostics.JpxPacketHeaderTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.JpxDiagnostics.JpxEphMissing.get -> Broadside.Diagnostics.DiagnosticCode!
@@ -5459,6 +5465,7 @@ static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringNoEndchar.get -
 static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringMovetoMissing.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringOperandInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.CharStringDiagnostics.FontCharstringCoordinateOverflow.get -> Broadside.Diagnostics.DiagnosticCode!
 Broadside.Diagnostics.CffDiagnostics
 static Broadside.Diagnostics.CffDiagnostics.FontCffHeaderInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.CffDiagnostics.FontCffIndexOffsetsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
@@ -5751,3 +5758,35 @@ Broadside.Images.DecodedImageBuilder.AdobeTransform.set -> void
 Broadside.Images.DecodedImageBuilder.Geometry.get -> Broadside.Images.ImageGeometry
 Broadside.Images.PdfImage.SoftMaskInData.get -> Broadside.Images.PdfSoftMaskInData
 Broadside.Rendering.DisplayImage.Geometry.get -> Broadside.Images.ImageGeometry
+Broadside.Rendering.DisplayImage.ContinueDecode(int reduction, System.TimeSpan budget, System.Threading.CancellationToken cancellationToken) -> bool
+Broadside.PdfPage.BeginDisplayList(Broadside.Rendering.DisplayLayers layers, Broadside.Rendering.DisplayIntent intent, Broadside.Content.ContentOptions! options) -> Broadside.Rendering.DisplayListBuild!
+Broadside.Rendering.DisplayListBuild
+Broadside.Rendering.DisplayListBuild.Continue(System.TimeSpan budget) -> bool
+Broadside.Rendering.DisplayListBuild.Dispose() -> void
+Broadside.Rendering.DisplayListBuild.IsCompleted.get -> bool
+Broadside.Rendering.DisplayListBuild.Result.get -> Broadside.Rendering.DisplayList!
+Broadside.Diagnostics.LayoutDiagnostics
+static Broadside.Diagnostics.LayoutDiagnostics.AnchorDuplicate.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.AnchorNotFound.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.DrawingStateUnbalanced.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.ForwardReferencesNotConverged.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.KeepTogetherTooTall.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.HeadingLevelSkipped.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.AlternateTextLooksLikeFileName.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.FontFaceMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.FontNotFound.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.CharacterNotEncodable.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.DocumentLanguageMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.DocumentTitleMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.AppendedToUntaggedDocument.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.DocumentMetadataKept.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.PdfDocument.ReportDiagnostic(Broadside.Diagnostics.Diagnostic! diagnostic) -> void
+Broadside.Content.ContentOptions.TransientFieldAppearances.get -> bool
+Broadside.Content.ContentOptions.TransientFieldAppearances.set -> void
+Broadside.Content.ContentOptions.WithTransientFieldAppearances(bool transient) -> Broadside.Content.ContentOptions!
+Broadside.Forms.PdfAcroForm.SelectFields(System.Collections.Generic.IReadOnlyList<Broadside.PdfActionTarget!>? targets, bool exclude) -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfTerminalField!>!
+Broadside.PdfResetFormAction.SelectFields() -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfTerminalField!>!
+Broadside.PdfSubmitFormAction.SelectFields() -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfTerminalField!>!
+Broadside.PdfDocument.DefaultSaveOptions.get -> Broadside.PdfSaveOptions?
+Broadside.PdfDocument.DefaultSaveOptions.set -> void
+static Broadside.Diagnostics.SavingDiagnostics.ConformanceOverridden.get -> Broadside.Diagnostics.DiagnosticCode!

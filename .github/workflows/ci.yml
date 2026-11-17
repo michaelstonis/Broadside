@@ -101,6 +101,14 @@ jobs:
       - name: Test
         run: dotnet test Broadside.Core.slnf -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
 
+      - name: Run the document builder samples (Linux)
+        # The builder guide's samples (issue #397) compile with the solution; running them writes each PDF, fails on any diagnostic
+        # above information, and qpdf checks every file. Their snapshots and veraPDF checks run in Broadside.Layout.Tests.
+        if: runner.os == 'Linux'
+        run: |
+          dotnet run --project samples/Broadside.BuilderSamples -c Release --no-build -- "$RUNNER_TEMP/builder-samples"
+          for file in "$RUNNER_TEMP"/builder-samples/*.pdf; do qpdf --check "$file" > /dev/null; done
+
       - name: Test the SIMD kernels without hardware intrinsics (Linux)
         # The SimdKernel category again with Vector128.IsHardwareAccelerated false (issue #470): each kernel's dispatcher takes its
         # scalar path and the vector method runs on the software fallback. Seconds: the build above is reused. A test project with
@@ -120,6 +128,13 @@ jobs:
         # because it needs Windows. Built above with the rest of the solution.
         if: runner.os == 'Windows'
         run: dotnet test --project tests/Broadside.Rendering.Direct2D.Tests -c Release --no-build --minimum-expected-tests 1 --results-directory artifacts/test-results -- --report-xunit-trx
+
+      - name: Test the WPF viewer (Windows)
+        # The WPF shell (issue #222): the controller, the control and its UI Automation peers, then the UI Automation test that starts
+        # the sample app (built above with the solution) and opens, reads, zooms, scrolls, selects and searches the pinned subset
+        # through it. Needs the Windows Desktop runtime and the runner's interactive desktop; outside Broadside.Core.slnf.
+        if: runner.os == 'Windows'
+        run: dotnet test --project tests/Broadside.Viewer.Wpf.Tests -c Release --no-build --minimum-expected-tests 1 --results-directory artifacts/test-results -- --report-xunit-trx
 
       - name: Dry run the Direct2D benchmarks (Windows)
         # bench-dry runs bench/Broadside.Benchmarks on Linux; the Direct2D backend's benchmarks need Windows.
@@ -198,6 +213,49 @@ jobs:
       - name: Run it natively compiled
         shell: bash
         run: artifacts/aot-smoke/Broadside.Rendering.AotSmoke --require-aot
+
+  # Publishes the Native AOT size probes (bench/SizeProbes, issue #361), one tiny app per scenario, runs each, and fails when one
+  # grows past the tolerance of bench/baselines/gate/sizes.json, or is new or missing there (bench/baselines/gate/README.md, "Size
+  # probes"). The baseline is recorded for osx-arm64, so this runs on the macOS runner. The job summary has the table; the measured
+  # sizes are an artifact, ready to record.
+  size-probes:
+    name: size-probes
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Publish and run the probes
+        run: bench/size-probes.sh --out artifacts/size-probes/sizes.json
+
+      - name: Compare with the baseline
+        run: >
+          dotnet run --project tools/BenchGate -c Release --
+          sizes --baseline bench/baselines/gate/sizes.json --results artifacts/size-probes/sizes.json
+          --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the measured sizes
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: size-probes
+          path: artifacts/size-probes/sizes.json
+          if-no-files-found: ignore
 
   # Validates the files Broadside writes in a PDF/A mode with veraPDF, the PDF Association's reference validator (issue #201; spec
   # story 42; PDF/A-4 and 4f, #203): every test in the VeraPdf trait saves a document as PDF/A and asserts that veraPDF reports no failed rule. veraPDF is a
@@ -358,7 +416,7 @@ jobs:
         run: dotnet run --project tools/ConformanceCheck -- --root . --summary --citations --site-page site/articles/conformance.md >> "${GITHUB_STEP_SUMMARY}"
 
   # Checks the formatting of everything dotnet format can see: the core solution filter, and the fuzz, benchmark and Windows-only
-  # Direct2D test and benchmark projects, which are outside it.
+  # Direct2D and WPF test, benchmark and sample projects, which are outside it.
   format:
     name: format
     runs-on: ubuntu-latest
@@ -388,6 +446,10 @@ jobs:
           dotnet format bench/Broadside.Benchmarks/Broadside.Benchmarks.csproj --verify-no-changes
           dotnet format tests/Broadside.Rendering.Direct2D.Tests/Broadside.Rendering.Direct2D.Tests.csproj --verify-no-changes
           dotnet format bench/Broadside.Rendering.Direct2D.Benchmarks/Broadside.Rendering.Direct2D.Benchmarks.csproj --verify-no-changes
+          dotnet format tests/Broadside.Viewer.Wpf.Tests/Broadside.Viewer.Wpf.Tests.csproj --verify-no-changes
+          dotnet format samples/Broadside.Viewer.Wpf.Sample/Broadside.Viewer.Wpf.Sample.csproj --verify-no-changes
+          dotnet format samples/Broadside.BuilderSamples/Broadside.BuilderSamples.csproj --verify-no-changes
+          dotnet format tests/Broadside.Viewer.WinUI.UITests/Broadside.Viewer.WinUI.UITests.csproj --verify-no-changes
 
   # Runs every fuzz target in smoke mode for 60 s (tests/Broadside.Fuzz/README.md), the targets of the --list split over
   # parallel shards (target i runs in shard i mod the shard count) so the run stays far below its timeout as targets are added.
@@ -497,6 +559,13 @@ jobs:
     with:
       browsers: ${{ (github.event_name == 'push' || github.base_ref == 'main') && 'firefox webkit' || 'firefox' }}
 
+  # The Uno Platform viewer sample (#225) on its WebAssembly head (Playwright: Chrome and WebKit) and its desktop head (Linux under
+  # Xvfb, macOS, Windows), driven by tests/Broadside.Viewer.Uno.UITests; the job is in uno.yml. The shell library and its controller
+  # tests build and run in build-test (Broadside.Core.slnf).
+  uno:
+    name: uno
+    uses: ./.github/workflows/uno.yml
+
   # The .NET MAUI viewer sample (#226) for Mac Catalyst, the iOS simulator and Android. It needs the maui workload, so it is not in
   # Broadside.slnx; the shell library's platform targets also build in build-test (macOS) and its tests run in Broadside.Core.slnf.
   maui:
@@ -558,3 +627,147 @@ jobs:
         run: >
           dotnet run --project tools/ApkAotCheck --
           artifacts/bin/Broadside.Viewer.Maui.Sample/release_net10.0-android/dev.broadside.viewer.sample-Signed.apk
+
+  # The WinUI 3 viewer (#223) on the Windows runner: the control library, its sample app (unpackaged, Windows App SDK self-contained)
+  # and the UI Automation tests that launch the sample and drive it (open, scroll, zoom, select and search the pinned subset; the
+  # automation peers' page text in reading order). The library and the controller tests also build and run in build-test on every OS;
+  # the sample needs Windows (MakePri, mt.exe), so it is not in Broadside.slnx.
+  winui:
+    name: winui
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-winui-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-winui-${{ runner.os }}-
+
+      - name: Build the control
+        run: dotnet build src/Broadside.Viewer.WinUI -c Release -warnaserror
+
+      - name: Build the sample app
+        run: dotnet build samples/Broadside.Viewer.WinUI.Sample -c Release -warnaserror -r win-x64
+
+      - name: Build the UI tests
+        run: dotnet build tests/Broadside.Viewer.WinUI.UITests -c Release -warnaserror
+
+      - name: Run the UI Automation tests against the sample
+        shell: pwsh
+        run: |
+          $env:BROADSIDE_WINUI_SAMPLE = (Resolve-Path "artifacts/bin/Broadside.Viewer.WinUI.Sample/release_win-x64/Broadside.Viewer.WinUI.Sample.exe").Path
+          dotnet test --project tests/Broadside.Viewer.WinUI.UITests -c Release --no-build --minimum-expected-tests 1 --results-directory artifacts/test-results -- --report-xunit-trx
+
+      # When the sample fails, keep what explains it: the output folder's listing (is the runtime, the resource index, the manifest
+      # there?), the manifest the build embedded, the sample's startup log and the Application event log's crash entries.
+      - name: Collect the sample's diagnostics
+        if: failure()
+        shell: pwsh
+        run: |
+          $out = "artifacts/bin/Broadside.Viewer.WinUI.Sample/release_win-x64"
+          $diag = New-Item -ItemType Directory -Force artifacts/winui-diagnostics
+          if (Test-Path $out) {
+            Get-ChildItem -Recurse -File $out | Select-Object @{n='Path';e={$_.FullName.Substring((Resolve-Path $out).Path.Length + 1)}}, Length, LastWriteTime |
+              Format-Table -AutoSize | Out-String -Width 400 | Set-Content "$diag/sample-output-files.txt"
+            Get-Content "$diag/sample-output-files.txt"
+            if (Test-Path "$out/Broadside.Viewer.WinUI.Sample.log") {
+              Copy-Item "$out/Broadside.Viewer.WinUI.Sample.log" $diag
+              Write-Host "--- sample log"; Get-Content "$out/Broadside.Viewer.WinUI.Sample.log"
+            }
+          } else {
+            Write-Host "No sample output folder at $out"
+          }
+          Get-ChildItem -Recurse -File artifacts/obj/Broadside.Viewer.WinUI.Sample -Filter *.manifest -ErrorAction SilentlyContinue | ForEach-Object {
+            Copy-Item $_.FullName (Join-Path $diag ($_.Directory.Name + "-" + $_.Name))
+          }
+          Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=(Get-Date).AddHours(-1)} -ErrorAction SilentlyContinue |
+            Where-Object { $_.ProviderName -in '.NET Runtime','Application Error','Windows Error Reporting','Application Hang','SideBySide' } |
+            Format-List TimeCreated, ProviderName, Id, LevelDisplayName, Message | Out-String -Width 400 | Set-Content "$diag/application-events.txt"
+          Write-Host "--- Application event log (crash entries, last hour)"; Get-Content "$diag/application-events.txt"
+
+      - name: Upload the sample's diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: winui-sample-diagnostics
+          path: artifacts/winui-diagnostics/
+          if-no-files-found: warn
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-winui
+          path: artifacts/test-results/**/*.trx
+          if-no-files-found: warn
+
+  # The Avalonia viewer (#224): its UI tests run headless on Linux (Avalonia.Headless with Skia drawing and no display server) through
+  # real input events: open, scroll, zoom, select and search over the rendering gate's pinned real-world pages (fetched and cached
+  # here; BROADSIDE_PINNED_REQUIRED makes a missing one fail), touch gestures, keys, links, form fields, dark mode, worker-thread
+  # tiles and the automation peers' reading order. Then the desktop sample builds. The shell library, the tests and the sample also
+  # build in build-test on every OS; the tests are not in Broadside.Core.slnf.
+  avalonia:
+    name: avalonia
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      BROADSIDE_CORPUS_DIR: ${{ github.workspace }}/corpus
+      BROADSIDE_PINNED_REQUIRED: 'true'
+      # Avalonia's build tasks report build telemetry unless told not to.
+      AVALONIA_TELEMETRY_OPTOUT: '1'
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-avalonia-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-avalonia-${{ runner.os }}-
+
+      - name: Cache the pinned pages' corpora
+        uses: actions/cache@v6
+        with:
+          path: corpus
+          key: avalonia-pinned-corpora-${{ hashFiles('tools/CorpusFetcher/corpora.json', 'tests/Broadside.Rendering.Tests/CorpusGate/pinned-pages.txt') }}
+
+      - name: Fetch the pinned pages' corpora
+        run: dotnet run -c Release --project tools/CorpusFetcher -- --only pdfjs,pdf20examples,gwg-output-suite
+
+      - name: Build the UI tests
+        run: dotnet build tests/Broadside.Viewer.Avalonia.Tests -c Release -warnaserror
+
+      - name: Test the viewer headless
+        run: >
+          dotnet test --project tests/Broadside.Viewer.Avalonia.Tests -c Release --no-build --minimum-expected-tests 30
+          --results-directory artifacts/test-results -- --report-xunit-trx
+
+      - name: Build the sample
+        run: dotnet build samples/Broadside.Viewer.Avalonia.Sample -c Release -warnaserror
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-avalonia
+          path: artifacts/test-results/**/*.trx
+          if-no-files-found: warn

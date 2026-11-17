@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Text.RegularExpressions;
 using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Security;
@@ -143,16 +145,67 @@ public sealed class IntegrityProtectedSaveTests
         Assert.Equal(0, output.Length);
     }
 
-    [Fact]
-    public void A_linearized_save_is_refused_rather_than_written_without_its_mac()
+    [Theory]
+    [MemberData(nameof(ProtectedAlgorithmsAndLayouts))]
+    public void A_linearized_save_with_new_integrity_protection_reopens_with_the_mac_verified(PdfEncryptionAlgorithm algorithm, PdfCrossReferenceLayout layout)
     {
-        using PdfDocument source = PdfDocument.Open(Corpus.Path("text-standard14.pdf"));
-        using var output = new MemoryStream();
+        using PdfDocument source = PdfDocument.Open(Corpus.Path("object-stream.pdf"));
+        var options = new PdfSaveOptions()
+            .WithLinearize(true)
+            .WithCrossReferenceLayout(layout)
+            .WithEncryption(new PdfEncryptionOptions("user", "owner").WithAlgorithm(algorithm).WithIntegrityProtection(true));
 
-        Assert.Throws<NotSupportedException>(() => source.Save(output, new PdfSaveOptions().WithLinearize(true).WithEncryption(
-            new PdfEncryptionOptions("user", "owner").WithAlgorithm(PdfEncryptionAlgorithm.Aes256Gcm).WithIntegrityProtection(true))));
+        byte[] saved = Save(source, options);
 
-        Assert.Equal(0, output.Length);
+        foreach (string password in new[] { "user", "owner" })
+        {
+            using PdfDocument reopened = new PdfEngine().Open(saved, new PdfPassword(password));
+            Assert.True(reopened.IsLinearized);
+            Assert.Equal(PdfIntegrityStatus.Verified, reopened.Security!.Integrity);
+            Assert.True(reopened.Security.RequiresIntegrityCode);
+            AssertSameDocument(source, reopened);
+            Assert.Empty(reopened.Diagnostics);
+        }
+
+        // ISO/TS 32004 §6.5.1: the byte range covers the whole file but the token, which sits in the first-page trailer (Annex F.3.4).
+        long[] range = AuthCodeByteRange(saved);
+        Assert.Equal(0, range[0]);
+        Assert.Equal(saved.Length, range[2] + range[3]);
+        Assert.True(range[2] < saved.Length / 2, "The token is not in the first-page trailer at the beginning of the file.");
+
+        if (algorithm == PdfEncryptionAlgorithm.Aes256)
+        {
+            // qpdf reads AES-256 and ignores the AuthCode entry; it reads neither revision 7 nor the MAC (tests/Corpus/README.md).
+            AssertQpdfAcceptsLinearization(saved, "--password=user");
+        }
+
+        // A changed byte in the main section at the end of the file, past the first page: the file reads the same, only the MAC notices.
+        int startxref = saved.AsSpan().LastIndexOf("startxref"u8);
+        saved[startxref - 1] = saved[startxref - 1] == (byte)'\n' ? (byte)'\r' : (byte)'\n';
+        using PdfDocument tampered = new PdfEngine().Open(saved, new PdfPassword("user"));
+        Assert.Equal(PdfIntegrityStatus.Failed, tampered.Security!.Integrity);
+        Assert.Contains(tampered.Diagnostics, diagnostic => diagnostic.Code == "IntegrityCodeMismatch");
+    }
+
+    [Theory]
+    [InlineData(PdfCrossReferenceLayout.Table)]
+    [InlineData(PdfCrossReferenceLayout.StreamWithObjectStreams)]
+    public void A_protected_document_re_saved_linearized_keeps_its_key_and_writes_a_new_mac(PdfCrossReferenceLayout layout)
+    {
+        using PdfDocument source = PdfDocument.Open(Corpus.Path("encrypted-mac.pdf"), new PdfOptions().WithPassword("owner"));
+        source.Pages[0].Dictionary[PieceInfo] = new CosString("Changed page"u8);
+
+        byte[] saved = Save(source, new PdfSaveOptions().WithLinearize(true).WithCrossReferenceLayout(layout));
+
+        Assert.True(saved.AsSpan().IndexOf("Changed page"u8) < 0, "A string was written unencrypted.");
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.True(reopened.IsLinearized);
+        Assert.Equal(PdfIntegrityStatus.Verified, reopened.Security!.Integrity);
+        Assert.Equal("Changed page", ((CosString)reopened.Pages[0].Dictionary[PieceInfo]).DecodeText());
+        Assert.Equal([32004], IsoExtensionLevels(reopened));
+        AssertSameDocument(source, reopened);
+        Assert.Empty(reopened.Diagnostics);
+        AssertQpdfAcceptsLinearization(saved, "--password=owner");
     }
 
     [Theory]
@@ -300,6 +353,25 @@ public sealed class IntegrityProtectedSaveTests
         byte[] tampered = Encoding.Latin1.GetBytes(Encoding.Latin1.GetString(signed).Replace("target: original", "target: Original", StringComparison.Ordinal));
         using PdfDocument changed = PdfDocument.Open(tampered);
         Assert.Equal(PdfIntegrityStatus.Failed, changed.Security!.Integrity);
+    }
+
+    /// <summary>The <c>AuthCode</c> byte range as written: the only one a saved file holds.</summary>
+    private static long[] AuthCodeByteRange(byte[] file)
+    {
+        string text = Encoding.Latin1.GetString(file);
+        Assert.Equal(1, Regex.Count(text, "/AuthCode"));
+        Match match = Regex.Match(text, @"/AuthCode\s*<<.*?/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]", RegexOptions.Singleline);
+        Assert.True(match.Success, "The file has no AuthCode byte range.");
+        return [.. match.Groups.Values.Skip(1).Select(group => long.Parse(group.Value, CultureInfo.InvariantCulture))];
+    }
+
+    /// <summary>qpdf's structural check and its linearization check (which recomputes the parts and hint tables) find no error.</summary>
+    private static void AssertQpdfAcceptsLinearization(byte[] file, string password)
+    {
+        (int exitCode, string output) = ExternalTool.Run("qpdf", file, password, "--check");
+        Assert.True(exitCode == 0 && output.Contains("File is linearized", StringComparison.Ordinal), output);
+        (exitCode, output) = ExternalTool.Run("qpdf", file, password, "--check-linearization");
+        Assert.True(exitCode == 0 && output.Contains("no linearization errors", StringComparison.Ordinal), output);
     }
 
     private static int[] IsoExtensionLevels(PdfDocument document) =>

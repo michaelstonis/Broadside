@@ -94,8 +94,12 @@ public sealed partial class PdfDocument
     private long? ReadLength(CosDictionary dictionary, CosName key) =>
         dictionary.TryGetValue(key, out CosObject? value) && Resolve(value) is CosInteger length ? length.Value : null;
 
-    /// <summary>A font file stream at one version: a changed stream is parsed again.</summary>
-    private readonly record struct FontFileKey(CosStream Stream, int Version);
+    /// <summary>
+    /// A font file stream at one version of its data and dictionary: a changed stream is parsed again. A stream whose <c>Filter</c>
+    /// or <c>DecodeParms</c> holds an indirect reference is also parsed again after an object is added or removed (§7.3.10, issue
+    /// #305); the dictionary's version decides which streams those are.
+    /// </summary>
+    private readonly record struct FontFileKey(CosStream Stream, int Version, int DictionaryVersion);
 
     /// <summary>A resolver's program: the same memory and face is parsed once.</summary>
     private readonly record struct SubstituteKey(ReadOnlyMemory<byte> Data, int FaceIndex);

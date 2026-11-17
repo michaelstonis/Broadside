@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Broadside.Graphics;
 using Broadside.Objects;
 
@@ -142,12 +143,11 @@ internal sealed partial class ContentInterpreter
             Reference = form.Reference,
             Content = _context.GetContent(stream),
             Resources = resources,
-            InitialState = initial,
             ClipBox = box,
             Processor = processor,
             StructParents = form.StructParents,
         };
-        ReportNesting(RunNested(run), offset);
+        ReportNesting(RunNested(run, initial), offset);
         if (reportsForms)
         {
             processor.EndForm(formEvent, _context);
@@ -200,7 +200,7 @@ internal sealed partial class ContentInterpreter
         }
 
         // The appearance is the run's first frame: patterns selected in it start from its state, and it cannot draw itself.
-        _frames[0] = new RunFrame(form.Stream, matrix, State);
+        SetFrame(ref CollectionsMarshal.AsSpan(_frames)[0], form.Stream, matrix);
         Execute(_context.GetContent(form.Stream).Span);
         End();
     }
@@ -235,12 +235,11 @@ internal sealed partial class ContentInterpreter
             Reference = group.Reference,
             Content = _context.GetContent(group.Stream),
             Resources = group.Resources ?? _context.Resources,
-            InitialState = initial,
             ClipBox = group.BoundingBox,
             Processor = processor,
             StructParents = group.StructParents,
         };
-        ReportNesting(RunNested(run), -1);
+        ReportNesting(RunNested(run, initial), -1);
     }
 
     /// <summary>Reports why a form, glyph or soft-mask group did not run.</summary>
