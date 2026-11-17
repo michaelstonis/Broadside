@@ -65,7 +65,7 @@ public sealed class PdfOptions
     private long _glyphCacheBudget = DefaultGlyphCacheBudget;
     private long _displayListCacheBudget = DefaultDisplayListCacheBudget;
     private int _maxMeshVertices = DefaultMaxMeshVertices;
-    private FilterRegistry? _sharedFilterRegistry;
+    private FilterRegistry? _imageCodecs;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PdfOptions"/> class with the defaults, including every managed image codec:
@@ -142,7 +142,11 @@ public sealed class PdfOptions
         }
     }
 
-    /// <summary>Gets the filters registered with <see cref="UseImageCodecs"/> and <see cref="UseFilter"/>, in registration order.</summary>
+    /// <summary>
+    /// Gets the filters registered with <see cref="UseFilter"/> (and with <see cref="UseImageCodecs"/> after another registration),
+    /// in registration order. The image codecs registered first are not copied here: they are the shared registry
+    /// <see cref="CreateFilterRegistry"/> starts from, so default options allocate nothing for them.
+    /// </summary>
     /// <remarks>ISO 32000-2 §7.4.1. Not public, so configuration binding never sees it; filters are code, set with <see cref="UseFilter"/>.</remarks>
     internal IReadOnlyList<IStreamFilter> Filters => _filters;
 
@@ -152,7 +156,9 @@ public sealed class PdfOptions
     /// </summary>
     /// <returns>The registry.</returns>
     internal FilterRegistry CreateFilterRegistry() =>
-        _sharedFilterRegistry ?? (_filters.Count == 0 ? FilterRegistry.WithoutImageCodecs : FilterRegistry.Create(_filters));
+        _filters.Count == 0 ? _imageCodecs ?? FilterRegistry.WithoutImageCodecs
+        : _imageCodecs is null ? FilterRegistry.Create(_filters)
+        : FilterRegistry.Create(_imageCodecs.Registrations.Concat(_filters));
 
     /// <summary>
     /// Uses the managed image codecs, <see cref="DctDecodeFilter"/>, <see cref="CcittFaxDecodeFilter"/>, <see cref="JpxDecodeFilter"/>
@@ -164,9 +170,16 @@ public sealed class PdfOptions
     /// <remarks>ISO 32000-2 §7.4.6 to §7.4.9. The filter extension point.</remarks>
     public PdfOptions UseImageCodecs()
     {
-        bool none = _filters.Count == 0;
-        _filters.AddRange(ImageCodecRegistry.Codecs);
-        _sharedFilterRegistry = none ? ImageCodecRegistry.All : null;
+        if (_filters.Count == 0)
+        {
+            // Nothing registered after them could be replaced: start from the shared registry instead of copying the codecs.
+            _imageCodecs = ImageCodecRegistry.All;
+        }
+        else
+        {
+            _filters.AddRange(ImageCodecRegistry.Codecs);
+        }
+
         return this;
     }
 
@@ -193,7 +206,6 @@ public sealed class PdfOptions
         }
 
         _filters.Add(filter);
-        _sharedFilterRegistry = null;
         return this;
     }
 

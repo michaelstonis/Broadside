@@ -19,7 +19,14 @@ internal sealed class FilterRegistry
 {
     private readonly FrozenDictionary<CosName, IStreamFilter> _filters;
 
-    private FilterRegistry(FrozenDictionary<CosName, IStreamFilter> filters) => _filters = filters;
+    private FilterRegistry(FrozenDictionary<CosName, IStreamFilter> filters, IReadOnlyList<IStreamFilter> registrations)
+    {
+        _filters = filters;
+        Registrations = registrations;
+    }
+
+    /// <summary>Gets the registrations this registry was built from, in order, without the built-in filters.</summary>
+    public IReadOnlyList<IStreamFilter> Registrations { get; }
 
     /// <summary>Gets the built-in general-purpose filters, one stateless instance each: present in every registry.</summary>
     public static IReadOnlyList<IStreamFilter> BuiltIn { get; } =
@@ -43,13 +50,14 @@ internal sealed class FilterRegistry
     /// <returns>The registry.</returns>
     public static FilterRegistry Create(IEnumerable<IStreamFilter> registrations)
     {
+        IStreamFilter[] registered = [.. registrations];
         var filters = new Dictionary<CosName, IStreamFilter>();
-        foreach (IStreamFilter filter in BuiltIn.Concat(registrations))
+        foreach (IStreamFilter filter in BuiltIn.Concat(registered))
         {
             filters[filter.Name] = filter;
         }
 
-        return new FilterRegistry(filters.ToFrozenDictionary());
+        return new FilterRegistry(filters.ToFrozenDictionary(), registered);
     }
 
     /// <summary>Finds the filter registered under a full filter name.</summary>
