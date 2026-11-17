@@ -189,10 +189,10 @@ public sealed class SampleTests
         {
             Click(At(150, 415));
             AutomationElement? list = null;
-            if (!SampleApp.Poll(() => (list = app.Viewer.FindFirstDescendant(cf => cf.ByControlType(ControlType.List).And(cf.ByName("Form field")))) is not null))
+            if (!SampleApp.Poll(() => (list = app.Window.FindFirstDescendant(cf => cf.ByControlType(ControlType.List))) is not null))
             {
-                string children = string.Join(", ", app.Viewer.FindAllChildren().Select(e => $"{e.ControlType} '{e.Name}' {e.BoundingRectangle}"));
-                Assert.Fail($"Timed out waiting for the multi-select list; page 1 {page.BoundingRectangle}, clicked {At(150, 415)}, the viewer's children: {children}; status '{app.ReadStatus().Text}'.{Environment.NewLine}{app.Diagnostics()}");
+                string children = string.Join(", ", app.Window.FindAllDescendants().Take(80).Select(e => $"{e.ControlType} '{e.Name}' #{e.Properties.AutomationId.ValueOrDefault} {e.BoundingRectangle}"));
+                Assert.Fail($"Timed out waiting for the multi-select list; page 1 {page.BoundingRectangle}, clicked {At(150, 415)}, the window's elements: {children}; status '{app.ReadStatus().Text}'.{Environment.NewLine}{app.Diagnostics()}");
             }
 
             AutomationElement[] items = [];
@@ -220,7 +220,7 @@ public sealed class SampleTests
 
         // A click on the page away from the fields ends the edit; the list opened again shows the field's value.
         Click(At(450, 470));
-        Assert.True(SampleApp.Poll(() => app.Viewer.FindFirstDescendant(cf => cf.ByControlType(ControlType.List).And(cf.ByName("Form field"))) is null), "the list closed");
+        Assert.True(SampleApp.Poll(() => app.Window.FindFirstDescendant(cf => cf.ByControlType(ControlType.List)) is null), "the list closed");
         options = OpenList();
         Assert.True(SampleApp.Poll(() => Selected(options) is [false, false, true]), "the field holds Blue");
     }
