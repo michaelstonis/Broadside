@@ -164,7 +164,7 @@
     "Broadside.Benchmarks.EncryptedDocumentBenchmarks.OpenAndDecryptContent(File: \"encrypted-aes-gcm.pdf\")": 45560,
     "Broadside.Benchmarks.EncryptedDocumentBenchmarks.OpenAndDecryptContent(File: \"encrypted-mac.pdf\")": 121216,
     "Broadside.Benchmarks.EncryptedDocumentBenchmarks.OpenAndDecryptContent(File: \"encrypted-rc4-128.pdf\")": 20240,
-    "Broadside.Benchmarks.FirstPaintBenchmarks.FirstPaint(Page: \"text-standard14.pdf#0\")": 501072,
+    "Broadside.Benchmarks.FirstPaintBenchmarks.FirstPaint(Page: \"text-standard14.pdf#0\")": 501080,
     "Broadside.Benchmarks.FlateBenchmarks.Decode": 264,
     "Broadside.Benchmarks.FontMetricsBenchmarks.BuildMetrics": 146208,
     "Broadside.Benchmarks.FontMetricsBenchmarks.NameAndWidth": 0,
