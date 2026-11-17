@@ -52,7 +52,7 @@ The screenshots come from the browser tests (`BROADSIDE_BROWSER_SCREENSHOTS=<fol
 
 ## Publishing for static hosts
 
-`publish-static.sh [--no-aot] [--runtime-folder <name>] <folder>` writes the site and prints its file count, total size and largest file.
+`publish-static.sh [--no-aot | --hot-aot | --aot-profiler] [--runtime-folder <name>] <folder>` writes the site and prints its file count, total size and largest file.
 
 | | Files | Size | Largest file |
 |---|---|---|---|
@@ -62,10 +62,19 @@ The screenshots come from the browser tests (`BROADSIDE_BROWSER_SCREENSHOTS=<fol
 Sizes include the 17 MB of gallery documents, which a browser downloads only when one is picked. A host that compresses responses
 sends about a quarter of the rest.
 
-- **AOT of the rendering path.** `--hot-aot` (MSBuild: `-p:BroadsideAot=hot`) compiles only `Broadside`, `Broadside.Rendering` and
-  `System.Private.CoreLib` ahead of time, optimized for size, and interprets the rest (Blazor, the viewer shell, layout, fonts). Pages
-  draw at AOT speed and the runtime module is 16.6 MiB instead of 24.5 MB: still just over a 16 MB per-file limit. It builds in
-  `obj/hotaot` and `bin/hotaot`. See `docs/benchmarks/smooth-browser-viewer.md` (#365) for its frame times and what remains to fit.
+- **AOT of the session's methods.** `--hot-aot` (MSBuild: `-p:BroadsideAot=hot`) compiles ahead of time only the methods a recorded
+  viewing session ran, optimized for size, and interprets the rest. Pages draw at AOT speed and the runtime module is 11.1 MiB
+  instead of 24.5 MB, under a 16 MB per-file limit. It builds in `obj/hotaot` and `bin/hotaot`. See
+  `docs/benchmarks/smooth-browser-viewer.md` (#365, #547) for its frame times.
+  - The session is two Mono AOT profiles, `hot-aot.aotprofile` (the viewer rendering on the page's thread, every sample opened and
+    every page of every sample drawn) and `hot-aot-worker.aotprofile` (the page's side of the render worker). A method the profiles
+    do not list still runs, in the interpreter. The build keeps no shared module of generic instances (`WasmDedup=false`): with a
+    profile, that module breaks calls from compiled code to instances the session did not record.
+  - Re-record them when the rendering code changes a lot (methods renamed or added since run interpreted): publish the profiling
+    build, `publish-static.sh --aot-profiler artifacts/blazor-sample-profiler`, then run the explicit
+    `AotProfileTests.Record_the_hot_aot_profile` browser test with
+    `BROADSIDE_BLAZOR_APP=$PWD/artifacts/blazor-sample-profiler` and
+    `BROADSIDE_AOT_PROFILE_OUT=$PWD/samples/Broadside.Viewer.Blazor.Sample/hot-aot.aotprofile`. It writes both files.
 - **Per-file size limits.** `--no-aot` skips ahead-of-time compilation: the IL runs in the .NET interpreter (slower pages, a much
   smaller runtime), so no file comes near a 16 MB per-file limit. It builds in its own `obj/noaot` and `bin/noaot` folders, because a
   non-AOT build over AOT intermediates produces a runtime that fails at startup. The MSBuild switch is `-p:BroadsideAot=false`.
