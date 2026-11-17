@@ -13,33 +13,43 @@ public sealed record BenchmarkCase(string FullName, IReadOnlyList<double> Nanose
 /// The measurements of one gate run, read from a results directory with this layout (any number of shard folders may sit above
 /// each <c>round-&lt;n&gt;</c>, <c>confirm</c> or <c>allocations</c> folder; their files are merged):
 /// <code>
+/// machine.json              the runner's processor and AVX-512 state (BenchGate machine); decides the timing pass
 /// round-1/base/**/*.json    round-1/head/**/*.json    first interleaved pass, base commit and pull request (BenchmarkDotNet)
 /// round-2/base/**/*.json    round-2/head/**/*.json    second pass (and so on)
 /// confirm/base/**/*.json    confirm/head/**/*.json    rerun of the cases the rounds flagged as slower
+/// confirm-2/base/**/*.json  confirm-2/head/**/*.json  second rerun, when the job runs more than one (and so on)
 /// allocations/base/*.json   allocations/head/*.json   bytes per call (Broadside.Benchmarks --gate-allocations)
 /// </code>
 /// Under the round and confirm folders every <c>*.json</c> file is read as a BenchmarkDotNet full JSON report
-/// (<c>--exporters json</c>); a JSON file of another shape is ignored.
+/// (<c>--exporters json</c>); a JSON file of another shape is ignored. The rounds and reruns of a folder whose
+/// <c>machine.json</c> says AVX-512 was disabled form the <see cref="TimePass.Avx512Off"/> pass, compared on their own; all
+/// others form the <see cref="TimePass.Default"/> pass.
 /// </summary>
 public sealed class GateResults
 {
-    private GateResults(SortedDictionary<int, GatePass> rounds, GatePass confirmation, AllocationPass allocations)
+    private GateResults(SortedDictionary<TimePass, TimingResults> timings, AllocationPass allocations, SortedDictionary<string, MachineInfo> machines)
     {
-        Rounds = rounds;
-        Confirmation = confirmation;
+        Timings = timings;
         Allocations = allocations;
+        Machines = machines;
     }
 
-    /// <summary>The interleaved passes by round number.</summary>
-    public IReadOnlyDictionary<int, GatePass> Rounds { get; }
+    /// <summary>The timing passes that have at least one round or rerun, by pass.</summary>
+    public IReadOnlyDictionary<TimePass, TimingResults> Timings { get; }
 
-    /// <summary>The confirmation pass; empty when nothing was rerun.</summary>
-    public GatePass Confirmation { get; }
+    /// <summary>The interleaved rounds of the default pass by round number.</summary>
+    public IReadOnlyDictionary<int, GatePass> Rounds => Timings.TryGetValue(TimePass.Default, out TimingResults? timing) ? timing.Rounds : new SortedDictionary<int, GatePass>();
 
     /// <summary>The allocation measurements of both sides.</summary>
     public AllocationPass Allocations { get; }
 
-    /// <summary>The full names of every case the pull request side ran, in the rounds or in the allocation measurement.</summary>
+    /// <summary>The machines the jobs measured on, by results folder (relative to the results directory, <c>.</c> for the root).</summary>
+    public IReadOnlyDictionary<string, MachineInfo> Machines { get; }
+
+    /// <summary>
+    /// The full names of every case the pull request side ran, in the default pass's rounds or in the allocation measurement. The
+    /// AVX-512-off pass times the same cases and measures no allocations, so it adds none.
+    /// </summary>
     public IReadOnlyCollection<string> HeadCaseNames()
     {
         var names = new SortedSet<string>(Allocations.Head.Keys, StringComparer.Ordinal);
@@ -59,16 +69,27 @@ public sealed class GateResults
             throw new DirectoryNotFoundException($"Results directory '{root}' does not exist.");
         }
 
-        var rounds = new SortedDictionary<int, GatePass>();
-        var confirmation = new GatePass();
+        var timings = new SortedDictionary<TimePass, TimingResults>();
         var allocations = new AllocationPass();
+        var machines = new SortedDictionary<string, MachineInfo>(StringComparer.Ordinal);
+        string[] files = [.. Directory.EnumerateFiles(root, "*.json", SearchOption.AllDirectories).Order(StringComparer.Ordinal)];
+        foreach (string file in files.Where(static file => Path.GetFileName(file) == MachineInfo.FileName))
+        {
+            string folder = Path.GetRelativePath(root, Path.GetDirectoryName(file)!).Replace('\\', '/');
+            machines[folder] = MachineInfo.Load(file);
+        }
 
         // Read per runner (the folders above round-<n> or confirm) first: a base case counts only where the same runner also
         // measured the pull request's case, so a time ratio never mixes two machines.
         var perRunner = new Dictionary<(string Runner, GatePass Pass), GatePass>();
-        foreach (string file in Directory.EnumerateFiles(root, "*.json", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
+        foreach (string file in files)
         {
             string[] parts = Path.GetRelativePath(root, file).Replace('\\', '/').Split('/');
+            if (parts[^1] == MachineInfo.FileName)
+            {
+                continue;
+            }
+
             if (TryLocateAllocations(parts, out bool isHeadAllocation))
             {
                 foreach (string name in ReadNotGated(file))
@@ -90,9 +111,21 @@ public sealed class GateResults
                 continue;
             }
 
-            if (!TryLocate(parts, out GatePass? pass, out bool isHead, out string? runner, rounds, confirmation))
+            if (!TryLocate(parts, out string? folder, out int number, out bool isHead, out string? runner))
             {
                 continue;
+            }
+
+            TimePass timePass = machines.TryGetValue(runner.Length == 0 ? "." : runner, out MachineInfo? machine) ? machine.Pass : TimePass.Default;
+            if (!timings.TryGetValue(timePass, out TimingResults? timing))
+            {
+                timings[timePass] = timing = new TimingResults();
+            }
+
+            SortedDictionary<int, GatePass> passes = folder == "confirm" ? timing.Confirmations : timing.Rounds;
+            if (!passes.TryGetValue(number, out GatePass? pass))
+            {
+                passes[number] = pass = new GatePass();
             }
 
             if (!perRunner.TryGetValue((runner, pass), out GatePass? staged))
@@ -106,11 +139,12 @@ public sealed class GateResults
             }
         }
 
-        foreach (((_, GatePass pass), GatePass staged) in perRunner)
+        foreach (((string runner, GatePass pass), GatePass staged) in perRunner)
         {
             foreach ((string name, BenchmarkCase head) in staged.Head)
             {
                 pass.Head[name] = head;
+                pass.Runners[name] = runner.Length == 0 ? "." : runner;
                 if (staged.Base.TryGetValue(name, out BenchmarkCase? @base))
                 {
                     pass.Base[name] = @base;
@@ -118,7 +152,7 @@ public sealed class GateResults
             }
         }
 
-        return new GateResults(rounds, confirmation, allocations);
+        return new GateResults(timings, allocations, machines);
     }
 
     /// <summary>Reads one BenchmarkDotNet full JSON report; a JSON file of another shape yields nothing.</summary>
@@ -207,13 +241,13 @@ public sealed class GateResults
 
     private static bool TryLocate(
         string[] parts,
-        [NotNullWhen(true)] out GatePass? pass,
+        [NotNullWhen(true)] out string? folder,
+        out int number,
         out bool isHead,
-        [NotNullWhen(true)] out string? runner,
-        SortedDictionary<int, GatePass> rounds,
-        GatePass confirmation)
+        [NotNullWhen(true)] out string? runner)
     {
-        pass = null;
+        folder = null;
+        number = 0;
         isHead = false;
         runner = null;
         for (int i = parts.Length - 2; i >= 1; i--)
@@ -224,18 +258,18 @@ public sealed class GateResults
                 continue;
             }
 
-            string folder = parts[i - 1];
-            if (folder == "confirm")
+            string name = parts[i - 1];
+            if (name == "confirm")
             {
-                pass = confirmation;
+                (folder, number) = ("confirm", 1);
             }
-            else if (folder.StartsWith("round-", StringComparison.Ordinal)
-                && int.TryParse(folder.AsSpan("round-".Length), NumberStyles.None, CultureInfo.InvariantCulture, out int round))
+            else if (TryNumber(name, "confirm-", out int rerun))
             {
-                if (!rounds.TryGetValue(round, out pass))
-                {
-                    rounds[round] = pass = new GatePass();
-                }
+                (folder, number) = ("confirm", rerun);
+            }
+            else if (TryNumber(name, "round-", out int round))
+            {
+                (folder, number) = ("round", round);
             }
             else
             {
@@ -250,8 +284,25 @@ public sealed class GateResults
         return false;
     }
 
+    private static bool TryNumber(string folder, string prefix, out int number)
+    {
+        number = 0;
+        return folder.StartsWith(prefix, StringComparison.Ordinal)
+            && int.TryParse(folder.AsSpan(prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out number);
+    }
+
     private static string? String(JsonElement element, string name) =>
         element.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+}
+
+/// <summary>The rounds and reruns of one <see cref="TimePass"/>, over every runner that measured it.</summary>
+public sealed class TimingResults
+{
+    /// <summary>The interleaved rounds by round number.</summary>
+    public SortedDictionary<int, GatePass> Rounds { get; } = [];
+
+    /// <summary>The reruns of the cases the rounds flagged as slower, by number (<c>confirm</c> is 1, <c>confirm-2</c> is 2); empty when nothing was rerun.</summary>
+    public SortedDictionary<int, GatePass> Confirmations { get; } = [];
 }
 
 /// <summary>One timing pass: the base commit's and the pull request's cases, keyed by full name.</summary>
@@ -262,6 +313,9 @@ public sealed class GatePass
 
     /// <summary>The pull request's cases.</summary>
     public Dictionary<string, BenchmarkCase> Head { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>The results folder (the runner) each of the pull request's cases was read from, <c>.</c> for the root.</summary>
+    public Dictionary<string, string> Runners { get; } = new(StringComparer.Ordinal);
 }
 
 /// <summary>The allocation measurements: bytes per call by full name, one value per measuring process.</summary>

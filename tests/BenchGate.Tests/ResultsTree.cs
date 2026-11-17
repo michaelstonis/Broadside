@@ -65,9 +65,9 @@ internal sealed class ResultsTree : IDisposable
         File.WriteAllText(path, report.ToJsonString());
 
         // The allocation figure goes where `--gate-allocations` writes it: <runner>/allocations/<side>/<file>.json, one file per
-        // measuring process (here, per round). The confirmation pass measures time only.
+        // measuring process (here, per round). The confirmation passes measure time only.
         string[] parts = folder.Split('/');
-        if (parts[^2] != "confirm")
+        if (!parts[^2].StartsWith("confirm", StringComparison.Ordinal))
         {
             string runner = string.Join('/', parts[..^2]);
             AddAllocation(Path.Combine(runner, "allocations", parts[^1]), parts[^2], fullName, allocated);
@@ -106,6 +106,13 @@ internal sealed class ResultsTree : IDisposable
 
         names.Add(fullName);
         File.WriteAllText(path, document.ToJsonString());
+        return this;
+    }
+
+    /// <summary>Writes <c>&lt;folder&gt;/machine.json</c>, as <c>bench/run-gate.sh</c> does through <c>BenchGate machine</c>.</summary>
+    public ResultsTree AddMachine(string folder, MachineInfo machine)
+    {
+        machine.Save(Path.Combine(Root, folder, MachineInfo.FileName));
         return this;
     }
 

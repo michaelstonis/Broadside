@@ -10,8 +10,10 @@ namespace Broadside.Tools.BenchGate;
 /// BenchGate record   --results &lt;dir&gt; --out &lt;file&gt;
 /// BenchGate shard    --list &lt;file&gt; --count &lt;n&gt; --index &lt;i&gt; --out &lt;file&gt; [--baseline &lt;file&gt;] [--split &lt;method,...&gt;]
 /// BenchGate sizes    --baseline &lt;file&gt; --results &lt;file&gt; [--tolerance &lt;x&gt;] [--summary &lt;file&gt;] [--record &lt;file&gt;]
+/// BenchGate machine  --out &lt;file&gt; [--summary &lt;file&gt;] [--label &lt;text&gt;]
 /// </code>
-/// Exit codes: 0 passed, 1 a regression (compare and sizes only), 2 a bad command line or unreadable input.
+/// Exit codes: 0 passed, 1 a regression (compare and sizes only) or AVX-512 still on where it was disabled (machine), 2 a bad
+/// command line or unreadable input.
 /// </summary>
 internal static class Program
 {
@@ -39,6 +41,7 @@ internal static class Program
                 "record" => Record(options),
                 "shard" => Shard(options),
                 "sizes" => Sizes(options),
+                "machine" => Machine(options),
                 _ => Usage($"Unknown command '{args[0]}'."),
             };
         }
@@ -71,7 +74,8 @@ internal static class Program
         foreach (GateFinding finding in report.Failures)
         {
             // A GitHub annotation per regression, so it shows on the run page as well as in the summary.
-            Console.Out.WriteLine($"::error title=Benchmark regression::{finding.Benchmark}: {finding.Message}");
+            string title = finding.Pass == TimePass.Avx512Off ? "Benchmark regression with AVX-512 disabled" : "Benchmark regression";
+            Console.Out.WriteLine($"::error title={title}::{finding.Benchmark} ({finding.Label}): {finding.Message}");
         }
 
         Console.Out.WriteLine(markdown);
@@ -163,6 +167,32 @@ internal static class Program
         return report.Passed ? 0 : 1;
     }
 
+    private static int Machine(Dictionary<string, string> options)
+    {
+        if (!options.TryGetValue("--out", out string? output))
+        {
+            return Usage("machine needs --out.");
+        }
+
+        MachineInfo machine = MachineInfo.Detect();
+        machine.Save(output);
+        string hardware = machine.Avx512Hardware switch { true => "has AVX-512", false => "has no AVX-512", null => "may or may not have AVX-512" };
+        string line = $"{options.GetValueOrDefault("--label", "This job")} ran on {machine.Cpu}, which {hardware}; its timings ran with {machine.Avx512State()}.";
+        if (options.TryGetValue("--summary", out string? summary))
+        {
+            File.AppendAllText(summary, line + Environment.NewLine + Environment.NewLine);
+        }
+
+        Console.Out.WriteLine(line);
+        if (machine.Avx512Disabled && machine.Avx512Runtime)
+        {
+            Console.Out.WriteLine("::error title=Benchmark gate::AVX-512 was to be disabled for these timings, but .NET still uses it; the runtime ignored DOTNET_EnableAVX512F=0 and DOTNET_EnableAVX512=0.");
+            return 1;
+        }
+
+        return 0;
+    }
+
     private static GateOptions ReadOptions(Dictionary<string, string> options) => GateOptions.Default with
     {
         FailRatio = options.TryGetValue("--fail-ratio", out string? ratio)
@@ -203,6 +233,7 @@ internal static class Program
         writer.WriteLine("  BenchGate record   --results <dir> --out <file>");
         writer.WriteLine("  BenchGate shard    --list <file> --count <n> --index <i> --out <file> [--baseline <file>] [--split <method,...>]");
         writer.WriteLine("  BenchGate sizes    --baseline <file> --results <file> [--tolerance <x>] [--summary <file>] [--record <file>]");
-        writer.WriteLine("Results layout: <dir>/[<shard>/]{round-<n>,confirm,allocations}/{base,head}/**/*.json.");
+        writer.WriteLine("  BenchGate machine  --out <file> [--summary <file>] [--label <text>]");
+        writer.WriteLine("Results layout: <dir>/[<shard>/]{machine.json,{round-<n>,confirm,confirm-<n>,allocations}/{base,head}/**/*.json}.");
     }
 }

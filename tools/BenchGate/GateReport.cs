@@ -39,11 +39,26 @@ public enum FindingKind
 /// <param name="Message">One line for people.</param>
 /// <param name="Baseline">The baseline's bytes per operation, for allocation findings that have one.</param>
 /// <param name="Measured">The measured bytes per operation (the largest when runs disagree), for allocation findings that have one.</param>
-public sealed record GateFinding(string Benchmark, FindingKind Kind, string Message, long? Baseline = null, long? Measured = null)
+/// <param name="Pass">The timing pass a time finding comes from; null for allocation findings.</param>
+public sealed record GateFinding(string Benchmark, FindingKind Kind, string Message, long? Baseline = null, long? Measured = null, TimePass? Pass = null)
 {
     /// <summary>True when the finding fails the gate.</summary>
     public bool IsFailure => Kind is FindingKind.AllocationChanged or FindingKind.NotInBaseline or FindingKind.NotRun
         or FindingKind.NoAllocationFigure or FindingKind.Slower;
+
+    /// <summary>The finding's kind in words, naming the AVX-512-off pass (issue #539) for its time findings.</summary>
+    public string Label => (Kind switch
+    {
+        FindingKind.AllocationChanged => "allocation changed",
+        FindingKind.NotInBaseline => "not in the baseline",
+        FindingKind.NotRun => "did not run",
+        FindingKind.NoAllocationFigure => "no allocation figure",
+        FindingKind.Slower => "slower",
+        FindingKind.SlowerWithinTolerance => "slower, within tolerance",
+        FindingKind.BaselineStale => "baseline stale",
+        FindingKind.Faster => "faster",
+        _ => Kind.ToString(),
+    }) + (Pass == TimePass.Avx512Off ? " with AVX-512 disabled" : string.Empty);
 }
 
 /// <summary>One case's time comparison, for the full table in the summary.</summary>
@@ -52,20 +67,37 @@ public sealed record GateFinding(string Benchmark, FindingKind Kind, string Mess
 /// <param name="HeadMedian">Median of the pull request's iterations, ns per operation.</param>
 /// <param name="Ratio">Head over base.</param>
 /// <param name="RoundRatios">The same ratio per round.</param>
-/// <param name="ConfirmationRatio">The confirmation pass's ratio, when the case was rerun.</param>
-public sealed record TimeComparison(string Benchmark, double BaseMedian, double HeadMedian, double Ratio, IReadOnlyList<double> RoundRatios, double? ConfirmationRatio);
+/// <param name="ConfirmationRatios">The ratio of each rerun, when the case was rerun.</param>
+/// <param name="Pass">The timing pass: the runner's default instruction sets, or AVX-512 disabled.</param>
+/// <param name="Machine">The runner that measured the case, when its <c>machine.json</c> was found.</param>
+public sealed record TimeComparison(
+    string Benchmark,
+    double BaseMedian,
+    double HeadMedian,
+    double Ratio,
+    IReadOnlyList<double> RoundRatios,
+    IReadOnlyList<double> ConfirmationRatios,
+    TimePass Pass = TimePass.Default,
+    MachineInfo? Machine = null);
 
 /// <summary>The gate's verdict and its job summary.</summary>
 public sealed class GateReport
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
-    internal GateReport(IReadOnlyList<GateFinding> findings, IReadOnlyList<TimeComparison> times, int caseCount, int roundCount, string baselinePath)
+    internal GateReport(
+        IReadOnlyList<GateFinding> findings,
+        IReadOnlyList<TimeComparison> times,
+        int caseCount,
+        IReadOnlyDictionary<TimePass, int> roundCounts,
+        IReadOnlyDictionary<string, MachineInfo> machines,
+        string baselinePath)
     {
         Findings = findings;
         Times = times;
         CaseCount = caseCount;
-        RoundCount = roundCount;
+        RoundCounts = roundCounts;
+        Machines = machines;
         BaselinePath = baselinePath;
     }
 
@@ -81,8 +113,14 @@ public sealed class GateReport
     /// <summary>Cases the pull request side ran.</summary>
     public int CaseCount { get; }
 
-    /// <summary>Interleaved rounds read.</summary>
-    public int RoundCount { get; }
+    /// <summary>Interleaved rounds read in the default pass.</summary>
+    public int RoundCount => RoundCounts.GetValueOrDefault(TimePass.Default);
+
+    /// <summary>Interleaved rounds read, by timing pass.</summary>
+    public IReadOnlyDictionary<TimePass, int> RoundCounts { get; }
+
+    /// <summary>The machines the jobs measured on, by results folder (issue #539).</summary>
+    public IReadOnlyDictionary<string, MachineInfo> Machines { get; }
 
     /// <summary>The baseline file compared against.</summary>
     public string BaselinePath { get; }
@@ -98,9 +136,13 @@ public sealed class GateReport
         string against = baseName is null ? "the base commit" : $"the base commit `{baseName}`";
 
         // An allocation-only run (every pull request outside the hot paths, issue #389) reads no timing rounds.
-        string times = RoundCount == 0
+        int offRounds = RoundCounts.GetValueOrDefault(TimePass.Avx512Off);
+        string times = RoundCount == 0 && offRounds == 0
             ? "times were not compared in this run (they are on hot-path and `perf`-labelled pull requests, pull requests into `main` and nightly; `bench/baselines/gate/README.md`, \"When it runs\")."
-            : Invariant($"times with {against}, run on this runner in {RoundCount} interleaved round(s), slower cases rerun once to confirm.");
+            : Invariant($"times with {against}, run on the same runner in {RoundCount} interleaved round(s), slower cases rerun once to confirm")
+                + (offRounds == 0
+                    ? "."
+                    : Invariant($"; and again with AVX-512 disabled in {offRounds} round(s), slower cases rerun twice, so a register-pressure regression shows whatever processor the runners have."));
         text.AppendLine("## Benchmark gate").AppendLine();
         text.AppendLine(Invariant(
             $"{(Passed ? "**Passed**" : $"**Failed**: {failures.Count} regression(s)")} over {CaseCount} benchmark case(s). Allocations (bytes per call) are compared with `{BaselinePath}`, exactly; {times}"));
@@ -118,15 +160,20 @@ public sealed class GateReport
             AppendTable(text, notices);
         }
 
+        if (Machines.Count > 0)
+        {
+            AppendMachines(text);
+        }
+
         if (Times.Count > 0)
         {
             text.AppendLine(Invariant($"<details><summary>All {Times.Count} time comparisons</summary>")).AppendLine();
-            text.AppendLine("| Benchmark | Base | Pull request | Ratio | Rounds | Confirmation |");
-            text.AppendLine("|---|---:|---:|---:|---|---:|");
+            text.AppendLine("| Benchmark | Pass | Base | Pull request | Ratio | Rounds | Confirmation |");
+            text.AppendLine("|---|---|---:|---:|---:|---|---:|");
             foreach (TimeComparison time in Times)
             {
                 text.AppendLine(Invariant(
-                    $"| {Code(time.Benchmark)} | {FormatTime(time.BaseMedian)} | {FormatTime(time.HeadMedian)} | {time.Ratio:0.000} | {string.Join(", ", time.RoundRatios.Select(static ratio => ratio.ToString("0.000", CultureInfo.InvariantCulture)))} | {(time.ConfirmationRatio is double confirmation ? confirmation.ToString("0.000", CultureInfo.InvariantCulture) : "")} |"));
+                    $"| {Code(time.Benchmark)} | {PassName(time.Pass, time.Machine)} | {FormatTime(time.BaseMedian)} | {FormatTime(time.HeadMedian)} | {time.Ratio:0.000} | {Ratios(time.RoundRatios)} | {Ratios(time.ConfirmationRatios)} |"));
             }
 
             text.AppendLine().AppendLine("</details>").AppendLine();
@@ -178,24 +225,33 @@ public sealed class GateReport
         text.AppendLine("|---|---|---|");
         foreach (GateFinding finding in findings)
         {
-            text.AppendLine(Invariant($"| {Code(finding.Benchmark)} | {Describe(finding.Kind)} | {finding.Message.Replace("|", "\\|", StringComparison.Ordinal)} |"));
+            text.AppendLine(Invariant($"| {Code(finding.Benchmark)} | {finding.Label} | {finding.Message.Replace("|", "\\|", StringComparison.Ordinal)} |"));
         }
 
         text.AppendLine();
     }
 
-    private static string Describe(FindingKind kind) => kind switch
+    /// <summary>The runners table: every job's processor and what its timings used of AVX-512 (issue #539).</summary>
+    private void AppendMachines(StringBuilder text)
     {
-        FindingKind.AllocationChanged => "allocation changed",
-        FindingKind.NotInBaseline => "not in the baseline",
-        FindingKind.NotRun => "did not run",
-        FindingKind.NoAllocationFigure => "no allocation figure",
-        FindingKind.Slower => "slower",
-        FindingKind.SlowerWithinTolerance => "slower, within tolerance",
-        FindingKind.BaselineStale => "baseline stale",
-        FindingKind.Faster => "faster",
-        _ => kind.ToString(),
-    };
+        text.AppendLine(Invariant($"<details><summary>Runners: {Machines.Count} job(s), {Machines.Values.Count(static machine => machine.Avx512Hardware == true)} with AVX-512</summary>")).AppendLine();
+        text.AppendLine("| Results | Processor | AVX-512 in the processor | Timings ran with |");
+        text.AppendLine("|---|---|---|---|");
+        foreach ((string folder, MachineInfo machine) in Machines)
+        {
+            string hardware = machine.Avx512Hardware switch { true => "yes", false => "no", null => "unknown" };
+            text.AppendLine($"| `{folder}` | {machine.Cpu.Replace("|", "\\|", StringComparison.Ordinal)} | {hardware} | {machine.Avx512State()} |");
+        }
+
+        text.AppendLine().AppendLine("</details>").AppendLine();
+    }
+
+    private static string PassName(TimePass pass, MachineInfo? machine) => pass == TimePass.Avx512Off
+        ? "AVX-512 off"
+        : machine is null ? "default" : machine.Avx512Runtime ? "AVX-512 on" : "no AVX-512";
+
+    private static string Ratios(IReadOnlyList<double> ratios) =>
+        string.Join(", ", ratios.Select(static ratio => ratio.ToString("0.000", CultureInfo.InvariantCulture)));
 
     private static string Code(string name)
     {
