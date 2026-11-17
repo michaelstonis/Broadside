@@ -78,13 +78,29 @@ internal sealed partial class SampleApp : IDisposable
 
     public AutomationElement Viewer { get; }
 
+    /// <summary>A file of the repository's hand-written corpus (tests/Corpus), found above the test's output folder.</summary>
+    public static string CorpusFile(string name)
+    {
+        for (DirectoryInfo? directory = new(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
+        {
+            string candidate = Path.Combine(directory.FullName, "tests", "Corpus", name);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        throw new FileNotFoundException($"tests/Corpus/{name} is not above {AppContext.BaseDirectory}.");
+    }
+
     /// <summary>The documents the sample copies next to itself (its output's documents folder).</summary>
     public static string DocumentPath(string name) => Path.Combine(Path.GetDirectoryName(FindSample())!, "documents", name);
 
     /// <summary>Launches the sample on a document and waits until page 1 is drawn.</summary>
+    /// <param name="name">A document the sample carries, or a full path.</param>
     public static SampleApp Open(string name)
     {
-        var app = new SampleApp(DocumentPath(name));
+        var app = new SampleApp(Path.IsPathRooted(name) ? name : DocumentPath(name));
         try
         {
             app.WaitForState(state => state.PageCount > 0 && state.Activity == "Ready", "page 1 drawn");

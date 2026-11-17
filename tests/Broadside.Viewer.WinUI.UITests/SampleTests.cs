@@ -152,6 +152,61 @@ public sealed class SampleTests
         Assert.NotNull(heading);
     }
 
+    [Fact]
+    public void A_multi_select_list_box_opens_a_list_whose_mouse_clicks_toggle_options()
+    {
+        // #560: a click on the multi-select list box of the shared field set (acroform-filling.pdf, `colors`, Opt Red Green Blue, V Red,
+        // its widget at [50 370 250 460] on a Letter page) opens a native multi-select list. Each mouse click toggles an option and
+        // the list stays open; a click elsewhere writes the picks, and the list opened again shows what the field holds.
+        using SampleApp app = SampleApp.Open(SampleApp.CorpusFile("acroform-filling.pdf"));
+        WaitUntilStill(app);
+        AutomationElement page = SampleApp.WaitFor(() => app.Viewer.FindFirstDescendant(cf => cf.ByAutomationId("page-0")), "page 1's peer");
+        Point At(double x, double y)
+        {
+            Rectangle box = page.BoundingRectangle;
+            return new Point(box.X + (int)(box.Width * x / 612), box.Y + (int)(box.Height * (792 - y) / 792));
+        }
+
+        AutomationElement[] OpenList()
+        {
+            Click(At(150, 415));
+            AutomationElement list = SampleApp.WaitFor(
+                () => app.Viewer.FindFirstDescendant(cf => cf.ByControlType(ControlType.List).And(cf.ByName("Form field"))), "the multi-select list");
+            AutomationElement[] items = [];
+            Assert.True(SampleApp.Poll(() => (items = list.FindAllChildren(cf => cf.ByControlType(ControlType.ListItem))).Length == 3), "the list's three options");
+            Assert.Equal(["Red", "Green", "Blue"], items.Select(item => item.Name));
+            return items;
+        }
+
+        static bool[] Selected(AutomationElement[] items) => [.. items.Select(item => item.AsListBoxItem().IsSelected)];
+
+        AutomationElement[] options = OpenList();
+        Assert.Equal([true, false, false], Selected(options));
+
+        // Blue on (Red and Blue picked), then Red off: a pick that replaced the selection would end on Red.
+        Click(options[2].GetClickablePoint());
+        Assert.True(SampleApp.Poll(() => Selected(options) is [true, false, true]), "Blue toggled on beside Red");
+        Click(options[0].GetClickablePoint());
+        Assert.True(SampleApp.Poll(() => Selected(options) is [false, false, true]), "Red toggled off");
+
+        // A click on the page away from the fields ends the edit; the list opened again shows the field's value.
+        Click(At(450, 720));
+        Assert.True(SampleApp.Poll(() => app.Viewer.FindFirstDescendant(cf => cf.ByControlType(ControlType.List).And(cf.ByName("Form field"))) is null), "the list closed");
+        options = OpenList();
+        Assert.True(SampleApp.Poll(() => Selected(options) is [false, false, true]), "the field holds Blue");
+    }
+
+    // A click the way a hand makes one: move, press, release, with pauses between (see DragSlowly).
+    private static void Click(Point at)
+    {
+        Send(at, MouseEventFlags.MOUSEEVENTF_MOVE);
+        Thread.Sleep(100);
+        Send(at, MouseEventFlags.MOUSEEVENTF_MOVE | MouseEventFlags.MOUSEEVENTF_LEFTDOWN);
+        Thread.Sleep(60);
+        Send(at, MouseEventFlags.MOUSEEVENTF_MOVE | MouseEventFlags.MOUSEEVENTF_LEFTUP);
+        Thread.Sleep(200);
+    }
+
     private static int Characters(string copied) =>
         int.TryParse(copied.Split(' ')[1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int n) ? n : 0;
 
