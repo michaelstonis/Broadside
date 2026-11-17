@@ -22,57 +22,15 @@ public sealed partial class Table
     [ThreadStatic]
     private static int _depth;
 
-    /// <summary>The cells that head <paramref name="cell"/> (for the <c>Headers</c> attribute of tagged output), top to bottom then left to right.</summary>
-    /// <remarks>ISO 32000-2 §14.8.5.7, Table 384: column headers above the cell in its columns, row headers left of it in its rows.</remarks>
-    internal IReadOnlyList<TableCell> HeadersOf(TableCell cell)
-    {
-        Placement[] cells = Place(-1);
-        int index = Array.FindIndex(cells, placement => ReferenceEquals(placement.Cell, cell));
-        if (index < 0)
-        {
-            return [];
-        }
+    /// <summary>
+    /// Places the cells once and indexes the header cells by the columns and rows they cover, so tagging each cell's scope and headers
+    /// costs the headers it finds rather than a pass over the whole table.
+    /// </summary>
+    internal HeaderIndex IndexHeaders() => new(this);
 
-        Placement target = cells[index];
-        var headers = new List<TableCell>();
-        foreach (Placement header in cells)
-        {
-            TableHeaderScope scope = ScopeOf(header);
-            bool heads = scope switch
-            {
-                TableHeaderScope.Column => ColumnHeads(header, target),
-                TableHeaderScope.Row => RowHeads(header, target),
-                TableHeaderScope.Both => ColumnHeads(header, target) || RowHeads(header, target),
-                _ => false,
-            };
-            if (heads && !ReferenceEquals(header.Cell, cell))
-            {
-                headers.Add(header.Cell);
-            }
-        }
-
-        return headers;
-
-        static bool ColumnHeads(Placement header, Placement target) =>
-            header.Row < target.Row && header.Column < target.Column + target.Cell.ColumnSpan && target.Column < header.Column + header.Cell.ColumnSpan;
-
-        static bool RowHeads(Placement header, Placement target) =>
-            header.Column < target.Column && header.Row < target.Row + target.Cell.RowSpan && target.Row < header.Row + header.Cell.RowSpan;
-    }
-
-    /// <summary>The scope of <paramref name="cell"/> as tagged: its own, or <see cref="TableHeaderScope.Column"/> in a header row.</summary>
-    internal TableHeaderScope ScopeOf(TableCell cell)
-    {
-        foreach (Placement placement in Place(-1))
-        {
-            if (ReferenceEquals(placement.Cell, cell))
-            {
-                return ScopeOf(placement);
-            }
-        }
-
-        return cell.Scope;
-    }
+    /// <summary>The scope of <paramref name="placement"/> as tagged: its own, or <see cref="TableHeaderScope.Column"/> in a header row.</summary>
+    private TableHeaderScope ScopeOf(Placement placement) =>
+        placement.Cell.Scope == TableHeaderScope.None && placement.Row < HeaderRows ? TableHeaderScope.Column : placement.Cell.Scope;
 
     internal override void Validate(int index)
     {
@@ -178,9 +136,6 @@ public sealed partial class Table
 
         return new CellResult(region.PageCount, region.Top - region.CursorY, region.OverflowedFirstPage);
     }
-
-    private TableHeaderScope ScopeOf(Placement placement) =>
-        placement.Cell.Scope == TableHeaderScope.None && placement.Row < HeaderRows ? TableHeaderScope.Column : placement.Cell.Scope;
 
     private CellPadding PaddingOf(TableCell cell) => cell.Padding ?? Style.Padding;
 
@@ -754,6 +709,108 @@ public sealed partial class Table
     private sealed record Grid(double[] Widths, double[] Offsets, double[] Heights, List<Placement>[] RowCells, int[] GroupEnd)
     {
         public double Height(int first, int end) => Span(Heights, first, end - first);
+    }
+
+    /// <summary>
+    /// The table's cells placed once, with its header cells indexed by the columns and rows they cover, for tagging each cell's scope
+    /// and <c>Headers</c>: a lookup costs the header cells it visits, so tagging a table is linear in its cells rather than quadratic.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §14.8.5.7, Table 384: column headers above the cell in its columns, row headers left of it in its rows.</remarks>
+    internal sealed class HeaderIndex
+    {
+        private readonly Table _table;
+        private readonly Placement[] _cells;
+        private readonly Dictionary<TableCell, int> _positions = new(ReferenceEqualityComparer.Instance);
+        private readonly List<int>?[] _columnHeaders;
+        private readonly List<int>?[] _rowHeaders;
+
+        internal HeaderIndex(Table table)
+        {
+            Placement[] cells = table.Place(-1);
+            _table = table;
+            _cells = cells;
+            _columnHeaders = new List<int>?[table.Columns.Count];
+            _rowHeaders = new List<int>?[table._rows.Count];
+            for (int index = 0; index < cells.Length; index++)
+            {
+                Placement placement = cells[index];
+                _positions.TryAdd(placement.Cell, index);
+                TableHeaderScope scope = table.ScopeOf(placement);
+                if (scope is TableHeaderScope.Column or TableHeaderScope.Both)
+                {
+                    for (int column = placement.Column; column < placement.Column + placement.Cell.ColumnSpan; column++)
+                    {
+                        (_columnHeaders[column] ??= []).Add(index);
+                    }
+                }
+
+                if (scope is TableHeaderScope.Row or TableHeaderScope.Both)
+                {
+                    for (int row = placement.Row; row < placement.Row + placement.Cell.RowSpan; row++)
+                    {
+                        (_rowHeaders[row] ??= []).Add(index);
+                    }
+                }
+            }
+        }
+
+        /// <summary>The scope of <paramref name="cell"/> as tagged: its own, or <see cref="TableHeaderScope.Column"/> in a header row.</summary>
+        public TableHeaderScope ScopeOf(TableCell cell) =>
+            _positions.TryGetValue(cell, out int index) ? _table.ScopeOf(_cells[index]) : cell.Scope;
+
+        /// <summary>The cells that head <paramref name="cell"/> (for the <c>Headers</c> attribute of tagged output), top to bottom then left to right.</summary>
+        public IReadOnlyList<TableCell> HeadersOf(TableCell cell)
+        {
+            if (!_positions.TryGetValue(cell, out int position))
+            {
+                return [];
+            }
+
+            Placement target = _cells[position];
+            List<int>? found = null;
+            for (int column = target.Column; column < target.Column + target.Cell.ColumnSpan; column++)
+            {
+                // Indices ascend in placement order, so rows do too: the column's headers above the cell come first.
+                foreach (int index in (IEnumerable<int>?)_columnHeaders[column] ?? [])
+                {
+                    if (_cells[index].Row >= target.Row)
+                    {
+                        break;
+                    }
+
+                    (found ??= []).Add(index);
+                }
+            }
+
+            for (int row = target.Row; row < target.Row + target.Cell.RowSpan; row++)
+            {
+                foreach (int index in (IEnumerable<int>?)_rowHeaders[row] ?? [])
+                {
+                    if (_cells[index].Column < target.Column)
+                    {
+                        (found ??= []).Add(index);
+                    }
+                }
+            }
+
+            if (found is null)
+            {
+                return [];
+            }
+
+            // A header spanning several of the cell's columns or rows, or heading it both ways, was found more than once.
+            found.Sort();
+            var headers = new List<TableCell>(found.Count);
+            for (int index = 0; index < found.Count; index++)
+            {
+                if ((index == 0 || found[index] != found[index - 1]) && !ReferenceEquals(_cells[found[index]].Cell, cell))
+                {
+                    headers.Add(_cells[found[index]].Cell);
+                }
+            }
+
+            return headers;
+        }
     }
 
     /// <summary>The table's progress on the current page.</summary>

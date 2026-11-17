@@ -95,6 +95,83 @@ public sealed class TaggingFlowTests
     }
 
     [Fact]
+    public void Each_cells_scope_and_headers_match_the_definition_on_a_table_with_spans_and_every_scope()
+    {
+        using PdfDocument document = NewDocument();
+        var text = new ParagraphStyle(document.GetStandard14Font(Standard14Font.Helvetica), 10);
+        var table = new Table(ColumnWidth.Auto, ColumnWidth.Auto, ColumnWidth.Auto, ColumnWidth.Auto) { HeaderRows = 2 };
+        table.AddRow(new TableCell("Corner", text) { Scope = TableHeaderScope.Both, RowSpan = 2 }, new TableCell("A", text) { ColumnSpan = 2 }, new TableCell("B", text));
+        table.AddRow(new TableCell("A1", text), new TableCell("A2", text), new TableCell("B1", text) { Scope = TableHeaderScope.Row });
+        for (int row = 0; row < 12; row += 2)
+        {
+            table.AddRow(
+                new TableCell($"R{row}", text) { RowSpan = 2, Scope = TableHeaderScope.Row },
+                new TableCell($"{row}a", text),
+                new TableCell($"{row}b", text) { Scope = row % 4 == 0 ? TableHeaderScope.Column : TableHeaderScope.None },
+                new TableCell($"{row}c", text) { Scope = row % 6 == 0 ? TableHeaderScope.Both : TableHeaderScope.None });
+            table.AddRow(new TableCell($"{row + 1}ab", text) { ColumnSpan = 2 }, new TableCell($"{row + 1}c", text) { Scope = TableHeaderScope.Row });
+        }
+
+        Table.HeaderIndex index = table.IndexHeaders();
+
+        List<(TableCell Cell, int Row, int Column)> placed = Placed(table);
+        foreach ((TableCell cell, int row, int column) in placed)
+        {
+            TableHeaderScope scope = cell.Scope == TableHeaderScope.None && row < table.HeaderRows ? TableHeaderScope.Column : cell.Scope;
+            Assert.Equal(scope, index.ScopeOf(cell));
+
+            // §14.8.5.7, Table 384: column headers above the cell in its columns, row headers left of it in its rows, in placement order.
+            TableCell[] expected = [.. placed.Where(header =>
+            {
+                TableHeaderScope headerScope = header.Cell.Scope == TableHeaderScope.None && header.Row < table.HeaderRows ? TableHeaderScope.Column : header.Cell.Scope;
+                bool heads = header.Row < row && header.Column < column + cell.ColumnSpan && column < header.Column + header.Cell.ColumnSpan;
+                bool leads = header.Column < column && header.Row < row + cell.RowSpan && row < header.Row + header.Cell.RowSpan;
+                return !ReferenceEquals(header.Cell, cell) && headerScope switch
+                {
+                    TableHeaderScope.Column => heads,
+                    TableHeaderScope.Row => leads,
+                    TableHeaderScope.Both => heads || leads,
+                    _ => false,
+                };
+            }).Select(header => header.Cell)];
+            Assert.Equal(expected, index.HeadersOf(cell));
+        }
+
+        Assert.Equal(TableHeaderScope.Row, index.ScopeOf(new TableCell("elsewhere", text) { Scope = TableHeaderScope.Row }));
+        Assert.Empty(index.HeadersOf(new TableCell("elsewhere", text)));
+
+        static List<(TableCell Cell, int Row, int Column)> Placed(Table table)
+        {
+            var occupied = new HashSet<(int Row, int Column)>();
+            var placed = new List<(TableCell, int, int)>();
+            for (int row = 0; row < table.Rows.Count; row++)
+            {
+                int column = 0;
+                foreach (TableCell cell in table.Rows[row].Cells)
+                {
+                    while (occupied.Contains((row, column)))
+                    {
+                        column++;
+                    }
+
+                    for (int spanned = row; spanned < row + cell.RowSpan; spanned++)
+                    {
+                        for (int across = column; across < column + cell.ColumnSpan; across++)
+                        {
+                            occupied.Add((spanned, across));
+                        }
+                    }
+
+                    placed.Add((cell, row, column));
+                    column += cell.ColumnSpan;
+                }
+            }
+
+            return placed;
+        }
+    }
+
+    [Fact]
     public void Headers_footers_backgrounds_rules_repeated_headers_and_underlines_are_artifacts_and_everything_else_is_tagged()
     {
         using PdfDocument document = NewDocument();
