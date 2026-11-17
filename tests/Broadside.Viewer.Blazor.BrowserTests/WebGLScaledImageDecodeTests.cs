@@ -1,8 +1,8 @@
 using System.Globalization;
 using Broadside.Filters;
+using Broadside.GoldenImages;
 using Broadside.Graphics;
 using Broadside.Images;
-using Broadside.GoldenImages;
 using Broadside.TestSupport;
 using Microsoft.Playwright;
 
