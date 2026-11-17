@@ -148,6 +148,25 @@ public sealed class StructureWritingTests
     }
 
     [Fact]
+    public void Allocated_mcids_pass_those_claimed_only_through_k_and_stay_unique_over_many_allocations()
+    {
+        using PdfDocument document = PdfDocument.Create();
+        PdfPage page = document.Pages[0];
+        PdfStructureTreeRoot root = document.CreateStructureTree();
+        PdfStructureElement body = root.AddElement(new PdfStructureType("Document", PdfStructureNamespace.Pdf20));
+        PdfStructureElement claimed = body.AddElement(new PdfStructureType("P", PdfStructureNamespace.Pdf20));
+        PdfStructureElement paragraph = body.AddElement(new PdfStructureType("P", PdfStructureNamespace.Pdf20));
+
+        // As in a damaged file: K claims MCID 3 of the page, and the parent tree does not list it.
+        claimed.Dictionary[new CosName("Pg")] = page.Reference!;
+        claimed.Dictionary[new CosName("K")] = new CosInteger(3);
+        int[] allocated = [.. Enumerable.Range(0, 2_000).Select(_ => paragraph.AddMarkedContent(page).Mcid)];
+
+        Assert.Equal(Enumerable.Range(4, 2_000), allocated);
+        Assert.Same(paragraph.Dictionary, root.FindElement(page, 2_003)!.Dictionary);
+    }
+
+    [Fact]
     public void An_element_removed_as_an_object_is_gone_from_the_next_lookup()
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Bytes("text-tagged-spanning-image.pdf"));

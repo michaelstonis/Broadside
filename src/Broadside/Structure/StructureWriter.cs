@@ -214,6 +214,7 @@ internal static class StructureWriter
         }
 
         parents[id] = elementReference;
+        context.AdvanceMcidFloor(streamKey, id);
 
         CosDictionary? mcr = null;
         CosObject? ownPage = element.Dictionary.TryGetValue(StructureNames.Pg, out CosObject? pg) ? pg : null;
@@ -499,19 +500,8 @@ internal static class StructureWriter
     }
 
     /// <summary>The next MCID of a content stream: past every MCID its parent-tree array and the elements' <c>K</c> entries use.</summary>
-    private static int NextMcid(StructureContext context, CosArray parents, CosObject streamKey)
-    {
-        int next = parents.Count;
-        if (context.Walk.MarkedContent(streamKey) is { } owned)
-        {
-            foreach (int used in owned.Keys)
-            {
-                next = Math.Max(next, used + 1);
-            }
-        }
-
-        return next;
-    }
+    private static int NextMcid(StructureContext context, CosArray parents, CosObject streamKey) =>
+        Math.Max(parents.Count, context.McidFloor(streamKey));
 
     private static void UnlinkMarkedContent(StructureContext context, PdfNumberTree tree, CosDictionary element, PdfMarkedContentReference content)
     {
