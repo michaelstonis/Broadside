@@ -63,6 +63,15 @@ internal sealed partial class PdfViewAutomationPeer : FrameworkElementAutomation
         return right > left && bottom > top ? new Rect(left, top, right - left, bottom - top) : new Rect(view.X + (bounds.X * scale), view.Y + (bounds.Y * scale), 0, 0);
     }
 
+    /// <summary>The form-field editor over a widget opened or closed: the view's children changed.</summary>
+    internal void OnEditorChanged()
+    {
+        if (ListenerExists(AutomationEvents.StructureChanged))
+        {
+            RaiseStructureChangedEvent(AutomationStructureChangeType.ChildrenInvalidated, this);
+        }
+    }
+
     /// <summary>Raises what UI Automation clients need to hear about a change of the bridge.</summary>
     internal void OnAccessibilityChanged(AccessibilityChange change)
     {

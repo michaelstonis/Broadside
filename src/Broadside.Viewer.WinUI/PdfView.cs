@@ -479,6 +479,7 @@ public sealed partial class PdfView : UserControl, IDisposable
         {
             _editorLayer.Children.Remove(_editorView);
             _editorView = null;
+            _peer?.OnEditorChanged();
         }
 
         if (editor is null)
@@ -511,7 +512,19 @@ public sealed partial class PdfView : UserControl, IDisposable
         if (view.Visibility != Visibility.Visible)
         {
             view.Visibility = Visibility.Visible;
-            view.Focus(FocusState.Programmatic);
+            _peer?.OnEditorChanged();
+
+            // An editor made visible this tick has no layout yet and may refuse focus: take it once layout has run.
+            if (!view.Focus(FocusState.Programmatic))
+            {
+                DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+                {
+                    if (ReferenceEquals(_editorView, view))
+                    {
+                        view.Focus(FocusState.Programmatic);
+                    }
+                });
+            }
         }
     }
 
