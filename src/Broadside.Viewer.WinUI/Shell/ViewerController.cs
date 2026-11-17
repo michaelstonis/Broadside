@@ -55,6 +55,7 @@ internal sealed class ViewerController : IDisposable
     private InputModel? _input;
     private TextSelection? _selection;
     private AnnotationLayer? _annotations;
+    private FormFilling? _filling;
     private AccessibilityBridge? _bridge;
     private DocumentSearch? _search;
     private ColorFilter? _colorFilter;
@@ -127,6 +128,9 @@ internal sealed class ViewerController : IDisposable
     public TextSelection? Selection => _selection;
 
     public AnnotationLayer? Annotations => _annotations;
+
+    /// <summary>The form filling of the open document (#218): Tab order, one commit per edit through the form API.</summary>
+    public FormFilling? Forms => _filling;
 
     public AccessibilityBridge? Bridge => _bridge;
 
@@ -225,6 +229,8 @@ internal sealed class ViewerController : IDisposable
         _annotations = new AnnotationLayer(session, _scheduler);
         _annotations.ActionRequested += OnActionRequested;
         _annotations.Changed += OnAnnotationsChanged;
+        _filling = new FormFilling(_annotations);
+        _filling.Changed += OnFillingChanged;
         _bridge = new AccessibilityBridge(session, _annotations) { Viewer = _zoom, Observer = OnAccessibilityChange };
         _annotations.Accessibility = _bridge;
         SetState(_state with { IsLoading = false, PageCount = session.PageCount, IsRendering = true });
@@ -719,30 +725,58 @@ internal sealed class ViewerController : IDisposable
 
     // ---- Form fields ----
 
-    /// <summary>Commits the editor's text to the focused text field (or an editable combo box's value).</summary>
-    public bool CommitFieldText(string? text)
-    {
-        if (_annotations is null || _editor is null)
-        {
-            return false;
-        }
+    // The native editor over the widget is only the input surface: the form filling (#218) holds what is typed, cuts it at MaxLen
+    // and to one line, picks options, and writes the field once through the form API when the edit ends (#543), so filling a field
+    // here saves the same file as filling it through the API or in any other shell.
 
-        bool done = _editor.Kind == FieldEditorKind.Text ? _annotations.SetFieldText(text) : _annotations.SetFieldChoice(text);
+    /// <summary>The native editor's text changed (typing, an input method, a paste): the form filling holds it until the edit ends.</summary>
+    public bool EditorInput(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return _filling is { } filling && _editor is { } editor && filling.Target == editor.Target && filling.SetText(text);
+    }
+
+    /// <summary>
+    /// Ends the edit of the editor's field (focus loss, Enter): the form filling writes it once through the form API when it differs
+    /// from the field's value, which regenerates the field's appearance and redraws only its overlay tiles.
+    /// </summary>
+    public bool CommitFieldEdit()
+    {
+        bool done = _filling?.Commit() ?? false;
         Wake();
         return done;
     }
 
-    /// <summary>Selects option <paramref name="index"/> of the focused choice field.</summary>
-    public bool CommitFieldChoice(int index)
+    /// <summary>Abandons the editor's edit (Escape): the field keeps its value.</summary>
+    public bool CancelFieldEdit()
     {
-        if (_annotations is null || _editor is not { Kind: FieldEditorKind.Choice })
+        bool done = _filling?.Cancel() ?? false;
+        Wake();
+        return done;
+    }
+
+    /// <summary>Sets the editor's text and ends the edit (the text a native editor holds when it closes).</summary>
+    public bool CommitFieldText(string? text)
+    {
+        if (_filling is null || _editor is null || _filling.Target != _editor.Target)
         {
             return false;
         }
 
-        bool done = _annotations.SetFieldSelection([index]);
-        Wake();
-        return done;
+        _filling.SetText(text ?? string.Empty);
+        return CommitFieldEdit();
+    }
+
+    /// <summary>Picks option <paramref name="index"/> of the editor's choice field and ends the edit.</summary>
+    public bool CommitFieldChoice(int index)
+    {
+        if (_filling is null || _editor is not { Kind: FieldEditorKind.Choice } editor || _filling.Target != editor.Target)
+        {
+            return false;
+        }
+
+        _filling.SetSelectedOptions([index]);
+        return CommitFieldEdit();
     }
 
     /// <summary>Closes the editor (focus leaves the field).</summary>
@@ -1015,7 +1049,10 @@ internal sealed class ViewerController : IDisposable
         Wake();
     }
 
-    private void OnAnnotationsChanged(object? sender, EventArgs e)
+    private void OnAnnotationsChanged(object? sender, EventArgs e) => Wake();
+
+    // The form filling follows the layer's focus and raises Changed after it: the editor opens, changes field or closes from its state.
+    private void OnFillingChanged(object? sender, EventArgs e)
     {
         UpdateEditor();
         Wake();
@@ -1023,25 +1060,23 @@ internal sealed class ViewerController : IDisposable
 
     private void UpdateEditor()
     {
-        FieldEditor? editor = null;
-        if (_annotations?.Focused is { } target)
+        // What the form filling edits decides the editor: read-only fields, buttons and signatures take focus but open none.
+        FieldEditor? editor = _filling switch
         {
-            editor = _annotations.FocusedField switch
-            {
-                PdfTextField { IsReadOnly: false } text => new FieldEditor(
-                    target, FieldEditorKind.Text, text.Value ?? string.Empty, text.IsMultiline, text.IsPassword, text.MaxLength, [], -1),
-                PdfChoiceField { IsReadOnly: false } choice => new FieldEditor(
-                    target,
-                    FieldEditorKind.Choice,
-                    choice.Values.Count > 0 ? choice.Values[0] : string.Empty,
-                    false,
-                    false,
-                    null,
-                    [.. choice.Options.Select(option => option.DisplayText)],
-                    choice.SelectedIndices.Count > 0 ? choice.SelectedIndices[0] : -1),
-                _ => null,
-            };
-        }
+            { Target: { } target, IsReadOnly: false, Kind: FieldEditKind.Text, Field: PdfTextField text } filling => new FieldEditor(
+                target, FieldEditorKind.Text, filling.Text, text.IsMultiline, text.IsPassword, filling.MaxLength, [], -1),
+            { Target: { } target, IsReadOnly: false, Kind: FieldEditKind.Choice, Field: PdfChoiceField choice } filling => new FieldEditor(
+                target,
+                FieldEditorKind.Choice,
+                filling.Text,
+                false,
+                false,
+                null,
+                [.. choice.Options.Select(option => option.DisplayText)],
+                filling.SelectedOptions.Count > 0 ? filling.SelectedOptions[0] : -1,
+                IsEditable: choice is PdfComboBoxField { IsEditable: true }),
+            _ => null,
+        };
 
         // The same field keeps its editor (a committed value does not reopen it).
         if (editor?.Target == _editor?.Target && (editor is null) == (_editor is null))
@@ -1344,13 +1379,28 @@ internal sealed class ViewerController : IDisposable
         return _clicks;
     }
 
+    private static InputKey FieldKey(string key) => key switch
+    {
+        " " => InputKey.Space,
+        "Enter" => InputKey.Enter,
+        "ArrowUp" => InputKey.ArrowUp,
+        "ArrowDown" => InputKey.ArrowDown,
+        "Home" => InputKey.Home,
+        "End" => InputKey.End,
+        _ => InputKey.None,
+    };
+
     private bool HandleKey(string key, bool shift, bool command, InputModifiers modifiers)
     {
         switch (key)
         {
             case "Tab":
+                // The form filling commits the field's edit and moves on in each page's Tabs order (#218).
                 _keyboardFocus = true;
-                return shift ? _annotations!.FocusPrevious() : _annotations!.FocusNext();
+                return _filling!.KeyDown(InputKey.Tab, modifiers);
+            case " " or "Enter" or "ArrowUp" or "ArrowDown" or "Home" or "End" when !command && _filling!.Kind is FieldEditKind.Button or FieldEditKind.Choice
+                && _filling.KeyDown(FieldKey(key), modifiers):
+                return true;
             case "Enter" when _annotations!.Focused is { } focused:
                 _annotations.Activate(focused);
                 return true;
@@ -1523,6 +1573,8 @@ internal sealed class ViewerController : IDisposable
             _annotations.Changed -= OnAnnotationsChanged;
         }
 
+        _filling?.Changed -= OnFillingChanged;
+        _filling = null;
         _annotations = null;
         _bridge = null;
         if (_search is not null)

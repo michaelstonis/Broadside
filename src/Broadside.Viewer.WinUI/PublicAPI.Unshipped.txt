@@ -55,3 +55,4 @@ Broadside.Viewer.WinUI.PdfViewStateChangedEventArgs.State.get -> Broadside.Viewe
 static readonly Broadside.Viewer.WinUI.PdfView.AllowAnnotationEditingProperty -> Microsoft.UI.Xaml.DependencyProperty!
 static readonly Broadside.Viewer.WinUI.PdfView.ShowAnnotationsProperty -> Microsoft.UI.Xaml.DependencyProperty!
 static readonly Broadside.Viewer.WinUI.PdfView.SourceProperty -> Microsoft.UI.Xaml.DependencyProperty!
+Broadside.Viewer.WinUI.PdfView.Forms.get -> Broadside.Viewer.FormFilling?

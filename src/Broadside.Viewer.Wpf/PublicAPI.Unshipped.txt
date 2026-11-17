@@ -58,3 +58,4 @@ static readonly Broadside.Viewer.Wpf.PdfView.LayoutOptionsProperty -> System.Win
 static readonly Broadside.Viewer.Wpf.PdfView.SessionProperty -> System.Windows.DependencyProperty!
 static readonly Broadside.Viewer.Wpf.PdfView.ShowAnnotationsProperty -> System.Windows.DependencyProperty!
 static readonly Broadside.Viewer.Wpf.PdfView.SourceProperty -> System.Windows.DependencyProperty!
+Broadside.Viewer.Wpf.PdfView.Forms.get -> Broadside.Viewer.FormFilling?

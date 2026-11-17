@@ -322,6 +322,78 @@ public sealed class ViewerTests
     });
 
     [Fact]
+    public Task The_shared_field_set_fills_through_native_editors_as_the_form_api_does() => Ui.RunAsync(async () =>
+    {
+        // #543: the text boxes and combo boxes over the widgets only take input; the core form filling cuts the text at MaxLen and
+        // per comb, refuses the read-only field and writes each field once, so the form ends as the form API leaves it.
+        using ViewerHarness viewer = await ViewerHarness.OpenAsync(ViewerHarness.CorpusFile(FormFillingScenario.FileName));
+        AnnotationLayer layer = viewer.Viewer.Annotations!;
+        PdfAcroForm form = layer.Session.Document.AcroForm!;
+        Assert.Same(layer, viewer.Viewer.Forms!.Layer);
+        IEnumerable<(AnnotationTarget, PdfAnnotation)> Targets() =>
+            Enumerable.Range(0, layer.GetCount(0)).Select(i => (new AnnotationTarget(0, i), layer.GetAnnotation(new AnnotationTarget(0, i))));
+
+        async Task<T?> ClickAsync<T>(string field, int widget = 0)
+            where T : Control
+        {
+            AnnotationTarget target = FormFillingScenario.FindWidget(form, field, Targets(), widget);
+            LayoutRectangle box = layer.GetScreenRectangle(target, viewer.Layout, viewer.Viewport);
+            viewer.Click(new Point((box.X + (box.Width / 2)) / viewer.Scaling, (box.Y + (box.Height / 2)) / viewer.Scaling));
+            await viewer.SettleAsync();
+            Assert.Equal(target, layer.Focused);
+            return viewer.Viewer.EditorView is null ? null : Assert.IsType<T>(viewer.Viewer.EditorView);
+        }
+
+        async Task TypeAsync(string field, string text)
+        {
+            TextBox editor = (await ClickAsync<TextBox>(field))!;
+            editor.Text = text;
+            viewer.Key(Key.Enter);
+            await viewer.SettleAsync();
+            Assert.Null(viewer.Viewer.EditorView);
+        }
+
+        await TypeAsync("name", FormFillingScenario.NameTyped);
+        await TypeAsync("code", FormFillingScenario.CodeTyped);
+        Assert.Null(await ClickAsync<Control>("ref"));
+        Assert.Null(await ClickAsync<Control>("agree"));
+        Assert.Null(await ClickAsync<Control>("size", FormFillingScenario.SizeWidget));
+
+        ComboBox fruit = (await ClickAsync<ComboBox>("fruit"))!;
+        fruit.SelectedIndex = FormFillingScenario.Fruit;
+        ComboBox country = (await ClickAsync<ComboBox>("country"))!;
+        country.SelectedIndex = FormFillingScenario.Country;
+        ComboBox city = (await ClickAsync<ComboBox>("city"))!;
+        Assert.True(city.IsEditable);
+        Assert.Equal("Lyon", city.Text);
+        city.Text = FormFillingScenario.City;
+        viewer.Controller.EndFieldEdit();
+        await viewer.SettleAsync();
+
+        Assert.Equal(await FormFillingScenario.ExpectedAsync(TestContext.Current.CancellationToken), FormFillingScenario.Describe(form));
+    });
+
+    [Fact]
+    public Task Escape_in_a_text_editor_leaves_the_field_unchanged() => Ui.RunAsync(async () =>
+    {
+        using ViewerHarness viewer = await ViewerHarness.OpenAsync(ViewerHarness.CorpusFile(FormFillingScenario.FileName));
+        AnnotationLayer layer = viewer.Viewer.Annotations!;
+        AnnotationTarget field = FindField<PdfTextField>(layer);
+        LayoutRectangle box = layer.GetScreenRectangle(field, viewer.Layout, viewer.Viewport);
+        viewer.Click(new Point((box.X + (box.Width / 2)) / viewer.Scaling, (box.Y + (box.Height / 2)) / viewer.Scaling));
+        await viewer.SettleAsync();
+
+        TextBox editor = Assert.IsType<TextBox>(viewer.Viewer.EditorView);
+        editor.Text = "Changed";
+        viewer.Tick();
+        Assert.Equal("Changed", viewer.Viewer.Forms!.Text); // held by the form filling, not yet written
+        viewer.Key(Key.Escape);
+        await viewer.SettleAsync();
+        Assert.Null(viewer.Viewer.EditorView);
+        Assert.Equal("Ada", ((PdfTextField)((PdfWidgetAnnotation)layer.GetAnnotation(field)).Field!).Value);
+    });
+
+    [Fact]
     public Task Dark_mode_draws_dark_paper_from_the_cached_display_lists() => Ui.RunAsync(async () =>
     {
         using ViewerHarness viewer = await ViewerHarness.OpenAsync(ViewerHarness.CorpusFile("text-standard14.pdf"));
