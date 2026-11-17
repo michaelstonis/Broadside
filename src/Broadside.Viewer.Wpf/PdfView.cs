@@ -837,7 +837,8 @@ public sealed class PdfView : FrameworkElement, IViewerHost, IDisposable
         };
         list.LostKeyboardFocus += (_, e) =>
         {
-            if (e.NewFocus is not DependencyObject next || !(ReferenceEquals(next, list) || list.IsAncestorOf(next)))
+            // Focus moving nowhere (the window deactivated) keeps the list open; WPF gives it back on activation.
+            if (e.NewFocus is DependencyObject next && !ReferenceEquals(next, list) && !list.IsAncestorOf(next))
             {
                 Close(commit: true);
             }

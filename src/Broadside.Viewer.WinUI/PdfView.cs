@@ -668,13 +668,15 @@ public sealed partial class PdfView : UserControl, IDisposable
                 Focus(FocusState.Programmatic);
             }
         };
-        list.LostFocus += (_, _) =>
+        // Focus moves between the list and its items while it is used: decide once the move has settled, and keep the list open when
+        // focus went nowhere (the window deactivated).
+        list.LostFocus += (_, _) => DispatcherQueue.TryEnqueue(() =>
         {
-            if (!Contains(list, list.XamlRoot is { } root ? FocusManager.GetFocusedElement(root) as DependencyObject : null))
+            if (list.XamlRoot is { } root && FocusManager.GetFocusedElement(root) is DependencyObject focused && !Contains(list, focused))
             {
                 Close(commit: true);
             }
-        };
+        });
         AutomationProperties.SetName(list, "Form field");
         return list;
 

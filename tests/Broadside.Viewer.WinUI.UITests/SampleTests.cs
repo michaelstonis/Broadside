@@ -170,10 +170,15 @@ public sealed class SampleTests
         AutomationElement[] OpenList()
         {
             Click(At(150, 415));
-            AutomationElement list = SampleApp.WaitFor(
-                () => app.Viewer.FindFirstDescendant(cf => cf.ByControlType(ControlType.List).And(cf.ByName("Form field"))), "the multi-select list");
+            AutomationElement? list = null;
+            if (!SampleApp.Poll(() => (list = app.Viewer.FindFirstDescendant(cf => cf.ByControlType(ControlType.List).And(cf.ByName("Form field")))) is not null))
+            {
+                string children = string.Join(", ", app.Viewer.FindAllChildren().Select(e => $"{e.ControlType} '{e.Name}' {e.BoundingRectangle}"));
+                Assert.Fail($"Timed out waiting for the multi-select list; page 1 {page.BoundingRectangle}, clicked {At(150, 415)}, the viewer's children: {children}; status '{app.ReadStatus().Text}'.{Environment.NewLine}{app.Diagnostics()}");
+            }
+
             AutomationElement[] items = [];
-            Assert.True(SampleApp.Poll(() => (items = list.FindAllChildren(cf => cf.ByControlType(ControlType.ListItem))).Length == 3), "the list's three options");
+            Assert.True(SampleApp.Poll(() => (items = list!.FindAllChildren(cf => cf.ByControlType(ControlType.ListItem))).Length == 3), "the list's three options");
             Assert.Equal(["Red", "Green", "Blue"], items.Select(item => item.Name));
             return items;
         }

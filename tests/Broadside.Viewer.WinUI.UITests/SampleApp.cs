@@ -295,7 +295,7 @@ internal sealed partial class SampleApp : IDisposable
     /// exe, this process's lines) and the crash entries (.NET Runtime, Application Error, Windows Error Reporting, SideBySide) the
     /// Application event log recorded since the launch.
     /// </summary>
-    private string Diagnostics()
+    public string Diagnostics()
     {
         var report = new StringBuilder();
         report.AppendLine(CultureInfo.InvariantCulture, $"--- sample: {_exe} (pid {_processId}), {_sinceStart.Elapsed.TotalSeconds:0.0} s since launch");

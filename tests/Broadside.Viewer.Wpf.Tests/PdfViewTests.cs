@@ -105,7 +105,10 @@ public sealed class PdfViewTests
                 form, "colors", Enumerable.Range(0, layer.GetCount(0)).Select(i => (new AnnotationTarget(0, i), layer.GetAnnotation(new AnnotationTarget(0, i))))));
             await SettleAsync(view);
 
-            ListBox list = Assert.IsType<ListBox>(view.EditorView);
+            Assert.True(
+                view.EditorView is ListBox,
+                $"editor view {view.EditorView}, controller editor {view.Controller.Editor}, focused {layer.Focused}, filling {view.Controller.Forms?.Target} {view.Controller.Forms?.Kind}, keyboard focus {Keyboard.FocusedElement}, window active {window.IsActive}");
+            var list = (ListBox)view.EditorView;
             Assert.Equal((Visibility.Visible, SelectionMode.Multiple), (list.Visibility, list.SelectionMode));
             Assert.Equal(["Red", "Green", "Blue"], list.Items.Cast<ListBoxItem>().Select(item => (string)item.Content));
             Assert.Equal([true, false, false], list.Items.Cast<ListBoxItem>().Select(item => item.IsSelected));
