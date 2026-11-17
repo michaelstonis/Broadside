@@ -66,6 +66,8 @@ internal sealed partial class PdfViewAutomationPeer : FrameworkElementAutomation
     /// <summary>The form-field editor over a widget opened or closed: the view's children changed.</summary>
     internal void OnEditorChanged()
     {
+        // The peer's children are its pages and the editor (GetChildrenCore): the framework reads them again when invalidated.
+        InvalidatePeer();
         if (ListenerExists(AutomationEvents.StructureChanged))
         {
             RaiseStructureChangedEvent(AutomationStructureChangeType.ChildrenInvalidated, this);

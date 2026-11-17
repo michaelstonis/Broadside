@@ -189,7 +189,8 @@ public sealed class SampleTests
         {
             Click(At(150, 415));
             AutomationElement? list = null;
-            if (!SampleApp.Poll(() => (list = app.Window.FindFirstDescendant(cf => cf.ByControlType(ControlType.List).And(cf.ByName("Form field")))) is not null))
+            // The list takes keyboard focus when it opens (on its selected option): found from the focused element.
+            if (!SampleApp.Poll(() => (list = FocusedList(app)) is not null))
             {
                 string children = string.Join(", ", app.Window.FindAllDescendants().Take(120).Select(Describe));
                 Assert.Fail($"Timed out waiting for the multi-select list; page 1 {page.BoundingRectangle}, clicked {At(150, 415)}, the window's elements: {children}; status '{app.ReadStatus().Text}'.{Environment.NewLine}{app.Diagnostics()}");
@@ -204,6 +205,24 @@ public sealed class SampleTests
 
             Assert.Equal(["Red", "Green", "Blue"], items.Select(item => item.Name));
             return items;
+        }
+
+        static AutomationElement? FocusedList(SampleApp app)
+        {
+            for (AutomationElement? e = app.Automation.FocusedElement(); e is not null; e = app.Automation.TreeWalkerFactory.GetControlViewWalker().GetParent(e))
+            {
+                if (e.Properties.ControlType.ValueOrDefault == ControlType.List && e.Properties.Name.ValueOrDefault == "Form field")
+                {
+                    return e;
+                }
+
+                if (e.Properties.ControlType.ValueOrDefault is ControlType.Document or ControlType.Window)
+                {
+                    return null;
+                }
+            }
+
+            return null;
         }
 
         // An element's type, name, id and bounds, each read leniently: not every peer supports every property.
@@ -229,7 +248,7 @@ public sealed class SampleTests
 
         // A click on the page away from the fields ends the edit; the list opened again shows the field's value.
         Click(At(450, 470));
-        Assert.True(SampleApp.Poll(() => app.Window.FindFirstDescendant(cf => cf.ByControlType(ControlType.List).And(cf.ByName("Form field"))) is null), "the list closed");
+        Assert.True(SampleApp.Poll(() => FocusedList(app) is null), "the list closed");
         options = OpenList();
         Assert.True(SampleApp.Poll(() => Selected(options) is [false, false, true]), "the field holds Blue");
     }
