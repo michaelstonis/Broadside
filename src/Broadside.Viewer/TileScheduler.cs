@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Broadside.Graphics;
 using Broadside.Rendering;
 
@@ -53,6 +52,7 @@ public sealed class TileScheduler : IDisposable
     private readonly int _maxConcurrency;
     private readonly Action<TileSchedulerEvent>? _observer;
     private readonly bool _separateOverlays;
+    private readonly TimeProvider _clock;
     private DisplayLayers _layers = DisplayLayers.All;
     private readonly Dictionary<Tile, TileJob> _jobs = [];
     private List<TileJob> _wanted = [];
@@ -108,6 +108,7 @@ public sealed class TileScheduler : IDisposable
         _maxConcurrency = options.MaxConcurrency;
         _observer = options.Observer;
         _separateOverlays = options.SeparateOverlays;
+        _clock = options.Clock;
     }
 
     /// <summary>
@@ -441,7 +442,7 @@ public sealed class TileScheduler : IDisposable
             throw new ArgumentOutOfRangeException(nameof(budget), budget, "A frame budget must not be negative.");
         }
 
-        long start = Stopwatch.GetTimestamp();
+        long start = _clock.GetTimestamp();
         List<CancellationTokenSource>? cancel = null;
         bool more;
         lock (_gate)
@@ -472,7 +473,7 @@ public sealed class TileScheduler : IDisposable
                 SweepStale();
             }
 
-            _longestFrame = Math.Max(_longestFrame, Stopwatch.GetElapsedTime(start).Ticks);
+            _longestFrame = Math.Max(_longestFrame, _clock.GetElapsedTime(start).Ticks);
             // Work the budget cannot make room for waits for the viewport to move (or, on workers, for running renders to end).
             more = HasWork() && (!_blocked || _running > 0);
         }
@@ -972,7 +973,7 @@ public sealed class TileScheduler : IDisposable
         TimeSpan slice = _session.SliceBudget;
         while (true)
         {
-            long remaining = budgetTicks - Stopwatch.GetElapsedTime(start).Ticks;
+            long remaining = budgetTicks - _clock.GetElapsedTime(start).Ticks;
             if (remaining <= 0)
             {
                 return;

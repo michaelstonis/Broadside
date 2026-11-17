@@ -194,6 +194,22 @@ public sealed class TileSchedulerOptions
         return this;
     }
 
+    /// <summary>
+    /// Gets or sets the clock that measures a frame's budget (<see cref="TimeProvider.System"/> by default). Tests set a clock that
+    /// advances with the work done, so a frame's length does not depend on the machine's speed.
+    /// </summary>
+    internal TimeProvider Clock { get; set; } = TimeProvider.System;
+
+    /// <summary>Sets <see cref="Clock"/>.</summary>
+    /// <param name="clock">The clock.</param>
+    /// <returns>These options.</returns>
+    internal TileSchedulerOptions UseClock(TimeProvider clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        Clock = clock;
+        return this;
+    }
+
     private static void CheckFinite(double value)
     {
         if (!(value >= 0) || double.IsInfinity(value))
