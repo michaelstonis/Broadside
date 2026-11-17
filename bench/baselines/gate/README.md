@@ -14,8 +14,8 @@ allocation change needs.
 
 | Piece | Where |
 |---|---|
-| Workflow | [`.github/workflows/bench-gate.yml`](../../../.github/workflows/bench-gate.yml): `plan`, four `allocations` shards, eight `measure` shards when times are compared, then `gate`; [`bench-gate-perf.yml`](../../../.github/workflows/bench-gate-perf.yml) re-runs it when a pull request is labelled `perf` |
-| Measuring | [`bench/run-gate.sh`](../../run-gate.sh): builds both commits, measures allocations, runs the timings interleaved, reruns what looks slower; `--measure allocations` or `times` does one part |
+| Workflow | [`.github/workflows/bench-gate.yml`](../../../.github/workflows/bench-gate.yml): `plan`, four `allocations` shards, eight `measure` shards and six `measure-avx512-off` shards when times are compared, then `gate`; [`bench-gate-perf.yml`](../../../.github/workflows/bench-gate-perf.yml) re-runs it when a pull request is labelled `perf` |
+| Measuring | [`bench/run-gate.sh`](../../run-gate.sh): records the runner's processor, builds both commits, measures allocations, runs the timings interleaved, reruns what looks slower; `--measure allocations` or `times` does one part, `--avx512 off` times with AVX-512 disabled |
 | Allocation figures | [`GateAllocations.cs`](../../Broadside.Benchmarks/GateAllocations.cs): `Broadside.Benchmarks --gate-allocations` |
 | Comparing | [`tools/BenchGate`](../../../tools/BenchGate/README.md): the allocation and time rules, the summary, `record`, `shard` |
 | Baseline | [`allocations.json`](allocations.json): full name to bytes per call, recorded on the CI runner |
@@ -67,7 +67,9 @@ and `OpenAndWalkBenchmarks.OpenAndWalk`, which has a case per corpus file, split
 When times are compared, eight `measure` jobs (`MEASURE_SHARDS`), sharded the same way, build both commits and run the timing
 rounds and the rerun (`--measure times`, which also measures the base commit's allocation figures for the stale-baseline notice).
 Until #337 four of them took 45 to 70 minutes, a third of it BenchmarkDotNet rebuilding the project graph on each of its six
-invocations; in process and over eight shards each should take about half an hour. The `gate` job compares everything at once, so a case no shard ran is caught. A newer push cancels the older run.
+invocations; in process and over eight shards each should take about half an hour. Beside them, six `measure-avx512-off` jobs
+time every case once more with AVX-512 disabled (see "AVX-512" below). The `gate` job compares everything at once, so a case no
+shard ran is caught. A newer push cancels the older run.
 
 ## How it measures
 
@@ -105,6 +107,49 @@ Both run with two runtime settings, each found by running the gate against an un
 
 Allocations still depend on the platform (the system fonts the font benchmarks find, and a few bytes per document between Linux
 and macOS), so the baseline is recorded on the CI runner only.
+
+## AVX-512
+
+Issue #539. #335 made Type 3 rendering 1.4x to 1.8x slower, and the gate passed it on most runs: `ResolvePieces` kept eight
+`double` locals live, more than the 16 vector registers of a processor without AVX-512 hold, so they spilled to the stack. With
+AVX-512 the JIT has 32 vector registers and nothing spilled. GitHub's `ubuntu-24.04` runners are a mix: the AMD EPYC 7763 has no
+AVX-512; the EPYC 9V74 and 9V45 (Zen 4) and the Xeon Platinum 6975P-C, 8573C and 8370C have it, though one hypervisor was seen
+hiding it. Whether the gate saw a register-pressure regression was luck of the draw.
+
+Two things make it deterministic:
+
+- **Every job records its runner.** `bench/run-gate.sh` first runs `BenchGate machine`, under the same runtime settings as the
+  benchmarks, and writes `<out>/machine.json`: the processor's model name (`model name` in `/proc/cpuinfo`), whether the
+  processor reports AVX-512 Foundation (`avx512f` in its flags; a hypervisor that hides it hides it from .NET too), whether .NET
+  used AVX-512 in the measuring processes (`Avx512F.IsSupported`) and whether the gate disabled it. The line goes into each job's
+  summary, the file into each job's artifact, and the `gate` summary has a folded "Runners" table of every job. A time finding
+  names the processor its case was measured on and the AVX-512 state, e.g. "on INTEL XEON PLATINUM 8573C, AVX-512 on".
+- **Every case is also timed without AVX-512.** When times are compared, six `measure-avx512-off` jobs run
+  `bench/run-gate.sh --avx512 off`, which sets `DOTNET_EnableAVX512F=0` and `DOTNET_EnableAVX512=0` on every measuring process
+  of both commits. On a processor with AVX-512 that gives the JIT the 16 registers of one without it (setting these on an
+  AVX-512 runner reproduces #335's spill); on a processor without it, it is that processor's ordinary code. Either way the pass
+  measures what a processor without AVX-512 runs, whatever runner it got. If the runtime ignores the setting (`BenchGate
+  machine` sees `Avx512F.IsSupported` still true), the job fails rather than report a pass that measured nothing new.
+
+The pass is compared on its own (its rounds and reruns never pool with the default pass's) by the same time rule, and its
+findings say so: "slower with AVX-512 disabled" in the summary, `Benchmark regression with AVX-512 disabled` as the annotation
+title. A case slower only there is a register-pressure regression (or another one that only a processor without AVX-512 shows);
+it fails the gate like any other. It measures times only: allocations do not depend on the instruction set, and the
+`allocations` jobs have them.
+
+**Its budget: one round instead of two, rerun twice, over six shards.** In run
+[43943204488](https://github.com/michaelstonis/Broadside/actions/runs/43943204488) the eight `measure` jobs took 21 to 34
+minutes: about 5 minutes building the pull request, 4 building the base commit, 4 measuring the base commit's allocations and
+about 10 minutes per round (both commits) over an eighth of the cases. A second job per shard doing the same two rounds would
+have doubled the runner time for a second opinion on the same code. The AVX-512-off jobs skip the allocations and run one round
+over a sixth of the cases, about 13 minutes, so with the builds each takes about 23 to 25 minutes and they finish within the
+`measure` jobs, and the gate's wall-clock time should not grow (the eighteen timing jobs and four allocation jobs fit GitHub's
+20 concurrent jobs for a public repository, though another workflow of the same push can queue a few). With one round,
+condition 2 of the time rule is the round itself; what stops one noisy stretch of the runner from failing a case is the rerun,
+so a slower case is rerun twice, base first and then pull request first, and both reruns must reach 1.15. In the noise runs
+(below) 34 of about 7,600 case-rounds (0.45 %) reached 1.20, and 98 % of case-rounds read between 0.886 and 1.136, so about 1 %
+reach 1.15; a noisy round followed by two noisy reruns is then about as rare as the default pass's two noisy rounds and one
+noisy rerun. A real register spill like #335's (1.4x to 1.8x) clears every condition.
 
 ## The allocation rule
 
@@ -152,7 +197,8 @@ only when all of these hold:
    code);
 3. the first quartile of P is above the third quartile of B (the middle halves do not overlap);
 4. median(P) - median(B) is at least 1 ns (below that a ratio measures code alignment and timer resolution);
-5. the rerun of that case, after both rounds, again has a ratio of at least **1.15**.
+5. the rerun of that case, after both rounds, again has a ratio of at least **1.15** (in the AVX-512-off pass, which runs one
+   round, both of its reruns must).
 
 A case at 1.10 or more that does not fail is listed as a notice ("slower, within tolerance"), and so is one at 1/1.20 or less
 ("faster"). The full table of ratios is folded at the end of the summary.

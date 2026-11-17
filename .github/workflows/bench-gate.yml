@@ -3,8 +3,11 @@
 # differs from bench/baselines/gate/allocations.json. Times are compared only where they matter: on pull requests whose diff
 # touches a hot path (HOT_PATHS below), on pull requests labelled `perf`, on pull requests into main, nightly on the integration
 # branch (NIGHTLY_BRANCH) and on the "Run workflow" button. Then the `measure` jobs run every benchmark of the pull request and of
-# its base commit side by side on the same runner and the gate also fails on any case measurably slower than the base. The
-# thresholds, the procedure that updates the baseline and the noise measurements behind both are in bench/baselines/gate/README.md.
+# its base commit side by side on the same runner and the gate also fails on any case measurably slower than the base; beside
+# them the `measure-avx512-off` jobs time every case again with AVX-512 disabled, so a regression that only processors without
+# it show (register pressure, issue #539) fails whatever processor the runners have. Every job records its runner's processor
+# and AVX-512 state (machine.json, in its artifact and the summary). The thresholds, the procedure that updates the baseline and
+# the noise measurements behind both are in bench/baselines/gate/README.md.
 name: Benchmark gate
 
 on:
@@ -50,6 +53,9 @@ env:
   SHARDS: 4 # the length of the allocations jobs' matrix.shard
   # The length of the measure jobs' matrix.shard: twice the allocations jobs', since each case runs six times there (issue #337).
   MEASURE_SHARDS: 8
+  # The length of the measure-avx512-off jobs' matrix.shard: one round per case instead of two, so six shards finish within the
+  # measure jobs' time (bench/baselines/gate/README.md, "AVX-512").
+  AVX512_OFF_SHARDS: 6
   # Methods with one case per corpus file split their cases over the shards (bench/Broadside.Benchmarks/BenchmarkPartition.cs).
   SPLIT: Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk
   # The branch the nightly run measures.
@@ -223,8 +229,82 @@ jobs:
         with:
           name: bench-gate-shard-${{ matrix.shard }}
           path: |
+            artifacts/bench-gate/**/machine.json
             artifacts/bench-gate/**/results/*.json
             artifacts/bench-gate/**/allocations/*/*.json
+            artifacts/bench-gate/**/suspects.txt
+          if-no-files-found: warn
+          overwrite: true
+
+  # When times are compared (issue #539): each shard runs its sixth of the cases for both commits again, with AVX-512 disabled in
+  # the runtime, in one interleaved round, and reruns what looks slower twice (base first, then head first). On a runner whose
+  # processor has AVX-512 this reproduces the 16 vector registers of one without it; on a runner without it, it is that
+  # runner's ordinary code. No allocation figures: the instruction set does not change them.
+  measure-avx512-off:
+    name: measure, AVX-512 off (${{ matrix.shard }})
+    needs: plan
+    if: needs.plan.outputs.timing == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5]
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'schedule' && needs.plan.outputs.head || '' }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Check out the base commit
+        shell: bash
+        env:
+          BASE: ${{ needs.plan.outputs.base }}
+        run: |
+          git worktree add --detach "${RUNNER_TEMP}/base" "${BASE}"
+          echo "Base commit: ${BASE}"
+
+      - name: Select this shard's benchmarks
+        shell: bash
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          dotnet build bench/Broadside.Benchmarks -c Release -warnaserror
+          dotnet run -c Release --project bench/Broadside.Benchmarks --no-build -- --list flat > "${RUNNER_TEMP}/methods.txt"
+          dotnet run -c Release --project tools/BenchGate -- shard --list "${RUNNER_TEMP}/methods.txt" --baseline "${BASELINE}" \
+            --count "${AVX512_OFF_SHARDS}" --index "${SHARD}" --split "${SPLIT}" --out "${RUNNER_TEMP}/shard.txt"
+          cat "${RUNNER_TEMP}/shard.txt"
+
+      - name: Run the benchmarks of both commits with AVX-512 disabled
+        shell: bash
+        env:
+          SHARD: ${{ matrix.shard }}
+          BROADSIDE_BENCH_PARTITION: ${{ matrix.shard }}/${{ env.AVX512_OFF_SHARDS }}
+        run: |
+          bench/run-gate.sh --measure times --avx512 off --rounds 1 --confirm 2 --base "${RUNNER_TEMP}/base" --head . \
+            --out "artifacts/bench-gate/avx512-off-${SHARD}" --methods "${RUNNER_TEMP}/shard.txt"
+
+      - name: Upload the reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: bench-gate-avx512-off-${{ matrix.shard }}
+          path: |
+            artifacts/bench-gate/**/machine.json
+            artifacts/bench-gate/**/results/*.json
             artifacts/bench-gate/**/suspects.txt
           if-no-files-found: warn
           overwrite: true
@@ -233,7 +313,7 @@ jobs:
   # Nightly, a failure opens an issue (or comments on the open one).
   gate:
     name: gate
-    needs: [plan, allocations, measure]
+    needs: [plan, allocations, measure, measure-avx512-off]
     # Always, so that a failed or incomplete `plan` (which skips every measuring job) fails the gate instead of skipping it.
     if: always()
     runs-on: ubuntu-24.04
@@ -289,6 +369,13 @@ jobs:
           pattern: bench-gate-shard-*
           path: artifacts/bench-gate
 
+      - name: Download the AVX-512-off timing reports
+        if: steps.check.outputs.go == 'true' && needs.plan.outputs.timing == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          pattern: bench-gate-avx512-off-*
+          path: artifacts/bench-gate
+
       - name: Compare with the baseline and the base commit
         if: steps.check.outputs.go == 'true'
         shell: bash
@@ -298,6 +385,7 @@ jobs:
           REASON: ${{ needs.plan.outputs.reason }}
           ALLOCATED: ${{ needs.allocations.result }}
           MEASURED: ${{ needs.measure.result }}
+          MEASURED_OFF: ${{ needs['measure-avx512-off'].result }}
         run: |
           summary="${RUNNER_TEMP}/gate-summary.md"
           status=0
@@ -312,6 +400,11 @@ jobs:
           if [ "${TIMING}" = true ] && [ "${MEASURED}" != success ]; then
             echo "::error title=Benchmark gate::A measuring shard did not succeed (${MEASURED}); see its log."
             echo "**A measuring shard did not succeed (${MEASURED}).**" >> "${summary}"
+            status=1
+          fi
+          if [ "${TIMING}" = true ] && [ "${MEASURED_OFF}" != success ]; then
+            echo "::error title=Benchmark gate::A measuring shard of the AVX-512-off pass did not succeed (${MEASURED_OFF}); see its log."
+            echo "**A measuring shard of the AVX-512-off pass did not succeed (${MEASURED_OFF}).**" >> "${summary}"
             status=1
           fi
           cat "${summary}" >> "${GITHUB_STEP_SUMMARY}"
