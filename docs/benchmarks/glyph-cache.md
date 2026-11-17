@@ -20,6 +20,12 @@ default first; issue #548 measured the quantized tier against it again and made 
   glyph the cache takes is painted from one, stored or not, so the pixels never depend on the budget or on what was drawn before.
 - **Quantized tier** (`GlyphPositioning.Quantized`, the default since #548): the offset is rounded to the nearest quarter pixel horizontally and vertically,
   so a glyph moves by at most 1/8 pixel each way.
+- Culling (issue #572): a tile skips a glyph's fill when its mask lies wholly outside the clip, and its stroke (modes 1 and 2) when
+  the outline widened by the pen's reach does, each on its own. Before, a cache hit outside the clip skipped the whole glyph, so a
+  mode 2 glyph whose fill missed a tile lost a stroke that reached into it, and the second render differed from the first. Culling
+  strokes too made the text-heavy tiles faster than before the fix (Apple M-series, `GlyphCacheBenchmarks --job short`, all 35
+  tiles: exact 41.7-47.6 ms to 35.2-36.5 ms, quantized 40.8-44.7 ms to 33.9-34.3 ms, no cache 75.0-79.9 ms to 42.1-42.3 ms;
+  `text-standard14.pdf`, fill only, unchanged at 15-16 us cached).
 - Not cached (filled in place as before): glyphs in the clipping modes 4 to 7, glyphs larger than 512 pixels, non-finite or singular
   transforms, origins beyond 2^30 pixels; Type 3 glyphs are content, not outlines, and are not affected. Strokes are unchanged.
 - Thread safety: each rasterizer owns its cache and renders one thing at a time; the viewer's tile workers each have their own
