@@ -2,9 +2,10 @@
 
 Hotspot H8 of the [performance deep dive](perf-deep-dive.md): the software rasterizer flattened and scan converted every glyph each
 time it was shown. Issue #370 adds a glyph cache in two tiers and asked for three measurements before deciding on the default: hit
-rates, time per text tile, and the pixel differences the quantized tier makes. This page records them. The exact tier ships on by
-default; the quantized tier is opt-in (`RenderOptions.WithGlyphPositioning(GlyphPositioning.Quantized)`,
-`SoftwareRasterizer.GlyphPositioning`) until the owner decides on making it the default.
+rates, time per text tile, and the pixel differences the quantized tier makes. This page records them. The exact tier shipped as the
+default first; issue #548 measured the quantized tier against it again and made quantized the default (see
+[Quantized by default](#quantized-by-default-issue-548)). The exact tier stays available through
+`RenderOptions.WithGlyphPositioning(GlyphPositioning.Exact)` and `SoftwareRasterizer.GlyphPositioning`.
 
 ## Design
 
@@ -15,9 +16,9 @@ default; the quantized tier is opt-in (`RenderOptions.WithGlyphPositioning(Glyph
 - The runs are kept per (font program, glyph id, the device matrix's 2x2 part, the origin's offset inside its pixel, coverage rule),
   compared bit for bit, in a per-rasterizer LRU with a byte budget (`SoftwareRasterizer.GlyphCacheBudget`, 4 MiB by default; 0 keeps
   nothing) and counters (`SoftwareRasterizer.GlyphCacheStatistics`). Runs are 8 bytes; an entry is charged its runs plus 96 bytes.
-- **Exact tier** (`GlyphPositioning.Exact`, the default): the offset is kept exactly. A mask is a function of its key alone and every
+- **Exact tier** (`GlyphPositioning.Exact`; the default until #548): the offset is kept exactly. A mask is a function of its key alone and every
   glyph the cache takes is painted from one, stored or not, so the pixels never depend on the budget or on what was drawn before.
-- **Quantized tier** (`GlyphPositioning.Quantized`): the offset is rounded to the nearest quarter pixel horizontally and vertically,
+- **Quantized tier** (`GlyphPositioning.Quantized`, the default since #548): the offset is rounded to the nearest quarter pixel horizontally and vertically,
   so a glyph moves by at most 1/8 pixel each way.
 - Not cached (filled in place as before): glyphs in the clipping modes 4 to 7, glyphs larger than 512 pixels, non-finite or singular
   transforms, origins beyond 2^30 pixels; Type 3 glyphs are content, not outlines, and are not affected. Strokes are unchanged.
@@ -119,11 +120,12 @@ Every page of the text set at 72 and 150 DPI, each pixel's largest channel diffe
 | over 64 | 0 | 0 % |
 
 On tracemonkey (dense 10-point text) 9–24 % of a page's pixels change at 72 DPI and 6–15 % at 150 DPI; of those, the mean change is
-11–13 levels, the 99th percentile 34–39 and the largest 51–58. The bound is 64 (a glyph moved by at most 1/8 pixel each way sweeps at
-most a quarter of any pixel), and nothing measured exceeds 63. The golden images' threshold for the software rasterizer (0.01) is far
+11–13 levels, the 99th percentile 34–39 and the largest 51–58. The bound for one glyph is 64 (a glyph moved by at most 1/8 pixel
+each way sweeps at most a quarter of any pixel), and nothing measured here exceeds 63; glyphs drawn over each other can add their
+changes (issue #548 found up to 140 on a few pixels of overlapping glyphs). The golden images' threshold for the software rasterizer (0.01) is far
 below these differences, so making the quantized tier the default means re-accepting every golden image with text.
 
-## Decision for the owner
+## Decision for the owner (issue #370)
 
 - Exact (default): no pixel change beyond one-level rounding on a few pixels, 2.2x per tile and 5–7x per page on redraws, about
   5–10 % slower on a first render of real text (no hits within a page).
@@ -133,3 +135,59 @@ below these differences, so making the quantized tier the default means re-accep
 
 Benchmark: `GlyphCacheBenchmarks.Tiles(Page, Cache)` (`NoCache`, `Exact`, `Quantized`; warm, so it measures the hit path and must
 allocate nothing).
+
+## Quantized by default (issue #548)
+
+Issue #548 asked for the quantized tier as the default unless it has a major drawback (visibly wrong glyph placement, loss of
+cross-platform determinism, or large memory growth), measured on the golden images and the pdf.js corpus. Apple M4 Max, macOS 27,
+.NET 10, Release, shared with other agents, 2026-11-17. A scratch harness renders each page with a fresh rasterizer in both tiers
+(the golden images' engine: Standard 14 and predefined CMaps bundled, no system fonts) and compares each pixel's largest channel
+difference (8-bit).
+
+### Pixels
+
+| Set | Pages | Pages differing | Pixels changed | Mean change of a changed pixel | Median / 99th percentile | Largest |
+|---|---:|---:|---:|---:|---:|---:|
+| Golden images (`tests/Golden/`, every page of every hand-written corpus file, 72 DPI) | 236 | 82 | 0.11 % | 9.4 | 7 / 31 | 44 |
+| pdf.js corpus, page 0 of each file, 72 DPI | 973 | 573 | 0.81 % | 11.4 | 9 / 34 | 71 |
+| pdf.js corpus, page 0 of each file, 150 DPI | 972 | 600 | 0.78 % | 12.4 | 10 / 36 | 140 |
+
+The pdf.js corpus is the local `corpus/pdfjs` (989 files, 121 MB); the 13 (72 DPI) and 14 (150 DPI) files that do not open or have
+no page are left out. 4 pixels at 72 DPI and 51 at 150 DPI change by more than 64, all where glyphs are drawn over each other
+(`issue2391-2.pdf`, stacked glyphs, 140; `issue1350.pdf` and `issue19802.pdf`, 71–76), so two glyphs' changes add. The pages that
+change most are dense small text (`pr12564.pdf` 17 % of its pixels, `issue13447.pdf` 18 %, mean change 13). Side by side at 4x zoom
+(tracemonkey page 0 at 72 DPI, the golden images `text-lines-rotated` and `layout-headings-lists`, the overlapping glyphs of
+`issue2391-2.pdf`) the two tiers cannot be told apart: glyph shapes, baselines and spacing are the same; only the anti-aliasing
+levels of edge pixels move.
+
+**Placement.** Each glyph is placed on its own from its exact origin, rounded to the nearest quarter pixel, so a glyph is at most
+1/8 pixel from where the text matrix puts it on each axis and the error does not accumulate along a line; the gap between two
+neighboring glyphs changes by at most 1/4 pixel. Kerning and justification come from the text matrix and are unchanged.
+
+### Cross-platform determinism
+
+The quantized tier adds only `Math.Floor`, a multiplication by 4, an addition of 0.5 and a division by 4 to the exact tier's
+arithmetic (`Quarter` in `SoftwareRasterizer.Text.cs`): each is exact or correctly rounded in IEEE 754 (multiplying and dividing by a
+power of two is exact, so a fused multiply-add gives the same result), with no transcendental functions and no platform intrinsics.
+The cache key is compared bit for bit and a mask depends on its key alone, so the pixels depend neither on the budget nor on what was
+drawn before. The render-determinism workflow (#233) renders every corpus page on Linux x64, Windows x64, macOS Arm64 and Linux x64
+without intrinsics with the new default and compares the hashes.
+
+### Memory
+
+Fewer distinct keys means fewer entries: on tracemonkey at 150 DPI, after one page, the exact tier holds 2,709–6,638 entries
+(1.2–3.2 MiB) and the quantized tier 647–1,200 (0.34–0.62 MiB), four to eight times less, well under the 4 MiB budget. The budget,
+the arena and the eviction are unchanged.
+
+### Speed
+
+Whole pages of tracemonkey at 150 DPI, each by a fresh rasterizer (a first render, nothing cached), fonts already loaded, minimum of
+10 interleaved passes: exact 8.0–19.5 ms a page, quantized 3.7–11.5 ms, geometric mean 15.1 ms against 5.3 ms (2.9x; the machine was
+loaded, so take the ratio rather than the times). Per tile the #370 figures above stand: 1.69x on a first render, the same when warm.
+
+### Decision
+
+No major drawback: placement within 1/8 pixel, the same bytes on every platform, less memory, and 1.7x per tile and 2.4–2.9x per
+page on a first render. Quantized is the default of `RenderOptions.GlyphPositioning` and `SoftwareRasterizer.GlyphPositioning`; a
+caller that needs output equal to an uncached fill sets `GlyphPositioning.Exact`. The 82 golden images with text were re-accepted;
+the pinned real-world fingerprints stayed within their tolerance and were not changed.

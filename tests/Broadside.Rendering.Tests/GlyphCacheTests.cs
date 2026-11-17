@@ -7,7 +7,8 @@ namespace Broadside.Rendering.Tests;
 /// <summary>
 /// The software rasterizer's glyph cache (issue #370; ISO 32000-2 §9.2.4, §10.7.4): filled glyphs are painted from coverage computed
 /// once per font program, glyph, transform and offset inside the pixel. With exact positioning the pixels never depend on the cache
-/// (its budget, or what it held before); quantized positioning reuses far more glyphs and moves them by at most an eighth of a pixel.
+/// (its budget, or what it held before); quantized positioning (the default, issue #548) reuses far more glyphs and moves them by at
+/// most an eighth of a pixel.
 /// </summary>
 public sealed class GlyphCacheTests
 {
@@ -23,7 +24,7 @@ public sealed class GlyphCacheTests
     {
         using PdfDocument document = GoldenCorpus.Open(fileName);
         PdfPage page = document.Pages[0];
-        RenderOptions options = new RenderOptions().WithScale(scale);
+        RenderOptions options = new RenderOptions().WithScale(scale).WithGlyphPositioning(GlyphPositioning.Exact);
         using var uncached = new SoftwareRasterizer { GlyphCacheBudget = 0 };
         using var cached = new SoftwareRasterizer();
 
@@ -117,15 +118,16 @@ public sealed class GlyphCacheTests
         using var exact = new SoftwareRasterizer();
         using var quantized = new SoftwareRasterizer();
 
-        using Bitmap expected = exact.Render(page, new RenderOptions().WithScale(1.37));
-        using Bitmap actual = quantized.Render(page, new RenderOptions().WithScale(1.37).WithGlyphPositioning(GlyphPositioning.Quantized));
+        using Bitmap expected = exact.Render(page, new RenderOptions().WithScale(1.37).WithGlyphPositioning(GlyphPositioning.Exact));
+        using Bitmap actual = quantized.Render(page, new RenderOptions().WithScale(1.37));
 
         Assert.True(quantized.GlyphCacheStatistics.Hits > exact.GlyphCacheStatistics.Hits);
         Assert.True(quantized.GlyphCacheStatistics.Count < exact.GlyphCacheStatistics.Count);
         Assert.False(expected.Pixels.SequenceEqual(actual.Pixels));
 
         // A glyph moved by at most an eighth of a pixel each way sweeps at most a quarter of any pixel's area: 64 levels, plus one
-        // of rounding. Over tracemonkey and the text corpus the largest change measured is 63 (docs/benchmarks/glyph-cache.md).
+        // of rounding (glyphs drawn over each other can add their changes; this page has none). Measurements:
+        // docs/benchmarks/glyph-cache.md.
         int largest = 0;
         for (int index = 0; index < expected.Pixels.Length; index++)
         {
@@ -142,17 +144,17 @@ public sealed class GlyphCacheTests
         PdfPage page = document.Pages[0];
         RenderOptions options = new RenderOptions().WithScale(1.37);
         DisplayList list = page.CreateDisplayList();
-        using var rasterizer = new SoftwareRasterizer { GlyphPositioning = GlyphPositioning.Quantized };
-        using Bitmap quantizedPage = rasterizer.Render(page, new RenderOptions().WithScale(1.37).WithGlyphPositioning(GlyphPositioning.Quantized));
-        using var listed = new Bitmap(quantizedPage.Width, quantizedPage.Height);
+        using var rasterizer = new SoftwareRasterizer { GlyphPositioning = GlyphPositioning.Exact };
+        using Bitmap exactPage = rasterizer.Render(page, new RenderOptions().WithScale(1.37).WithGlyphPositioning(GlyphPositioning.Exact));
+        using var listed = new Bitmap(exactPage.Width, exactPage.Height);
         listed.Pixels.Fill(0xFF);
 
         rasterizer.Render(list, listed, options.GetDeviceTransform(page));
 
-        Assert.Equal(GlyphPositioning.Exact, new RenderOptions().GlyphPositioning);
+        Assert.Equal(GlyphPositioning.Quantized, new RenderOptions().GlyphPositioning);
         using var fresh = new SoftwareRasterizer();
-        Assert.Equal(GlyphPositioning.Exact, fresh.GlyphPositioning);
-        Assert.True(quantizedPage.Pixels.SequenceEqual(listed.Pixels));
+        Assert.Equal(GlyphPositioning.Quantized, fresh.GlyphPositioning);
+        Assert.True(exactPage.Pixels.SequenceEqual(listed.Pixels));
     }
 
     [Fact]
