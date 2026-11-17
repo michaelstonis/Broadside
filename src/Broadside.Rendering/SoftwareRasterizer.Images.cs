@@ -26,6 +26,13 @@ public sealed partial class SoftwareRasterizer
         // The render's token: a decode at replay (#362) stops with the render.
         private CancellationToken _cancellationToken;
 
+        // Issue #365: the deadline of the current slice of a progressive render, the image paint left for the next slice, and how
+        // deep the replay is inside groups (where a paint is never split).
+        private long _paintDeadline = long.MaxValue;
+        private SlicedPaint? _slicedPaint;
+        private SlicedPaint? _paintState;
+        private int _nested;
+
         /// <summary>
         /// Draws the image's samples into the parallelogram the unit square maps to: the outline is scan converted like a filled path
         /// (so its edges are anti-aliased and the clipping path cuts it as it cuts fills and strokes, §8.5.4), and each covered pixel
@@ -79,6 +86,12 @@ public sealed partial class SoftwareRasterizer
             {
                 // The rasterizers of a viewer's pool share the conversion (issue #432), leased while it is painted.
                 SharedPixels leased = _imageSource.Lease(shared, image, samples, soft, converter, baseConverter, _pixelModel);
+                if (PaintsInSlices)
+                {
+                    BeginSlicedPaint(image, samples, soft, inverse, leased.Pixels, leased, shared);
+                    return;
+                }
+
                 try
                 {
                     PaintConverted(image, samples, soft, inverse, leased.Pixels);
@@ -92,7 +105,125 @@ public sealed partial class SoftwareRasterizer
             }
 
             _imageSource.Prepare(image, samples, soft, converter, baseConverter, _pixelModel);
+            if (PaintsInSlices)
+            {
+                BeginSlicedPaint(image, samples, soft, inverse, _imageSource.Buffer, null, null);
+                return;
+            }
+
             PaintConverted(image, samples, soft, inverse, _imageSource.Buffer);
+        }
+
+        /// <summary>
+        /// Whether an image paint may stop at the slice's deadline and finish in the next slice (issue #365): only at the top level of a
+        /// progressive render's replay, where nothing else is drawn before the next slice; never inside a group, an annotation or an
+        /// overprint preview, whose content goes on within the same operation.
+        /// </summary>
+        private bool PaintsInSlices => _paintDeadline != long.MaxValue && _nested == 0 && _annotationDepth == 0 && !_previewing && _target is not null;
+
+        /// <summary>Gets a value indicating whether an image paint stopped at a slice's deadline and is still to be finished.</summary>
+        public bool HasSlicedPaint => _slicedPaint is not null;
+
+        /// <summary>Sets the deadline of the current slice for image paints (<see cref="long.MaxValue"/>: none).</summary>
+        public void SetPaintDeadline(long deadline) => _paintDeadline = deadline;
+
+        /// <summary>Starts a paint of the converted pixels that <see cref="ContinueSlicedPaint"/> may stop between rows.</summary>
+        private void BeginSlicedPaint(DisplayImage image, DisplayImageSamples samples, DisplayImageSamples? soft, in Matrix inverse, uint[] pixels, SharedPixels? leased, SharedImageCache<SharedPixels>? shared)
+        {
+            ImageMask mask = PrepareImageMask(image, samples, soft);
+            SlicedPaint paint = _paintState ??= new SlicedPaint();
+            paint.Image = image;
+            paint.Samples = samples;
+            paint.ToSamples = ToSamples(inverse, samples);
+            paint.Pixels = pixels;
+            paint.Mask = mask;
+            paint.Leased = leased;
+            paint.Shared = shared;
+            paint.Next = 0;
+            _slicedPaint = paint;
+            ContinueSlicedPaint();
+        }
+
+        /// <summary>
+        /// Paints rows of the image paint begun last until it is done or, after at least one row, the slice's deadline has passed; the
+        /// pixels equal one whole paint's (rows are painted independently).
+        /// </summary>
+        /// <returns><see langword="true"/> when nothing is left to paint.</returns>
+        /// <remarks>ISO 32000-2 §8.9.4 and §8.9.5.3; issue #365.</remarks>
+        public bool ContinueSlicedPaint()
+        {
+            if (_slicedPaint is not { } paint)
+            {
+                return true;
+            }
+
+            Bitmap target = _target!;
+            ImageMask mask = paint.Mask;
+            var painter = new ImagePainter(
+                target.Pixels,
+                target.Stride,
+                paint.Pixels,
+                paint.Samples.Width,
+                paint.Samples.Height,
+                paint.ToSamples,
+                paint.Image!.Interpolate,
+                mask.Opacity,
+                mask.Width,
+                mask.Height,
+                mask.Interpolate,
+                _fillCompositor,
+                Averages,
+                mask.ScaleU,
+                mask.ScaleV,
+                _footprints ??= new ImageFootprints());
+            _scan.Rule = _imageRule;
+            bool done;
+            try
+            {
+                int next = paint.Next;
+                done = _scan.PaintRows(FillRule.NonZero, ref painter, ref next, _paintDeadline);
+                paint.Next = next;
+            }
+            finally
+            {
+                _scan.Rule = _pathRule;
+            }
+
+            if (!done)
+            {
+                return false;
+            }
+
+            if (_colorFilter != ColorFilter.None)
+            {
+                CoverImage();
+            }
+            else
+            {
+                _scan.Reset(_width, _height);
+            }
+
+            EndSlicedPaint();
+            return true;
+        }
+
+        /// <summary>Lets go of an image paint begun in slices: done, or abandoned with its render.</summary>
+        private void EndSlicedPaint()
+        {
+            if (_slicedPaint is { } paint)
+            {
+                if (paint is { Leased: { } leased, Shared: { } shared })
+                {
+                    shared.Release(leased);
+                }
+
+                paint.Image = null;
+                paint.Pixels = [];
+                paint.Leased = null;
+                paint.Shared = null;
+                paint.Mask = default;
+                _slicedPaint = null;
+            }
         }
 
         /// <summary>
@@ -123,7 +254,7 @@ public sealed partial class SoftwareRasterizer
                 mask.ScaleU,
                 mask.ScaleV,
                 _footprints ??= new ImageFootprints());
-            PaintImage(ref painter);
+            PaintImage(ref painter, coversImage: true);
         }
 
         /// <summary>
@@ -226,17 +357,47 @@ public sealed partial class SoftwareRasterizer
         private bool Averages => _imageRule == CoverageRule.Exact;
 
         /// <summary>Paints the unit square's outline with the image coverage rule (§10.7.4: pixel centres inside, without anti-aliasing).</summary>
-        private void PaintImage(ref ImagePainter painter)
+        /// <remarks>
+        /// With a color filter (<see cref="ColorFilter.DarkMode"/>) an image's shape is also recorded as covered by an image, which
+        /// the filter leaves as it is; a stencil mask (<paramref name="coversImage"/> false) paints a color and is filtered.
+        /// </remarks>
+        private void PaintImage(ref ImagePainter painter, bool coversImage = false)
         {
             _scan.Rule = _imageRule;
             try
             {
-                _scan.Paint(FillRule.NonZero, ref painter);
+                bool covers = coversImage && _colorFilter != ColorFilter.None;
+                _scan.Paint(FillRule.NonZero, ref painter, keep: covers);
+                if (covers)
+                {
+                    CoverImage();
+                }
             }
             finally
             {
                 _scan.Rule = _pathRule;
             }
+        }
+
+        /// <summary>An image paint that stopped at a slice's deadline (issue #365): what it paints and the first cell left.</summary>
+        /// <remarks>One per backend, reused, so that a paint in slices allocates nothing.</remarks>
+        private sealed class SlicedPaint
+        {
+            public DisplayImage? Image { get; set; }
+
+            public DisplayImageSamples Samples { get; set; }
+
+            public Matrix ToSamples { get; set; }
+
+            public uint[] Pixels { get; set; } = [];
+
+            public ImageMask Mask { get; set; }
+
+            public SharedPixels? Leased { get; set; }
+
+            public SharedImageCache<SharedPixels>? Shared { get; set; }
+
+            public int Next { get; set; }
         }
 
         /// <summary>A mask resampled on its own grid: its opacities and size, and the factors from the painted samples' positions to its own.</summary>
@@ -291,6 +452,8 @@ public sealed partial class SoftwareRasterizer
         /// </summary>
         private void EndImages()
         {
+            EndSlicedPaint();
+            _paintDeadline = long.MaxValue;
             _imageSpace = null;
             _imageDefaults = null;
             _imageConverter = null;

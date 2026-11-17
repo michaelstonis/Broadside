@@ -44,7 +44,7 @@ internal static class JpxWavelet
     /// <paramref name="top"/> (its last for the full image; a lower one for a reduced decode, B.5, whose samples are then the
     /// top-left of the buffer at the full stride).
     /// </summary>
-    public static void Inverse53(JpxTileComponent component, int[] buffer, CodecReporter reporter, int top)
+    public static void Inverse53(JpxTileComponent component, int[] buffer, CodecReporter reporter, int top, int first = 1)
     {
         int stride = component.Width;
         int longest = Math.Max(component.Width, component.Height);
@@ -57,7 +57,7 @@ internal static class JpxWavelet
         int[] strip = ArrayPool<int>.Shared.Rent(Math.Max(1, component.Height * Math.Min(Strip, component.Width)));
         try
         {
-            for (int r = 1; r <= top; r++)
+            for (int r = first; r <= top; r++)
             {
                 JpxResolution resolution = component.Resolutions[r];
                 JpxResolution lower = component.Resolutions[r - 1];
@@ -204,7 +204,8 @@ internal static class JpxWavelet
     /// <param name="buffer">Its sub-bands, reconstructed in place.</param>
     /// <param name="reporter">The cancellation.</param>
     /// <param name="top">The resolution reconstructed, as for <see cref="Inverse53"/>.</param>
-    public static void Inverse97(JpxTileComponent component, Span<float> buffer, CodecReporter reporter, int top)
+    /// <param name="first">The first level reconstructed: 1, or the level after the last one an earlier call reconstructed (issue #365).</param>
+    public static void Inverse97(JpxTileComponent component, Span<float> buffer, CodecReporter reporter, int top, int first = 1)
     {
         int stride = component.Width;
         int longest = Math.Max(component.Width, component.Height);
@@ -217,7 +218,7 @@ internal static class JpxWavelet
         float[] strip = ArrayPool<float>.Shared.Rent(Math.Max(1, component.Height * Math.Min(Strip, component.Width)));
         try
         {
-            for (int r = 1; r <= top; r++)
+            for (int r = first; r <= top; r++)
             {
                 JpxResolution resolution = component.Resolutions[r];
                 JpxResolution lower = component.Resolutions[r - 1];

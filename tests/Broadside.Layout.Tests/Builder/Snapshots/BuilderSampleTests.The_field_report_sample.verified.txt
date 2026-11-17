@@ -1,0 +1,135 @@
+﻿== structure ==
+Document
+  H1
+  P
+  H2
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  H2
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  H2
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  H2
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+  P
+
+== text ==
+--- page 1 ---
+Field report
+Flow was steady across every region this quarter, with two short outages in the east.
+North
+North note 1: the meters were read on schedule and the readings agree with the telemetry.
+North note 2: the meters were read on schedule and the readings agree with the telemetry.
+North note 3: the meters were read on schedule and the readings agree with the telemetry.
+North note 4: the meters were read on schedule and the readings agree with the telemetry.
+North note 5: the meters were read on schedule and the readings agree with the telemetry.
+North note 6: the meters were read on schedule and the readings agree with the telemetry.
+North note 7: the meters were read on schedule and the readings agree with the telemetry.
+North note 8: the meters were read on schedule and the readings agree with the telemetry.
+North note 9: the meters were read on schedule and the readings agree with the telemetry.
+North note 10: the meters were read on schedule and the readings agree with the telemetry.
+North note 11: the meters were read on schedule and the readings agree with the telemetry.
+North note 12: the meters were read on schedule and the readings agree with the telemetry.
+North note 13: the meters were read on schedule and the readings agree with the telemetry.
+North note 14: the meters were read on schedule and the readings agree with the telemetry.
+South
+South note 1: the meters were read on schedule and the readings agree with the telemetry.
+South note 2: the meters were read on schedule and the readings agree with the telemetry.
+South note 3: the meters were read on schedule and the readings agree with the telemetry.
+South note 4: the meters were read on schedule and the readings agree with the telemetry.
+South note 5: the meters were read on schedule and the readings agree with the telemetry.
+South note 6: the meters were read on schedule and the readings agree with the telemetry.
+South note 7: the meters were read on schedule and the readings agree with the telemetry.
+South note 8: the meters were read on schedule and the readings agree with the telemetry.
+South note 9: the meters were read on schedule and the readings agree with the telemetry.
+South note 10: the meters were read on schedule and the readings agree with the telemetry.
+South note 11: the meters were read on schedule and the readings agree with the telemetry.
+South note 12: the meters were read on schedule and the readings agree with the telemetry.
+South note 13: the meters were read on schedule and the readings agree with the telemetry.
+South note 14: the meters were read on schedule and the readings agree with the telemetry.
+East
+East note 1: the meters were read on schedule and the readings agree with the telemetry.
+Page 1 of 2
+--- page 2 ---
+East note 2: the meters were read on schedule and the readings agree with the telemetry.
+East note 3: the meters were read on schedule and the readings agree with the telemetry.
+East note 4: the meters were read on schedule and the readings agree with the telemetry.
+East note 5: the meters were read on schedule and the readings agree with the telemetry.
+East note 6: the meters were read on schedule and the readings agree with the telemetry.
+East note 7: the meters were read on schedule and the readings agree with the telemetry.
+East note 8: the meters were read on schedule and the readings agree with the telemetry.
+East note 9: the meters were read on schedule and the readings agree with the telemetry.
+East note 10: the meters were read on schedule and the readings agree with the telemetry.
+East note 11: the meters were read on schedule and the readings agree with the telemetry.
+East note 12: the meters were read on schedule and the readings agree with the telemetry.
+East note 13: the meters were read on schedule and the readings agree with the telemetry.
+East note 14: the meters were read on schedule and the readings agree with the telemetry.
+West
+West note 1: the meters were read on schedule and the readings agree with the telemetry.
+West note 2: the meters were read on schedule and the readings agree with the telemetry.
+West note 3: the meters were read on schedule and the readings agree with the telemetry.
+West note 4: the meters were read on schedule and the readings agree with the telemetry.
+West note 5: the meters were read on schedule and the readings agree with the telemetry.
+West note 6: the meters were read on schedule and the readings agree with the telemetry.
+West note 7: the meters were read on schedule and the readings agree with the telemetry.
+West note 8: the meters were read on schedule and the readings agree with the telemetry.
+West note 9: the meters were read on schedule and the readings agree with the telemetry.
+West note 10: the meters were read on schedule and the readings agree with the telemetry.
+West note 11: the meters were read on schedule and the readings agree with the telemetry.
+West note 12: the meters were read on schedule and the readings agree with the telemetry.
+West note 13: the meters were read on schedule and the readings agree with the telemetry.
+West note 14: the meters were read on schedule and the readings agree with the telemetry.
+No incidents were reported.
+Field report, Q4 Operations
+Page 2 of 2

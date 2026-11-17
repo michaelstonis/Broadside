@@ -18,8 +18,9 @@ namespace Broadside.Viewer;
 /// The shell calls <see cref="Update"/> whenever the viewport changes and <see cref="RunFrame"/> once per frame (for example from
 /// <c>requestAnimationFrame</c>) while it returns <see langword="true"/>. With a cooperative session (the browser, one thread) the
 /// frame does the work itself, in slices of the session's <see cref="ViewerOptions.SliceBudget"/>, until the frame's budget is spent:
-/// at most one display-list build runs per frame, and only while no slow build has run in it yet, because a build cannot be
-/// interrupted, so a frame overruns its budget by at most one build. With a background session the frame only plans: it queues up to
+/// display-list builds, image decodes and colour conversions run in slices too (issue #365: <see cref="PdfPage.BeginDisplayList"/>,
+/// <see cref="DisplayImage.ContinueDecode"/>), so a frame overruns its budget by at most one unit of work (a few content operators, a
+/// DCT MCU row, a JPEG 2000 code-block, one drawing operation). With a background session the frame only plans: it queues up to
 /// <see cref="TileSchedulerOptions.MaxConcurrency"/> tile jobs on the thread pool and returns at once, and each job loads its page,
 /// builds or takes its display list, renders and presents on workers, so <see cref="IRenderSurface.Present"/> and
 /// <see cref="IRenderSurface.Evict"/> are then called on worker threads too (#357): the UI thread only draws what the surface holds.
@@ -38,8 +39,6 @@ namespace Broadside.Viewer;
 /// </remarks>
 public sealed class TileScheduler : IDisposable
 {
-    private const long SlowBuildTicks = TimeSpan.TicksPerMillisecond;
-
     private readonly DocumentSession _session;
     private readonly IRenderSurface _surface;
     private readonly Lock _gate = new();
@@ -196,6 +195,7 @@ public sealed class TileScheduler : IDisposable
 
     private int Invalidate(int pageIndex, PdfRectangle area, DisplayLayers layers, bool wholePage)
     {
+        _session.DropSlicedBuilds(pageIndex); // a list built in part before the change is not finished (issue #365)
         List<CancellationTokenSource>? cancel = null;
         int dropped;
         lock (_gate)
@@ -970,7 +970,6 @@ public sealed class TileScheduler : IDisposable
     {
         long budgetTicks = budget == Timeout.InfiniteTimeSpan ? long.MaxValue : budget.Ticks;
         TimeSpan slice = _session.SliceBudget;
-        bool built = false;
         while (true)
         {
             long remaining = budgetTicks - Stopwatch.GetElapsedTime(start).Ticks;
@@ -995,22 +994,16 @@ public sealed class TileScheduler : IDisposable
                 continue;
             }
 
-            if (job.Rendering is null)
-            {
-                if (built)
-                {
-                    return; // one slow build per frame
-                }
-
-                long before = Stopwatch.GetTimestamp();
-                BeginDrawing(job);
-                built = Stopwatch.GetElapsedTime(before).Ticks >= SlowBuildTicks;
-                continue;
-            }
-
             TimeSpan step = budgetTicks == long.MaxValue
                 ? slice
                 : TimeSpan.FromTicks(slice == Timeout.InfiniteTimeSpan ? remaining : Math.Min(slice.Ticks, remaining));
+            if (job.Rendering is null)
+            {
+                // The page's list is built in slices of the same length (issue #365), so a build no longer ends the frame.
+                BeginDrawing(job, step);
+                continue;
+            }
+
             Draw(job, step);
         }
     }
@@ -1158,13 +1151,18 @@ public sealed class TileScheduler : IDisposable
     /// images (#372; when that is not done at once, the tile continues in a later frame, where the prefetch finds them decoded), and
     /// starts drawing into a pooled bitmap.
     /// </summary>
-    private void BeginDrawing(TileJob job)
+    private void BeginDrawing(TileJob job, TimeSpan step)
     {
         CancellationToken token = job.Operation!.Token;
         DisplayList list;
         try
         {
-            list = _session.CreateDisplayList(job.Page!, job.Tile.Layers, token);
+            if (_session.ContinueDisplayList(job.Tile.PageIndex, job.Page!, job.Tile.Layers, step, token) is not { } built)
+            {
+                return; // the build continues in the next step
+            }
+
+            list = built;
         }
         catch (PdfRangeNotLoadedException) when (!job.Prefetched)
         {
@@ -1246,7 +1244,7 @@ public sealed class TileScheduler : IDisposable
 
         try
         {
-            job.Rendering = job.Backend.Begin(list, job.Target, transform, token);
+            job.Rendering = job.Backend.Begin(list, job.Target, transform, _session.ColorFilter, token);
         }
 #pragma warning disable CA1031 // reported as a failed tile
         catch (Exception)
@@ -1507,7 +1505,7 @@ public sealed class TileScheduler : IDisposable
         }
     }
 
-    private bool IsRemote(TileJob job) => _remote is { } remote && remote.CanRender(job.Tile);
+    private bool IsRemote(TileJob job) => _remote is { } remote && remote.CanRender(job.Tile, _session.ColorFilter);
 
     /// <summary>Starts a tile the remote renderer draws: counted like a background render until it is presented or stops.</summary>
     private void StartRemote(TileJob job, long bytes)
@@ -1530,7 +1528,7 @@ public sealed class TileScheduler : IDisposable
         try
         {
             await (job.IsRemote
-                ? _remote!.RenderAsync(job.Tile, job, job.Cancellation!.Token)
+                ? _remote!.RenderAsync(job.Tile, _session.ColorFilter, job, job.Cancellation!.Token)
                 : _session.RenderTileAsync(job.Tile, job, job.Cancellation!.Token)).ConfigureAwait(false);
         }
         catch (OperationCanceledException)

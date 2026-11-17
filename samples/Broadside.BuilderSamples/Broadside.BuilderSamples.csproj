@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The document builder samples (issue #397): each sample of the builder guide as code that compiles and runs. `dotnet run` with a folder argument
+    writes every sample's PDF into the folder and fails when building or saving one reports more than information. CI runs it and
+    checks the files with qpdf; tests/Broadside.Layout.Tests links Samples.cs and snapshots each sample, and validates them with veraPDF.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Broadside.BuilderSamples</RootNamespace>
+    <AssemblyName>Broadside.BuilderSamples</AssemblyName>
+    <!-- The document builder is experimental until 1.1. -->
+    <NoWarn>$(NoWarn);BROADSIDE0001</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Layout/Broadside.Layout.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="assets/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

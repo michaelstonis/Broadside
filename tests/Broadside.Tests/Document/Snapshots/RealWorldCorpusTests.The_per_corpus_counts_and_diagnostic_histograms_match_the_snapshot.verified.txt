@@ -12,7 +12,7 @@
     RootMissing: 110
     XrefEntryBeyondSize: 68
     XrefEntryOffsetInvalid: 26
-    StreamLengthInvalid: 24
+    StreamLengthInvalid: 23
     StartxrefInvalid: 21
     MissingEndobj: 12
     PageResourcesMissing: 11
@@ -21,10 +21,10 @@
     TrailerPrevInvalid: 8
     UnexpectedToken: 8
     XrefEntryFormatInvalid: 8
+    FilterDataTruncated: 7
     StartxrefMissing: 7
     DestinationInvalid: 6
     FilterDataInvalid: 6
-    FilterDataTruncated: 6
     DictionaryKeyNotName: 5
     HeaderInvalid: 5
     PageTreeCountMismatch: 5
@@ -36,11 +36,13 @@
     DctExtraneousData: 3
     DictionaryUnterminated: 3
     FileIdentifierInvalid: 3
+    FilterAbbreviationNotAllowed: 3
     Jbig2EndOfPagePresent: 3
     NameTreeNodeInvalid: 3
     PageTreeNodeTypeInvalid: 3
     PagesMissing: 3
     WidgetNotInFieldTree: 3
+    XmpMalformed: 3
     AnnotationEntryInvalid: 2
     AppearanceEntryInvalid: 2
     AppearanceNotForm: 2
@@ -51,8 +53,6 @@
     EndOfFileMarkerMissing: 2
     FieldNameMissing: 2
     FieldNotRoot: 2
-    FieldReferenceInvalid: 2
-    FilterAbbreviationNotAllowed: 2
     InfoTrappedInvalid: 2
     Jbig2CombinationOperatorMismatch: 2
     LinearizationHintsInvalid: 2
@@ -61,8 +61,8 @@
     StreamKeywordEndOfLine: 2
     TrailerIdMissing: 2
     TrailerMissing: 2
-    XmpMalformed: 2
     AcroFormFieldsMissing: 1
+    AnnotationPageMismatch: 1
     AnnotationRequiredEntryMissing: 1
     AnnotationSubtypeMissing: 1
     AnnotationValueInvalid: 1
@@ -83,12 +83,12 @@
     FieldEntryInvalid: 1
     FieldNameDuplicateInconsistent: 1
     FieldParentMissing: 1
+    FieldReferenceInvalid: 1
     FilterUnsupported: 1
     HeaderMissing: 1
     HeaderVersionInvalid: 1
     HexStringInvalidDigit: 1
     ImageTooLarge: 1
-    InfoDictionaryInvalid: 1
     InfoValueNotTextString: 1
     Jbig2FileHeaderPresent: 1
     JpxLimitExceeded: 1
@@ -96,7 +96,6 @@
     NumberMalformed: 1
     NumberTreeDuplicateKey: 1
     ObjectStreamIndexMismatch: 1
-    ObjectStreamInvalid: 1
     OutlineCountInvalid: 1
     OutlineLinkInconsistent: 1
     PageModeInvalid: 1
@@ -154,9 +153,9 @@ qpdf: 639 files
     ButtonValueStateMismatch: 33
     MissingEndobj: 19
     FilterDataInvalid: 17
-    XrefEntryOffsetInvalid: 15
+    XrefEntryOffsetInvalid: 16
     StartxrefInvalid: 14
-    PageResourcesMissing: 11
+    PageResourcesMissing: 12
     UnexpectedToken: 11
     DictionaryKeyNotName: 10
     StreamLengthInvalid: 10
@@ -178,13 +177,13 @@ qpdf: 639 files
     DictionaryUnterminated: 5
     DictionaryValueMissing: 5
     HeaderMissing: 5
+    PageMediaBoxMissing: 5
     PageTreeCycle: 5
     PageTreeNodeTypeInvalid: 5
     PageTreeParentMismatch: 5
     TrailerMissing: 5
     DeveloperExtensionInvalid: 4
     EncryptionEntryLengthInvalid: 4
-    PageMediaBoxMissing: 4
     PredictorInvalid: 4
     XrefLineMalformed: 4
     AnnotationSharedAcrossPages: 3
@@ -221,6 +220,7 @@ qpdf: 639 files
     AppearanceEntryInvalid: 1
     AppearanceNotForm: 1
     ChoiceValueNotInOptions: 1
+    DateUnreadable: 1
     DefaultAppearanceMissing: 1
     EncryptionIdMissing: 1
     EncryptionKeyLengthInvalid: 1

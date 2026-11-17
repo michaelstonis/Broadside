@@ -56,7 +56,7 @@ internal sealed class EngineConfiguration
     public FontProgramParserRegistry FontProgramParsers { get; private init; } = FontProgramParserRegistry.Default;
 
     /// <summary>Gets the font resolvers: the options' registrations, in order, then the operating system's (issue #59).</summary>
-    public FontResolverChain FontResolvers { get; private init; } = FontResolverChain.Default;
+    public required FontResolverChain FontResolvers { get; init; }
 
     /// <summary>Gets the colour management colours are converted through (issue #77).</summary>
     public IColorManagement ColorManagement { get; private init; } = ManagedColorManagement.Default;
@@ -128,7 +128,7 @@ internal sealed class EngineConfiguration
         }
 
         return options.FontResolvers.Count == 0 && ReferenceEquals(system, SystemFontResolver.Shared)
-            ? FontResolverChain.Default
+            ? FontResolverChain.CreateDefault()
             : new FontResolverChain(options.FontResolvers, system);
     }
 }

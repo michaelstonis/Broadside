@@ -69,6 +69,9 @@ public abstract class PdfToggleButtonField : PdfButtonField
         }
     }
 
+    /// <summary>Gets <see cref="Value"/> as stored, without checking it against the widgets' states.</summary>
+    internal CosName StoredValue => ReadState(ValueObject, FormNames.V) ?? FormNames.Off;
+
     /// <summary>Gets the state the field reverts to on a reset-form action (<c>DV</c>, inheritable), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.7.4.1, Table 226.</remarks>
     public CosName? DefaultValue => ReadState(DefaultValueObject, FormNames.DV);

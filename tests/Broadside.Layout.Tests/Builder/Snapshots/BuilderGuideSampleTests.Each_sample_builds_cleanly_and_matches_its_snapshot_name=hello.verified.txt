@@ -1,0 +1,9 @@
+﻿== structure ==
+Document
+  H1
+  P
+
+== text ==
+--- page 1 ---
+Hello, Broadside
+This page is tagged, embeds its font and opens in any reader.

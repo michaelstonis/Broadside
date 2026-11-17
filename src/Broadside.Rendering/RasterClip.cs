@@ -574,10 +574,7 @@ internal sealed class RasterClip : IDisposable
             else
             {
                 ReadOnlySpan<byte> source = _source.AsSpan(((row - _sourceOriginY) * _sourceStride) + start - _sourceOffsetX, end - start);
-                for (int index = 0; index < target.Length; index++)
-                {
-                    target[index] = Divide255(source[index] * coverage);
-                }
+                CompositingRows.ScaleRow(source, target, coverage);
             }
 
             MinX = Math.Min(MinX, start);

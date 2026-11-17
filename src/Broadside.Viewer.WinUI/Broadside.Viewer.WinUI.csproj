@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The WinUI 3 shell of the viewer core (#223). The Windows App SDK is its only dependency beyond Broadside (ADR 0001: a shell
+    depends on its platform library). Tiles are drawn by the session's backend (the managed software rasterizer by default) on
+    worker threads and shown as WriteableBitmaps in image elements, composed by the XAML compositor.
+
+    The library has no XAML pages and no resources, so it needs no package resource index: with PRI generation off (MakePri.exe runs
+    only on Windows) the project builds on every host, like the Direct2D backend, and Linux packs it with the other core packages.
+    The shell's platform-free logic lives in Shell/ and is tested on every OS by tests/Broadside.Viewer.WinUI.Tests; the control, its
+    automation peers and the sample run on the Windows runner (tests/Broadside.Viewer.WinUI.UITests).
+  -->
+  <PropertyGroup>
+    <Description>WinUI 3 viewer for Broadside: a PdfView control on the shared viewer core, with tiles rendered off the UI thread, pointer, pen, touch and keyboard input, text selection, search, dark mode, form filling and UI Automation peers that expose page text in reading order. Depends on the Windows App SDK.</Description>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <UseWinUI>true</UseWinUI>
+    <!-- The Windows targeting pack and the Windows App SDK are NuGet packages: no workload, any host. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <AppxGeneratePriEnabled>false</AppxGeneratePriEnabled>
+    <!-- Also stop advertising a project .pri: the MSIX build tools add one to the library's packaging outputs (so an app's PRI step
+         expects it, PRI252, and pack looks for it, NU5026) whether or not one was generated. -->
+    <IncludeProjectPriFile>false</IncludeProjectPriFile>
+    <!-- WinUI's own projections are trim- and AOT-safe with CsWinRT; the shell uses no reflection. -->
+    <IsTrimmable>true</IsTrimmable>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Broadside.Viewer/Broadside.Viewer.csproj" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+  </ItemGroup>
+
+</Project>

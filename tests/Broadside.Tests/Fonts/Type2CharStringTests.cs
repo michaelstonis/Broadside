@@ -2,6 +2,7 @@ using System.Globalization;
 using Broadside.Diagnostics;
 using Broadside.Fonts;
 using Broadside.Fonts.Cff;
+using Broadside.Graphics;
 using Broadside.Tests.Document;
 using Broadside.TestSupport;
 
@@ -304,6 +305,56 @@ public sealed class Type2CharStringTests
         Assert.Equal("Invalid", OutlineText.Of(program, 1));
         Diagnostic diagnostic = Assert.Single(context.Diagnostics);
         Assert.Equal("FontCharstringStackOverflow", diagnostic.Code);
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+    }
+
+    /// <summary>Operands that build about 9.2e307 with mul and add; the stack clamps a single result that overflows, so three of them sum past the largest double.</summary>
+    private static object[] HugeOperand()
+    {
+        var operands = new List<object> { 32767 };
+        for (int square = 0; square < 6; square++)
+        {
+            operands.AddRange(["dup", "mul"]);
+        }
+
+        for (int scale = 0; scale < 4; scale++)
+        {
+            operands.AddRange([32767, "mul"]);
+        }
+
+        for (int doubling = 0; doubling < 3; doubling++)
+        {
+            operands.AddRange(["dup", "add"]);
+        }
+
+        return [.. operands];
+    }
+
+    public static TheoryData<string, object[]> OverflowingPaths => new()
+    {
+        { "rlineto", [.. HugeOperand(), 0, "rmoveto", .. HugeOperand(), 0, .. HugeOperand(), 0, "rlineto", "endchar"] },
+        { "rrcurveto", [0, 0, "rmoveto", .. HugeOperand(), 0, .. HugeOperand(), 0, .. HugeOperand(), 0, "rrcurveto", "endchar"] },
+        { "rmoveto then rlineto", [.. HugeOperand(), 0, "rmoveto", .. HugeOperand(), 0, "rmoveto", .. HugeOperand(), 0, "rmoveto", 1, 0, "rlineto", "endchar"] },
+    };
+
+    [Theory]
+    [MemberData(nameof(OverflowingPaths))]
+    public void A_path_whose_arithmetic_overflows_drops_the_glyph_with_a_diagnostic(string name, object[] charString)
+    {
+        var context = new FontProgramContext();
+        FontProgram program = Program(context, ("A", CffBuilder.T2(charString)));
+        var outline = new GlyphOutline();
+
+        GlyphOutlineStatus status = program.GetOutline(1, outline);
+
+        Assert.Equal(GlyphOutlineStatus.Invalid, status);
+        foreach (PathPoint point in outline.Path.Points)
+        {
+            Assert.True(double.IsFinite(point.X) && double.IsFinite(point.Y), name);
+        }
+
+        Diagnostic diagnostic = Assert.Single(context.Diagnostics);
+        Assert.Equal("FontCharstringCoordinateOverflow", diagnostic.Code);
         Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
     }
 

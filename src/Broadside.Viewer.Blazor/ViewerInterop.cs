@@ -69,7 +69,7 @@ internal static partial class ViewerInterop
     public static partial void WorkerClose(int document);
 
     [JSImport("workerRender", Module)]
-    public static partial void WorkerRender(int job, int document, int page, double scale, int rotation, int x, int y, int width, int height, int layers, double samplesPerPixel);
+    public static partial void WorkerRender(int job, int document, int page, double scale, int rotation, int x, int y, int width, int height, int layers, double samplesPerPixel, int colorFilter);
 
     [JSImport("workerCancel", Module)]
     public static partial void WorkerCancel(int job);
@@ -85,6 +85,27 @@ internal static partial class ViewerInterop
 
     [JSImport("writeClipboard", Module)]
     public static partial void WriteClipboard(string text);
+
+    [JSImport("openEditor", Module)]
+    public static partial void OpenEditor(int id, int kind, string value, int maxLength, [JSMarshalAs<JSType.Array<JSType.String>>] string[] options, string selected, string label, bool required);
+
+    [JSImport("closeEditor", Module)]
+    public static partial void CloseEditor(int id);
+
+    [JSImport("setEditorValue", Module)]
+    public static partial void SetEditorValue(int id, string value);
+
+    [JSExport]
+    internal static void OnEditorInput(int id, string value, int caret) => Get(id)?.EditorInput(value, caret);
+
+    [JSExport]
+    internal static void OnEditorSelect(int id, string indices) => Get(id)?.EditorSelect(indices);
+
+    [JSExport]
+    internal static void OnEditorCommit(int id) => Get(id)?.EditorCommit();
+
+    [JSExport]
+    internal static bool OnEditorKey(int id, string key, int modifiers) => Get(id)?.EditorKey(key, (InputModifiers)modifiers) ?? false;
 
     [JSExport]
     internal static void OnResize(int id, double width, double height, double pixelRatio) =>

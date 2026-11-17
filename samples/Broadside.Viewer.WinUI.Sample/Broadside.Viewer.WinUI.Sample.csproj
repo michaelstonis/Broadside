@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A WinUI 3 desktop app around Broadside.Viewer.WinUI's PdfView (#223): unpackaged, with the Windows App SDK runtime copied next to
+    the app (self-contained), so it runs from its output folder with nothing installed. No XAML: the window is built in code.
+    Windows only (WinAppSDK's resource index and XAML tooling run on Windows); the UI tests in tests/Broadside.Viewer.WinUI.UITests
+    drive it on the Windows runner. See README.md to run it.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <UseWinUI>true</UseWinUI>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- Unpackaged and self-contained, as the deployment guide sets it up: the runtime is loaded from the app's folder through the
+         reg-free WinRT entries merged into the manifest (UndockedRegFreeWinRT), never through the bootstrapper, which finds an
+         installed framework package. No single-project MSIX: the MRT Core tooling still builds the app's own resource index
+         (Broadside.Viewer.WinUI.Sample.pri, with WinUI's control resources merged in), which the XAML control templates load from.
+         Only the library turns its PRI off; this app must keep AppxGeneratePriEnabled at its default (true). -->
+    <EnableMsixTooling>false</EnableMsixTooling>
+    <WindowsAppSdkUndockedRegFreeWinRTInitialize>true</WindowsAppSdkUndockedRegFreeWinRTInitialize>
+    <WindowsAppSdkBootstrapInitialize>false</WindowsAppSdkBootstrapInitialize>
+    <WindowsAppSdkDeploymentManagerInitialize>false</WindowsAppSdkDeploymentManagerInitialize>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <IsTrimmable>false</IsTrimmable>
+    <!-- CA5392 fires in the Windows App SDK auto-initializer source the package compiles into the app, not in our code. -->
+    <NoWarn>$(NoWarn);CA5392</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Viewer.WinUI/Broadside.Viewer.WinUI.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+  </ItemGroup>
+
+  <!-- The documents the UI tests open (the pinned subset: representative sample documents and corpus files with tagged structure). -->
+  <ItemGroup>
+    <None Include="../documents/pdf/textbook.pdf;../documents/pdf/newsletter.pdf;../documents/pdf/paper.pdf;../documents/pdf/novel-hardback.pdf;../documents/pdf/application-form.pdf" LinkBase="documents" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../tests/Corpus/tagged-structure.pdf" LinkBase="documents" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- An app without its resource index (or without WinUI's control resources) exits as soon as a control template loads: say in
+       the build log which resource indexes landed next to the exe (MakePri runs only on Windows, so other hosts skip this). -->
+  <Target Name="ReportWinUIResourceIndexes" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <ItemGroup>
+      <_SampleResourceIndex Include="$(OutDir)*.pri" />
+    </ItemGroup>
+    <Message Importance="high" Text="WinUI sample: AppxGeneratePriEnabled=$(AppxGeneratePriEnabled), expected app index $(ProjectPriFileName); resource indexes in $(OutDir): @(_SampleResourceIndex->'%(Filename)%(Extension)', ', ')" />
+  </Target>
+
+</Project>

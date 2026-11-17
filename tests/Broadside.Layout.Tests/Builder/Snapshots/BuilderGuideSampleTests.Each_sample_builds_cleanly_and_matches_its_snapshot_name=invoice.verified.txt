@@ -1,0 +1,110 @@
+﻿== structure ==
+Document
+  Div
+    Figure Alt="Acme Instruments Ltd logo"
+    P
+    P
+    P
+    P
+  Div
+    H1
+    P
+    P
+    P
+  H2
+  P
+  P
+  P
+  P
+  Table
+    THead
+      TR
+        TH
+          P
+        TH
+          P
+        TH
+          P
+        TH
+          P
+    TBody
+      TR
+        TD
+          P
+        TD
+          P
+        TD
+          P
+        TD
+          P
+      TR
+        TD
+          P
+        TD
+          P
+        TD
+          P
+        TD
+          P
+      TR
+        TD
+          P
+      TR
+        TD
+          P
+        TD
+          P
+        TD
+          P
+        TD
+          P
+  Table
+    TBody
+      TR
+        TH
+          P
+        TD
+          P
+      TR
+        TH
+          P
+        TD
+          P
+      TR
+        TH
+          P
+        TD
+          P
+      TR
+        TH
+          P
+        TD
+          P
+  P
+
+== text ==
+--- page 1 ---
+Acme Instruments Ltd
+Unit 4, Canal Works
+Leeds LS11 5QR
+United Kingdom
+Invoice
+No. 2026-0042
+Issued 14 November 2026
+Due 14 December 2026
+Bill to
+Northern Water Ltd
+1 Reservoir Road
+York YO1 7HH
+United Kingdom
+Description Qty Unit price Amount
+Flow meter, 50 mm 2 £420.00 £840.00
+Calibration service 1 £180.00 £180.00
+Calibrated on site at the North pumping station.
+Mounting kit 4 £35.50 £142.00
+Subtotal £1,162.00
+Discount -£50.00
+VAT 20 % £222.40
+Total due £1,334.40
+Pay by bank transfer to GB33 BUKB 2020 1555 5555 55, quoting reference 2026-0042.
+Acme Instruments Ltd Page 1 of 1

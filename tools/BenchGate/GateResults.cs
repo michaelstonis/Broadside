@@ -71,6 +71,11 @@ public sealed class GateResults
             string[] parts = Path.GetRelativePath(root, file).Replace('\\', '/').Split('/');
             if (TryLocateAllocations(parts, out bool isHeadAllocation))
             {
+                foreach (string name in ReadNotGated(file))
+                {
+                    allocations.NotGated.Add(name);
+                }
+
                 foreach ((string name, long bytes) in ReadAllocations(file))
                 {
                     Dictionary<string, List<long>> side = isHeadAllocation ? allocations.Head : allocations.Base;
@@ -176,6 +181,24 @@ public sealed class GateResults
             .Select(static property => (property.Name, property.Value.GetInt64()))];
     }
 
+    /// <summary>
+    /// Reads the cases a <c>--gate-allocations</c> file lists under <c>NotGated</c>: the ones carrying the
+    /// <c>NoAllocationGate</c> benchmark category, which the exact allocation comparison leaves out.
+    /// </summary>
+    public static IReadOnlyList<string> ReadNotGated(string path)
+    {
+        using FileStream stream = File.OpenRead(path);
+        using JsonDocument document = JsonDocument.Parse(stream);
+        if (document.RootElement.ValueKind != JsonValueKind.Object
+            || !document.RootElement.TryGetProperty("NotGated", out JsonElement names)
+            || names.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        return [.. names.EnumerateArray().Where(static name => name.ValueKind == JsonValueKind.String).Select(static name => name.GetString()!)];
+    }
+
     private static bool TryLocateAllocations(string[] parts, out bool isHead)
     {
         isHead = parts.Length >= 3 && parts[^2] == "head";
@@ -249,4 +272,10 @@ public sealed class AllocationPass
 
     /// <summary>The pull request's figures.</summary>
     public Dictionary<string, List<long>> Head { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The cases that opted out of the exact allocation comparison (<c>[BenchmarkCategory("no-allocation-gate")]</c>), from either
+    /// side. They have no figure and no baseline entry, and their time is still compared.
+    /// </summary>
+    public HashSet<string> NotGated { get; } = new(StringComparer.Ordinal);
 }

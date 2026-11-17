@@ -95,26 +95,60 @@ internal sealed class AuthCodePlaceholder
     /// <exception cref="InvalidOperationException">The placeholders are not in the section, or an offset outgrows its width.</exception>
     public void Fill(Span<byte> section, long sectionStart, IncrementalDigest digest, IntegrityCodeWriter writer)
     {
-        int rangeAt = section.IndexOf(_byteRangeText);
-        int macAt = rangeAt < 0 ? -1 : section[rangeAt..].IndexOf(_macText);
+        int macAt = FillByteRange(section, sectionStart, sectionStart + section.Length);
+        digest.AppendData(section[..macAt]);
+        digest.AppendData(section[(macAt + MacLength)..]);
+        FillToken(section, macAt, digest, writer);
+    }
+
+    /// <summary>Gets the length of the MAC string's region: <c>&lt;</c>, the token's hexadecimal digits and <c>&gt;</c> (Table 6).</summary>
+    public int MacLength => _macText.Length;
+
+    /// <summary>
+    /// Fills in the byte range in <paramref name="region"/>, a written stretch of the file that holds the placeholders, for a file of
+    /// <paramref name="fileLength"/> bytes: <c>[0 L1 S L2]</c> with the MAC string the only bytes left out (ISO/TS 32004 §6.5.1).
+    /// Filling it in moves no byte. The MAC string is left as it was, for <see cref="FillToken"/> once the rest of the file is digested.
+    /// </summary>
+    /// <param name="region">The written bytes that hold the dictionary, writable.</param>
+    /// <param name="regionStart">The region's offset from the file's header.</param>
+    /// <param name="fileLength">The length of the whole file from its header.</param>
+    /// <returns>The offset of the MAC string's region (its <c>&lt;</c>) in <paramref name="region"/>.</returns>
+    /// <exception cref="InvalidOperationException">The placeholders are not in the region, or an offset outgrows its width.</exception>
+    public int FillByteRange(Span<byte> region, long regionStart, long fileLength)
+    {
+        int rangeAt = region.IndexOf(_byteRangeText);
+        int macAt = rangeAt < 0 ? -1 : region[rangeAt..].IndexOf(_macText);
         if (macAt < 0)
         {
             throw new InvalidOperationException("The AuthCode placeholders are not in the written trailer.");
         }
 
         macAt += rangeAt;
-        long first = sectionStart + macAt;
+        long first = regionStart + macAt;
         long resume = first + _macText.Length;
-        long rest = sectionStart + section.Length - resume;
+        long rest = fileLength - resume;
         string range = string.Create(CultureInfo.InvariantCulture, $"[0 {Padded(first)} {Padded(resume)} {Padded(rest)}]");
-        if (range.Length != _byteRangeText.Length)
+        if (rest < 0 || range.Length != _byteRangeText.Length)
         {
             throw new InvalidOperationException("The AuthCode byte range does not fit its placeholder.");
         }
 
-        Encoding.ASCII.GetBytes(range, section.Slice(rangeAt, range.Length));
-        digest.AppendData(section[..macAt]);
-        digest.AppendData(section[(macAt + _macText.Length)..]);
+        Encoding.ASCII.GetBytes(range, region.Slice(rangeAt, range.Length));
+        Dictionary[KnownNames.ByteRange] = new CosArray([new CosInteger(0), new CosInteger(first), new CosInteger(resume), new CosInteger(rest)]);
+        return macAt;
+    }
+
+    /// <summary>
+    /// Composes the token from <paramref name="digest"/>, which holds every byte the byte range covers (§6.6.2), and writes it as the
+    /// MAC string at <paramref name="macAt"/> in <paramref name="region"/>.
+    /// </summary>
+    /// <param name="region">The written bytes that hold the dictionary, writable; its byte range already filled in.</param>
+    /// <param name="macAt">The offset of the MAC string's region, from <see cref="FillByteRange"/>.</param>
+    /// <param name="digest">The digest of the whole file but the MAC string; reset afterward.</param>
+    /// <param name="writer">The token composer.</param>
+    /// <exception cref="InvalidOperationException">The token does not fit its placeholder.</exception>
+    public void FillToken(Span<byte> region, int macAt, IncrementalDigest digest, IntegrityCodeWriter writer)
+    {
         Span<byte> dataDigest = stackalloc byte[IntegrityCodeWriter.DigestLength];
         digest.GetHashAndReset(dataDigest);
         byte[] token = writer.CreateToken(dataDigest);
@@ -123,8 +157,7 @@ internal sealed class AuthCodePlaceholder
             throw new InvalidOperationException("The PDF MAC token does not fit its placeholder.");
         }
 
-        Encoding.ASCII.GetBytes(Convert.ToHexString(token), section.Slice(macAt + 1, token.Length * 2));
-        Dictionary[KnownNames.ByteRange] = new CosArray([new CosInteger(0), new CosInteger(first), new CosInteger(resume), new CosInteger(rest)]);
+        Encoding.ASCII.GetBytes(Convert.ToHexString(token), region.Slice(macAt + 1, token.Length * 2));
         Dictionary[Mac] = CosString.FromOwnedBytes(token, hexadecimal: true);
     }
 

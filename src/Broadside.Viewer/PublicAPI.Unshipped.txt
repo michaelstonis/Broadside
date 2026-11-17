@@ -732,3 +732,168 @@ Broadside.Viewer.ViewerOptions.WithImageSamplesPerPixel(double samplesPerPixel) 
 Broadside.Viewer.ViewerOptions.WithScaledImageDecode(bool scaledImageDecode) -> Broadside.Viewer.ViewerOptions!
 Broadside.Viewer.ITileBackend.PrefetchImagesAsync(Broadside.Rendering.DisplayList! list, in Broadside.Graphics.Matrix deviceTransform, int width, int height, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
 Broadside.Viewer.SoftwareTileBackend.PrefetchImagesAsync(Broadside.Rendering.DisplayList! list, in Broadside.Graphics.Matrix deviceTransform, int width, int height, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Broadside.Viewer.DocumentSearch
+Broadside.Viewer.DocumentSearch.Changed -> System.EventHandler?
+Broadside.Viewer.DocumentSearch.Clear() -> void
+Broadside.Viewer.DocumentSearch.Current.get -> Broadside.Viewer.SearchMatch?
+Broadside.Viewer.DocumentSearch.CurrentIndex.get -> int
+Broadside.Viewer.DocumentSearch.Dispose() -> void
+Broadside.Viewer.DocumentSearch.DocumentSearch(Broadside.Viewer.DocumentSession! session) -> void
+Broadside.Viewer.DocumentSearch.FailedPageCount.get -> int
+Broadside.Viewer.DocumentSearch.GetQuads(int pageIndex, System.Span<Broadside.Graphics.Quad> destination) -> int
+Broadside.Viewer.DocumentSearch.IndexedPageCount.get -> int
+Broadside.Viewer.DocumentSearch.IsIndexComplete.get -> bool
+Broadside.Viewer.DocumentSearch.IsIndexing.get -> bool
+Broadside.Viewer.DocumentSearch.IsSearchComplete.get -> bool
+Broadside.Viewer.DocumentSearch.MatchCount.get -> int
+Broadside.Viewer.DocumentSearch.Matches.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.SearchMatch!>!
+Broadside.Viewer.DocumentSearch.MoveTo(int index) -> Broadside.Viewer.SearchMatch!
+Broadside.Viewer.DocumentSearch.Next() -> Broadside.Viewer.SearchMatch?
+Broadside.Viewer.DocumentSearch.Options.get -> Broadside.Viewer.TextSearchOptions!
+Broadside.Viewer.DocumentSearch.Previous() -> Broadside.Viewer.SearchMatch?
+Broadside.Viewer.DocumentSearch.Query.get -> string!
+Broadside.Viewer.DocumentSearch.Search(string! query, Broadside.Viewer.TextSearchOptions? options = null, int startPage = 0) -> void
+Broadside.Viewer.DocumentSearch.SearchedPageCount.get -> int
+Broadside.Viewer.DocumentSearch.Session.get -> Broadside.Viewer.DocumentSession!
+Broadside.Viewer.DocumentSearch.StartIndexing() -> void
+Broadside.Viewer.SearchMatch
+Broadside.Viewer.SearchMatch.Bounds.get -> Broadside.PdfRectangle
+Broadside.Viewer.SearchMatch.Context.get -> string!
+Broadside.Viewer.SearchMatch.PageIndex.get -> int
+Broadside.Viewer.SearchMatch.Quads.get -> System.Collections.Generic.IReadOnlyList<Broadside.Graphics.Quad>!
+Broadside.Viewer.SearchMatch.Text.get -> string!
+Broadside.Viewer.TextSearchOptions
+Broadside.Viewer.TextSearchOptions.MatchCase.get -> bool
+Broadside.Viewer.TextSearchOptions.MatchCase.set -> void
+Broadside.Viewer.TextSearchOptions.MatchDiacritics.get -> bool
+Broadside.Viewer.TextSearchOptions.MatchDiacritics.set -> void
+Broadside.Viewer.TextSearchOptions.TextSearchOptions() -> void
+Broadside.Viewer.TextSearchOptions.WholeWord.get -> bool
+Broadside.Viewer.TextSearchOptions.WholeWord.set -> void
+Broadside.Viewer.TextSearchOptions.WithMatchCase(bool matchCase = true) -> Broadside.Viewer.TextSearchOptions!
+Broadside.Viewer.TextSearchOptions.WithMatchDiacritics(bool matchDiacritics = true) -> Broadside.Viewer.TextSearchOptions!
+Broadside.Viewer.TextSearchOptions.WithWholeWord(bool wholeWord = true) -> Broadside.Viewer.TextSearchOptions!
+Broadside.Viewer.DocumentSession.ColorFilter.get -> Broadside.Rendering.ColorFilter
+Broadside.Viewer.DocumentSession.ColorFilter.set -> void
+Broadside.Viewer.IRemoteTileRenderer.CanRender(in Broadside.Viewer.Tile tile, Broadside.Rendering.ColorFilter colorFilter) -> bool
+Broadside.Viewer.IRemoteTileRenderer.RenderAsync(Broadside.Viewer.Tile tile, Broadside.Rendering.ColorFilter colorFilter, Broadside.Viewer.IRenderSurface! surface, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Broadside.Viewer.ITileBackend.Begin(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, Broadside.Rendering.ColorFilter colorFilter, System.Threading.CancellationToken cancellationToken) -> Broadside.Viewer.ITileRender!
+Broadside.Viewer.SoftwareTileBackend.Begin(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, Broadside.Rendering.ColorFilter colorFilter, System.Threading.CancellationToken cancellationToken) -> Broadside.Viewer.ITileRender!
+Broadside.Viewer.ViewerOptions.ColorFilter.get -> Broadside.Rendering.ColorFilter
+Broadside.Viewer.ViewerOptions.ColorFilter.set -> void
+Broadside.Viewer.ViewerOptions.WithColorFilter(Broadside.Rendering.ColorFilter colorFilter) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewTarget
+Broadside.Viewer.ViewTarget.ViewTarget() -> void
+Broadside.Viewer.ViewTarget.ViewTarget(int PageIndex, Broadside.PdfDestinationView View, double? Left, double? Top, double? Right, double? Bottom, double? Zoom) -> void
+Broadside.Viewer.ViewTarget.PageIndex.get -> int
+Broadside.Viewer.ViewTarget.PageIndex.init -> void
+Broadside.Viewer.ViewTarget.View.get -> Broadside.PdfDestinationView
+Broadside.Viewer.ViewTarget.View.init -> void
+Broadside.Viewer.ViewTarget.Left.get -> double?
+Broadside.Viewer.ViewTarget.Left.init -> void
+Broadside.Viewer.ViewTarget.Top.get -> double?
+Broadside.Viewer.ViewTarget.Top.init -> void
+Broadside.Viewer.ViewTarget.Right.get -> double?
+Broadside.Viewer.ViewTarget.Right.init -> void
+Broadside.Viewer.ViewTarget.Bottom.get -> double?
+Broadside.Viewer.ViewTarget.Bottom.init -> void
+Broadside.Viewer.ViewTarget.Zoom.get -> double?
+Broadside.Viewer.ViewTarget.Zoom.init -> void
+Broadside.Viewer.ViewTarget.GetViewport(Broadside.Viewer.PageLayout! layout, in Broadside.Viewer.Viewport viewport, double actualSize = 1, double minZoom = 0.1, double maxZoom = 64) -> Broadside.Viewer.Viewport
+static Broadside.Viewer.ViewTarget.FindNamedAsync(Broadside.Viewer.DocumentSession! session, string! name, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.ViewTarget?>
+static Broadside.Viewer.ViewTarget.Resolve(Broadside.PdfDestination? destination) -> Broadside.Viewer.ViewTarget?
+Broadside.Viewer.OutlineEntry
+Broadside.Viewer.OutlineEntry.ActionKind.get -> Broadside.PdfActionKind?
+Broadside.Viewer.OutlineEntry.Children.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.OutlineEntry!>!
+Broadside.Viewer.OutlineEntry.Color.get -> Broadside.PdfRgbColor
+Broadside.Viewer.OutlineEntry.Id.get -> int
+Broadside.Viewer.OutlineEntry.IsBold.get -> bool
+Broadside.Viewer.OutlineEntry.IsItalic.get -> bool
+Broadside.Viewer.OutlineEntry.IsNavigable.get -> bool
+Broadside.Viewer.OutlineEntry.IsOpen.get -> bool
+Broadside.Viewer.OutlineEntry.Level.get -> int
+Broadside.Viewer.OutlineEntry.PageLabel.get -> string?
+Broadside.Viewer.OutlineEntry.Parent.get -> Broadside.Viewer.OutlineEntry?
+Broadside.Viewer.OutlineEntry.Target.get -> Broadside.Viewer.ViewTarget?
+Broadside.Viewer.OutlineEntry.Title.get -> string!
+Broadside.Viewer.OutlineEntry.Uri.get -> System.Uri?
+override Broadside.Viewer.OutlineEntry.ToString() -> string!
+Broadside.Viewer.DocumentOutline
+Broadside.Viewer.DocumentOutline.Entries.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.OutlineEntry!>!
+Broadside.Viewer.DocumentOutline.FindEntryFor(int pageIndex) -> Broadside.Viewer.OutlineEntry?
+Broadside.Viewer.DocumentOutline.GetVisible() -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.OutlineEntry!>!
+Broadside.Viewer.DocumentOutline.GetVisible(System.Func<Broadside.Viewer.OutlineEntry!, bool>! isOpen) -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.OutlineEntry!>!
+Broadside.Viewer.DocumentOutline.IsEmpty.get -> bool
+Broadside.Viewer.DocumentOutline.Roots.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.OutlineEntry!>!
+static Broadside.Viewer.DocumentOutline.LoadAsync(Broadside.Viewer.DocumentSession! session, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.DocumentOutline!>
+Broadside.Viewer.PageLabelTable
+Broadside.Viewer.PageLabelTable.Count.get -> int
+Broadside.Viewer.PageLabelTable.GetLabel(int pageIndex) -> string!
+Broadside.Viewer.PageLabelTable.HasLabels.get -> bool
+Broadside.Viewer.PageLabelTable.TryFindPage(string! label, out int pageIndex) -> bool
+static Broadside.Viewer.PageLabelTable.LoadAsync(Broadside.Viewer.DocumentSession! session, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.PageLabelTable!>
+Broadside.Viewer.PageThumbnails
+Broadside.Viewer.PageThumbnails.Failed -> System.EventHandler<Broadside.Viewer.ThumbnailFailedEventArgs!>?
+Broadside.Viewer.PageThumbnails.GetScaleAsync(int pageIndex, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<double>
+Broadside.Viewer.PageThumbnails.PageThumbnails(Broadside.Viewer.DocumentSession! session, Broadside.Viewer.IRenderSurface! surface, Broadside.Viewer.ThumbnailOptions? options = null) -> void
+Broadside.Viewer.PageThumbnails.RenderAsync(System.Collections.Generic.IEnumerable<int>! pages, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<int>!
+Broadside.Viewer.ThumbnailOptions
+Broadside.Viewer.ThumbnailOptions.MaxDeferral.get -> System.TimeSpan
+Broadside.Viewer.ThumbnailOptions.Size.get -> int
+Broadside.Viewer.ThumbnailOptions.ThumbnailOptions() -> void
+Broadside.Viewer.ThumbnailOptions.WithMaxDeferral(System.TimeSpan deferral) -> Broadside.Viewer.ThumbnailOptions!
+Broadside.Viewer.ThumbnailOptions.WithSize(int pixels) -> Broadside.Viewer.ThumbnailOptions!
+const Broadside.Viewer.ThumbnailOptions.DefaultSize = 160 -> int
+static readonly Broadside.Viewer.ThumbnailOptions.DefaultMaxDeferral -> System.TimeSpan
+Broadside.Viewer.ThumbnailFailedEventArgs
+Broadside.Viewer.ThumbnailFailedEventArgs.Exception.get -> System.Exception!
+Broadside.Viewer.ThumbnailFailedEventArgs.PageIndex.get -> int
+Broadside.Viewer.InputKey.Tab = 13 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.Enter = 14 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.Escape = 15 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.Backspace = 16 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.Delete = 17 -> Broadside.Viewer.InputKey
+Broadside.Viewer.ViewerOptions.TransientFieldAppearances.get -> bool
+Broadside.Viewer.ViewerOptions.TransientFieldAppearances.set -> void
+Broadside.Viewer.ViewerOptions.WithTransientFieldAppearances(bool transient) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.AnnotationLayer.SetFieldText(Broadside.Viewer.AnnotationTarget target, string? value) -> bool
+Broadside.Viewer.AnnotationLayer.SetFieldChoice(Broadside.Viewer.AnnotationTarget target, string? value) -> bool
+Broadside.Viewer.AnnotationLayer.SetFieldSelection(Broadside.Viewer.AnnotationTarget target, System.Collections.Generic.IEnumerable<int>! indices) -> bool
+Broadside.Viewer.AnnotationLayer.ResetFields(System.Collections.Generic.IEnumerable<Broadside.Forms.PdfTerminalField!>! fields) -> int
+Broadside.Viewer.AnnotationLayer.XfaFormDetected -> System.EventHandler<Broadside.Viewer.XfaFormEventArgs!>?
+Broadside.Viewer.AnnotationLayer.XfaForm.get -> Broadside.Viewer.XfaFormEventArgs?
+Broadside.Viewer.XfaFormEventArgs
+Broadside.Viewer.XfaFormEventArgs.IsDynamic.get -> bool
+Broadside.Viewer.XfaFormEventArgs.PacketCount.get -> int
+Broadside.Viewer.XfaFormEventArgs.Explanation.get -> string!
+Broadside.Viewer.FieldEditKind
+Broadside.Viewer.FieldEditKind.None = 0 -> Broadside.Viewer.FieldEditKind
+Broadside.Viewer.FieldEditKind.Text = 1 -> Broadside.Viewer.FieldEditKind
+Broadside.Viewer.FieldEditKind.Choice = 2 -> Broadside.Viewer.FieldEditKind
+Broadside.Viewer.FieldEditKind.Button = 3 -> Broadside.Viewer.FieldEditKind
+Broadside.Viewer.FormFilling
+Broadside.Viewer.FormFilling.FormFilling(Broadside.Viewer.AnnotationLayer! layer) -> void
+Broadside.Viewer.FormFilling.Changed -> System.EventHandler?
+Broadside.Viewer.FormFilling.Layer.get -> Broadside.Viewer.AnnotationLayer!
+Broadside.Viewer.FormFilling.Target.get -> Broadside.Viewer.AnnotationTarget?
+Broadside.Viewer.FormFilling.Field.get -> Broadside.Forms.PdfTerminalField?
+Broadside.Viewer.FormFilling.Kind.get -> Broadside.Viewer.FieldEditKind
+Broadside.Viewer.FormFilling.IsReadOnly.get -> bool
+Broadside.Viewer.FormFilling.IsRequired.get -> bool
+Broadside.Viewer.FormFilling.IsDirty.get -> bool
+Broadside.Viewer.FormFilling.Text.get -> string!
+Broadside.Viewer.FormFilling.Caret.get -> int
+Broadside.Viewer.FormFilling.SelectionStart.get -> int
+Broadside.Viewer.FormFilling.SelectionLength.get -> int
+Broadside.Viewer.FormFilling.SelectedOptions.get -> System.Collections.Generic.IReadOnlyList<int>!
+Broadside.Viewer.FormFilling.HighlightedOption.get -> int
+Broadside.Viewer.FormFilling.MaxLength.get -> int?
+Broadside.Viewer.FormFilling.KeyDown(Broadside.Viewer.InputKey key, Broadside.Viewer.InputModifiers modifiers) -> bool
+Broadside.Viewer.FormFilling.TextInput(string! text) -> bool
+Broadside.Viewer.FormFilling.SetText(string! text, int? caret = null) -> bool
+Broadside.Viewer.FormFilling.SetSelectedOptions(System.Collections.Generic.IEnumerable<int>! indices) -> bool
+Broadside.Viewer.FormFilling.SelectAll() -> bool
+Broadside.Viewer.FormFilling.Commit() -> bool
+Broadside.Viewer.FormFilling.Cancel() -> bool
+Broadside.Viewer.FormFilling.GetMissingRequiredFields(System.Collections.Generic.IEnumerable<Broadside.Forms.PdfTerminalField!>? fields = null) -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfTerminalField!>!
+Broadside.Viewer.AnnotationLayer.FindTarget(int pageIndex, Broadside.Objects.CosDictionary! dictionary) -> Broadside.Viewer.AnnotationTarget?

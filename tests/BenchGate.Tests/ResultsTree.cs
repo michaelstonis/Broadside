@@ -90,6 +90,25 @@ internal sealed class ResultsTree : IDisposable
         return this;
     }
 
+    /// <summary>Lists <paramref name="fullName"/> under <c>NotGated</c> in <c>&lt;directory&gt;/&lt;file&gt;.json</c>, as <c>--gate-allocations</c> does for a case in the <c>NoAllocationGate</c> category.</summary>
+    public ResultsTree AddNotGated(string directory, string file, string fullName)
+    {
+        string folder = Path.Combine(Root, directory);
+        Directory.CreateDirectory(folder);
+        string path = Path.Combine(folder, file + ".json");
+        JsonObject document = File.Exists(path)
+            ? JsonNode.Parse(File.ReadAllText(path))!.AsObject()
+            : new JsonObject { ["Unit"] = "bytes per call", ["Benchmarks"] = new JsonObject() };
+        if (document["NotGated"] is not JsonArray names)
+        {
+            document["NotGated"] = names = [];
+        }
+
+        names.Add(fullName);
+        File.WriteAllText(path, document.ToJsonString());
+        return this;
+    }
+
     /// <summary>Writes the same benchmark to <c>round-1</c> .. <c>round-n</c> of one side.</summary>
     public ResultsTree AddRounds(string side, int rounds, string fullName, long allocated, params double[] nanoseconds)
     {

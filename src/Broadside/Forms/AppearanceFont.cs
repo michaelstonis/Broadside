@@ -131,6 +131,18 @@ internal sealed class CanvasAppearanceFont : AppearanceFont
 
     private CanvasAppearanceFont(PdfCanvasFont font) => _font = font;
 
+    /// <summary>
+    /// The default appearance font when it is the Type 0 font of one of the document's shared subsets (a font given through
+    /// <see cref="PdfFieldOptions.Font"/>, or one a canvas embedded): shown through that subset, which grows by the glyphs shown.
+    /// </summary>
+    /// <param name="document">The document.</param>
+    /// <param name="fontObject">The default resources' entry for the default appearance's font.</param>
+    /// <returns>The font, or <see langword="null"/> when the entry is not such a font.</returns>
+    public static CanvasAppearanceFont? FromSharedSubset(PdfDocument document, CosObject fontObject) =>
+        fontObject is CosReference reference && document.FontSubsets.FindByFont(document, reference) is { } subset
+            ? new CanvasAppearanceFont(EmbeddedCanvasFont.Over(document, subset))
+            : null;
+
     public override CosObject FontObject => _font.Reference;
 
     public override double Ascent => _font.Ascent;

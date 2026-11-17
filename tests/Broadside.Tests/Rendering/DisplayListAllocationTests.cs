@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Broadside.Graphics;
 using Broadside.Rendering;
@@ -185,6 +186,132 @@ public sealed class DisplayListAllocationTests
         long allocated = Allocations.Measure(build);
 
         Assert.InRange(allocated, 1, 2048 + (16 * strokes));
+    }
+
+    [Theory]
+    [InlineData(10)]
+    [InlineData(2000)]
+    public void Building_a_display_list_of_strokes_that_cycle_through_line_styles_allocates_one_record_per_style(int strokes)
+    {
+        // Issue #337: three line styles in turn (a table's rules, a chart's series). Each style is one stroke record and one dash
+        // slice however often it comes back, so the list grows by its operation records only, as for a single style.
+        var content = new StringBuilder("0 0 1 RG ");
+        for (int i = 0; i < strokes; i++)
+        {
+            content.Append(CultureInfo.InvariantCulture, $"{(i % 3) + 1} w [{(i % 3) + 2} 2] 0 d 10 10 100 50 re S\n");
+        }
+
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(Encoding.ASCII.GetBytes(content.ToString())), NoListCache);
+        PdfPage page = document.Pages[0];
+        Action build = () => page.CreateDisplayList();
+
+        long allocated = Allocations.Measure(build);
+
+        Assert.InRange(allocated, 1, 2048 + (16 * strokes));
+    }
+
+    [Fact]
+    public void Strokes_that_share_a_record_replay_with_their_own_line_style()
+    {
+        var content = new StringBuilder("0 0 1 RG ");
+        for (int i = 0; i < 9; i++)
+        {
+            content.Append(CultureInfo.InvariantCulture, $"{(i % 3) + 1} w [{(i % 3) + 2} 2] 0 d 10 10 100 50 re S\n");
+        }
+
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(Encoding.ASCII.GetBytes(content.ToString())), NoListCache);
+        var backend = new StyleBackend();
+
+        document.Pages[0].CreateDisplayList().Replay(backend);
+
+        Assert.Equal(
+            [(1, 2), (2, 3), (3, 4), (1, 2), (2, 3), (3, 4), (1, 2), (2, 3), (3, 4)],
+            backend.Styles);
+    }
+
+    /// <summary>Records each stroke's line width and first dash length.</summary>
+    private sealed class StyleBackend : IRenderingBackend
+    {
+        public List<(double Width, double Dash)> Styles { get; } = [];
+
+        public void SaveState()
+        {
+        }
+
+        public void RestoreState()
+        {
+        }
+
+        public void SetTransform(in Matrix transform)
+        {
+        }
+
+        public void FillPath(PathView path, FillRule rule, in DisplayColor color)
+        {
+        }
+
+        public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color) =>
+            Styles.Add((style.LineWidth, style.DashArray[0]));
+
+        public void IntersectClip(PathView path, FillRule rule)
+        {
+        }
+
+        public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
+        {
+        }
+
+        public void DrawGlyphs(in GlyphRun run)
+        {
+        }
+
+        public void DrawShading(in DisplayShading shading)
+        {
+        }
+
+        public void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading)
+        {
+        }
+
+        public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading)
+        {
+        }
+
+        public void FillPathWithTilingPattern(PathView path, FillRule rule, in DisplayTilingPattern pattern)
+        {
+        }
+
+        public void StrokePathWithTilingPattern(PathView path, in StrokeStyle style, in DisplayTilingPattern pattern)
+        {
+        }
+
+        public void FillImageMask(DisplayImageMask mask, in DisplayColor color)
+        {
+        }
+
+        public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode)
+        {
+        }
+
+        public void DrawGroup(in DisplayGroup group)
+        {
+        }
+
+        public void SetSoftMask(in DisplaySoftMask mask)
+        {
+        }
+
+        public void BeginAnnotation(in DisplayAnnotation annotation)
+        {
+        }
+
+        public void EndAnnotation()
+        {
+        }
+
+        public void SetDeviceParameters(in DisplayDeviceParameters parameters)
+        {
+        }
     }
 
     /// <summary>Counts fills and strokes and touches what each call hands over, without allocating.</summary>

@@ -142,8 +142,68 @@ public sealed class DisplayImage
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="reduction"/> is negative.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled during the decode; nothing is kept, and the next request decodes again.</exception>
     /// <remarks>ISO 32000-2 §8.9.3 and §8.9.4; viewer capability 2 (cancellation).</remarks>
-    public DisplayImageSamples? GetSamplesAt(int reduction, CancellationToken cancellationToken)
+    public DisplayImageSamples? GetSamplesAt(int reduction, CancellationToken cancellationToken) =>
+        GetSamplesAt(reduction, long.MaxValue, cancellationToken, out _);
+
+    /// <summary>
+    /// Decodes the image's samples at a reduction of 2^<paramref name="reduction"/> for about <paramref name="budget"/>, resuming where
+    /// an earlier call stopped, so that a single-threaded viewer can decode a large image between frames: once this returns
+    /// <see langword="true"/>, <see cref="GetSamplesAt(int)"/> with the same reduction returns without decoding.
+    /// </summary>
+    /// <param name="reduction">The reduction asked for, as for <see cref="GetSamplesAt(int)"/>.</param>
+    /// <param name="budget">
+    /// How long the call may decode; <see cref="TimeSpan.Zero"/> decodes one unit of work, <see cref="Timeout.InfiniteTimeSpan"/>
+    /// decodes to the end. A unit is never split, so a call can overrun its budget by one unit's time.
+    /// </param>
+    /// <param name="cancellationToken">Stops this call; a decode stopped in the middle of a unit is discarded and starts again on the next call.</param>
+    /// <returns>
+    /// <see langword="true"/> when the samples are ready (also when they already were, when a finer reduction serves this one, or when
+    /// the image cannot be decoded); <see langword="false"/> when the budget ran out first.
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="reduction"/> is negative, or <paramref name="budget"/> is negative and not infinite.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §7.4.8 and §7.4.9; issue #365 (viewer capability 2: no single step blocks a single-threaded viewer for long). The
+    /// managed DCT codec pauses between MCU rows and the JPEG 2000 codec between code-blocks; an image whose codec has no resume
+    /// points, or one decoded when the list was built and reduced from that decode, is done in one call. The samples equal one whole
+    /// decode's however the work is sliced.
+    /// </para>
+    /// <para>
+    /// The decode in progress is shared: any caller continues it, and <see cref="GetSamplesAt(int)"/> finishes it. Thread-safe as
+    /// <see cref="GetSamplesAt(int)"/> is.
+    /// </para>
+    /// </remarks>
+    public bool ContinueDecode(int reduction, TimeSpan budget, CancellationToken cancellationToken)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(reduction);
+        if (budget < TimeSpan.Zero && budget != Timeout.InfiniteTimeSpan)
+        {
+            throw new ArgumentOutOfRangeException(nameof(budget), budget, "The budget must not be negative, except for Timeout.InfiniteTimeSpan.");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        GetSamplesAt(reduction, Deadline(budget), cancellationToken, out bool paused);
+        return !paused;
+    }
+
+    /// <summary>Returns the <see cref="System.Diagnostics.Stopwatch"/> timestamp at which a slice of <paramref name="budget"/> starting now ends.</summary>
+    internal static long Deadline(TimeSpan budget)
+    {
+        if (budget == Timeout.InfiniteTimeSpan)
+        {
+            return long.MaxValue;
+        }
+
+        double ticks = budget.Ticks * ((double)System.Diagnostics.Stopwatch.Frequency / TimeSpan.TicksPerSecond);
+        long now = System.Diagnostics.Stopwatch.GetTimestamp();
+        return ticks >= long.MaxValue - now - 1 ? long.MaxValue - 1 : now + (long)ticks;
+    }
+
+    /// <summary><see cref="GetSamplesAt(int, CancellationToken)"/>, pausing a decode at <paramref name="deadline"/> (then null and <paramref name="paused"/>).</summary>
+    private DisplayImageSamples? GetSamplesAt(int reduction, long deadline, CancellationToken cancellationToken, out bool paused)
+    {
+        paused = false;
         ArgumentOutOfRangeException.ThrowIfNegative(reduction);
         if (_source is DecodedImage decodedAtBuild)
         {
@@ -186,9 +246,41 @@ public sealed class DisplayImage
             }
 
 #pragma warning disable CA2000 // The cache and the slots own the samples from here on.
-            DecodedImage? decoded = reductions.Samples is { } source
-                ? ImageReducer.Reduce(source, wanted, cancellationToken)
-                : reductions.Encoded!.Decode(wanted, cancellationToken);
+            DecodedImage? decoded;
+            if (reductions.Samples is { } source)
+            {
+                decoded = ImageReducer.Reduce(source, wanted, cancellationToken);
+            }
+            else if (deadline == long.MaxValue && slot.Pending is null)
+            {
+                decoded = reductions.Encoded!.Decode(wanted, cancellationToken);
+            }
+            else
+            {
+                // Issue #365: a decode in slices, kept in the slot between them; any caller continues it.
+                ImageDecodeJob job = slot.Pending ??= reductions.Encoded!.BeginDecode(wanted);
+                bool done;
+                try
+                {
+                    done = job.Continue(deadline, cancellationToken);
+                }
+                catch
+                {
+                    slot.Pending = null;
+                    job.Dispose();
+                    throw;
+                }
+
+                if (!done)
+                {
+                    paused = true;
+                    return null;
+                }
+
+                slot.Pending = null;
+                decoded = job.Result;
+                job.Dispose();
+            }
 #pragma warning restore CA2000
             if (decoded is null)
             {
@@ -718,5 +810,8 @@ public sealed class DisplayImage
 
         /// <summary>Gets or sets a value indicating whether <see cref="Weak"/> holds a coarser request's fallback to another reduction.</summary>
         public bool Alias { get; set; }
+
+        /// <summary>Gets or sets the decode of this reduction in progress, between two slices (issue #365).</summary>
+        public ImageDecodeJob? Pending { get; set; }
     }
 }

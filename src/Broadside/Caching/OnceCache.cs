@@ -32,7 +32,8 @@ internal readonly record struct Created<TValue>(TValue Value, bool Keep = true);
 /// </para>
 /// <para>
 /// What the cache allocates depends only on how many keys it holds, never on how they hash (<see cref="DeterministicTable"/>,
-/// issue #288).
+/// issue #288). Its table is created by the first value it holds (issue #337): a document opens with a few dozen of these caches,
+/// most of which a given use never reaches, and an empty table cost about 470 bytes each.
 /// </para>
 /// <para>
 /// A cached value is read without a lock. A factory exception is cached and rethrown to every later caller: the same input gives the
@@ -46,14 +47,34 @@ internal readonly record struct Created<TValue>(TValue Value, bool Keep = true);
 internal sealed class OnceCache<TKey, TValue>
     where TKey : notnull
 {
-    private readonly ConcurrentDictionary<TKey, Entry> _entries;
+    private readonly IEqualityComparer<TKey>? _comparer;
+    private ConcurrentDictionary<TKey, Entry>? _table;
 
     /// <summary>Creates an empty cache comparing keys with their default equality.</summary>
-    public OnceCache() => _entries = DeterministicTable.Create<TKey, Entry>();
+    public OnceCache()
+    {
+    }
 
     /// <summary>Creates an empty cache comparing keys with <paramref name="comparer"/> (for instance by reference, for COS containers).</summary>
     /// <param name="comparer">The key comparer.</param>
-    public OnceCache(IEqualityComparer<TKey> comparer) => _entries = DeterministicTable.Create<TKey, Entry>(comparer);
+    public OnceCache(IEqualityComparer<TKey> comparer) => _comparer = comparer;
+
+    /// <summary>The table, created on first use; every thread that races to create it gets the same one.</summary>
+    private ConcurrentDictionary<TKey, Entry> Entries
+    {
+        get
+        {
+            return Volatile.Read(ref _table) ?? Create();
+
+            ConcurrentDictionary<TKey, Entry> Create()
+            {
+                ConcurrentDictionary<TKey, Entry> table = _comparer is null
+                    ? DeterministicTable.Create<TKey, Entry>()
+                    : DeterministicTable.Create<TKey, Entry>(_comparer);
+                return Interlocked.CompareExchange(ref _table, table, null) ?? table;
+            }
+        }
+    }
 
     /// <summary>Returns the cached value for <paramref name="key"/>, when one has been computed.</summary>
     /// <param name="key">The key.</param>
@@ -61,7 +82,7 @@ internal sealed class OnceCache<TKey, TValue>
     /// <returns><see langword="true"/> when cached; a cached exception is rethrown.</returns>
     public bool TryGet(TKey key, [MaybeNullWhen(false)] out TValue value)
     {
-        if (_entries.TryGetValue(key, out Entry? entry) && entry.IsCompleted)
+        if (Volatile.Read(ref _table) is { } table && table.TryGetValue(key, out Entry? entry) && entry.IsCompleted)
         {
             value = entry.Result;
             return true;
@@ -77,7 +98,7 @@ internal sealed class OnceCache<TKey, TValue>
     /// <returns>The cached value when there is one, else <paramref name="value"/>.</returns>
     public TValue Add(TKey key, TValue value)
     {
-        Entry entry = _entries.GetOrAdd(key, static (_, value) => Entry.Completed(value), value);
+        Entry entry = Entries.GetOrAdd(key, static (_, value) => Entry.Completed(value), value);
         return entry.IsCompleted ? entry.Result : value;
     }
 
@@ -86,16 +107,21 @@ internal sealed class OnceCache<TKey, TValue>
     /// built from, which the concurrency contract makes single-threaded: no request may run at the same time.
     /// </summary>
     /// <param name="key">The key.</param>
-    public void Remove(TKey key) => _entries.TryRemove(key, out _);
+    public void Remove(TKey key) => Volatile.Read(ref _table)?.TryRemove(key, out _);
 
     /// <summary>Gets how many keys the cache holds, computed or being computed.</summary>
-    public int Count => _entries.Count;
+    public int Count => Volatile.Read(ref _table)?.Count ?? 0;
 
     /// <summary>The computed values, a moment's view of a cache nobody else is changing.</summary>
     /// <returns>Each key with its value.</returns>
     public IEnumerable<KeyValuePair<TKey, TValue>> Completed()
     {
-        foreach (KeyValuePair<TKey, Entry> entry in _entries)
+        if (Volatile.Read(ref _table) is not { } table)
+        {
+            yield break;
+        }
+
+        foreach (KeyValuePair<TKey, Entry> entry in table)
         {
             if (entry.Value.IsCompleted)
             {
@@ -135,11 +161,42 @@ internal sealed class OnceCache<TKey, TValue>
     /// <param name="create">Computes the value; runs at most once per key and stamp while its results are kept.</param>
     /// <param name="cycle">The value for a request that would wait on itself, as for the overload without a stamp. Not cached.</param>
     /// <returns>The value.</returns>
-    public TValue GetOrCreate<TState>(TKey key, int? stamp, TState state, Func<TKey, TState, Created<TValue>> create, Func<TKey, TState, TValue> cycle)
+    public TValue GetOrCreate<TState>(TKey key, int? stamp, TState state, Func<TKey, TState, Created<TValue>> create, Func<TKey, TState, TValue> cycle) =>
+        GetOrCreate(key, stamp, state, create, cycle, isCurrent: null);
+
+    /// <summary>
+    /// Returns the value for <paramref name="key"/> computed at <paramref name="stamp"/>, as the overload without
+    /// <paramref name="isCurrent"/> does, except that a value cached at another stamp is first asked whether it still holds: when
+    /// <paramref name="isCurrent"/> says it does, the same value is kept and recorded at <paramref name="stamp"/>.
+    /// </summary>
+    /// <remarks>
+    /// For values whose identity callers rely on (a colour space view that converters and renders key on, issue #305): an object
+    /// added or removed elsewhere in the document leaves such a value as it was, and only a value that read a reference whose target
+    /// changed is computed again. A cached exception is never asked; it is replaced.
+    /// </remarks>
+    /// <typeparam name="TState">What the factories need, passed through so they can be static.</typeparam>
+    /// <param name="key">The key.</param>
+    /// <param name="stamp">What the value is computed at; <see langword="null"/> for a value the key alone decides.</param>
+    /// <param name="state">The factories' state.</param>
+    /// <param name="create">Computes the value; runs at most once per key and stamp while its results are kept.</param>
+    /// <param name="cycle">The value for a request that would wait on itself, as for the overload without a stamp. Not cached.</param>
+    /// <param name="isCurrent">
+    /// Whether a value computed at another stamp still holds at <paramref name="stamp"/>; <see langword="null"/> to replace every
+    /// such value. It may run on several threads at once for the same value, and must give each the same answer.
+    /// </param>
+    /// <returns>The value.</returns>
+    public TValue GetOrCreate<TState>(
+        TKey key,
+        int? stamp,
+        TState state,
+        Func<TKey, TState, Created<TValue>> create,
+        Func<TKey, TState, TValue> cycle,
+        Func<TKey, TValue, TState, bool>? isCurrent)
     {
+        ConcurrentDictionary<TKey, Entry> table = Entries;
         while (true)
         {
-            if (_entries.TryGetValue(key, out Entry? entry))
+            if (table.TryGetValue(key, out Entry? entry))
             {
                 if (entry.IsCompleted)
                 {
@@ -148,14 +205,22 @@ internal sealed class OnceCache<TKey, TValue>
                         return entry.Result;
                     }
 
+                    if (isCurrent is not null && entry.HasValue && isCurrent(key, entry.Result, state))
+                    {
+                        // Still right: keep the value (and its identity) and record it at this stamp. Only this exact entry is
+                        // replaced; a request that got there first already did the same.
+                        table.TryUpdate(key, Entry.Completed(entry.Result, stamp), entry);
+                        return entry.Result;
+                    }
+
                     // Stale: replace it. Only this exact entry is removed, so a request that replaced it first is not undone.
-                    _entries.TryRemove(new KeyValuePair<TKey, Entry>(key, entry));
+                    table.TryRemove(new KeyValuePair<TKey, Entry>(key, entry));
                     continue;
                 }
 
                 if (entry.IsAbandoned)
                 {
-                    _entries.TryRemove(new KeyValuePair<TKey, Entry>(key, entry));
+                    table.TryRemove(new KeyValuePair<TKey, Entry>(key, entry));
                     continue;
                 }
 
@@ -168,7 +233,7 @@ internal sealed class OnceCache<TKey, TValue>
             }
 
             var mine = new Entry { Stamp = stamp };
-            if (!_entries.TryAdd(key, mine))
+            if (!table.TryAdd(key, mine))
             {
                 continue;
             }
@@ -181,7 +246,7 @@ internal sealed class OnceCache<TKey, TValue>
             catch (PdfRangeNotLoadedException)
             {
                 // The bytes were not fetched yet (issue #207): nothing is known about the value, so nothing is cached.
-                _entries.TryRemove(new KeyValuePair<TKey, Entry>(key, mine));
+                table.TryRemove(new KeyValuePair<TKey, Entry>(key, mine));
                 mine.Abandon();
                 throw;
             }
@@ -197,7 +262,7 @@ internal sealed class OnceCache<TKey, TValue>
             }
             else
             {
-                _entries.TryRemove(new KeyValuePair<TKey, Entry>(key, mine));
+                table.TryRemove(new KeyValuePair<TKey, Entry>(key, mine));
                 mine.Abandon();
             }
 
@@ -224,9 +289,12 @@ internal sealed class OnceCache<TKey, TValue>
             }
         }
 
-        public static Entry Completed(TValue value)
+        /// <summary>Gets a value indicating whether the entry completed with a value rather than an exception.</summary>
+        public bool HasValue => IsCompleted && _error is null;
+
+        public static Entry Completed(TValue value, int? stamp = null)
         {
-            var entry = new Entry { _value = value };
+            var entry = new Entry { _value = value, Stamp = stamp };
             entry.Finish(OnceEntryState.Completed);
             return entry;
         }

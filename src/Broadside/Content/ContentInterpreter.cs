@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Diagnostics;
 using System.Globalization;
 using Broadside.Graphics;
 using Broadside.Objects;
@@ -52,6 +53,10 @@ internal sealed partial class ContentInterpreter
     private bool _inText;
     private FillRule? _pendingClip;
     private bool _busy;
+
+    // A page run in slices (issue #365): its content and where its next top-level operator starts.
+    private ReadOnlyMemory<byte> _slicedContent;
+    private int _slicedPosition;
 
     // Progress of the top-level stream (ContentOptions.Progress): its length and the end of its last operator executed.
     private IProgress<double>? _progress;
@@ -215,7 +220,7 @@ internal sealed partial class ContentInterpreter
         _states[0].OutputIntent = document.GetOutputIntent(page);
         _maxNestingDepth = options.MaxNestingDepth;
         _frames.Clear();
-        _frames.Add(new RunFrame(null, Matrix.Identity, _states[0]));
+        PushFrame(null, Matrix.Identity);
         _parts.Clear();
         _context.RunKind = ContentRunKind.Page;
         _context.Depth = 0;
@@ -286,17 +291,88 @@ internal sealed partial class ContentInterpreter
         _cached = this;
     }
 
-    /// <summary>Reads and executes every operator of <paramref name="content"/>.</summary>
-    private void Execute(ReadOnlySpan<byte> content)
+    /// <summary>
+    /// Starts a page's run in slices (issue #365): as <see cref="RunPage"/>, but the top-level operators are executed by
+    /// <see cref="ContinuePageRun"/>, which stops at a deadline between two of them. The interpreter is the run's until
+    /// <see cref="EndPageRun"/>.
+    /// </summary>
+    /// <param name="page">The page.</param>
+    /// <param name="document">The document of the page.</param>
+    /// <param name="processor">The processor.</param>
+    /// <param name="options">Limits and cancellation.</param>
+    /// <returns>The interpreter running the page.</returns>
+    public static ContentInterpreter BeginPageRun(PdfPage page, PdfDocument document, ContentProcessor processor, ContentOptions options)
     {
-        var reader = new ContentReader(content, _arena);
-        _arena.Clear();
+        ContentInterpreter interpreter = Rent();
+        try
+        {
+            interpreter.Begin(document, page, processor, options, page.Reference);
+            interpreter._slicedContent = interpreter.ReadContents(page, document);
+            interpreter._slicedPosition = 0;
+            return interpreter;
+        }
+        catch
+        {
+            interpreter.Release();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Executes the page's top-level operators from where the last call stopped until the end of its content or, after at least one
+    /// operator, <see cref="Stopwatch"/> reaches <paramref name="deadline"/>. Once it returns <see langword="true"/> the run has ended
+    /// (<see cref="ContentProcessor.EndRun"/>). An operator, with the form XObjects, patterns and glyphs it runs, is never split.
+    /// </summary>
+    /// <param name="deadline">The timestamp to stop at.</param>
+    /// <returns><see langword="true"/> when the page's content is done.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.8.2 and §8.4.2: between two top-level operators the run's whole state is the graphics state stack, the operand
+    /// arena (empty there) and the position in the content, so the processor sees the calls of an unsliced run.
+    /// </remarks>
+    public bool ContinuePageRun(long deadline)
+    {
+        if (!ExecuteRange(_slicedContent.Span, _slicedPosition, deadline, out int position))
+        {
+            _slicedPosition = position;
+            return false;
+        }
+
+        _slicedContent = default;
+        End();
+        return true;
+    }
+
+    /// <summary>Gives the interpreter of a run begun by <see cref="BeginPageRun"/> back, ended or abandoned.</summary>
+    public void EndPageRun()
+    {
+        _slicedContent = default;
+        Release();
+    }
+
+    /// <summary>Reads and executes every operator of <paramref name="content"/>.</summary>
+    private void Execute(ReadOnlySpan<byte> content) => ExecuteRange(content, 0, long.MaxValue, out _);
+
+    /// <summary>
+    /// Reads and executes the operators of <paramref name="content"/> from <paramref name="start"/> until its end or, after at least one
+    /// operator, until <see cref="Stopwatch"/> reaches <paramref name="deadline"/>; returns whether the end was reached and, when not,
+    /// where to resume.
+    /// </summary>
+    private bool ExecuteRange(ReadOnlySpan<byte> content, int start, long deadline, out int position)
+    {
+        position = content.Length;
+        var reader = new ContentReader(content, _arena, start);
+        if (start == 0)
+        {
+            _arena.Clear();
+        }
+
         bool topLevel = _context.Depth == 0;
         if (topLevel)
         {
             _progressLength = content.Length;
         }
 
+        int executed = 0;
         while (reader.Next(out ReadOperator op))
         {
             if (reader.Issues != ReaderIssues.None)
@@ -329,6 +405,17 @@ internal sealed partial class ContentInterpreter
 
             Execute(op, content);
             _arena.Clear();
+            if (deadline != long.MaxValue && (++executed & 7) == 0 && Stopwatch.GetTimestamp() >= deadline)
+            {
+                // Issue #365: a run in slices stops between two operators; the reader's issues so far were reported.
+                if (reader.Issues != ReaderIssues.None)
+                {
+                    ReportReaderIssues(reader.Issues, reader.IssueOffset);
+                }
+
+                position = reader.Position;
+                return false;
+            }
         }
 
         if (reader.Issues != ReaderIssues.None)
@@ -341,6 +428,8 @@ internal sealed partial class ContentInterpreter
             Report(ContentIssue.OperandCount, content.Length, "Operands are left over at the end of the content stream; ignored.");
             _arena.Clear();
         }
+
+        return true;
     }
 
     private void ReportOperator(ReadOperator op, ReadOnlySpan<byte> content)

@@ -172,6 +172,25 @@ public sealed partial class Table : FlowBlock
         init => field = ImageBlock.NotNegative(value, nameof(value));
     }
 
+    /// <summary>
+    /// The width of the table in points, which its columns share instead of the width of the space it is in; null (the default) for that
+    /// whole width. A width wider than the space is narrowed to it.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not positive and finite.</exception>
+    public double? Width
+    {
+        get;
+        init => field = value is null ? null : ImageBlock.Positive(value.Value, nameof(value));
+    }
+
+    /// <summary>Where a table narrower than the space it is in sits: left (the default), centered or right; <see cref="TextAlignment.Justify"/> places it left.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a defined alignment.</exception>
+    public TextAlignment Alignment
+    {
+        get;
+        init => field = Enum.IsDefined(value) ? value : throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown alignment.");
+    }
+
     /// <summary>Appends <paramref name="row"/>; returns this table.</summary>
     /// <exception cref="ArgumentNullException"><paramref name="row"/> is null.</exception>
     public Table Add(TableRow row)

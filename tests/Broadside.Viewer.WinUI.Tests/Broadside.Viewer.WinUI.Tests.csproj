@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The WinUI shell's logic on net10.0, on every OS (#223): gestures, keys, search, dark mode and frames through the controller the
+    control hosts. WinUI itself runs only on Windows, so the shell's platform-free sources (src/Broadside.Viewer.WinUI/Shell) are
+    compiled into this assembly instead of referencing the net10.0-windows package; the control, its automation peers and the sample
+    are tested on the Windows runner by tests/Broadside.Viewer.WinUI.UITests.
+  -->
+  <ItemGroup>
+    <Compile Include="../../src/Broadside.Viewer.WinUI/Shell/**/*.cs" LinkBase="Shell" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Viewer/Broadside.Viewer.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
+    <ProjectReference Include="../Broadside.TestSupport/Broadside.TestSupport.csproj" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+</Project>

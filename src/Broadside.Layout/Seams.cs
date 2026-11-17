@@ -184,8 +184,14 @@ internal interface IStructureSink
     /// <summary>The part stops drawing on <paramref name="page"/>.</summary>
     void EndPart(FlowPart part, PdfPage page, PdfCanvas canvas);
 
-    /// <summary>An annotation was added for <paramref name="part"/> (a link annotation over a <c>Link</c> run's portion on one line).</summary>
-    void AddAnnotation(FlowPart part, PdfAnnotation annotation);
+    /// <summary>
+    /// An annotation on <paramref name="page"/> (null: the page drawn now) was added for <paramref name="part"/>: a link annotation over
+    /// a <c>Link</c> run's portion on one line, or a form field's widget for the open <c>Form</c> block or part itself.
+    /// </summary>
+    void AddAnnotation(FlowPart part, PdfAnnotation annotation, PdfPage? page);
+
+    /// <summary>The open <paramref name="block"/> (a drawing) occupies <paramref name="box"/> on its page, in default user space.</summary>
+    void SetBoundingBox(FlowBlock block, PdfRectangle box);
 }
 
 /// <summary>

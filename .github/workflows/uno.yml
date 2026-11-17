@@ -1,0 +1,115 @@
+# The Uno Platform viewer sample (issue #225) on both of its heads, driven by its UI tests (tests/Broadside.Viewer.Uno.UITests):
+# - WebAssembly: the head is published as a static site (Release) and Playwright drives it in Chromium (the image's Chrome) and
+#   WebKit with real mouse, wheel and keyboard input: open, scroll, zoom, select, search, dark mode and the automation peers' text.
+#   No .NET WebAssembly threads: tiles render in cooperative slices on the page's thread.
+# - Desktop (Skia): the head runs its automation script in a real window on Linux (X11 under Xvfb), macOS and Windows.
+# The shell library and its controller tests (tests/Broadside.Viewer.Uno.Tests) also build and run in ci.yml's build-test.
+name: Uno Platform
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_GENERATE_ASPNET_CERTIFICATE: false
+
+jobs:
+  uno-wasm:
+    name: uno (webassembly + linux desktop)
+    # Pinned with blazor-wasm: Playwright 1.58's browsers and their system packages on this image (#459).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-uno-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', '**/*.csproj') }}
+          restore-keys: nuget-uno-${{ runner.os }}-
+
+      - name: Install the wasm-tools workload
+        timeout-minutes: 15
+        run: dotnet workload install wasm-tools
+
+      - name: Install the desktop head's system packages (X11 under Xvfb)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libx11-6 libxcursor1 libxrandr2 libxi6 libfontconfig1 libgl1 libegl1
+
+      - name: Publish the WebAssembly head
+        run: dotnet publish samples/Broadside.Viewer.Uno.Sample -f net10.0-browserwasm -c Release -warnaserror -o artifacts/uno-sample-wasm
+
+      - name: Build the desktop head
+        run: dotnet build samples/Broadside.Viewer.Uno.Sample -f net10.0-desktop -c Release -warnaserror
+
+      - name: Build the UI tests
+        run: dotnet build tests/Broadside.Viewer.Uno.UITests -c Release -warnaserror
+
+      - name: Install Playwright's WebKit
+        timeout-minutes: 25
+        shell: bash
+        run: |
+          playwright=artifacts/bin/Broadside.Viewer.Uno.UITests/release/playwright.ps1
+          printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/80-retries
+          pwsh "${playwright}" install-deps webkit
+          pwsh "${playwright}" install webkit
+
+      - name: UI tests
+        env:
+          BROADSIDE_UNO_REQUIRED: '1'
+          BROADSIDE_BROWSER_CHANNEL: chrome
+          BROADSIDE_BROWSERS_REQUIRED: chromium,webkit
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" dotnet test --project tests/Broadside.Viewer.Uno.UITests -c Release --no-build --minimum-expected-tests 3
+
+  uno-desktop:
+    name: uno (desktop, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-uno-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', '**/*.csproj') }}
+          restore-keys: nuget-uno-${{ runner.os }}-
+
+      - name: Build the desktop head
+        run: dotnet build samples/Broadside.Viewer.Uno.Sample -f net10.0-desktop -c Release -warnaserror
+
+      - name: Build the UI tests
+        run: dotnet build tests/Broadside.Viewer.Uno.UITests -c Release -warnaserror
+
+      - name: Desktop head UI test
+        env:
+          BROADSIDE_UNO_REQUIRED: '1'
+        run: dotnet test --project tests/Broadside.Viewer.Uno.UITests -c Release --no-build -- --filter-class "*DesktopHeadTests"

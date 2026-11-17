@@ -1,3 +1,4 @@
+using Broadside.Content;
 using Broadside.Rendering;
 using Broadside.Security;
 
@@ -150,6 +151,40 @@ public sealed class ViewerOptions
 
             _imageSamplesPerPixel = value;
         }
+    }
+
+    /// <summary>
+    /// Gets or sets the color filter the session's tiles are drawn with at first, such as <see cref="Rendering.ColorFilter.DarkMode"/>
+    /// for smart dark mode; <see cref="Rendering.ColorFilter.None"/> by default. The session changes it later through
+    /// <see cref="DocumentSession.ColorFilter"/>.
+    /// </summary>
+    /// <remarks>Spec #33 viewer capability 9; see <see cref="RenderOptions.ColorFilter"/>.</remarks>
+    public ColorFilter ColorFilter { get; set; }
+
+    /// <summary>Sets <see cref="ColorFilter"/>.</summary>
+    /// <param name="colorFilter">The color filter, or <see cref="Rendering.ColorFilter.None"/>.</param>
+    /// <returns>These options.</returns>
+    public ViewerOptions WithColorFilter(ColorFilter colorFilter)
+    {
+        ColorFilter = colorFilter;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether form-field widgets that lack an appearance (and, when the form's <c>NeedAppearances</c>
+    /// is set, text and choice fields' widgets) are drawn with a transient one built from the field's value; <see langword="true"/> by
+    /// default. Transient appearances are never written to the document: saving keeps the file as it was until a field is filled.
+    /// </summary>
+    /// <remarks>Spec #33 viewer capability 12; see <see cref="ContentOptions.TransientFieldAppearances"/> (ISO 32000-2 §12.7.3, §12.7.4.3).</remarks>
+    public bool TransientFieldAppearances { get; set; } = true;
+
+    /// <summary>Sets <see cref="TransientFieldAppearances"/>.</summary>
+    /// <param name="transient">Whether widgets without an appearance get a display-only one.</param>
+    /// <returns>These options.</returns>
+    public ViewerOptions WithTransientFieldAppearances(bool transient)
+    {
+        TransientFieldAppearances = transient;
+        return this;
     }
 
     /// <summary>Sets <see cref="ScaledImageDecode"/>.</summary>

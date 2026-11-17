@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Broadside Avalonia viewer sample (#224): a desktop window on Windows, macOS and Linux with the PdfView control, a toolbar
+    (open, pages, zoom, layout, dark mode, search), a side panel with the outline and page thumbnails, and the textbook sample document. Run this project with `dotnet run`; a file path
+    or an http(s) address given as the app's first argument opens instead (see the repository README).
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- Avalonia.Skia needs its own SkiaSharp (3.x); the version pinned centrally is the Skia backend's (4.x), which it must not get. -->
+    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
+    <!-- Thumbnails are copied into Avalonia bitmaps through their locked framebuffers. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Viewer.Avalonia/Broadside.Viewer.Avalonia.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="../documents/pdf/textbook.pdf" Link="documents/textbook.pdf" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

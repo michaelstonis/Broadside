@@ -56,9 +56,12 @@ internal sealed class ViewerController : IDisposable
     private ProgressiveZoom? _zoom;
     private InputModel? _input;
     private TextSelection? _selection;
+    private DocumentSearch? _search;
     private AnnotationLayer? _annotations;
+    private FormFilling? _filling;
     private AccessibilityBridge? _bridge;
     private bool _showAnnotations = true;
+    private ColorFilter? _colorFilter;
     private bool _interacted;
     private bool _frameRequested;
     private PointerMode _mode;
@@ -98,17 +101,7 @@ internal sealed class ViewerController : IDisposable
 
         // A background session presents on workers (#357): the frame request goes back to the UI thread.
         _ui = SynchronizationContext.Current;
-        Surface.Presented += (_, _) =>
-        {
-            if (_ui is null || SynchronizationContext.Current == _ui)
-            {
-                Wake();
-            }
-            else if (Interlocked.Exchange(ref _wakePosted, 1) == 0)
-            {
-                _ui.Post(static state => ((ViewerController)state!).WakeFromWorker(), this);
-            }
-        };
+        Surface.Presented += (_, _) => WakeFromAnyThread();
     }
 
     private enum PointerMode
@@ -133,7 +126,13 @@ internal sealed class ViewerController : IDisposable
 
     public TextSelection? Selection => _selection;
 
+    /// <summary>The find-in-document search of the open document: its matches are drawn over the tiles (#215, #358).</summary>
+    public DocumentSearch? Search => _search;
+
     public AnnotationLayer? Annotations => _annotations;
+
+    /// <summary>The form filling of the open document (#218): Tab order, one commit per edit through the form API.</summary>
+    public FormFilling? Forms => _filling;
 
     public AccessibilityBridge? Bridge => _bridge;
 
@@ -177,6 +176,11 @@ internal sealed class ViewerController : IDisposable
 
         _session = session;
         _ownsSession = ownsSession;
+        if (_colorFilter is { } filter)
+        {
+            session.ColorFilter = filter;
+        }
+
         if (session.PageCount == 0)
         {
             SetState(_state with { IsLoading = false });
@@ -217,9 +221,15 @@ internal sealed class ViewerController : IDisposable
         _input.Resize(Math.Max(_width, 1), Math.Max(_height, 1));
         _selection = new TextSelection(session);
         _selection.Changed += (_, _) => Wake();
+
+        // Search progress arrives on the indexing thread (a worker in a background session): the frame request goes to the UI thread.
+        _search = new DocumentSearch(session);
+        _search.Changed += (_, _) => WakeFromAnyThread();
         _annotations = new AnnotationLayer(session, _scheduler);
         _annotations.ActionRequested += OnActionRequested;
         _annotations.Changed += OnAnnotationsChanged;
+        _filling = new FormFilling(_annotations);
+        _filling.Changed += OnFillingChanged;
         _bridge = new AccessibilityBridge(session, _annotations) { Viewer = _zoom, Observer = OnAccessibilityChange };
         _annotations.Accessibility = _bridge;
         SetState(_state with { IsLoading = false, PageCount = session.PageCount, IsRendering = true });
@@ -238,6 +248,72 @@ internal sealed class ViewerController : IDisposable
         _scheduler?.SetLayers(show ? AllLayers : DisplayLayers.Content);
         Wake();
     }
+
+    /// <summary>
+    /// Sets the color filter of the open document and of those opened later; null keeps each session's own. A change redraws every
+    /// tile from the cached display lists (spec #33 viewer capability 9).
+    /// </summary>
+    public void SetColorFilter(ColorFilter? filter)
+    {
+        _colorFilter = filter;
+        if (filter is { } value && _session is { } session && session.ColorFilter != value)
+        {
+            session.ColorFilter = value;
+            Redraw();
+        }
+    }
+
+    /// <summary>Invalidates every tile of every page so that all are drawn again (the old ones stay on screen until then).</summary>
+    public void Redraw()
+    {
+        if (_scheduler is null || _session is null)
+        {
+            return;
+        }
+
+        for (int page = 0; page < _metrics.Length; page++)
+        {
+            _scheduler.Invalidate(page, AllLayers);
+        }
+
+        Wake();
+    }
+
+    /// <summary>Scrolls the least distance that brings an area of a page into view, or centres it when it is not on the screen.</summary>
+    public void Reveal(int pageIndex, PdfRectangle area)
+    {
+        if (_zoom is null || _input is null || (uint)pageIndex >= (uint)_metrics.Length)
+        {
+            return;
+        }
+
+        _interacted = true;
+        PageLayout layout = _zoom.Layout;
+        Viewport viewport = _input.Viewport;
+        if (layout.Mode is PageLayoutMode.SinglePage or PageLayoutMode.TwoUp && layout.GetSpread(pageIndex) != layout.GetSpread(_input.CurrentPage))
+        {
+            viewport = layout.ScrollTo(viewport, pageIndex);
+        }
+
+        LayoutRectangle box = layout.PageToViewport(viewport, pageIndex, area);
+        double margin = 24 * _ratio;
+        double dx = box.X < margin ? box.X - margin : box.X + box.Width > viewport.Width - margin ? box.X + box.Width - viewport.Width + margin : 0;
+        double dy = box.Y < margin ? box.Y - margin : box.Y + box.Height > viewport.Height - margin ? box.Y + box.Height - viewport.Height + margin : 0;
+        if (box.Y + box.Height < 0 || box.Y > viewport.Height)
+        {
+            dy = box.Y + (box.Height / 2) - (viewport.Height / 2);
+        }
+
+        if (dx != 0 || dy != 0 || viewport != _input.Viewport)
+        {
+            _zoom.SetViewport(layout.Clamp(viewport with { X = viewport.X + dx, Y = viewport.Y + dy }));
+        }
+
+        Wake();
+    }
+
+    /// <summary>Whether the open document is drawn with smart dark mode (the frame's background and paper turn dark with it).</summary>
+    public bool IsDark => _session?.ColorFilter == ColorFilter.DarkMode;
 
     public void SetLayoutOptions(PageLayoutOptions? options)
     {
@@ -268,6 +344,17 @@ internal sealed class ViewerController : IDisposable
         _interacted = true;
         _input?.GoToPage(pageIndex);
         Wake();
+    }
+
+    /// <summary>Shows a destination's view (an outline entry's): its page, the view it asks for and its zoom (ISO 32000-2 §12.3.2.2).</summary>
+    public void GoTo(ViewTarget target)
+    {
+        if (_zoom is not null && _input is not null)
+        {
+            _interacted = true;
+            _zoom.SetViewport(target.GetViewport(_zoom.Layout, _input.Viewport, _input.ActualSize, _zoom.MinZoom, _zoom.MaxZoom));
+            Wake();
+        }
     }
 
     public void NextPage()
@@ -627,43 +714,74 @@ internal sealed class ViewerController : IDisposable
         return handled;
     }
 
-    /// <summary>The selected text (null when nothing is selected); pages the selection spans load first.</summary>
+    /// <summary>
+    /// The selected text (null when nothing is selected); pages the selection spans load first. A copy the document's closing
+    /// overtakes while those pages load (another document opened, the view disposed) has nothing left to copy: it returns null rather
+    /// than throwing into the host's click handler.
+    /// </summary>
     public async Task<string?> GetSelectedTextAsync()
     {
-        if (_selection is null || _selection.IsEmpty)
+        if (_selection is not { IsEmpty: false } selection)
         {
             return null;
         }
 
-        return await _selection.GetTextAsync(_closing.Token).ConfigureAwait(true);
+        try
+        {
+            return await selection.GetTextAsync(_closing.Token).ConfigureAwait(true);
+        }
+        catch (Exception exception) when ((exception is OperationCanceledException or ObjectDisposedException)
+            && (!ReferenceEquals(selection, _selection) || _closing.IsCancellationRequested))
+        {
+            // The document closed under the copy and its session stopped the page loads.
+            return null;
+        }
     }
 
     // ---- Form fields ----
 
-    /// <summary>Commits the editor's text to the focused text field (or an editable combo box's value).</summary>
-    public bool CommitFieldText(string? text)
+    /// <summary>The native editor's text changed (typing, an input method, a paste): the form filling holds it until the edit ends.</summary>
+    public void EditorInput(string text)
     {
-        if (_annotations is null || _editor is null)
+        if (_filling is { } filling && _editor is { } editor && filling.Target == editor.Target)
         {
-            return false;
+            filling.SetText(text);
         }
+    }
 
-        bool done = _editor.Kind == FieldEditorKind.Text ? _annotations.SetFieldText(text) : _annotations.SetFieldChoice(text);
+    /// <summary>
+    /// Ends the edit of the editor's field (focus loss, Enter): the form filling writes it once through the form API when it differs
+    /// from the field's value (#218), which regenerates the field's appearance and redraws only its overlay tiles.
+    /// </summary>
+    public bool CommitFieldEdit()
+    {
+        bool done = _filling?.Commit() ?? false;
         Wake();
         return done;
     }
 
-    /// <summary>Selects option <paramref name="index"/> of the focused choice field.</summary>
-    public bool CommitFieldChoice(int index)
+    /// <summary>Sets the editor's text and ends the edit (the text a native editor holds when it closes).</summary>
+    public bool CommitFieldText(string? text)
     {
-        if (_annotations is null || _editor is not { Kind: FieldEditorKind.Choice })
+        if (_filling is null || _editor is null || _filling.Target != _editor.Target)
         {
             return false;
         }
 
-        bool done = _annotations.SetFieldSelection([index]);
-        Wake();
-        return done;
+        _filling.SetText(text ?? string.Empty);
+        return CommitFieldEdit();
+    }
+
+    /// <summary>Picks option <paramref name="index"/> of the editor's choice field and ends the edit.</summary>
+    public bool CommitFieldChoice(int index)
+    {
+        if (_filling is null || _editor is not { Kind: FieldEditorKind.Choice } editor || _filling.Target != editor.Target)
+        {
+            return false;
+        }
+
+        _filling.SetSelectedOptions([index]);
+        return CommitFieldEdit();
     }
 
     /// <summary>Closes the editor (focus leaves the field).</summary>
@@ -694,6 +812,7 @@ internal sealed class ViewerController : IDisposable
             ViewerFrame blank = Presenter.Rent();
             blank.Width = _width * _ratio;
             blank.Height = _height * _ratio;
+            blank.IsDark = _colorFilter == ColorFilter.DarkMode;
             Presenter.Publish(blank, Surface.Retired);
             _host.RequestPaint();
             return false;
@@ -716,6 +835,18 @@ internal sealed class ViewerController : IDisposable
         PlaceEditor(viewport);
         SetState(new PdfViewState(_input.CurrentPage, _metrics.Length, viewport.Zoom / _input.ActualSize, false, !_scheduler!.IsIdle));
         return more || unloaded || stale || longPress || _metricsDirty || _input.IsAnimating;
+    }
+
+    private void WakeFromAnyThread()
+    {
+        if (_ui is null || SynchronizationContext.Current == _ui)
+        {
+            Wake();
+        }
+        else if (Interlocked.Exchange(ref _wakePosted, 1) == 0)
+        {
+            _ui.Post(static state => ((ViewerController)state!).WakeFromWorker(), this);
+        }
     }
 
     private void WakeFromWorker()
@@ -831,14 +962,29 @@ internal sealed class ViewerController : IDisposable
 
     private async Task LoadPageAsync(int pageIndex, int generation)
     {
+        // The open document's layers, held here: a document opened while this page loads replaces the fields, and the page index
+        // belongs to this document, never to the next one (#358: a late page of a novel reached an 8-page textbook's layers).
+        AnnotationLayer annotations = _annotations!;
+        TextSelection selection = _selection!;
+        AccessibilityBridge bridge = _bridge!;
         _pendingLoads++;
         try
         {
             CancellationToken token = _closing.Token;
-            await _annotations!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            await annotations.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            if (generation != _generation)
+            {
+                return;
+            }
+
             Wake();
-            await _selection!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
-            await _bridge!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            await selection.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            if (generation != _generation)
+            {
+                return;
+            }
+
+            await bridge.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
             if (generation == _generation)
             {
                 RefreshAccessiblePages();
@@ -851,7 +997,11 @@ internal sealed class ViewerController : IDisposable
         catch (Exception exception)
 #pragma warning restore CA1031
         {
-            _host.Error(exception);
+            // A closed document's failure is no longer the host's concern.
+            if (generation == _generation)
+            {
+                _host.Error(exception);
+            }
         }
         finally
         {
@@ -962,6 +1112,7 @@ internal sealed class ViewerController : IDisposable
         ViewerFrame frame = Presenter.Rent();
         frame.Width = viewport.Width;
         frame.Height = viewport.Height;
+        frame.IsDark = IsDark;
         int count = _zoom.GetFrame(_parts);
         if (count > _parts.Length)
         {
@@ -997,6 +1148,7 @@ internal sealed class ViewerController : IDisposable
             }
         }
 
+        AddSearchMatches(frame, layout, viewport);
         AddSelection(frame, layout, viewport);
         // Chrome: a pressed link or field, the mouse's hovered one, and the keyboard focus (never a ring after a tap or click).
         if (_annotations!.Pressed is { } pressed)
@@ -1052,6 +1204,49 @@ internal sealed class ViewerController : IDisposable
         }
     }
 
+    // Search matches are an overlay over the tiles (#215): highlighting them draws no page again; the current match is drawn distinctly.
+    private void AddSearchMatches(ViewerFrame frame, PageLayout layout, in Viewport viewport)
+    {
+        if (_search is not { MatchCount: > 0 } search)
+        {
+            return;
+        }
+
+        int visible = VisiblePages(layout, viewport);
+        foreach (VisiblePage page in _visible.AsSpan(0, visible))
+        {
+            int quads = search.GetQuads(page.PageIndex, _quads);
+            if (quads > _quads.Length)
+            {
+                _quads = new Quad[quads * 2];
+                quads = search.GetQuads(page.PageIndex, _quads);
+            }
+
+            foreach (Quad quad in _quads.AsSpan(0, quads))
+            {
+                AddQuad(frame, ViewerFrame.ItemKind.SearchMatch, layout, viewport, page.PageIndex, quad);
+            }
+        }
+
+        if (search.Current is { } current)
+        {
+            IReadOnlyList<Quad> quads = current.Quads;
+            for (int i = 0; i < quads.Count; i++)
+            {
+                AddQuad(frame, ViewerFrame.ItemKind.CurrentMatch, layout, viewport, current.PageIndex, quads[i]);
+            }
+        }
+    }
+
+    private static void AddQuad(ViewerFrame frame, ViewerFrame.ItemKind kind, PageLayout layout, in Viewport viewport, int pageIndex, in Quad quad)
+    {
+        SKPoint a = ToPoint(layout.PageToViewport(viewport, pageIndex, quad.BottomLeft.X, quad.BottomLeft.Y));
+        SKPoint b = ToPoint(layout.PageToViewport(viewport, pageIndex, quad.BottomRight.X, quad.BottomRight.Y));
+        SKPoint c = ToPoint(layout.PageToViewport(viewport, pageIndex, quad.TopRight.X, quad.TopRight.Y));
+        SKPoint d = ToPoint(layout.PageToViewport(viewport, pageIndex, quad.TopLeft.X, quad.TopLeft.Y));
+        frame.Add(new ViewerFrame.Item(kind, default, null, a, b, c, d));
+    }
+
     private void AddSelection(ViewerFrame frame, PageLayout layout, in Viewport viewport)
     {
         _handlesShown = false;
@@ -1082,14 +1277,15 @@ internal sealed class ViewerController : IDisposable
                 SKPoint c = ToPoint(layout.PageToViewport(viewport, page.PageIndex, quad.TopRight.X, quad.TopRight.Y));
                 SKPoint d = ToPoint(layout.PageToViewport(viewport, page.PageIndex, quad.TopLeft.X, quad.TopLeft.Y));
                 frame.Add(new ViewerFrame.Item(ViewerFrame.ItemKind.Selection, default, null, a, b, c, d));
-                if (page.PageIndex == start.PageIndex && i == 0)
+                // Handles are for touch and pen only (a mouse drags the selection itself): only drawn handles can be grabbed.
+                if (!_mouseHover && page.PageIndex == start.PageIndex && i == 0)
                 {
                     AddHandle(frame, d, a);
                     _startHandle = new SKPoint(a.X / (float)_ratio, a.Y / (float)_ratio);
                     startShown = true;
                 }
 
-                if (page.PageIndex == end.PageIndex && i == quads - 1)
+                if (!_mouseHover && page.PageIndex == end.PageIndex && i == quads - 1)
                 {
                     AddHandle(frame, c, b);
                     _endHandle = new SKPoint(b.X / (float)_ratio, b.Y / (float)_ratio);
@@ -1171,6 +1367,19 @@ internal sealed class ViewerController : IDisposable
         }
     }
 
+    private static InputKey FieldKey(string key) => key switch
+    {
+        " " => InputKey.Space,
+        "Enter" => InputKey.Enter,
+        "ArrowUp" => InputKey.ArrowUp,
+        "ArrowDown" => InputKey.ArrowDown,
+        "Home" => InputKey.Home,
+        "End" => InputKey.End,
+        _ => InputKey.None,
+    };
+
+    private void OnFillingChanged(object? sender, EventArgs e) => Wake();
+
     private int CountClick(double x, double y)
     {
         long now = _time.GetTimestamp();
@@ -1188,8 +1397,12 @@ internal sealed class ViewerController : IDisposable
         switch (key)
         {
             case "Tab":
+                // The form filling commits the field's edit and moves on in each page's Tabs order (#218).
                 _keyboardFocus = true;
-                return shift ? _annotations!.FocusPrevious() : _annotations!.FocusNext();
+                return _filling!.KeyDown(InputKey.Tab, modifiers);
+            case " " or "Enter" or "ArrowUp" or "ArrowDown" or "Home" or "End" when !command && _filling!.Kind is FieldEditKind.Button or FieldEditKind.Choice
+                && _filling.KeyDown(FieldKey(key), modifiers):
+                return true;
             case "Enter" when _annotations!.Focused is { } focused:
                 _annotations.Activate(focused);
                 return true;
@@ -1360,12 +1573,16 @@ internal sealed class ViewerController : IDisposable
         _zoom = null;
         _input = null;
         _selection = null;
+        _search?.Dispose();
+        _search = null;
         if (_annotations is not null)
         {
             _annotations.ActionRequested -= OnActionRequested;
             _annotations.Changed -= OnAnnotationsChanged;
         }
 
+        _filling?.Changed -= OnFillingChanged;
+        _filling = null;
         _annotations = null;
         _bridge = null;
         Surface.Clear();

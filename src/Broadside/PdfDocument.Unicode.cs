@@ -1,6 +1,7 @@
 using Broadside.Caching;
 using Broadside.Diagnostics;
 using Broadside.Fonts;
+using Broadside.Fonts.Resolution;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -46,7 +47,7 @@ public sealed partial class PdfDocument
 
     /// <summary>
     /// Returns the Registry-Ordering-UCS2 table of a character collection (§9.10.2 step d), from the engine's font resolvers
-    /// (<see cref="FontResourceKind.CidToUnicode"/>, the Broadside.Fonts.Cmaps package), parsed once per document.
+    /// (<see cref="FontResourceKind.CidToUnicode"/>, the Broadside.Fonts.Cmaps package), parsed once per engine and shared by every document.
     /// </summary>
     /// <param name="name">The table's name, such as <c>Adobe-Japan1-UCS2</c>.</param>
     /// <returns>The table, or <see langword="null"/> when no resolver has it.</returns>
@@ -60,7 +61,7 @@ public sealed partial class PdfDocument
     private ToUnicodeMap? GetToUnicode(CosStream stream, CosReference? reference, int depth) =>
         _toUnicodeMaps.GetOrCreate(
             new CMapKey(stream, stream.Version, stream.Dictionary.Version),
-            UseCMapStamp(stream),
+            CMapStamp(stream),
             (Document: this, Reference: reference, Depth: depth),
             static (key, state) => new Created<ToUnicodeMap?>(state.Document.ParseToUnicode(key.Stream, state.Reference, state.Depth)),
             static (_, state) =>
@@ -125,22 +126,17 @@ public sealed partial class PdfDocument
 
     private ToUnicodeMap? LoadCidToUnicode(string name)
     {
-        if (!FontResolvers.TryResolveResource(FontResourceKind.CidToUnicode, name, out ReadOnlyMemory<byte> data))
-        {
-            return null;
-        }
-
-        // The table comes from the machine, not the file: its deviations are summarized as information, never thrown.
-        var context = new CMapContext();
-        ToUnicodeMap map = ToUnicodeMap.Parse(data.Span, context);
-        if (context.Diagnostics.Count > 0)
+        // The table comes from the machine, not the file: its deviations are summarized as information, never thrown. It is parsed
+        // once for the engine; each document that uses it records the summary.
+        SharedFontResource<ToUnicodeMap> resource = FontResolvers.Resources.GetUnicodeTable(FontResolvers, name);
+        if (resource.Diagnostics.Count > 0)
         {
             _diagnostics.Report(
                 TextDiagnostics.CidToUnicodeResourceInvalid,
                 DiagnosticSeverity.Information,
-                $"The font resolver's {name} table deviates from the CMap file format ({context.Diagnostics[0].Message}); what could be read is used.");
+                $"The font resolver's {name} table deviates from the CMap file format ({resource.Diagnostics[0].Message}); what could be read is used.");
         }
 
-        return map;
+        return resource.Value;
     }
 }

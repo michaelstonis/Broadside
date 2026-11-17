@@ -21,7 +21,9 @@ namespace Broadside.Viewer.Blazor;
 /// </para>
 /// <para>
 /// Keys while the viewer has focus: arrows, Page Up/Down, Space, Home/End scroll and turn pages; + and - zoom, 0 fits the width; Tab and
-/// Shift+Tab move between links and form fields, Enter activates one; Ctrl/Cmd+A selects all text; Shift+arrows extend a selection;
+/// Shift+Tab move between links and form fields, Enter activates one, Space toggles a check box or radio button, arrows pick a choice
+/// field's option; a text or choice field gets a native input over its widget whose value is written through the form API when the
+/// field loses focus (<see cref="FormFilling"/>); Ctrl/Cmd+A selects all text; Shift+arrows extend a selection;
 /// N, H, T, L, G, K, F, D and P move the reading focus to the next element, heading, table, list, figure, link, form field, landmark or
 /// page (Shift goes back); Escape clears the selection and the reading focus.
 /// </para>
@@ -79,6 +81,17 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
     public bool AllowAnnotationEditing { get; set; }
 
     /// <summary>
+    /// Gets or sets the color filter the pages are drawn with, such as <see cref="Broadside.Rendering.ColorFilter.DarkMode"/> for smart dark
+    /// mode; <see langword="null"/> (the default) keeps the session's own (<see cref="ViewerOptions.ColorFilter"/>).
+    /// </summary>
+    /// <remarks>
+    /// Spec #33 viewer capability 9. Changing it redraws every tile from the cached display lists (none is built again), and the
+    /// paper shown before a page's tiles arrive turns black with it. See <see cref="DocumentSession.ColorFilter"/>.
+    /// </remarks>
+    [Parameter]
+    public Broadside.Rendering.ColorFilter? ColorFilter { get; set; }
+
+    /// <summary>
     /// Gets or sets an observer of the tile scheduler's events (tiles started, presented, cancelled, evicted, failed), applied when a
     /// document opens: for instrumentation such as time to the first sharp page (#353's measurements).
     /// </summary>
@@ -101,6 +114,13 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
     [Parameter]
     public EventCallback<ViewerActionEventArgs> OnAction { get; set; }
 
+    /// <summary>
+    /// Gets or sets the callback raised once per document whose form carries an XFA form, which the viewer neither renders nor runs:
+    /// show its <see cref="XfaFormEventArgs.Explanation"/> to the user.
+    /// </summary>
+    [Parameter]
+    public EventCallback<XfaFormEventArgs> OnXfaForm { get; set; }
+
     /// <summary>Gets or sets the callback raised when the document cannot be opened or a page cannot be loaded.</summary>
     [Parameter]
     public EventCallback<Exception> OnError { get; set; }
@@ -115,10 +135,23 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
     public TextSelection? Selection => _controller?.Selection;
 
     /// <summary>
+    /// Gets the find-in-document search of the open document, or null while nothing is open: every match of its query is highlighted
+    /// over the pages (the current one distinctly) without drawing any page again; scroll a match into view with <see cref="Reveal"/>.
+    /// </summary>
+    /// <remarks>Spec #33 viewer capability 7.</remarks>
+    public DocumentSearch? Search => _controller?.Search;
+
+    /// <summary>
     /// Gets the annotation layer of the open document, or null while nothing is open: annotations added, edited or removed and form
     /// fields filled through it are redrawn at once.
     /// </summary>
     public AnnotationLayer? Annotations => _controller?.Annotations;
+
+    /// <summary>
+    /// Gets the form filling of the open document, or null while nothing is open: the field being edited, its text and picked options
+    /// (spec #33 viewer capability 12).
+    /// </summary>
+    public FormFilling? Forms => _controller?.Forms;
 
     [Inject]
     private NavigationManager Navigation { get; set; } = default!;
@@ -126,6 +159,14 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
     /// <summary>Scrolls to a page.</summary>
     /// <param name="pageIndex">The zero-based page.</param>
     public void GoToPage(int pageIndex) => _controller?.GoToPage(pageIndex);
+
+    /// <summary>
+    /// Shows a resolved destination (an outline entry's <see cref="OutlineEntry.Target"/>, a named destination): its page, the zoom and
+    /// the position its view asks for, at once. The page is reported through <see cref="OnStateChanged"/> as usual.
+    /// </summary>
+    /// <param name="target">The target.</param>
+    /// <remarks>ISO 32000-2 §12.3.2.2, Table 149. Spec #33 viewer capability 10.</remarks>
+    public void GoTo(ViewTarget target) => _controller?.GoTo(target);
 
     /// <summary>Goes to the next page (or spread).</summary>
     public void NextPage() => _controller?.NextPage();
@@ -183,6 +224,7 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
         _controller.AllowAnnotationEditing = AllowAnnotationEditing;
         _controller.TileObserver = TileObserver;
         _controller.SetShowAnnotations(ShowAnnotations);
+        _controller.SetColorFilter(ColorFilter);
         _controller.SetLayoutOptions(LayoutOptions);
         if (_attached)
         {
@@ -284,6 +326,14 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
         if (OnAction.HasDelegate)
         {
             _ = InvokeAsync(() => OnAction.InvokeAsync(action));
+        }
+    }
+
+    internal void RaiseXfaForm(XfaFormEventArgs notice)
+    {
+        if (OnXfaForm.HasDelegate)
+        {
+            _ = InvokeAsync(() => OnXfaForm.InvokeAsync(notice));
         }
     }
 

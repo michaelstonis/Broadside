@@ -73,6 +73,12 @@ public sealed class Paragraph : FlowBlock
     /// <summary>True for a paragraph made from a string: its one run is not an inline structure part.</summary>
     private readonly bool _plain;
 
+    /// <summary>True when the content has a <see cref="PageReference"/>: the paragraph is laid out as a copy with the numbers filled in.</summary>
+    private readonly bool _references;
+
+    /// <summary>What a page reference shows before its page is known, and is measured as for table columns.</summary>
+    private const string UnknownPageNumber = "0";
+
     /// <summary>Gets whether the paragraph was made from a string: one run, no inline parts, so it is tagged as one leaf.</summary>
     internal bool IsPlain => _plain;
 
@@ -125,6 +131,14 @@ public sealed class Paragraph : FlowBlock
                 styles.Add(run.Style ?? style.TextStyle);
                 text.Append(run.Text);
             }
+            else if (element is PageReference reference)
+            {
+                starts.Add(text.Length);
+                pieces.Add(reference);
+                styles.Add(reference.Style ?? style.TextStyle);
+                text.Append(UnknownPageNumber[0]);
+                _references = true;
+            }
             else
             {
                 starts.Add(text.Length);
@@ -151,12 +165,44 @@ public sealed class Paragraph : FlowBlock
     /// <summary>The style.</summary>
     public ParagraphStyle Style { get; }
 
+    /// <summary>The paragraph a copy with its page references filled in was made from, or null for a paragraph made by the caller.</summary>
+    internal Paragraph? Origin { get; private init; }
+
+    /// <summary>
+    /// A copy of this paragraph with each <see cref="PageReference"/> replaced by a run of the text <paramref name="pageNumber"/> gives
+    /// for it.
+    /// </summary>
+    internal Paragraph WithPageNumbers(Func<PageReference, string> pageNumber)
+    {
+        var content = new InlineElement[Content.Count];
+        for (int index = 0; index < content.Length; index++)
+        {
+            InlineElement element = Content[index];
+            content[index] = element is PageReference reference
+                ? new TextRun(pageNumber(reference), reference.Style ?? Style.TextStyle) { StructureType = reference.StructureType, Language = reference.Language }
+                : element;
+        }
+
+        return new Paragraph(content, Style) { StructureType = StructureType, Language = Language, Id = Id, Origin = this };
+    }
+
     internal override void Validate(int index)
     {
         Span<char> buffer = stackalloc char[2];
         for (int piece = 0; piece < _pieces.Length; piece++)
         {
-            if (_styles[piece] is not { } style)
+            switch (_pieces[piece])
+            {
+                case TextRun { Link: not null, Destination: not null }:
+                    throw new ArgumentException($"A run of paragraph {index} has both a link and a destination; a run links to one target.");
+                case PageReference reference when !(reference.Style ?? Style.TextStyle).Font.CanEncode("0123456789?"):
+                    throw new ArgumentException(
+                        $"A page reference of paragraph {index} is in the font {(reference.Style ?? Style.TextStyle).Font.Name}, which cannot encode the digits of a page number.");
+                case Leader leader when !leader.Style.Font.CanEncode(leader.Text):
+                    throw new ArgumentException($"A leader of paragraph {index} has text the font {leader.Style.Font.Name} cannot encode.");
+            }
+
+            if (_styles[piece] is not { } style || _pieces[piece] is PageReference)
             {
                 continue;
             }
@@ -230,6 +276,12 @@ public sealed class Paragraph : FlowBlock
 
     internal override void LayOut(FlowContext context)
     {
+        if (_references && context.References is { } references)
+        {
+            WithPageNumbers(references.PageNumberText).LayOut(context);
+            return;
+        }
+
         FlowServices services = context.Services;
         var breaks = new List<BreakOpportunity>();
         services.LineBreaker.FindBreaks(Text, breaks);
@@ -459,6 +511,13 @@ public sealed class Paragraph : FlowBlock
                 above = Math.Max(above, leading + style.Ascent);
                 below = Math.Max(below, leading - style.Descent);
             }
+            else if (_pieces[run.Piece] is Leader { Style: var leader })
+            {
+                double advance = Style.LineHeight * leader.FontSize;
+                double leading = (advance - (leader.Ascent - leader.Descent)) / 2;
+                above = Math.Max(above, leading + leader.Ascent);
+                below = Math.Max(below, leading - leader.Descent);
+            }
             else
             {
                 above = Math.Max(above, ((InlineImage)_pieces[run.Piece]).Height);
@@ -475,6 +534,7 @@ public sealed class Paragraph : FlowBlock
         double width = 0;
         int spaces = 0;
         bool wordSpacing = false;
+        bool leader = false;
         foreach (LineRun run in runs)
         {
             width += run.Width;
@@ -483,20 +543,24 @@ public sealed class Paragraph : FlowBlock
                 spaces += Text.AsSpan(run.Start, run.Length).Count(' ');
                 wordSpacing |= runStyle.Font.AppliesWordSpacing;
             }
+
+            leader |= _pieces[run.Piece] is Leader;
         }
 
-        if (width == 0 && spaces == 0)
+        if (width == 0 && spaces == 0 && !leader)
         {
             return;
         }
 
-        double x = style.Alignment switch
+        // A leader takes the space the line leaves: the line is neither aligned nor justified.
+        double fill = leader ? Math.Max(0, available - width) : 0;
+        double x = leader ? left : style.Alignment switch
         {
             TextAlignment.Right => left + available - width,
             TextAlignment.Center => left + ((available - width) / 2),
             _ => left,
         };
-        double extra = style.Alignment == TextAlignment.Justify && !isLast && spaces > 0 ? Math.Max(0, available - width) / spaces : 0;
+        double extra = !leader && style.Alignment == TextAlignment.Justify && !isLast && spaces > 0 ? Math.Max(0, available - width) / spaces : 0;
         if (wordSpacing)
         {
             // Content streams carry four decimals: round Tw down so a justified line never passes the right edge.
@@ -526,6 +590,17 @@ public sealed class Paragraph : FlowBlock
                 {
                     canvas.EndText();
                     inText = false;
+                }
+
+                if (element is Leader filler)
+                {
+                    DrawLeader(context, filler, x, baseline, run.Width + fill);
+                    x += run.Width + fill;
+                    fill = 0;
+                    positioned = false;
+                    font = null;
+                    color = null;
+                    continue;
                 }
 
                 var image = (InlineImage)element;
@@ -584,7 +659,7 @@ public sealed class Paragraph : FlowBlock
 
             if (!_plain)
             {
-                context.BeginPart(new FlowPart(element.StructureType, element, element.Language));
+                context.BeginPart(new FlowPart(PartType(context, element), element, element.Language));
             }
 
             canvas.ShowText(shaped.Glyphs, adjustments);
@@ -594,7 +669,7 @@ public sealed class Paragraph : FlowBlock
             }
 
             double advance = run.Width + (extra * Text.AsSpan(run.Start, run.Length).Count(' '));
-            if (runStyle.Underline || runStyle.StrikeThrough || element is TextRun { Link: not null })
+            if (runStyle.Underline || runStyle.StrikeThrough || element is TextRun { Link: not null } || IsDestinationLink(context, element))
             {
                 (decorated ??= []).Add((x, advance, run.Piece));
             }
@@ -650,13 +725,65 @@ public sealed class Paragraph : FlowBlock
             }
 
             InlineElement element = _pieces[piece];
-            if (((TextRun)element).Link is { } link)
+            var bounds = new PdfRectangle(x, baseline + style.Descent, x + width, baseline + style.Ascent);
+            if (element is TextRun { Link: { } link })
             {
-                var bounds = new PdfRectangle(x, baseline + style.Descent, x + width, baseline + style.Ascent);
                 PdfLinkAnnotation annotation = context.Page.AddLinkAnnotation(bounds, link);
                 context.AddAnnotation(new FlowPart(element.StructureType, element, element.Language), annotation);
             }
+            else if (IsDestinationLink(context, element) && context.References!.AddLink(context.Page, bounds, (TextRun)element) is { } annotation)
+            {
+                context.AddAnnotation(new FlowPart(element.StructureType, element, element.Language), annotation);
+            }
         }
+    }
+
+    /// <summary>Gets whether <paramref name="element"/> is a run linking to a destination or block the flow can reach.</summary>
+    private static bool IsDestinationLink(FlowContext context, InlineElement element) =>
+        element is TextRun { Link: null } run && (run.Destination is not null || run.Target is not null) && context.References?.CanLink(run) == true;
+
+    /// <summary>The structure type a piece is tagged with: a run linking to a destination nothing names is a <c>Span</c>, not a <c>Link</c>.</summary>
+    private static string PartType(FlowContext context, InlineElement element) =>
+        element is TextRun { Link: null, StructureType: "Link" } run && (run.Destination is not null || run.Target is not null) && context.References?.CanLink(run) != true
+            ? "Span"
+            : element.StructureType;
+
+    /// <summary>
+    /// Draws a leader filling <paramref name="width"/> from <paramref name="x"/>: as many whole copies of its text as fit, right-aligned so
+    /// the leaders of lines ending at the same edge line up, as a layout artifact.
+    /// </summary>
+    private static void DrawLeader(FlowContext context, Leader leader, double x, double baseline, double width)
+    {
+        TextStyle style = leader.Style;
+        double unit = context.Services.Shaper.Measure(leader.Text, style);
+        int count = unit > 0 ? (int)Math.Floor((width + 1e-9) / unit) : 0;
+        if (count <= 0)
+        {
+            return;
+        }
+
+        string text = string.Concat(Enumerable.Repeat(leader.Text, count));
+        ShapedRun shaped = context.Services.Shaper.Shape(text, style);
+        PdfCanvas canvas = context.Canvas;
+        context.BeginPart(new FlowPart("Artifact", PdfArtifactType.Layout, null));
+        canvas.BeginText();
+        canvas.SetFont(style.Font, style.FontSize);
+        if (context.WordSpacing != 0)
+        {
+            canvas.SetWordSpacing(0);
+            context.WordSpacing = 0;
+        }
+
+        canvas.SetFillColor(style.Color ?? PdfColor.FromGray(0));
+        canvas.SetTextMatrix(new Matrix(1, 0, 0, 1, x + width - (count * unit), baseline));
+        canvas.ShowText(shaped.Glyphs, shaped.Adjustments);
+        canvas.EndText();
+        if (style.Color is not null)
+        {
+            canvas.SetFillColor(PdfColor.FromGray(0));
+        }
+
+        context.EndPart();
     }
 
     /// <summary>Fills a decoration bar in the run's colour.</summary>
@@ -725,7 +852,7 @@ public sealed class Paragraph : FlowBlock
     {
         if (_styles[piece] is not { } style)
         {
-            return ((InlineImage)_pieces[piece]).Width;
+            return _pieces[piece] is InlineImage image ? image.Width : 0;
         }
 
         ReadOnlySpan<char> text = Text.AsSpan(start, end - start);

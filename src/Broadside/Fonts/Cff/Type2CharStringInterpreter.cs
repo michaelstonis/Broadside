@@ -267,6 +267,12 @@ internal ref struct Type2CharStringInterpreter
                     Clear();
                     break;
             }
+
+            if (_path.Overflowed)
+            {
+                Report(CharStringIssue.CoordinateOverflow);
+                return Result.Fail;
+            }
         }
 
         return Result.Ended;

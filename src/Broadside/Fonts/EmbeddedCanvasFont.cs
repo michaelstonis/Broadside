@@ -25,6 +25,9 @@ internal sealed class EmbeddedCanvasFont : PdfCanvasFont
     private EmbeddedCanvasFont(PdfDocument document, SharedFontSubset subset)
         : base(document, subset.Font) => _subset = subset;
 
+    /// <summary>The font over <paramref name="subset"/>, a shared subset of <paramref name="document"/>; no glyph is added.</summary>
+    public static EmbeddedCanvasFont Over(PdfDocument document, SharedFontSubset subset) => new(document, subset);
+
     /// <inheritdoc/>
     public override string Name => _subset.PostScriptName;
 

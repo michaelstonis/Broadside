@@ -31,7 +31,7 @@ Broadside targets `net10.0` only. Every package is a prerelease, so pass `--prer
 dotnet add package Broadside --prerelease                    # read, write, edit; text extraction
 dotnet add package Broadside.Rendering --prerelease          # software rasterizer and PNG output
 dotnet add package Broadside.Fonts.Standard14 --prerelease   # glyphs for pages that use non-embedded Standard 14 fonts
-dotnet add package Broadside.Layout --prerelease             # flow layout (FlowDocument, Paragraph)
+dotnet add package Broadside.Layout --prerelease             # document builder and flow layout (FlowDocument, Paragraph)
 ```
 
 Add the other packages from the table below as you need them.
@@ -55,8 +55,12 @@ All 13 packages are published to NuGet.org at `0.1.0-preview.1`, with a matching
 | [`Broadside.Viewer`](https://www.nuget.org/packages/Broadside.Viewer) | The framework-neutral viewer core: document session, page layout, tile scheduler, input model, text selection, annotation layer, accessibility bridge | `net10.0` | core and `Broadside.Rendering` |
 | [`Broadside.Viewer.Blazor`](https://www.nuget.org/packages/Broadside.Viewer.Blazor) | Blazor WebAssembly viewer component (`PdfViewer`) | `net10.0` (browser only) | `Microsoft.AspNetCore.Components.Web` |
 | [`Broadside.Viewer.Maui`](https://www.nuget.org/packages/Broadside.Viewer.Maui) | .NET MAUI viewer control (`PdfView`), drawn with SkiaSharp | `net10.0`, `net10.0-android`, `net10.0-ios`, `net10.0-maccatalyst`; `net10.0-windows10.0.19041.0` from the next release ([#381](https://github.com/michaelstonis/Broadside/issues/381)) | `Microsoft.Maui.Controls`, `SkiaSharp.Views.Maui.Controls` |
+| [`Broadside.Viewer.Wpf`](https://www.nuget.org/packages/Broadside.Viewer.Wpf) | WPF viewer control (`PdfView`), drawn with the software rasterizer | `net10.0-windows` | WPF (the Windows Desktop SDK) |
+| [`Broadside.Viewer.WinUI`](https://www.nuget.org/packages/Broadside.Viewer.WinUI) | WinUI 3 viewer control (`PdfView`), drawn with the software rasterizer | `net10.0-windows10.0.19041.0` | Windows App SDK |
+| [`Broadside.Viewer.Avalonia`](https://www.nuget.org/packages/Broadside.Viewer.Avalonia) | Avalonia viewer control (`PdfView`) for Windows, macOS and Linux | `net10.0` | `Avalonia` |
+| [`Broadside.Viewer.Uno`](https://www.nuget.org/packages/Broadside.Viewer.Uno) | Uno Platform viewer control (`PdfView`) for Uno's desktop (Skia) and WebAssembly heads | `net10.0` | `Uno.WinUI` |
 
-The core and `Broadside.Rendering` depend only on packages Microsoft ships with no native component; every other backend depends on its platform library and nothing else. Every package except `Broadside.Viewer.Maui` is marked trimmable and AOT-compatible. MAUI and SkiaSharp's views are not annotated for trimming on every target.
+The core and `Broadside.Rendering` depend only on packages Microsoft ships with no native component; every other backend depends on its platform library and nothing else. Every package except `Broadside.Viewer.Maui`, `Broadside.Viewer.Wpf` and `Broadside.Viewer.Uno` is marked trimmable and AOT-compatible. MAUI and SkiaSharp's views are not annotated for trimming on every target, WPF is not trimmable, and Uno's generated XAML infrastructure is not annotated for trimming.
 
 ## Quick start
 
@@ -66,7 +70,6 @@ This compiles and runs against the `0.1.0-preview.1` packages `Broadside`, `Broa
 using Broadside;
 using Broadside.Fonts;
 using Broadside.Graphics;
-using Broadside.Layout.Flow;
 using Broadside.Rendering;
 
 // Write: a new document with one page of text.
@@ -105,20 +108,31 @@ using (FileStream png = File.Create("page-1.png"))
     bitmap.SavePng(png);
 }
 
-// Flow layout: paragraphs broken into lines and flowed across pages.
-using (PdfDocument report = PdfDocument.Create())
-{
-    report.Pages.RemoveAt(0); // the flow appends its own pages
-    PdfCanvasFont body = report.GetStandard14Font(Standard14Font.TimesRoman);
-    var flow = new FlowDocument(PageSetup.Letter);
-    flow.Add(new Paragraph("Broadside lays this paragraph out in lines and pages.", new ParagraphStyle(body, 11)));
-    FlowLayoutResult layout = flow.Render(report);
-    Console.WriteLine($"{layout.Pages.Count} page(s) laid out");
-    report.Save("report.pdf");
-}
 ```
 
 Reading is lenient by default: a damaged file is repaired and every repair is recorded as a `Diagnostic` on the document; `new PdfOptions().UseStrict()` makes the first deviation an error instead.
+
+### Building documents
+
+The document builder in `Broadside.Layout` describes a document as nested content in plain C#, and lays it out through the flow engine into a tagged, accessible `PdfDocument` with its fonts embedded:
+
+```csharp
+using Broadside;
+using Broadside.Layout.Flow;
+
+using PdfDocument pdf = PdfDocument.Create(doc => doc
+    .WithTitle("Hello")
+    .WithLanguage("en-US")
+    .Content(c =>
+    {
+        c.Heading(1, "Hello, Broadside");
+        c.Paragraph("This page is tagged, embeds its font and opens in any reader.");
+    }));
+
+pdf.Save("hello.pdf");
+```
+
+Loops and conditionals drive data-bound documents; headers, footers with page numbers, tables with repeating header rows, images and drawings with alternate text, columns, links, a table of contents and the outline, form fields, attached files and PDF/A and PDF/UA profiles are a method away. The builder is experimental in 1.0: it lands after `0.1.0-preview.7`, and code that uses it opts in with `<NoWarn>$(NoWarn);BROADSIDE0001</NoWarn>`. The [Building documents](https://michaelstonis.github.io/Broadside/articles/building-documents/) guide walks through every sample in [`samples/Broadside.BuilderSamples`](https://github.com/michaelstonis/Broadside/tree/main/samples/Broadside.BuilderSamples). The flow engine underneath (`FlowDocument`, `Paragraph`, `Table`) stays available for documents built block by block.
 
 ## What it does
 
@@ -138,19 +152,19 @@ How much of each specification is implemented is in the [conformance map](https:
 
 | Platform | Read, write, edit and the software rasterizer | Native backend | Viewer | Exercised in CI |
 |---|---|---|---|---|
-| Windows | yes | Direct2D, Skia | MAUI from the next release ([#381](https://github.com/michaelstonis/Broadside/issues/381)) | build and tests; Direct2D golden images on a WARP device; Native AOT smoke |
-| macOS | yes | CoreGraphics, Skia | none | build and tests; CoreGraphics golden images; Native AOT smoke |
-| Linux | yes | Skia | none | build and tests; Native AOT smoke; corpus, fuzz and veraPDF jobs |
+| Windows | yes | Direct2D, Skia | WPF, WinUI, Avalonia, Uno; MAUI from the next release ([#381](https://github.com/michaelstonis/Broadside/issues/381)) | build and tests; Direct2D golden images on a WARP device; WPF and WinUI viewer UI Automation tests; the Uno desktop head's UI test; Native AOT smoke |
+| macOS | yes | CoreGraphics, Skia | Avalonia, Uno | build and tests; CoreGraphics golden images; Native AOT smoke; the Uno desktop head's UI test |
+| Linux | yes | Skia | Avalonia, Uno | build and tests; Native AOT smoke; corpus, fuzz and veraPDF jobs; the Avalonia viewer's UI tests, headless; the Uno desktop head's UI test under Xvfb |
 | iOS | yes | CoreGraphics, Skia | MAUI (Metal) | the MAUI sample compiles for the iOS simulator |
 | Mac Catalyst | yes | CoreGraphics, Skia | MAUI (Metal) | the MAUI sample compiles |
 | Android | yes | Android Canvas, Skia | MAUI (OpenGL ES) | the Android backend's golden images and a MAUI sample smoke run on an API 35 emulator |
-| Browser (Blazor WebAssembly) | yes | WebGL 2 (opt-in) | Blazor | the demo's browser tests in Chrome, Firefox and WebKit, AOT and interpreted builds |
+| Browser (WebAssembly) | yes | WebGL 2 (opt-in, Blazor) | Blazor, Uno | the Blazor demo's browser tests in Chrome, Firefox and WebKit, AOT and interpreted builds; the Uno sample's browser tests in Chrome and WebKit |
 
 The CI jobs are described in [`.github/workflows/README.md`](https://github.com/michaelstonis/Broadside/blob/main/.github/workflows/README.md).
 
 ## Viewers and samples
 
-Both viewer controls are shells over `Broadside.Viewer`, which owns the document session, page layout, tile scheduler, progressive zoom, input model, text selection, annotation layer and accessibility bridge. Uno, Avalonia, WPF and WinUI shells are planned (provisional issues [#222](https://github.com/michaelstonis/Broadside/issues/222) to [#225](https://github.com/michaelstonis/Broadside/issues/225)).
+The viewer controls (Blazor, MAUI, WPF, WinUI, Avalonia and Uno) are shells over `Broadside.Viewer`, which owns the document session, page layout, tile scheduler, progressive zoom, input model, text selection, annotation layer, search and accessibility bridge.
 
 **Blazor WebAssembly** (`Broadside.Viewer.Blazor`). The `PdfViewer` component draws tiles into canvases and opens remote files through HTTP range requests, first page first. It has no native assets and no third-party JavaScript.
 
@@ -173,10 +187,27 @@ With nothing to size it, the viewer is as wide as its container and min(80vh, 60
 
 **.NET MAUI** (`Broadside.Viewer.Maui`). The `PdfView` control draws with SkiaSharp. Tiles render off the UI thread ([#357](https://github.com/michaelstonis/Broadside/issues/357)) and are composed on the GPU: Metal on iOS and Mac Catalyst, OpenGL ES on Android, and Direct3D on Windows. Set `UseHardwareAcceleration` to false to compose on the CPU instead. Register it with `builder.UseBroadsideViewer()` in `MauiProgram`, then set `Source` to a file path or an http(s) address.
 
+**WPF** (`Broadside.Viewer.Wpf`). The `PdfView` control is a `FrameworkElement`: place it in any panel and set `Source` to a file path or an http(s) address, or `Session` to a document session you opened. Tiles render off the UI thread with the managed software rasterizer, so they match the golden images byte for byte, and are drawn as frozen bitmaps. It takes mouse, touch, pen and keyboard input, selects and copies text, follows links, edits form fields, searches (`Search`, F3) and has a smart dark mode (`ColorFilter`). UI Automation sees each loaded page with its text in reading order, and the tagged structure under it.
+
+**WinUI 3** (`Broadside.Viewer.WinUI`). The `PdfView` control is a `UserControl` for Windows App SDK apps. Tiles render off the UI thread with the managed software rasterizer and are shown as image elements the XAML compositor draws. It maps pointer, pen, touch and keyboard input onto the shared input model, selects and searches text, switches to smart dark mode, fills forms, and its UI Automation peers expose page text in reading order. Set `Source` to a file path or an http(s) address.
+
+**Avalonia** (`Broadside.Viewer.Avalonia`). The `PdfView` control runs on Windows, macOS and Linux. Tiles render off the UI thread with the software rasterizer into Avalonia bitmaps, so every platform draws the same pixels; Avalonia composes them. It has touch, mouse, pen, wheel and trackpad input, text selection, search (`Find`, F3), links and form fields, dark mode (`ColorFilter`) and automation peers that give screen readers each page's text in reading order. Set `Source` to a file path or an http(s) address, or `Session` to a session you opened.
+
+```xml
+<bs:PdfView xmlns:bs="using:Broadside.Viewer.Avalonia" Source="sample.pdf" />
+```
+
+**Uno Platform** (`Broadside.Viewer.Uno`). The `PdfView` control runs on Uno's Skia-rendered heads: desktop (macOS, Windows, Linux) and WebAssembly. Tiles render off the UI thread on the desktop and in cooperative slices on the page's thread in the browser (no .NET WebAssembly threads), and are shown as bitmap images. It maps mouse, touch, pen, wheel and keys onto the shared input model, selects text, finds text (`Find`), switches to smart dark mode (`ColorFilter`) and exposes each page's text in reading order through its automation peer. Set `Session` (or `Source` to a file path or an http(s) address).
+
 **Samples** (in [`samples/`](https://github.com/michaelstonis/Broadside/tree/main/samples)):
 
 - [`Broadside.Viewer.Blazor.Sample`](https://github.com/michaelstonis/Broadside/blob/main/samples/Broadside.Viewer.Blazor.Sample/README.md) is a static Blazor WebAssembly app that shows the library end to end in the browser, phones included. It covers viewing, search, outline, thumbnails, annotations, forms, document information and tags, signatures, and creating PDF/A and PDF/UA documents with the layout package. It also has a renderer switch (software or WebGL) and the render worker. The documentation site hosts it as the [live demo](https://michaelstonis.github.io/Broadside/demo/). Run it with `dotnet run --project samples/Broadside.Viewer.Blazor.Sample`, or publish a trimmed, AOT-compiled static site with `samples/Broadside.Viewer.Blazor.Sample/publish-static.sh out/demo`.
 - [`Broadside.Viewer.Maui.Sample`](https://github.com/michaelstonis/Broadside/blob/main/samples/Broadside.Viewer.Maui.Sample/README.md) is a MAUI app around `PdfView` with the same gallery, for Android, iOS and Mac Catalyst. It needs the `maui` workload. Run it with `dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-maccatalyst -t:Run`, or with `-f net10.0-android` or `-f net10.0-ios`. It does less than the Blazor demo for now ([#358](https://github.com/michaelstonis/Broadside/issues/358)).
+- [`Broadside.Viewer.Wpf.Sample`](https://github.com/michaelstonis/Broadside/tree/main/samples/Broadside.Viewer.Wpf.Sample) is a WPF window around `PdfView` with the sample documents, page, zoom, selection, search and dark-mode controls. Run it on Windows with `dotnet run --project samples/Broadside.Viewer.Wpf.Sample`, optionally followed by `-- path\to\file.pdf`.
+- [`Broadside.Viewer.WinUI.Sample`](https://github.com/michaelstonis/Broadside/blob/main/samples/Broadside.Viewer.WinUI.Sample/README.md) is an unpackaged WinUI 3 app around `PdfView` (pages, zoom, copy, dark mode, find). Build it on Windows with `dotnet build samples/Broadside.Viewer.WinUI.Sample -r win-x64`.
+- [`Broadside.Viewer.Avalonia.Sample`](https://github.com/michaelstonis/Broadside/tree/main/samples/Broadside.Viewer.Avalonia.Sample) is a desktop app around the Avalonia `PdfView` for Windows, macOS and Linux: open, pages, zoom, layout, dark mode, annotations, search, the outline and page thumbnails. Run it with `dotnet run --project samples/Broadside.Viewer.Avalonia.Sample`, optionally followed by `-- <file or address>`.
+- [`Broadside.Viewer.Uno.Sample`](https://github.com/michaelstonis/Broadside/blob/main/samples/Broadside.Viewer.Uno.Sample/README.md) is an Uno Platform app around `PdfView` (documents, pages, zoom, find, dark mode) with a desktop head and a WebAssembly head. Run it with `dotnet build samples/Broadside.Viewer.Uno.Sample -f net10.0-desktop -t:Run`, or publish the browser head with `dotnet publish samples/Broadside.Viewer.Uno.Sample -f net10.0-browserwasm -c Release`.
+- [`Broadside.BuilderSamples`](https://github.com/michaelstonis/Broadside/tree/main/samples/Broadside.BuilderSamples) holds the document builder guide's samples (a report, a styled table, images and a drawn chart, a guide with a table of contents, a form, an invoice with an attached XML file, the escape hatches) as a console app. Run it with `dotnet run --project samples/Broadside.BuilderSamples -- out` to write each PDF into `out/`.
 
 ## Status and roadmap
 
@@ -190,7 +221,7 @@ The full v1 specification is [#33](https://github.com/michaelstonis/Broadside/is
 | 3. Rendering | done: display list, software rasterizer, ICC engine, Skia, CoreGraphics, Direct2D and Android backends, golden images, benchmarks |
 | 4. Write and Edit | done: canvas, incremental update and edit, forms, flow layout, encryption on write |
 | 5. Cross-cutting | done: text extraction, layout tree and auto-tagging, signatures, PDF/A and PDF/UA output, streaming sources |
-| 6. Viewer | in progress. Done: viewer core, Blazor and MAUI shells. Open: search with background indexing ([#215](https://github.com/michaelstonis/Broadside/issues/215)), outline and thumbnails ([#216](https://github.com/michaelstonis/Broadside/issues/216)), form filling in the viewer ([#218](https://github.com/michaelstonis/Broadside/issues/218)), smart dark mode ([#219](https://github.com/michaelstonis/Broadside/issues/219)), and the Uno, Avalonia, WPF and WinUI shells. The Blazor demo implements search, outline, thumbnails and form filling itself, in the sample. |
+| 6. Viewer | in progress. Done: viewer core; search with background indexing ([#215](https://github.com/michaelstonis/Broadside/issues/215)), outline and thumbnails ([#216](https://github.com/michaelstonis/Broadside/issues/216)), form filling in the viewer ([#218](https://github.com/michaelstonis/Broadside/issues/218)), smart dark mode ([#219](https://github.com/michaelstonis/Broadside/issues/219)); the Blazor, MAUI, WPF ([#222](https://github.com/michaelstonis/Broadside/issues/222)), WinUI ([#223](https://github.com/michaelstonis/Broadside/issues/223)), Avalonia ([#224](https://github.com/michaelstonis/Broadside/issues/224)) and Uno ([#225](https://github.com/michaelstonis/Broadside/issues/225)) shells. |
 | 7. Hardening and v1 release | in progress ([#231](https://github.com/michaelstonis/Broadside/issues/231)). The first preview is out. Open: coverage gaps, typed diagnostic codes, API tidy and freeze, guides, trimming and AOT verification, threat model, security review, and the comparison with PDFium and pdf.js. |
 | Post-v1 | earmarked ([#232](https://github.com/michaelstonis/Broadside/issues/232)): JBIG2 extended templates, shaping for complex scripts |
 

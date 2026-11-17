@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Broadside;
+using Broadside.Layout.Flow;
 using Broadside.Rendering;
 using Broadside.TestSupport;
 using StbImageSharp;
@@ -35,6 +36,31 @@ for (int page = 0; page < 4; page++)
 }
 
 Compare("clipping-paths.pdf", 0, "ClippingTests.Clipping_paths_pdf_matches_its_reviewed_snapshot.verified.png");
+
+// The document builder (issue #397): lambdas, ref struct handles, records and C# 14 extension members must stay trimmable and AOT-clean.
+using (PdfDocument built = PdfDocument.Create(doc => doc
+    .WithTitle("Hello")
+    .WithLanguage("en-US")
+    .Content(c =>
+    {
+        c.Heading(1, "Hello, Broadside");
+        c.Paragraph("This page is tagged, embeds its font and opens in any reader.");
+        c.Table(t =>
+        {
+            t.Header(h =>
+            {
+                h.Cell("Region");
+                h.Cell("Units").AlignRight();
+            });
+            t.Row("North", "135");
+        }).Striped();
+    })))
+{
+    using var saved = new MemoryStream();
+    built.Save(saved);
+    using PdfDocument reopened = PdfDocument.Open(saved.ToArray());
+    Report("the document builder writes a tagged page", reopened.Pages.Count == 1 && reopened.StructureTree is not null && reopened.Language == "en-US");
+}
 
 Console.WriteLine(failures.Count == 0 ? "all checks passed" : $"{failures.Count} check(s) failed");
 return failures.Count == 0 ? 0 : 1;

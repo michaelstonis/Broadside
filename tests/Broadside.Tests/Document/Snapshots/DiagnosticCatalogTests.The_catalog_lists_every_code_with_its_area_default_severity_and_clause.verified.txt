@@ -148,6 +148,7 @@ Saving	PdfUANonConformant	Warning	ISO 14289-1 (PDF/UA-1); veraPDF validation pro
 Saving	PdfUANotIdentified	Information	ISO 14289-1 (PDF/UA-1); veraPDF validation profiles
 Saving	WellTaggedNonConformant	Warning	Well-Tagged PDF 1.0; veraPDF validation profiles
 Saving	WellTaggedNotDeclared	Information	Well-Tagged PDF 1.0; veraPDF validation profiles
+Saving	ConformanceOverridden	Information	ISO 19005 (PDF/A); ISO 14289 (PDF/UA)
 Navigation	NameDictionaryInvalid	Warning	ISO 32000-2 §7.7.4
 Navigation	NameTreeNodeInvalid	Warning	ISO 32000-2 §7.9.6 Table 36
 Navigation	NameTreeLimitsInvalid	Warning	ISO 32000-2 §7.9.6 Table 36
@@ -265,6 +266,7 @@ Jpx	JpxPocInvalid	Warning	ITU-T T.800 Annex I, Annex A
 Jpx	JpxPpmInvalid	Warning	ITU-T T.800 Annex I, Annex A
 Jpx	JpxCodestreamRaw	Information	ITU-T T.800 Annex I, Annex A
 Jpx	JpxCodestreamsIgnored	Warning	ITU-T T.800 Annex I, Annex A
+Jpx	JpxFragmentExternal	Error	ISO 32000-2 §7.4.9; ISO/IEC 15444-2 fragment table box
 Jpx	JpxHighThroughputUnsupported	Error	ITU-T T.800 Annex I, Annex A
 Jpx	JpxPacketHeaderTruncated	Warning	ITU-T T.800 Annex B, Annex D, Annex G
 Jpx	JpxEphMissing	Warning	ITU-T T.800 Annex B, Annex D, Annex G
@@ -344,6 +346,7 @@ CharString	FontCharstringNoEndchar	Warning	Adobe Technical Note #5177; Type 1 Fo
 CharString	FontCharstringMovetoMissing	Warning	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
 CharString	FontCharstringOperandInvalid	Warning	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
 CharString	FontCharstringTruncated	Error	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
+CharString	FontCharstringCoordinateOverflow	Error	Adobe Technical Note #5177; Type 1 Font Format chapters 6 and 8
 Cff	FontCffHeaderInvalid	Warning	Adobe Technical Note #5176
 Cff	FontCffIndexOutOfRange	Warning	Adobe Technical Note #5176 §5
 Cff	FontCffIndexTruncated	Warning	Adobe Technical Note #5176 §5
@@ -587,3 +590,17 @@ Structure	StructureClassConflict	Information	ISO 32000-2 §14.7
 Structure	StructureIdConflict	Information	ISO 32000-2 §14.7
 Structure	FigureAlternateTextPlaceholder	Warning	ISO 32000-2 §14.9.3
 Structure	FigureWithoutAlternateText	Warning	ISO 32000-2 §14.9.3
+Layout	DrawingStateUnbalanced	Warning	ISO 32000-2 §8.4.2
+Layout	KeepTogetherTooTall	Warning	ISO 32000-2 §7.7.3.3
+Layout	HeadingLevelSkipped	Warning	ISO 32000-2 §14.8.4.3.6
+Layout	AlternateTextLooksLikeFileName	Warning	ISO 32000-2 §14.9.3
+Layout	FontFaceMissing	Warning	ISO 32000-2 §9.6.2
+Layout	FontNotFound	Warning	ISO 32000-2 §9.6.2
+Layout	CharacterNotEncodable	Warning	ISO 32000-2 §9.4.3
+Layout	DocumentLanguageMissing	Warning	ISO 32000-2 §14.9.2
+Layout	DocumentTitleMissing	Warning	ISO 32000-2 §14.3.3
+Layout	AppendedToUntaggedDocument	Warning	ISO 32000-2 §14.8
+Layout	DocumentMetadataKept	Information	ISO 32000-2 §14.3.3
+Layout	AnchorNotFound	Warning	ISO 32000-2 §12.3.2.4
+Layout	AnchorDuplicate	Warning	ISO 32000-2 §12.3.2.4
+Layout	ForwardReferencesNotConverged	Warning	ISO 32000-2 §7.7.3.3

@@ -1,6 +1,7 @@
 using System.Text;
 using Broadside.Annotations;
 using Broadside.Diagnostics;
+using Broadside.Forms;
 using Broadside.Graphics;
 using Broadside.Objects;
 using Broadside.Structure;
@@ -26,6 +27,7 @@ namespace Broadside.Layout.Flow;
 /// object that it began outside one, so the sequences nest properly with <c>BT</c>/<c>ET</c>.
 /// </para>
 /// <para>ISO 14289-2 §8.2.</para>
+/// <para>ISO 14289-1 §7.18 (a field's <c>Form</c> element and its <c>PrintField</c> role) and ISO 14289-2 §8.8 (the elements structure destinations point at).</para>
 /// <para>Well-Tagged PDF 1.0 §8.2.</para>
 /// </remarks>
 internal sealed class FlowStructure : IStructureSink
@@ -33,10 +35,14 @@ internal sealed class FlowStructure : IStructureSink
     private static readonly CosName TableOwner = new("Table");
     private static readonly CosName ListOwner = new("List");
     private static readonly CosName ListNumberingKey = new("ListNumbering");
+    private static readonly CosName LayoutOwner = new("Layout");
+    private static readonly CosName BBoxKey = new("BBox");
     private static readonly CosName RowSpanKey = new("RowSpan");
     private static readonly CosName ColSpanKey = new("ColSpan");
     private static readonly CosName ScopeKey = new("Scope");
     private static readonly CosName HeadersKey = new("Headers");
+    private static readonly CosName PrintFieldOwner = new("PrintField");
+    private static readonly CosName RoleKey = new("Role");
     private static readonly CosName KidsKey = new("K");
     private static readonly CosName ParentKey = new("P");
 
@@ -47,19 +53,29 @@ internal sealed class FlowStructure : IStructureSink
     private readonly List<Node> _sequences = [];
     private readonly HashSet<string> _mapped = new(StringComparer.Ordinal);
     private readonly Dictionary<TableCell, PdfStructureElement> _cells = [];
+    private readonly Dictionary<FlowBlock, PdfStructureElement> _blocks = new(ReferenceEqualityComparer.Instance);
     private PdfPage? _page;
     private int _ids;
 
-    public FlowStructure(PdfStructureTreeRoot root, FlowTagging tagging, List<Diagnostic> diagnostics)
+    public FlowStructure(PdfStructureTreeRoot root, FlowTagging tagging, List<Diagnostic> diagnostics, PdfStructureElement? document = null)
     {
         _root = root;
         _tagging = tagging;
         _diagnostics = diagnostics;
-        _stack.Add(new Node("Document", null, null, NodeKind.Container, null));
+
+        // Appending to a tagged document: the new elements go under its existing Document element rather than a second root.
+        _stack.Add(new Node("Document", null, null, NodeKind.Container, null) { Element = document });
     }
 
     /// <summary>Gets the <c>Document</c> element, or <see langword="null"/> when nothing was tagged.</summary>
     public PdfStructureElement? Document => _stack[0].Element;
+
+    /// <summary>Gets whether elements are in the PDF 2.0 structure namespace, where links and the outline use structure destinations.</summary>
+    public bool Pdf20 => _tagging.Namespace == FlowStructureNamespace.Pdf20;
+
+    /// <summary>The element <paramref name="block"/> (or the paragraph it was copied from) was tagged as, or <see langword="null"/>.</summary>
+    public PdfStructureElement? ElementOf(FlowBlock block) =>
+        _blocks.GetValueOrDefault(block is Paragraph { Origin: { } origin } ? origin : block);
 
     public void BeginSection(PageTemplate template)
     {
@@ -75,7 +91,9 @@ internal sealed class FlowStructure : IStructureSink
     {
         NodeKind kind = block switch
         {
-            Paragraph { IsPlain: true } or ImageBlock => NodeKind.Leaf,
+            // A block of type Artifact (a decorative image) is a layout artifact, never an element (§14.8.2.2).
+            { StructureType: "Artifact" } => NodeKind.Artifact,
+            Paragraph { IsPlain: true } or ImageBlock or DrawingBlock => NodeKind.Leaf,
             _ => NodeKind.Container,
         };
         Begin(block.StructureType, block, block.Language, kind, page, canvas);
@@ -97,20 +115,46 @@ internal sealed class FlowStructure : IStructureSink
 
     public void EndPart(FlowPart part, PdfPage page, PdfCanvas canvas) => End(page, canvas);
 
-    public void AddAnnotation(FlowPart part, PdfAnnotation annotation)
+    public void SetBoundingBox(FlowBlock block, PdfRectangle box)
     {
-        if (annotation.Reference is not { } reference || _page is null)
+        if (_stack[^1] is { Element: { } element } node && ReferenceEquals(node.Owner, block))
+        {
+            // §14.8.5.4.3, Table 379: the figure's area on its page, in default user space.
+            element.AddAttributes(LayoutOwner).SetValue(BBoxKey, new CosArray
+            {
+                new CosReal(Math.Round(box.Left, 4)), new CosReal(Math.Round(box.Bottom, 4)), new CosReal(Math.Round(box.Right, 4)), new CosReal(Math.Round(box.Top, 4)),
+            });
+        }
+    }
+
+    public void AddAnnotation(FlowPart part, PdfAnnotation annotation, PdfPage? page)
+    {
+        if (annotation.Reference is not { } reference || (page ??= _page) is null)
         {
             return;
         }
 
         Node parent = _stack[^1];
+        if (ReferenceEquals(parent.Owner, part.Owner) && parent.Type == part.StructureType)
+        {
+            // The open element itself: a form field's Form element and its widget (§14.8.4.7.3).
+            if (parent.Kind is NodeKind.Container or NodeKind.Leaf)
+            {
+                PdfStructureElement element = Materialize(parent);
+                element.AddObjectReference(reference, page);
+                DescribeField(parent, element, annotation);
+            }
+
+            return;
+        }
+
         for (int index = parent.Children.Count - 1; index >= 0; index--)
         {
             Node child = parent.Children[index];
             if (ReferenceEquals(child.Owner, part.Owner) && child.Type == part.StructureType)
             {
-                child.Element!.AddObjectReference(reference, _page);
+                child.Element!.AddObjectReference(reference, page);
+                DescribeField(child, child.Element, annotation);
                 if (annotation.Contents is null && part.Owner is TextRun run)
                 {
                     // PDF/UA-1 §7.18.5: a link annotation describes itself through Contents.
@@ -120,6 +164,33 @@ internal sealed class FlowStructure : IStructureSink
                 return;
             }
         }
+    }
+
+    /// <summary>
+    /// Gives a <c>Form</c> element holding a widget a <c>PrintField</c> attribute object with the field's <c>Role</c>, so it may hold the
+    /// field's label (<c>Lbl</c>) beside the widget's object reference.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §14.8.5.6 (Table 383: <c>Role</c> <c>rb</c>, <c>cb</c>, <c>pb</c>, <c>tv</c>, and <c>lb</c> in PDF 2.0). PDF/UA-1 (veraPDF
+    /// rule 7.18.4-2): a <c>Form</c> element without a <c>Role</c> attribute holds only the widget's object reference; ISO 14289-2 §8.10.2.2:
+    /// a widget's label is a <c>Lbl</c> directly in the <c>Form</c> element that holds the widget. The attribute satisfies both.
+    /// </remarks>
+    private void DescribeField(Node node, PdfStructureElement element, PdfAnnotation annotation)
+    {
+        if (node.Type != "Form" || annotation is not PdfWidgetAnnotation widget || element.Attributes.Any(static attributes => PrintFieldOwner.Equals(attributes.Owner)))
+        {
+            return;
+        }
+
+        string role = widget.Field switch
+        {
+            PdfRadioButtonField => "rb",
+            PdfCheckBoxField => "cb",
+            PdfPushButtonField => "pb",
+            PdfListBoxField when _tagging.Namespace == FlowStructureNamespace.Pdf20 => "lb",
+            _ => "tv",
+        };
+        element.AddAttributes(PrintFieldOwner).SetValue(RoleKey, new CosName(role));
     }
 
     private void Begin(string type, object? owner, string? language, NodeKind kind, PdfPage page, PdfCanvas canvas)
@@ -225,7 +296,7 @@ internal sealed class FlowStructure : IStructureSink
     /// </summary>
     private static Node? Reusable(Node parent, string type, object? owner)
     {
-        bool anyChild = owner is TableRow or TableCell;
+        bool anyChild = owner is TableRow or TableCell or ColumnPart;
         if (type == "Caption" && parent.Children is [.., { Children: [.., var adopted] }] && ReferenceEquals(adopted.Owner, owner) && adopted.Type == type)
         {
             // A caption continued on the next page, already moved into its figure or table.
@@ -258,7 +329,7 @@ internal sealed class FlowStructure : IStructureSink
         }
 
         Node? parent = node.Parent;
-        if (parent is not null && node.Type == "Caption" && node.Owner is FlowBlock && parent.Children is [.., { Owner: ImageBlock or Table } captioned] && captioned.Type == ((FlowBlock)captioned.Owner!).StructureType)
+        if (parent is not null && node.Type == "Caption" && node.Owner is FlowBlock && parent.Children is [.., { Owner: ImageBlock or DrawingBlock or Table } captioned] && captioned.Type == ((FlowBlock)captioned.Owner!).StructureType)
         {
             // A caption right after a figure or table belongs to it (§14.8.4.4, Table 368).
             node.Parent = parent = captioned;
@@ -267,6 +338,11 @@ internal sealed class FlowStructure : IStructureSink
         PdfStructureType type = TypeOf(node);
         PdfStructureElement element = parent is null ? _root.AddElement(type) : Materialize(parent).AddElement(type);
         node.Element = element;
+        if (node.Owner is FlowBlock block && node.Type == block.StructureType)
+        {
+            _ = _blocks.TryAdd(block is Paragraph { Origin: { } origin } ? origin : block, element);
+        }
+
         parent?.Children.Add(node);
         if (node.Language is { } language)
         {
@@ -281,6 +357,9 @@ internal sealed class FlowStructure : IStructureSink
             case InlineImage image:
                 Describe(element, image.AlternateText);
                 break;
+            case DrawingBlock drawing:
+                Describe(element, drawing.AlternateText);
+                break;
             case TableCell cell:
                 DescribeCell(node, element, cell);
                 break;
@@ -290,7 +369,7 @@ internal sealed class FlowStructure : IStructureSink
                 break;
         }
 
-        if (node.Owner is ImageBlock or Table && node.Type == ((FlowBlock)node.Owner).StructureType && parent is not null)
+        if (node.Owner is ImageBlock or DrawingBlock or Table && node.Type == ((FlowBlock)node.Owner).StructureType && parent is not null)
         {
             AdoptCaption(parent, node);
         }
@@ -478,7 +557,7 @@ internal sealed class FlowStructure : IStructureSink
     private static string DefaultType(object? owner) => owner switch
     {
         Paragraph => "P",
-        ImageBlock or InlineImage => "Figure",
+        ImageBlock or InlineImage or DrawingBlock => "Figure",
         ListBlock => "L",
         Table => "Table",
         TextRun { Link: not null } => "Link",

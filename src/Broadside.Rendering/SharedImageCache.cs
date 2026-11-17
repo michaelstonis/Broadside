@@ -370,5 +370,8 @@ internal sealed class SharedImageCache<T>
 
         /// <summary>Gets or sets the image kept for the key (under the cache's lock).</summary>
         internal T? Current { get; set; }
+
+        /// <summary>Gets or sets a conversion of the key's image begun in slices (issue #365), under <see cref="Converting"/>.</summary>
+        internal object? Pending { get; set; }
     }
 }

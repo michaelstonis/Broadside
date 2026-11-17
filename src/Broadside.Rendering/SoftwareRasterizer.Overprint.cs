@@ -150,6 +150,7 @@ public sealed partial class SoftwareRasterizer
             }
 
             Backend child = _groupPreviewBackend ??= new Backend();
+            child.UseGlyphsOf(this);
             child.Begin(_document!, _groupPreviewBitmap, _device * Matrix.CreateTranslation(-left, -top), box.Width, box.Height, preview: false, _antiAliasing);
             try
             {

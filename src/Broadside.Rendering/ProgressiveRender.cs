@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace Broadside.Rendering;
 
 /// <summary>
@@ -27,6 +29,7 @@ public sealed class ProgressiveRender : IDisposable
     private readonly SoftwareRasterizer _rasterizer;
     private readonly DisplayListReplay _replay;
     private bool _ended;
+    private bool _prepared;
 
     internal ProgressiveRender(SoftwareRasterizer rasterizer, DisplayListReplay replay, Bitmap target)
     {
@@ -42,7 +45,7 @@ public sealed class ProgressiveRender : IDisposable
     public DisplayList List => _replay.List;
 
     /// <summary>Gets a value indicating whether every operation of the list has been drawn.</summary>
-    public bool IsCompleted => _replay.IsCompleted;
+    public bool IsCompleted => _replay.IsCompleted && (_ended || !_rasterizer.HasSlicedPaint);
 
     /// <summary>Gets the share of the list's operations drawn so far, from 0 to 1.</summary>
     public double Progress => _replay.Progress;
@@ -50,7 +53,10 @@ public sealed class ProgressiveRender : IDisposable
     /// <summary>Draws from where the last slice stopped until the list is drawn or, after at least one operation, <paramref name="budget"/> has passed.</summary>
     /// <param name="budget">
     /// How long the slice may run; <see cref="TimeSpan.Zero"/> draws exactly one operation, <see cref="Timeout.InfiniteTimeSpan"/>
-    /// draws the rest. One operation is never split, so a slice can overrun its budget by one operation's time.
+    /// draws the rest. One operation is never split, so a slice can overrun its budget by one operation's time. With a finite budget
+    /// the first slices prepare the images the render will draw (issue #365): each is decoded at the reduction it is drawn at, and
+    /// converted when the rasterizer shares converted images, in steps of a DCT MCU row, a JPEG 2000 code-block or a row of
+    /// conversion, so that drawing an image no longer decodes or converts it within one operation. The bitmap is the same either way.
     /// </param>
     /// <returns><see langword="true"/> when the render is complete (also when it already was), <see langword="false"/> when it stopped for the budget.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="budget"/> is negative and not <see cref="Timeout.InfiniteTimeSpan"/>.</exception>
@@ -72,7 +78,7 @@ public sealed class ProgressiveRender : IDisposable
         bool completed;
         try
         {
-            completed = _replay.Continue(budget);
+            completed = budget == Timeout.InfiniteTimeSpan ? ContinueToEnd() : ContinueSlice(budget);
         }
         catch
         {
@@ -88,8 +94,69 @@ public sealed class ProgressiveRender : IDisposable
         return completed;
     }
 
+    /// <summary>Draws the rest in one call: an image paint left by an earlier slice, then every operation left.</summary>
+    private bool ContinueToEnd()
+    {
+        _rasterizer.SetPaintDeadline(long.MaxValue);
+        _rasterizer.ContinueSlicedPaint();
+        return _replay.Continue(Timeout.InfiniteTimeSpan);
+    }
+
+    /// <summary>
+    /// One slice (issue #365): prepares the images first, then hands the operations over one at a time until the deadline, finishing
+    /// an image paint that stopped at a deadline before the next operation, so that the operations are drawn in order.
+    /// </summary>
+    private bool ContinueSlice(TimeSpan budget)
+    {
+        long deadline = Deadline(budget);
+        if (!_prepared)
+        {
+            if (!_rasterizer.ContinuePreparation(_replay, deadline))
+            {
+                return false;
+            }
+
+            _prepared = true;
+        }
+
+        _rasterizer.SetPaintDeadline(deadline);
+        try
+        {
+            while (true)
+            {
+                if (!_rasterizer.ContinueSlicedPaint())
+                {
+                    return false;
+                }
+
+                if (_replay.IsCompleted)
+                {
+                    return _replay.Continue(TimeSpan.Zero);
+                }
+
+                _replay.Continue(TimeSpan.Zero);
+                if (Stopwatch.GetTimestamp() >= deadline)
+                {
+                    return !_rasterizer.HasSlicedPaint && _replay.IsCompleted && _replay.Continue(TimeSpan.Zero);
+                }
+            }
+        }
+        finally
+        {
+            _rasterizer.SetPaintDeadline(long.MaxValue);
+        }
+    }
+
     /// <summary>Ends the render if it has not completed: the bitmap keeps what was drawn, and the rasterizer may render again.</summary>
     public void Dispose() => End();
+
+    /// <summary>Returns the <see cref="Stopwatch"/> timestamp at which a slice of <paramref name="budget"/> starting now ends.</summary>
+    private static long Deadline(TimeSpan budget)
+    {
+        double ticks = budget.Ticks * ((double)Stopwatch.Frequency / TimeSpan.TicksPerSecond);
+        long now = Stopwatch.GetTimestamp();
+        return ticks >= long.MaxValue - now - 1 ? long.MaxValue - 1 : now + (long)ticks;
+    }
 
     private void End()
     {

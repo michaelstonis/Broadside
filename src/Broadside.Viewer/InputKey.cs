@@ -42,4 +42,19 @@ public enum InputKey
 
     /// <summary>Zero: zooms to fit the current page's width.</summary>
     Zero,
+
+    /// <summary>Tab: moves form-field focus in tab order (<see cref="FormFilling"/>); the input model ignores it.</summary>
+    Tab,
+
+    /// <summary>Enter: commits a field edit or activates the focused field (<see cref="FormFilling"/>); the input model ignores it.</summary>
+    Enter,
+
+    /// <summary>Escape: abandons a field edit (<see cref="FormFilling"/>); the input model ignores it.</summary>
+    Escape,
+
+    /// <summary>Backspace: deletes before the caret in a field edit (<see cref="FormFilling"/>); the input model ignores it.</summary>
+    Backspace,
+
+    /// <summary>Delete: deletes after the caret in a field edit (<see cref="FormFilling"/>); the input model ignores it.</summary>
+    Delete,
 }

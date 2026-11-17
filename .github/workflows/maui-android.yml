@@ -16,6 +16,7 @@ on:
       - 'src/Broadside.Viewer/**'
       - 'src/Broadside.Rendering.Skia/**'
       - 'tools/ApkAotCheck/**'
+      - 'samples/Broadside.Viewer.Blazor.Sample/DocumentCreator.cs'
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
       - 'global.json'
@@ -100,4 +101,5 @@ jobs:
           target: google_apis
           disable-animations: true
           emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect
-          script: bash samples/Broadside.Viewer.Maui.Sample/smoke-android.sh "$APK"
+          # The smoke run, then the UI tests (#358: every panel through its real controls, UiTests.cs) on the same emulator.
+          script: bash samples/Broadside.Viewer.Maui.Sample/smoke-android.sh "$APK" && bash samples/Broadside.Viewer.Maui.Sample/uitest.sh android "$APK" 900

@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.TestSupport;
 
@@ -170,7 +171,119 @@ public sealed class PageTreeTests
         using PdfDocument document = PdfDocument.Open(new TestPdf().Build("<< /Type /Catalog >>"));
 
         Assert.Empty(document.Pages);
-        Assert.Equal("PagesMissing", Assert.Single(document.Diagnostics).Code);
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Assert.Equal(("PagesMissing", DiagnosticSeverity.Error), (diagnostic.Code, diagnostic.Severity));
+    }
+
+    [Fact]
+    public void A_catalog_whose_pages_entry_the_cross_reference_table_misses_is_read_through_a_rebuilt_table()
+    {
+        // The table lists object 2, the page tree root, as free: the scan finds it.
+        byte[] file = OnePageWithEntry(2, "0000000000 65535 f ");
+
+        using PdfDocument document = PdfDocument.Open(file);
+
+        Assert.Equal(new PdfRectangle(0, 0, 200, 300), Assert.Single(document.Pages).MediaBox);
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Assert.Equal(("PagesMissing", DiagnosticSeverity.Warning), (diagnostic.Code, diagnostic.Severity));
+    }
+
+    [Fact]
+    public void A_catalog_without_pages_reads_the_page_tree_and_page_objects_the_file_holds_with_a_diagnostic()
+    {
+        using PdfDocument document = PdfDocument.Open(new TestPdf().Build(
+            "<< /Type /Catalog >>",
+            "<< /Type /Pages /Kids [4 0 R 3 0 R] /Count 2 /MediaBox [0 0 100 100] >>",
+            "<< /Type /Page /Parent 2 0 R /Resources << >> /UserUnit 2 >>",
+            "<< /Type /Page /Parent 2 0 R /Resources << >> /UserUnit 1 >>",
+            "<< /Type /Page /Parent 6 0 R /Resources << >> /UserUnit 3 >>",
+            "<< /Type /Pages /Parent 7 0 R /Count 0 /MediaBox [0 0 50 50] >>",
+            "<< /Type /Pages /Kids [6 0 R] /Count 0 >>"));
+
+        // The tree under 2 in Kids order, then the page its tree does not list, inheriting through its Parent chain.
+        Assert.Equal([1.0, 2.0, 3.0], document.Pages.Select(static page => page.UserUnit));
+        Assert.Equal(new PdfRectangle(0, 0, 100, 100), document.Pages[0].MediaBox);
+        Assert.Equal(new PdfRectangle(0, 0, 50, 50), document.Pages[2].MediaBox);
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics, static diagnostic => diagnostic.Code == "PagesMissing");
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+    }
+
+    [Fact]
+    public void A_recovered_page_whose_parent_chain_reaches_a_page_inherits_nothing_from_it_with_a_diagnostic()
+    {
+        using PdfDocument document = PdfDocument.Open(new TestPdf().Build(
+            "<< /Type /Catalog >>",
+            "<< /Type /Page /Parent 4 0 R /MediaBox [0 0 100 100] /Resources << >> /Rotate 90 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 50 50] /Resources << >> >>",
+            "<< /Type /Pages /Count 0 /Rotate 180 >>"));
+
+        // Page 3's Parent is page 2, a leaf (§7.7.3.3): page 3 inherits neither page 2's Rotate nor the node's past it.
+        Assert.Equal([90, 0], document.Pages.Select(static page => page.Rotation));
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics, static diagnostic => diagnostic.Code == "PageTreeParentMismatch");
+        Assert.Equal(new CosReference(3, 0), diagnostic.ObjectReference);
+    }
+
+    [Fact]
+    public void Strict_mode_throws_for_a_catalog_whose_pages_entry_does_not_resolve()
+    {
+        PdfOptions strict = new PdfOptions().UseStrict();
+        byte[] rebuildable = OnePageWithEntry(2, "0000000000 65535 f ");
+        byte[] withoutPages = new TestPdf().Build("<< /Type /Catalog >>", "<< /Type /Page /Resources << >> /MediaBox [0 0 1 1] >>");
+
+        Assert.Equal("PagesMissing", Assert.Throws<DiagnosticException>(() => PdfDocument.Open(rebuildable, strict)).Diagnostic.Code);
+        Assert.Equal("PagesMissing", Assert.Throws<DiagnosticException>(() => PdfDocument.Open(withoutPages, strict)).Diagnostic.Code);
+    }
+
+    /// <summary>
+    /// The real-world files whose catalog has no usable Pages entry, with the page count each reads as and the severity of its
+    /// PagesMissing diagnostic. The triage against pdf.js, poppler and qpdf is in docs/research/pages-missing-triage.md (issue #258).
+    /// </summary>
+    public static TheoryData<string, int, DiagnosticSeverity> PagesMissingFiles => new()
+    {
+        { "pdfjs/PDFBOX-3148-2-fuzzed.pdf", 1, DiagnosticSeverity.Warning },
+        { "pdfjs/issue9418.pdf", 1, DiagnosticSeverity.Warning },
+        { "pdfjs/poppler-395-0-fuzzed.pdf", 1, DiagnosticSeverity.Warning },
+        { "qpdf/append-xref-loop.pdf", 30, DiagnosticSeverity.Warning },
+        { "qpdf/i3.pdf", 1, DiagnosticSeverity.Warning },
+        { "qpdf/issue-119.pdf", 0, DiagnosticSeverity.Error },
+        { "qpdf/issue-120.pdf", 1, DiagnosticSeverity.Warning },
+        { "qpdf/issue-143.pdf", 0, DiagnosticSeverity.Error },
+        { "qpdf/minimal-linearize-pass1.pdf", 1, DiagnosticSeverity.Warning },
+    };
+
+    [Theory]
+    [Trait("Category", "Corpus")]
+    [MemberData(nameof(PagesMissingFiles))]
+    public void A_real_world_file_without_a_usable_page_tree_reads_the_pages_its_triage_justifies(string file, int pages, DiagnosticSeverity severity)
+    {
+        string corpus = file[..file.IndexOf('/', StringComparison.Ordinal)];
+        if (!RealWorldCorpus.Files(corpus).Contains(file))
+        {
+            Assert.Skip($"{file} not fetched; run tools/CorpusFetcher (or set {RealWorldCorpus.EnvironmentVariable}).");
+        }
+
+        using PdfDocument document = PdfDocument.Open(RealWorldCorpus.PathOf(file));
+
+        Assert.Equal(pages, document.Pages.Count);
+        Assert.Equal(severity, Assert.Single(document.Diagnostics, static diagnostic => diagnostic.Code == "PagesMissing").Severity);
+        Assert.Throws<DiagnosticException>(() =>
+        {
+            using PdfDocument strict = PdfDocument.Open(RealWorldCorpus.PathOf(file), new PdfOptions().UseStrict());
+            _ = strict.Pages.Count;
+        });
+    }
+
+    /// <summary>A one-page file whose cross-reference entry for <paramref name="number"/> is replaced by <paramref name="entry"/>.</summary>
+    private static byte[] OnePageWithEntry(int number, string entry)
+    {
+        byte[] file = new TestPdf().Build(
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 200 300] >>",
+            "<< /Type /Page /Parent 2 0 R /Resources << >> >>");
+        string text = System.Text.Encoding.Latin1.GetString(file);
+        int table = text.IndexOf("xref\n", StringComparison.Ordinal);
+        int start = text.IndexOf('\n', table + "xref\n".Length) + 1 + (number * 20);
+        return System.Text.Encoding.Latin1.GetBytes(string.Concat(text.AsSpan(0, start), entry, text.AsSpan(start + entry.Length)));
     }
 
     [Fact]

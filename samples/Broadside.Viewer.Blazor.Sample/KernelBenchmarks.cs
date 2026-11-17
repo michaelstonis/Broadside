@@ -47,6 +47,10 @@ public static partial class KernelBenchmarks
         new("ycck-to-cmyk", 4, 4, YcckToCmykScalar, YcckToCmykVector),
         new("over-row", 8, 4, OverRowScalar, OverRowVector),
         new("fill-row", 4, 4, FillRowScalar, FillRowVector),
+        new("mix-row", 8, 4, MixRowScalar, MixRowVector),
+        new("knockout-row", 12, 4, KnockOutRowScalar, KnockOutRowVector),
+        new("remove-backdrop-row", 9, 4, RemoveBackdropRowScalar, RemoveBackdropRowVector),
+        new("scale-row", 1, 1, ScaleRowScalar, ScaleRowVector),
         new("box-filter-4x4", 64, 4, BoxFilterScalar, BoxFilterVector),
         new("box-filter-run-2x2", 16, 4, BoxFilterRunScalar, BoxFilterRunVector),
         new("idct-8x8", 128, 64, IdctScalar, IdctVector),
@@ -154,6 +158,53 @@ public static partial class KernelBenchmarks
         backdrop.CopyTo(target);
         CompositingRows.FillRowVector(MemoryMarshal.Cast<byte, uint>(target), 0xFF3366CCu, 100);
     }
+
+    // Mix, knockout, backdrop removal and mask scaling (#473), one pixel (or mask byte) per item: the source holds the inputs one row
+    // after the other (mix: target then to; knockout: previous, composited, backdrop; removal: complete, backdrop, group alpha), the
+    // in-place ones copied into the destination first (both methods pay the copy).
+    private static void MixRowScalar(ReadOnlySpan<byte> pixels, Span<byte> target)
+    {
+        int n = pixels.Length / 2;
+        pixels[..n].CopyTo(target);
+        CompositingRows.MixRowScalar(MemoryMarshal.Cast<byte, uint>(target), MemoryMarshal.Cast<byte, uint>(pixels[n..]), 100);
+    }
+
+    private static void MixRowVector(ReadOnlySpan<byte> pixels, Span<byte> target)
+    {
+        int n = pixels.Length / 2;
+        pixels[..n].CopyTo(target);
+        CompositingRows.MixRowVector(MemoryMarshal.Cast<byte, uint>(target), MemoryMarshal.Cast<byte, uint>(pixels[n..]), 100);
+    }
+
+    private static void KnockOutRowScalar(ReadOnlySpan<byte> pixels, Span<byte> target)
+    {
+        int n = pixels.Length / 3;
+        pixels.Slice(n, n).CopyTo(target);
+        CompositingRows.KnockOutRowScalar(MemoryMarshal.Cast<byte, uint>(pixels[..n]), MemoryMarshal.Cast<byte, uint>(target), MemoryMarshal.Cast<byte, uint>(pixels[(2 * n)..]), 100);
+    }
+
+    private static void KnockOutRowVector(ReadOnlySpan<byte> pixels, Span<byte> target)
+    {
+        int n = pixels.Length / 3;
+        pixels.Slice(n, n).CopyTo(target);
+        CompositingRows.KnockOutRowVector(MemoryMarshal.Cast<byte, uint>(pixels[..n]), MemoryMarshal.Cast<byte, uint>(target), MemoryMarshal.Cast<byte, uint>(pixels[(2 * n)..]), 100);
+    }
+
+    private static void RemoveBackdropRowScalar(ReadOnlySpan<byte> rows, Span<byte> target)
+    {
+        int n = rows.Length / 9;
+        CompositingRows.RemoveBackdropRowScalar(MemoryMarshal.Cast<byte, uint>(rows[..(4 * n)]), MemoryMarshal.Cast<byte, uint>(rows.Slice(4 * n, 4 * n)), rows[(8 * n)..], MemoryMarshal.Cast<byte, uint>(target));
+    }
+
+    private static void RemoveBackdropRowVector(ReadOnlySpan<byte> rows, Span<byte> target)
+    {
+        int n = rows.Length / 9;
+        CompositingRows.RemoveBackdropRowVector(MemoryMarshal.Cast<byte, uint>(rows[..(4 * n)]), MemoryMarshal.Cast<byte, uint>(rows.Slice(4 * n, 4 * n)), rows[(8 * n)..], MemoryMarshal.Cast<byte, uint>(target));
+    }
+
+    private static void ScaleRowScalar(ReadOnlySpan<byte> values, Span<byte> target) => CompositingRows.ScaleRowScalar(values, target, 100);
+
+    private static void ScaleRowVector(ReadOnlySpan<byte> values, Span<byte> target) => CompositingRows.ScaleRowVector(values, target, 100);
 
     // The box filter (#475): each item is one device pixel averaging a 4 × 4 footprint (the item's 16 pixels, four rows of four) with
     // fractional weights at its edges, as an image drawn at a quarter of its size; the output is the averaged pixel.

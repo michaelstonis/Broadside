@@ -22,12 +22,31 @@ public interface ITileBackend : IDisposable
     /// <returns>The render in progress; the caller disposes it.</returns>
     ITileRender Begin(DisplayList list, Bitmap target, in Matrix deviceTransform, CancellationToken cancellationToken);
 
+    /// <summary>Starts drawing <paramref name="list"/> into <paramref name="target"/> and running <paramref name="colorFilter"/> over the finished tile.</summary>
+    /// <param name="list">The page's display list.</param>
+    /// <param name="target">The tile's pixels, holding the background on entry (white paper, or transparent for an overlay tile).</param>
+    /// <param name="deviceTransform">Default user space to the target's pixels.</param>
+    /// <param name="colorFilter">The filter, such as <see cref="ColorFilter.DarkMode"/>; it runs over the whole target, the paper included.</param>
+    /// <param name="cancellationToken">Stops the render; <see cref="ITileRender.RenderSlice"/> then throws <see cref="OperationCanceledException"/>.</param>
+    /// <returns>The render in progress; the caller disposes it.</returns>
+    /// <remarks>
+    /// Spec #33 viewer capability 9 (smart dark mode); see <see cref="RenderOptions.ColorFilter"/>. Without a filter this is
+    /// <see cref="Begin(DisplayList, Bitmap, in Matrix, CancellationToken)"/>. A backend that cannot draw the filter keeps this default,
+    /// which falls back to the software path: the tile is drawn by a <see cref="SoftwareRasterizer"/> of its own (images decoded at the
+    /// resolution they are drawn at), into the target bitmap, so it is never left on the device. <see cref="SoftwareTileBackend"/>
+    /// draws the filter itself.
+    /// </remarks>
+    ITileRender Begin(DisplayList list, Bitmap target, in Matrix deviceTransform, ColorFilter colorFilter, CancellationToken cancellationToken) =>
+        colorFilter == ColorFilter.None
+            ? Begin(list, target, deviceTransform, cancellationToken)
+            : SoftwareTileBackend.BeginFallback(list, target, deviceTransform, colorFilter, cancellationToken);
+
     /// <summary>
-    /// Has the engine's platform image decoders decode the images that <see cref="Begin"/> with the same arguments will draw, at the
-    /// resolution this backend will ask for; awaited before <see cref="Begin"/>, off the frame. Does nothing by default.
+    /// Has the engine's platform image decoders decode the images that <see cref="Begin(DisplayList, Bitmap, in Matrix, CancellationToken)"/> with the same arguments will draw, at the
+    /// resolution this backend will ask for; awaited before <see cref="Begin(DisplayList, Bitmap, in Matrix, CancellationToken)"/>, off the frame. Does nothing by default.
     /// </summary>
     /// <param name="list">The tile's display list.</param>
-    /// <param name="deviceTransform">The transform <see cref="Begin"/> will be given.</param>
+    /// <param name="deviceTransform">The transform <see cref="Begin(DisplayList, Bitmap, in Matrix, CancellationToken)"/> will be given.</param>
     /// <param name="width">The tile's width in pixels.</param>
     /// <param name="height">The tile's height in pixels.</param>
     /// <param name="cancellationToken">Cancelled when the tile is.</param>

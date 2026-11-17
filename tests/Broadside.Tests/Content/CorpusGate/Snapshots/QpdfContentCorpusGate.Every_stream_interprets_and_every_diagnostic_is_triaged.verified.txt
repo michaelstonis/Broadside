@@ -9,24 +9,24 @@ outcomes:
   Rejected: 13
   Crash: 0
   Timeout: 0
-pages: 3576
+pages: 3609
 appearance streams: 1882
 concurrent passes: 166
 page events:
-  Runs: 3576
-  Operators: 145152
+  Runs: 3609
+  Operators: 145406
   UnknownOperators: 74
-  StateSaves: 15686
-  PathVerbs: 42459
-  PathsStroked: 2064
-  PathsFilled: 1451
+  StateSaves: 15701
+  PathVerbs: 42510
+  PathsStroked: 2067
+  PathsFilled: 1457
   PathsFilledAndStroked: 463
   PathsEnded: 828
   ClipsPath: 828
-  ClipsRectangle: 647
+  ClipsRectangle: 653
   ClipsText: 0
-  TextObjects: 5529
-  GlyphsType1: 173219
+  TextObjects: 5560
+  GlyphsType1: 173489
   GlyphsMMType1: 0
   GlyphsTrueType: 9864
   GlyphsType3: 0
@@ -42,12 +42,12 @@ page events:
   ShadingsUnresolved: 0
   MeshesDecoded: 0
   PatternFillsTiling: 0
-  PatternFillsShading: 0
+  PatternFillsShading: 4
   PatternCellsRun: 0
-  FormsEntered: 646
-  TransparencyGroups: 1
-  SoftMaskGroupsRun: 1
-  MarkedContentSequences: 1953
+  FormsEntered: 649
+  TransparencyGroups: 4
+  SoftMaskGroupsRun: 4
+  MarkedContentSequences: 1954
   OptionalContentSequences: 0
   MarkedContentPoints: 0
   MaxDepth: 2

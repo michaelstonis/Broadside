@@ -66,10 +66,21 @@ public sealed partial class WebGLRenderer : IDisposable
     /// <param name="page">The page.</param>
     /// <param name="options">Resolution, scale and rotation.</param>
     /// <returns>The pixels (premultiplied BGRA).</returns>
+    /// <remarks>
+    /// A color filter (<see cref="RenderOptions.ColorFilter"/>, smart dark mode, spec #33 viewer capability 9) falls back to the
+    /// software path: <see cref="SoftwareRasterizer"/> renders the page with the options, filter included. A display list drawn into a
+    /// bitmap is never filtered; a viewer's WebGL tile backend draws filtered tiles through the software rasterizer.
+    /// </remarks>
     public Bitmap Render(PdfPage page, RenderOptions options)
     {
         ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(options);
+        if (options.ColorFilter != ColorFilter.None && !options.OverprintPreview)
+        {
+            _diagnostics.Clear();
+            return (_software ??= new SoftwareRasterizer()).Render(page, options);
+        }
+
         PixelSize size = options.GetPixelSize(page);
         var target = new Bitmap(size.Width, size.Height);
         target.Pixels.Fill(0xFF);

@@ -196,7 +196,7 @@ public static partial class RenderWorker
     // ---- The page's side ----
 
     /// <summary>Renders a tile in the worker: its image, or <see langword="null"/> when the worker gave the tile back (it failed).</summary>
-    internal static async Task<JSObject?> RenderAsync(int document, Tile tile, double samplesPerPixel, CancellationToken token)
+    internal static async Task<JSObject?> RenderAsync(int document, Tile tile, double samplesPerPixel, ColorFilter colorFilter, CancellationToken token)
     {
         if (!IsRunning)
         {
@@ -207,7 +207,7 @@ public static partial class RenderWorker
         var pending = new TaskCompletionSource<JSObject?>(TaskCreationOptions.RunContinuationsAsynchronously);
         Jobs[job] = (document, pending);
         PixelRectangle r = tile.Region;
-        ViewerInterop.WorkerRender(job, document, tile.PageIndex, tile.Scale, tile.Rotation, r.X, r.Y, r.Width, r.Height, (int)tile.Layers, samplesPerPixel);
+        ViewerInterop.WorkerRender(job, document, tile.PageIndex, tile.Scale, tile.Rotation, r.X, r.Y, r.Width, r.Height, (int)tile.Layers, samplesPerPixel, (int)colorFilter);
         try
         {
             using CancellationTokenRegistration cancel = token.Register(static state => ViewerInterop.WorkerCancel((int)state!), job);
@@ -352,7 +352,7 @@ public static partial class RenderWorker
     }
 
     [JSExport]
-    internal static async Task Render(int job, int document, int pageIndex, double scale, int rotation, int x, int y, int width, int height, int layers, double samplesPerPixel)
+    internal static async Task Render(int job, int document, int pageIndex, double scale, int rotation, int x, int y, int width, int height, int layers, double samplesPerPixel, int colorFilter)
     {
         PdfDocument pdf = Documents[document];
         bool remote = Remote.Contains(document);
@@ -391,7 +391,8 @@ public static partial class RenderWorker
         // with a read back where the browser has no ImageDecoder (Safari), whose cost stays off the page's thread here.
         await BrowserImageDecoder.InitializeAsync().ConfigureAwait(true);
         await backend.PrefetchImagesAsync(list, transform, width, height, CancellationToken.None).ConfigureAwait(true);
-        using (ITileRender render = backend.Begin(list, target, transform, CancellationToken.None))
+        // The page's color filter (#219): dark mode runs over the finished tile, its paper included.
+        using (ITileRender render = backend.Begin(list, target, transform, (ColorFilter)colorFilter, CancellationToken.None))
         {
             render.RenderSlice(Timeout.InfiniteTimeSpan);
         }
@@ -436,11 +437,17 @@ internal sealed class WorkerTileRenderer(int document, double samplesPerPixel) :
 
     public bool CanRender(in Tile tile) => !_disposed && !IsBroken && (tile.Layers & ~DisplayLayers.Content) == 0;
 
-    public async Task RenderAsync(Tile tile, IRenderSurface surface, CancellationToken cancellationToken)
+    // The worker draws every color filter itself (#219).
+    public bool CanRender(in Tile tile, ColorFilter colorFilter) => CanRender(tile);
+
+    public Task RenderAsync(Tile tile, IRenderSurface surface, CancellationToken cancellationToken) =>
+        RenderAsync(tile, ColorFilter.None, surface, cancellationToken);
+
+    public async Task RenderAsync(Tile tile, ColorFilter colorFilter, IRenderSurface surface, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(surface);
         cancellationToken.ThrowIfCancellationRequested();
-        if (await RenderWorker.RenderAsync(document, tile, samplesPerPixel, cancellationToken).ConfigureAwait(true) is not { } image)
+        if (await RenderWorker.RenderAsync(document, tile, samplesPerPixel, colorFilter, cancellationToken).ConfigureAwait(true) is not { } image)
         {
             // Given back (the worker stopped, or could not open the document): completing without presenting hands the tile to the
             // scheduler, which draws it on the page's thread now that CanRender declines.
