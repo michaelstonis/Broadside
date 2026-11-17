@@ -191,20 +191,24 @@ public sealed class SampleTests
             AutomationElement? list = null;
             if (!SampleApp.Poll(() => (list = app.Window.FindFirstDescendant(cf => cf.ByControlType(ControlType.List).And(cf.ByName("Form field")))) is not null))
             {
-                string children = string.Join(", ", app.Window.FindAllDescendants().Take(80).Select(e => $"{e.ControlType} '{e.Name}' #{e.Properties.AutomationId.ValueOrDefault} {e.BoundingRectangle}"));
+                string children = string.Join(", ", app.Window.FindAllDescendants().Take(120).Select(Describe));
                 Assert.Fail($"Timed out waiting for the multi-select list; page 1 {page.BoundingRectangle}, clicked {At(150, 415)}, the window's elements: {children}; status '{app.ReadStatus().Text}'.{Environment.NewLine}{app.Diagnostics()}");
             }
 
             AutomationElement[] items = [];
             if (!SampleApp.Poll(() => (items = list!.FindAllDescendants(cf => cf.ByControlType(ControlType.ListItem))).Length == 3))
             {
-                string found = string.Join(", ", list!.FindAllDescendants().Take(40).Select(e => $"{e.ControlType} '{e.Name}' {e.BoundingRectangle}"));
+                string found = string.Join(", ", list!.FindAllDescendants().Take(40).Select(Describe));
                 Assert.Fail($"The list {list.BoundingRectangle} does not show three options: {found}");
             }
 
             Assert.Equal(["Red", "Green", "Blue"], items.Select(item => item.Name));
             return items;
         }
+
+        // An element's type, name, id and bounds, each read leniently: not every peer supports every property.
+        static string Describe(AutomationElement e) =>
+            $"{e.Properties.ControlType.ValueOrDefault} '{e.Properties.Name.ValueOrDefault}' #{e.Properties.AutomationId.ValueOrDefault} {e.Properties.BoundingRectangle.ValueOrDefault}";
 
         static void ShowAndClick(AutomationElement item)
         {
