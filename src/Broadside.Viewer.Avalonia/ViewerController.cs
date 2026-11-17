@@ -656,6 +656,13 @@ internal sealed class ViewerController : IDisposable
 
                 break;
             case PointerMode.Select or PointerMode.Handle when pointerId == _selectPointer:
+                // The release point ends the drag too: a last move the platform folded into the release, or one it never
+                // delivered (a fast drag), still selects up to where the pointer let go.
+                if (TryGetPagePoint(x, y, out PagePoint released))
+                {
+                    _selection!.Extend(released);
+                }
+
                 _mode = PointerMode.None;
                 _selectPointer = -1;
                 break;
