@@ -51,4 +51,5 @@ internal sealed record FieldEditor(
     bool IsPassword,
     int? MaxLength,
     IReadOnlyList<string> Options,
-    int SelectedIndex);
+    int SelectedIndex,
+    bool IsEditable = false);
