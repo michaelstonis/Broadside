@@ -24,12 +24,17 @@ namespace Broadside.Filters;
 public sealed class FilterContext
 {
     private StreamDecoder? _decoder;
+    private readonly FilterRegistry? _standaloneFilters;
     private readonly int _depth;
     private List<Diagnostic>? _diagnostics;
 
     /// <summary>Initializes a new instance of the <see cref="FilterContext"/> class that stands alone, outside any document.</summary>
+    /// <remarks>Its <see cref="DecodeStream"/> uses the default filters, the image codecs included.</remarks>
     public FilterContext()
     {
+        // Named here, not where the decoder is created on demand, so that only a stand-alone context reaches the image codecs: a
+        // document's contexts share that code path and an app without codecs must not carry them (issue #544).
+        _standaloneFilters = ImageCodecRegistry.All;
     }
 
     /// <summary>Initializes a new instance of the <see cref="FilterContext"/> class for one filter of a document's chain.</summary>
@@ -113,7 +118,7 @@ public sealed class FilterContext
     }
 
     /// <summary>Gets the document's decoder, or, for a context that stands alone, one with the default filters created on first use.</summary>
-    private StreamDecoder Decoder => _decoder ??= StreamDecoder.Standalone(ReadingMode, MaxDecodedLength);
+    private StreamDecoder Decoder => _decoder ??= StreamDecoder.Standalone(_standaloneFilters!, ReadingMode, MaxDecodedLength);
 
     /// <summary>Reads an integer parameter; reports and returns the default when it is not an integer in range.</summary>
     /// <param name="key">The parameter.</param>

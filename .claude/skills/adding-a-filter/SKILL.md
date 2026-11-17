@@ -57,7 +57,7 @@ ReadOnlyMemory<byte> PdfDocument.DecodeStream(CosStream stream);
 void PdfDocument.DecodeStream(CosStream stream, IBufferWriter<byte> output);
 ```
 
-Managed defaults (`sealed`, stateless): `AsciiHexDecodeFilter`, `Ascii85DecodeFilter`, `LzwDecodeFilter`, `FlateDecodeFilter`, `RunLengthDecodeFilter`, listed in internal `FilterRegistry.Defaults`. A Phase 2B codec adds its instance there (one line; registration lines conflict trivially).
+Managed defaults (`sealed`, stateless): the general-purpose `AsciiHexDecodeFilter`, `Ascii85DecodeFilter`, `LzwDecodeFilter`, `FlateDecodeFilter`, `RunLengthDecodeFilter` are listed in internal `FilterRegistry.BuiltIn`, present in every engine. The image codecs (`DctDecodeFilter`, `CcittFaxDecodeFilter`, `JpxDecodeFilter`, `Jbig2DecodeFilter`) are listed in internal `ImageCodecRegistry.Codecs` and are registrations of the options (#544): `new PdfOptions()` registers them, `PdfOptions.CreateWithoutImageCodecs()` does not, `UseImageCodecs()` adds them back, and a stream naming a missing one reports `FilterCodecNotRegistered`. A new general-purpose filter adds its instance to `FilterRegistry.BuiltIn`; a new image codec adds its instance to `ImageCodecRegistry.Codecs`. Never name a codec type from code every engine runs (a static initializer, the stream decoder, a switch on names that constructs one): that keeps it in every trimmed app, and the `open-metadata-no-image-codecs` size probe catches it.
 
 What the pipeline (internal `StreamDecoder`, one per document) does so a filter does not:
 

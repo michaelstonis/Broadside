@@ -61,7 +61,7 @@ public sealed class FilterExtensionPointTests
         _ = document.DecodeStream(CorpusFilterTests.ContentStream(document));
 
         Assert.Equal(0, counting.Calls);
-        Assert.Same(counting, Assert.Single(options.Filters));
+        Assert.Same(counting, options.Filters[^1]);
     }
 
     [Fact]

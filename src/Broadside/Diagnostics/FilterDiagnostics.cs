@@ -14,6 +14,14 @@ public static class FilterDiagnostics
     /// <remarks>ISO 32000-2 §7.3.8.2 Table 5, §7.4</remarks>
     public static DiagnosticCode FilterUnsupported { get; } = new(nameof(FilterUnsupported), DiagnosticArea.Filter, DiagnosticSeverity.Error, "ISO 32000-2 §7.3.8.2 Table 5, §7.4");
 
+    /// <summary>
+    /// Gets the <c>FilterCodecNotRegistered</c> code: a stream names a standard image codec (<c>DCTDecode</c>, <c>CCITTFaxDecode</c>,
+    /// <c>JBIG2Decode</c> or <c>JPXDecode</c>) that the engine's options did not register (<see cref="PdfOptions.CreateWithoutImageCodecs"/>),
+    /// so the stream is left encoded from that filter on.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.4.1 Table 6, §7.4.6 to §7.4.9. Information: the file is valid; the app chose not to carry the codec.</remarks>
+    public static DiagnosticCode FilterCodecNotRegistered { get; } = new(nameof(FilterCodecNotRegistered), DiagnosticArea.Filter, DiagnosticSeverity.Information, "ISO 32000-2 §7.4.1 Table 6, §7.4.6-§7.4.9");
+
     /// <summary>Gets the <c>FilterAbbreviationNotAllowed</c> code.</summary>
     /// <remarks>ISO 32000-2 §7.3.8.2 Table 5, §7.4</remarks>
     public static DiagnosticCode FilterAbbreviationNotAllowed { get; } = new(nameof(FilterAbbreviationNotAllowed), DiagnosticArea.Filter, DiagnosticSeverity.Warning, "ISO 32000-2 §7.3.8.2 Table 5, §7.4");
@@ -63,6 +71,7 @@ public static class FilterDiagnostics
     [
         FilterInvalid,
         FilterUnsupported,
+        FilterCodecNotRegistered,
         FilterAbbreviationNotAllowed,
         FilterDataInvalid,
         FilterDataTruncated,

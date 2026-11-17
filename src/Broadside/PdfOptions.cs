@@ -65,6 +65,49 @@ public sealed class PdfOptions
     private long _glyphCacheBudget = DefaultGlyphCacheBudget;
     private long _displayListCacheBudget = DefaultDisplayListCacheBudget;
     private int _maxMeshVertices = DefaultMaxMeshVertices;
+    private FilterRegistry? _sharedFilterRegistry;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PdfOptions"/> class with the defaults, including every managed image codec:
+    /// <see cref="DctDecodeFilter"/>, <see cref="CcittFaxDecodeFilter"/>, <see cref="JpxDecodeFilter"/> and <see cref="Jbig2DecodeFilter"/>.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.4.6 to §7.4.9. An app that never decodes images and is trimmed (Native AOT) can start from
+    /// <see cref="CreateWithoutImageCodecs"/> instead, so the codecs are not part of it.
+    /// </remarks>
+    public PdfOptions()
+        : this(withoutImageCodecs: true)
+    {
+        UseImageCodecs();
+    }
+
+    // The constructor of CreateWithoutImageCodecs. It names no codec, so a trimmed app that only reaches it drops them; the parameter
+    // only tells it apart from the public constructor.
+    private PdfOptions(bool withoutImageCodecs)
+    {
+        _ = withoutImageCodecs;
+    }
+
+    /// <summary>
+    /// Creates options with the defaults but no image codec: a stream whose filters include <c>DCTDecode</c>, <c>CCITTFaxDecode</c>,
+    /// <c>JBIG2Decode</c> or <c>JPXDecode</c> is reported with <see cref="Diagnostics.FilterDiagnostics.FilterCodecNotRegistered"/>
+    /// and left encoded from that filter on, like any stream this engine cannot decode.
+    /// </summary>
+    /// <returns>The options.</returns>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §7.4.6 to §7.4.9. For trimmed apps (Native AOT): the codecs are about 0.8 MB of an app that opens documents, and
+    /// an app that never constructs options with <see cref="PdfOptions()"/>, never calls <see cref="UseImageCodecs"/> and never uses
+    /// the entry points without options (<see cref="PdfDocument.Open(string)"/> and the like, which use the default options) does
+    /// not carry them. Add back the codecs an app needs with <see cref="UseImageCodecs"/>, or one at a time with
+    /// <see cref="UseFilter"/> (<c>UseFilter(new DctDecodeFilter())</c>).
+    /// </para>
+    /// <para>
+    /// Without a codec, images in that encoding are not drawn and their pixels cannot be read; text, structure and everything else
+    /// read as usual, and saving keeps the encoded data unchanged.
+    /// </para>
+    /// </remarks>
+    public static PdfOptions CreateWithoutImageCodecs() => new(withoutImageCodecs: true);
 
     /// <summary>Gets or sets how deviations from the specification are treated. The default is <see cref="PdfReadingMode.Lenient"/>.</summary>
     /// <remarks>Lenient by default: a deviation is repaired and recorded as a diagnostic; strict mode throws instead.</remarks>
@@ -99,9 +142,33 @@ public sealed class PdfOptions
         }
     }
 
-    /// <summary>Gets the filters registered with <see cref="UseFilter"/>, in registration order.</summary>
+    /// <summary>Gets the filters registered with <see cref="UseImageCodecs"/> and <see cref="UseFilter"/>, in registration order.</summary>
     /// <remarks>ISO 32000-2 §7.4.1. Not public, so configuration binding never sees it; filters are code, set with <see cref="UseFilter"/>.</remarks>
     internal IReadOnlyList<IStreamFilter> Filters => _filters;
+
+    /// <summary>
+    /// Builds the registry an engine takes: the shared one when the options register exactly the image codecs or nothing at all, so
+    /// the common cases build no dictionary.
+    /// </summary>
+    /// <returns>The registry.</returns>
+    internal FilterRegistry CreateFilterRegistry() =>
+        _sharedFilterRegistry ?? (_filters.Count == 0 ? FilterRegistry.WithoutImageCodecs : FilterRegistry.Create(_filters));
+
+    /// <summary>
+    /// Uses the managed image codecs, <see cref="DctDecodeFilter"/>, <see cref="CcittFaxDecodeFilter"/>, <see cref="JpxDecodeFilter"/>
+    /// and <see cref="Jbig2DecodeFilter"/>, for the streams that name them, as <see cref="UseFilter"/> would with each: a later
+    /// registration of the same name wins. <see cref="PdfOptions()"/> already does; this is for options from
+    /// <see cref="CreateWithoutImageCodecs"/>.
+    /// </summary>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §7.4.6 to §7.4.9. The filter extension point.</remarks>
+    public PdfOptions UseImageCodecs()
+    {
+        bool none = _filters.Count == 0;
+        _filters.AddRange(ImageCodecRegistry.Codecs);
+        _sharedFilterRegistry = none ? ImageCodecRegistry.All : null;
+        return this;
+    }
 
     /// <summary>
     /// Uses <paramref name="filter"/> for every stream whose <c>Filter</c> entry names <see cref="IStreamFilter.Name"/>, replacing the
@@ -126,6 +193,7 @@ public sealed class PdfOptions
         }
 
         _filters.Add(filter);
+        _sharedFilterRegistry = null;
         return this;
     }
 
