@@ -63,9 +63,13 @@ public sealed class SampleTests
         app.WaitForState(s => Math.Abs(s.Zoom - zoom) <= 1 && s.Activity == "Ready", "fit width");
 
         // The zoom kept the point under the mouse in place, so page 1's first lines may now be above the viewport: back to the top.
+        // Home scrolls there in an animation, and page 1 is already the current page, so the status reads "page 1, ready" before the
+        // scroll ends: wait for page 1 to stop moving too. A line read mid-scroll (the newsletter's photo caption, passing through the
+        // viewport on its way below it) is gone from where the drag then presses, and off screen for every retry (#563).
         app.Viewer.Focus();
         Keyboard.Type(VirtualKeyShort.HOME);
         app.WaitForState(s => s.Page == 1 && s.Activity == "Ready", "back on page 1 after zooming");
+        WaitUntilStill(app);
 
         // Select: a mouse drag across the first line of text the peers place on screen (the selection line shows it), then Ctrl+A;
         // Copy reports what it copied.
@@ -78,6 +82,14 @@ public sealed class SampleTests
         foreach (double at in (double[])[0.5, 0.35, 0.65, 0.2, 0.8])
         {
             line = text.BoundingRectangle;
+            if (line.IsEmpty)
+            {
+                // The line left the viewport (its peer reports no bounds): drag across the first line that shows now.
+                WaitUntilStill(app);
+                text = FirstText(app);
+                line = text.BoundingRectangle;
+            }
+
             int y = line.Y + (int)(line.Height * at);
             DragSlowly(new Point(line.X + 2, y), new Point(line.Right - 2, y));
             if (Selected(app, TimeSpan.FromSeconds(3)))
@@ -157,6 +169,23 @@ public sealed class SampleTests
         }
 
         return false;
+    }
+
+    // Page 1's peer at the same bounds over a few reads in a row, with the status ready: no scroll or zoom animation is running.
+    private static void WaitUntilStill(SampleApp app)
+    {
+        AutomationElement page = SampleApp.WaitFor(() => app.Viewer.FindFirstDescendant(cf => cf.ByAutomationId("page-0")), "page 1's peer");
+        Rectangle last = Rectangle.Empty;
+        int still = 0;
+        Assert.True(
+            SampleApp.Poll(() =>
+            {
+                Rectangle now = page.BoundingRectangle;
+                still = !now.IsEmpty && now == last && app.ReadStatus().Activity == "Ready" ? still + 1 : 0;
+                last = now;
+                return still >= 3;
+            }),
+            $"page 1 did not stop moving: {last}, {app.ReadStatus().Text}");
     }
 
     private static string TrimToLetters(string word)
