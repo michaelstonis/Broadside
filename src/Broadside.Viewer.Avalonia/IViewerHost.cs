@@ -36,6 +36,7 @@ internal enum FieldEditorKind
 }
 
 /// <summary>A form-field editor to show over the focused widget (ISO 32000-2 §12.7.5.3 text fields, §12.7.5.4 choice fields).</summary>
+/// <remarks>Built from the core form filling's state; the native control only takes input (<c>IsEditable</c>: an editable combo box also takes typed text).</remarks>
 internal sealed record FieldEditor(
     AnnotationTarget Target,
     FieldEditorKind Kind,
@@ -44,4 +45,5 @@ internal sealed record FieldEditor(
     bool IsPassword,
     int? MaxLength,
     IReadOnlyList<string> Options,
-    int SelectedIndex);
+    int SelectedIndex,
+    bool IsEditable = false);

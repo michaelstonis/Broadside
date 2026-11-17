@@ -187,6 +187,13 @@ public sealed partial class PdfView : UserControl, IDisposable
     /// <summary>Gets the annotation and link layer of the open document, or null (form values and annotation edits go through it).</summary>
     public AnnotationLayer? Annotations => _controller.Annotations;
 
+    /// <summary>
+    /// Gets the form filling of the open document, or null: the field the keyboard edits, Tab order (each page's Tabs entry), and one
+    /// commit per edit through the form API (filling through the view saves the same file as filling through the API).
+    /// </summary>
+    /// <remarks>ISO 32000-2 §12.7 (interactive forms), §7.7.3.3 Table 31 (Tabs). Spec #33 viewer capability 12.</remarks>
+    public FormFilling? Forms => _controller.Forms;
+
     /// <summary>Gets the accessibility bridge of the open document, or null.</summary>
     public AccessibilityBridge? Accessibility => _controller.Bridge;
 
@@ -505,19 +512,23 @@ public sealed partial class PdfView : UserControl, IDisposable
 
     private Control CreateTextEditor(FieldEditor editor)
     {
+        // The box only takes input: the form filling (#218) holds the text (cut at MaxLen, one line unless multi-line) and writes it
+        // once when the edit ends (#543). Enter and focus loss commit; Escape abandons the edit.
         int maxLength = editor.MaxLength is int max && max > 0 ? max : 0;
-        bool committed = false;
+        bool closed = false;
         Control input;
         Func<string> read;
         if (editor.IsPassword)
         {
             var password = new PasswordBox { Password = editor.Text, MaxLength = maxLength };
+            password.PasswordChanged += (_, _) => Input(password, password.Password);
             input = password;
             read = () => password.Password;
         }
         else
         {
             var text = new TextBox { Text = editor.Text, MaxLength = maxLength, AcceptsReturn = editor.IsMultiline, TextWrapping = editor.IsMultiline ? TextWrapping.Wrap : TextWrapping.NoWrap };
+            text.TextChanged += (_, _) => Input(text, text.Text);
             input = text;
             read = () => text.Text;
         }
@@ -525,12 +536,20 @@ public sealed partial class PdfView : UserControl, IDisposable
         input.Padding = new Thickness(2, 0, 2, 0);
         input.MinHeight = 0;
         input.MinWidth = 0;
-        void Commit()
+        void Input(Control source, string value)
         {
-            if (!committed && ReferenceEquals(_editorView, input))
+            if (ReferenceEquals(_editorView, source))
             {
-                committed = true;
-                _controller.CommitFieldText(read());
+                _controller.EditorInput(value);
+            }
+        }
+
+        void Close(bool commit)
+        {
+            if (!closed && ReferenceEquals(_editorView, input))
+            {
+                closed = true;
+                _ = commit ? _controller.CommitFieldText(read()) : _controller.CancelFieldEdit();
                 _controller.EndFieldEdit();
                 Focus(FocusState.Programmatic);
             }
@@ -541,40 +560,54 @@ public sealed partial class PdfView : UserControl, IDisposable
             if (e.Key == VirtualKey.Enter && !editor.IsMultiline)
             {
                 e.Handled = true;
-                Commit();
+                Close(commit: true);
             }
             else if (e.Key == VirtualKey.Escape)
             {
                 e.Handled = true;
-                committed = true;
-                _controller.EndFieldEdit();
-                Focus(FocusState.Programmatic);
+                Close(commit: false);
             }
         };
-        input.LostFocus += (_, _) => Commit();
+        input.LostFocus += (_, _) => Close(commit: true);
         AutomationProperties.SetName(input, "Form field");
         return input;
     }
 
     private ComboBox CreateChoiceEditor(FieldEditor editor)
     {
-        var choice = new ComboBox { MinHeight = 0, MinWidth = 0 };
+        var choice = new ComboBox { MinHeight = 0, MinWidth = 0, IsEditable = editor.IsEditable };
         foreach (string option in editor.Options)
         {
             choice.Items.Add(option);
         }
 
         choice.SelectedIndex = editor.SelectedIndex;
+        if (editor.IsEditable)
+        {
+            choice.Text = editor.Text;
+
+            // Typed text (Enter or focus loss submits it) goes to the form filling, which picks the option it names or keeps the text.
+            choice.TextSubmitted += (_, e) =>
+            {
+                if (ReferenceEquals(_editorView, choice))
+                {
+                    e.Handled = true;
+                    _controller.CommitFieldText(e.Text);
+                }
+            };
+        }
+
+        // A pick commits through the form filling at once.
         choice.SelectionChanged += (_, _) =>
         {
-            if (choice.SelectedIndex >= 0)
+            if (ReferenceEquals(_editorView, choice) && choice.SelectedIndex >= 0 && choice.SelectedIndex != editor.SelectedIndex)
             {
                 _controller.CommitFieldChoice(choice.SelectedIndex);
             }
         };
         choice.DropDownClosed += (_, _) =>
         {
-            if (ReferenceEquals(_editorView, choice))
+            if (ReferenceEquals(_editorView, choice) && !editor.IsEditable)
             {
                 _controller.EndFieldEdit();
                 Focus(FocusState.Programmatic);

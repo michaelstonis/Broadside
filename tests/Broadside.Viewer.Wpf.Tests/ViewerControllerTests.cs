@@ -301,6 +301,65 @@ public sealed class ViewerControllerTests
     });
 
     [Fact]
+    public void The_shared_field_set_fills_through_the_editor_and_keys_as_the_form_api_does() => UiThread.Run(async () =>
+    {
+        // #543: the editor over a widget is built from the core form filling and only feeds it input; the form filling cuts the
+        // text at MaxLen and per comb, refuses the read-only field and writes each field once, as in every other shell.
+        using Shell shell = await Shell.OpenAsync(Shell.CorpusFile(FormFillingScenario.FileName));
+        ViewerController controller = shell.Controller;
+        AnnotationLayer layer = controller.Annotations!;
+        PdfAcroForm form = layer.Session.Document.AcroForm!;
+        Assert.Same(layer, controller.Forms!.Layer);
+        FieldEditor? Open(string name, int widget = 0)
+        {
+            AnnotationTarget target = FormFillingScenario.FindWidget(
+                form, name, Enumerable.Range(0, layer.GetCount(0)).Select(i => (new AnnotationTarget(0, i), layer.GetAnnotation(new AnnotationTarget(0, i)))), widget);
+            layer.Focus(target);
+            Assert.Equal(target, controller.Forms.Target);
+            return shell.Editors[^1];
+        }
+
+        // Escape abandons an edit: the field keeps its value.
+        Assert.Equal((FieldEditorKind.Text, "Ada", 20), Open("name") is { } editor ? (editor.Kind, editor.Text, editor.MaxLength) : default);
+        Assert.True(controller.EditorInput("Changed"));
+        Assert.True(controller.CancelFieldEdit());
+        controller.EndFieldEdit();
+        Assert.Null(shell.Editors[^1]);
+        Assert.Equal("Ada", ((PdfTextField)form.FindField("name")!).Value);
+
+        Assert.NotNull(Open("name"));
+        Assert.True(controller.EditorInput(FormFillingScenario.NameTyped));
+        Assert.True(controller.CommitFieldEdit());
+        controller.EndFieldEdit();
+        Assert.Equal(5, Open("code")!.MaxLength);
+        Assert.True(controller.CommitFieldText(FormFillingScenario.CodeTyped));
+        controller.EndFieldEdit();
+
+        // A read-only field, a check box and a radio button open no editor; Space toggles the two buttons.
+        Assert.Null(Open("ref"));
+        Assert.False(controller.EditorInput("R-2"));
+        Assert.Null(Open("agree"));
+        Assert.True(controller.KeyDown(" ", InputModifiers.None));
+        Assert.Null(Open("size", FormFillingScenario.SizeWidget));
+        Assert.True(controller.KeyDown(" ", InputModifiers.None));
+
+        FieldEditor fruit = Open("fruit")!;
+        Assert.Equal((FieldEditorKind.Choice, 0, false), (fruit.Kind, fruit.SelectedIndex, fruit.IsEditable));
+        Assert.Equal(["Apple", "Banana", "Cherry"], fruit.Options);
+        Assert.True(controller.CommitFieldChoice(FormFillingScenario.Fruit));
+        Assert.Equal(["United States", "Canada", "Mexico"], Open("country")!.Options);
+        Assert.True(controller.CommitFieldChoice(FormFillingScenario.Country));
+        FieldEditor city = Open("city")!;
+        Assert.Equal((FieldEditorKind.Choice, "Lyon", -1, true), (city.Kind, city.Text, city.SelectedIndex, city.IsEditable));
+        Assert.True(controller.EditorInput(FormFillingScenario.City));
+        controller.EndFieldEdit(); // focus leaving the field commits it
+        Assert.Null(shell.Editors[^1]);
+
+        Assert.Equal(await FormFillingScenario.ExpectedAsync(TestContext.Current.CancellationToken), FormFillingScenario.Describe(form));
+        await shell.SettleAsync();
+    });
+
+    [Fact]
     public void Tab_focuses_form_fields_and_opens_the_editor_whose_commit_redraws_only_overlay_tiles() => UiThread.Run(async () =>
     {
         using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("acroform-fields.pdf"));
@@ -313,13 +372,13 @@ public sealed class ViewerControllerTests
         FieldEditor editor = Assert.IsType<FieldEditor>(shell.Editors[^1]);
         Assert.Equal(FieldEditorKind.Text, editor.Kind);
         shell.Events.Clear();
-        Assert.True(shell.Controller.CommitFieldText("Ada"));
+        Assert.True(shell.Controller.CommitFieldText("Ada Lovelace"));
         await shell.SettleAsync();
         Assert.Contains(shell.Events, e => e.Kind == TileEventKind.Presented);
         Assert.All(
             shell.Events.Where(e => e.Kind is TileEventKind.Started or TileEventKind.Presented or TileEventKind.Evicted),
             e => Assert.Equal(DisplayLayers.None, e.Tile.Layers & DisplayLayers.Content));
-        Assert.Equal("Ada", ((PdfTextField)((PdfWidgetAnnotation)layer.GetAnnotation(editor.Target)).Field!).Value);
+        Assert.Equal("Ada Lovelace", ((PdfTextField)((PdfWidgetAnnotation)layer.GetAnnotation(editor.Target)).Field!).Value);
 
         shell.Controller.EndFieldEdit();
         Assert.Null(shell.Editors[^1]);

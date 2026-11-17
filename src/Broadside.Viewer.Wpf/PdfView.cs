@@ -180,6 +180,13 @@ public sealed class PdfView : FrameworkElement, IViewerHost, IDisposable
     /// <summary>Gets the annotation and link layer of the open document, or null (form values and annotation edits go through it).</summary>
     public AnnotationLayer? Annotations => Controller.Annotations;
 
+    /// <summary>
+    /// Gets the form filling of the open document, or null: the field the keyboard edits, Tab order (each page's Tabs entry), and one
+    /// commit per edit through the form API (filling through the view saves the same file as filling through the API).
+    /// </summary>
+    /// <remarks>ISO 32000-2 §12.7 (interactive forms), §7.7.3.3 Table 31 (Tabs). Spec #33 viewer capability 12.</remarks>
+    public FormFilling? Forms => Controller.Forms;
+
     /// <summary>Gets the accessibility bridge of the open document, or null.</summary>
     /// <remarks>ISO 32000-2 §14.8.</remarks>
     public AccessibilityBridge? Accessibility => Controller.Bridge;
@@ -651,6 +658,8 @@ public sealed class PdfView : FrameworkElement, IViewerHost, IDisposable
 
     private Control CreateTextEditor(FieldEditor editor)
     {
+        // The box only takes input: the form filling (#218) holds the text (cut at MaxLen, one line unless multi-line) and writes it
+        // once when the edit ends (#543). Enter and focus loss commit; Escape abandons the edit.
         Control input;
         Func<string> read;
         if (editor.IsPassword)
@@ -661,6 +670,7 @@ public sealed class PdfView : FrameworkElement, IViewerHost, IDisposable
                 password.MaxLength = max;
             }
 
+            password.PasswordChanged += (_, _) => Input(password, password.Password);
             input = password;
             read = () => password.Password;
         }
@@ -672,19 +682,28 @@ public sealed class PdfView : FrameworkElement, IViewerHost, IDisposable
                 text.MaxLength = max;
             }
 
+            text.TextChanged += (_, _) => Input(text, text.Text);
             input = text;
             read = () => text.Text;
         }
 
         input.Background = Brushes.White;
         input.Foreground = Brushes.Black;
-        bool committed = false;
-        void Commit()
+        bool closed = false;
+        void Input(Control source, string value)
         {
-            if (!committed && ReferenceEquals(_editorView, input))
+            if (ReferenceEquals(_editorView, source))
             {
-                committed = true;
-                Controller.CommitFieldText(read());
+                Controller.EditorInput(value);
+            }
+        }
+
+        void Close(bool commit)
+        {
+            if (!closed && ReferenceEquals(_editorView, input))
+            {
+                closed = true;
+                _ = commit ? Controller.CommitFieldText(read()) : Controller.CancelFieldEdit();
                 Controller.EndFieldEdit();
                 Focus();
             }
@@ -694,34 +713,62 @@ public sealed class PdfView : FrameworkElement, IViewerHost, IDisposable
         {
             if (e.Key == Key.Enter && !editor.IsMultiline)
             {
-                Commit();
+                Close(commit: true);
                 e.Handled = true;
             }
             else if (e.Key == Key.Escape)
             {
-                committed = true; // Escape leaves the field without changing it
-                Controller.EndFieldEdit();
-                Focus();
+                Close(commit: false);
                 e.Handled = true;
             }
         };
-        input.LostKeyboardFocus += (_, _) => Commit();
+        input.LostKeyboardFocus += (_, _) => Close(commit: true);
         return input;
     }
 
     private ComboBox CreateChoiceEditor(FieldEditor editor)
     {
-        var combo = new ComboBox { ItemsSource = editor.Options.ToList(), SelectedIndex = editor.SelectedIndex, Background = Brushes.White, Foreground = Brushes.Black };
+        var combo = new ComboBox
+        {
+            ItemsSource = editor.Options.ToList(),
+            SelectedIndex = editor.SelectedIndex,
+            IsEditable = editor.IsEditable,
+            Background = Brushes.White,
+            Foreground = Brushes.Black,
+        };
+        if (editor.IsEditable)
+        {
+            combo.Text = editor.Text;
+
+            // An editable combo box's typed text is held by the form filling until the edit ends.
+            combo.AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent, new TextChangedEventHandler((_, _) =>
+            {
+                if (ReferenceEquals(_editorView, combo))
+                {
+                    Controller.EditorInput(combo.Text);
+                }
+            }));
+            combo.LostKeyboardFocus += (_, _) =>
+            {
+                if (ReferenceEquals(_editorView, combo) && !combo.IsKeyboardFocusWithin && !combo.IsDropDownOpen)
+                {
+                    Controller.CommitFieldEdit();
+                    Controller.EndFieldEdit();
+                }
+            };
+        }
+
+        // A pick commits through the form filling at once.
         combo.SelectionChanged += (_, _) =>
         {
-            if (combo.SelectedIndex >= 0)
+            if (ReferenceEquals(_editorView, combo) && combo.SelectedIndex >= 0 && combo.SelectedIndex != editor.SelectedIndex)
             {
                 Controller.CommitFieldChoice(combo.SelectedIndex);
             }
         };
         combo.DropDownClosed += (_, _) =>
         {
-            if (ReferenceEquals(_editorView, combo))
+            if (ReferenceEquals(_editorView, combo) && !editor.IsEditable)
             {
                 Controller.EndFieldEdit();
                 Focus();
