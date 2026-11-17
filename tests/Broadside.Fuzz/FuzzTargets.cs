@@ -60,6 +60,7 @@ internal static class FuzzTargets
         ["timestamp-response"] = TimestampResponseTarget.Target,
         ["public-key"] = PublicKey.Target,
         ["xmp"] = Xmp,
+        ["xmp-xml"] = XmpXmlTarget.Target,
         ["pdf-date"] = PdfDateTarget,
         ["structure-tree"] = StructureTree.Target,
         ["layout-detection"] = LayoutDetectionTarget.Target,
