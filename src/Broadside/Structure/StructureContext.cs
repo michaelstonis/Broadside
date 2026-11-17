@@ -27,6 +27,7 @@ internal sealed class StructureContext
     public const int MaxParentTreeArray = 1_000_000;
 
     private readonly OnceCache<CosDictionary, PdfStructureNamespace> _namespaces = new(ReferenceEqualityComparer.Instance);
+    private Dictionary<CosObject, int>? _mcidFloors;
     private StructureIndexes _indexes;
 
     public StructureContext(PdfDocument document, CosDictionary root, CosReference? rootReference)
@@ -60,6 +61,48 @@ internal sealed class StructureContext
                 (Context: this, Indexes: indexes),
                 static (_, state) => new Created<StructureWalk>(state.Context.Build(state.Indexes, static (context, stamps) => StructureWalk.Build(context, stamps))),
                 static (_, _) => StructureWalk.Empty);
+        }
+    }
+
+    /// <summary>
+    /// The least MCID of the content stream <paramref name="streamKey"/> (a page object, or a form XObject's stream) above every MCID
+    /// the hierarchy's <c>K</c> entries claim for it: read for every stream from one <c>K</c> walk on the first allocation through this
+    /// context, then advanced by <see cref="AdvanceMcidFloor"/> on each content item added, so allocating does not rebuild the walk
+    /// (which every edit makes stale) once per item or once per page.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §14.7.5.2: MCIDs are unique per content stream. Every content item added through the structure API also enters the
+    /// stream's parent-tree array, so the floor only matters for <c>K</c> entries the parent tree does not list (a damaged file); such
+    /// entries written directly on the COS objects after the first allocation are not seen. Writing is single-threaded.
+    /// </remarks>
+    public int McidFloor(CosObject streamKey)
+    {
+        if (_mcidFloors is null)
+        {
+            var floors = new Dictionary<CosObject, int>(ReferenceEqualityComparer.Instance);
+            foreach ((CosObject stream, Dictionary<int, PdfStructureElement> owned) in Walk.MarkedContentStreams)
+            {
+                int next = 0;
+                foreach (int used in owned.Keys)
+                {
+                    next = Math.Max(next, used + 1);
+                }
+
+                floors[stream] = next;
+            }
+
+            _mcidFloors = floors;
+        }
+
+        return _mcidFloors.GetValueOrDefault(streamKey);
+    }
+
+    /// <summary>Records that MCID <paramref name="mcid"/> of <paramref name="streamKey"/> is now claimed, once the floors have been read.</summary>
+    public void AdvanceMcidFloor(CosObject streamKey, int mcid)
+    {
+        if (_mcidFloors is not null && mcid >= _mcidFloors.GetValueOrDefault(streamKey))
+        {
+            _mcidFloors[streamKey] = mcid + 1;
         }
     }
 
