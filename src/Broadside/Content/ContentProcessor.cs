@@ -1,3 +1,5 @@
+using Broadside.Objects;
+
 namespace Broadside.Content;
 
 /// <summary>
@@ -106,6 +108,18 @@ public abstract class ContentProcessor
     public virtual void PaintImage(in ImageEvent image, ContentContext context)
     {
     }
+
+    /// <summary>
+    /// Called in a page run in slices (<see cref="Broadside.Rendering.DisplayListBuild"/>) before a top-level <c>Do</c> paints the image
+    /// <paramref name="stream"/>, so that a processor that decodes images can decode it in slices first (issue #566).
+    /// </summary>
+    /// <param name="stream">The image XObject.</param>
+    /// <param name="image">The view over it.</param>
+    /// <param name="context">The run.</param>
+    /// <param name="deadline">The <see cref="System.Diagnostics.Stopwatch"/> timestamp at which the run's slice ends.</param>
+    /// <returns><see langword="true"/> to paint now; <see langword="false"/> to pause the run before the <c>Do</c>, which it reads again.</returns>
+    /// <remarks>ISO 32000-2 §8.9.5. Internal: the slicing of the display-list build, not an event for other processors.</remarks>
+    internal virtual bool PrepareImage(CosStream stream, Images.PdfImage image, ContentContext context, long deadline) => true;
 
     /// <summary>Called for <c>sh</c> (<see cref="ContentEvents.Shadings"/>).</summary>
     /// <param name="shading">The shading.</param>

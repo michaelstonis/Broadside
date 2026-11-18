@@ -46,6 +46,7 @@ internal static class FuzzTargets
         ["filter-flate"] = data => Filter(new FlateDecodeFilter(), data, parameters: null, maxRatio: 1100),
         ["filter-runlength"] = data => Filter(new RunLengthDecodeFilter(), data, parameters: null, maxRatio: 128),
         ["filter-predictor"] = PredictorTarget,
+        ["filter-sliced"] = SlicedChainTarget.Target,
         ["filter-encode"] = EncodeTarget,
         ["filter-dct"] = DctTarget.Target,
         ["filter-dct-encode"] = DctEncodeTarget.Target,
@@ -1353,7 +1354,7 @@ internal static class FuzzTargets
         int pages = (data[0] & 15) + 1;
         ReadOnlySpan<byte> hints = data[3..];
         int shared = ((data[1] << 8) | data[2]) % hints.Length;
-        var layout = new HintTableLayout(HeaderOffset: 0, HintOffset: 100, HintLength: 50, FirstPageObjectNumber: 1, PageCount: pages);
+        var layout = new HintTableLayout(HeaderOffset: 0, HintOffset: 100, HintLength: 50, FirstPageObjectNumber: 1, PageCount: pages, FileLength: 1 << 16);
 
         PdfLinearizationHints? decoded = HintTableReader.Parse(hints, shared, layout, out string? error);
 
