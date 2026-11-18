@@ -484,35 +484,6 @@ public sealed class ViewerControllerTests
     });
 
     [Fact]
-    public void Dark_mode_redraws_the_tiles_from_the_cached_display_lists_on_black_paper() => UiThread.Run(async () =>
-    {
-        using Shell shell = await Shell.OpenAsync(Shell.SampleDocument("textbook.pdf"));
-        DocumentSession session = shell.Controller.Session!;
-        LayoutRectangle page = shell.Layout.PageToViewport(shell.Viewport, 0, shell.Layout.GetPageMetrics(0).CropBox);
-        (int darkBefore, int whiteBefore) = CountInk(shell.Draw(), page);
-        long builds = session.Document.CacheStatistics.DisplayLists.Misses;
-
-        shell.Events.Clear();
-        shell.Controller.SetColorFilter(ColorFilter.DarkMode);
-        Assert.Equal(ColorFilter.DarkMode, session.ColorFilter);
-        await shell.SettleAsync();
-        Assert.Contains(shell.Events, e => e.Kind == TileEventKind.Presented);
-        Assert.Equal(builds, session.Document.CacheStatistics.DisplayLists.Misses);
-        Assert.True(shell.Controller.LatestFrame.IsDark);
-
-        // Light text on black paper: the counts of dark and white samples swap.
-        Shell.Pixels frame = shell.Draw();
-        Assert.Equal(0xFF2B2B2Bu, frame[1, 1]);
-        (int dark, int white) = CountInk(frame, page);
-        Assert.True(dark > whiteBefore / 2, $"dark samples: {dark}, white before: {whiteBefore}");
-        Assert.True(white < darkBefore * 2, $"white samples: {white}, dark before: {darkBefore}");
-
-        // A document opened later keeps the filter; null leaves each session's own.
-        shell.Controller.SetColorFilter(null);
-        Assert.Equal(ColorFilter.DarkMode, session.ColorFilter);
-    });
-
-    [Fact]
     public void Closing_the_document_drops_every_tile_and_shows_an_empty_frame() => UiThread.Run(async () =>
     {
         using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("layout-three-column.pdf"));
@@ -579,7 +550,7 @@ public sealed class ViewerControllerTests
         Assert.All(shell.Controller.AccessiblePages, page => Assert.InRange(page, 0, 7));
     });
 
-    private static (int Dark, int White) CountInk(Shell.Pixels frame, LayoutRectangle page)
+    internal static (int Dark, int White) CountInk(Shell.Pixels frame, LayoutRectangle page)
     {
         int dark = 0;
         int white = 0;
