@@ -373,8 +373,18 @@ internal sealed partial class ContentInterpreter
         }
 
         int executed = 0;
+        int resume = reader.Position;
+        bool prepares = topLevel && deadline != long.MaxValue;
         while (reader.Next(out ReadOperator op))
         {
+            if (prepares && op.Code == ContentOperatorCode.PaintXObject && reader.Issues == ReaderIssues.None && !_arena.Overflowed && !PrepareXObject(deadline))
+            {
+                // Issue #566: the image the Do paints is still decoding in slices; the next slice reads the Do again.
+                _arena.Clear();
+                position = resume;
+                return false;
+            }
+
             if (reader.Issues != ReaderIssues.None)
             {
                 ReportReaderIssues(reader.Issues, reader.IssueOffset);
@@ -416,6 +426,8 @@ internal sealed partial class ContentInterpreter
                 position = reader.Position;
                 return false;
             }
+
+            resume = reader.Position;
         }
 
         if (reader.Issues != ReaderIssues.None)

@@ -126,7 +126,10 @@ slower than the JIT, which is why those steps still show on the CPU/4 profile.
 
 ## What is still one step
 
-- **Build-time image decodes** (Flate, LZW, CCITT, JBIG2, inline images): decoded inside the `Do` operator that paints them.
+- **Build-time image decodes** other than Flate (LZW, CCITT, JBIG2, inline images), and any image painted inside a form XObject or
+  pattern, or as an explicit mask: decoded inside the operator that paints them. Since #566 a top-level `Do` of a Flate image and its
+  soft mask is decoded before the `Do`, a 16 KB inflate chunk or 16 predictor rows per step (the LZW filter itself is one step, its
+  predictor rows are not); see "Build-time Flate images (#566)" below.
 - **Font programs**: parsed on first use, inside a text operator.
 - **The colour converter of an ICC space**: built on first use.
 - **Reductions of images decoded at build**: the box average of a large Flate image drawn small.

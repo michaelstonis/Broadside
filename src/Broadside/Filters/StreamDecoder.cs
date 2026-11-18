@@ -216,6 +216,20 @@ internal sealed class StreamDecoder
         }
     }
 
+    /// <summary>
+    /// Starts a decode of <paramref name="stream"/> into <paramref name="output"/> that <see cref="ChainJob.Continue"/> runs in slices
+    /// (issue #566): <see cref="Decode(CosStream, IBufferWriter{byte}, int, bool, out ChainOutcome, CancellationToken)"/> with its Flate
+    /// and predictor stages resumable a few chunks or rows at a time; any other stage runs in one step.
+    /// </summary>
+    /// <param name="stream">The stream.</param>
+    /// <param name="output">Where to write the decoded data; written only when the job is done.</param>
+    /// <param name="stopBeforeImageFilter">Whether to leave a last image filter to the caller.</param>
+    /// <param name="cancellationToken">Cancels the decode, as for the one-step decode.</param>
+    /// <returns>The job; it decodes nothing until it is continued.</returns>
+    /// <remarks>ISO 32000-2 §7.3.8.2, §7.4.1 and §7.4.4. The bytes, the outcome and the diagnostics equal the one-step decode's.</remarks>
+    public ChainJob BeginDecode(CosStream stream, IBufferWriter<byte> output, bool stopBeforeImageFilter, CancellationToken cancellationToken) =>
+        new(this, stream, output, stopBeforeImageFilter, cancellationToken);
+
     private static bool HasFilters(CosStream stream) => stream.Dictionary.ContainsKey(FilterNames.Filter);
 
     private static long InitialCapacity(CosStream stream) =>
@@ -353,6 +367,17 @@ internal sealed class StreamDecoder
         }
     }
 
+    /// <summary>
+    /// One slice of a resumable stage under <see cref="Guard"/>'s rules: <see langword="null"/> when the slice paused, otherwise what
+    /// <see cref="Guard"/> returns for the whole stage. With <paramref name="always"/> the step's own result is ignored: it ran to its end.
+    /// </summary>
+    private bool? GuardStep(PooledBufferWriter output, CosName? filterName, Func<bool> step, CancellationToken cancellationToken, bool always = false)
+    {
+        bool? done = null;
+        bool completed = Guard(output, filterName, () => done = step() || always, cancellationToken);
+        return done is false && completed ? null : completed;
+    }
+
     private void ReportLengthExceeded() =>
         Report(FilterDiagnostics.StreamDecodedLengthExceeded, DiagnosticSeverity.Error, string.Create(
             CultureInfo.InvariantCulture,
@@ -483,6 +508,282 @@ internal sealed class StreamDecoder
     }
 
     private void Report(DiagnosticCode code, DiagnosticSeverity severity, string message) => _diagnostics.Report(code, severity, message);
+
+    /// <summary>
+    /// A decode of one stream run in slices (issue #566): what the one-step decode does, stage by stage, with the Flate filter (the
+    /// built-in one) and the predictor stage paused between chunks or rows when the deadline passes.
+    /// </summary>
+    /// <remarks>Not thread-safe. A job that throws, or is disposed unfinished, keeps nothing; dispose it either way.</remarks>
+    internal sealed class ChainJob : IDisposable
+    {
+        private readonly StreamDecoder _owner;
+        private readonly CosStream _stream;
+        private readonly IBufferWriter<byte> _output;
+        private readonly CancellationToken _cancellationToken;
+        private readonly bool _stopBeforeImageFilter;
+        private List<FilterStage>? _chain;
+        private ReadOnlyMemory<byte> _data;
+        private PooledBufferWriter? _current;
+        private PooledBufferWriter? _next;
+        private FilterContext? _context;
+        private FlateDecodeFilter.Inflation? _inflation;
+        private Predictor.Run _predictor;
+        private ReadOnlyMemory<byte> _predicted;
+        private int _index;
+        private Phase _phase;
+
+        internal ChainJob(StreamDecoder owner, CosStream stream, IBufferWriter<byte> output, bool stopBeforeImageFilter, CancellationToken cancellationToken)
+        {
+            _owner = owner;
+            _stream = stream;
+            _output = output;
+            _stopBeforeImageFilter = stopBeforeImageFilter;
+            _cancellationToken = cancellationToken;
+        }
+
+        private enum Phase
+        {
+            NotStarted,
+            NextStage,
+            Filter,
+            Predictor,
+            Done,
+        }
+
+        /// <summary>Gets what the decode did, once <see cref="Continue"/> returned <see langword="true"/>.</summary>
+        public ChainOutcome Outcome { get; private set; }
+
+        /// <summary>
+        /// Decodes until the stream is done or, after at least one unit of work (a chunk, a few rows or a whole other stage),
+        /// <see cref="System.Diagnostics.Stopwatch"/> reaches <paramref name="deadline"/>.
+        /// </summary>
+        /// <param name="deadline">The timestamp at which to pause; <see cref="long.MaxValue"/> decodes to the end.</param>
+        /// <returns><see langword="true"/> when the decode is done.</returns>
+        public bool Continue(long deadline)
+        {
+            try
+            {
+                return Run(deadline);
+            }
+            catch
+            {
+                Dispose();
+                throw;
+            }
+        }
+
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+            _phase = Phase.Done;
+            _inflation?.Dispose();
+            _inflation = null;
+            _predictor.Release();
+            _current?.Dispose();
+            _current = null;
+            _next?.Dispose();
+            _next = null;
+        }
+
+        private bool Run(long deadline)
+        {
+            if (_phase == Phase.Done)
+            {
+                return true;
+            }
+
+            if (_phase == Phase.NotStarted && !Start())
+            {
+                _phase = Phase.Done;
+                return true;
+            }
+
+            bool worked = false;
+            while (true)
+            {
+                if (worked && deadline != long.MaxValue && System.Diagnostics.Stopwatch.GetTimestamp() >= deadline)
+                {
+                    return false;
+                }
+
+                worked = true;
+                switch (_phase)
+                {
+                    case Phase.NextStage:
+                        if (_index >= _chain!.Count || _data.IsEmpty)
+                        {
+                            Finish();
+                            return true;
+                        }
+
+                        StartStage();
+                        break;
+                    case Phase.Filter:
+                        if (StepFilter(deadline) is not { } filtered)
+                        {
+                            return false;
+                        }
+
+                        EndFilter(stop: !filtered);
+                        break;
+                    case Phase.Predictor:
+                        if (StepPredictor(deadline) is not { } predicted)
+                        {
+                            return false;
+                        }
+
+                        EndStage(stop: !predicted);
+                        break;
+                    default:
+                        return true;
+                }
+
+                if (_phase == Phase.Done)
+                {
+                    return true;
+                }
+            }
+        }
+
+        /// <summary>As the head of the one-step decode; returns <see langword="false"/> when the decode is already over.</summary>
+        private bool Start()
+        {
+            _cancellationToken.ThrowIfCancellationRequested();
+            Outcome = new ChainOutcome(Complete: true, ImageFilter: null, ImageContext: null);
+            _owner.CheckExternalFile(_stream);
+            if (_owner.CryptFilter.IsLocked(_stream.Dictionary))
+            {
+                Outcome = Outcome with { Complete = false };
+                _output.Write(_stream.EncodedData.Span);
+                return false;
+            }
+
+            List<FilterStage> chain = _owner.ReadChain(_stream.Dictionary);
+            if (_stopBeforeImageFilter && chain.Count > 0 && _owner._filters.TryGet(chain[^1].Name, out IStreamFilter? last) && last is IImageFilter imageFilter)
+            {
+                FilterStage stage = chain[^1];
+                chain.RemoveAt(chain.Count - 1);
+                Outcome = Outcome with
+                {
+                    ImageFilter = imageFilter,
+                    ImageContext = new FilterContext(_owner, 0) { Parameters = stage.Parameters, StreamDictionary = _stream.Dictionary, CancellationToken = _cancellationToken },
+                };
+            }
+
+            _data = _stream.EncodedData;
+            if (Outcome.ImageFilter is not null && chain.Count == 0)
+            {
+                Outcome = Outcome with { Codestream = _data, HasCodestream = true };
+                return false;
+            }
+
+            _chain = chain;
+            _index = 0;
+            _phase = Phase.NextStage;
+            return true;
+        }
+
+        private void StartStage()
+        {
+            _next ??= new PooledBufferWriter(InitialCapacity(_stream), _owner.MaxDecodedLength);
+            _next.Clear();
+            FilterStage stage = _chain![_index];
+            _context = new FilterContext(_owner, 0) { Parameters = stage.Parameters, StreamDictionary = _stream.Dictionary, CancellationToken = _cancellationToken };
+            if (!stage.Name.Equals(FilterNames.Crypt) && _owner._filters.TryGet(stage.Name, out IStreamFilter? filter) && filter is FlateDecodeFilter)
+            {
+                _inflation = FlateDecodeFilter.BeginInflate(_data, _context);
+                _phase = Phase.Filter;
+                return;
+            }
+
+            // Any other filter decodes in one step, as in the one-step decode.
+            bool stop = !_owner.RunStage(stage, _index, _data, _next, _context);
+            EndFilter(stop);
+        }
+
+        /// <summary>One slice of the Flate stage under the one-step decode's guard: <see langword="null"/> when it paused.</summary>
+        private bool? StepFilter(long deadline)
+        {
+            FlateDecodeFilter.Inflation inflation = _inflation!;
+            bool? result = _owner.GuardStep(_next!, FilterNames.FlateDecode, () => inflation.Continue(_next!, deadline), _cancellationToken);
+            if (result is not null)
+            {
+                inflation.Dispose();
+                _inflation = null;
+            }
+
+            return result;
+        }
+
+        private void EndFilter(bool stop)
+        {
+            if (!stop && FilterNames.TakesPredictor(_chain![_index].Name))
+            {
+                _current ??= new PooledBufferWriter(_next!.WrittenSpan.Length, _owner.MaxDecodedLength);
+                _current.Clear();
+                _predicted = _next!.WrittenMemory;
+                _predictor = default;
+                _phase = Phase.Predictor;
+                bool rows = false;
+                bool? begun = _owner.GuardStep(_current, filterName: null, () => rows = _predictor.Begin(_predicted.Span, _current, _context!), _cancellationToken, always: true);
+                if (begun is false || !rows)
+                {
+                    _predictor.Release();
+                    EndStage(stop: begun is false);
+                }
+
+                return;
+            }
+
+            (_current, _next) = (_next, _current);
+            EndStage(stop);
+        }
+
+        /// <summary>One slice of the predictor stage under the one-step decode's guard: <see langword="null"/> when it paused.</summary>
+        private bool? StepPredictor(long deadline)
+        {
+            bool? result = _owner.GuardStep(
+                _current!,
+                filterName: null,
+                () =>
+                {
+                    if (!_predictor.Continue(_predicted.Span, _current!, deadline))
+                    {
+                        return false;
+                    }
+
+                    _predictor.End(_context!);
+                    return true;
+                },
+                _cancellationToken);
+            if (result is not null)
+            {
+                _predictor.Release();
+            }
+
+            return result;
+        }
+
+        private void EndStage(bool stop)
+        {
+            _data = _current!.WrittenMemory;
+            if (stop)
+            {
+                Outcome = Outcome with { Complete = false, ImageFilter = null, ImageContext = null };
+                Finish();
+                return;
+            }
+
+            _index++;
+            _phase = Phase.NextStage;
+        }
+
+        private void Finish()
+        {
+            _output.Write(_data.Span);
+            Dispose();
+        }
+    }
 
     /// <summary>One filter of a chain and its parameters.</summary>
     private readonly record struct FilterStage(CosName Name, CosDictionary? Parameters);
