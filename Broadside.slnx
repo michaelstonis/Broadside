@@ -9,6 +9,7 @@
     <Project Path="bench/SizeProbes/ExtractText/SizeProbe.ExtractText.csproj" />
     <Project Path="bench/SizeProbes/FillForm/SizeProbe.FillForm.csproj" />
     <Project Path="bench/SizeProbes/OpenMetadata/SizeProbe.OpenMetadata.csproj" />
+    <Project Path="bench/SizeProbes/OpenMetadataNoImageCodecs/SizeProbe.OpenMetadataNoImageCodecs.csproj" />
     <Project Path="bench/SizeProbes/Render/SizeProbe.Render.csproj" />
     <Project Path="bench/SizeProbes/Save/SizeProbe.Save.csproj" />
     <Project Path="bench/SizeProbes/Sign/SizeProbe.Sign.csproj" />

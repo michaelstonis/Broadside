@@ -26,6 +26,7 @@
       "bench/SizeProbes/ExtractText/SizeProbe.ExtractText.csproj",
       "bench/SizeProbes/FillForm/SizeProbe.FillForm.csproj",
       "bench/SizeProbes/OpenMetadata/SizeProbe.OpenMetadata.csproj",
+      "bench/SizeProbes/OpenMetadataNoImageCodecs/SizeProbe.OpenMetadataNoImageCodecs.csproj",
       "bench/SizeProbes/Render/SizeProbe.Render.csproj",
       "bench/SizeProbes/Save/SizeProbe.Save.csproj",
       "bench/SizeProbes/Sign/SizeProbe.Sign.csproj",

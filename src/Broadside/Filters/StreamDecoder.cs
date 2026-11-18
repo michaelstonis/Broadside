@@ -63,13 +63,14 @@ internal sealed class StreamDecoder
         set => _cryptFilter = value;
     }
 
-    /// <summary>Creates the decoder a stand-alone <see cref="FilterContext"/> uses: default filters, no document, its own diagnostics.</summary>
+    /// <summary>Creates the decoder a stand-alone <see cref="FilterContext"/> uses: no document, its own diagnostics.</summary>
+    /// <param name="filters">The filters: <see cref="ImageCodecRegistry.All"/>, the defaults.</param>
     /// <param name="readingMode">The reading mode.</param>
     /// <param name="maxDecodedLength">The decoded-length limit.</param>
     /// <returns>The decoder.</returns>
-    public static StreamDecoder Standalone(PdfReadingMode readingMode, long maxDecodedLength) =>
+    public static StreamDecoder Standalone(FilterRegistry filters, PdfReadingMode readingMode, long maxDecodedLength) =>
         new(
-            FilterRegistry.Create([]),
+            filters,
             maxDecodedLength,
             new DiagnosticSink(readingMode == PdfReadingMode.Strict),
             static value => value is null or CosReference ? CosNull.Instance : value);
@@ -248,14 +249,21 @@ internal sealed class StreamDecoder
 
         if (!_filters.TryGet(name, out IStreamFilter? filter))
         {
-            // A standard image codec that is not registered yet is legal content this engine cannot decode (issue #47): Information,
-            // so strict mode still opens the file. Anything else is an error in the file.
-            bool imageCodec = FilterNames.IsImageCodec(name);
-            string kind = FilterNames.IsStandard(name) ? "is a standard filter this version does not implement" : "is not a filter this engine knows";
-            Report(
-                FilterDiagnostics.FilterUnsupported,
-                imageCodec ? DiagnosticSeverity.Information : DiagnosticSeverity.Error,
-                $"The filter /{name.Value} {kind}; the stream is left encoded from that filter on.");
+            if (FilterNames.IsImageCodec(name))
+            {
+                // A standard image codec the options left out (issue #544): legal content this engine was built not to decode, so
+                // Information and strict mode still opens the file. Anything else is an error in the file.
+                Report(
+                    FilterDiagnostics.FilterCodecNotRegistered,
+                    DiagnosticSeverity.Information,
+                    $"The image codec /{name.Value} is not registered in this engine's options; the stream is left encoded from that filter on.");
+            }
+            else
+            {
+                string kind = FilterNames.IsStandard(name) ? "is a standard filter this version does not implement" : "is not a filter this engine knows";
+                Report(FilterDiagnostics.FilterUnsupported, DiagnosticSeverity.Error, $"The filter /{name.Value} {kind}; the stream is left encoded from that filter on.");
+            }
+
             output.Write(data.Span);
             return false;
         }

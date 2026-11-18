@@ -56,7 +56,11 @@ public sealed class PdfEngine
     }
 
     /// <summary>Gets the engine the static entry points use when no options are given: default options, no state.</summary>
-    internal static PdfEngine Default { get; } = new();
+    /// <remarks>
+    /// Held by a nested class so that only the entry points without options construct it: an engine built from
+    /// <see cref="PdfOptions.CreateWithoutImageCodecs"/> must not reach the default options, which name the image codecs (issue #544).
+    /// </remarks>
+    internal static PdfEngine Default => DefaultHolder.Instance;
 
     /// <summary>Gets the engine's configuration, for documents made from others (<see cref="PdfDocument.Merge"/>).</summary>
     internal EngineConfiguration Configuration => _configuration;
@@ -329,4 +333,9 @@ public sealed class PdfEngine
     /// <remarks>ISO 32000-2 §7.6.7 (PDF 2.0) and Table 28. See <see cref="PdfDocument.CreateUnencryptedWrapper(ReadOnlySpan{byte}, PdfUnencryptedWrapperOptions)"/>.</remarks>
     public PdfDocument CreateUnencryptedWrapper(ReadOnlySpan<byte> payload, PdfUnencryptedWrapperOptions options) =>
         PdfDocument.CreateUnencryptedWrapper(_configuration, payload, options);
+
+    private static class DefaultHolder
+    {
+        public static readonly PdfEngine Instance = new();
+    }
 }

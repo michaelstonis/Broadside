@@ -343,6 +343,7 @@ public API one scenario needs, so the trimmer keeps only what that scenario reac
 |---|---|
 | `empty` | Nothing: the runtime's floor, which every other probe includes |
 | `open-metadata` | Opens a file and reads its page count and document information |
+| `open-metadata-no-image-codecs` | The same, with options from `PdfOptions.CreateWithoutImageCodecs()` (issue #544): no JPX, JBIG2, DCT or CCITT decoder |
 | `extract-text` | Opens a file and extracts the text of every page |
 | `render` | Opens a file and renders its first page with the software rasterizer |
 | `fill-form` | Opens a form, sets a text field (regenerating its appearance) and saves |

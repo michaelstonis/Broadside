@@ -25,6 +25,7 @@ done
 probes=(
   "empty|Empty|"
   "open-metadata|OpenMetadata|tests/Corpus/info-dictionary.pdf"
+  "open-metadata-no-image-codecs|OpenMetadataNoImageCodecs|tests/Corpus/info-dictionary.pdf"
   "extract-text|ExtractText|tests/Corpus/text-standard14.pdf"
   "render|Render|tests/Corpus/paths-fill-rules.pdf"
   "fill-form|FillForm|tests/Corpus/acroform-fields.pdf name"
