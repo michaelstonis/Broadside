@@ -10,11 +10,12 @@ namespace Broadside.Rendering;
 /// A decoded image XObject (with its masks) or stencil mask in the document's image cache (issue #103), or the knowledge that it
 /// cannot be painted (both <see langword="null"/>; its reason is already a diagnostic).
 /// </summary>
-/// <param name="epoch">The mutation epoch read before decoding.</param>
+/// <param name="owner">The document's owner.</param>
+/// <param name="epoch">The document's epoch read before decoding.</param>
 /// <param name="image">The image, for a key that is not a stencil.</param>
 /// <param name="mask">The mask, for a stencil key.</param>
 /// <remarks>ISO 32000-2 §8.9.5.1.</remarks>
-internal sealed class DisplayImageEntry(long epoch, DisplayImage? image, DisplayImageMask? mask) : EpochEntry(epoch)
+internal sealed class DisplayImageEntry(CosOwner owner, long epoch, DisplayImage? image, DisplayImageMask? mask) : EpochEntry(owner, epoch)
 {
     /// <summary>The bytes charged for an entry beyond what it holds.</summary>
     public const long Overhead = 64;
@@ -82,9 +83,10 @@ internal sealed class GlyphOutlineEntry(PathVerb[] verbs, PathPoint[] points) : 
 }
 
 /// <summary>A page's display list in the document's display-list cache (issue #103), current while the document is unchanged.</summary>
-/// <param name="epoch">The mutation epoch read before building.</param>
+/// <param name="owner">The document's owner.</param>
+/// <param name="epoch">The document's epoch read before building.</param>
 /// <param name="list">The list.</param>
-internal sealed class DisplayListEntry(long epoch, DisplayList list) : EpochEntry(epoch)
+internal sealed class DisplayListEntry(CosOwner owner, long epoch, DisplayList list) : EpochEntry(owner, epoch)
 {
     /// <summary>The bytes charged for an entry beyond its list.</summary>
     public const long Overhead = 64;

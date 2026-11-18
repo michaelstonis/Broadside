@@ -6,8 +6,9 @@ namespace Broadside.Benchmarks;
 
 /// <summary>
 /// A page render with and without overprint preview (ISO 32000-2 §8.6.7, §11.7.4; issue #227): 140 cells of overprinting fills,
-/// spot and DeviceN fills, strokes, CMYK images, stencil masks and shadings (<see cref="OverprintSamples.Grid"/>). A page render
-/// builds the display list too, which allocates the same either way; <c>Broadside.Rendering.Tests.OverprintAllocationTests</c>
+/// spot and DeviceN fills, strokes, CMYK images, stencil masks and shadings (<see cref="OverprintSamples.Grid"/>). The page's
+/// display list is built on the first render and kept, so each call replays it (issue #578: before, objects the render built for
+/// itself made the kept list stale, and every call built it again); <c>Broadside.Rendering.Tests.OverprintAllocationTests</c>
 /// fails the build if the preview starts allocating per paint.
 /// </summary>
 [MemoryDiagnoser]

@@ -33,11 +33,11 @@ internal sealed partial class DisplayListBuilder
             return cached.List;
         }
 
-        long epoch = CosMutation.Epoch;
+        long epoch = document.Epoch;
         DisplayList list = BuildLayers(page, document, layers, intent, options);
         if (document.Caches.DisplayLists.Budget > 0)
         {
-            document.Caches.DisplayLists.Add(key, new DisplayListEntry(epoch, list));
+            document.Caches.DisplayLists.Add(key, new DisplayListEntry(document.Owner, epoch, list));
         }
 
         return list;
