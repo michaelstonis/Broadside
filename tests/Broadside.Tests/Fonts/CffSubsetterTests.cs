@@ -94,6 +94,45 @@ public sealed class CffSubsetterTests
     }
 
     [Fact]
+    public void A_glyph_draws_as_the_original_when_the_subset_drops_a_first_font_dictionary_whose_matrix_cannot_be_inverted()
+    {
+        // Fuzz finding (#582): the original drew every glyph in FD 0's singular matrix; the subset, without FD 0, in FD 1's.
+        // Glyphs 0 and 2 use FD 1, so a subset of glyph 2 drops FD 0.
+        CffBuilder builder = CidCffProgramTests.TwoFontDicts([0, 1, 0, 1]);
+        builder.FontMatrix = [1, 0, 0, 1, 0, 0];
+        builder.FontDicts[0].FontMatrix = [-91, -91, -91, -91, -91, -91];
+        builder.FontDicts[1].FontMatrix = [0.001, 0, 0, 0.001, 0, 0];
+        byte[] program = builder.Build();
+        CffFontProgram original = Parse(program);
+
+        SubsetProgram subset = CffSubsetter.Subset(program, [2])!;
+        CffFontProgram result = Parse(subset.Program);
+
+        Assert.Equal([0, 2], subset.Glyphs);
+        Assert.Equal(Outline(original, 2), Outline(result, 1));
+        Assert.Equal(original.GetMetrics(2).AdvanceWidth * original.FontMatrix.A, result.GetMetrics(1).AdvanceWidth * result.FontMatrix.A, 12);
+        Assert.Equal(Outline(original, 0), Outline(result, 0));
+    }
+
+    [Fact]
+    public void A_name_keyed_glyph_draws_as_the_original_when_its_font_matrix_cannot_be_inverted()
+    {
+        // Fuzz finding (#582): the CID-keyed subset carries the singular matrix, translation included, in the glyph's outline.
+        var builder = new CffBuilder { Name = "SingularMatrix", FontMatrix = [-91, -91, -91, -91, -91, -91] };
+        builder.Glyphs.Add((".notdef", CffBuilder.T2("endchar")));
+        builder.Glyphs.Add(("A", CffBuilder.T2(400, 50, 0, "rmoveto", 400, 0, "rlineto", 0, 700, "rlineto", -400, 0, "rlineto", "endchar")));
+        byte[] program = builder.Build();
+        CffFontProgram original = Parse(program);
+
+        SubsetProgram subset = CffSubsetter.Subset(program, [1])!;
+        CffFontProgram result = Parse(subset.Program);
+
+        Assert.True(result.Font.IsCidKeyed);
+        Assert.Equal(Outline(original, 1), Outline(result, 1));
+        Assert.Equal(original.GetMetrics(1).AdvanceWidth * original.FontMatrix.A, result.GetMetrics(1).AdvanceWidth * result.FontMatrix.A, 6);
+    }
+
+    [Fact]
     public void A_program_that_is_not_cff_or_has_type_1_charstrings_is_not_subset()
     {
         Assert.Null(CffSubsetter.Subset(new byte[] { 0, 1, 0, 0, 0, 0 }, [1]));
@@ -200,7 +239,7 @@ public sealed class CffSubsetterTests
 
     private static CffFontProgram Parse(byte[] program) => Assert.IsType<CffFontProgram>(new CffFontProgramParser().Parse(program, new FontProgramContext()));
 
-    /// <summary>A glyph's outline in text space (through the program's matrix) as text, so equal outlines compare equal.</summary>
+    /// <summary>A glyph's outline in text space (through the program's whole matrix) as text, so equal outlines compare equal.</summary>
     private static string Outline(FontProgram program, int glyph)
     {
         var outline = new GlyphOutline();
@@ -215,7 +254,7 @@ public sealed class CffSubsetterTests
         Matrix matrix = program.FontMatrix;
         foreach (PathPoint point in outline.Path.Points)
         {
-            description.Append(System.Globalization.CultureInfo.InvariantCulture, $"{Math.Round((point.X * matrix.A) + (point.Y * matrix.C), 9):R},{Math.Round((point.X * matrix.B) + (point.Y * matrix.D), 9):R} ");
+            description.Append(System.Globalization.CultureInfo.InvariantCulture, $"{Math.Round((point.X * matrix.A) + (point.Y * matrix.C) + matrix.E, 9):R},{Math.Round((point.X * matrix.B) + (point.Y * matrix.D) + matrix.F, 9):R} ");
         }
 
         return description.ToString();

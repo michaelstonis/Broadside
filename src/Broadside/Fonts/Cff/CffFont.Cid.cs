@@ -106,7 +106,30 @@ internal sealed partial class CffFont
         }
 
         byte[] select = ReadFdSelect(data, top.FdSelect, glyphCount, count, context);
-        return new CidTables(privates, matrices, select, matrices[0]);
+        return new CidTables(privates, matrices, select, ProgramMatrix(matrices, context));
+    }
+
+    /// <summary>
+    /// The program's matrix: the first Font DICT's, or, when that one cannot be inverted (so no other Font DICT's glyphs could be
+    /// mapped into its space), the first Font DICT matrix that can, else <c>[0.001 0 0 0.001 0 0]</c>. Each glyph then draws through
+    /// its own Font DICT's matrix whichever Font DICTs the program holds, so a subset that drops a Font DICT draws its glyphs alike.
+    /// </summary>
+    /// <remarks>Adobe Technical Note #5014 §4.2 (p.25); #5176 §9, Table 9 (FontMatrix default) and §18.</remarks>
+    private static Matrix ProgramMatrix(Matrix[] matrices, FontProgramContext context)
+    {
+        if (matrices[0].TryInvert(out _))
+        {
+            return matrices[0];
+        }
+
+        Matrix chosen = Array.Find(matrices, matrix => matrix.TryInvert(out _));
+        if (!chosen.TryInvert(out _))
+        {
+            chosen = Matrix.CreateScale(0.001, 0.001);
+        }
+
+        Report(context, CffDiagnostics.FontCffDictInvalid, DiagnosticSeverity.Warning, $"The CID-keyed CFF font's first Font DICT has a FontMatrix that cannot be inverted (Adobe Technical Note #5176 §18); the program's matrix is {chosen} and each glyph draws through its own Font DICT's matrix.");
+        return chosen;
     }
 
     /// <summary>A Font DICT of the FDArray (5176 §18): its Private DICT's size and offset and its FontMatrix.</summary>
