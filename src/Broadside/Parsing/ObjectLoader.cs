@@ -80,7 +80,14 @@ internal sealed class ObjectLoader
         _diagnostics = diagnostics;
         Hooks = hooks;
         Scan = new Lazy<FileScan>(() => FileScan.Run(source), LazyThreadSafetyMode.PublicationOnly);
+        CosMutation.Adopt(crossReference.Trailer, Owner);
     }
+
+    /// <summary>
+    /// Gets the owner of every object the loader loads or adds, and of the trailer: changes to them advance the document's epoch
+    /// (<see cref="CosMutation.EpochOf"/>), and only its, so other documents' caches stay current (issue #578).
+    /// </summary>
+    public CosOwner Owner { get; } = new();
 
     /// <summary>Gets the file header.</summary>
     public FileHeader Header { get; }
@@ -123,7 +130,8 @@ internal sealed class ObjectLoader
     /// Gets a number that changes every time an object is added (<see cref="Add"/>) or removed (<see cref="Remove"/>), and never by
     /// reading or loading: what a reference resolves to can change only then. A cache that recorded the <c>Version</c> of every
     /// container it read also records this, since a removal changes what a reference in an unchanged container resolves to, and an
-    /// addition can give a dangling reference an object (§7.3.10). Every change also advances <see cref="CosMutation.Epoch"/>.
+    /// addition can give a dangling reference an object (§7.3.10). Every change also advances the document's epoch
+    /// (<see cref="CosMutation.EpochOf"/>).
     /// </summary>
     public int ObjectsVersion { get; private set; }
 
@@ -219,6 +227,7 @@ internal sealed class ObjectLoader
         }
 
         var reference = new CosReference(number, 0);
+        CosMutation.Adopt(value, Owner);
         (_added ??= [])[number] = value;
         Hooks.Cache.Publish(reference, value);
         ObjectsChanged();
@@ -281,7 +290,7 @@ internal sealed class ObjectLoader
     private void ObjectsChanged()
     {
         ObjectsVersion++;
-        CosMutation.Advance();
+        CosMutation.Advance(Owner);
     }
 
     /// <summary>
@@ -338,6 +347,7 @@ internal sealed class ObjectLoader
         _source = source;
         Scan = new Lazy<FileScan>(() => FileScan.Run(source), LazyThreadSafetyMode.PublicationOnly);
         CrossReference = new CrossReference(replacesAll ? [section] : [section, .. CrossReference.Sections]);
+        CosMutation.Adopt(CrossReference.Trailer, Owner);
         foreach (WrittenObject item in written)
         {
             SourceBytes[item.Reference] = ObjectSourceBytes.InFile(item.Offset, item.Length);
@@ -554,8 +564,15 @@ internal sealed class ObjectLoader
         return Hooks.Cache.GetOrLoad(
             reference,
             (Loader: this, Entry: entry, Depth: depth),
-            static (reference, state) => state.Loader.LoadUncached(reference, state.Entry, state.Depth),
+            static (reference, state) => state.Loader.Adopted(state.Loader.LoadUncached(reference, state.Entry, state.Depth)),
             static (reference, state) => state.Loader.ReportCycle(reference, state.Entry));
+    }
+
+    /// <summary>Makes a loaded object, before it is published, belong to the document (<see cref="Owner"/>).</summary>
+    private Created<CosObject> Adopted(Created<CosObject> loaded)
+    {
+        CosMutation.Adopt(loaded.Value, Owner);
+        return loaded;
     }
 
     /// <summary>Locates and parses an object nobody has loaded yet, then runs hook 2.</summary>

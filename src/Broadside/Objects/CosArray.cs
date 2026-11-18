@@ -68,7 +68,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
     /// <summary>
     /// Gets a number that changes every time an element is added, replaced or removed through the public API, and never by reading
     /// or loading: caches of state derived from the array record it and rebuild when it differs. Every change also advances
-    /// <see cref="CosMutation.Epoch"/>.
+    /// the epoch of the document the array belongs to (<see cref="CosMutation.EpochOf"/>).
     /// </summary>
     internal int Version
     {
@@ -78,10 +78,16 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
             if (value != _version)
             {
                 _version = value;
-                CosMutation.Advance();
+                CosMutation.Advance(Owner);
             }
         }
     }
+
+    /// <summary>
+    /// Gets or sets the document the array belongs to, whose epoch its changes advance; <see langword="null"/> while it belongs to
+    /// none (<see cref="CosMutation.Adopt"/>).
+    /// </summary>
+    internal CosOwner? Owner { get; set; }
 
     /// <summary>Gets the number of elements.</summary>
     public int Count => _items.Count;
@@ -100,6 +106,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
             CosChangeLog.Changing(this);
             _items[index] = value;
             _changed = true;
+            Adopt(value);
             Version++;
         }
     }
@@ -112,6 +119,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
         CosChangeLog.Changing(this);
         _items.Add(item);
         _changed = true;
+        Adopt(item);
         Version++;
     }
 
@@ -124,6 +132,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
         CosChangeLog.Changing(this);
         _items.Insert(index, item);
         _changed = true;
+        Adopt(item);
         Version++;
     }
 
@@ -182,6 +191,11 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
         {
             _items.Clear();
             _items.AddRange(items);
+            foreach (CosObject item in items)
+            {
+                Adopt(item);
+            }
+
             _changed = changed;
             Version++;
         };
@@ -190,7 +204,20 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
     /// <summary>Replaces the element at <paramref name="index"/> as part of loading (decryption), without marking the array dirty.</summary>
     /// <param name="index">The element's position.</param>
     /// <param name="value">The loaded value.</param>
-    internal void ReplaceLoaded(int index, CosObject value) => _items[index] = value;
+    internal void ReplaceLoaded(int index, CosObject value)
+    {
+        _items[index] = value;
+        Adopt(value);
+    }
+
+    /// <summary>Makes a value put into the array belong to the array's document, when it belongs to one.</summary>
+    private void Adopt(CosObject value)
+    {
+        if (Owner is { } owner)
+        {
+            CosMutation.Adopt(value, owner);
+        }
+    }
 
     /// <summary>Wraps a list the caller gives up ownership of, without copying it and without marking the array dirty.</summary>
     internal static CosArray FromOwnedList(List<CosObject> items) => new(items, owned: true);

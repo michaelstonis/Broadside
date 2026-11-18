@@ -143,9 +143,9 @@ internal sealed partial class DisplayListBuilder
             }
             else
             {
-                long epoch = CosMutation.Epoch;
+                long epoch = context.Document.Epoch;
                 mask = DecodeMask(model, context.CancellationToken);
-                if (mask is not null && (stream is null || !context.Document.Caches.Images.Add((stream, DisplayImageEntry.StencilSlot), new DisplayImageEntry(epoch, null, mask))))
+                if (mask is not null && (stream is null || !context.Document.Caches.Images.Add((stream, DisplayImageEntry.StencilSlot), new DisplayImageEntry(context.Document.Owner, epoch, null, mask))))
                 {
                     // Only this build holds it until its list does: a failed build gives its samples back (issue #97).
                     Append(ref _owned, ref _ownedCount, mask);
@@ -202,9 +202,9 @@ internal sealed partial class DisplayListBuilder
             }
             else
             {
-                long epoch = prefetched?.Epoch ?? CosMutation.Epoch;
+                long epoch = prefetched?.Epoch ?? document.Epoch;
                 image = Decode(model, document, prefetched, cancellationToken);
-                if (image is not null && (stream is null || !document.Caches.Images.Add((stream, DisplayImageEntry.ImageSlot), new DisplayImageEntry(epoch, image, null))))
+                if (image is not null && (stream is null || !document.Caches.Images.Add((stream, DisplayImageEntry.ImageSlot), new DisplayImageEntry(document.Owner, epoch, image, null))))
                 {
                     // Only this build holds it until its list does: a failed build gives its samples back (issue #97).
                     Append(ref _owned, ref _ownedCount, image);
@@ -452,8 +452,8 @@ internal sealed partial class DisplayListBuilder
         /// <summary>Gets the image XObject.</summary>
         public CosStream Stream { get; } = stream;
 
-        /// <summary>Gets the mutation epoch when the decode started: what the document's image cache records for the result.</summary>
-        public long Epoch { get; } = CosMutation.Epoch;
+        /// <summary>Gets the document's epoch when the decode started: what the document's image cache records for the result.</summary>
+        public long Epoch { get; } = model.Document.Epoch;
 
         /// <summary>Gets a value indicating whether the image, and the soft mask it needs, are decoded.</summary>
         public bool IsDone => _stage == 2;

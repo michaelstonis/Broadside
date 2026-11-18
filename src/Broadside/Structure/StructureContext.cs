@@ -35,7 +35,7 @@ internal sealed class StructureContext
         Document = document;
         Root = root;
         RootReference = rootReference;
-        _indexes = new StructureIndexes(CosMutation.Epoch, document.ObjectsVersion);
+        _indexes = new StructureIndexes(document.Epoch, document.ObjectsVersion);
     }
 
     public PdfDocument Document { get; }
@@ -115,7 +115,7 @@ internal sealed class StructureContext
         get
         {
             StructureIndexes current = Volatile.Read(ref _indexes);
-            long epoch = CosMutation.Epoch;
+            long epoch = Document.Epoch;
             int objectsVersion = Document.ObjectsVersion;
             if (current.IsCurrent(epoch, objectsVersion))
             {
