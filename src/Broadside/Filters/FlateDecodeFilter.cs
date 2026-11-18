@@ -76,6 +76,126 @@ public sealed class FlateDecodeFilter : IStreamFilter
         }
     }
 
+    /// <summary>Starts an inflation that <see cref="Inflation.Continue"/> runs a few chunks at a time (issue #566).</summary>
+    /// <param name="encoded">The data, as for <see cref="Decode"/>; it must not change until the inflation is done.</param>
+    /// <param name="context">The filter's context, as for <see cref="Decode"/>.</param>
+    /// <returns>The inflation; nothing is inflated until it is continued.</returns>
+    /// <remarks>ISO 32000-2 §7.4.4.1. The bytes and diagnostics equal <see cref="Decode"/>'s however the inflation is sliced.</remarks>
+    internal static Inflation BeginInflate(ReadOnlyMemory<byte> encoded, FilterContext context) => new(encoded, context);
+
+    /// <summary>
+    /// An inflation in slices: <see cref="Decode"/> with its loop resumable between two chunks, so that a viewer on one thread can
+    /// inflate a large image between frames (issue #566).
+    /// </summary>
+    /// <remarks>Not thread-safe. Dispose an unfinished inflation to abandon it.</remarks>
+    internal sealed class Inflation : IDisposable
+    {
+        private readonly FilterContext _context;
+        private readonly ReadOnlyMemory<byte> _encoded;
+        private ReadOnlyMemory<byte> _deflate;
+        private MemorySource? _source;
+        private DeflateStream? _inflater;
+        private long _inflated;
+        private bool _started;
+        private bool _done;
+
+        internal Inflation(ReadOnlyMemory<byte> encoded, FilterContext context)
+        {
+            _encoded = encoded;
+            _context = context;
+        }
+
+        /// <summary>
+        /// Inflates into <paramref name="output"/> until the data ends or, after at least one chunk,
+        /// <see cref="System.Diagnostics.Stopwatch"/> reaches <paramref name="deadline"/>.
+        /// </summary>
+        /// <param name="output">Where to write; the same writer on every call.</param>
+        /// <param name="deadline">The timestamp at which to pause; <see cref="long.MaxValue"/> inflates to the end.</param>
+        /// <returns><see langword="true"/> when the inflation is done.</returns>
+        public bool Continue(IBufferWriter<byte> output, long deadline)
+        {
+            if (_done)
+            {
+                return true;
+            }
+
+            if (!_started)
+            {
+                _started = true;
+                _deflate = _encoded;
+                if (HasZlibHeader(_encoded.Span))
+                {
+                    _deflate = _encoded[2..];
+                }
+                else
+                {
+                    _context.Report(FilterDiagnostics.FilterDataInvalid, DiagnosticSeverity.Warning, "FlateDecode data does not start with a zlib header (RFC 1950); it is read as raw deflate data.");
+                }
+
+                _source = new MemorySource(_deflate);
+                _inflater = new DeflateStream(_source, CompressionMode.Decompress);
+            }
+
+            try
+            {
+                while (true)
+                {
+                    _context.CancellationToken.ThrowIfCancellationRequested();
+                    Span<byte> chunk = output.GetSpan(ChunkSize);
+                    int count = _inflater!.Read(chunk);
+                    if (count == 0)
+                    {
+                        break;
+                    }
+
+                    output.Advance(count);
+                    _inflated += count;
+                    if (deadline != long.MaxValue && System.Diagnostics.Stopwatch.GetTimestamp() >= deadline)
+                    {
+                        return false;
+                    }
+                }
+            }
+            catch (InvalidDataException)
+            {
+                Finish();
+                RecoverBeforeError(_deflate, _inflated, output);
+                _context.Report(FilterDiagnostics.FilterDataInvalid, DiagnosticSeverity.Error, "FlateDecode data is corrupt; the bytes inflated before the error are kept.");
+                return true;
+            }
+
+            bool truncated = _source!.ReadPastEnd;
+            Finish();
+            if (truncated)
+            {
+                _context.Report(FilterDiagnostics.FilterDataTruncated, DiagnosticSeverity.Warning, "FlateDecode data ends before its final deflate block; everything inflated is kept.");
+            }
+
+            return true;
+        }
+
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+            _done = true;
+            Release();
+        }
+
+        private void Finish()
+        {
+            _done = true;
+            Release();
+        }
+
+        private void Release()
+        {
+            _inflater?.Dispose();
+            _inflater = null;
+            _source?.Dispose();
+            _source = null;
+        }
+    }
+
     /// <summary>
     /// After an error, inflates again one byte at a time from where the first pass stopped committing output: the BCL discards the
     /// bytes a read produced before the error, so this recovers everything before the error except, at most, the last byte, which

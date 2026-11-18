@@ -6,10 +6,10 @@ endobj
 << /Type /Pages /Kids [3 0 R] /Count 1 >>
 endobj
 3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Annots [10 0 R 11 0 R 12 0 R 13 0 R 15 0 R 16 0 R 17 0 R 18 0 R 19 0 R 20 0 R] >>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Annots [10 0 R 11 0 R 12 0 R 13 0 R 15 0 R 16 0 R 17 0 R 18 0 R 19 0 R 20 0 R 21 0 R] >>
 endobj
 4 0 obj
-<< /Fields [10 0 R 11 0 R 12 0 R 13 0 R 14 0 R 18 0 R 19 0 R 20 0 R] /DA (/Helv 0 Tf 0 g) /DR << /Font << /Helv 5 0 R /ZaDb 6 0 R >> >> >>
+<< /Fields [10 0 R 11 0 R 12 0 R 13 0 R 14 0 R 18 0 R 19 0 R 20 0 R 21 0 R] /DA (/Helv 0 Tf 0 g) /DR << /Font << /Helv 5 0 R /ZaDb 6 0 R >> >> >>
 endobj
 5 0 obj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
@@ -68,31 +68,35 @@ endobj
 20 0 obj
 << /Type /Annot /Subtype /Widget /Rect [50 470 250 490] /P 3 0 R /F 4 /AP << /N 7 0 R >> /FT /Ch /Ff 393216 /T (city) /Opt [(Paris) (Rome)] /V (Lyon) /DA (/Helv 12 Tf 0 g) >>
 endobj
+21 0 obj
+<< /Type /Annot /Subtype /Widget /Rect [50 370 250 460] /P 3 0 R /F 4 /AP << /N 7 0 R >> /FT /Ch /Ff 2097152 /T (colors) /Opt [(Red) (Green) (Blue)] /V (Red) /I [0] /DA (/Helv 10 Tf 0 g) >>
+endobj
 xref
-0 21
+0 22
 0000000000 65535 f 
 0000000009 00000 n 
 0000000074 00000 n 
 0000000131 00000 n 
-0000000299 00000 n 
-0000000453 00000 n 
-0000000550 00000 n 
-0000000623 00000 n 
-0000000774 00000 n 
-0000000948 00000 n 
-0000001064 00000 n 
-0000001238 00000 n 
-0000001417 00000 n 
-0000001580 00000 n 
-0000001795 00000 n 
-0000001881 00000 n 
-0000002061 00000 n 
-0000002240 00000 n 
-0000002422 00000 n 
-0000002615 00000 n 
-0000002847 00000 n 
+0000000306 00000 n 
+0000000467 00000 n 
+0000000564 00000 n 
+0000000637 00000 n 
+0000000788 00000 n 
+0000000962 00000 n 
+0000001078 00000 n 
+0000001252 00000 n 
+0000001431 00000 n 
+0000001594 00000 n 
+0000001809 00000 n 
+0000001895 00000 n 
+0000002075 00000 n 
+0000002254 00000 n 
+0000002436 00000 n 
+0000002629 00000 n 
+0000002861 00000 n 
+0000003052 00000 n 
 trailer
-<< /Size 21 /Root 1 0 R /ID [<e7a1da5493a56cb48b65b8224cdf3f9f> <e7a1da5493a56cb48b65b8224cdf3f9f>] >>
+<< /Size 22 /Root 1 0 R /ID [<e7a1da5493a56cb48b65b8224cdf3f9f> <e7a1da5493a56cb48b65b8224cdf3f9f>] >>
 startxref
-3038
+3258
 %%EOF

@@ -767,6 +767,17 @@ internal sealed class ViewerController : IDisposable
         return CommitFieldEdit();
     }
 
+    /// <summary>
+    /// Sets the options picked in the editor's choice field (all of a multi-select list box's picks, as its native list holds them
+    /// after each click), held by the form filling until the edit ends.
+    /// </summary>
+    public bool EditorSelectedOptions(IEnumerable<int> indices)
+    {
+        ArgumentNullException.ThrowIfNull(indices);
+        return _filling is { } filling && _editor is { Kind: FieldEditorKind.Choice } editor && filling.Target == editor.Target
+            && filling.SetSelectedOptions(indices);
+    }
+
     /// <summary>Picks option <paramref name="index"/> of the editor's choice field and ends the edit.</summary>
     public bool CommitFieldChoice(int index)
     {
@@ -1074,7 +1085,9 @@ internal sealed class ViewerController : IDisposable
                 null,
                 [.. choice.Options.Select(option => option.DisplayText)],
                 filling.SelectedOptions.Count > 0 ? filling.SelectedOptions[0] : -1,
-                IsEditable: choice is PdfComboBoxField { IsEditable: true }),
+                IsEditable: choice is PdfComboBoxField { IsEditable: true },
+                IsMultiSelect: choice is PdfListBoxField { IsMultiSelect: true })
+            { SelectedIndices = [.. filling.SelectedOptions] },
             _ => null,
         };
 

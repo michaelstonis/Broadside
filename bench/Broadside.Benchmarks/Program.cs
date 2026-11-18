@@ -17,6 +17,11 @@ internal static class Program
             return GateAllocations.Run(args[1..]);
         }
 
+        if (LayoutJitter.Apply() is string layout)
+        {
+            Console.Error.WriteLine($"{LayoutJitter.Variable}: {layout}");
+        }
+
         (BenchmarkConfig config, string[] arguments) = BenchmarkConfig.Parse(args);
         var summaries = BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(arguments, config);
 
