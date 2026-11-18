@@ -90,8 +90,8 @@ measured nothing that a process per class does not: the base and the pull reques
 the same order, under the same runtime settings.
 Two rounds per shard, interleaved so that drift of the runner during the job weighs on both sides alike: round 1 runs the base
 commit then the pull request, round 2 the pull request then the base. A case the rounds find slower is rerun once for both
-commits after the rounds, in three processes per commit (`--processes`, alternating which commit goes first; see "Identical
-code measured slower" below).
+commits after the rounds, in three processes per commit (`--processes`, alternating which commit goes first), and every timing
+process draws a random placement of its heap data and compiled code (see "Identical code measured slower" below).
 
 Both run with two runtime settings, each found by running the gate against an unchanged commit on the CI runner:
 
@@ -231,61 +231,65 @@ Measured over ten runs of the gate against an unchanged commit on the CI runner 
 
 Issue #554. The gate reported `PixelPackingBenchmarks.GrayToRgb` 1.34x slower (both rounds and the rerun) on pull requests that
 did not touch it, `ColorConversionBenchmarks.ConvertBytes(Rgb)` 1.24x, `SecurityBenchmarks.ManagedAesCbcDecrypt` 1.21x and
-`DisplayListBenchmarks.Replay` about 1.4x with AVX-512 disabled. Two different things cause this.
+`DisplayListBenchmarks.Replay` about 1.4x with AVX-512 disabled, and #544's `Replay` read 0.70x and 1.39x with byte-identical
+machine code (#574).
 
-**Some cases run at distinct speeds depending on the process.** A/A runs (the same commit as base and pull request, on the CI
-runner) showed that one build of `GrayToRgb` runs at 101, 132 or 138 ns per call on the Xeon 6975P-C, chosen when the process
-starts and kept for all its iterations. `ConvertBytes(Rgb)` has three such speeds (195, 212 and 228 us) on the Xeon 6975P-C and
-8370C, and `ManagedAesCbcDecrypt` reached 1.33x against itself on the EPYC 7763. None of the following removes it (rounds of
-`GrayToRgb` with AVX-512 disabled on the Xeon 6975P-C, 15 per setting, from run
-[44161704319](https://github.com/michaelstonis/Broadside/actions/runs/44161704319)):
+**The cause: where a process's heap data and compiled code land.** Some kernels run at two or three distinct speeds depending
+on the placement of their data relative to their compiled code: `GrayToRgb` at about 103 or 138 ns on the Xeon 6975P-C (1.1x
+apart on AMD), `Replay(path-heavy-256kb)` with AVX-512 off at about 283 or 400 us on Intel, `ConvertBytes(Rgb)` at three speeds
+on the Xeon 6975P-C and 8370C. On the exact pair of commits PR #575's gate failed on (a tooling-only change; run
+[44204853687](https://github.com/michaelstonis/Broadside/actions/runs/44204853687)), with the same change applied to both builds:
 
-| Setting | Rounds of `GrayToRgb` | At 1.15 or more |
-|---|---|---|
-| Base and pull request the same checkout (one build, one path) | 0.73 to 1.36 | 4 |
-| The gate's paths (workspace and `$RUNNER_TEMP/base`) | 0.73 to 1.37 | 2 |
-| The same, roles swapped | 0.95 to 1.34 | 2 |
-| Checkout paths of equal length | 0.77 to 1.36 | 4 |
-| Paths 1, 4 and 8 characters longer | 0.73 to 1.37 | 1, 3, 3 |
-| `DOTNET_JitAlignLoops=0` | 0.74 to 1.36 | 2 |
-| `DOTNET_JitAlignLoopAdaptive=0` | 0.74 to 1.05 | 0 (the speeds remain: 0.74 is a slow base process) |
+| Change at startup, both commits | `GrayToRgb` rounds, Xeon 6975P-C |
+|---|---|
+| None | 0.76, 0.75, 0.77 |
+| An 8-byte array allocated first | 0.76, 0.76, 0.79 |
+| A 16-, 32- or 64-byte array | 1.30, 1.29, 1.32 |
+| A 512-byte or 4 KB array | 0.76, 0.76, 0.76 |
+| 1 to 8 small methods compiled first | 0.75 |
+| 16 to 128 methods compiled first | 1.35 to 1.37 |
 
-The speed does not follow the arrays' offset within a cache line either: run
-[44177420713](https://github.com/michaelstonis/Broadside/actions/runs/44177420713) logged it per process, and processes whose
-`_gray` and `_output` arrays sat at the same offsets ran at 101 ns and at 132 ns. On the AMD EPYC 9V74 and 7763 the same cases
-vary by under 1.13x. So the cause is per process and outside the code under test; one process per commit per round cannot tell
-it from a regression, and with two rounds and one rerun, three unlucky draws in a row failed a case now and then.
+The placement is fixed by everything a build compiles and allocates before the benchmark (string lengths of paths included: a
+rerun folder named `<class>-p2` instead of `<class>` flipped it too), so two builds of identical code can differ by 1.3x in
+every round and every rerun, in either direction. That is what the earlier A/A runs missed: with the same commit on both sides
+the placement differed only through the checkout paths, and they showed the speeds as noise between processes (`GrayToRgb`
+rounds from 0.73 to 1.37 on the Xeon 6975P-C whether the two checkouts had paths of equal length or not, with base and pull
+request in either role, with `DOTNET_JitAlignLoops=0`; run
+[44161704319](https://github.com/michaelstonis/Broadside/actions/runs/44161704319)). `DOTNET_JitAlignLoops=0` turns #544's
+`Replay` around (1.00x with AVX-512 off, 0.72x with it on); `DOTNET_JitAlignLoopAdaptive=0`, `DOTNET_JitAlignLoopBoundary=64` and
+`DOTNET_EnableWriteXorExecute=0` change nothing (run [44186578218](https://github.com/michaelstonis/Broadside/actions/runs/44186578218)).
+No runtime setting makes it neutral.
 
-What the gate does about it: the rerun of a suspect case measures each commit in **three processes** (`run-gate.sh
---processes`, default 3, alternating which commit goes first), and compares the pull request's **fastest** process with the
-base's **slowest**, each by its median iteration. A real regression slows every process, so it still clears 1.15; identical code
-does not, because the base's slowest process is at least as slow as the pull request's fastest unless every pull-request
-process drew a slow speed and every base process a fast one. Over the 648 case reruns of run 44177420713 (six runners: Xeon
-6975P-C, Xeon Platinum 8370C, EPYC 7763, 9V45 and 9V74; both AVX-512 passes; every rerun forced so each case was rerun):
+**What the gate does about it**, two parts:
 
-| Rerun ratio | Reruns at 1.15 or more (A/A) | Largest |
-|---|---|---|
-| One process per commit (the rule before #554) | 14 | 1.33 (`ManagedAesCbcDecrypt`, EPYC 7763) |
-| Fastest process against fastest process | 8 | 1.29 (`GrayToRgb`, Xeon 6975P-C: the base drew the rare 101 ns speed) |
-| Pull request's fastest against base's slowest (the rule) | 0 | 1.04 |
+1. **Every timing process draws its placement at random.** `run-gate.sh` sets `BROADSIDE_BENCH_LAYOUT=random` on the measuring
+   processes, and the benchmark host ([`LayoutJitter.cs`](../../Broadside.Benchmarks/LayoutJitter.cs)) then allocates a live
+   array of 0 to 4 KB and compiles 0 to 63 small methods before BenchmarkDotNet starts. A layout difference between two builds
+   becomes a difference between processes, which both commits share. `BROADSIDE_BENCH_LAYOUT=heap:<n>,code:<n>` reproduces one
+   placement; set it empty to turn the jitter off.
+2. **The rerun measures each commit in three processes** (`--processes`, default 3, alternating which commit goes first) and
+   compares the pull request's **fastest** process with the base's **slowest**, each by its median iteration. A regression slows
+   every process; a slow draw does not.
 
-The cost: in a case whose speed varies by more than 1.15 between processes, a real slowdown smaller than that spread can hide
-behind it. Scaling the pull request's processes of the same data by 1.3 (a simulated 30 % regression), the rule still confirms
-every rerun of the cases without such speeds, and misses 23 of 54 for `ConvertBytes(Rgb)`, 13 of 54 for `GrayToRgb`, 5 of 54
-for `ManagedAesCbcDecrypt` and 3 of 54 for `PackOpaque`; at 1.4 it misses 23 of 648 in all. A regression in those cases that
-is smaller than their own process-to-process spread was never a reliable signal. The rerun takes three times as long as before,
-but it runs only the few cases the rounds flagged.
+The rounds stay one process per commit, so one of them may still read 1.3x; the rerun is what decides. Run
+[44209934033](https://github.com/michaelstonis/Broadside/actions/runs/44209934033) ran the whole gate (both AVX-512 passes,
+every case's rerun forced) on PR #575's pair and on #544's pair, eight jobs (Xeon 6975P-C and EPYC 7763), with and without the
+jitter:
 
-**Replay: code placement differs between two builds of identical code.** For #544's head and base, whose machine code for
-`ReplayRange`, `Execute` and `NullBackend` is byte-identical (JitDisasm), `Replay` measured 0.70x with AVX-512 disabled and
-1.39x with it on, in every round, on every Intel runner (Xeon 6975P-C and Platinum 8573C), and 1.00x on every AMD one (run
-[44186578218](https://github.com/michaelstonis/Broadside/actions/runs/44186578218)). It does not vary between processes, so the
-A/A runs above cannot show it and three processes cannot average it away. `DOTNET_JitAlignLoops=0` turns it around (1.00x with
-AVX-512 off, 0.72x with it on); `DOTNET_JitAlignLoopAdaptive=0`, `DOTNET_JitAlignLoopBoundary=64` and
-`DOTNET_EnableWriteXorExecute=0` change nothing. The hot loop's placement relative to the processor's fetch boundaries depends on
-how much other code was compiled before it, which unrelated changes move. No runtime setting makes it neutral, so the gate does
-not set one. A `Replay` finding on Intel runners only, in a pull request that does not touch the display list, is this; the owner
-accepts it the way an intended slowdown is accepted (below). The follow-up is #574.
+| | Reruns | Reruns at 1.15 or more: one process per commit | Pull request's fastest over base's slowest of three |
+|---|---|---|---|
+| Fixed placement | 528 | 26 | 20 (the split is the same in every process) |
+| Jitter (the gate) | 528 | 18 | **0** |
+
+The A/A runs of run [44177420713](https://github.com/michaelstonis/Broadside/actions/runs/44177420713) (648 case reruns on the
+Xeon 6975P-C and Platinum 8370C and the EPYC 7763, 9V45 and 9V74) agree: one process per commit reached 1.15 fourteen times
+(`ManagedAesCbcDecrypt` 1.33 on the EPYC 7763, `ConvertBytes(Rgb)` 1.29), the fastest-over-slowest rule never (largest 1.04).
+
+The cost: in a case whose speed varies by more than 1.15 between placements, a slowdown smaller than that spread can hide behind
+it. Scaling the pull request's processes of those A/A reruns by 1.3, every rerun of the cases without such speeds still
+confirms, while `ConvertBytes(Rgb)` misses 23 of 54, `GrayToRgb` 13 of 54, `ManagedAesCbcDecrypt` 5 and `PackOpaque` 3; at 1.4
+it misses 23 of 648 in all. A regression smaller than a case's own placement spread was never a reliable signal there. The
+rerun takes three times as long as before, but only for the few cases the rounds flagged.
 
 ## Updating the baseline
 

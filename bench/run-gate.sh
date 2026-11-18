@@ -173,6 +173,11 @@ allocations() {
   fi
 }
 
+# Every timing process places its heap data and compiled code at a random offset (BROADSIDE_BENCH_LAYOUT=random,
+# bench/Broadside.Benchmarks/LayoutJitter.cs; issue #554): some kernels run up to 1.37x faster or slower with that placement, and
+# without the jitter it is fixed per build, so two builds of identical code could differ by 1.3x on every run. A base commit
+# older than the jitter ignores the variable. BROADSIDE_BENCH_LAYOUT set by the caller wins (empty turns the jitter off).
+#
 # run <checkout> <side> <folder> <filter...>: one process per benchmark class, each writing its report to
 # <out>/<folder>/<side>/<class><run_suffix>/ (BenchmarkDotNet names a report after its class, so two classes never share a
 # folder; a rerun's further processes set run_suffix so theirs do not either). A filter is Namespace.Type.Method, or a full name
@@ -192,7 +197,8 @@ run() {
       name="${filter%%(*}"
       [ "${name%.*}" = "${class}" ] && selected+=("${filter}")
     done
-    (cd "${checkout}" && env "${runtime_env[@]}" dotnet artifacts/bin/Broadside.Benchmarks/release/Broadside.Benchmarks.dll \
+    (cd "${checkout}" && env "${runtime_env[@]}" BROADSIDE_BENCH_LAYOUT="${BROADSIDE_BENCH_LAYOUT-random}" \
+      dotnet artifacts/bin/Broadside.Benchmarks/release/Broadside.Benchmarks.dll \
       --filter "${selected[@]}" "${bench_args[@]}" --artifacts "${out}/${folder}/${side}/${class##*.}${run_suffix}")
     code=$?
     if [ "${code}" -ne 0 ]; then
