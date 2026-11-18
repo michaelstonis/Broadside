@@ -36,7 +36,15 @@ public sealed class LayoutReadingOrder : IReadingOrderProvider
     {
         ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(index);
-        LayoutTree tree = page.ExtractLayout(_options);
+        return GetReadingOrder(page, index, page.ExtractLayout(_options));
+    }
+
+    /// <summary>Gets the options the page's layout is extracted with.</summary>
+    internal LayoutOptions Options => _options;
+
+    /// <summary>The reading order of a page's glyphs from its layout tree, extracted with <see cref="Options"/>.</summary>
+    internal static int[] GetReadingOrder(PdfPage page, HitTestIndex index, LayoutTree tree)
+    {
         if (tree.Pages.Count == 0)
         {
             return ContentReadingOrder.Instance.GetReadingOrder(page, index);

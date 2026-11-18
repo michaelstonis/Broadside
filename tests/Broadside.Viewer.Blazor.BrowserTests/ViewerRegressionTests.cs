@@ -170,6 +170,58 @@ public sealed class ViewerRegressionTests(BrowserHost host)
         return stream.ToArray();
     }
 
+    [Fact]
+    public async Task A_mouse_release_away_from_the_press_selects_up_to_it_when_no_move_arrived_between()
+    {
+        // Issue #558: a fast drag can end before a move reaches the viewer at the release point; the release still ends the selection
+        // there. The press and the release are dispatched with no pointermove between them (a real mouse always moves to the release).
+        BrowserHost.RequireApp();
+        await using IBrowserContext context = await host.Browser.NewContextAsync(new BrowserNewContextOptions { ViewportSize = new ViewportSize { Width = 1000, Height = 800 } });
+        IPage page = await OpenAsync(context, host.AppAddress.ToString());
+        await page.WaitForSelectorAsync(".bs-a11y section[data-bs-page='0'] [data-bs-node]", new PageWaitForSelectorOptions { State = WaitForSelectorState.Attached, Timeout = 120_000 });
+
+        // A line of text on page 1: the widest accessible leaf node, which the viewer places over its glyphs.
+        float[] line = await page.EvaluateAsync<float[]>("""
+            () => {
+              const viewer = document.querySelector('.bs-viewer').getBoundingClientRect();
+              let best = null;
+              for (const node of document.querySelectorAll(".bs-a11y section[data-bs-page='0'] [data-bs-node]")) {
+                if (node.querySelector('[data-bs-node]') || node.textContent.trim().length < 8) continue;
+                const r = node.getBoundingClientRect();
+                if (r.top < viewer.top || r.bottom > viewer.bottom || r.left < viewer.left || r.right > viewer.right) continue;
+                if (!best || r.width > best.width) best = r;
+              }
+              return best ? [best.left, best.top + (best.height / 2), best.right] : [];
+            }
+            """);
+        Assert.Equal(3, line.Length);
+        (float left, float y, float right) = (line[0], line[1], line[2]);
+
+        // Hover until the viewer shows the text cursor there: the page's text is loaded, so a press selects instead of panning.
+        for (int i = 0; i < 200 && await page.EvaluateAsync<string>("() => document.querySelector('.bs-viewer').style.cursor") != "text"; i++)
+        {
+            await page.Mouse.MoveAsync(left + 2 + (i % 2), y);
+            await page.WaitForTimeoutAsync(100);
+        }
+
+        string copied = await page.EvaluateAsync<string>("""
+            ({ left, y, right }) => {
+              const host = document.querySelector('.bs-viewer');
+              host.setPointerCapture = () => {}; // the synthetic pointer is not one the browser can capture
+              const pointer = (type, x) => host.dispatchEvent(new PointerEvent(type, {
+                pointerId: 7, pointerType: 'mouse', isPrimary: true, button: 0, buttons: type === 'pointerdown' ? 1 : 0, detail: 1,
+                clientX: x, clientY: y, bubbles: true, cancelable: true }));
+              pointer('pointerdown', left + 2);
+              pointer('pointerup', right - 2);
+              const data = new DataTransfer();
+              host.dispatchEvent(new ClipboardEvent('copy', { clipboardData: data, bubbles: true, cancelable: true }));
+              return data.getData('text/plain');
+            }
+            """, new { left = (double)left, y = (double)y, right = (double)right });
+        Assert.False(string.IsNullOrWhiteSpace(copied), "the release selected nothing");
+        Viewer.Log($"press-release with no move between selected \"{copied}\"");
+    }
+
     private static async Task<IPage> OpenAsync(IBrowserContext context, string address)
     {
         IPage page = await context.NewPageAsync();

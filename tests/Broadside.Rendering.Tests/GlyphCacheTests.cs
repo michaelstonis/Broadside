@@ -187,4 +187,59 @@ public sealed class GlyphCacheTests
         Assert.Equal(1 << 20, rasterizer.GlyphCacheBudget);
         Assert.Throws<ArgumentOutOfRangeException>(() => rasterizer.GlyphCacheBudget = -1);
     }
+
+    [Theory]
+    [InlineData(GlyphPositioning.Exact)]
+    [InlineData(GlyphPositioning.Quantized)]
+    public void A_glyph_whose_fill_misses_the_bitmap_strokes_the_same_when_drawn_from_the_cache(GlyphPositioning positioning)
+    {
+        // Issue #572: text rendering mode 2 (fill, then stroke) with a 200-unit pen. The first glyph's fill lies above the bitmap, its
+        // stroke reaches into it. A cache hit took the fill's miss for the whole glyph's and skipped the stroke, so the second render
+        // lost it. The second glyph is on the bitmap, so the cache is used.
+        using PdfDocument document = PdfDocument.Open(TextSamples.Page("200 w 1 j BT /F1 48 Tf 40 110 Td 2 Tr (H) Tj 0 -40 Td (H) Tj ET"u8.ToArray()));
+        DisplayList list = document.Pages[0].CreateDisplayList();
+        var device = new Matrix(0.5, 0, 0, -0.5, 0, 48);
+
+        (byte[] uncached, byte[] first, byte[] second) = RenderTwice(list, device, positioning, out PdfCacheStatistics statistics);
+
+        Assert.True(statistics.Hits > 0);
+        Assert.Contains(first.Where((value, index) => index % 4 == 3), alpha => alpha != 0);
+        Assert.True(uncached.AsSpan().SequenceEqual(first));
+        Assert.True(first.AsSpan().SequenceEqual(second));
+    }
+
+    [Theory]
+    [InlineData(GlyphPositioning.Exact)]
+    [InlineData(GlyphPositioning.Quantized)]
+    public void The_rasterize_fuzz_finding_renders_the_same_twice(GlyphPositioning positioning)
+    {
+        // The fuzz seed of issue #572: a mutation of text-render-modes.pdf, run whole as a page's content (its font is missing, so the
+        // fallback font draws), at the scale and rotation the rasterize target picks from its length (3,623 bytes: 1/2, upright).
+        byte[] content = File.ReadAllBytes(Path.Combine(Corpus.Directory, "..", "Broadside.Fuzz", "Seeds", "rasterize", "glyph-cache-hit-skips-stroke.bin"));
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(content));
+        DisplayList list = document.Pages[0].CreateDisplayList();
+        var device = new Matrix(0.5, 0, 0, -0.5, 0, 48);
+
+        (byte[] uncached, byte[] first, byte[] second) = RenderTwice(list, device, positioning, out _);
+
+        Assert.True(uncached.AsSpan().SequenceEqual(first));
+        Assert.True(first.AsSpan().SequenceEqual(second));
+    }
+
+    /// <summary>Renders a list into 48 by 48 pixels without a cache, then twice with one rasterizer (cold, then warm).</summary>
+    private static (byte[] Uncached, byte[] First, byte[] Second) RenderTwice(DisplayList list, in Matrix device, GlyphPositioning positioning, out PdfCacheStatistics statistics)
+    {
+        using var uncached = new SoftwareRasterizer { GlyphCacheBudget = 0, GlyphPositioning = positioning };
+        using var cached = new SoftwareRasterizer { GlyphPositioning = positioning };
+        using var expected = new Bitmap(48, 48);
+        using var first = new Bitmap(48, 48);
+        using var second = new Bitmap(48, 48);
+
+        uncached.Render(list, expected, device);
+        cached.Render(list, first, device);
+        cached.Render(list, second, device);
+
+        statistics = cached.GlyphCacheStatistics;
+        return (expected.Pixels.ToArray(), first.Pixels.ToArray(), second.Pixels.ToArray());
+    }
 }

@@ -57,16 +57,14 @@ programs), CMaps and the Adobe Glyph List, the content interpreter with its grap
 are resolved as the content uses them, and their diagnostics are part of what extraction reports), and the structure tree for
 tagged reading order.
 
-**Saving, filling a form or signing (6.8 to 7.4 MB more than opening).** Of that:
+**Saving, filling a form or signing (2.5 to 3.3 MB more than opening since #545; 6.8 to 7.4 MB before).** Of that:
 
-- **The networking stack, about 2.5 MB.** Saving reads the document's XMP metadata to keep it in step with the document
-  information. XMP is read with the BCL's `XmlReader`, created through `XmlReaderSettings`, whose default-resolver path constructs
-  an `XmlUrlResolver`, which can fetch `http` URLs through `HttpClient`. Broadside sets no resolver and prohibits document type
-  declarations, so nothing is ever fetched, but the trimmer cannot know that. `new XmlTextReader(...)` was tried instead: it reaches
-  the same resolver through `XmlTextReaderImpl.GetTempResolver`, so there is no library-side way around it short of not using
-  `System.Xml` (see the recommendations).
-- **`System.Private.Xml`, about 0.6 MB**, of which XML Schema validation (`XsdValidatingReader` and the schema classes, 185 KB of
-  code alone) is kept by the same `XmlReaderSettings` path although no packet is validated.
+- **The networking stack and `System.Xml`, about 4.4 MB until #545.** Saving reads the document's XMP metadata to keep it in step
+  with the document information. XMP was read with the BCL's `XmlReader`, created through `XmlReaderSettings`, whose
+  default-resolver path constructs an `XmlUrlResolver`, which can fetch `http` URLs through `HttpClient`; that kept the networking
+  stack (about 2.5 MB) and `System.Private.Xml` with XML Schema validation (the rest) although nothing was ever fetched or
+  validated. `new XmlTextReader(...)` reached the same resolver through `XmlTextReaderImpl.GetTempResolver`, so there was no
+  library-side way around it short of not using `System.Xml`, which is what #545 did (see "XMP without `System.Xml`" below).
 - The writer, the PDF/A and PDF/UA conformance checks (a document that declares PDF/A is checked when it is saved), the font
   parsers they use, and the signature code with its CMS support.
 
@@ -127,6 +125,41 @@ The other probes use the default options and are unchanged (within 16 bytes). Wh
 codecs is the default DCT encoder's constructor and quantization tables (`StreamEncoderRegistry` constructs it), a small fraction; its encode
 path is not reached.
 
+## XMP without `System.Xml` (#545)
+
+The XMP packet is now read by `XmpXmlReader`, a reader of the XML subset XMP uses (elements, attributes, character data, CDATA,
+comments, processing instructions, the XML declaration, character references and the five predefined entities; a document type
+declaration is an error, no resolver), and written by `XmpPacketWriter` directly, byte for byte as the `XmlWriter` output it
+replaces. Nothing in the core references `System.Xml` any more (`Broadside.dll`'s assembly references no longer include
+`System.Private.Xml` or `System.Private.Xml.Linq`), and no probe binary contains `System.Xml` or `System.Net.Http` code.
+
+| Probe | Before (bytes) | After (bytes) | Change |
+|---|---:|---:|---:|
+| `empty` | 1,102,752 | 1,102,752 | 0 |
+| `open-metadata` | 4,568,168 | 4,568,168 | 0 |
+| `extract-text` | 6,423,800 | 6,423,800 | 0 |
+| `render` | 7,584,576 | 7,584,576 | 0 |
+| `fill-form` | 12,043,184 | 7,634,064 | -4,409,120 (-36.6%) |
+| `save` | 11,462,480 | 7,086,720 | -4,375,760 (-38.2%) |
+| `sign` | 11,896,160 | 7,868,928 | -4,027,232 (-33.9%) |
+
+Measured 2026-11-17 on the machine above with .NET SDK 10.0.402 (ILCompiler 10.0.13; `-p:NuGetAudit=false`, because that
+package's advisory fails the restore), before at 715d93b6 and after on the #545 branch. The saving is larger than the 3 MB
+estimated above: with the resolver and schema validation gone, the rest of `System.Private.Xml` (the reader, the writer and
+`System.Xml.Linq`) went too. It is also larger than `XmlResolverIsNetworkingEnabledByDefault=false` gave (about 2.5 MB), and needs
+no app setting.
+
+The new reader must read every packet as the old one did, the same packet or none with the same diagnostics, because leniency is
+part of the contract. The old `XmlReader`-based reader and `XmlWriter`-based writer are kept in the test project as oracles
+(`tests/Broadside.Tests/Document/LegacyXmp`): `XmpReaderOracleTests` compares the two readers over 116 hand-written edge cases of
+the XML rules, every metadata stream of `tests/Corpus/` (18) and of the fetched real-world corpora (4,315 streams in pdfjs,
+pdf20examples, verapdf-corpus, pdfbox, gwg-output-suite, pdfium-tests, qpdf and bfo-pdfa-testsuite), and 20,000 seeded mutations
+of those packets (3 million locally, with the real-world packets as seeds, no difference); `XmpWriterOracleTests` compares the two
+writers' bytes over every test-corpus packet and 3,000 random property trees. The only message that differs is the detail in
+parentheses of `XmpMalformed` for XML that is not well-formed, which quoted the BCL's exception text. One deliberate difference in
+writing: a property named in the `xmlns` namespace (`<xmlns:a>`, which XML reads) made the old writer throw `ArgumentException`
+and fail the save; it is now left out like the RDF and XML syntax names.
+
 ## What an app can switch off
 
 These are app settings, not library ones: each changes how the whole app behaves, so a library cannot choose them for it.
@@ -142,8 +175,9 @@ These are app settings, not library ones: each changes how the whole app behaves
 | `sign` | 11,896,192 | 9,444,544 | 8,633,376 |
 
 - `<XmlResolverIsNetworkingEnabledByDefault>false</XmlResolverIsNetworkingEnabledByDefault>`: the default XML resolver no
-  longer reaches the network, which removes the networking stack described above (about 2.5 MB, a fifth of the app) from any app
-  that saves, fills forms or signs. It affects the app's own `XmlReader` use too.
+  longer reaches the network. Before #545 this removed the networking stack described above (about 2.5 MB) from any app that
+  saves, fills forms or signs; since #545 Broadside does not use `System.Xml`, so it matters only for an app's own `XmlReader` use.
+  The table above was measured before #545.
 - `<UseSystemResourceKeys>true</UseSystemResourceKeys>`: BCL exception messages become resource keys. Broadside's own diagnostic
   and exception messages are unaffected.
 - `<StackTraceSupport>false</StackTraceSupport>`: no method names in stack traces.
@@ -153,14 +187,11 @@ These are app settings, not library ones: each changes how the whole app behaves
 ## Recommendations
 
 What is left is reachable by design: a file's content decides at run time which codec, handler or checker runs, so the trimmer
-must keep them all. Two changes would cut the rest, both bigger than this issue and both needing a decision first (the first is now done):
+must keep them all. Two changes would cut the rest, both bigger than this issue; both are now done:
 
 1. **Image codecs chosen through the options.** Done in #544 (see above): `PdfOptions.CreateWithoutImageCodecs()` saves about
    0.83 MB (18% of `open-metadata`).
-2. **XMP read without `System.Xml`.** A small reader for the RDF/XML subset XMP uses (no DTDs, no entities beyond the predefined
-   ones, no resolver) would remove about 3 MB from every app that saves, fills or signs, with no app setting. The risk is the
-   leniency contract: which damaged packets read and what their diagnostics say must not change, so it needs its own issue with the
-   real-world corpus as the oracle.
+2. **XMP read without `System.Xml`.** Done in #545 (see above): 4.0 to 4.4 MB less in every app that saves, fills or signs.
 
 Splitting rarely used subsystems (PDF/A conversion, signature validation) into packages is not needed for these: those two
 subsystems are a small part of the probes above.

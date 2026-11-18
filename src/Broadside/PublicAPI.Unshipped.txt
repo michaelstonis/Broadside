@@ -5793,3 +5793,15 @@ Broadside.PdfSubmitFormAction.SelectFields() -> System.Collections.Generic.IRead
 Broadside.PdfDocument.DefaultSaveOptions.get -> Broadside.PdfSaveOptions?
 Broadside.PdfDocument.DefaultSaveOptions.set -> void
 static Broadside.Diagnostics.SavingDiagnostics.ConformanceOverridden.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.PdfPage.BeginTextExtraction(Broadside.Text.TextExtractionOptions! options) -> Broadside.Text.TextExtraction!
+Broadside.PdfPage.BeginLayoutExtraction(Broadside.Layout.LayoutOptions! options) -> Broadside.Layout.LayoutExtraction!
+Broadside.Text.TextExtraction
+Broadside.Text.TextExtraction.Continue(System.TimeSpan budget) -> bool
+Broadside.Text.TextExtraction.Dispose() -> void
+Broadside.Text.TextExtraction.IsCompleted.get -> bool
+Broadside.Text.TextExtraction.Result.get -> Broadside.Text.TextPage!
+Broadside.Layout.LayoutExtraction
+Broadside.Layout.LayoutExtraction.Continue(System.TimeSpan budget) -> bool
+Broadside.Layout.LayoutExtraction.Dispose() -> void
+Broadside.Layout.LayoutExtraction.IsCompleted.get -> bool
+Broadside.Layout.LayoutExtraction.Result.get -> Broadside.Layout.LayoutTree!

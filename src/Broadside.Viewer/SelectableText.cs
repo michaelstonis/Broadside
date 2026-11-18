@@ -77,8 +77,22 @@ public sealed class SelectableText
     {
         ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(index);
-        int[] order = (readingOrder ?? ContentReadingOrder.Instance).GetReadingOrder(page, index)
-            ?? throw new InvalidOperationException("The reading-order provider returned no order.");
+        int[] order = (readingOrder ?? ContentReadingOrder.Instance).GetReadingOrder(page, index) ?? throw NoOrder();
+
+        // Logical text per glyph: the extraction applies the ActualText of marked content and structure elements (§14.9.4), the
+        // first glyph of a replaced sequence carrying the replacement; the index's own per-code text stands for glyphs it lacks.
+        return Create(page, index, order, page.ExtractText(ExtractionOptions()));
+    }
+
+    /// <summary>The error for a reading-order provider that returned no order.</summary>
+    internal static InvalidOperationException NoOrder() => new("The reading-order provider returned no order.");
+
+    /// <summary>The options the logical text of <see cref="Create(PdfPage, HitTestIndex, IReadingOrderProvider?)"/> is extracted with.</summary>
+    internal static TextExtractionOptions ExtractionOptions() => new TextExtractionOptions().WithArtifacts();
+
+    /// <summary>Builds a page's selectable text from its reading order and its text extracted with <see cref="ExtractionOptions"/>.</summary>
+    internal static SelectableText Create(PdfPage page, HitTestIndex index, int[] order, TextPage extracted)
+    {
         int[] positions = new int[index.GlyphCount];
         positions.AsSpan().Fill(-1);
         var frames = new Frame[order.Length];
@@ -96,9 +110,6 @@ public sealed class SelectableText
             frames[position] = Frame.Of(index.GetGlyph(glyph).Quad);
         }
 
-        // Logical text per glyph: the extraction applies the ActualText of marked content and structure elements (§14.9.4), the
-        // first glyph of a replaced sequence carrying the replacement; the index's own per-code text stands for glyphs it lacks.
-        TextPage extracted = page.ExtractText(new TextExtractionOptions().WithArtifacts());
         int[] matches = GlyphMatching.Match(index, extracted);
         var replacements = new int[index.GlyphCount];
         replacements.AsSpan().Fill(-1);

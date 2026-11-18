@@ -132,7 +132,8 @@ public sealed class AccessibilityBridge
         {
             // One extraction per page however many ask (#357). A remote page and everything it uses are fetched first (the layout
             // reads its content and fonts; no display list is built); the layout (structure tree or content reading order) is extracted
-            // off the UI thread in background mode, and the nodes are built back on the caller's context.
+            // off the UI thread in background mode, in slices between frames in cooperative mode (#546), and the nodes are built back
+            // on the caller's context.
             LayoutTree tree = await _loads.LoadAsync(
                 pageIndex,
                 async () =>
@@ -143,9 +144,19 @@ public sealed class AccessibilityBridge
                         await Session.PrefetchClosureAsync(page, CancellationToken.None).ConfigureAwait(false);
                     }
 
-                    return await Session.ReadAsync(_ => page.ExtractLayout(), CancellationToken.None).ConfigureAwait(false);
+                    return await Session.ReadInSlicesAsync(
+                        () => page.BeginLayoutExtraction(new LayoutOptions()),
+                        static (work, budget) => work.Continue(budget),
+                        static work => work.Result,
+                        CancellationToken.None).ConfigureAwait(false);
                 },
                 cancellationToken).ConfigureAwait(true);
+            if (Session.IsCooperative)
+            {
+                // The nodes are built in a step of their own.
+                await Session.PauseAsync(CancellationToken.None).ConfigureAwait(true);
+            }
+
             if (_orders[pageIndex] is null)
             {
                 LoadOrder(pageIndex, tree);

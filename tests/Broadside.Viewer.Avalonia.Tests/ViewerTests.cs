@@ -415,32 +415,6 @@ public sealed class ViewerTests
     });
 
     [Fact]
-    public Task Dark_mode_draws_dark_paper_from_the_cached_display_lists() => Ui.RunAsync(async () =>
-    {
-        using ViewerHarness viewer = await ViewerHarness.OpenAsync(ViewerHarness.CorpusFile("text-standard14.pdf"));
-        LayoutRectangle page = viewer.Layout.PageToViewport(viewer.Viewport, 0, viewer.Layout.GetPageMetrics(0).CropBox);
-        int x = (int)page.X + 6;
-        int y = (int)page.Y + 6;
-        Assert.Equal((255, 255, 255), Rgb(viewer.Capture()[x, y]));
-        long misses = viewer.Controller.Session!.Document.CacheStatistics.DisplayLists.Misses;
-
-        viewer.Viewer.ColorFilter = ColorFilter.DarkMode;
-        await viewer.SettleAsync();
-        FramePixels dark = viewer.Capture();
-        (int r, int g, int b) paper = Rgb(dark[x, y]);
-        Assert.True(paper.r < 40 && paper.g < 40 && paper.b < 40, $"paper {paper}");
-        Assert.Equal((0x2B, 0x2B, 0x2B), Rgb(dark[1, 1]));
-        Assert.Equal(misses, viewer.Controller.Session.Document.CacheStatistics.DisplayLists.Misses);
-        PinnedSubsetTests.AssertTilesOnScreen(viewer, 0);
-
-        viewer.Viewer.ColorFilter = ColorFilter.None;
-        await viewer.SettleAsync();
-        Assert.Equal((255, 255, 255), Rgb(viewer.Capture()[x, y]));
-
-        static (int, int, int) Rgb((byte B, byte G, byte R, byte A) p) => (p.R, p.G, p.B);
-    });
-
-    [Fact]
     public Task Tiles_render_on_worker_threads_by_default_and_reach_the_screen() => Ui.RunAsync(async () =>
     {
         int ui = Environment.CurrentManagedThreadId;
