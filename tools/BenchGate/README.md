@@ -34,7 +34,10 @@ Results layout (what `bench/run-gate.sh --out <dir>` writes; shard folders above
 <dir>/[<shard>/]allocations/{base,head}/allocations.json        (Broadside.Benchmarks --gate-allocations)
 ```
 
-A base iteration is paired only with the pull request's iterations from the same shard folder, so a time ratio never mixes two
+A rerun measures each commit in several processes (`run-gate.sh --processes`), one report folder per process under its side
+(`confirm/base/<class>`, `confirm/base/<class>-p2`, ...); a case read more than once for the same side of the same pass keeps
+every process's iterations, and the rerun's ratio is the pull request's fastest process median over the base's slowest (issue
+#554). A base iteration is paired only with the pull request's iterations from the same shard folder, so a time ratio never mixes two
 runners. A shard folder whose `machine.json` says AVX-512 was disabled belongs to the AVX-512-off pass, whose rounds and reruns
 are compared separately from the default pass's.
 

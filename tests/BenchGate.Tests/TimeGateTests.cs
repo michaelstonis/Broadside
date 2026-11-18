@@ -22,6 +22,53 @@ public sealed class TimeGateTests
     }
 
     [Fact]
+    public void A_slower_process_of_identical_code_is_not_confirmed_by_a_rerun_of_several_processes()
+    {
+        // Issue #554, measured on the Xeon 6975P-C: GrayToRgb runs at 101, 132 or 138 ns depending on the process, for the same
+        // build. Both rounds drew a fast base process and a slow pull-request one; in the rerun the base drew the rare fast speed
+        // once more, so comparing each commit's fastest process would still read 1.31.
+        using var tree = new ResultsTree();
+        tree.AddRounds("base", 2, ResultsTree.Lexer, 0, ResultsTree.Around(101))
+            .AddRounds("head", 2, ResultsTree.Lexer, 0, ResultsTree.Around(132))
+            .Add("confirm/base/p1", ResultsTree.Lexer, 0, ResultsTree.Around(132))
+            .Add("confirm/head/p1", ResultsTree.Lexer, 0, ResultsTree.Around(132))
+            .Add("confirm/base/p2", ResultsTree.Lexer, 0, ResultsTree.Around(101))
+            .Add("confirm/head/p2", ResultsTree.Lexer, 0, ResultsTree.Around(138))
+            .Add("confirm/base/p3", ResultsTree.Lexer, 0, ResultsTree.Around(132))
+            .Add("confirm/head/p3", ResultsTree.Lexer, 0, ResultsTree.Around(132));
+        string baseline = tree.WriteBaseline((ResultsTree.Lexer, 0));
+
+        GateReport report = BenchmarkGate.Run(baseline, tree.Root);
+
+        Assert.True(report.Passed);
+        GateFinding finding = Assert.Single(report.Findings);
+        Assert.Equal(FindingKind.SlowerWithinTolerance, finding.Kind);
+        Assert.EndsWith("rerun 1.00)", finding.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_slowdown_in_every_process_of_the_rerun_fails()
+    {
+        using var tree = new ResultsTree();
+        tree.AddRounds("base", 2, ResultsTree.Lexer, 0, ResultsTree.Around(1000))
+            .AddRounds("head", 2, ResultsTree.Lexer, 0, ResultsTree.Around(1300));
+        foreach (string process in new[] { "p1", "p2", "p3" })
+        {
+            tree.Add($"confirm/base/{process}", ResultsTree.Lexer, 0, ResultsTree.Around(process == "p2" ? 1020 : 1000))
+                .Add($"confirm/head/{process}", ResultsTree.Lexer, 0, ResultsTree.Around(process == "p3" ? 1700 : 1326));
+        }
+
+        string baseline = tree.WriteBaseline((ResultsTree.Lexer, 0));
+
+        GateReport report = BenchmarkGate.Run(baseline, tree.Root);
+
+        Assert.False(report.Passed);
+        GateFinding finding = Assert.Single(report.Failures);
+        Assert.Equal(FindingKind.Slower, finding.Kind);
+        Assert.EndsWith("rerun 1.30)", finding.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Run_to_run_noise_passes()
     {
         using var tree = new ResultsTree();

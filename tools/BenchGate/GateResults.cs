@@ -4,10 +4,27 @@ using System.Text.Json;
 
 namespace Broadside.Tools.BenchGate;
 
-/// <summary>One benchmark case of one BenchmarkDotNet run: its key and its measured iterations.</summary>
+/// <summary>
+/// One benchmark case of one side of one pass: its key and its measured iterations, from one measuring process or (a rerun,
+/// issue #554) several.
+/// </summary>
 /// <param name="FullName">BenchmarkDotNet's full name, parameters included: the key the gate and the baseline use.</param>
-/// <param name="NanosecondsPerOperation">The measured (Workload, Result) iterations, in nanoseconds per operation.</param>
-public sealed record BenchmarkCase(string FullName, IReadOnlyList<double> NanosecondsPerOperation);
+/// <param name="NanosecondsPerOperation">The measured (Workload, Result) iterations, in nanoseconds per operation, of every process.</param>
+public sealed record BenchmarkCase(string FullName, IReadOnlyList<double> NanosecondsPerOperation)
+{
+    /// <summary>The same iterations by measuring process, in the order the reports were read: one list unless several processes measured the case.</summary>
+    public IReadOnlyList<IReadOnlyList<double>> Processes { get; init; } = [NanosecondsPerOperation];
+
+    /// <summary>This case with the iterations of another process that measured it in the same pass.</summary>
+    public BenchmarkCase Merge(BenchmarkCase other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+        return new BenchmarkCase(FullName, [.. NanosecondsPerOperation, .. other.NanosecondsPerOperation])
+        {
+            Processes = [.. Processes, .. other.Processes],
+        };
+    }
+}
 
 /// <summary>
 /// The measurements of one gate run, read from a results directory with this layout (any number of shard folders may sit above
@@ -16,7 +33,7 @@ public sealed record BenchmarkCase(string FullName, IReadOnlyList<double> Nanose
 /// machine.json              the runner's processor and AVX-512 state (BenchGate machine); decides the timing pass
 /// round-1/base/**/*.json    round-1/head/**/*.json    first interleaved pass, base commit and pull request (BenchmarkDotNet)
 /// round-2/base/**/*.json    round-2/head/**/*.json    second pass (and so on)
-/// confirm/base/**/*.json    confirm/head/**/*.json    rerun of the cases the rounds flagged as slower
+/// confirm/base/**/*.json    confirm/head/**/*.json    rerun of the cases the rounds flagged as slower (one report per process)
 /// confirm-2/base/**/*.json  confirm-2/head/**/*.json  second rerun, when the job runs more than one (and so on)
 /// allocations/base/*.json   allocations/head/*.json   bytes per call (Broadside.Benchmarks --gate-allocations)
 /// </code>
@@ -133,9 +150,12 @@ public sealed class GateResults
                 perRunner[(runner, pass)] = staged = new GatePass();
             }
 
+            // A case read twice for the same side of the same pass was measured by several processes (the reruns, issue #554):
+            // keep every process's iterations.
+            Dictionary<string, BenchmarkCase> cases = isHead ? staged.Head : staged.Base;
             foreach (BenchmarkCase benchmark in ReadReport(file))
             {
-                (isHead ? staged.Head : staged.Base)[benchmark.FullName] = benchmark;
+                cases[benchmark.FullName] = cases.TryGetValue(benchmark.FullName, out BenchmarkCase? earlier) ? earlier.Merge(benchmark) : benchmark;
             }
         }
 
