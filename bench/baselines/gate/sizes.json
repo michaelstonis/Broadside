@@ -3,11 +3,11 @@
     "osx-arm64": {
       "empty": 1102768,
       "extract-text": 6423848,
-      "fill-form": 11993648,
+      "fill-form": 7634064,
       "open-metadata": 4551704,
       "render": 7551568,
-      "save": 11412960,
-      "sign": 11846624
+      "save": 7086720,
+      "sign": 7868928
     }
   }
 }

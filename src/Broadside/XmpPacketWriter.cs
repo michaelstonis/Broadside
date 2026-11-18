@@ -1,5 +1,4 @@
 using System.Text;
-using System.Xml;
 
 namespace Broadside;
 
@@ -18,6 +17,11 @@ namespace Broadside;
 /// declared on the description. Properties named in the RDF or XML namespace are syntax, not properties, and are left out. Characters XML 1.0 cannot carry (most C0 controls, unpaired surrogates, U+FFFE, U+FFFF) are left
 /// out; a carriage return is written as a character reference so it survives end-of-line normalization.
 /// </para>
+/// <para>
+/// The markup is written directly, without <c>System.Xml</c> (issue #545), byte for byte as the BCL's <c>XmlWriter</c> wrote it
+/// before (one space of indentation per level, line feeds, <c>&amp;</c>, <c>&lt;</c> and <c>&gt;</c> escaped in text and
+/// attributes, <c>"</c>, tab and line feed escaped in attributes).
+/// </para>
 /// <para>ISO 19005-2 §6.6.</para>
 /// <para>ISO 32000-2 §14.3.2.</para>
 /// </remarks>
@@ -27,6 +31,9 @@ internal static class XmpPacketWriter
     private const string PacketId = "W5M0MpCehiHzreSzNTczkc9d";
 
     private const int PaddingLines = 20;
+
+    /// <summary>The namespace of namespace declarations, which no prefix may be declared for.</summary>
+    private const string XmlnsNamespace = "http://www.w3.org/2000/xmlns/";
 
     private static readonly Dictionary<string, string> KnownPrefixes = new(StringComparer.Ordinal)
     {
@@ -52,51 +59,38 @@ internal static class XmpPacketWriter
     public static byte[] Write(IReadOnlyList<XmpProperty> properties, string about)
     {
         Dictionary<string, string> prefixes = AssignPrefixes(properties);
-        var settings = new XmlWriterSettings
+        var writer = new MarkupWriter();
+        writer.Raw($"<?xpacket begin=\"\uFEFF\" id=\"{PacketId}\"?>");
+        writer.StartElement("x:xmpmeta");
+        writer.Attribute("xmlns:x", XmpNamespaces.XmpMeta);
+        writer.StartElement("rdf:RDF");
+        writer.Attribute("xmlns:rdf", XmpNamespaces.Rdf);
+        writer.StartElement("rdf:Description");
+        writer.Attribute("rdf:about", Clean(about));
+        foreach ((string namespaceName, string prefix) in prefixes)
         {
-            Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-            OmitXmlDeclaration = true,
-            Indent = true,
-            IndentChars = " ",
-            NewLineChars = "\n",
-            NewLineHandling = NewLineHandling.Entitize,
-            ConformanceLevel = ConformanceLevel.Document,
-            CheckCharacters = true,
-        };
-        using var output = new MemoryStream();
-        using (var writer = XmlWriter.Create(output, settings))
-        {
-            writer.WriteProcessingInstruction("xpacket", $"begin=\"﻿\" id=\"{PacketId}\"");
-            writer.WriteStartElement("x", "xmpmeta", XmpNamespaces.XmpMeta);
-            writer.WriteStartElement("rdf", "RDF", XmpNamespaces.Rdf);
-            writer.WriteStartElement("rdf", "Description", XmpNamespaces.Rdf);
-            writer.WriteAttributeString("rdf", "about", XmpNamespaces.Rdf, Clean(about));
-            foreach ((string namespaceName, string prefix) in prefixes)
-            {
-                writer.WriteAttributeString("xmlns", prefix, null, namespaceName);
-            }
-
-            foreach (XmpProperty property in properties.Where(IsProperty))
-            {
-                WriteProperty(writer, prefixes, property.NamespaceName, property.Name, property);
-            }
-
-            writer.WriteEndElement();
-            writer.WriteEndElement();
-            writer.WriteEndElement();
-            writer.Flush();
+            writer.Attribute($"xmlns:{prefix}", namespaceName);
         }
+
+        foreach (XmpProperty property in properties.Where(IsProperty))
+        {
+            WriteProperty(writer, prefixes, property.NamespaceName, property.Name, property);
+        }
+
+        writer.EndElement(full: false);
+        writer.EndElement(full: false);
+        writer.EndElement(full: false);
 
         // §7.3.3: padding lets the packet be edited in place; whitespace after the root element, then the trailer.
-        var padding = new StringBuilder("\n");
+        writer.Raw("\n");
         for (int line = 0; line < PaddingLines; line++)
         {
-            padding.Append(' ', 99).Append('\n');
+            writer.Raw(new string(' ', 99));
+            writer.Raw("\n");
         }
 
-        output.Write(Encoding.ASCII.GetBytes(padding.ToString()));
-        output.Write("<?xpacket end=\"w\"?>"u8);
-        return output.ToArray();
+        writer.Raw("<?xpacket end=\"w\"?>");
+        return writer.ToBytes();
     }
 
     /// <summary>Removes the characters XML 1.0 cannot carry (§2.2 of XML 1.0): they have no representation, not even a reference.</summary>
@@ -143,7 +137,7 @@ internal static class XmpPacketWriter
             return false;
         }
 
-        return c is '\t' or '\n' or '\r' or (>= ' ' and < '\uD800') or (>= '' and <= '�');
+        return c is '\t' or '\n' or '\r' or (>= ' ' and < '\uD800') or (>= '\uE000' and <= '\uFFFD');
     }
 
     private static Dictionary<string, string> AssignPrefixes(IReadOnlyList<XmpProperty> properties)
@@ -161,6 +155,7 @@ internal static class XmpPacketWriter
                 if (property.NamespaceName.Length > 0
                     && property.NamespaceName != XmpNamespaces.Rdf
                     && property.NamespaceName != "http://www.w3.org/XML/1998/namespace"
+                    && property.NamespaceName != XmlnsNamespace
                     && !prefixes.ContainsKey(property.NamespaceName))
                 {
                     if (!KnownPrefixes.TryGetValue(property.NamespaceName, out string? prefix) || used.Contains(prefix))
@@ -184,29 +179,22 @@ internal static class XmpPacketWriter
     }
 
     /// <summary>Writes one property element (or an array item, named <c>rdf:li</c>).</summary>
-    private static void WriteProperty(XmlWriter writer, Dictionary<string, string> prefixes, string namespaceName, string name, XmpProperty property)
+    private static void WriteProperty(MarkupWriter writer, Dictionary<string, string> prefixes, string namespaceName, string name, XmpProperty property)
     {
-        if (namespaceName.Length == 0)
-        {
-            writer.WriteStartElement(name);
-        }
-        else
-        {
-            writer.WriteStartElement(Prefix(prefixes, namespaceName), name, namespaceName);
-        }
-
+        string qualifiedName = namespaceName.Length == 0 ? name : $"{Prefix(prefixes, namespaceName)}:{name}";
+        writer.StartElement(qualifiedName);
         if (property.Language is { } language)
         {
-            writer.WriteAttributeString("xml", "lang", null, Clean(language));
+            writer.Attribute("xml:lang", Clean(language));
         }
 
         if (property.Qualifiers.Count > 0)
         {
             // §7.8: a qualified value is a description whose rdf:value is the value.
-            writer.WriteAttributeString("rdf", "parseType", XmpNamespaces.Rdf, "Resource");
-            writer.WriteStartElement("rdf", "value", XmpNamespaces.Rdf);
+            writer.Attribute("rdf:parseType", "Resource");
+            writer.StartElement("rdf:value");
             WriteValue(writer, prefixes, property);
-            writer.WriteEndElement();
+            writer.EndElement(full: false);
             foreach (XmpProperty qualifier in property.Qualifiers.Where(IsProperty))
             {
                 WriteProperty(writer, prefixes, qualifier.NamespaceName, qualifier.Name, qualifier);
@@ -217,22 +205,22 @@ internal static class XmpPacketWriter
             WriteValue(writer, prefixes, property);
         }
 
-        writer.WriteFullEndElement();
+        writer.EndElement(full: true);
     }
 
     /// <summary>Writes the value part of a property onto the open element: text, a resource, fields or an array.</summary>
-    private static void WriteValue(XmlWriter writer, Dictionary<string, string> prefixes, XmpProperty property)
+    private static void WriteValue(MarkupWriter writer, Dictionary<string, string> prefixes, XmpProperty property)
     {
         switch (property.Kind)
         {
             case XmpPropertyKind.Simple when property.IsUri:
-                writer.WriteAttributeString("rdf", "resource", XmpNamespaces.Rdf, Clean(property.Value ?? string.Empty));
+                writer.Attribute("rdf:resource", Clean(property.Value ?? string.Empty));
                 break;
             case XmpPropertyKind.Simple:
-                writer.WriteString(Clean(property.Value ?? string.Empty));
+                writer.Text(Clean(property.Value ?? string.Empty));
                 break;
             case XmpPropertyKind.Structure:
-                writer.WriteAttributeString("rdf", "parseType", XmpNamespaces.Rdf, "Resource");
+                writer.Attribute("rdf:parseType", "Resource");
                 foreach (XmpProperty field in property.Fields.Where(IsProperty))
                 {
                     WriteProperty(writer, prefixes, field.NamespaceName, field.Name, field);
@@ -240,21 +228,18 @@ internal static class XmpPacketWriter
 
                 break;
             default:
-                writer.WriteStartElement(
-                    "rdf",
-                    property.Kind switch
-                    {
-                        XmpPropertyKind.UnorderedArray => "Bag",
-                        XmpPropertyKind.OrderedArray => "Seq",
-                        _ => "Alt",
-                    },
-                    XmpNamespaces.Rdf);
+                writer.StartElement(property.Kind switch
+                {
+                    XmpPropertyKind.UnorderedArray => "rdf:Bag",
+                    XmpPropertyKind.OrderedArray => "rdf:Seq",
+                    _ => "rdf:Alt",
+                });
                 foreach (XmpProperty item in property.Items)
                 {
                     WriteProperty(writer, prefixes, XmpNamespaces.Rdf, "li", item);
                 }
 
-                writer.WriteFullEndElement();
+                writer.EndElement(full: true);
                 break;
         }
     }
@@ -262,10 +247,114 @@ internal static class XmpPacketWriter
     /// <summary>
     /// Whether a property, field or qualifier can be written: one named in the RDF or XML namespace is RDF syntax (an element such
     /// as <c>rdf:value</c> or <c>rdf:Description</c> where a property belongs), not a property (ISO 16684-1 §7.4), and is left out.
+    /// So is one named in the namespace of namespace declarations (an element such as <c>xmlns:a</c>, which XML reads but no prefix
+    /// may be declared for, Namespaces in XML 1.0 §3).
     /// </summary>
     internal static bool IsProperty(XmpProperty property) =>
-        property.NamespaceName is not (XmpNamespaces.Rdf or "http://www.w3.org/XML/1998/namespace");
+        property.NamespaceName is not (XmpNamespaces.Rdf or "http://www.w3.org/XML/1998/namespace" or XmlnsNamespace);
 
     private static string Prefix(Dictionary<string, string> prefixes, string namespaceName) =>
         namespaceName == XmpNamespaces.Rdf ? "rdf" : namespaceName == "http://www.w3.org/XML/1998/namespace" ? "xml" : prefixes[namespaceName];
+
+    /// <summary>
+    /// Writes elements, attributes and text as the BCL's indenting <c>XmlWriter</c> did with the settings this packet used: each start
+    /// tag on a new line indented one space per level, unless the parent already holds text; an end tag on a new line only after
+    /// child elements; an element with nothing in it closed as <c>&lt;a&gt;&lt;/a&gt;</c> when <c>full</c>, else <c>&lt;a /&gt;</c>.
+    /// </summary>
+    private sealed class MarkupWriter
+    {
+        private readonly StringBuilder _output = new();
+        private readonly Stack<(string Name, bool Mixed, bool HasElements)> _open = new();
+        private bool _startTagOpen;
+
+        public void Raw(string text) => _output.Append(text);
+
+        public void StartElement(string qualifiedName)
+        {
+            bool mixed = _open.TryPeek(out (string Name, bool Mixed, bool HasElements) parent) && parent.Mixed;
+            CloseStartTag();
+            if (_open.Count > 0)
+            {
+                (string name, bool parentMixed, _) = _open.Pop();
+                _open.Push((name, parentMixed, true));
+            }
+
+            if (!mixed && _output.Length > 0)
+            {
+                _ = _output.Append('\n').Append(' ', _open.Count);
+            }
+
+            _ = _output.Append('<').Append(qualifiedName);
+            _open.Push((qualifiedName, mixed, false));
+            _startTagOpen = true;
+        }
+
+        public void Attribute(string qualifiedName, string value)
+        {
+            _ = _output.Append(' ').Append(qualifiedName).Append("=\"");
+            foreach (char c in value)
+            {
+                _ = c switch
+                {
+                    '&' => _output.Append("&amp;"),
+                    '<' => _output.Append("&lt;"),
+                    '>' => _output.Append("&gt;"),
+                    '"' => _output.Append("&quot;"),
+                    '\t' => _output.Append("&#x9;"),
+                    '\n' => _output.Append("&#xA;"),
+                    '\r' => _output.Append("&#xD;"),
+                    _ => _output.Append(c),
+                };
+            }
+
+            _ = _output.Append('"');
+        }
+
+        public void Text(string text)
+        {
+            CloseStartTag();
+            (string name, _, bool hasElements) = _open.Pop();
+            _open.Push((name, true, hasElements));
+            foreach (char c in text)
+            {
+                _ = c switch
+                {
+                    '&' => _output.Append("&amp;"),
+                    '<' => _output.Append("&lt;"),
+                    '>' => _output.Append("&gt;"),
+                    '\r' => _output.Append("&#xD;"),
+                    _ => _output.Append(c),
+                };
+            }
+        }
+
+        public void EndElement(bool full)
+        {
+            (string name, bool mixed, bool hasElements) = _open.Pop();
+            if (_startTagOpen)
+            {
+                _startTagOpen = false;
+                _ = full ? _output.Append("></").Append(name).Append('>') : _output.Append(" />");
+                return;
+            }
+
+            if (!mixed && hasElements)
+            {
+                _ = _output.Append('\n').Append(' ', _open.Count);
+            }
+
+            _ = _output.Append("</").Append(name).Append('>');
+        }
+
+        public byte[] ToBytes() => Encoding.UTF8.GetBytes(_output.ToString());
+
+        private void CloseStartTag()
+        {
+            if (_startTagOpen)
+            {
+                _ = _output.Append('>');
+                _startTagOpen = false;
+            }
+        }
+    }
 }
