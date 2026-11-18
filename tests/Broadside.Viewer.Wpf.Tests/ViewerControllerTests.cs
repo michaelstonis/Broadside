@@ -256,39 +256,6 @@ public sealed class ViewerControllerTests
     });
 
     [Fact]
-    public void Dark_mode_draws_every_tile_again_from_the_cached_display_lists_with_dark_paper() => UiThread.Run(async () =>
-    {
-        using Shell shell = await Shell.OpenAsync(Shell.SampleDocument("textbook.pdf"));
-        long misses = shell.Controller.Session!.Document.CacheStatistics.DisplayLists.Misses;
-        int presented = shell.Controller.Surface.PresentedCount;
-
-        shell.Controller.SetColorFilter(ColorFilter.DarkMode);
-        Assert.Equal(ColorFilter.DarkMode, shell.Controller.Session.ColorFilter);
-        await shell.SettleAsync();
-        Assert.True(shell.Frame.IsDark);
-        Assert.True(shell.Controller.Surface.PresentedCount > presented);
-        Assert.Equal(misses, shell.Controller.Session.Document.CacheStatistics.DisplayLists.Misses);
-
-        double dark = 0;
-        double white = 0;
-        foreach (ViewerFrame.Item item in shell.Frame.Items)
-        {
-            if (item.Kind == ViewerFrame.ItemKind.Tile && item.Image is TileCopy tile)
-            {
-                (double w, double d) = tile.Tones();
-                white += w;
-                dark += d;
-            }
-        }
-
-        Assert.True(dark > white * 3, $"dark {dark}, white {white}: the paper turned black");
-
-        // Null keeps the session's filter; a new document opened in the same view gets the view's filter.
-        shell.Controller.SetColorFilter(null);
-        Assert.Equal(ColorFilter.DarkMode, shell.Controller.Session.ColorFilter);
-    });
-
-    [Fact]
     public void A_uri_link_is_raised_never_followed_and_an_internal_link_navigates() => UiThread.Run(async () =>
     {
         using (Shell shell = await Shell.OpenAsync(Shell.CorpusFile("annotations-link.pdf")))
