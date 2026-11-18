@@ -38,9 +38,9 @@ measures items 3 and 4 and sets #352's targets from the measurements.
 | Measure | Build | Device | Before | After | Target |
 |---|---|---|---:|---:|---|
 | Max frame while rendering the catalogue page, page's thread (ms) | interpreter | desktop | 68 | **25** | ≤ 50 ✓ |
-| | interpreter | phone, CPU/4 | 615 | 308 | ≤ 50: not met (see below) |
+| | interpreter | phone, CPU/4 | 615 | 308 (#546: 259) | ≤ 50: not met (see below) |
 | | AOT (rendering path) | desktop | | **42** | ≤ 50 ✓ |
-| | AOT (rendering path) | phone, CPU/4 | | 123 | ≤ 50: not met (see below) |
+| | AOT (rendering path) | phone, CPU/4 | | 123 (#546: 117) | ≤ 50: not met (see below) |
 | | interpreter, WebKit | desktop | 126 | **63** | ≤ 50: close |
 | Longest frame of the viewer's own tile work (ms) | interpreter | desktop | 62 | **18** | |
 | | interpreter | phone, CPU/4 | 609 | 264 | |
@@ -66,12 +66,47 @@ The worker path stays opt-in (`ViewerOptions.UseRemoteRenderer`). On the phone p
 | Memory: page + worker (MiB) | 495 | 240 + 239 |
 
 On the phone the remaining long frames are no longer tile work. With the worker, the page's thread renders no content, yet frames of
-about 300 ms remain. They come from the page-model loads that follow a page's first tiles. Text selection builds its hit-test index
-and reading order in one step (`TextSelection.LoadPageAsync`), and the accessibility bridge extracts the page's layout in one step.
-Both are content runs outside this ticket's list (JPEG, JPEG 2000, colour conversion, list build). Their display list is now built in
-slices too (`DocumentSession.GetDisplayListAsync` yields between the slices of any layers' build), but the index, the reading order and
-the layout analysis are still one step each. Slicing them, or deferring them to idle time, is what is left of the 50 ms target on the
-phone profile.
+about 300 ms remained. They came from the page-model loads that follow a page's first tiles. Text selection built its hit-test index
+and reading order in one step (`TextSelection.LoadPageAsync`), and the accessibility bridge extracted the page's layout in one step.
+#546 slices those (next section); what is left on the phone profile is the display list those loads build first.
+
+## Page-model loads in slices (#546)
+
+In cooperative mode a page's selectable text and accessible tree are now built a step at a time, with a yield between steps:
+
+- the hit-test index, from the page's display list (built in slices already), in a step of its own;
+- the layout the reading order comes from, and the page's logical text, each extracted in slices of the page's top-level operators
+  (`PdfPage.BeginLayoutExtraction` and `PdfPage.BeginTextExtraction`, which return the trees and text `ExtractLayout` and `ExtractText`
+  return; `SlicedExtractionTests`), then the tree built from the text in a last slice;
+- the reading order from that tree, and the selectable text from the order and the logical text, each in a step;
+- the accessibility bridge's layout, in slices as above, and its nodes in a step of their own.
+
+An edit of the document between two slices starts a load again (`SlicedPageModelTests`). The background mode (desktop and mobile
+shells) still builds each in one call on a worker, through the same code.
+
+Measured on 2026-11-17 on the same machine and harness (load average 5 to 17), `catalogue.pdf`, phone profile (390x844 @3x, CPU/4),
+Chromium; two runs each, before on the `spec/33-broadside-v1` tip the branch started from:
+
+| Build | Worker | Rendering the first view: max frame, before | After (two runs) | Viewer's own work, after | First view presented (ms), after |
+|---|---|---:|---:|---:|---:|
+| interpreter (`--no-aot`) | no | 301 | 259, 260 | 260, 255 | 7838, 7908 |
+| interpreter (`--no-aot`) | yes | 292 | 275, 274 | 41, 34 | 4138, 4353 |
+| AOT (rendering path, `--hot-aot`) | no | 132 | 117, 124 | 119, 118 | 5974, 6191 |
+| AOT (rendering path, `--hot-aot`) | yes | 108 | 101, 106 | 33, 28 | 3952, 3477 |
+
+The phone target (50 ms) is still not met, and slicing the page-model loads moved the maximum only a little, because the longest frame
+was not theirs. A probe build that timed each step (not committed) found, on the phone profile:
+
+- **The slices of the page-model loads are short.** With the interpreter the longest was 42 ms (one slice of a layout's text run),
+  the hit-test index 15 ms, the reading order 20 ms, building the selectable text 30 ms and the accessible nodes 31 ms. With AOT the
+  longest was 53 ms (a layout slice), then 38 ms (building the selectable text).
+- **The longest frame is one slice of a display-list build.** With the worker, the page's thread builds the list text selection
+  needs, and one slice of it took 247 ms (interpreter) and 95 ms (AOT): a top-level `Do` whose image is decoded when the list is
+  built (the 720 x 720 Flate image with a soft mask of page 2). Without the worker the same decode runs in a tile's list build, in the
+  viewer's own frame (262 ms interpreter, 132 ms AOT).
+
+So the 50 ms phone target now waits on build-time image decodes (the first item of "What is still one step" below), not on text
+selection or accessibility.
 
 ## Raw tables
 
@@ -134,7 +169,8 @@ slower than the JIT, which is why those steps still show on the CPU/4 profile.
 - **The colour converter of an ICC space**: built on first use.
 - **Reductions of images decoded at build**: the box average of a large Flate image drawn small.
 - **Annotation and form-field layers**: built in the last slice of their list.
-- **Text selection and accessibility**: the hit-test index, reading order and layout analysis of a page (see above).
+- **Text selection and accessibility, in parts** (#546): one top-level operator of a layout's or a text's run, the tree built from
+  a layout's text, the hit-test index, the reading order from the tree, the selectable text, and the accessible nodes of a page.
 - **One wavelet level of a large JPEG 2000 tile-component.**
 - **A drawing operation other than an image**: a long glyph run, a large shading or pattern fill.
 
@@ -250,7 +286,7 @@ the #547 base, after is this build; a second run of the after build is in bracke
 | 1 | Desktop: no frame over 50 ms while the first view renders, interpreter and AOT | 25 / 42 ms ✓ |
 | 2 | Desktop: no frame over 50 ms while scrolling, AOT | 33 ms ✓ (interpreter: one frame of 67 ms) |
 | 3 | Phone, CPU/4, AOT: no frame over 50 ms while scrolling | 42 ms ✓ |
-| 4 | Phone, CPU/4, AOT: no frame over 50 ms while the first view renders | 123 ms: page-model loads remain (see above) |
-| 5 | Phone, CPU/4, interpreter: no frame over 100 ms while scrolling or rendering | 442 / 308 ms: page-model loads remain |
+| 4 | Phone, CPU/4, AOT: no frame over 50 ms while the first view renders | 117 to 124 ms (#546): a build-time image decode remains (see above) |
+| 5 | Phone, CPU/4, interpreter: no frame over 100 ms while scrolling or rendering | 425 to 442 / 259 ms (#546): build-time image decodes remain |
 | 6 | First view presented: desktop ≤ 2 s; phone (CPU/4) ≤ 6 s with AOT, ≤ 8 s with the interpreter | 1.6 s, 5.8 s, 7.9 s ✓ |
 | 7 | AOT build that serves the rendering path at AOT speed from hosts with a 16 MiB file limit | 11.1 MiB (#547) ✓ |

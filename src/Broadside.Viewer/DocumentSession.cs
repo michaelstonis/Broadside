@@ -59,6 +59,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     private long _pixelBytes;
     private long _presented;
     private long _cancelled;
+    private long _edits;
     private int _liveBackends;
     private volatile ColorFilter _colorFilter;
 
@@ -94,6 +95,9 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
 
     /// <summary>Gets whether the session works on its caller's thread in slices (the browser) instead of on thread-pool workers.</summary>
     internal bool IsCooperative => _cooperative;
+
+    /// <summary>Gets how many edits have started (<see cref="BeginEdit"/>): work done in slices compares it to notice one between them.</summary>
+    internal long EditCount => Interlocked.Read(ref _edits);
 
     /// <summary>Gets the longest piece of drawing work run between yields in cooperative mode.</summary>
     internal TimeSpan SliceBudget => _sliceBudget;
@@ -474,6 +478,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     public IDisposable BeginEdit()
     {
         DropSlicedBuilds(-1); // a paused list build must not continue over an edit (issue #365)
+        Interlocked.Increment(ref _edits); // nor a paused extraction (issue #546)
         if (_reads is not { } reads)
         {
             return EditScope.None;
@@ -508,6 +513,65 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         {
             Exit(operation);
         }
+    }
+
+    /// <summary>
+    /// Runs a page-model step that reads the document, such as a text or layout extraction (issue #546): in cooperative mode on the
+    /// caller's thread in slices of the slice budget, with a yield before it and between its slices, started again when the document
+    /// is edited between two slices; otherwise in one call, as <see cref="ReadAsync{T}"/> runs it. <paramref name="begin"/> starts the
+    /// step; <paramref name="step"/> continues it for a budget and returns whether it is done; <paramref name="result"/> reads what it
+    /// made. A remote document whose step reaches data not fetched yet runs it in one call, fetching what it misses.
+    /// </summary>
+    internal async ValueTask<TResult> ReadInSlicesAsync<TWork, TResult>(
+        Func<TWork> begin, Func<TWork, TimeSpan, bool> step, Func<TWork, TResult> result, CancellationToken cancellationToken)
+        where TWork : IDisposable
+    {
+        if (!_cooperative)
+        {
+            return await ReadAsync(_ => RunToEnd(begin, step, result), cancellationToken).ConfigureAwait(false);
+        }
+
+        TimeSpan budget = _sliceBudget;
+        while (true)
+        {
+            await _yield(cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            ObjectDisposedException.ThrowIf(_closed, this);
+            long edits = EditCount;
+            bool edited = false;
+            try
+            {
+                using TWork work = begin();
+                while (!step(work, budget))
+                {
+                    await _yield(cancellationToken).ConfigureAwait(false);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    ObjectDisposedException.ThrowIf(_closed, this);
+                    if (EditCount != edits)
+                    {
+                        edited = true; // what the slices read so far may have changed: start again
+                        break;
+                    }
+                }
+
+                if (!edited)
+                {
+                    return result(work);
+                }
+            }
+            catch (PdfRangeNotLoadedException) when (_remote)
+            {
+                return await ReadAsync(_ => RunToEnd(begin, step, result), cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private static TResult RunToEnd<TWork, TResult>(Func<TWork> begin, Func<TWork, TimeSpan, bool> step, Func<TWork, TResult> result)
+        where TWork : IDisposable
+    {
+        using TWork work = begin();
+        step(work, Timeout.InfiniteTimeSpan);
+        return result(work);
     }
 
     /// <summary>Closes the session: cancels pending work; the backends and the document are released once that work has stopped.</summary>

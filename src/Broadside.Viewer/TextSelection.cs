@@ -1,7 +1,9 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Broadside.Graphics;
+using Broadside.Layout;
 using Broadside.Rendering;
+using Broadside.Text;
 
 namespace Broadside.Viewer;
 
@@ -95,12 +97,18 @@ public sealed class TextSelection
             return loaded;
         }
 
-        // One load per page however many ask; the hit-test index and reading order are built off the UI thread in background mode (#357).
+        // One load per page however many ask; the hit-test index and reading order are built off the UI thread in background mode
+        // (#357), and in slices between frames in cooperative mode (#546).
         SelectableText text = await _loads.LoadAsync(
             pageIndex,
             async () =>
             {
                 DisplayList list = await Session.GetDisplayListAsync(pageIndex, DisplayLayers.All, CancellationToken.None).ConfigureAwait(false);
+                if (Session.IsCooperative)
+                {
+                    return await CreateInSlicesAsync(pageIndex, list).ConfigureAwait(false);
+                }
+
                 return await Session.ReadAsync(
                     _ =>
                     {
@@ -111,6 +119,55 @@ public sealed class TextSelection
             },
             cancellationToken).ConfigureAwait(false);
         return Interlocked.CompareExchange(ref _pages[pageIndex], text, null) ?? text;
+    }
+
+    /// <summary>
+    /// Builds a page's selectable text on the caller's thread a step at a time (issue #546): the hit-test index, the layout the
+    /// reading order comes from and the logical text are each extracted in slices, with a yield between them, so no frame runs
+    /// all of it. The result is what <see cref="SelectableText.Create(PdfPage, HitTestIndex, IReadingOrderProvider?)"/> builds from
+    /// <paramref name="list"/>; an edit of the document meanwhile starts it again from a new list.
+    /// </summary>
+    private async ValueTask<SelectableText> CreateInSlicesAsync(int pageIndex, DisplayList list)
+    {
+        while (true)
+        {
+            long edits = Session.EditCount;
+            PdfPage page = Session.Document.Pages[pageIndex];
+            await Session.PauseAsync(CancellationToken.None).ConfigureAwait(false);
+            HitTestIndex index = await Session.ReadAsync(_ => page.CreateHitTestIndex(list), CancellationToken.None).ConfigureAwait(false);
+            int[] order;
+            if (ReadingOrder is LayoutReadingOrder layout)
+            {
+                LayoutTree tree = await Session.ReadInSlicesAsync(
+                    () => page.BeginLayoutExtraction(layout.Options),
+                    static (work, budget) => work.Continue(budget),
+                    static work => work.Result,
+                    CancellationToken.None).ConfigureAwait(false);
+                await Session.PauseAsync(CancellationToken.None).ConfigureAwait(false);
+                order = LayoutReadingOrder.GetReadingOrder(page, index, tree);
+            }
+            else
+            {
+                // Another provider orders the glyphs in one step.
+                await Session.PauseAsync(CancellationToken.None).ConfigureAwait(false);
+                order = await Session.ReadAsync(_ => ReadingOrder.GetReadingOrder(page, index), CancellationToken.None).ConfigureAwait(false)
+                    ?? throw SelectableText.NoOrder();
+            }
+
+            TextPage extracted = await Session.ReadInSlicesAsync(
+                () => page.BeginTextExtraction(SelectableText.ExtractionOptions()),
+                static (work, budget) => work.Continue(budget),
+                static work => work.Result,
+                CancellationToken.None).ConfigureAwait(false);
+            await Session.PauseAsync(CancellationToken.None).ConfigureAwait(false);
+            if (Session.EditCount == edits)
+            {
+                return SelectableText.Create(page, index, order, extracted);
+            }
+
+            // Edited between two steps: what was read may be stale.
+            list = await Session.GetDisplayListAsync(pageIndex, DisplayLayers.All, CancellationToken.None).ConfigureAwait(false);
+        }
     }
 
     /// <summary>Gets a page's selectable text when it is loaded.</summary>
