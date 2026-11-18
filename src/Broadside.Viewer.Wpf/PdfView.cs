@@ -20,7 +20,8 @@ namespace Broadside.Viewer.Wpf;
 /// in the other Broadside viewers. A mouse drag over text selects it (double click: word, triple: line); on touch a long press
 /// selects a word and handles extend it. Links and form fields go through the <see cref="AnnotationLayer"/>: links inside the
 /// document navigate, every other action (URIs, launches, scripts) is raised as <see cref="ActionRequested"/> and never performed. A
-/// focused text or choice field opens a text box or combo box over the widget; an edit redraws only the overlay tiles it touches.
+/// focused text or choice field opens a text box, a combo box or (a multi-select list box) a multi-select list over the widget; an
+/// edit redraws only the overlay tiles it touches.
 /// Keys: arrows, Page Up/Down, Home/End, +/-/0, Tab between fields and links, Enter, Ctrl+A, Ctrl+C, F3 (find next) and the
 /// single-letter quick navigation of screen readers (H headings, T tables, L lists, K links, F fields, P pages).
 /// </para>
@@ -511,11 +512,19 @@ public sealed class PdfView : FrameworkElement, IViewerHost, IDisposable
             return;
         }
 
-        FrameworkElement view = editor.Kind == FieldEditorKind.Choice ? CreateChoiceEditor(editor) : CreateTextEditor(editor);
+        FrameworkElement view = editor switch
+        {
+            { Kind: FieldEditorKind.Choice, IsMultiSelect: true } => CreateMultiSelectEditor(editor),
+            { Kind: FieldEditorKind.Choice } => CreateChoiceEditor(editor),
+            _ => CreateTextEditor(editor),
+        };
         view.Visibility = Visibility.Hidden;
         _editorView = view;
         _editorLayer.Children.Add(view);
     }
+
+    /// <summary>The native editor over the focused form field, or <see langword="null"/>.</summary>
+    internal FrameworkElement? EditorView => _editorView;
 
     void IViewerHost.EditorMoved(double x, double y, double width, double height)
     {
@@ -775,5 +784,65 @@ public sealed class PdfView : FrameworkElement, IViewerHost, IDisposable
             }
         };
         return combo;
+    }
+
+    private ListBox CreateMultiSelectEditor(FieldEditor editor)
+    {
+        // A multi-select list box (§12.7.5.4, MultiSelect): a click toggles its option. The items are containers of their own, so
+        // options with the same text stay apart.
+        var list = new ListBox
+        {
+            SelectionMode = SelectionMode.Multiple,
+            Background = Brushes.White,
+            Foreground = Brushes.Black,
+        };
+        foreach (string option in editor.Options)
+        {
+            list.Items.Add(new ListBoxItem { Content = option, Padding = new Thickness(2, 0, 2, 0) });
+        }
+
+        foreach (int index in editor.SelectedIndices)
+        {
+            ((ListBoxItem)list.Items[index]).IsSelected = true;
+        }
+
+        // Every change hands the whole selection to the form filling, which holds it until focus leaves the list and then writes it
+        // once through the form API.
+        list.SelectionChanged += (_, _) =>
+        {
+            if (ReferenceEquals(_editorView, list))
+            {
+                Controller.EditorSelectedOptions(list.SelectedItems.Cast<object>().Select(list.Items.IndexOf));
+            }
+        };
+
+        void Close(bool commit)
+        {
+            if (ReferenceEquals(_editorView, list))
+            {
+                _ = commit ? Controller.CommitFieldEdit() : Controller.CancelFieldEdit();
+                Controller.EndFieldEdit();
+            }
+        }
+
+        // Escape abandons the picks; focus leaving the list commits them.
+        list.PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Escape)
+            {
+                e.Handled = true;
+                Close(commit: false);
+                Focus();
+            }
+        };
+        list.LostKeyboardFocus += (_, e) =>
+        {
+            // Focus moving nowhere (the window deactivated) keeps the list open; WPF gives it back on activation.
+            if (e.NewFocus is DependencyObject next && !ReferenceEquals(next, list) && !list.IsAncestorOf(next))
+            {
+                Close(commit: true);
+            }
+        };
+        return list;
     }
 }

@@ -160,6 +160,29 @@ public sealed class FormFillingTests
             Assert.True(nativeEditor ? filling.SetText(FormFillingScenario.City) : filling.TextInput(FormFillingScenario.City));
             Assert.Empty(filling.SelectedOptions);
             Assert.True(filling.Commit());
+
+            // A multi-select list box: two options toggled (#560), by the native list's whole selection after each click or by
+            // End/Home and Space; the field is written once, at the commit.
+            layer.Focus(Widget(layer, "colors"));
+            Assert.Equal([0], filling.SelectedOptions);
+            InputKey[] keys = [InputKey.End, InputKey.Home];
+            for (int i = 0; i < FormFillingScenario.ColorsToggled.Count; i++)
+            {
+                if (nativeEditor)
+                {
+                    Assert.True(filling.SetSelectedOptions(FormFillingScenario.ColorsAfterEachToggle[i]));
+                }
+                else
+                {
+                    Assert.True(filling.KeyDown(keys[i], InputModifiers.None));
+                    Assert.Equal(FormFillingScenario.ColorsToggled[i], filling.HighlightedOption);
+                    Assert.True(filling.KeyDown(InputKey.Space, InputModifiers.None));
+                }
+
+                Assert.Equal(FormFillingScenario.ColorsAfterEachToggle[i], filling.SelectedOptions);
+            }
+
+            Assert.True(filling.Commit());
             layer.Focus(null);
 
             Assert.Equal(await FormFillingScenario.ExpectedAsync(Token), FormFillingScenario.Describe(session.Document.AcroForm!));
