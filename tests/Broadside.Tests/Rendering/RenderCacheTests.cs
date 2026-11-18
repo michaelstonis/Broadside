@@ -19,8 +19,8 @@ namespace Broadside.Tests.Rendering;
 /// <see cref="PdfDocument.CacheStatistics"/>. A budget of zero turns its cache off.
 /// </summary>
 /// <remarks>
-/// In the non-parallel collection: a cache entry is current while no COS object anywhere in the process changes, so a test editing
-/// another document at the same time would turn an expected hit into a miss.
+/// In the non-parallel collection: a cache entry is current while none of its document's objects changes, and an object a parallel
+/// test put into two documents would count as every document's, turning an expected hit into a miss.
 /// </remarks>
 [Collection(HeavyTestCollection.Name)]
 public sealed class RenderCacheTests
