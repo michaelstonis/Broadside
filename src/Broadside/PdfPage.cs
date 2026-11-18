@@ -383,14 +383,46 @@ public sealed partial class PdfPage
         {
             ContentProcessor processor = companion is null ? extractor : new CompositeContentProcessor(extractor, companion);
             ProcessContent(processor, options.ContentOptions ?? ContentInterpreter.DefaultOptions);
-            return options.ReadingOrder == Text.TextReadingOrder.Structure && Text.StructureOrder.Build(_document, this, extractor, options) is { } ordered
-                ? ordered
-                : extractor.ToTextPage();
+            return ToTextPage(extractor, options);
         }
         finally
         {
             Text.TextExtractor.Return(extractor);
         }
+    }
+
+    /// <summary>The page's text from an extractor that has run over its content: in structure order when the options ask for it and the page is tagged.</summary>
+    internal Text.TextPage ToTextPage(Text.TextExtractor extractor, Text.TextExtractionOptions options) =>
+        options.ReadingOrder == Text.TextReadingOrder.Structure && Text.StructureOrder.Build(_document, this, extractor, options) is { } ordered
+            ? ordered
+            : extractor.ToTextPage();
+
+    /// <summary>
+    /// Starts extracting the page's text in time slices (issue #546): the text <see cref="ExtractText(Text.TextExtractionOptions)"/>
+    /// returns, extracted by <see cref="Text.TextExtraction.Continue"/> a slice at a time, so that a single-threaded viewer extracts a
+    /// page between frames.
+    /// </summary>
+    /// <param name="options">What to extract, in which order, and the content run's options.</param>
+    /// <returns>The extraction.</returns>
+    /// <remarks>ISO 32000-2 §9.4.4, §9.10, §14.8.2 and §14.9; viewer capability 4. See <see cref="Text.TextExtraction"/>.</remarks>
+    public Text.TextExtraction BeginTextExtraction(Text.TextExtractionOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return new Text.TextExtraction(this, _document, options);
+    }
+
+    /// <summary>
+    /// Starts building the page's layout tree in time slices (issue #546): the tree <see cref="ExtractLayout(Layout.LayoutOptions)"/>
+    /// returns, built by <see cref="Layout.LayoutExtraction.Continue"/> a slice at a time, so that a single-threaded viewer lays out a
+    /// page between frames.
+    /// </summary>
+    /// <param name="options">What content to include and the content run's options.</param>
+    /// <returns>The extraction.</returns>
+    /// <remarks>ISO 32000-2 §14.8.4; ISO/TS 32005; viewer capability 4. See <see cref="Layout.LayoutExtraction"/>.</remarks>
+    public Layout.LayoutExtraction BeginLayoutExtraction(Layout.LayoutOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return new Layout.LayoutExtraction(this, _document, options);
     }
 
     /// <summary>Builds the page's display list: its content interpreted once into resolved drawing operations any backend replays.</summary>

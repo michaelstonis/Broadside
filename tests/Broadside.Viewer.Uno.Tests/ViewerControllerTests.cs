@@ -219,28 +219,6 @@ public sealed class ViewerControllerTests
     });
 
     [Fact]
-    public void Dark_mode_redraws_the_tiles_from_the_cached_lists_with_black_paper_and_back() => UiThread.Run(async () =>
-    {
-        using Shell shell = await Shell.OpenAsync(Shell.SampleDocument("textbook.pdf"));
-        LayoutRectangle page = shell.Layout.PageToViewport(shell.Viewport, 0, shell.Layout.GetPageMetrics(0).CropBox);
-        long misses = shell.Controller.Session!.Document.CacheStatistics.DisplayLists.Misses;
-
-        shell.Controller.SetColorFilter(ColorFilter.DarkMode);
-        await shell.SettleAsync();
-        Assert.True(shell.Controller.LatestFrame.IsDark);
-        Raster dark = shell.Draw();
-        Assert.Equal(ViewerColors.DarkBackground, dark[1, 1]);
-        (int darkSamples, int whiteSamples) = Count(dark, page);
-        Assert.True(darkSamples > whiteSamples * 3, $"dark {darkSamples}, white {whiteSamples}");
-        Assert.Equal(misses, shell.Controller.Session.Document.CacheStatistics.DisplayLists.Misses);
-
-        shell.Controller.SetColorFilter(ColorFilter.None);
-        await shell.SettleAsync();
-        (darkSamples, whiteSamples) = Count(shell.Draw(), page);
-        Assert.True(whiteSamples > darkSamples * 3, $"dark {darkSamples}, white {whiteSamples}");
-    });
-
-    [Fact]
     public void A_uri_link_is_raised_never_followed_and_an_internal_link_navigates() => UiThread.Run(async () =>
     {
         using (Shell shell = await Shell.OpenAsync(Shell.CorpusFile("annotations-link.pdf")))
@@ -467,7 +445,7 @@ public sealed class ViewerControllerTests
         Assert.All(shell.Controller.AccessiblePages, page => Assert.InRange(page, 0, 7));
     });
 
-    private static (int Dark, int White) Count(Raster frame, LayoutRectangle page)
+    internal static (int Dark, int White) Count(Raster frame, LayoutRectangle page)
     {
         int dark = 0;
         int white = 0;

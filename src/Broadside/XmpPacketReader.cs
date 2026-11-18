@@ -1,6 +1,4 @@
 using System.Text;
-using System.Xml;
-using System.Xml.Linq;
 using Broadside.Diagnostics;
 using Broadside.Parsing;
 
@@ -8,9 +6,13 @@ namespace Broadside;
 
 /// <summary>Reads the bytes of an XMP packet into an <see cref="XmpPacket"/> (ISO 16684-1 §7); never throws.</summary>
 /// <remarks>
-/// The XML is read by the BCL's <see cref="XmlReader"/> with explicit settings: document type declarations prohibited, no resolver,
-/// no entity expansion, a character limit, fragment conformance (the packet wrapper's processing instructions surround the
-/// elements). Only the first <c>rdf:RDF</c> element is loaded; reading stops at its end tag.
+/// <para>
+/// The XML is read by <see cref="XmpXmlReader"/>, which reads only the subset XMP uses: document type declarations refused, no
+/// entities beyond the predefined ones, no resolver, a character limit, fragment conformance (the packet wrapper's processing
+/// instructions surround the elements). Only the first <c>rdf:RDF</c> element is loaded; reading stops at its end tag. It accepts
+/// and refuses exactly what the BCL's <c>XmlReader</c> did before (issue #545), without keeping <c>System.Xml</c> in the app.
+/// </para>
+/// <para>ISO 32000-2 §14.3.2.</para>
 /// </remarks>
 internal static class XmpPacketReader
 {
@@ -20,12 +22,7 @@ internal static class XmpPacketReader
     /// <summary>How deeply property values may nest (structures in arrays in structures ...); deeper values read as empty.</summary>
     private const int MaxDepth = 64;
 
-    private static readonly XNamespace RdfNamespace = XmpNamespaces.Rdf;
-    private static readonly XName About = RdfNamespace + "about";
-    private static readonly XName ParseType = RdfNamespace + "parseType";
-    private static readonly XName Resource = RdfNamespace + "resource";
-    private static readonly XName Value = RdfNamespace + "value";
-    private static readonly XName Lang = XNamespace.Xml + "lang";
+    private const string XmlNamespace = "http://www.w3.org/XML/1998/namespace";
 
     /// <summary>Reads a packet.</summary>
     /// <param name="data">The bytes.</param>
@@ -49,12 +46,8 @@ internal static class XmpPacketReader
                 "The XMP packet has bytes other than white-space before its first markup; they are skipped.");
         }
 
-        XElement? rdf;
-        try
-        {
-            rdf = LoadRdf(text, start);
-        }
-        catch (XmlException exception)
+        XmpXmlElement? rdf = XmpXmlReader.ReadRdf(text.AsSpan(start), MaxCharacters, out string? error);
+        if (error is not null)
         {
             bool doctype = text.Contains("<!DOCTYPE", StringComparison.Ordinal);
             report?.Invoke(
@@ -62,7 +55,7 @@ internal static class XmpPacketReader
                 DiagnosticSeverity.Error,
                 doctype
                     ? "The XMP packet has a document type declaration, which is not read (it could expand entities or fetch files); the packet is ignored."
-                    : $"The XMP packet is not well-formed XML ({exception.Message}); the packet is ignored.");
+                    : $"The XMP packet is not well-formed XML ({error}); the packet is ignored.");
             return null;
         }
 
@@ -128,45 +121,15 @@ internal static class XmpPacketReader
         return encoding.GetString(data.Length > maxBytes ? data[..maxBytes] : data);
     }
 
-    /// <summary>Loads the first <c>rdf:RDF</c> element, or returns <see langword="null"/> when there is none.</summary>
-    private static XElement? LoadRdf(string text, int start)
-    {
-        var settings = new XmlReaderSettings
-        {
-            DtdProcessing = DtdProcessing.Prohibit,
-            XmlResolver = null,
-            MaxCharactersFromEntities = 1024,
-            MaxCharactersInDocument = MaxCharacters,
-            ConformanceLevel = ConformanceLevel.Fragment,
-            IgnoreComments = true,
-            IgnoreProcessingInstructions = true,
-            IgnoreWhitespace = false,
-            CheckCharacters = true,
-            CloseInput = true,
-        };
-        using var input = new StringReader(start == 0 ? text : text[start..]);
-        using var reader = XmlReader.Create(input, settings);
-        while (reader.Read())
-        {
-            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "RDF" && reader.NamespaceURI == XmpNamespaces.Rdf)
-            {
-                using XmlReader subtree = reader.ReadSubtree();
-                return XElement.Load(subtree, LoadOptions.PreserveWhitespace);
-            }
-        }
-
-        return null;
-    }
-
     /// <summary>Merges the properties of every description in <c>rdf:RDF</c> (ISO 16684-1 §7.4); the first of two equal names wins.</summary>
-    private static XmpPacket Build(XElement rdf, Action<DiagnosticCode, DiagnosticSeverity, string>? report)
+    private static XmpPacket Build(XmpXmlElement rdf, Action<DiagnosticCode, DiagnosticSeverity, string>? report)
     {
         var properties = new List<XmpProperty>();
         var names = new HashSet<(string, string)>();
         string? about = null;
-        foreach (XElement description in rdf.Elements())
+        foreach (XmpXmlElement description in rdf.Children)
         {
-            about ??= description.Attribute(About)?.Value;
+            about ??= description.Attribute(XmpNamespaces.Rdf, "about")?.Value;
             foreach (XmpProperty property in ReadNode(description, depth: 0))
             {
                 if (names.Add((property.NamespaceName, property.Name)))
@@ -187,15 +150,15 @@ internal static class XmpPacketReader
     }
 
     /// <summary>Reads the properties of a node element: its property attributes, then its property elements (§7.4, §7.9.2.2).</summary>
-    private static List<XmpProperty> ReadNode(XElement node, int depth)
+    private static List<XmpProperty> ReadNode(XmpXmlElement node, int depth)
     {
         var properties = new List<XmpProperty>();
-        foreach (XAttribute attribute in PropertyAttributes(node))
+        foreach (XmpXmlAttribute attribute in PropertyAttributes(node))
         {
-            properties.Add(Simple(attribute.Name, attribute.Value, language: null));
+            properties.Add(Simple(attribute.NamespaceName, attribute.LocalName, attribute.Value, language: null));
         }
 
-        foreach (XElement element in node.Elements())
+        foreach (XmpXmlElement element in node.Children)
         {
             properties.Add(ReadProperty(element, depth + 1));
         }
@@ -204,43 +167,51 @@ internal static class XmpPacketReader
     }
 
     /// <summary>Reads one property element in any of the forms of ISO 16684-1 §7.5-7.9.</summary>
-    private static XmpProperty ReadProperty(XElement element, int depth)
+    private static XmpProperty ReadProperty(XmpXmlElement element, int depth)
     {
-        XName name = element.Name;
-        string? language = element.Attribute(Lang)?.Value;
+        string? language = element.Attribute(XmlNamespace, "lang")?.Value;
         if (depth > MaxDepth)
         {
-            return Simple(name, string.Empty, language);
+            return Simple(element.NamespaceName, element.LocalName, string.Empty, language);
         }
 
-        if (element.Attribute(Resource) is { } resource)
+        if (element.Attribute(XmpNamespaces.Rdf, "resource") is { } resource)
         {
-            return new XmpProperty(Uri(name), name.LocalName, XmpPropertyKind.Simple, resource.Value, language, [], [], [], isUri: true);
+            return new XmpProperty(element.NamespaceName, element.LocalName, XmpPropertyKind.Simple, resource.Value, language, [], [], [], isUri: true);
         }
 
-        string? parseType = element.Attribute(ParseType)?.Value;
+        string? parseType = element.Attribute(XmpNamespaces.Rdf, "parseType")?.Value;
         if (parseType == "Resource")
         {
             // §7.9.2.4: the element is itself the structure's (or the qualified value's) description.
-            return FromNode(name, element, language, depth);
+            return FromNode(element, element, language, depth);
         }
 
-        XElement? child = element.Elements().FirstOrDefault();
+        XmpXmlElement? child = element.Children.Count > 0 ? element.Children[0] : null;
         if (child is null)
         {
-            List<XAttribute> fields = [.. PropertyAttributes(element)];
-            if (fields.Count > 0 && string.IsNullOrWhiteSpace(element.Value))
+            List<XmpXmlAttribute> fields = [.. PropertyAttributes(element)];
+            string text = element.Text;
+            if (fields.Count > 0 && string.IsNullOrWhiteSpace(text))
             {
                 // §7.9.2.5: a structure whose fields are all attributes of the property element.
-                return new XmpProperty(Uri(name), name.LocalName, XmpPropertyKind.Structure, null, language, [], [.. fields.Select(field => Simple(field.Name, field.Value, null))], []);
+                return new XmpProperty(
+                    element.NamespaceName,
+                    element.LocalName,
+                    XmpPropertyKind.Structure,
+                    null,
+                    language,
+                    [],
+                    [.. fields.Select(field => Simple(field.NamespaceName, field.LocalName, field.Value, null))],
+                    []);
             }
 
-            return Simple(name, element.Value, language);
+            return Simple(element.NamespaceName, element.LocalName, text, language);
         }
 
-        if (child.Name.Namespace == RdfNamespace)
+        if (child.NamespaceName == XmpNamespaces.Rdf)
         {
-            XmpPropertyKind? kind = child.Name.LocalName switch
+            XmpPropertyKind? kind = child.LocalName switch
             {
                 "Bag" => XmpPropertyKind.UnorderedArray,
                 "Seq" => XmpPropertyKind.OrderedArray,
@@ -249,50 +220,45 @@ internal static class XmpPacketReader
             };
             if (kind is { } arrayKind)
             {
-                XmpProperty[] items = [.. child.Elements(RdfNamespace + "li").Select(item => ReadProperty(item, depth + 1))];
-                return new XmpProperty(Uri(name), name.LocalName, arrayKind, null, language, items, [], []);
+                XmpProperty[] items = [.. child.Children.Where(item => item.LocalName == "li" && item.NamespaceName == XmpNamespaces.Rdf).Select(item => ReadProperty(item, depth + 1))];
+                return new XmpProperty(element.NamespaceName, element.LocalName, arrayKind, null, language, items, [], []);
             }
         }
 
         // A nested node element: a structure, or a qualified value when it has rdf:value (§7.6, §7.8).
-        return FromNode(name, child, language, depth);
+        return FromNode(element, child, language, depth);
     }
 
     /// <summary>Reads a node element as a structure, or as a qualified value when it has <c>rdf:value</c>.</summary>
-    private static XmpProperty FromNode(XName name, XElement node, string? language, int depth)
+    private static XmpProperty FromNode(XmpXmlElement name, XmpXmlElement node, string? language, int depth)
     {
-        if (node.Element(Value) is { } valueElement)
+        if (node.Element(XmpNamespaces.Rdf, "value") is { } valueElement)
         {
             XmpProperty value = ReadProperty(valueElement, depth + 1);
             List<XmpProperty> qualifiers = [];
-            foreach (XAttribute attribute in PropertyAttributes(node))
+            foreach (XmpXmlAttribute attribute in PropertyAttributes(node))
             {
-                qualifiers.Add(Simple(attribute.Name, attribute.Value, null));
+                qualifiers.Add(Simple(attribute.NamespaceName, attribute.LocalName, attribute.Value, null));
             }
 
-            foreach (XElement qualifier in node.Elements())
+            foreach (XmpXmlElement qualifier in node.Children)
             {
-                if (qualifier != valueElement)
+                if (!ReferenceEquals(qualifier, valueElement))
                 {
                     qualifiers.Add(ReadProperty(qualifier, depth + 1));
                 }
             }
 
-            return new XmpProperty(Uri(name), name.LocalName, value.Kind, value.Value, value.Language ?? language, value.Items, value.Fields, qualifiers, value.IsUri);
+            return new XmpProperty(name.NamespaceName, name.LocalName, value.Kind, value.Value, value.Language ?? language, value.Items, value.Fields, qualifiers, value.IsUri);
         }
 
-        return new XmpProperty(Uri(name), name.LocalName, XmpPropertyKind.Structure, null, language, [], ReadNode(node, depth), []);
+        return new XmpProperty(name.NamespaceName, name.LocalName, XmpPropertyKind.Structure, null, language, [], ReadNode(node, depth), []);
     }
 
     /// <summary>The attributes of an element that are properties: not namespace declarations, not RDF or XML syntax.</summary>
-    private static IEnumerable<XAttribute> PropertyAttributes(XElement element) =>
-        element.Attributes().Where(attribute => !attribute.IsNamespaceDeclaration
-            && attribute.Name.Namespace != RdfNamespace
-            && attribute.Name.Namespace != XNamespace.Xml
-            && attribute.Name.Namespace != XNamespace.None);
+    private static IEnumerable<XmpXmlAttribute> PropertyAttributes(XmpXmlElement element) =>
+        element.Attributes.Where(attribute => attribute.NamespaceName is not (XmpNamespaces.Rdf or XmlNamespace or ""));
 
-    private static XmpProperty Simple(XName name, string value, string? language) =>
-        new(Uri(name), name.LocalName, XmpPropertyKind.Simple, value, language, [], [], []);
-
-    private static string Uri(XName name) => name.NamespaceName;
+    private static XmpProperty Simple(string namespaceName, string localName, string value, string? language) =>
+        new(namespaceName, localName, XmpPropertyKind.Simple, value, language, [], [], []);
 }
