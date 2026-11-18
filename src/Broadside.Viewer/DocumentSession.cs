@@ -541,8 +541,10 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
             bool edited = false;
             try
             {
-                using TWork work = begin();
-                while (!step(work, budget))
+                // Issue #584: each slice is pending work, so closing the session between two slices releases the document only once
+                // the running slice has returned; the next slice then sees the session closed.
+                using TWork work = InSlice(static begin => begin(), begin);
+                while (!InSlice(static state => state.step(state.work, state.budget), (step, work, budget)))
                 {
                     await _yield(cancellationToken).ConfigureAwait(false);
                     cancellationToken.ThrowIfCancellationRequested();
@@ -556,13 +558,26 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
 
                 if (!edited)
                 {
-                    return result(work);
+                    return InSlice(static state => state.result(state.work), (result, work));
                 }
             }
             catch (PdfRangeNotLoadedException) when (_remote)
             {
                 return await ReadAsync(_ => RunToEnd(begin, step, result), cancellationToken).ConfigureAwait(false);
             }
+        }
+    }
+
+    private T InSlice<TState, T>(Func<TState, T> slice, TState state)
+    {
+        EnterPending();
+        try
+        {
+            return slice(state);
+        }
+        finally
+        {
+            ExitPending();
         }
     }
 
@@ -986,18 +1001,28 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
 
     internal CancellationTokenSource Enter(CancellationToken cancellationToken)
     {
-        lock (_gate)
-        {
-            ObjectDisposedException.ThrowIf(_closed, this);
-            _pending++;
-        }
-
+        EnterPending();
         return CancellationTokenSource.CreateLinkedTokenSource(_closing.Token, cancellationToken);
     }
 
     internal void Exit(CancellationTokenSource operation)
     {
         operation.Dispose();
+        ExitPending();
+    }
+
+    /// <summary>Counts a step that reads the document as pending, so closing waits for it to return before releasing the document.</summary>
+    private void EnterPending()
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_closed, this);
+            _pending++;
+        }
+    }
+
+    private void ExitPending()
+    {
         bool release;
         lock (_gate)
         {
