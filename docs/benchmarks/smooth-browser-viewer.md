@@ -138,6 +138,35 @@ slower than the JIT, which is why those steps still show on the CPU/4 profile.
 - **One wavelet level of a large JPEG 2000 tile-component.**
 - **A drawing operation other than an image**: a long glyph run, a large shading or pattern fill.
 
+## Build-time Flate images (#566)
+
+On page 2 of the catalogue a top-level `Do` paints a 720 x 720 RGB Flate image (PNG predictor 15) with a soft mask of its size. Its
+decode (inflate, predictor rows, soft mask) used to run inside the `Do`, in one step of the list build. A build in slices now decodes it
+before the `Do`: `DisplayListBuilder.PrepareImage` runs `PdfImage.LoadJob` for the image and then its soft mask, whose filter chain
+(`StreamDecoder.ChainJob`) inflates 16 KB and undoes 16 predictor rows per step, and the run reads the `Do` again once they are done.
+Samples, list, pixels and diagnostics equal the build in one step (`SlicedImageBuildTests`, `SlicedChainDecodeTests`, fuzz target
+`filter-sliced`). The hot AOT profiles were recorded again so the new methods are compiled.
+
+Natively (JIT, M4 Max), the longest step of a sliced build of page 2 with a 2 ms budget, documents opened afresh, after the first
+run: 12.7 to 16.0 ms before, 2.4 to 3.1 ms after (page 11, the other such image: 12.4 to 16.1 ms before, 2.4 to 2.5 ms after).
+
+Browser, 2026-11-17, same harness and machine (load average 8 to 11). Before is #546 (PR #564) on the `spec/33` tip; after adds this
+change. Phone, CPU/4, catalogue:
+
+| Build | Worker | Rendering the first view: max frame, over 50 ms | Viewer's own work: max frame | First view presented (ms) |
+|---|---|---|---|---:|
+| interpreter | no | 233, 9 → **110**, 11 | 231 → **94** | 6828 → 7014 |
+| interpreter | yes | 242, 8 → **115**, 6 | 35 → 36 | 3882 → 3816 |
+| hot AOT | no | 102, 5 → 93, 5 | 104 → **60** | 3344 → 3318 |
+| hot AOT | yes | 132, 4 → 140, 3 | 26 → 41 | 2668 → 2677 |
+
+- **The Flate step is gone.** With the interpreter the longest frame halves, with and without the worker; the viewer's own longest
+  tile frame falls from 231 to 94 ms (interpreter) and 104 to 60 ms (hot AOT). Desktop rows are unchanged (25 to 42 ms).
+- **What remains is not this decode.** With hot AOT the longest frame while the first view renders stays at 93 ms (no worker) and
+  132 to 140 ms (worker, within the run-to-run noise noted above); with the worker the page's thread draws no content, so those
+  frames come from the page model's remaining steps and the runtime (the other items of "What is still one step", garbage
+  collection of a 290 to 590 MiB heap). The 50 ms target on the phone profile is not met yet.
+
 ## AOT build size (item 4, #547)
 
 `dotnet.native.wasm` of the demo:
