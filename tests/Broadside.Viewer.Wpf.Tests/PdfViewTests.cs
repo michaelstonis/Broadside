@@ -2,8 +2,11 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Automation.Peers;
 using System.Windows.Automation.Provider;
+using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Broadside.Forms;
 using Broadside.Rendering;
 using Broadside.TestSupport;
 
@@ -78,6 +81,62 @@ public sealed class PdfViewTests
         Color[] dark = Sample(view);
         Assert.Equal(FrameRenderer.DarkBackground, dark[0]);
         Assert.Equal(Colors.Black, dark[1]);
+    });
+
+    [Fact]
+    public void A_multi_select_list_box_opens_a_list_whose_mouse_clicks_toggle_options() => Sta.Run(async () =>
+    {
+        // #560: the multi-select list box of the shared field set opens a native multi-select list over its widget. A mouse click on
+        // an option toggles it, the list hands its whole selection to the form filling and stays open, and the picks are written once,
+        // when focus leaves the field.
+        await using DocumentSession session = DocumentSession.Open(Shell.CorpusFile(FormFillingScenario.FileName), Shell.Options());
+        using var view = new PdfView();
+        var window = new Window { Content = view, Width = 600, Height = 800, Left = 0, Top = 0, WindowStartupLocation = WindowStartupLocation.Manual };
+        window.Show();
+        try
+        {
+            window.Activate();
+            view.Session = session;
+            await SettleAsync(view);
+            AnnotationLayer layer = view.Controller.Annotations!;
+            PdfAcroForm form = session.Document.AcroForm!;
+            var colors = (PdfChoiceField)form.FindField("colors")!;
+            layer.Focus(FormFillingScenario.FindWidget(
+                form, "colors", Enumerable.Range(0, layer.GetCount(0)).Select(i => (new AnnotationTarget(0, i), layer.GetAnnotation(new AnnotationTarget(0, i))))));
+            await SettleAsync(view);
+
+            Assert.True(
+                view.EditorView is ListBox,
+                $"editor view {view.EditorView}, controller editor {view.Controller.Editor}, focused {layer.Focused}, filling {view.Controller.Forms?.Target} {view.Controller.Forms?.Kind}, keyboard focus {Keyboard.FocusedElement}, window active {window.IsActive}");
+            var list = (ListBox)view.EditorView;
+            Assert.Equal((Visibility.Visible, SelectionMode.Multiple), (list.Visibility, list.SelectionMode));
+            Assert.Equal(["Red", "Green", "Blue"], list.Items.Cast<ListBoxItem>().Select(item => (string)item.Content));
+            Assert.Equal([true, false, false], list.Items.Cast<ListBoxItem>().Select(item => item.IsSelected));
+            for (int i = 0; i < FormFillingScenario.ColorsToggled.Count; i++)
+            {
+                Click((ListBoxItem)list.Items[FormFillingScenario.ColorsToggled[i]]);
+                await SettleAsync(view);
+                Assert.Same(list, view.EditorView);
+                Assert.Equal(FormFillingScenario.ColorsAfterEachToggle[i], view.Controller.Forms!.SelectedOptions);
+                Assert.Equal([0], colors.SelectedIndices);
+            }
+
+            view.Controller.EndFieldEdit();
+            await SettleAsync(view);
+            Assert.Null(view.EditorView);
+            Assert.Equal(FormFillingScenario.Colors, colors.SelectedIndices);
+        }
+        finally
+        {
+            window.Close();
+        }
+
+        // What the mouse delivers to the element under it: a button press and release, which the item turns into a left-button click.
+        static void Click(UIElement element)
+        {
+            element.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = UIElement.MouseDownEvent, Source = element });
+            element.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = UIElement.MouseUpEvent, Source = element });
+        }
     });
 
     private static async Task<PdfView> ShowAsync(DocumentSession session)

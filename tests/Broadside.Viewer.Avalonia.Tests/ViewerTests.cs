@@ -370,6 +370,27 @@ public sealed class ViewerTests
         viewer.Controller.EndFieldEdit();
         await viewer.SettleAsync();
 
+        // #560: a multi-select list box opens a native list whose mouse clicks toggle options; the form filling holds every change
+        // and writes the picks once, when focus leaves the list.
+        var colors = (PdfChoiceField)form.FindField("colors")!;
+        ListBox list = (await ClickAsync<ListBox>("colors"))!;
+        Assert.Equal(["Red", "Green", "Blue"], list.Items.Cast<string>());
+        Assert.Equal([0], list.Selection.SelectedIndexes);
+        for (int i = 0; i < FormFillingScenario.ColorsToggled.Count; i++)
+        {
+            Control option = list.ContainerFromIndex(FormFillingScenario.ColorsToggled[i])!;
+            viewer.Click(option.TranslatePoint(new Point(option.Bounds.Width / 2, option.Bounds.Height / 2), viewer.Window)!.Value);
+            await viewer.SettleAsync();
+            Assert.Same(list, viewer.Viewer.EditorView);
+            Assert.Equal(FormFillingScenario.ColorsAfterEachToggle[i], list.Selection.SelectedIndexes);
+            Assert.Equal(FormFillingScenario.ColorsAfterEachToggle[i], viewer.Viewer.Forms!.SelectedOptions);
+            Assert.Equal([0], colors.SelectedIndices);
+        }
+
+        viewer.Controller.EndFieldEdit();
+        await viewer.SettleAsync();
+        Assert.Null(viewer.Viewer.EditorView);
+
         Assert.Equal(await FormFillingScenario.ExpectedAsync(TestContext.Current.CancellationToken), FormFillingScenario.Describe(form));
     });
 

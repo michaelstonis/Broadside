@@ -5,9 +5,9 @@ namespace Broadside.TestSupport;
 
 /// <summary>
 /// The field set every viewer shell fills the same way (#543): <c>acroform-filling.pdf</c> with a text field, a comb field, a read-only
-/// field, a check box, a radio group, a list box, a combo box and an editable combo box. Each shell types and picks the
-/// <c>*Typed</c> inputs through its own input surface (a native text box, a native picker, keys) and must end with the document the
-/// form API gives for the same final values.
+/// field, a check box, a radio group, a list box, a combo box, an editable combo box and a multi-select list box (#560). Each shell
+/// types and picks the <c>*Typed</c> inputs through its own input surface (a native text box, a native picker or list, keys) and must
+/// end with the document the form API gives for the same final values.
 /// </summary>
 public static class FormFillingScenario
 {
@@ -38,6 +38,18 @@ public static class FormFillingScenario
     /// <summary>Typed into the editable <c>city</c> combo box: a value that is not an option.</summary>
     public const string City = "Nice";
 
+    /// <summary>
+    /// The <c>colors</c> multi-select list box options toggled, in order, from its value Red (§12.7.5.4, MultiSelect): Blue on (Red and
+    /// Blue picked), then Red off. A pick that replaced the selection instead would end on Red.
+    /// </summary>
+    public static IReadOnlyList<int> ColorsToggled { get; } = [2, 0];
+
+    /// <summary>The <c>colors</c> options picked after each toggle of <see cref="ColorsToggled"/>.</summary>
+    public static IReadOnlyList<IReadOnlyList<int>> ColorsAfterEachToggle { get; } = [[0, 2], [2]];
+
+    /// <summary>The <c>colors</c> options picked at the end (Blue).</summary>
+    public static IReadOnlyList<int> Colors => ColorsAfterEachToggle[^1];
+
     /// <summary>Fills a document through the form API with the scenario's final values, in the order the shells fill them.</summary>
     /// <param name="form">The form of an open copy of <see cref="FileName"/>.</param>
     public static void FillThroughApi(PdfAcroForm form)
@@ -51,6 +63,7 @@ public static class FormFillingScenario
         ((PdfChoiceField)form.FindField("fruit")!).SetSelectedIndices([Fruit]);
         ((PdfChoiceField)form.FindField("country")!).SetSelectedIndices([Country]);
         ((PdfChoiceField)form.FindField("city")!).SetValue(City);
+        ((PdfChoiceField)form.FindField("colors")!).SetSelectedIndices(Colors);
     }
 
     /// <summary>

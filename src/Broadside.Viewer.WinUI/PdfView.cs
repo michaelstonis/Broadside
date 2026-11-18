@@ -479,6 +479,7 @@ public sealed partial class PdfView : UserControl, IDisposable
         {
             _editorLayer.Children.Remove(_editorView);
             _editorView = null;
+            _peer?.OnEditorChanged();
         }
 
         if (editor is null)
@@ -486,7 +487,12 @@ public sealed partial class PdfView : UserControl, IDisposable
             return;
         }
 
-        FrameworkElement view = editor.Kind == FieldEditorKind.Choice ? CreateChoiceEditor(editor) : CreateTextEditor(editor);
+        FrameworkElement view = editor switch
+        {
+            { Kind: FieldEditorKind.Choice, IsMultiSelect: true } => CreateMultiSelectEditor(editor),
+            { Kind: FieldEditorKind.Choice } => CreateChoiceEditor(editor),
+            _ => CreateTextEditor(editor),
+        };
         view.Visibility = Visibility.Collapsed;
         _editorView = view;
         _editorLayer.Children.Add(view);
@@ -506,7 +512,19 @@ public sealed partial class PdfView : UserControl, IDisposable
         if (view.Visibility != Visibility.Visible)
         {
             view.Visibility = Visibility.Visible;
-            view.Focus(FocusState.Programmatic);
+            _peer?.OnEditorChanged();
+
+            // An editor made visible this tick has no layout yet and may refuse focus: take it once layout has run.
+            if (!view.Focus(FocusState.Programmatic))
+            {
+                DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+                {
+                    if (ReferenceEquals(_editorView, view))
+                    {
+                        view.Focus(FocusState.Programmatic);
+                    }
+                });
+            }
         }
     }
 
@@ -615,6 +633,79 @@ public sealed partial class PdfView : UserControl, IDisposable
         };
         AutomationProperties.SetName(choice, "Form field");
         return choice;
+    }
+
+    private ListBox CreateMultiSelectEditor(FieldEditor editor)
+    {
+        // A multi-select list box (§12.7.5.4, MultiSelect): a click toggles its option. The items are containers of their own, so
+        // options with the same text stay apart.
+        var list = new ListBox { SelectionMode = SelectionMode.Multiple, MinHeight = 0, MinWidth = 0 };
+        foreach (string option in editor.Options)
+        {
+            var item = new ListBoxItem { Content = option, Padding = new Thickness(4, 1, 4, 1), MinHeight = 0 };
+            AutomationProperties.SetName(item, option);
+            list.Items.Add(item);
+        }
+
+        // Through the selector's own selection: an item's IsSelected set before the list has applied its template does not stick.
+        foreach (int index in editor.SelectedIndices)
+        {
+            list.SelectedItems.Add(list.Items[index]);
+        }
+
+        // Every change hands the whole selection to the form filling, which holds it until focus leaves the list and then writes it
+        // once through the form API.
+        list.SelectionChanged += (_, _) =>
+        {
+            if (ReferenceEquals(_editorView, list))
+            {
+                _controller.EditorSelectedOptions(list.SelectedItems.Select(list.Items.IndexOf));
+            }
+        };
+
+        void Close(bool commit)
+        {
+            if (ReferenceEquals(_editorView, list))
+            {
+                _ = commit ? _controller.CommitFieldEdit() : _controller.CancelFieldEdit();
+                _controller.EndFieldEdit();
+            }
+        }
+
+        // Escape abandons the picks; focus leaving the list commits them.
+        list.KeyDown += (_, e) =>
+        {
+            if (e.Key == VirtualKey.Escape)
+            {
+                e.Handled = true;
+                Close(commit: false);
+                Focus(FocusState.Programmatic);
+            }
+        };
+        // Focus moves between the list and its items while it is used: decide once the move has settled, and keep the list open when
+        // focus went nowhere (the window deactivated).
+        list.LostFocus += (_, _) => DispatcherQueue.TryEnqueue(() =>
+        {
+            if (list.XamlRoot is { } root && FocusManager.GetFocusedElement(root) is DependencyObject focused && !Contains(list, focused))
+            {
+                Close(commit: true);
+            }
+        });
+        AutomationProperties.SetName(list, "Form field");
+        return list;
+
+        static bool Contains(DependencyObject ancestor, DependencyObject? element)
+        {
+            for (; element is not null; element = VisualTreeHelper.GetParent(element))
+            {
+                if (ReferenceEquals(element, ancestor))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 
     // ---- The controller's host ----

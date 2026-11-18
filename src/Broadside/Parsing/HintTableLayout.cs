@@ -6,7 +6,8 @@ namespace Broadside.Parsing;
 /// <param name="HintLength">The primary hint stream's length, <c>H[1]</c>.</param>
 /// <param name="FirstPageObjectNumber">The first page's object number, <c>O</c>.</param>
 /// <param name="PageCount">The number of pages, <c>N</c>.</param>
-internal readonly record struct HintTableLayout(long HeaderOffset, long HintOffset, long HintLength, long FirstPageObjectNumber, long PageCount)
+/// <param name="FileLength">The file's length in bytes, which bounds <c>N</c>.</param>
+internal readonly record struct HintTableLayout(long HeaderOffset, long HintOffset, long HintLength, long FirstPageObjectNumber, long PageCount, long FileLength)
 {
     /// <summary>Moves a position past the primary hint stream when it is at or after it (F.4.1), then makes it absolute.</summary>
     /// <param name="position">A position as a hint table states it.</param>
