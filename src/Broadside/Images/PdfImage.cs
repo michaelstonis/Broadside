@@ -345,12 +345,36 @@ public sealed class PdfImage
     /// </remarks>
     internal PreparedImage Prepare(CancellationToken cancellationToken) => Load(keepEncoded: true, cancellationToken);
 
+    /// <summary>
+    /// Starts what <see cref="Prepare"/> does as a job that <see cref="LoadJob.Continue"/> runs in slices (issue #566): the image's
+    /// filters run a few chunks or rows at a time, so that a viewer on one thread can decode a large Flate image between frames.
+    /// </summary>
+    /// <param name="cancellationToken">Given to the filters.</param>
+    /// <returns>The job: the dictionary is read now; the data is decoded when the job is continued.</returns>
+    /// <remarks>ISO 32000-2 §7.4 and §8.9.5.1. The result and the diagnostics equal <see cref="Prepare"/>'s however the job is sliced.</remarks>
+    internal LoadJob BeginPrepare(CancellationToken cancellationToken) => new(this, keepEncoded: true, cancellationToken);
+
     private PreparedImage Load(bool keepEncoded, CancellationToken cancellationToken)
     {
-        ImageLayout layout = ReadLayout();
-        if (!layout.IsDecodable)
+        if (!StartLoad(out ImageLayout layout, out long capacity))
         {
             return default;
+        }
+
+        StreamDecoder streams = _document.Streams;
+        using var data = new PooledBufferWriter(capacity, streams.MaxDecodedLength);
+        streams.Decode(_stream, data, 0, stopBeforeImageFilter: true, out StreamDecoder.ChainOutcome outcome, cancellationToken);
+        return FinishLoad(data, outcome, layout, keepEncoded);
+    }
+
+    /// <summary>The head of a load: the layout and the limits; <see langword="false"/> when the image cannot be decoded.</summary>
+    private bool StartLoad(out ImageLayout layout, out long capacity)
+    {
+        capacity = 0;
+        layout = ReadLayout();
+        if (!layout.IsDecodable)
+        {
+            return false;
         }
 
         StreamDecoder streams = _document.Streams;
@@ -358,12 +382,17 @@ public sealed class PdfImage
             && layout.Geometry.CheckLimits(streams.MaxImagePixels, streams.MaxDecodedLength) is { } reason)
         {
             Report(ImageDiagnostics.ImageTooLarge, $"The image is not decoded: {reason}.", DiagnosticSeverity.Error);
-            return default;
+            return false;
         }
 
         long expected = layout.BitsPerComponent > 0 ? ImageGeometry.Stride(layout.Width, Math.Max(1, layout.Components), layout.BitsPerComponent) * layout.Height : 0;
-        using var data = new PooledBufferWriter(Math.Clamp(expected, 256, 1 << 24), streams.MaxDecodedLength);
-        streams.Decode(_stream, data, 0, stopBeforeImageFilter: true, out StreamDecoder.ChainOutcome outcome, cancellationToken);
+        capacity = Math.Clamp(expected, 256, 1 << 24);
+        return true;
+    }
+
+    /// <summary>The tail of a load, once the filters before any image codec have run.</summary>
+    private PreparedImage FinishLoad(PooledBufferWriter data, StreamDecoder.ChainOutcome outcome, ImageLayout layout, bool keepEncoded)
+    {
         if (!outcome.Complete)
         {
             return default;
@@ -1092,6 +1121,94 @@ public sealed class PdfImage
 
     private void Report(DiagnosticCode code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
         _document.DiagnosticSink.Report(code, severity, message, offset: null, _owner);
+
+    /// <summary>
+    /// A load of the image run in slices (issue #566): <see cref="Prepare"/> with its filters resumable (see
+    /// <see cref="StreamDecoder.ChainJob"/>); an image codec at the end of the chain runs in one step, or is kept encoded as by
+    /// <see cref="Prepare"/>.
+    /// </summary>
+    /// <remarks>Not thread-safe. Dispose the job; its <see cref="Result"/>'s samples then belong to the caller.</remarks>
+    internal sealed class LoadJob : IDisposable
+    {
+        private readonly PdfImage _image;
+        private readonly bool _keepEncoded;
+        private readonly CancellationToken _cancellationToken;
+        private ImageLayout _layout;
+        private PooledBufferWriter? _data;
+        private StreamDecoder.ChainJob? _chain;
+        private bool _started;
+        private bool _done;
+
+        internal LoadJob(PdfImage image, bool keepEncoded, CancellationToken cancellationToken)
+        {
+            _image = image;
+            _keepEncoded = keepEncoded;
+            _cancellationToken = cancellationToken;
+        }
+
+        /// <summary>Gets what the load gave, once <see cref="Continue"/> returned <see langword="true"/>.</summary>
+        public PreparedImage Result { get; private set; }
+
+        /// <summary>
+        /// Loads until the image is done or, after at least one unit of work, <see cref="System.Diagnostics.Stopwatch"/> reaches
+        /// <paramref name="deadline"/>.
+        /// </summary>
+        /// <param name="deadline">The timestamp at which to pause; <see cref="long.MaxValue"/> loads to the end.</param>
+        /// <returns><see langword="true"/> when the load is done.</returns>
+        public bool Continue(long deadline)
+        {
+            if (_done)
+            {
+                return true;
+            }
+
+            try
+            {
+                if (!_started)
+                {
+                    _started = true;
+                    if (!_image.StartLoad(out _layout, out long capacity))
+                    {
+                        _done = true;
+                        return true;
+                    }
+
+                    _data = new PooledBufferWriter(capacity, _image._document.Streams.MaxDecodedLength);
+                    _chain = _image._document.Streams.BeginDecode(_image._stream, _data, stopBeforeImageFilter: true, _cancellationToken);
+                }
+
+                if (!_chain!.Continue(deadline))
+                {
+                    return false;
+                }
+
+                Result = _image.FinishLoad(_data!, _chain.Outcome, _layout, _keepEncoded);
+                _done = true;
+                Release();
+                return true;
+            }
+            catch
+            {
+                Dispose();
+                throw;
+            }
+        }
+
+        /// <summary>Releases what an unfinished load holds; the samples of a finished one are the caller's.</summary>
+        public void Dispose()
+        {
+            _done = true;
+            Release();
+        }
+
+        private void Release()
+        {
+            _chain?.Dispose();
+            _chain = null;
+            _data?.Dispose();
+            _data = null;
+        }
+    }
 
     /// <summary>What <see cref="Prepare"/> returns: the samples, or the image kept encoded; neither when it cannot be decoded.</summary>
     /// <param name="Decoded">The samples, which the caller owns.</param>

@@ -3194,7 +3194,8 @@ def gen_acroform_filling() -> bytes:
     13 `agree` check box (12.7.5.2.3), on state Yes, V /Off; 14 `size` radio group (12.7.5.2.4, Ff 49152
     Radio + NoToggleToOff) with widgets 15-17 on states /S /M /L, V /M; 18 `fruit` single-select list box
     (12.7.5.4, Opt, V); 19 `country` combo box (Ff 131072, export/display pairs, V the export value); 20 `city`
-    editable combo box (Ff 393216 Combo + Edit, V a typed value that is not an option)."""
+    editable combo box (Ff 393216 Combo + Edit, V a typed value that is not an option); 21 `colors`
+    multi-select list box (12.7.5.4 Table 230: Ff 2097152 MultiSelect, Opt, V, I)."""
     text = b" /AP << /N 7 0 R >>"
 
     def states(state: bytes) -> bytes:
@@ -3206,8 +3207,8 @@ def gen_acroform_filling() -> bytes:
     objects: list[tuple[int, bytes]] = [
         (1, catalog(b" /AcroForm 4 0 R")),
         (2, pages()),
-        (3, page(extra=b" /Annots [10 0 R 11 0 R 12 0 R 13 0 R 15 0 R 16 0 R 17 0 R 18 0 R 19 0 R 20 0 R]")),
-        (4, b"<< /Fields [10 0 R 11 0 R 12 0 R 13 0 R 14 0 R 18 0 R 19 0 R 20 0 R]"
+        (3, page(extra=b" /Annots [10 0 R 11 0 R 12 0 R 13 0 R 15 0 R 16 0 R 17 0 R 18 0 R 19 0 R 20 0 R 21 0 R]")),
+        (4, b"<< /Fields [10 0 R 11 0 R 12 0 R 13 0 R 14 0 R 18 0 R 19 0 R 20 0 R 21 0 R]"
             b" /DA (/Helv 0 Tf 0 g) /DR << /Font << /Helv 5 0 R /ZaDb 6 0 R >> >> >>"),
         (5, HELVETICA),
         (6, b"<< /Type /Font /Subtype /Type1 /BaseFont /ZapfDingbats >>"),
@@ -3232,6 +3233,8 @@ def gen_acroform_filling() -> bytes:
              b" /Opt [[(us) (United States)] [(ca) (Canada)] [(mx) (Mexico)]] /V (us) /DA (/Helv 12 Tf 0 g) >>"),
         (20, widget(b"[50 470 250 490]") + text + b" /FT /Ch /Ff 393216 /T (city) /Opt [(Paris) (Rome)] /V (Lyon)"
              b" /DA (/Helv 12 Tf 0 g) >>"),
+        (21, widget(b"[50 370 250 460]") + text + b" /FT /Ch /Ff 2097152 /T (colors) /Opt [(Red) (Green) (Blue)] /V (Red)"
+             b" /I [0] /DA (/Helv 10 Tf 0 g) >>"),
     ]
     id0 = file_id("acroform-filling").hex().encode()
     return simple_file(objects, version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))

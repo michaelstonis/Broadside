@@ -42,7 +42,7 @@ internal sealed class StructureStamps
 /// <remarks>
 /// ISO 32000-2 §14.7. A generation is current while every container it read keeps the version it had (issue #156: read caches are
 /// keyed on <c>Version</c>, so an edit of an element, a <c>K</c> array, a role map or the parent tree is seen by the next lookup).
-/// The check is free while <see cref="CosMutation.Epoch"/> has not moved since the generation was last found current. Adding or
+/// The check is free while the document's epoch (<see cref="PdfDocument.Epoch"/>) has not moved since the generation was last found current. Adding or
 /// removing an indirect object (<see cref="PdfDocument.AddObject"/>, <see cref="PdfDocument.RemoveObject"/>) changes what a reference
 /// in an unchanged container resolves to (§7.3.10), so the generation also records the document's <c>ObjectsVersion</c> (issue #302).
 /// </remarks>
@@ -81,7 +81,7 @@ internal sealed class StructureIndexes
         }
     }
 
-    /// <summary>Whether nothing this generation was built from has changed, given the current mutation epoch and the document's objects version.</summary>
+    /// <summary>Whether nothing this generation was built from has changed, given the document's epoch and objects version now.</summary>
     public bool IsCurrent(long epoch, int objectsVersion)
     {
         if (Volatile.Read(ref _epoch) == epoch)

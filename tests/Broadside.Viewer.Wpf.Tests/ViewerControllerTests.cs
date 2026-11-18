@@ -371,6 +371,25 @@ public sealed class ViewerControllerTests
         controller.EndFieldEdit(); // focus leaving the field commits it
         Assert.Null(shell.Editors[^1]);
 
+        // #560: a multi-select list box opens a multi-select list; each click hands the list's whole selection to the form filling,
+        // which keeps the editor open and writes the picks once, when focus leaves the field.
+        FieldEditor colors = Open("colors")!;
+        Assert.Equal((FieldEditorKind.Choice, true, false), (colors.Kind, colors.IsMultiSelect, colors.IsEditable));
+        Assert.Equal(["Red", "Green", "Blue"], colors.Options);
+        Assert.Equal([0], colors.SelectedIndices);
+        Assert.False(fruit.IsMultiSelect);
+        var colorsField = (PdfChoiceField)form.FindField("colors")!;
+        foreach (IReadOnlyList<int> picked in FormFillingScenario.ColorsAfterEachToggle)
+        {
+            Assert.True(controller.EditorSelectedOptions(picked));
+            Assert.Equal(picked, controller.Forms.SelectedOptions);
+            Assert.Same(colors, shell.Editors[^1]);
+            Assert.Equal([0], colorsField.SelectedIndices);
+        }
+
+        controller.EndFieldEdit();
+        Assert.Null(shell.Editors[^1]);
+
         Assert.Equal(await FormFillingScenario.ExpectedAsync(TestContext.Current.CancellationToken), FormFillingScenario.Describe(form));
         await shell.SettleAsync();
     });

@@ -5,7 +5,7 @@
 # `dotnet run --project tools/BenchGate -- compare --baseline bench/baselines/gate/allocations.json --results <out>` afterwards.
 #
 #   bench/run-gate.sh --head <checkout> --out <dir> [--base <checkout>] [--methods <file>] [--rounds <n>] [--confirm <n>]
-#                     [--measure <what>] [--avx512 on|off]
+#                     [--measure <what>] [--avx512 on|off] [--processes <n>]
 #
 #   --head     checkout of the pull request; built here; its tools/BenchGate is the one used.
 #   --base     checkout of the commit to compare against (a git worktree); built here. Without it only allocations are measured.
@@ -15,6 +15,9 @@
 #   --rounds   interleaved rounds, default 2. Odd rounds run base first, even rounds head first, so drift of the machine
 #              during the run weighs on both sides alike.
 #   --confirm  reruns of the cases the rounds find slower, default 1. Rerun 1 runs base first, rerun 2 head first, and so on.
+#   --processes  measuring processes per commit in each rerun, default 3, alternating which commit goes first; the gate compares
+#              each commit's fastest process (issue #554: the same build measured up to 1.37x slower in one process than in
+#              another, so a rerun of one process per commit could confirm a regression in identical code).
 #   --measure  all (default): everything above. allocations: the pull request's allocation figures only, no base build and no
 #              timing (CI's `allocations` jobs, on every pull request). times: the timing rounds and the rerun, plus the base
 #              commit's allocation figures for the stale-baseline notice, but not the pull request's (CI's `measure` jobs, which
@@ -38,6 +41,7 @@ rounds=2
 confirm=1
 measure=all
 avx512=on
+processes=3
 while [ $# -gt 0 ]; do
   case "$1" in
     --base) base="$2"; shift 2 ;;
@@ -48,11 +52,16 @@ while [ $# -gt 0 ]; do
     --confirm) confirm="$2"; shift 2 ;;
     --measure) measure="$2"; shift 2 ;;
     --avx512) avx512="$2"; shift 2 ;;
+    --processes) processes="$2"; shift 2 ;;
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
 done
 if [ -z "${head}" ] || [ -z "${out}" ]; then
-  echo "usage: $0 --head <checkout> --out <dir> [--base <checkout>] [--methods <file>] [--rounds <n>] [--confirm <n>] [--measure all|allocations|times] [--avx512 on|off]" >&2
+  echo "usage: $0 --head <checkout> --out <dir> [--base <checkout>] [--methods <file>] [--rounds <n>] [--confirm <n>] [--measure all|allocations|times] [--avx512 on|off] [--processes <n>]" >&2
+  exit 2
+fi
+if ! [[ "${processes}" =~ ^[1-9][0-9]*$ ]]; then
+  echo "--processes takes a positive number, not '${processes}'" >&2
   exit 2
 fi
 case "${measure}" in
@@ -164,9 +173,16 @@ allocations() {
   fi
 }
 
+# Every timing process places its heap data and compiled code at a random offset (BROADSIDE_BENCH_LAYOUT=random,
+# bench/Broadside.Benchmarks/LayoutJitter.cs; issue #554): some kernels run up to 1.37x faster or slower with that placement, and
+# without the jitter it is fixed per build, so two builds of identical code could differ by 1.3x on every run. A base commit
+# older than the jitter ignores the variable. BROADSIDE_BENCH_LAYOUT set by the caller wins (empty turns the jitter off).
+#
 # run <checkout> <side> <folder> <filter...>: one process per benchmark class, each writing its report to
-# <out>/<folder>/<side>/<class>/ (BenchmarkDotNet names a report after its class, so two classes never share a folder). A filter
-# is Namespace.Type.Method, or a full name with its parameters (the rerun's suspects); its class is what precedes the method.
+# <out>/<folder>/<side>/<class><run_suffix>/ (BenchmarkDotNet names a report after its class, so two classes never share a
+# folder; a rerun's further processes set run_suffix so theirs do not either). A filter is Namespace.Type.Method, or a full name
+# with its parameters (the rerun's suspects); its class is what precedes the method.
+run_suffix=""
 run() {
   local checkout="$1" side="$2" folder="$3"
   shift 3
@@ -181,8 +197,9 @@ run() {
       name="${filter%%(*}"
       [ "${name%.*}" = "${class}" ] && selected+=("${filter}")
     done
-    (cd "${checkout}" && env "${runtime_env[@]}" dotnet artifacts/bin/Broadside.Benchmarks/release/Broadside.Benchmarks.dll \
-      --filter "${selected[@]}" "${bench_args[@]}" --artifacts "${out}/${folder}/${side}/${class##*.}")
+    (cd "${checkout}" && env "${runtime_env[@]}" BROADSIDE_BENCH_LAYOUT="${BROADSIDE_BENCH_LAYOUT-random}" \
+      dotnet artifacts/bin/Broadside.Benchmarks/release/Broadside.Benchmarks.dll \
+      --filter "${selected[@]}" "${bench_args[@]}" --artifacts "${out}/${folder}/${side}/${class##*.}${run_suffix}")
     code=$?
     if [ "${code}" -ne 0 ]; then
       if [ "${side}" = "head" ]; then
@@ -225,17 +242,23 @@ if [ "${base_built}" = true ]; then
     while IFS= read -r line; do
       [ -n "${line}" ] && again+=("${line}")
     done < "${suspects}"
+    # Each rerun measures every suspect in --processes processes per commit, alternating which commit goes first (issue #554).
     for pass in $(seq 1 "${confirm}"); do
       folder=confirm
       [ "${pass}" -gt 1 ] && folder="confirm-${pass}"
-      if [ $((pass % 2)) -eq 1 ]; then
-        run "${base}" base "${folder}" "${again[@]}"
-        run "${head}" head "${folder}" "${again[@]}"
-      else
-        run "${head}" head "${folder}" "${again[@]}"
-        run "${base}" base "${folder}" "${again[@]}"
-      fi
+      for process in $(seq 1 "${processes}"); do
+        run_suffix=""
+        [ "${process}" -gt 1 ] && run_suffix="-p${process}"
+        if [ $(((pass + process) % 2)) -eq 0 ]; then
+          run "${base}" base "${folder}" "${again[@]}"
+          run "${head}" head "${folder}" "${again[@]}"
+        else
+          run "${head}" head "${folder}" "${again[@]}"
+          run "${base}" base "${folder}" "${again[@]}"
+        fi
+      done
     done
+    run_suffix=""
   fi
 fi
 
