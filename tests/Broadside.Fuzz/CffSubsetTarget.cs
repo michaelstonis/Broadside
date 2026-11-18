@@ -100,7 +100,7 @@ internal static class CffSubsetTarget
         }
     }
 
-    /// <summary>Two outlines with the same verbs and the same points in text space (each through its program's matrix).</summary>
+    /// <summary>Two outlines with the same verbs and the same points in text space (each through its program's whole matrix).</summary>
     private static bool Same(GlyphOutline left, Matrix leftMatrix, GlyphOutline right, Matrix rightMatrix)
     {
         PathView a = left.Path;
@@ -114,10 +114,11 @@ internal static class CffSubsetTarget
         {
             PathPoint p = a.Points[index];
             PathPoint q = b.Points[index];
-            double ax = (p.X * leftMatrix.A) + (p.Y * leftMatrix.C);
-            double ay = (p.X * leftMatrix.B) + (p.Y * leftMatrix.D);
-            double bx = (q.X * rightMatrix.A) + (q.Y * rightMatrix.C);
-            double by = (q.X * rightMatrix.B) + (q.Y * rightMatrix.D);
+            // The whole matrix, translation included: a CID-keyed program can carry a Font DICT's translation in a glyph's outline.
+            double ax = (p.X * leftMatrix.A) + (p.Y * leftMatrix.C) + leftMatrix.E;
+            double ay = (p.X * leftMatrix.B) + (p.Y * leftMatrix.D) + leftMatrix.F;
+            double bx = (q.X * rightMatrix.A) + (q.Y * rightMatrix.C) + rightMatrix.E;
+            double by = (q.X * rightMatrix.B) + (q.Y * rightMatrix.D) + rightMatrix.F;
             if (Math.Abs(ax - bx) > 1e-9 * Math.Max(1, Math.Abs(ax)) || Math.Abs(ay - by) > 1e-9 * Math.Max(1, Math.Abs(ay)))
             {
                 return false;
