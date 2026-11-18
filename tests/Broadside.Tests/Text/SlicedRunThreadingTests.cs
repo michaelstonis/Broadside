@@ -4,8 +4,8 @@ using System.Text;
 using Broadside.Content;
 using Broadside.Layout;
 using Broadside.Rendering;
-using Broadside.TestSupport;
 using Broadside.Tests.Layout;
+using Broadside.TestSupport;
 using Broadside.Text;
 
 namespace Broadside.Tests.Text;
