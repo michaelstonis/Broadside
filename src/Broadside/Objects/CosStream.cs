@@ -38,7 +38,8 @@ public sealed class CosStream : CosObject
 
     /// <summary>
     /// Gets a number that changes every time the data is replaced through the public API, and never by reading or loading. The
-    /// dictionary has its own <see cref="CosDictionary.Version"/>. Every change also advances <see cref="CosMutation.Epoch"/>.
+    /// dictionary has its own <see cref="CosDictionary.Version"/>. Every change also advances the epoch of the document the stream
+    /// belongs to (<see cref="CosMutation.EpochOf"/>), the owner of its dictionary.
     /// </summary>
     internal int Version { get; private set; }
 
@@ -60,7 +61,7 @@ public sealed class CosStream : CosObject
             _deferred = null;
             _changed = true;
             Version++;
-            CosMutation.Advance();
+            CosMutation.Advance(Dictionary.Owner);
         }
     }
 
@@ -104,7 +105,7 @@ public sealed class CosStream : CosObject
             _deferred = deferred;
             _changed = changed;
             Version++;
-            CosMutation.Advance();
+            CosMutation.Advance(Dictionary.Owner);
         };
     }
 

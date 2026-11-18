@@ -78,15 +78,18 @@ internal sealed class DocumentCaches(CacheBudgets budgets)
 }
 
 /// <summary>
-/// An entry derived from many objects of a document: current while no COS object has changed through the public API and no object
-/// was added or removed since the derivation started (<see cref="CosMutation.Epoch"/>, read before it reads anything).
+/// An entry derived from many objects of a document: current while none of the document's COS objects has changed through the public
+/// API and no object was added or removed since the derivation started (<see cref="PdfDocument.Epoch"/>, read before it reads
+/// anything). Changes to other documents' objects leave it current (issue #578).
 /// </summary>
-/// <param name="epoch">The epoch read before the derivation.</param>
-internal abstract class EpochEntry(long epoch) : IBudgetedEntry
+/// <param name="owner">The document's owner (<see cref="PdfDocument.Owner"/>).</param>
+/// <param name="epoch">The document's epoch read before the derivation.</param>
+/// <remarks>The check is two volatile reads and allocates nothing: it runs on every lookup, once per tile a viewer draws.</remarks>
+internal abstract class EpochEntry(CosOwner owner, long epoch) : IBudgetedEntry
 {
     /// <inheritdoc/>
     public abstract long Bytes { get; }
 
     /// <inheritdoc/>
-    public bool IsCurrent => CosMutation.Epoch == epoch;
+    public bool IsCurrent => CosMutation.EpochOf(owner) == epoch;
 }

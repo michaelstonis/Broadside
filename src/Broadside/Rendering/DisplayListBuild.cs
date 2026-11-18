@@ -49,7 +49,7 @@ public sealed class DisplayListBuild : IDisposable
         _layers = layers;
         _intent = intent;
         _options = options;
-        _epoch = CosMutation.Epoch;
+        _epoch = document.Epoch;
         if (options.OptionalContentState is null && document.Caches.DisplayLists.TryGet(Key, out DisplayListEntry? cached))
         {
             _result = cached.List;
@@ -181,7 +181,7 @@ public sealed class DisplayListBuild : IDisposable
         _ended = true;
         if (cache && _document.Caches.DisplayLists.Budget > 0)
         {
-            _document.Caches.DisplayLists.Add(Key, new DisplayListEntry(_epoch, list));
+            _document.Caches.DisplayLists.Add(Key, new DisplayListEntry(_document.Owner, _epoch, list));
         }
     }
 

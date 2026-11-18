@@ -766,6 +766,16 @@ public sealed partial class PdfDocument : IDisposable
     /// </summary>
     internal int ObjectsVersion => _loader.ObjectsVersion;
 
+    /// <summary>Gets the owner of the document's objects, whose changes advance <see cref="Epoch"/> (<see cref="CosMutation"/>).</summary>
+    internal CosOwner Owner => _loader.Owner;
+
+    /// <summary>
+    /// Gets a number that changes on every change to the document's objects, and on every change to an object that belongs to no
+    /// document or to several, but not on changes to other documents' objects (issue #578): a cache derived from many of the
+    /// document's objects records it before reading them and is current while it has not moved.
+    /// </summary>
+    internal long Epoch => CosMutation.EpochOf(_loader.Owner);
+
     /// <summary>Returns the object <paramref name="reference"/> refers to when it has already been loaded, without reading the file.</summary>
     /// <param name="reference">The reference.</param>
     /// <param name="value">The loaded object.</param>
