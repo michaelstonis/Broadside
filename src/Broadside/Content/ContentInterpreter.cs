@@ -58,6 +58,12 @@ internal sealed partial class ContentInterpreter
     private ReadOnlyMemory<byte> _slicedContent;
     private int _slicedPosition;
 
+    // Issue #584: whether a run in slices can continue (SliceIdle), is in a slice (SliceRunning), or has ended (SliceEnded).
+    private const int SliceEnded = 0;
+    private const int SliceIdle = 1;
+    private const int SliceRunning = 2;
+    private int _slice;
+
     // Progress of the top-level stream (ContentOptions.Progress): its length and the end of its last operator executed.
     private IProgress<double>? _progress;
     private int _progressLength;
@@ -125,13 +131,13 @@ internal sealed partial class ContentInterpreter
 
     private static ContentInterpreter Rent()
     {
-        ContentInterpreter? interpreter = _cached;
-        if (interpreter is null || interpreter._busy)
-        {
-            // A run started from inside another run's callback on this thread gets an interpreter of its own.
-            interpreter = new ContentInterpreter();
-        }
-
+        // Issue #584: the interpreter leaves this thread's slot while it runs. A run in slices can end on another thread than the one
+        // it began on (an await between slices); had the slot kept it, it would be cached on both threads once released, and two runs
+        // on those threads would then share it. A run started from inside another run's callback finds the slot empty and gets an
+        // interpreter of its own.
+        ContentInterpreter interpreter = _cached ?? new ContentInterpreter();
+        _cached = null;
+        Debug.Assert(!interpreter._busy, "A cached interpreter is never running.");
         interpreter._busy = true;
         return interpreter;
     }
@@ -309,6 +315,7 @@ internal sealed partial class ContentInterpreter
             interpreter.Begin(document, page, processor, options, page.Reference);
             interpreter._slicedContent = interpreter.ReadContents(page, document);
             interpreter._slicedPosition = 0;
+            interpreter._slice = SliceIdle;
             return interpreter;
         }
         catch
@@ -329,22 +336,69 @@ internal sealed partial class ContentInterpreter
     /// ISO 32000-2 §7.8.2 and §8.4.2: between two top-level operators the run's whole state is the graphics state stack, the operand
     /// arena (empty there) and the position in the content, so the processor sees the calls of an unsliced run.
     /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// The run has ended (<see cref="EndPageRun"/>, or a slice that threw), its content is done, or another slice of it is running.
+    /// </exception>
     public bool ContinuePageRun(long deadline)
     {
-        if (!ExecuteRange(_slicedContent.Span, _slicedPosition, deadline, out int position))
+        // Issue #584: a run is continued by one caller at a time and never after it ended, when the interpreter may already run
+        // another page.
+        if (Interlocked.CompareExchange(ref _slice, SliceRunning, SliceIdle) != SliceIdle)
         {
-            _slicedPosition = position;
-            return false;
+            throw new InvalidOperationException("The page run has ended or another slice of it is running.");
         }
 
-        _slicedContent = default;
-        End();
-        return true;
+        bool done = false;
+        try
+        {
+            if (!ExecuteRange(_slicedContent.Span, _slicedPosition, deadline, out int position))
+            {
+                _slicedPosition = position;
+                return false;
+            }
+
+            _slicedContent = default;
+            End();
+            done = true;
+            return true;
+        }
+        catch
+        {
+            done = true; // the caller ends a run whose slice threw
+            throw;
+        }
+        finally
+        {
+            Volatile.Write(ref _slice, done ? SliceEnded : SliceIdle);
+        }
     }
 
     /// <summary>Gives the interpreter of a run begun by <see cref="BeginPageRun"/> back, ended or abandoned.</summary>
+    /// <exception cref="InvalidOperationException">A slice of the run is running, or the interpreter was already given back.</exception>
     public void EndPageRun()
     {
+        if (!_busy)
+        {
+            throw new InvalidOperationException("The page run's interpreter was already given back.");
+        }
+
+        int state = Volatile.Read(ref _slice);
+        while (true)
+        {
+            if (state == SliceRunning)
+            {
+                throw new InvalidOperationException("A slice of the page run is running; end the run once it returns.");
+            }
+
+            int seen = Interlocked.CompareExchange(ref _slice, SliceEnded, state);
+            if (seen == state)
+            {
+                break;
+            }
+
+            state = seen;
+        }
+
         _slicedContent = default;
         Release();
     }

@@ -120,6 +120,79 @@ public sealed class SlicedPageModelTests
         }
     }
 
+    [Fact]
+    public async Task A_session_closed_between_two_slices_ends_the_load_with_the_closing_and_nothing_else()
+    {
+        // Issue #584: the slices resume on pool threads, and the session is closed from another thread between two of them (or while
+        // one runs). The load ends with the session's closing or completes; nothing else escapes, observed or not.
+        const string fileName = "layout-two-column-untagged.pdf";
+        var unobserved = new List<Exception>();
+        void OnUnobserved(object? sender, UnobservedTaskExceptionEventArgs e)
+        {
+            lock (unobserved)
+            {
+                unobserved.AddRange(e.Exception.InnerExceptions);
+            }
+        }
+
+        TaskScheduler.UnobservedTaskException += OnUnobserved;
+        try
+        {
+            for (int closeAt = 1; closeAt <= 24; closeAt++)
+            {
+                DocumentSession? session = null;
+                Task? closing = null;
+                int yields = 0;
+                int at = closeAt;
+                ViewerOptions options = ViewerTestSupport.OptionsFor(fileName, ViewerThreading.Cooperative)
+                    .WithSliceBudget(TimeSpan.FromTicks(1))
+                    .UseYield(async _ =>
+                    {
+                        if (Interlocked.Increment(ref yields) == at && session is { } open)
+                        {
+                            closing = Task.Run(async () => await open.DisposeAsync(), CancellationToken.None);
+                        }
+
+                        await Task.Yield();
+                    });
+                session = DocumentSession.Open(Corpus.Bytes(fileName), options);
+                var selection = new TextSelection(session);
+                var bridge = new AccessibilityBridge(session);
+                Task<SelectableText> text = selection.LoadPageAsync(0, Token).AsTask();
+                Task<AccessibleNode> node = bridge.LoadPageAsync(0, Token).AsTask();
+                foreach (Task load in new Task[] { text, node })
+                {
+                    try
+                    {
+                        await load;
+                    }
+                    catch (Exception exception) when (exception is ObjectDisposedException or OperationCanceledException)
+                    {
+                    }
+                }
+
+                await session.DisposeAsync();
+                if (closing is not null)
+                {
+                    await closing;
+                }
+            }
+
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+        }
+        finally
+        {
+            TaskScheduler.UnobservedTaskException -= OnUnobserved;
+        }
+
+        lock (unobserved)
+        {
+            Assert.DoesNotContain(unobserved, exception => exception is not (ObjectDisposedException or OperationCanceledException));
+        }
+    }
+
     /// <summary>Cooperative options with a one-tick slice budget and a yield that counts (or acts) and returns at once.</summary>
     private static ViewerOptions Sliced(string fileName, Action onYield) =>
         ViewerTestSupport.OptionsFor(fileName, ViewerThreading.Cooperative)
