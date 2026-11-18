@@ -8,7 +8,7 @@ namespace Broadside.Viewer.WinUI.Sample;
 /// <summary>
 /// An opt-in trace of the pointer input the view receives (set <c>BROADSIDE_WINUI_TRACE=1</c>; the UI tests do): each press,
 /// move with a button down, release, cancel and lost capture, where it landed in the view and what the selection is after the view
-/// handled it, written to <see cref="StartupLog"/>. A UI test that times out prints the log, so a failed drag shows which events
+/// handled it, and where keyboard focus goes, written to <see cref="StartupLog"/>. A UI test that times out prints the log, so a failed drag shows which events
 /// arrived.
 /// </summary>
 internal static class PointerTrace
@@ -25,6 +25,9 @@ internal static class PointerTrace
         view.AddHandler(UIElement.PointerReleasedEvent, new PointerEventHandler((_, e) => Write(view, "released", e)), handledEventsToo: true);
         view.AddHandler(UIElement.PointerCanceledEvent, new PointerEventHandler((_, e) => Write(view, "canceled", e)), handledEventsToo: true);
         view.AddHandler(UIElement.PointerCaptureLostEvent, new PointerEventHandler((_, e) => Write(view, "capture lost", e)), handledEventsToo: true);
+
+        // Where keyboard focus goes (a form field's editor takes it when it opens).
+        FocusManager.GotFocus += (_, e) => StartupLog.Write($"Focus: {e.NewFocusedElement?.GetType().Name ?? "none"}");
     }
 
     /// <summary>The selection as the status line shows it: "Selected 1:4-1:38" (one-based page, offset) or "No selection".</summary>
@@ -50,6 +53,6 @@ internal static class PointerTrace
         PointerPoint point = e.GetCurrentPoint(view);
         StartupLog.Write(string.Create(
             CultureInfo.InvariantCulture,
-            $"Pointer {what}: id {e.Pointer.PointerId} {point.PointerDeviceType} at ({point.Position.X:0.0}, {point.Position.Y:0.0}) contact {point.IsInContact} left {point.Properties.IsLeftButtonPressed} handled {e.Handled} moves {s_moves}; {Describe(view.Selection)}"));
+            $"Pointer {what}: id {e.Pointer.PointerId} {point.PointerDeviceType} at ({point.Position.X:0.0}, {point.Position.Y:0.0}) contact {point.IsInContact} left {point.Properties.IsLeftButtonPressed} handled {e.Handled} moves {s_moves} on {e.OriginalSource?.GetType().Name}; {Describe(view.Selection)}"));
     }
 }

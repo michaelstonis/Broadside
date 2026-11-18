@@ -12,9 +12,9 @@ measures items 3 and 4 and sets #352's targets from the measurements.
 
   Each step checks the slice's deadline and resumes where it stopped. Output is byte-identical to the unsliced path:
   `SlicedImageDecodeTests` covers every DCT and JPEG 2000 layout, and `SlicedPreparationTests` covers samples, lists and pixels.
-- **Item 4, AOT for hosts with a 16 MB file limit.** `publish-static.sh --hot-aot` compiles ahead of time only the rendering path: the
-  core library, `Broadside.Rendering` and `System.Private.CoreLib`, optimized for size (`-Oz`). Everything else runs in the
-  interpreter.
+- **Item 4, AOT for hosts with a 16 MB file limit.** `publish-static.sh --hot-aot` compiles ahead of time only the methods a recorded
+  viewing session ran (#547; before, every method of the core library, `Broadside.Rendering` and `System.Private.CoreLib`), optimized
+  for size (`-Oz`). Everything else runs in the interpreter. See "AOT build size" below.
 
 ## Setup
 
@@ -93,7 +93,7 @@ Chromium, interpreter, after:
 | phone 390x844 @3x, CPU/4 | no | 442, 17 | 600, 17 | 308, 11 | 264 | 2321 | 7925 | 495 / - |
 | phone 390x844 @3x, CPU/4 | yes | 35, 1 | 566, 16 | 302, 12 | 34 | 1969 | 4327 | 240 / 239 |
 
-Chromium, AOT of the rendering path (`--hot-aot`), after:
+Chromium, AOT of the rendering path (`--hot-aot`, #365), after:
 
 | Device | Worker | Scroll: max, over 17 ms | Loading (first tile + 4 s): max, over 50 ms | Rendering the first view: max, over 50 ms | Viewer's own work: max | First tile (ms) | First view presented (ms) | Page wasm+JS / worker wasm (MiB) |
 |---|---|---|---|---|---|---:|---:|---|
@@ -126,7 +126,10 @@ slower than the JIT, which is why those steps still show on the CPU/4 profile.
 
 ## What is still one step
 
-- **Build-time image decodes** (Flate, LZW, CCITT, JBIG2, inline images): decoded inside the `Do` operator that paints them.
+- **Build-time image decodes** other than Flate (LZW, CCITT, JBIG2, inline images), and any image painted inside a form XObject or
+  pattern, or as an explicit mask: decoded inside the operator that paints them. Since #566 a top-level `Do` of a Flate image and its
+  soft mask is decoded before the `Do`, a 16 KB inflate chunk or 16 predictor rows per step (the LZW filter itself is one step, its
+  predictor rows are not); see "Build-time Flate images (#566)" below.
 - **Font programs**: parsed on first use, inside a text operator.
 - **The colour converter of an ICC space**: built on first use.
 - **Reductions of images decoded at build**: the box average of a large Flate image drawn small.
@@ -135,7 +138,36 @@ slower than the JIT, which is why those steps still show on the CPU/4 profile.
 - **One wavelet level of a large JPEG 2000 tile-component.**
 - **A drawing operation other than an image**: a long glyph run, a large shading or pattern fill.
 
-## AOT build size (item 4)
+## Build-time Flate images (#566)
+
+On page 2 of the catalogue a top-level `Do` paints a 720 x 720 RGB Flate image (PNG predictor 15) with a soft mask of its size. Its
+decode (inflate, predictor rows, soft mask) used to run inside the `Do`, in one step of the list build. A build in slices now decodes it
+before the `Do`: `DisplayListBuilder.PrepareImage` runs `PdfImage.LoadJob` for the image and then its soft mask, whose filter chain
+(`StreamDecoder.ChainJob`) inflates 16 KB and undoes 16 predictor rows per step, and the run reads the `Do` again once they are done.
+Samples, list, pixels and diagnostics equal the build in one step (`SlicedImageBuildTests`, `SlicedChainDecodeTests`, fuzz target
+`filter-sliced`). The hot AOT profiles were recorded again so the new methods are compiled.
+
+Natively (JIT, M4 Max), the longest step of a sliced build of page 2 with a 2 ms budget, documents opened afresh, after the first
+run: 12.7 to 16.0 ms before, 2.4 to 3.1 ms after (page 11, the other such image: 12.4 to 16.1 ms before, 2.4 to 2.5 ms after).
+
+Browser, 2026-11-17, same harness and machine (load average 8 to 11). Before is #546 (PR #564) on the `spec/33` tip; after adds this
+change. Phone, CPU/4, catalogue:
+
+| Build | Worker | Rendering the first view: max frame, over 50 ms | Viewer's own work: max frame | First view presented (ms) |
+|---|---|---|---|---:|
+| interpreter | no | 233, 9 → **110**, 11 | 231 → **94** | 6828 → 7014 |
+| interpreter | yes | 242, 8 → **115**, 6 | 35 → 36 | 3882 → 3816 |
+| hot AOT | no | 102, 5 → 93, 5 | 104 → **60** | 3344 → 3318 |
+| hot AOT | yes | 132, 4 → 140, 3 | 26 → 41 | 2668 → 2677 |
+
+- **The Flate step is gone.** With the interpreter the longest frame halves, with and without the worker; the viewer's own longest
+  tile frame falls from 231 to 94 ms (interpreter) and 104 to 60 ms (hot AOT). Desktop rows are unchanged (25 to 42 ms).
+- **What remains is not this decode.** With hot AOT the longest frame while the first view renders stays at 93 ms (no worker) and
+  132 to 140 ms (worker, within the run-to-run noise noted above); with the worker the page's thread draws no content, so those
+  frames come from the page model's remaining steps and the runtime (the other items of "What is still one step", garbage
+  collection of a 290 to 590 MiB heap). The 50 ms target on the phone profile is not met yet.
+
+## AOT build size (item 4, #547)
 
 `dotnet.native.wasm` of the demo:
 
@@ -144,18 +176,70 @@ slower than the JIT, which is why those steps still show on the CPU/4 profile.
 | Interpreter (`--no-aot`) | 1.3 MB | interpreter |
 | Full AOT (default) | 24.5 MB | AOT |
 | AOT of `Broadside`, `Broadside.Rendering`, `Broadside.Viewer` and `System.Private.CoreLib`, emcc `-Oz` | 17.5 MiB (18,340,880 bytes) | AOT on the rendering path |
-| `--hot-aot`: AOT of `Broadside`, `Broadside.Rendering` and `System.Private.CoreLib`, emcc and bitcode `-Oz` | **16.6 MiB (17,389,847 bytes)** | AOT on the rendering path (measured above) |
+| `--hot-aot` before #547: AOT of `Broadside`, `Broadside.Rendering` and `System.Private.CoreLib`, emcc and bitcode `-Oz` | 16.6 MiB (17,389,847 bytes); 16.8 MiB (17,648,670 bytes) on the #547 base | AOT on the rendering path |
+| **`--hot-aot` (#547): AOT of the profiled methods of every assembly, no shared generic instances module, emcc and bitcode `-Oz`** | **11.1 MiB (11,633,317 bytes)** | AOT on every path the session ran |
 
-- **Still over the cap.** The `--hot-aot` build misses a 16 MiB per-file cap by 0.6 MiB, and a 16,000,000-byte cap by 1.4 MB.
-- **`System.Private.CoreLib` must stay compiled.** Interpreting it while compiling the core fails to link: the AOT code needs CoreLib's
-  allocation and vtable wrappers.
-- **The core library is most of what remains.** Its 2.9 MB of IL reaches the PDF/A converter, signature validation and the writers.
-  These are the remaining levers, in order:
-  1. #361's pay-for-play trimming, which removes code the viewer never reaches from the core's AOT image.
-  2. A profiled AOT build (`WasmAotProfilePath`, Mono's AOT profiler), which compiles only the methods a recorded session ran.
-  3. Dropping SIMD (`WasmEnableSIMD=false`) for that build only, which costs the kernels of #470.
-- **Hosts without a file-size cap already serve full AOT.** The documentation site (`.github/workflows/docs.yml`) publishes the demo
-  trimmed and fully AOT-compiled on every push to `main`, so GitHub Pages hosts an AOT build. The other half of item 4 is done there.
+- **Under the cap.** 4.4 MB under a 16,000,000-byte cap, 4.9 MiB under a 16 MiB one. The `blazor-wasm` workflow publishes the build and
+  fails when the module reaches 16,000,000 bytes. Hosts without a file-size cap already serve full AOT: the documentation site
+  (`.github/workflows/docs.yml`) publishes the demo trimmed and fully AOT-compiled on every push to `main`.
+- **How.** Mono's AOT compiler takes a profile (`WasmAotProfilePath`) and then compiles only the methods it lists (`profile-only`);
+  every other method runs in the interpreter, so nothing stops working. The profiles are recorded from the demo itself:
+  - `samples/Broadside.Viewer.Blazor.Sample/hot-aot.aotprofile`: the catalogue in the viewer on the page's thread (desktop and phone
+    viewports, scrolling and zooming), every sample opened from the gallery, then every page of every sample rendered with the
+    software rasterizer. About 25,400 methods, 8,300 of them in the core library and `Broadside.Rendering`.
+  - `samples/Broadside.Viewer.Blazor.Sample/hot-aot-worker.aotprofile`: the catalogue with the render worker, which records the page's
+    side of the worker protocol (about 14,600 methods).
+  - `publish-static.sh --aot-profiler` publishes the recording build (the interpreter with Mono's AOT profiler), and the explicit
+    browser test `AotProfileTests.Record_the_hot_aot_profile` drives the session and writes both files (`README.md` of the sample).
+- **The memory helpers are always listed.** AOT-compiled code clears and copies blocks through `System.String`'s `memset`, `memcpy`,
+  `bzero` and their aligned variants. The interpreter never calls them, so no recorded session lists them, and it cannot run them
+  either: the first build compiled a caller without its helper and stopped at startup with `NIY encountered in method
+  string:memset`. The recorder appends them to the profile.
+- **No shared module of generic instances (`WasmDedup=false`).** By default the compiler collects the generic instances every
+  assembly uses into one module. With a profile, that module is left half compiled: a compiled method that calls an instance the
+  session did not record throws `NotImplementedException` (the demo's form panel did, in `PdfChoiceField.SelectedIndices`, which
+  calls `Enumerable.ToArray<int>`). Without the shared module each assembly keeps the instances it uses, the call enters the
+  interpreter as it should, and the module is 143 KB smaller.
+- **A profile does not go stale all at once.** The compiler matches methods by assembly, type, name and signature, not by the
+  assembly's identity: after an unrelated change to the core library the build compiled the same methods (its module within 13
+  bytes of the size before). A method renamed or added since the recording runs in the interpreter until the profiles are recorded
+  again.
+- **Rebuilding.** The WebAssembly SDK recompiles an assembly only when the assembly is newer than its compiled output, so the demo's
+  project deletes that output when a profile is newer than the last compilation.
+
+Each lever on the #547 base (17,648,670 bytes), published locally:
+
+| Lever | `dotnet.native.wasm` (bytes) | Taken |
+|---|---:|---|
+| `UseSystemResourceKeys=true` | 17,648,661 | no: already on in the trimmed build |
+| `WasmEnableSIMD=false` | 16,136,667 | no: still over, and it costs the SIMD kernels of #470 |
+| AOT profile, profiled methods of `Broadside`, `Broadside.Rendering` and `System.Private.CoreLib` only (first recording) | 7,911,648 | no: the viewer's own code stays interpreted |
+| AOT profile, profiled methods of those plus the viewer, Blazor and the collections (first recording) | 9,650,648 | |
+| AOT profile, profiled methods of every assembly (first recording) | 10,453,651 | |
+| AOT profiles of both sessions, every assembly, memory helpers listed | 11,776,811 | no: the form panel fails (see above) |
+| The same without the shared generic instances module (`WasmDedup=false`, final) | **11,633,317** | yes |
+| Image codecs dropped through `PdfOptions.CreateWithoutImageCodecs()` (#544) | not measured | not needed, and the demo opens JPEG 2000, JBIG2 and CCITT samples |
+
+Frame measurements of the AOT rows, same harness and machine, back to back (load average 7 to 9). Before is the `--hot-aot` build of
+the #547 base, after is this build; a second run of the after build is in brackets:
+
+| Device | Worker | Scroll: max, over 17 ms | Loading (first tile + 4 s): max, over 50 ms | Rendering the first view: max, over 50 ms | Viewer's own work: max | First tile (ms) | First view presented (ms) |
+|---|---|---|---|---|---|---:|---:|
+| desktop 1280x900 @2x | no | 33, 2 → 25, 3 [25, 1] | 150, 2 → 125, 2 [135, 1] | 42, 0 → 42, 0 [42, 0] | 20 → 23 [22] | 631 → 582 [581] | 1472 → **745** [766] |
+| desktop 1280x900 @2x | yes | 17, 0 → 17, 0 [17, 0] | 150, 3 → 133, 1 [142, 1] | 50, 1 → 33, 0 [42, 0] | 11 → 13 [12] | 744 → 653 [669] | 1707 → **1297** [1316] |
+| phone 390x844 @3x, CPU/4 | no | 41, 33 → 41, **5** [41, 6] | 624, 12 → 567, 8 [525, 8] | 135, 8 → 127, 5 [107, 5] | 122 → 121 [106] | 2198 → 1946 [1809] | 5692 → **3573** [3317] |
+| phone 390x844 @3x, CPU/4 | yes | 17, 0 → 15, 0 [17, 1] | 625, 10 → 581, 7 [499, 6] | 125, 7 → 150, 5 [133, 4] | 29 → 25 [27] | 2091 → 1818 [1666] | 3431 → **2823** [2682] |
+
+- **The AOT rows do not get worse.** Every count of long frames falls or stays within one frame of before, and the first view
+  presents sooner everywhere: by 0.7 s on the desktop and 2.1 s on the phone profile. The phone's frames over 17 ms while scrolling
+  fall from 33 to 5: Blazor, the viewer and the page's text layer now run compiled code where the old build interpreted them.
+- **Within run-to-run noise:** the desktop "viewer's own work" (20 → 23 and 22 ms; an earlier run of the old build measured 15 ms)
+  and the longest frame while the phone with the worker renders its first view (125 → 150 and 133 ms; an earlier run of the old
+  build measured 149 ms), both with fewer frames over 50 ms than before.
+- **Memory is unchanged** (413 MiB page; 240-248 + 166-199 MiB with the worker; 593 MiB phone; 288 + 286 MiB phone with the worker).
+- **The demo's own browser tests pass on this build** in Chromium and WebKit (`DemoTests`, `SampleDocumentTests` and the rest of
+  `Broadside.Viewer.Blazor.BrowserTests`, 73 passed). The old `--hot-aot` build timed out in `DemoTests` at the PDF/A conformance check,
+  which it interpreted.
 
 ## #352 targets
 
@@ -169,4 +253,4 @@ slower than the JIT, which is why those steps still show on the CPU/4 profile.
 | 4 | Phone, CPU/4, AOT: no frame over 50 ms while the first view renders | 123 ms: page-model loads remain (see above) |
 | 5 | Phone, CPU/4, interpreter: no frame over 100 ms while scrolling or rendering | 442 / 308 ms: page-model loads remain |
 | 6 | First view presented: desktop ≤ 2 s; phone (CPU/4) ≤ 6 s with AOT, ≤ 8 s with the interpreter | 1.6 s, 5.8 s, 7.9 s ✓ |
-| 7 | AOT build that serves the rendering path at AOT speed from hosts with a 16 MiB file limit | 16.6 MiB: 0.6 MiB over |
+| 7 | AOT build that serves the rendering path at AOT speed from hosts with a 16 MiB file limit | 11.1 MiB (#547) ✓ |

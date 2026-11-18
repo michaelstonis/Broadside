@@ -67,7 +67,7 @@ internal sealed class ResultsTree : IDisposable
         // The allocation figure goes where `--gate-allocations` writes it: <runner>/allocations/<side>/<file>.json, one file per
         // measuring process (here, per round). The confirmation passes measure time only.
         string[] parts = folder.Split('/');
-        if (!parts[^2].StartsWith("confirm", StringComparison.Ordinal))
+        if (!parts.Any(static part => part.StartsWith("confirm", StringComparison.Ordinal)))
         {
             string runner = string.Join('/', parts[..^2]);
             AddAllocation(Path.Combine(runner, "allocations", parts[^1]), parts[^2], fullName, allocated);

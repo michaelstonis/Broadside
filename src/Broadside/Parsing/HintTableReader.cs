@@ -18,6 +18,10 @@ namespace Broadside.Parsing;
 /// (F.4.1 says "greater than"; a first page stored right after the hint stream needs "or equal").
 /// </para>
 /// <para>
+/// The tables are untrusted: <c>N</c> may not exceed the file's length, and no page or shared object group may have more objects
+/// than bytes, so a damaged table cannot claim more objects than the file can hold.
+/// </para>
+/// <para>
 /// Hints are information only. A table that cannot be read yields <see langword="null"/> and a
 /// <see cref="FileStructureDiagnostics.LinearizationHintsInvalid"/> diagnostic; it never affects how the document reads. Filtered hint
 /// streams (qpdf writes FlateDecode by default) are decoded through the document's filter pipeline (§7.4) first.
@@ -61,7 +65,8 @@ internal static class HintTableReader
             hintStreams[0],
             hintStreams[1],
             ReadInteger(parameters, PdfLinearization.Names.O),
-            ReadInteger(parameters, PdfLinearization.Names.N));
+            ReadInteger(parameters, PdfLinearization.Names.N),
+            source.Length);
         PdfLinearizationHints? hints = Parse(data, (int)shared.Value, layout, out string? error);
         return error is null ? hints : Invalid(diagnostics, error);
     }
@@ -75,7 +80,7 @@ internal static class HintTableReader
     public static PdfLinearizationHints? Parse(ReadOnlySpan<byte> data, int sharedTable, HintTableLayout layout, out string? error)
     {
         error = null;
-        if (layout.PageCount is < 0 or > MaxEntries)
+        if (layout.PageCount < 0 || layout.PageCount > MaxEntries || layout.PageCount > layout.FileLength)
         {
             error = "The linearization parameter dictionary's N entry is too large for a hint table.";
             return null;
@@ -88,16 +93,20 @@ internal static class HintTableReader
         }
 
         var pageReader = new HintBitReader(data);
-        if (!TryReadPages(ref pageReader, layout, out List<PdfPageHint> pages, out long firstPageLocation))
+        if (!TryReadPages(ref pageReader, layout, out List<PdfPageHint> pages, out long firstPageLocation, out bool pagesOverfull))
         {
-            error = "The page offset hint table is truncated or malformed.";
+            error = pagesOverfull
+                ? "The page offset hint table gives a page more objects than bytes."
+                : "The page offset hint table is truncated or malformed.";
             return null;
         }
 
         var sharedReader = new HintBitReader(data[sharedTable..]);
-        if (!TryReadSharedObjects(ref sharedReader, layout, firstPageLocation, out List<PdfSharedObjectHint> groups))
+        if (!TryReadSharedObjects(ref sharedReader, layout, firstPageLocation, out List<PdfSharedObjectHint> groups, out bool groupsOverfull))
         {
-            error = "The shared object hint table is truncated or malformed.";
+            error = groupsOverfull
+                ? "The shared object hint table gives a group more objects than bytes."
+                : "The shared object hint table is truncated or malformed.";
             return null;
         }
 
@@ -105,9 +114,10 @@ internal static class HintTableReader
     }
 
     /// <summary>Reads the page offset hint table (F.4.2, Tables F.3 and F.4).</summary>
-    private static bool TryReadPages(ref HintBitReader reader, HintTableLayout context, out List<PdfPageHint> pages, out long firstPageLocation)
+    private static bool TryReadPages(ref HintBitReader reader, HintTableLayout context, out List<PdfPageHint> pages, out long firstPageLocation, out bool overfull)
     {
         pages = [];
+        overfull = false;
         long minObjects = reader.Read(32);
         firstPageLocation = reader.Read(32);
         int bitsObjects = reader.ReadWidth();
@@ -158,6 +168,12 @@ internal static class HintTableReader
         {
             long objectCount = minObjects + objects[page];
             long length = minLength + lengths[page];
+            if (!HoldsItsObjects(objectCount, length))
+            {
+                overfull = true;
+                return false;
+            }
+
             if (objectCount > int.MaxValue || objectNumber + objectCount > int.MaxValue)
             {
                 return false;
@@ -172,9 +188,10 @@ internal static class HintTableReader
     }
 
     /// <summary>Reads the shared object hint table (F.4.3, Tables F.5 and F.6).</summary>
-    private static bool TryReadSharedObjects(ref HintBitReader reader, HintTableLayout context, long firstPageLocation, out List<PdfSharedObjectHint> groups)
+    private static bool TryReadSharedObjects(ref HintBitReader reader, HintTableLayout context, long firstPageLocation, out List<PdfSharedObjectHint> groups, out bool overfull)
     {
         groups = [];
+        overfull = false;
         long firstSharedObject = reader.Read(32);
         long firstSharedLocation = reader.Read(32);
         long firstPageEntries = reader.Read(32);
@@ -222,6 +239,12 @@ internal static class HintTableReader
 
             long objectCount = objectCounts[index] + 1;
             long length = minLength + lengths[index];
+            if (!HoldsItsObjects(objectCount, length))
+            {
+                overfull = true;
+                return false;
+            }
+
             if (objectNumber + objectCount > int.MaxValue)
             {
                 return false;
@@ -234,6 +257,13 @@ internal static class HintTableReader
 
         return true;
     }
+
+    /// <summary>
+    /// Whether a page or group of <paramref name="objectCount"/> objects can occupy <paramref name="length"/> bytes: each object takes
+    /// at least one of them (F.4.2 items 1 and 2, F.4.3 items 1 and 4 describe the file's own objects and their byte ranges). A count
+    /// larger than its length is a damaged table, and trusting it would size the object search by it.
+    /// </summary>
+    private static bool HoldsItsObjects(long objectCount, long length) => length >= 0 && objectCount <= length;
 
     /// <summary>Loads the stream whose <c>N G obj</c> header is at <paramref name="offset"/> (relative to the header).</summary>
     private static CosStream? LoadStream(PdfSource source, ObjectLoader loader, long offset)

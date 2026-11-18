@@ -180,9 +180,14 @@ public static class BenchmarkGate
                     && confirmBase.NanosecondsPerOperation.Count > 0
                     && confirmHead.NanosecondsPerOperation.Count > 0)
                 {
-                    var again = new Sample([(confirmBase.NanosecondsPerOperation, confirmHead.NanosecondsPerOperation)], sample.Runner);
-                    reruns.Add(again.Ratio);
-                    confirmed &= again.Ratio >= options.RoundRatio && again.Difference >= options.MinimumDifferenceNanoseconds;
+                    // Issue #554: the same build runs some cases at two or three distinct speeds depending on the process (GrayToRgb
+                    // at 101, 132 or 138 ns on the Xeon 6975P-C), so one process per commit can look 1.3x slower than itself. The
+                    // rerun measures several processes per commit and compares the pull request's fastest with the base's
+                    // slowest: a regression slows every process, a slow draw of identical code does not.
+                    double headFastest = ProcessMedians(confirmHead).Min();
+                    double baseSlowest = ProcessMedians(confirmBase).Max();
+                    reruns.Add(headFastest / baseSlowest);
+                    confirmed &= headFastest / baseSlowest >= options.RoundRatio && headFastest - baseSlowest >= options.MinimumDifferenceNanoseconds;
                 }
             }
 
@@ -257,6 +262,11 @@ public static class BenchmarkGate
         return samples;
     }
 
+    /// <summary>The median of each measuring process's iterations of a case; processes that measured nothing are skipped.</summary>
+    private static IEnumerable<double> ProcessMedians(BenchmarkCase benchmark) => benchmark.Processes
+        .Where(static process => process.Count > 0)
+        .Select(static process => Sample.Quantile([.. process.Order()], 0.5));
+
     private static string Bytes(long[] values) => values.Length == 1
         ? Invariant($"{values[0]} B")
         : Invariant($"{values[0]} B to {values[^1]} B (it varies between runs)");
@@ -299,7 +309,7 @@ public static class BenchmarkGate
             && Quantile(_head, 0.25) > Quantile(_base, 0.75);
 
         /// <summary>Linear interpolation between closest ranks of a sorted sample.</summary>
-        private static double Quantile(double[] sorted, double p)
+        public static double Quantile(double[] sorted, double p)
         {
             if (sorted.Length == 1)
             {
