@@ -165,3 +165,5 @@ Phase 0 → Phase 1 → {2A, 2B, 2C, 2D} → 3A → {3B, 3C, 3D, 3E, 3F, 3G, 3H,
 - Public API changes show up in `PublicAPI.Unshipped.txt`; a PR that changes it says why.
 - Every spec-implementing type and member cites its clause in XML docs.
 - Hot paths (lexer, interpreter, rasterizer, codecs) have benchmarks and allocate nothing per token, operator, glyph or scanline.
+
+<!-- Probe for #587: a docs-only change. -->
