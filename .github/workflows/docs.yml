@@ -78,13 +78,6 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v6
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj', '.config/dotnet-tools.json') }}
-          restore-keys: nuget-${{ runner.os }}-
-
       # The API reference builds Broadside.Rendering.Android for net10.0-android (site/config.scriban). The Apple
       # workloads do not install on Linux, so Broadside.Rendering.CoreGraphics is documented in
       # site/articles/api-coverage.md instead; that page says which target framework each package is built from.

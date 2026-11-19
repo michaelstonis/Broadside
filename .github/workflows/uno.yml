@@ -30,18 +30,13 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          # Called by ci.yml's nightly run, which tests the integration branch (schedules run from main's copy of ci.yml).
+          ref: ${{ github.event_name == 'schedule' && 'spec/33-broadside-v1' || '' }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
-
-      - name: Cache NuGet packages
-        uses: actions/cache@v6
-        with:
-          path: ~/.nuget/packages
-          key: nuget-uno-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', '**/*.csproj') }}
-          restore-keys: nuget-uno-${{ runner.os }}-
 
       - name: Install the wasm-tools workload
         timeout-minutes: 15
@@ -90,18 +85,13 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          # Called by ci.yml's nightly run, which tests the integration branch (schedules run from main's copy of ci.yml).
+          ref: ${{ github.event_name == 'schedule' && 'spec/33-broadside-v1' || '' }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
-
-      - name: Cache NuGet packages
-        uses: actions/cache@v6
-        with:
-          path: ~/.nuget/packages
-          key: nuget-uno-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', '**/*.csproj') }}
-          restore-keys: nuget-uno-${{ runner.os }}-
 
       - name: Build the desktop head
         run: dotnet build samples/Broadside.Viewer.Uno.Sample -f net10.0-desktop -c Release -warnaserror

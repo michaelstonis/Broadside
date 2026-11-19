@@ -54,8 +54,20 @@ public sealed class TileRenderingTests
     }
 
     [Theory]
+    [Trait("Category", Exhaustive.Category)]
     [MemberData(nameof(Pages))]
-    public void Every_corpus_page_rendered_as_tiles_matches_its_whole_render(string fileName, int pageIndex)
+    public void Every_corpus_page_rendered_as_tiles_matches_its_whole_render(string fileName, int pageIndex) => AssertTilesMatchWholeRender(fileName, pageIndex);
+
+    /// <summary>The pull-request sample of <see cref="Every_corpus_page_rendered_as_tiles_matches_its_whole_render"/>: every eighth page.</summary>
+    [Theory]
+    [MemberData(nameof(SampledPages))]
+    public void A_sample_of_corpus_pages_rendered_as_tiles_matches_their_whole_render(string fileName, int pageIndex) => AssertTilesMatchWholeRender(fileName, pageIndex);
+
+    public static TheoryData<string, int> Pages => GoldenCorpus.Pages;
+
+    public static TheoryData<string, int> SampledPages => Exhaustive.Sample(GoldenCorpus.Pages, every: 8);
+
+    private static void AssertTilesMatchWholeRender(string fileName, int pageIndex)
     {
         // Tiles skip every paint whose bounds miss them (annotations and form fields included, as the whole render draws them); a
         // bound too small would leave a hole. Away from the arithmetic of
@@ -70,8 +82,6 @@ public sealed class TileRenderingTests
 
         RenderMosaic(rasterizer, list, options.GetDeviceTransform(page), whole, 96, maxDifference: 1);
     }
-
-    public static TheoryData<string, int> Pages => GoldenCorpus.Pages;
 
     [Fact]
     public void A_region_is_cut_to_the_page_and_rounded_outwards_to_whole_pixels()
