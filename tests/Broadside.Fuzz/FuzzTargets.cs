@@ -46,6 +46,7 @@ internal static class FuzzTargets
         ["filter-flate"] = data => Filter(new FlateDecodeFilter(), data, parameters: null, maxRatio: 1100),
         ["filter-runlength"] = data => Filter(new RunLengthDecodeFilter(), data, parameters: null, maxRatio: 128),
         ["filter-predictor"] = PredictorTarget,
+        ["filter-sliced"] = SlicedChainTarget.Target,
         ["filter-encode"] = EncodeTarget,
         ["filter-dct"] = DctTarget.Target,
         ["filter-dct-encode"] = DctEncodeTarget.Target,
@@ -60,6 +61,7 @@ internal static class FuzzTargets
         ["timestamp-response"] = TimestampResponseTarget.Target,
         ["public-key"] = PublicKey.Target,
         ["xmp"] = Xmp,
+        ["xmp-xml"] = XmpXmlTarget.Target,
         ["pdf-date"] = PdfDateTarget,
         ["structure-tree"] = StructureTree.Target,
         ["layout-detection"] = LayoutDetectionTarget.Target,
@@ -1327,7 +1329,7 @@ internal static class FuzzTargets
 
         var encoded = new ArrayBufferWriter<byte>();
         new StreamEncoder(StreamEncoderRegistry.Default, Unresolved).Encode(body, dictionary, encoded, levels[mode % levels.Length]);
-        var decoder = new StreamDecoder(FilterRegistry.Create([]), PdfOptions.DefaultMaxDecodedLength, new DiagnosticSink(strict: true), Unresolved);
+        var decoder = new StreamDecoder(ImageCodecRegistry.All, PdfOptions.DefaultMaxDecodedLength, new DiagnosticSink(strict: true), Unresolved);
         ReadOnlyMemory<byte> decoded = decoder.Decode(new CosStream(dictionary, encoded.WrittenSpan.ToArray()));
         if (!decoded.Span.SequenceEqual(body))
         {
@@ -1353,7 +1355,7 @@ internal static class FuzzTargets
         int pages = (data[0] & 15) + 1;
         ReadOnlySpan<byte> hints = data[3..];
         int shared = ((data[1] << 8) | data[2]) % hints.Length;
-        var layout = new HintTableLayout(HeaderOffset: 0, HintOffset: 100, HintLength: 50, FirstPageObjectNumber: 1, PageCount: pages);
+        var layout = new HintTableLayout(HeaderOffset: 0, HintOffset: 100, HintLength: 50, FirstPageObjectNumber: 1, PageCount: pages, FileLength: 1 << 16);
 
         PdfLinearizationHints? decoded = HintTableReader.Parse(hints, shared, layout, out string? error);
 
@@ -1380,7 +1382,7 @@ internal static class FuzzTargets
     private static void Repair(ReadOnlySpan<byte> data)
     {
         var diagnostics = new DiagnosticSink(strict: false);
-        var streams = new StreamDecoder(FilterRegistry.Create([]), PdfOptions.DefaultMaxDecodedLength, diagnostics, static value => value ?? CosNull.Instance);
+        var streams = new StreamDecoder(ImageCodecRegistry.All, PdfOptions.DefaultMaxDecodedLength, diagnostics, static value => value ?? CosNull.Instance);
         using PdfSource source = PdfSource.FromMemory(data.ToArray());
         FileHeader header = FileHeader.Locate(source, diagnostics);
 
@@ -1444,7 +1446,7 @@ internal static class FuzzTargets
             $"7 0 obj\n<< /Type /XRef /Size 1000 {index} /W [{widths[0]} {widths[1]} {widths[2]}] /Length {rows.Length} >>\nstream\n");
         byte[] file = [.. head, .. rows, .. "\nendstream\nendobj\n"u8];
         var diagnostics = new DiagnosticSink(strict: false);
-        var streams = new StreamDecoder(FilterRegistry.Create([]), PdfOptions.DefaultMaxDecodedLength, diagnostics, static value => value ?? CosNull.Instance);
+        var streams = new StreamDecoder(ImageCodecRegistry.All, PdfOptions.DefaultMaxDecodedLength, diagnostics, static value => value ?? CosNull.Instance);
         using PdfSource source = PdfSource.FromMemory(file);
 
         XrefSection? section = XrefStreamReader.Read(source, 0, streams, diagnostics);

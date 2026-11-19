@@ -83,6 +83,48 @@ internal sealed partial class ContentInterpreter
         }
     }
 
+    /// <summary>
+    /// Before a top-level <c>Do</c> of a run in slices, lets the processor decode the image it paints in slices of its own (issue
+    /// #566); returns <see langword="false"/> when the processor paused before the deadline, so that the run stops before the
+    /// <c>Do</c> and reads it again. Anything the <c>Do</c> would not paint as an image, or would report, is left to the <c>Do</c>.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §8.8 and §8.9.5: only a base image XObject that is not an image mask, without optional content, on screen, so that
+    /// §8.9.5.4 cannot choose another image; only in lenient reading, so that a strict deviation throws from the <c>Do</c> as before.
+    /// </remarks>
+    private bool PrepareXObject(long deadline)
+    {
+        if (_arena.Count != 1 || _arena.OpenDepth != 0 || IgnoresColorOperators || _printing
+            || (_events & ContentEvents.Images) == 0 || _context.IsHidden || _tracker is { IsVisible: false })
+        {
+            return true;
+        }
+
+        ContentOperand operand = _arena.Operands[0];
+        PdfDocument document = _context.Document;
+        if (operand.Kind != ContentOperandKind.Name || document.DiagnosticSink.IsStrict)
+        {
+            return true;
+        }
+
+        CosObject? value = document.ColorSpaces.FindResource(_context.Resources, XObjectName, operand.Bytes, out _);
+        if (value is null || document.Resolve(value) is not CosStream stream)
+        {
+            return true;
+        }
+
+        CosDictionary dictionary = stream.Dictionary;
+        if (!(dictionary.TryGetValue(SubtypeName, out CosObject? subtype) && document.Resolve(subtype) is CosName { Value: "Image" })
+            || IsImageMask(dictionary)
+            || dictionary.ContainsKey(OptionalContentName)
+            || _context.GetImage(stream, value as CosReference) is not { } model)
+        {
+            return true;
+        }
+
+        return _processor.PrepareImage(stream, model, _context, deadline);
+    }
+
     private void PaintImageXObject(CosStream stream, CosReference? reference, ReadOnlySpan<byte> name)
     {
         bool stencil = IsImageMask(stream.Dictionary);

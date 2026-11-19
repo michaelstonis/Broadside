@@ -121,8 +121,12 @@ public sealed partial class SoftwareRasterizer
 
             // Text that clips (modes 4 to 7) is filled in place, as the issue scopes the cache to the plain modes.
             bool cached = run.Program is not null && run.RenderingMode < TextRenderingMode.FillClip;
-            bool cull = fills && !strokes && !_previewing;
+
+            // A tile skips what lies wholly outside its clip: the fill by the glyph's own bounds, the stroke by them widened by the
+            // pen's reach, each on its own, so a glyph whose fill misses the tile still strokes into it (issue #572).
+            bool cull = !_previewing;
             Matrix ctm = _toDevice;
+            double reach = strokes ? StrokeReach(run.StrokeStyle, ctm) : 0;
             _scan.Rule = _textRule;
             try
             {
@@ -139,19 +143,10 @@ public sealed partial class SoftwareRasterizer
                     if (fills)
                     {
                         MaskFill result = cached ? FillFromMask(outline, run.Program!, run.Glyphs[index].GlyphId, glyphToDevice, fill, cull) : MaskFill.InPlace;
-                        if (result == MaskFill.Culled)
-                        {
-                            continue;
-                        }
 
-                        if (result == MaskFill.InPlace)
+                        // A run crosses many tiles; a fill wholly outside this one's clip paints nothing, so it is not scan converted.
+                        if (result == MaskFill.InPlace && !(cull && MissesClip(outline, glyphToDevice, 0)))
                         {
-                            if (cull && MissesClip(outline, glyphToDevice))
-                            {
-                                // A run crosses many tiles; a glyph wholly outside this one's clip paints nothing, so it is not scan converted.
-                                continue;
-                            }
-
                             _toDevice = glyphToDevice;
                             _scan.Reset(_width, _height);
                             AddPath(outline, degenerateDots: false);
@@ -160,7 +155,7 @@ public sealed partial class SoftwareRasterizer
                         }
                     }
 
-                    if (strokes)
+                    if (strokes && !(cull && MissesClip(outline, glyphToDevice, reach)))
                     {
                         _toDevice = ctm;
                         _scan.Reset(_width, _height);
@@ -242,7 +237,7 @@ public sealed partial class SoftwareRasterizer
                 _scan.Reset(_width, _height);
                 mask = _glyphs.Add(key, left, top, width, height);
             }
-            else if (Misses(mask.Left + (int)originX, mask.Top + (int)originY, mask.Width, mask.Height))
+            else if (cull && Misses(mask.Left + (int)originX, mask.Top + (int)originY, mask.Width, mask.Height))
             {
                 return MaskFill.Culled;
             }
@@ -328,10 +323,26 @@ public sealed partial class SoftwareRasterizer
         }
 
         /// <summary>
-        /// Whether the outline, under <paramref name="glyphToDevice"/>, lies wholly outside the clip's pixel bounds: the bounds of its
-        /// points (a curve stays within its control points) mapped to device space, with a pixel to spare.
+        /// How far, in device pixels, a stroke with <paramref name="style"/> under <paramref name="ctm"/> can reach beyond its path: half
+        /// the line width times the longest a join or cap sticks out (the miter limit for miter joins, the square cap's corner
+        /// otherwise), times the largest stretch of the matrix (bounded by its Frobenius norm), plus two pixels for thin lines and stroke
+        /// adjustment. Not finite when the style or matrix is not, which culls nothing.
         /// </summary>
-        private bool MissesClip(PathView outline, in Matrix glyphToDevice)
+        /// <remarks>ISO 32000-2 §8.4.3.3 to §8.4.3.5.</remarks>
+        private static double StrokeReach(in StrokeStyle style, in Matrix ctm)
+        {
+            double corner = Math.Sqrt(2);
+            double extent = style.LineJoin == LineJoin.Miter ? Math.Max(style.MiterLimit, corner) : corner;
+            double stretch = Math.Sqrt((ctm.A * ctm.A) + (ctm.B * ctm.B) + (ctm.C * ctm.C) + (ctm.D * ctm.D));
+            return (Math.Abs(style.LineWidth) / 2 * extent * stretch) + 2;
+        }
+
+        /// <summary>
+        /// Whether the outline, under <paramref name="glyphToDevice"/> and widened by <paramref name="margin"/> pixels, lies wholly
+        /// outside the clip's pixel bounds: the bounds of its points (a curve stays within its control points) mapped to device space,
+        /// with a pixel to spare.
+        /// </summary>
+        private bool MissesClip(PathView outline, in Matrix glyphToDevice, double margin)
         {
             double minX = double.PositiveInfinity;
             double minY = double.PositiveInfinity;
@@ -352,10 +363,11 @@ public sealed partial class SoftwareRasterizer
             _clip.GetBounds(out int left, out int top, out int right, out int bottom);
 
             // NaN compares false everywhere, so an outline that cannot be bounded is drawn as before.
-            return Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X)) < left - 1
-                || Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X)) > right + 1
-                || Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y)) < top - 1
-                || Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y)) > bottom + 1;
+            double spare = margin + 1;
+            return Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X)) < left - spare
+                || Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X)) > right + spare
+                || Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y)) < top - spare
+                || Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y)) > bottom + spare;
         }
 
         /// <summary>Converts a colour to the opaque pixel it paints, or returns false when it paints nothing.</summary>
@@ -397,7 +409,7 @@ public sealed partial class SoftwareRasterizer
             /// <summary>Painted from its mask.</summary>
             Painted,
 
-            /// <summary>Not painted: it lies wholly outside the clip.</summary>
+            /// <summary>Not painted: the caller asked to cull and the fill lies wholly outside the clip. A stroke of the glyph is still drawn.</summary>
             Culled,
 
             /// <summary>Not taken: fill it in place.</summary>

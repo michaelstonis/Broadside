@@ -125,6 +125,9 @@ internal sealed class StructureWalk
     public IReadOnlyDictionary<int, PdfStructureElement>? MarkedContent(CosObject streamKey) =>
         _markedContent.TryGetValue(streamKey, out Dictionary<int, PdfStructureElement>? map) ? map : null;
 
+    /// <summary>The content streams (page objects or streams) whose MCIDs <c>K</c> claims, each with its MCID-to-element map.</summary>
+    public IEnumerable<KeyValuePair<CosObject, Dictionary<int, PdfStructureElement>>> MarkedContentStreams => _markedContent;
+
     /// <summary>
     /// Gives the next content item, of <paramref name="parent"/> and on <paramref name="page"/>, its position in logical content order,
     /// and records that position as the first item of <paramref name="parent"/> and of each ancestor that has none yet. The walk meets

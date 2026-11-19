@@ -17,3 +17,4 @@
 *.icc binary
 *.deflate binary
 *.gz binary
+*.aotprofile binary

@@ -88,6 +88,22 @@ public sealed class ViewerControllerTests
     });
 
     [Fact]
+    public void A_mouse_release_away_from_the_press_selects_up_to_it_when_no_move_arrived_between() => UiThread.Run(async () =>
+    {
+        // A fast drag can end before a move reaches the view at the release point: the release still ends the selection there.
+        using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("text-render-modes.pdf"));
+        (double x, double y) = FindText(shell);
+        Viewport before = shell.Viewport;
+
+        shell.Down(1, PointerKind.Mouse, x, y);
+        Assert.True(shell.Controller.Selection!.IsEmpty);
+        shell.Up(1, x + 60, y);
+        Assert.False(shell.Controller.Selection.IsEmpty);
+        Assert.False(string.IsNullOrWhiteSpace(await shell.Controller.GetSelectedTextAsync()));
+        Assert.Equal(before, shell.Viewport);
+    });
+
+    [Fact]
     public void A_long_press_on_text_selects_a_word_and_its_handle_extends_the_selection() => UiThread.Run(async () =>
     {
         using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("text-render-modes.pdf"));
@@ -200,28 +216,6 @@ public sealed class ViewerControllerTests
             Assert.InRange(box.Y, 0, shell.Viewport.Height - box.Height);
             Assert.InRange(box.X, 0, shell.Viewport.Width - box.Width);
         }
-    });
-
-    [Fact]
-    public void Dark_mode_redraws_the_tiles_from_the_cached_lists_with_black_paper_and_back() => UiThread.Run(async () =>
-    {
-        using Shell shell = await Shell.OpenAsync(Shell.SampleDocument("textbook.pdf"));
-        LayoutRectangle page = shell.Layout.PageToViewport(shell.Viewport, 0, shell.Layout.GetPageMetrics(0).CropBox);
-        long misses = shell.Controller.Session!.Document.CacheStatistics.DisplayLists.Misses;
-
-        shell.Controller.SetColorFilter(ColorFilter.DarkMode);
-        await shell.SettleAsync();
-        Assert.True(shell.Controller.LatestFrame.IsDark);
-        Raster dark = shell.Draw();
-        Assert.Equal(ViewerColors.DarkBackground, dark[1, 1]);
-        (int darkSamples, int whiteSamples) = Count(dark, page);
-        Assert.True(darkSamples > whiteSamples * 3, $"dark {darkSamples}, white {whiteSamples}");
-        Assert.Equal(misses, shell.Controller.Session.Document.CacheStatistics.DisplayLists.Misses);
-
-        shell.Controller.SetColorFilter(ColorFilter.None);
-        await shell.SettleAsync();
-        (darkSamples, whiteSamples) = Count(shell.Draw(), page);
-        Assert.True(whiteSamples > darkSamples * 3, $"dark {darkSamples}, white {whiteSamples}");
     });
 
     [Fact]
@@ -451,7 +445,7 @@ public sealed class ViewerControllerTests
         Assert.All(shell.Controller.AccessiblePages, page => Assert.InRange(page, 0, 7));
     });
 
-    private static (int Dark, int White) Count(Raster frame, LayoutRectangle page)
+    internal static (int Dark, int White) Count(Raster frame, LayoutRectangle page)
     {
         int dark = 0;
         int white = 0;

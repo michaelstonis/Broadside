@@ -69,3 +69,4 @@ static readonly Broadside.Viewer.Avalonia.PdfView.LayoutOptionsProperty -> Avalo
 static readonly Broadside.Viewer.Avalonia.PdfView.SessionProperty -> Avalonia.StyledProperty<Broadside.Viewer.DocumentSession?>!
 static readonly Broadside.Viewer.Avalonia.PdfView.ShowAnnotationsProperty -> Avalonia.StyledProperty<bool>!
 static readonly Broadside.Viewer.Avalonia.PdfView.SourceProperty -> Avalonia.StyledProperty<string?>!
+Broadside.Viewer.Avalonia.PdfView.Forms.get -> Broadside.Viewer.FormFilling?

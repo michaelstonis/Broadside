@@ -11,18 +11,17 @@ namespace Broadside.Benchmarks;
 /// The document builder against the same documents built by hand with the flow engine (issue #397, spec section 8 "Benchmarks"): the
 /// builder is a front, so builder plus layout should stay within +5 % of the time and +10 % of the bytes of its <c>*Flow</c> twin. Each
 /// case builds and lays out a whole document (saving is left out): <c>Hello</c> one page; <c>Report100</c> about 100 pages of headings
-/// and paragraphs with a table of contents, an outline, a header and a page-numbered footer; <c>LongTable</c> a 200-row table over several pages through closures and through the
-/// <c>Row(params ReadOnlySpan&lt;string&gt;)</c> fast path; <c>Invoice</c> 1,000 invoices from one shared theme, serially and in parallel
-/// (the mean is per invoice).
+/// and paragraphs with a table of contents, an outline, a header and a page-numbered footer; <c>LongTable</c> a 10,000-row table over
+/// about 300 pages through closures and through the <c>Row(params ReadOnlySpan&lt;string&gt;)</c> fast path; <c>Invoice</c> 1,000
+/// invoices from one shared theme, serially and in parallel (the mean is per invoice).
 /// </summary>
 /// <remarks>
 /// The report opens with a table of contents and builds its outline, so it exercises the forward references (layout runs until the
-/// page numbers settle). The spec's 10,000-row table waits for the flow engine: laying out a
-/// table that spans pages grows with the square of its rows today (500 rows about 1 s and 1.9 GB allocated, 1,000 rows about 6 s and
-/// 7.7 GB, the hand-built twin alike), so the case uses 200 rows until that is fixed.
+/// page numbers settle). The table has the spec's 10,000 rows: laying it out is linear in its rows (issue #541; it was quadratic,
+/// through each tagged cell's header lookup and each MCID allocation walking the whole structure tree).
 /// <para>
 /// Every case except <c>Hello</c> and <c>HelloFlow</c> is in the <see cref="GateAllocations.NoAllocationGate"/> category (the
-/// regression gate compares their time but not their allocated bytes exactly): they allocate 350 MB to 6 GB per call, so garbage
+/// regression gate compares their time but not their allocated bytes exactly): they allocate 5 MB to 300 MB per call, so garbage
 /// collections run inside the call, and each one can clear weakly held caches halfway through it; the figure then moves by bytes to
 /// tens of kilobytes with where the collection falls, in the hand-built twins alike. <c>InvoiceParallel</c> also depends on how the
 /// thread pool schedules its work. <c>bench/baselines/gate/README.md</c> has the rule.
@@ -33,7 +32,7 @@ namespace Broadside.Benchmarks;
 public class DocumentBuilderBenchmarks
 {
     private const int ReportParagraphs = 1_200;
-    private const int TableRows = 200;
+    private const int TableRows = 10_000;
     private const int Invoices = 1_000;
 
     private static readonly Theme SharedTheme = Theme.Default.WithBaseSize(10);
@@ -142,7 +141,7 @@ public class DocumentBuilderBenchmarks
         return document.Pages.Count;
     }
 
-    /// <summary>A 200-row table with a repeated header row, each row described through a closure.</summary>
+    /// <summary>A 10,000-row table with a repeated header row, each row described through a closure.</summary>
     [Benchmark]
     [BenchmarkCategory(GateAllocations.NoAllocationGate)]
     public int LongTable()

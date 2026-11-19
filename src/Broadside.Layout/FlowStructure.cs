@@ -53,6 +53,7 @@ internal sealed class FlowStructure : IStructureSink
     private readonly List<Node> _sequences = [];
     private readonly HashSet<string> _mapped = new(StringComparer.Ordinal);
     private readonly Dictionary<TableCell, PdfStructureElement> _cells = [];
+    private readonly Dictionary<Table, Table.HeaderIndex> _tables = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<FlowBlock, PdfStructureElement> _blocks = new(ReferenceEqualityComparer.Instance);
     private PdfPage? _page;
     private int _ids;
@@ -454,9 +455,15 @@ internal sealed class FlowStructure : IStructureSink
             return;
         }
 
+        if (!_tables.TryGetValue(table, out Table.HeaderIndex? index))
+        {
+            index = table.IndexHeaders();
+            _tables.Add(table, index);
+        }
+
         if (node.Type == "TH")
         {
-            string scope = table.ScopeOf(cell) switch
+            string scope = index.ScopeOf(cell) switch
             {
                 TableHeaderScope.Row => "Row",
                 TableHeaderScope.Both => "Both",
@@ -466,7 +473,7 @@ internal sealed class FlowStructure : IStructureSink
         }
 
         var headers = new CosArray();
-        foreach (TableCell header in table.HeadersOf(cell))
+        foreach (TableCell header in index.HeadersOf(cell))
         {
             if (_cells.TryGetValue(header, out PdfStructureElement? headerElement))
             {

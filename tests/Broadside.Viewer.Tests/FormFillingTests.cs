@@ -98,6 +98,106 @@ public sealed class FormFillingTests
         Assert.Equal([1, 2], ((PdfChoiceField)reopened.AcroForm.FindField("toppings")!).SelectedIndices);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task The_shared_field_set_fills_the_same_through_keys_or_a_native_editor_as_through_the_form_api(bool nativeEditor)
+    {
+        // The field set every shell fills (#543): the WPF, WinUI and Avalonia shells feed their native editors through SetText and
+        // SetSelectedOptions; Blazor and MAUI also send keys. Either way the saved file is the form API's.
+        byte[] filled;
+        await using (DocumentSession session = Open(FormFillingScenario.FileName))
+        {
+            var layer = new AnnotationLayer(session);
+            await LoadAllAsync(layer);
+            var filling = new FormFilling(layer);
+
+            void Type(string field, string text)
+            {
+                layer.Focus(Widget(layer, field));
+                Assert.Equal(FieldEditKind.Text, filling.Kind);
+                Assert.True(nativeEditor ? filling.SetText(text) : filling.TextInput(text));
+                Assert.True(filling.Commit());
+            }
+
+            void Pick(string field, int index, Action keys)
+            {
+                layer.Focus(Widget(layer, field));
+                Assert.Equal(FieldEditKind.Choice, filling.Kind);
+                if (nativeEditor)
+                {
+                    Assert.True(filling.SetSelectedOptions([index]));
+                }
+                else
+                {
+                    keys();
+                }
+
+                Assert.Equal([index], filling.SelectedOptions);
+                Assert.True(filling.Commit());
+            }
+
+            // Text cut at MaxLen, and a comb field at its comb count, whether typed or set whole.
+            Type("name", FormFillingScenario.NameTyped);
+            Type("code", FormFillingScenario.CodeTyped);
+
+            // A read-only field takes focus and no edit.
+            layer.Focus(Widget(layer, "ref"));
+            Assert.True(filling.IsReadOnly);
+            Assert.False(filling.SetText("R-2"));
+            Assert.False(filling.TextInput("R-2"));
+
+            // A check box and a radio button, toggled by Space in every shell.
+            layer.Focus(Widget(layer, "agree"));
+            Assert.True(filling.KeyDown(InputKey.Space, InputModifiers.None));
+            layer.Focus(Widget(layer, "size", FormFillingScenario.SizeWidget));
+            Assert.True(filling.KeyDown(InputKey.Space, InputModifiers.None));
+
+            // A list box picked by typing ahead, a combo box by Arrow Down, an editable combo box by typing a value it does not list.
+            Pick("fruit", FormFillingScenario.Fruit, () => Assert.True(filling.TextInput("C")));
+            Pick("country", FormFillingScenario.Country, () => Assert.True(filling.KeyDown(InputKey.ArrowDown, InputModifiers.None)));
+            layer.Focus(Widget(layer, "city"));
+            Assert.True(nativeEditor ? filling.SetText(FormFillingScenario.City) : filling.TextInput(FormFillingScenario.City));
+            Assert.Empty(filling.SelectedOptions);
+            Assert.True(filling.Commit());
+
+            // A multi-select list box: two options toggled (#560), by the native list's whole selection after each click or by
+            // End/Home and Space; the field is written once, at the commit.
+            layer.Focus(Widget(layer, "colors"));
+            Assert.Equal([0], filling.SelectedOptions);
+            InputKey[] keys = [InputKey.End, InputKey.Home];
+            for (int i = 0; i < FormFillingScenario.ColorsToggled.Count; i++)
+            {
+                if (nativeEditor)
+                {
+                    Assert.True(filling.SetSelectedOptions(FormFillingScenario.ColorsAfterEachToggle[i]));
+                }
+                else
+                {
+                    Assert.True(filling.KeyDown(keys[i], InputModifiers.None));
+                    Assert.Equal(FormFillingScenario.ColorsToggled[i], filling.HighlightedOption);
+                    Assert.True(filling.KeyDown(InputKey.Space, InputModifiers.None));
+                }
+
+                Assert.Equal(FormFillingScenario.ColorsAfterEachToggle[i], filling.SelectedOptions);
+            }
+
+            Assert.True(filling.Commit());
+            layer.Focus(null);
+
+            Assert.Equal(await FormFillingScenario.ExpectedAsync(Token), FormFillingScenario.Describe(session.Document.AcroForm!));
+            using var stream = new MemoryStream();
+            await session.Document.SaveAsync(stream, Token);
+            filled = stream.ToArray();
+        }
+
+        using PdfDocument document = await PdfDocument.OpenAsync(Corpus.Bytes(FormFillingScenario.FileName), new PdfOptions().UseTimeProvider(FixedTimeProvider.Instance), Token);
+        FormFillingScenario.FillThroughApi(document.AcroForm!);
+        using var expected = new MemoryStream();
+        await document.SaveAsync(expected, Token);
+        Assert.Equal(expected.ToArray(), filled);
+    }
+
     [Fact]
     public async Task Tab_moves_through_the_fields_in_the_order_the_page_Tabs_entry_gives()
     {

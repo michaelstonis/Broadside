@@ -108,6 +108,24 @@ public sealed class CidCffProgramTests
     }
 
     [Fact]
+    public void A_first_font_dictionary_matrix_that_cannot_be_inverted_leaves_every_other_glyph_in_its_own_matrix_with_a_diagnostic()
+    {
+        // Fuzz finding (#582): FD 0's FontMatrix was singular, so it could not be the program's matrix that other FDs map into.
+        CffBuilder builder = TwoFontDicts([0, 0, 0, 1]);
+        builder.FontMatrix = [1, 0, 0, 1, 0, 0];
+        builder.FontDicts[0].FontMatrix = [-91, -91, -91, -91, -91, -91];
+        builder.FontDicts[1].FontMatrix = [0.0005, 0, 0, 0.0005, 0, 0];
+        var context = new FontProgramContext();
+
+        FontProgram program = Parse(builder.Build(), context);
+
+        Assert.Equal(Matrix.CreateScale(0.0005, 0.0005), Round(program.FontMatrix));
+        Assert.Equal(SecondBox, OutlineText.Of(program, 2));
+        Assert.Equal(730, program.GetMetrics(2).AdvanceWidth, 9);
+        Assert.Equal("FontCffDictInvalid", Assert.Single(context.Diagnostics).Code);
+    }
+
+    [Fact]
     public void An_FDSelect_entry_past_the_FDArray_selects_the_first_font_dictionary_with_a_diagnostic()
     {
         var context = new FontProgramContext();

@@ -59,7 +59,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
     /// <summary>
     /// Gets a number that changes every time an entry is added, replaced or removed through the public API, and never by reading
     /// or loading: caches of state derived from the dictionary record it and rebuild when it differs. Every change also advances
-    /// <see cref="CosMutation.Epoch"/>. Changes to the values
+    /// the epoch of the document the dictionary belongs to (<see cref="CosMutation.EpochOf"/>). Changes to the values
     /// themselves are not counted; a cache records each container it depends on.
     /// </summary>
     internal int Version
@@ -70,10 +70,16 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
             if (value != _version)
             {
                 _version = value;
-                CosMutation.Advance();
+                CosMutation.Advance(Owner);
             }
         }
     }
+
+    /// <summary>
+    /// Gets or sets the document the dictionary belongs to, whose epoch its changes advance; <see langword="null"/> while it belongs to
+    /// none (<see cref="CosMutation.Adopt"/>). A stream's dictionary stands for the stream.
+    /// </summary>
+    internal CosOwner? Owner { get; set; }
 
     /// <summary>Gets the number of entries.</summary>
     public int Count => _entries.Count;
@@ -116,6 +122,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
             CosChangeLog.Changing(this);
             _entries[key] = value;
             _changed = true;
+            Adopt(value);
             Version++;
         }
     }
@@ -141,6 +148,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
         CosChangeLog.Changing(this);
         _entries.Add(key, value);
         _changed = true;
+        Adopt(value);
         Version++;
     }
 
@@ -210,6 +218,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
             foreach ((CosName key, CosObject value) in entries)
             {
                 _entries.Add(key, value);
+                Adopt(value);
             }
 
             _changed = changed;
@@ -220,12 +229,25 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
     /// <summary>Replaces the value at <paramref name="index"/> as part of loading (decryption), without marking the dictionary dirty.</summary>
     /// <param name="index">The entry's position.</param>
     /// <param name="value">The loaded value; not <see cref="CosNull"/>.</param>
-    internal void ReplaceLoaded(int index, CosObject value) => _entries.SetAt(index, value);
+    internal void ReplaceLoaded(int index, CosObject value)
+    {
+        _entries.SetAt(index, value);
+        Adopt(value);
+    }
 
     /// <summary>Gets the entry at <paramref name="index"/> in insertion order.</summary>
     /// <param name="index">The entry's position.</param>
     /// <returns>The entry.</returns>
     internal KeyValuePair<CosName, CosObject> GetAt(int index) => _entries.GetAt(index);
+
+    /// <summary>Makes a value put into the dictionary belong to the dictionary's document, when it belongs to one.</summary>
+    private void Adopt(CosObject value)
+    {
+        if (Owner is { } owner)
+        {
+            CosMutation.Adopt(value, owner);
+        }
+    }
 
     /// <summary>Wraps entries the caller gives up ownership of, without copying them and without marking the dictionary dirty.</summary>
     internal static CosDictionary FromOwnedEntries(OrderedDictionary<CosName, CosObject> entries) => new(entries);

@@ -105,6 +105,7 @@ public static class Corpus
         "actions-all.pdf",
         "actions-preserved.pdf",
         "acroform-fields.pdf",
+        "acroform-filling.pdf",
         "acroform-xfa.pdf",
         "colorspace-families.pdf",
         "color-operators.pdf",

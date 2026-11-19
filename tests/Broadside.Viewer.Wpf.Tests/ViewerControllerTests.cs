@@ -95,6 +95,22 @@ public sealed class ViewerControllerTests
     });
 
     [Fact]
+    public void A_mouse_release_away_from_the_press_selects_up_to_it_when_no_move_arrived_between() => UiThread.Run(async () =>
+    {
+        // A fast drag can end before a move reaches the view at the release point: the release still ends the selection there.
+        using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("text-render-modes.pdf"));
+        (double x, double y) = FindText(shell);
+        Viewport before = shell.Viewport;
+
+        shell.Controller.PointerDown(1, PointerKind.Mouse, x, y, 1, InputModifiers.None);
+        Assert.True(shell.Controller.Selection!.IsEmpty);
+        shell.Controller.PointerUp(1, x + 60, y);
+        Assert.False(shell.Controller.Selection.IsEmpty);
+        Assert.False(string.IsNullOrWhiteSpace(await shell.Controller.GetSelectedTextAsync()));
+        Assert.Equal(before, shell.Viewport);
+    });
+
+    [Fact]
     public void A_long_press_on_text_selects_a_word_and_its_handle_extends_the_selection() => UiThread.Run(async () =>
     {
         using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("text-render-modes.pdf"));
@@ -240,39 +256,6 @@ public sealed class ViewerControllerTests
     });
 
     [Fact]
-    public void Dark_mode_draws_every_tile_again_from_the_cached_display_lists_with_dark_paper() => UiThread.Run(async () =>
-    {
-        using Shell shell = await Shell.OpenAsync(Shell.SampleDocument("textbook.pdf"));
-        long misses = shell.Controller.Session!.Document.CacheStatistics.DisplayLists.Misses;
-        int presented = shell.Controller.Surface.PresentedCount;
-
-        shell.Controller.SetColorFilter(ColorFilter.DarkMode);
-        Assert.Equal(ColorFilter.DarkMode, shell.Controller.Session.ColorFilter);
-        await shell.SettleAsync();
-        Assert.True(shell.Frame.IsDark);
-        Assert.True(shell.Controller.Surface.PresentedCount > presented);
-        Assert.Equal(misses, shell.Controller.Session.Document.CacheStatistics.DisplayLists.Misses);
-
-        double dark = 0;
-        double white = 0;
-        foreach (ViewerFrame.Item item in shell.Frame.Items)
-        {
-            if (item.Kind == ViewerFrame.ItemKind.Tile && item.Image is TileCopy tile)
-            {
-                (double w, double d) = tile.Tones();
-                white += w;
-                dark += d;
-            }
-        }
-
-        Assert.True(dark > white * 3, $"dark {dark}, white {white}: the paper turned black");
-
-        // Null keeps the session's filter; a new document opened in the same view gets the view's filter.
-        shell.Controller.SetColorFilter(null);
-        Assert.Equal(ColorFilter.DarkMode, shell.Controller.Session.ColorFilter);
-    });
-
-    [Fact]
     public void A_uri_link_is_raised_never_followed_and_an_internal_link_navigates() => UiThread.Run(async () =>
     {
         using (Shell shell = await Shell.OpenAsync(Shell.CorpusFile("annotations-link.pdf")))
@@ -301,6 +284,84 @@ public sealed class ViewerControllerTests
     });
 
     [Fact]
+    public void The_shared_field_set_fills_through_the_editor_and_keys_as_the_form_api_does() => UiThread.Run(async () =>
+    {
+        // #543: the editor over a widget is built from the core form filling and only feeds it input; the form filling cuts the
+        // text at MaxLen and per comb, refuses the read-only field and writes each field once, as in every other shell.
+        using Shell shell = await Shell.OpenAsync(Shell.CorpusFile(FormFillingScenario.FileName));
+        ViewerController controller = shell.Controller;
+        AnnotationLayer layer = controller.Annotations!;
+        PdfAcroForm form = layer.Session.Document.AcroForm!;
+        Assert.Same(layer, controller.Forms!.Layer);
+        FieldEditor? Open(string name, int widget = 0)
+        {
+            AnnotationTarget target = FormFillingScenario.FindWidget(
+                form, name, Enumerable.Range(0, layer.GetCount(0)).Select(i => (new AnnotationTarget(0, i), layer.GetAnnotation(new AnnotationTarget(0, i)))), widget);
+            layer.Focus(target);
+            Assert.Equal(target, controller.Forms.Target);
+            return shell.Editors[^1];
+        }
+
+        // Escape abandons an edit: the field keeps its value.
+        Assert.Equal((FieldEditorKind.Text, "Ada", 20), Open("name") is { } editor ? (editor.Kind, editor.Text, editor.MaxLength) : default);
+        Assert.True(controller.EditorInput("Changed"));
+        Assert.True(controller.CancelFieldEdit());
+        controller.EndFieldEdit();
+        Assert.Null(shell.Editors[^1]);
+        Assert.Equal("Ada", ((PdfTextField)form.FindField("name")!).Value);
+
+        Assert.NotNull(Open("name"));
+        Assert.True(controller.EditorInput(FormFillingScenario.NameTyped));
+        Assert.True(controller.CommitFieldEdit());
+        controller.EndFieldEdit();
+        Assert.Equal(5, Open("code")!.MaxLength);
+        Assert.True(controller.CommitFieldText(FormFillingScenario.CodeTyped));
+        controller.EndFieldEdit();
+
+        // A read-only field, a check box and a radio button open no editor; Space toggles the two buttons.
+        Assert.Null(Open("ref"));
+        Assert.False(controller.EditorInput("R-2"));
+        Assert.Null(Open("agree"));
+        Assert.True(controller.KeyDown(" ", InputModifiers.None));
+        Assert.Null(Open("size", FormFillingScenario.SizeWidget));
+        Assert.True(controller.KeyDown(" ", InputModifiers.None));
+
+        FieldEditor fruit = Open("fruit")!;
+        Assert.Equal((FieldEditorKind.Choice, 0, false), (fruit.Kind, fruit.SelectedIndex, fruit.IsEditable));
+        Assert.Equal(["Apple", "Banana", "Cherry"], fruit.Options);
+        Assert.True(controller.CommitFieldChoice(FormFillingScenario.Fruit));
+        Assert.Equal(["United States", "Canada", "Mexico"], Open("country")!.Options);
+        Assert.True(controller.CommitFieldChoice(FormFillingScenario.Country));
+        FieldEditor city = Open("city")!;
+        Assert.Equal((FieldEditorKind.Choice, "Lyon", -1, true), (city.Kind, city.Text, city.SelectedIndex, city.IsEditable));
+        Assert.True(controller.EditorInput(FormFillingScenario.City));
+        controller.EndFieldEdit(); // focus leaving the field commits it
+        Assert.Null(shell.Editors[^1]);
+
+        // #560: a multi-select list box opens a multi-select list; each click hands the list's whole selection to the form filling,
+        // which keeps the editor open and writes the picks once, when focus leaves the field.
+        FieldEditor colors = Open("colors")!;
+        Assert.Equal((FieldEditorKind.Choice, true, false), (colors.Kind, colors.IsMultiSelect, colors.IsEditable));
+        Assert.Equal(["Red", "Green", "Blue"], colors.Options);
+        Assert.Equal([0], colors.SelectedIndices);
+        Assert.False(fruit.IsMultiSelect);
+        var colorsField = (PdfChoiceField)form.FindField("colors")!;
+        foreach (IReadOnlyList<int> picked in FormFillingScenario.ColorsAfterEachToggle)
+        {
+            Assert.True(controller.EditorSelectedOptions(picked));
+            Assert.Equal(picked, controller.Forms.SelectedOptions);
+            Assert.Same(colors, shell.Editors[^1]);
+            Assert.Equal([0], colorsField.SelectedIndices);
+        }
+
+        controller.EndFieldEdit();
+        Assert.Null(shell.Editors[^1]);
+
+        Assert.Equal(await FormFillingScenario.ExpectedAsync(TestContext.Current.CancellationToken), FormFillingScenario.Describe(form));
+        await shell.SettleAsync();
+    });
+
+    [Fact]
     public void Tab_focuses_form_fields_and_opens_the_editor_whose_commit_redraws_only_overlay_tiles() => UiThread.Run(async () =>
     {
         using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("acroform-fields.pdf"));
@@ -313,13 +374,13 @@ public sealed class ViewerControllerTests
         FieldEditor editor = Assert.IsType<FieldEditor>(shell.Editors[^1]);
         Assert.Equal(FieldEditorKind.Text, editor.Kind);
         shell.Events.Clear();
-        Assert.True(shell.Controller.CommitFieldText("Ada"));
+        Assert.True(shell.Controller.CommitFieldText("Ada Lovelace"));
         await shell.SettleAsync();
         Assert.Contains(shell.Events, e => e.Kind == TileEventKind.Presented);
         Assert.All(
             shell.Events.Where(e => e.Kind is TileEventKind.Started or TileEventKind.Presented or TileEventKind.Evicted),
             e => Assert.Equal(DisplayLayers.None, e.Tile.Layers & DisplayLayers.Content));
-        Assert.Equal("Ada", ((PdfTextField)((PdfWidgetAnnotation)layer.GetAnnotation(editor.Target)).Field!).Value);
+        Assert.Equal("Ada Lovelace", ((PdfTextField)((PdfWidgetAnnotation)layer.GetAnnotation(editor.Target)).Field!).Value);
 
         shell.Controller.EndFieldEdit();
         Assert.Null(shell.Editors[^1]);

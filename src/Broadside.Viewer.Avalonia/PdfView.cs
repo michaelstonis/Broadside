@@ -1,11 +1,13 @@
 using Avalonia;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Broadside.Graphics;
 using Broadside.Rendering;
 using AvaloniaKeyModifiers = Avalonia.Input.KeyModifiers;
@@ -162,6 +164,13 @@ public sealed class PdfView : Control, IDisposable
 
     /// <summary>Gets the annotation and link layer of the open document, or null (form values and annotation edits go through it).</summary>
     public AnnotationLayer? Annotations => Controller.Annotations;
+
+    /// <summary>
+    /// Gets the form filling of the open document, or null: the field the keyboard edits, Tab order (each page's Tabs entry), and one
+    /// commit per edit through the form API (filling through the view saves the same file as filling through the API).
+    /// </summary>
+    /// <remarks>ISO 32000-2 §12.7 (interactive forms), §7.7.3.3 Table 31 (Tabs). Spec #33 viewer capability 12.</remarks>
+    public FormFilling? Forms => Controller.Forms;
 
     /// <summary>Gets the accessibility bridge of the open document, or null.</summary>
     public AccessibilityBridge? Accessibility => Controller.Bridge;
@@ -611,7 +620,12 @@ public sealed class PdfView : Control, IDisposable
 
         if (editor is not null)
         {
-            Control view = editor.Kind == FieldEditorKind.Choice ? CreateComboBox(editor) : CreateTextBox(editor);
+            Control view = editor switch
+            {
+                { Kind: FieldEditorKind.Choice, IsMultiSelect: true } => CreateListBox(editor),
+                { Kind: FieldEditorKind.Choice } => CreateComboBox(editor),
+                _ => CreateTextBox(editor),
+            };
             view.IsVisible = false;
             _editorView = view;
             VisualChildren.Add(view);
@@ -652,48 +666,147 @@ public sealed class PdfView : Control, IDisposable
             MinHeight = 0,
             VerticalContentAlignment = VerticalAlignment.Center,
         };
-        bool committed = false;
-        void Commit()
+        bool closed = false;
+        void Close(bool commit)
         {
-            if (!committed && ReferenceEquals(_editorView, input))
+            if (!closed && ReferenceEquals(_editorView, input))
             {
-                committed = true;
-                Controller.CommitFieldText(input.Text);
+                closed = true;
+                // The box's text once more: its TextChanged may still be queued when Enter or focus loss ends the edit.
+                _ = commit ? Controller.CommitFieldText(input.Text) : Controller.CancelFieldEdit();
                 Controller.EndFieldEdit();
                 Focus();
             }
         }
 
-        input.KeyDown += (_, e) =>
+        // The text box only takes input: the form filling (#218) holds the text (cut at MaxLen, one line unless multi-line) and
+        // writes it once when the edit ends. Enter and focus loss commit; Escape abandons the edit.
+        input.TextChanged += (_, _) =>
         {
-            if ((e.Key == Key.Enter && !editor.IsMultiline) || e.Key == Key.Escape)
+            if (ReferenceEquals(_editorView, input))
             {
-                e.Handled = true;
-                Commit();
+                Controller.EditorInput(input.Text ?? string.Empty);
             }
         };
-        input.LostFocus += (_, _) => Commit();
+        input.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter && !editor.IsMultiline)
+            {
+                e.Handled = true;
+                Close(commit: true);
+            }
+            else if (e.Key == Key.Escape)
+            {
+                e.Handled = true;
+                Close(commit: false);
+            }
+        };
+        input.LostFocus += (_, _) => Close(commit: true);
         return input;
     }
 
     private ComboBox CreateComboBox(FieldEditor editor)
     {
-        var picker = new ComboBox { ItemsSource = editor.Options, SelectedIndex = editor.SelectedIndex, Background = Brushes.White, Foreground = Brushes.Black };
+        var picker = new ComboBox
+        {
+            ItemsSource = editor.Options,
+            SelectedIndex = editor.SelectedIndex,
+            IsEditable = editor.IsEditable,
+            Background = Brushes.White,
+            Foreground = Brushes.Black,
+        };
+        if (editor.IsEditable)
+        {
+            picker.Text = editor.Text;
+        }
+
+        // A pick commits through the form filling at once; an editable combo box's typed text is held there until focus leaves.
         picker.SelectionChanged += (_, _) =>
         {
-            if (picker.SelectedIndex >= 0 && picker.SelectedIndex != editor.SelectedIndex)
+            if (ReferenceEquals(_editorView, picker) && picker.SelectedIndex >= 0 && picker.SelectedIndex != editor.SelectedIndex)
             {
                 Controller.CommitFieldChoice(picker.SelectedIndex);
             }
         };
+        picker.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == ComboBox.TextProperty && editor.IsEditable && ReferenceEquals(_editorView, picker))
+            {
+                Controller.EditorInput(picker.Text ?? string.Empty);
+            }
+        };
         picker.LostFocus += (_, _) =>
         {
-            if (ReferenceEquals(_editorView, picker) && !picker.IsDropDownOpen)
+            if (ReferenceEquals(_editorView, picker) && !picker.IsDropDownOpen && !picker.IsKeyboardFocusWithin)
             {
+                Controller.CommitFieldEdit();
                 Controller.EndFieldEdit();
             }
         };
         return picker;
+    }
+
+    private ListBox CreateListBox(FieldEditor editor)
+    {
+        // A multi-select list box (§12.7.5.4, MultiSelect): a click toggles its option, as Ctrl+click does in a desktop list.
+        var list = new ListBox
+        {
+            ItemsSource = editor.Options,
+            SelectionMode = SelectionMode.Multiple | SelectionMode.Toggle,
+            Background = Brushes.White,
+            Foreground = Brushes.Black,
+        };
+
+        // Rows as compact as a PDF list box's lines, so the widget's options fit without scrolling.
+        list.Styles.Add(new Style(x => x.OfType<ListBoxItem>())
+        {
+            Setters =
+            {
+                new Setter(TemplatedControl.PaddingProperty, new Thickness(4, 1)),
+                new Setter(Layoutable.MinHeightProperty, 0d),
+            },
+        });
+        foreach (int index in editor.SelectedIndices)
+        {
+            list.Selection.Select(index);
+        }
+
+        // Every change hands the whole selection to the form filling, which holds it until focus leaves the list and then writes it
+        // once through the form API.
+        list.SelectionChanged += (_, _) =>
+        {
+            if (ReferenceEquals(_editorView, list))
+            {
+                Controller.EditorSelectedOptions(list.Selection.SelectedIndexes);
+            }
+        };
+        void Close(bool commit)
+        {
+            if (ReferenceEquals(_editorView, list))
+            {
+                _ = commit ? Controller.CommitFieldEdit() : Controller.CancelFieldEdit();
+                Controller.EndFieldEdit();
+            }
+        }
+
+        // Escape abandons the picks; focus leaving the list commits them.
+        list.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Escape)
+            {
+                e.Handled = true;
+                Close(commit: false);
+                Focus();
+            }
+        };
+        list.LostFocus += (_, _) =>
+        {
+            if (!list.IsKeyboardFocusWithin)
+            {
+                Close(commit: true);
+            }
+        };
+        return list;
     }
 
     // ---- Host ----

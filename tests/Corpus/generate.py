@@ -3186,6 +3186,60 @@ def gen_acroform_fields() -> bytes:
     return simple_file(objects, version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
 
 
+def gen_acroform_filling() -> bytes:
+    """12.7 interactive forms: the field set every viewer shell fills the same way, PDF 2.0, one page, every
+    field merged with its widget. AcroForm 4 (12.7.3 Table 224): Fields, DA, DR (Helv 5, ZaDb 6). Fields
+    (12.7.4 Tables 226-228, 12.7.5): 10 `name` text field (Ff 2 Required, MaxLen 20, V); 11 `code` comb text
+    field (12.7.5.3 Table 229: Ff 16777216 Comb, MaxLen 5, V); 12 `ref` read-only text field (Ff 1, V);
+    13 `agree` check box (12.7.5.2.3), on state Yes, V /Off; 14 `size` radio group (12.7.5.2.4, Ff 49152
+    Radio + NoToggleToOff) with widgets 15-17 on states /S /M /L, V /M; 18 `fruit` single-select list box
+    (12.7.5.4, Opt, V); 19 `country` combo box (Ff 131072, export/display pairs, V the export value); 20 `city`
+    editable combo box (Ff 393216 Combo + Edit, V a typed value that is not an option); 21 `colors`
+    multi-select list box (12.7.5.4 Table 230: Ff 2097152 MultiSelect, Opt, V, I)."""
+    text = b" /AP << /N 7 0 R >>"
+
+    def states(state: bytes) -> bytes:
+        return b" /AP << /N << /%s 8 0 R /Off 9 0 R >> /D << /%s 8 0 R /Off 9 0 R >> >>" % (state, state)
+
+    def widget(rect: bytes) -> bytes:
+        return b"<< /Type /Annot /Subtype /Widget /Rect " + rect + b" /P 3 0 R /F 4"
+
+    objects: list[tuple[int, bytes]] = [
+        (1, catalog(b" /AcroForm 4 0 R")),
+        (2, pages()),
+        (3, page(extra=b" /Annots [10 0 R 11 0 R 12 0 R 13 0 R 15 0 R 16 0 R 17 0 R 18 0 R 19 0 R 20 0 R 21 0 R]")),
+        (4, b"<< /Fields [10 0 R 11 0 R 12 0 R 13 0 R 14 0 R 18 0 R 19 0 R 20 0 R 21 0 R]"
+            b" /DA (/Helv 0 Tf 0 g) /DR << /Font << /Helv 5 0 R /ZaDb 6 0 R >> >> >>"),
+        (5, HELVETICA),
+        (6, b"<< /Type /Font /Subtype /Type1 /BaseFont /ZapfDingbats >>"),
+        (7, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv 5 0 R >> >>",
+                   b"/Tx BMC EMC")),
+        (8, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 20 20] /Resources << /Font << /ZaDb 6 0 R >> >>",
+                   b"q BT /ZaDb 12 Tf 4 5 Td (4) Tj ET Q")),
+        (9, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 20 20]", b"0 g 0 0 20 20 re S")),
+        (10, widget(b"[50 700 250 720]") + text + b" /FT /Tx /T (name) /Ff 2 /MaxLen 20 /V (Ada) /DA (/Helv 12 Tf 0 g) >>"),
+        (11, widget(b"[50 670 150 690]") + text + b" /FT /Tx /T (code) /Ff 16777216 /MaxLen 5 /V (12)"
+             b" /DA (/Helv 12 Tf 0 g) >>"),
+        (12, widget(b"[160 670 260 690]") + text + b" /FT /Tx /T (ref) /Ff 1 /V (R-1) /DA (/Helv 12 Tf 0 g) >>"),
+        (13, widget(b"[50 640 70 660]") + states(b"Yes") + b" /FT /Btn /T (agree) /V /Off /AS /Off"
+             b" /MK << /CA (4) >> >>"),
+        (14, b"<< /FT /Btn /Ff 49152 /T (size) /V /M /Kids [15 0 R 16 0 R 17 0 R] >>"),
+        (15, widget(b"[50 610 70 630]") + states(b"S") + b" /Parent 14 0 R /AS /Off >>"),
+        (16, widget(b"[80 610 100 630]") + states(b"M") + b" /Parent 14 0 R /AS /M >>"),
+        (17, widget(b"[110 610 130 630]") + states(b"L") + b" /Parent 14 0 R /AS /Off >>"),
+        (18, widget(b"[50 530 250 600]") + text + b" /FT /Ch /T (fruit) /Opt [(Apple) (Banana) (Cherry)] /V (Apple)"
+             b" /DA (/Helv 10 Tf 0 g) >>"),
+        (19, widget(b"[50 500 250 520]") + text + b" /FT /Ch /Ff 131072 /T (country)"
+             b" /Opt [[(us) (United States)] [(ca) (Canada)] [(mx) (Mexico)]] /V (us) /DA (/Helv 12 Tf 0 g) >>"),
+        (20, widget(b"[50 470 250 490]") + text + b" /FT /Ch /Ff 393216 /T (city) /Opt [(Paris) (Rome)] /V (Lyon)"
+             b" /DA (/Helv 12 Tf 0 g) >>"),
+        (21, widget(b"[50 370 250 460]") + text + b" /FT /Ch /Ff 2097152 /T (colors) /Opt [(Red) (Green) (Blue)] /V (Red)"
+             b" /I [0] /DA (/Helv 10 Tf 0 g) >>"),
+    ]
+    id0 = file_id("acroform-filling").hex().encode()
+    return simple_file(objects, version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
 def gen_acroform_xfa() -> bytes:
     """Annex K XFA forms (12.7.3 Table 224 XFA): one text field 10 merged with its widget, and an XFA entry
     that is an array of packets [(xdp:xdp) 11 (template) 12 (datasets) 13 (</xdp:xdp>) 14] (Annex K example
@@ -7310,6 +7364,7 @@ FILES = {
     "actions-all.pdf": gen_actions_all,
     "actions-preserved.pdf": gen_actions_preserved,
     "acroform-fields.pdf": gen_acroform_fields,
+    "acroform-filling.pdf": gen_acroform_filling,
     "acroform-xfa.pdf": gen_acroform_xfa,
     "colorspace-families.pdf": gen_colorspace_families,
     "color-operators.pdf": gen_color_operators,

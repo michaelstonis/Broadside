@@ -107,6 +107,24 @@ public sealed class ViewerTests
     });
 
     [Fact]
+    public Task A_mouse_release_away_from_the_press_selects_up_to_it_when_no_move_arrived_between() => Ui.RunAsync(async () =>
+    {
+        // A fast drag can end before a move reaches the view at the release point: the release still ends the selection there.
+        using ViewerHarness viewer = await ViewerHarness.OpenAsync(ViewerHarness.CorpusFile("text-render-modes.pdf"));
+        Point start = FindText(viewer);
+        Viewport before = viewer.Viewport;
+
+        viewer.Window.MouseDown(start, MouseButton.Left);
+        TextSelection selection = viewer.Viewer.Selection!;
+        Assert.True(selection.IsEmpty);
+        viewer.Window.MouseUp(start + new Point(80, 0), MouseButton.Left);
+        await viewer.SettleAsync();
+        Assert.False(selection.IsEmpty);
+        Assert.False(string.IsNullOrWhiteSpace(await selection.GetTextAsync()));
+        Assert.Equal(before, viewer.Viewport);
+    });
+
+    [Fact]
     public Task A_double_click_selects_a_word_and_ctrl_a_selects_the_page() => Ui.RunAsync(async () =>
     {
         using ViewerHarness viewer = await ViewerHarness.OpenAsync(ViewerHarness.CorpusFile("text-standard14.pdf"));
@@ -304,29 +322,96 @@ public sealed class ViewerTests
     });
 
     [Fact]
-    public Task Dark_mode_draws_dark_paper_from_the_cached_display_lists() => Ui.RunAsync(async () =>
+    public Task The_shared_field_set_fills_through_native_editors_as_the_form_api_does() => Ui.RunAsync(async () =>
     {
-        using ViewerHarness viewer = await ViewerHarness.OpenAsync(ViewerHarness.CorpusFile("text-standard14.pdf"));
-        LayoutRectangle page = viewer.Layout.PageToViewport(viewer.Viewport, 0, viewer.Layout.GetPageMetrics(0).CropBox);
-        int x = (int)page.X + 6;
-        int y = (int)page.Y + 6;
-        Assert.Equal((255, 255, 255), Rgb(viewer.Capture()[x, y]));
-        long misses = viewer.Controller.Session!.Document.CacheStatistics.DisplayLists.Misses;
+        // #543: the text boxes and combo boxes over the widgets only take input; the core form filling cuts the text at MaxLen and
+        // per comb, refuses the read-only field and writes each field once, so the form ends as the form API leaves it.
+        using ViewerHarness viewer = await ViewerHarness.OpenAsync(ViewerHarness.CorpusFile(FormFillingScenario.FileName));
+        AnnotationLayer layer = viewer.Viewer.Annotations!;
+        PdfAcroForm form = layer.Session.Document.AcroForm!;
+        Assert.Same(layer, viewer.Viewer.Forms!.Layer);
+        IEnumerable<(AnnotationTarget, PdfAnnotation)> Targets() =>
+            Enumerable.Range(0, layer.GetCount(0)).Select(i => (new AnnotationTarget(0, i), layer.GetAnnotation(new AnnotationTarget(0, i))));
 
-        viewer.Viewer.ColorFilter = ColorFilter.DarkMode;
+        async Task<T?> ClickAsync<T>(string field, int widget = 0)
+            where T : Control
+        {
+            AnnotationTarget target = FormFillingScenario.FindWidget(form, field, Targets(), widget);
+            LayoutRectangle box = layer.GetScreenRectangle(target, viewer.Layout, viewer.Viewport);
+            viewer.Click(new Point((box.X + (box.Width / 2)) / viewer.Scaling, (box.Y + (box.Height / 2)) / viewer.Scaling));
+            await viewer.SettleAsync();
+            Assert.Equal(target, layer.Focused);
+            return viewer.Viewer.EditorView is null ? null : Assert.IsType<T>(viewer.Viewer.EditorView);
+        }
+
+        async Task TypeAsync(string field, string text)
+        {
+            TextBox editor = (await ClickAsync<TextBox>(field))!;
+            editor.Text = text;
+            viewer.Key(Key.Enter);
+            await viewer.SettleAsync();
+            Assert.Null(viewer.Viewer.EditorView);
+        }
+
+        await TypeAsync("name", FormFillingScenario.NameTyped);
+        await TypeAsync("code", FormFillingScenario.CodeTyped);
+        Assert.Null(await ClickAsync<Control>("ref"));
+        Assert.Null(await ClickAsync<Control>("agree"));
+        Assert.Null(await ClickAsync<Control>("size", FormFillingScenario.SizeWidget));
+
+        ComboBox fruit = (await ClickAsync<ComboBox>("fruit"))!;
+        fruit.SelectedIndex = FormFillingScenario.Fruit;
+        ComboBox country = (await ClickAsync<ComboBox>("country"))!;
+        country.SelectedIndex = FormFillingScenario.Country;
+        ComboBox city = (await ClickAsync<ComboBox>("city"))!;
+        Assert.True(city.IsEditable);
+        Assert.Equal("Lyon", city.Text);
+        city.Text = FormFillingScenario.City;
+        viewer.Controller.EndFieldEdit();
         await viewer.SettleAsync();
-        FramePixels dark = viewer.Capture();
-        (int r, int g, int b) paper = Rgb(dark[x, y]);
-        Assert.True(paper.r < 40 && paper.g < 40 && paper.b < 40, $"paper {paper}");
-        Assert.Equal((0x2B, 0x2B, 0x2B), Rgb(dark[1, 1]));
-        Assert.Equal(misses, viewer.Controller.Session.Document.CacheStatistics.DisplayLists.Misses);
-        PinnedSubsetTests.AssertTilesOnScreen(viewer, 0);
 
-        viewer.Viewer.ColorFilter = ColorFilter.None;
+        // #560: a multi-select list box opens a native list whose mouse clicks toggle options; the form filling holds every change
+        // and writes the picks once, when focus leaves the list.
+        var colors = (PdfChoiceField)form.FindField("colors")!;
+        ListBox list = (await ClickAsync<ListBox>("colors"))!;
+        Assert.Equal(["Red", "Green", "Blue"], list.Items.Cast<string>());
+        Assert.Equal([0], list.Selection.SelectedIndexes);
+        for (int i = 0; i < FormFillingScenario.ColorsToggled.Count; i++)
+        {
+            Control option = list.ContainerFromIndex(FormFillingScenario.ColorsToggled[i])!;
+            viewer.Click(option.TranslatePoint(new Point(option.Bounds.Width / 2, option.Bounds.Height / 2), viewer.Window)!.Value);
+            await viewer.SettleAsync();
+            Assert.Same(list, viewer.Viewer.EditorView);
+            Assert.Equal(FormFillingScenario.ColorsAfterEachToggle[i], list.Selection.SelectedIndexes);
+            Assert.Equal(FormFillingScenario.ColorsAfterEachToggle[i], viewer.Viewer.Forms!.SelectedOptions);
+            Assert.Equal([0], colors.SelectedIndices);
+        }
+
+        viewer.Controller.EndFieldEdit();
         await viewer.SettleAsync();
-        Assert.Equal((255, 255, 255), Rgb(viewer.Capture()[x, y]));
+        Assert.Null(viewer.Viewer.EditorView);
 
-        static (int, int, int) Rgb((byte B, byte G, byte R, byte A) p) => (p.R, p.G, p.B);
+        Assert.Equal(await FormFillingScenario.ExpectedAsync(TestContext.Current.CancellationToken), FormFillingScenario.Describe(form));
+    });
+
+    [Fact]
+    public Task Escape_in_a_text_editor_leaves_the_field_unchanged() => Ui.RunAsync(async () =>
+    {
+        using ViewerHarness viewer = await ViewerHarness.OpenAsync(ViewerHarness.CorpusFile(FormFillingScenario.FileName));
+        AnnotationLayer layer = viewer.Viewer.Annotations!;
+        AnnotationTarget field = FindField<PdfTextField>(layer);
+        LayoutRectangle box = layer.GetScreenRectangle(field, viewer.Layout, viewer.Viewport);
+        viewer.Click(new Point((box.X + (box.Width / 2)) / viewer.Scaling, (box.Y + (box.Height / 2)) / viewer.Scaling));
+        await viewer.SettleAsync();
+
+        TextBox editor = Assert.IsType<TextBox>(viewer.Viewer.EditorView);
+        editor.Text = "Changed";
+        viewer.Tick();
+        Assert.Equal("Changed", viewer.Viewer.Forms!.Text); // held by the form filling, not yet written
+        viewer.Key(Key.Escape);
+        await viewer.SettleAsync();
+        Assert.Null(viewer.Viewer.EditorView);
+        Assert.Equal("Ada", ((PdfTextField)((PdfWidgetAnnotation)layer.GetAnnotation(field)).Field!).Value);
     });
 
     [Fact]

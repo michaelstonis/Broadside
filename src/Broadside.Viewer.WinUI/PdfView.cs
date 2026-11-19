@@ -187,6 +187,13 @@ public sealed partial class PdfView : UserControl, IDisposable
     /// <summary>Gets the annotation and link layer of the open document, or null (form values and annotation edits go through it).</summary>
     public AnnotationLayer? Annotations => _controller.Annotations;
 
+    /// <summary>
+    /// Gets the form filling of the open document, or null: the field the keyboard edits, Tab order (each page's Tabs entry), and one
+    /// commit per edit through the form API (filling through the view saves the same file as filling through the API).
+    /// </summary>
+    /// <remarks>ISO 32000-2 §12.7 (interactive forms), §7.7.3.3 Table 31 (Tabs). Spec #33 viewer capability 12.</remarks>
+    public FormFilling? Forms => _controller.Forms;
+
     /// <summary>Gets the accessibility bridge of the open document, or null.</summary>
     public AccessibilityBridge? Accessibility => _controller.Bridge;
 
@@ -472,6 +479,7 @@ public sealed partial class PdfView : UserControl, IDisposable
         {
             _editorLayer.Children.Remove(_editorView);
             _editorView = null;
+            _peer?.OnEditorChanged();
         }
 
         if (editor is null)
@@ -479,7 +487,12 @@ public sealed partial class PdfView : UserControl, IDisposable
             return;
         }
 
-        FrameworkElement view = editor.Kind == FieldEditorKind.Choice ? CreateChoiceEditor(editor) : CreateTextEditor(editor);
+        FrameworkElement view = editor switch
+        {
+            { Kind: FieldEditorKind.Choice, IsMultiSelect: true } => CreateMultiSelectEditor(editor),
+            { Kind: FieldEditorKind.Choice } => CreateChoiceEditor(editor),
+            _ => CreateTextEditor(editor),
+        };
         view.Visibility = Visibility.Collapsed;
         _editorView = view;
         _editorLayer.Children.Add(view);
@@ -499,25 +512,41 @@ public sealed partial class PdfView : UserControl, IDisposable
         if (view.Visibility != Visibility.Visible)
         {
             view.Visibility = Visibility.Visible;
-            view.Focus(FocusState.Programmatic);
+            _peer?.OnEditorChanged();
+
+            // An editor made visible this tick has no layout yet and may refuse focus: take it once layout has run.
+            if (!view.Focus(FocusState.Programmatic))
+            {
+                DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+                {
+                    if (ReferenceEquals(_editorView, view))
+                    {
+                        view.Focus(FocusState.Programmatic);
+                    }
+                });
+            }
         }
     }
 
     private Control CreateTextEditor(FieldEditor editor)
     {
+        // The box only takes input: the form filling (#218) holds the text (cut at MaxLen, one line unless multi-line) and writes it
+        // once when the edit ends (#543). Enter and focus loss commit; Escape abandons the edit.
         int maxLength = editor.MaxLength is int max && max > 0 ? max : 0;
-        bool committed = false;
+        bool closed = false;
         Control input;
         Func<string> read;
         if (editor.IsPassword)
         {
             var password = new PasswordBox { Password = editor.Text, MaxLength = maxLength };
+            password.PasswordChanged += (_, _) => Input(password, password.Password);
             input = password;
             read = () => password.Password;
         }
         else
         {
             var text = new TextBox { Text = editor.Text, MaxLength = maxLength, AcceptsReturn = editor.IsMultiline, TextWrapping = editor.IsMultiline ? TextWrapping.Wrap : TextWrapping.NoWrap };
+            text.TextChanged += (_, _) => Input(text, text.Text);
             input = text;
             read = () => text.Text;
         }
@@ -525,12 +554,20 @@ public sealed partial class PdfView : UserControl, IDisposable
         input.Padding = new Thickness(2, 0, 2, 0);
         input.MinHeight = 0;
         input.MinWidth = 0;
-        void Commit()
+        void Input(Control source, string value)
         {
-            if (!committed && ReferenceEquals(_editorView, input))
+            if (ReferenceEquals(_editorView, source))
             {
-                committed = true;
-                _controller.CommitFieldText(read());
+                _controller.EditorInput(value);
+            }
+        }
+
+        void Close(bool commit)
+        {
+            if (!closed && ReferenceEquals(_editorView, input))
+            {
+                closed = true;
+                _ = commit ? _controller.CommitFieldText(read()) : _controller.CancelFieldEdit();
                 _controller.EndFieldEdit();
                 Focus(FocusState.Programmatic);
             }
@@ -541,40 +578,54 @@ public sealed partial class PdfView : UserControl, IDisposable
             if (e.Key == VirtualKey.Enter && !editor.IsMultiline)
             {
                 e.Handled = true;
-                Commit();
+                Close(commit: true);
             }
             else if (e.Key == VirtualKey.Escape)
             {
                 e.Handled = true;
-                committed = true;
-                _controller.EndFieldEdit();
-                Focus(FocusState.Programmatic);
+                Close(commit: false);
             }
         };
-        input.LostFocus += (_, _) => Commit();
+        input.LostFocus += (_, _) => Close(commit: true);
         AutomationProperties.SetName(input, "Form field");
         return input;
     }
 
     private ComboBox CreateChoiceEditor(FieldEditor editor)
     {
-        var choice = new ComboBox { MinHeight = 0, MinWidth = 0 };
+        var choice = new ComboBox { MinHeight = 0, MinWidth = 0, IsEditable = editor.IsEditable };
         foreach (string option in editor.Options)
         {
             choice.Items.Add(option);
         }
 
         choice.SelectedIndex = editor.SelectedIndex;
+        if (editor.IsEditable)
+        {
+            choice.Text = editor.Text;
+
+            // Typed text (Enter or focus loss submits it) goes to the form filling, which picks the option it names or keeps the text.
+            choice.TextSubmitted += (_, e) =>
+            {
+                if (ReferenceEquals(_editorView, choice))
+                {
+                    e.Handled = true;
+                    _controller.CommitFieldText(e.Text);
+                }
+            };
+        }
+
+        // A pick commits through the form filling at once.
         choice.SelectionChanged += (_, _) =>
         {
-            if (choice.SelectedIndex >= 0)
+            if (ReferenceEquals(_editorView, choice) && choice.SelectedIndex >= 0 && choice.SelectedIndex != editor.SelectedIndex)
             {
                 _controller.CommitFieldChoice(choice.SelectedIndex);
             }
         };
         choice.DropDownClosed += (_, _) =>
         {
-            if (ReferenceEquals(_editorView, choice))
+            if (ReferenceEquals(_editorView, choice) && !editor.IsEditable)
             {
                 _controller.EndFieldEdit();
                 Focus(FocusState.Programmatic);
@@ -582,6 +633,79 @@ public sealed partial class PdfView : UserControl, IDisposable
         };
         AutomationProperties.SetName(choice, "Form field");
         return choice;
+    }
+
+    private ListBox CreateMultiSelectEditor(FieldEditor editor)
+    {
+        // A multi-select list box (§12.7.5.4, MultiSelect): a click toggles its option. The items are containers of their own, so
+        // options with the same text stay apart.
+        var list = new ListBox { SelectionMode = SelectionMode.Multiple, MinHeight = 0, MinWidth = 0 };
+        foreach (string option in editor.Options)
+        {
+            var item = new ListBoxItem { Content = option, Padding = new Thickness(4, 1, 4, 1), MinHeight = 0 };
+            AutomationProperties.SetName(item, option);
+            list.Items.Add(item);
+        }
+
+        // Through the selector's own selection: an item's IsSelected set before the list has applied its template does not stick.
+        foreach (int index in editor.SelectedIndices)
+        {
+            list.SelectedItems.Add(list.Items[index]);
+        }
+
+        // Every change hands the whole selection to the form filling, which holds it until focus leaves the list and then writes it
+        // once through the form API.
+        list.SelectionChanged += (_, _) =>
+        {
+            if (ReferenceEquals(_editorView, list))
+            {
+                _controller.EditorSelectedOptions(list.SelectedItems.Select(list.Items.IndexOf));
+            }
+        };
+
+        void Close(bool commit)
+        {
+            if (ReferenceEquals(_editorView, list))
+            {
+                _ = commit ? _controller.CommitFieldEdit() : _controller.CancelFieldEdit();
+                _controller.EndFieldEdit();
+            }
+        }
+
+        // Escape abandons the picks; focus leaving the list commits them.
+        list.KeyDown += (_, e) =>
+        {
+            if (e.Key == VirtualKey.Escape)
+            {
+                e.Handled = true;
+                Close(commit: false);
+                Focus(FocusState.Programmatic);
+            }
+        };
+        // Focus moves between the list and its items while it is used: decide once the move has settled, and keep the list open when
+        // focus went nowhere (the window deactivated).
+        list.LostFocus += (_, _) => DispatcherQueue.TryEnqueue(() =>
+        {
+            if (list.XamlRoot is { } root && FocusManager.GetFocusedElement(root) is DependencyObject focused && !Contains(list, focused))
+            {
+                Close(commit: true);
+            }
+        });
+        AutomationProperties.SetName(list, "Form field");
+        return list;
+
+        static bool Contains(DependencyObject ancestor, DependencyObject? element)
+        {
+            for (; element is not null; element = VisualTreeHelper.GetParent(element))
+            {
+                if (ReferenceEquals(element, ancestor))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 
     // ---- The controller's host ----

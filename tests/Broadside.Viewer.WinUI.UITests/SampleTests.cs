@@ -63,9 +63,13 @@ public sealed class SampleTests
         app.WaitForState(s => Math.Abs(s.Zoom - zoom) <= 1 && s.Activity == "Ready", "fit width");
 
         // The zoom kept the point under the mouse in place, so page 1's first lines may now be above the viewport: back to the top.
+        // Home scrolls there in an animation, and page 1 is already the current page, so the status reads "page 1, ready" before the
+        // scroll ends: wait for page 1 to stop moving too. A line read mid-scroll (the newsletter's photo caption, passing through the
+        // viewport on its way below it) is gone from where the drag then presses, and off screen for every retry (#563).
         app.Viewer.Focus();
         Keyboard.Type(VirtualKeyShort.HOME);
         app.WaitForState(s => s.Page == 1 && s.Activity == "Ready", "back on page 1 after zooming");
+        WaitUntilStill(app);
 
         // Select: a mouse drag across the first line of text the peers place on screen (the selection line shows it), then Ctrl+A;
         // Copy reports what it copied.
@@ -78,6 +82,14 @@ public sealed class SampleTests
         foreach (double at in (double[])[0.5, 0.35, 0.65, 0.2, 0.8])
         {
             line = text.BoundingRectangle;
+            if (line.IsEmpty)
+            {
+                // The line left the viewport (its peer reports no bounds): drag across the first line that shows now.
+                WaitUntilStill(app);
+                text = FirstText(app);
+                line = text.BoundingRectangle;
+            }
+
             int y = line.Y + (int)(line.Height * at);
             DragSlowly(new Point(line.X + 2, y), new Point(line.Right - 2, y));
             if (Selected(app, TimeSpan.FromSeconds(3)))
@@ -140,6 +152,118 @@ public sealed class SampleTests
         Assert.NotNull(heading);
     }
 
+    [Fact]
+    public void A_multi_select_list_box_opens_a_list_whose_mouse_clicks_toggle_options()
+    {
+        // #560: a click on the multi-select list box of the shared field set (acroform-filling.pdf, `colors`, Opt Red Green Blue, V Red,
+        // its widget at [50 370 250 460] on a Letter page) opens a native multi-select list. Each mouse click toggles an option and
+        // the list stays open; a click elsewhere writes the picks, and the list opened again shows what the field holds.
+        using SampleApp app = SampleApp.Open(SampleApp.CorpusFile("acroform-filling.pdf"));
+        WaitUntilStill(app);
+        AutomationElement page = SampleApp.WaitFor(() => app.Viewer.FindFirstDescendant(cf => cf.ByAutomationId("page-0")), "page 1's peer");
+
+        // The page peer's bounds are clipped to the viewport. Scrolled to the top, the page's top edge shows, and its width gives the
+        // scale; zoom out until the widget (to 370 pt up the page) shows above the viewport's bottom.
+        Rectangle viewer = app.Viewer.BoundingRectangle;
+        Rectangle box = default;
+        for (int step = 0; ; step++)
+        {
+            app.Viewer.Focus();
+            Keyboard.Type(VirtualKeyShort.HOME);
+            app.WaitForState(s => s.Activity == "Ready", "back at the top");
+            WaitUntilStill(app);
+            box = page.BoundingRectangle;
+            if (box.Y + (box.Width * (792 - 370) / 612.0) < viewer.Bottom - 8 || step == 6)
+            {
+                break;
+            }
+
+            int zoom = app.ReadStatus().Zoom;
+            app.Click("ZoomOut");
+            app.WaitForState(s => s.Zoom < zoom && s.Activity == "Ready", "zoom out");
+        }
+
+        Point At(double x, double y) => new(box.X + (int)(box.Width * x / 612), box.Y + (int)(box.Width * (792 - y) / 612));
+
+        AutomationElement[] OpenList()
+        {
+            Click(At(150, 415));
+            AutomationElement? list = null;
+            // The list takes keyboard focus when it opens (on its selected option): found from the focused element.
+            if (!SampleApp.Poll(() => (list = FocusedList(app)) is not null))
+            {
+                string children = string.Join(", ", app.Window.FindAllDescendants().Take(120).Select(Describe));
+                Assert.Fail($"Timed out waiting for the multi-select list; page 1 {page.BoundingRectangle}, clicked {At(150, 415)}, the window's elements: {children}; status '{app.ReadStatus().Text}'.{Environment.NewLine}{app.Diagnostics()}");
+            }
+
+            AutomationElement[] items = [];
+            if (!SampleApp.Poll(() => (items = list!.FindAllDescendants(cf => cf.ByControlType(ControlType.ListItem))).Length == 3))
+            {
+                string found = string.Join(", ", list!.FindAllDescendants().Take(40).Select(Describe));
+                Assert.Fail($"The list {list.BoundingRectangle} does not show three options: {found}");
+            }
+
+            Assert.Equal(["Red", "Green", "Blue"], items.Select(item => item.Name));
+            return items;
+        }
+
+        static AutomationElement? FocusedList(SampleApp app)
+        {
+            for (AutomationElement? e = app.Automation.FocusedElement(); e is not null; e = app.Automation.TreeWalkerFactory.GetControlViewWalker().GetParent(e))
+            {
+                if (e.Properties.ControlType.ValueOrDefault == ControlType.List && e.Properties.Name.ValueOrDefault == "Form field")
+                {
+                    return e;
+                }
+
+                if (e.Properties.ControlType.ValueOrDefault is ControlType.Document or ControlType.Window)
+                {
+                    return null;
+                }
+            }
+
+            return null;
+        }
+
+        // An element's type, name, id and bounds, each read leniently: not every peer supports every property.
+        static string Describe(AutomationElement e) =>
+            $"{e.Properties.ControlType.ValueOrDefault} '{e.Properties.Name.ValueOrDefault}' #{e.Properties.AutomationId.ValueOrDefault} {e.Properties.BoundingRectangle.ValueOrDefault}";
+
+        static void ShowAndClick(AutomationElement item)
+        {
+            item.Patterns.ScrollItem.PatternOrDefault?.ScrollIntoView();
+            Click(item.GetClickablePoint());
+        }
+
+        static bool[] Selected(AutomationElement[] items) => [.. items.Select(item => item.AsListBoxItem().IsSelected)];
+
+        AutomationElement[] options = OpenList();
+        Assert.True(SampleApp.Poll(() => Selected(options) is [true, false, false]), $"the list opens on Red: {string.Join(", ", Selected(options))}");
+
+        // Blue on (Red and Blue picked), then Red off: a pick that replaced the selection would end on Red.
+        ShowAndClick(options[2]);
+        Assert.True(SampleApp.Poll(() => Selected(options) is [true, false, true]), "Blue toggled on beside Red");
+        ShowAndClick(options[0]);
+        Assert.True(SampleApp.Poll(() => Selected(options) is [false, false, true]), "Red toggled off");
+
+        // A click on the page away from the fields ends the edit; the list opened again shows the field's value.
+        Click(At(450, 470));
+        Assert.True(SampleApp.Poll(() => FocusedList(app) is null), "the list closed");
+        options = OpenList();
+        Assert.True(SampleApp.Poll(() => Selected(options) is [false, false, true]), "the field holds Blue");
+    }
+
+    // A click the way a hand makes one: move, press, release, with pauses between (see DragSlowly).
+    private static void Click(Point at)
+    {
+        Send(at, MouseEventFlags.MOUSEEVENTF_MOVE);
+        Thread.Sleep(100);
+        Send(at, MouseEventFlags.MOUSEEVENTF_MOVE | MouseEventFlags.MOUSEEVENTF_LEFTDOWN);
+        Thread.Sleep(60);
+        Send(at, MouseEventFlags.MOUSEEVENTF_MOVE | MouseEventFlags.MOUSEEVENTF_LEFTUP);
+        Thread.Sleep(200);
+    }
+
     private static int Characters(string copied) =>
         int.TryParse(copied.Split(' ')[1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int n) ? n : 0;
 
@@ -157,6 +281,23 @@ public sealed class SampleTests
         }
 
         return false;
+    }
+
+    // Page 1's peer at the same bounds over a few reads in a row, with the status ready: no scroll or zoom animation is running.
+    private static void WaitUntilStill(SampleApp app)
+    {
+        AutomationElement page = SampleApp.WaitFor(() => app.Viewer.FindFirstDescendant(cf => cf.ByAutomationId("page-0")), "page 1's peer");
+        Rectangle last = Rectangle.Empty;
+        int still = 0;
+        Assert.True(
+            SampleApp.Poll(() =>
+            {
+                Rectangle now = page.BoundingRectangle;
+                still = !now.IsEmpty && now == last && app.ReadStatus().Activity == "Ready" ? still + 1 : 0;
+                last = now;
+                return still >= 3;
+            }),
+            $"page 1 did not stop moving: {last}, {app.ReadStatus().Text}");
     }
 
     private static string TrimToLetters(string word)

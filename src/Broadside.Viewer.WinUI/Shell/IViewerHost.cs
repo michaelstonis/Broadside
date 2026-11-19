@@ -51,4 +51,10 @@ internal sealed record FieldEditor(
     bool IsPassword,
     int? MaxLength,
     IReadOnlyList<string> Options,
-    int SelectedIndex);
+    int SelectedIndex,
+    bool IsEditable = false,
+    bool IsMultiSelect = false)
+{
+    /// <summary>Gets the options picked, ascending: one at most unless <see cref="IsMultiSelect"/> (§12.7.5.4, MultiSelect).</summary>
+    public IReadOnlyList<int> SelectedIndices { get; init; } = SelectedIndex >= 0 ? [SelectedIndex] : [];
+}

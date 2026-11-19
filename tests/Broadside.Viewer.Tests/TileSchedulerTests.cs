@@ -42,12 +42,14 @@ public sealed class TileSchedulerTests
     {
         var backends = new List<HeldBackend>();
         using var surface = new HeadlessSurface();
+        var clock = new FrameClock();
         await using DocumentSession session = DocumentSession.Open(
             ManyPages(500),
-            new ViewerOptions().WithThreading(ViewerThreading.Cooperative).UseBackend(HeldBackend.Factory(backends)));
+            new ViewerOptions().WithThreading(ViewerThreading.Cooperative).UseBackend(HeldBackend.Factory(backends, clock)));
         PageLayout layout = await PageLayout.CreateAsync(session, cancellationToken: TestContext.Current.CancellationToken);
         var events = new List<TileSchedulerEvent>();
         using var scheduler = new TileScheduler(session, layout, surface, new TileSchedulerOptions().UseObserver(events.Add));
+        TileScheduler.Clock = clock;
 
         HeldBackend.Hold = true;
         try
@@ -278,15 +280,17 @@ public sealed class TileSchedulerTests
 
     /// <summary>
     /// Scrolls a cooperative session through 500 pages in steps of 40% of a viewport with two jumps of 15 pages every 60 steps, one
-    /// frame of about a tile's work per step and every fifth step until idle, checking at every trace event that a non-visible tile starts only once every visible tile is on the surface and
+    /// frame of eight drawing slices (about a tile's work, counted on a <see cref="FrameClock"/> rather than measured, so the run is the
+    /// same on any machine) per step and every fifth step until idle, checking at every trace event that a non-visible tile starts only once every visible tile is on the surface and
     /// measuring the memory held independently of the scheduler: the surface's pixels, the session's pixels and the document's caches.
     /// </summary>
     private static async Task<ScrollRun> ScrollAsync(long budget)
     {
         using var surface = new HeadlessSurface();
+        var clock = new FrameClock();
         await using DocumentSession session = DocumentSession.Open(
             ManyPages(500),
-            new ViewerOptions().WithThreading(ViewerThreading.Cooperative).UseBackend(static () => new QuotaBackend()));
+            new ViewerOptions().WithThreading(ViewerThreading.Cooperative).UseBackend(() => new SliceCostBackend(clock)));
         PageLayout layout = await PageLayout.CreateAsync(session, cancellationToken: TestContext.Current.CancellationToken);
         var run = new ScrollRun();
         var resident = new HashSet<Tile>();
@@ -319,6 +323,7 @@ public sealed class TileSchedulerTests
         }
 
         using var scheduler = new TileScheduler(session, layout, surface, new TileSchedulerOptions().WithMemoryBudget(budget).UseObserver(Observe));
+        TileScheduler.Clock = clock;
         double end = layout.ContentHeight * Zoom;
         int step = 0;
         for (var viewport = new Viewport(0, 0, 500, 700, Zoom); viewport.Y < end; viewport = viewport with { Y = viewport.Y + 280 }, step++)
@@ -343,20 +348,17 @@ public sealed class TileSchedulerTests
             scheduler.Update(viewport);
             if (step % 5 == 4)
             {
-                QuotaBackend.Quota = int.MaxValue;
                 Settle(scheduler);
             }
             else
             {
                 // A frame that can draw about a tile's worth of operations, so renders are in flight when the viewport moves on.
-                QuotaBackend.Quota = 8;
-                scheduler.RunFrame(TimeSpan.FromMilliseconds(1));
+                scheduler.RunFrame(SliceCostBackend.SliceCost * 8);
             }
 
             run.Measured.Add(surface.Bytes + session.Statistics.PixelBytes + session.Document.CachedBytes);
         }
 
-        QuotaBackend.Quota = int.MaxValue;
         Settle(scheduler);
         run.Statistics = scheduler.Statistics;
         run.SurfaceBytes = surface.Bytes;
@@ -376,28 +378,39 @@ public sealed class TileSchedulerTests
         public long SurfaceBytes { get; set; }
     }
 
-    /// <summary>A software backend that draws one operation per slice, and nothing once the frame's <see cref="Quota"/> of slices is spent.</summary>
-    private sealed class QuotaBackend : ITileBackend
+    /// <summary>
+    /// A clock that test backends advance, so a frame's budget counts the work done in it instead of the machine's speed. Each read
+    /// costs one tick (100 ns), far below a slice's cost, so planning, loading pages and building lists take next to no time on it,
+    /// yet a scheduler that loops without progress still runs out of budget instead of spinning forever.
+    /// </summary>
+    private sealed class FrameClock : TimeProvider
     {
+        private long _ticks;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp() => Interlocked.Increment(ref _ticks);
+
+        public void Advance(TimeSpan elapsed) => Interlocked.Add(ref _ticks, elapsed.Ticks);
+    }
+
+    /// <summary>A software backend that draws one operation per slice and charges every slice <see cref="SliceCost"/> on a <see cref="FrameClock"/>.</summary>
+    private sealed class SliceCostBackend(FrameClock clock) : ITileBackend
+    {
+        public static readonly TimeSpan SliceCost = TimeSpan.FromMilliseconds(1);
+
         private readonly SoftwareTileBackend _inner = new();
 
-        public static int Quota { get; set; } = int.MaxValue;
-
         public ITileRender Begin(DisplayList list, Bitmap target, in Matrix deviceTransform, CancellationToken cancellationToken) =>
-            new Render(_inner.Begin(list, target, deviceTransform, cancellationToken));
+            new Render(_inner.Begin(list, target, deviceTransform, cancellationToken), clock);
 
         public void Dispose() => _inner.Dispose();
 
-        private sealed class Render(ITileRender inner) : ITileRender
+        private sealed class Render(ITileRender inner, FrameClock clock) : ITileRender
         {
             public bool RenderSlice(TimeSpan budget)
             {
-                if (Quota <= 0)
-                {
-                    return false;
-                }
-
-                Quota--;
+                clock.Advance(SliceCost);
                 return inner.RenderSlice(TimeSpan.FromTicks(1));
             }
 
@@ -405,12 +418,18 @@ public sealed class TileSchedulerTests
         }
     }
 
-    /// <summary>A software backend whose renders make no progress while <see cref="Hold"/> is set.</summary>
+    /// <summary>
+    /// A software backend whose renders make no progress while <see cref="Hold"/> is set; a held cooperative slice spends its whole
+    /// budget on the <see cref="FrameClock"/>, if there is one, so the frame ends after it.
+    /// </summary>
     private sealed class HeldBackend : ITileBackend
     {
         private static int _waiting;
         private static volatile bool _hold;
         private readonly SoftwareTileBackend _inner = new();
+        private readonly FrameClock? _clock;
+
+        private HeldBackend(FrameClock? clock) => _clock = clock;
 
         public static bool Hold
         {
@@ -420,9 +439,9 @@ public sealed class TileSchedulerTests
 
         public static int Waiting => Volatile.Read(ref _waiting);
 
-        public static Func<ITileBackend> Factory(List<HeldBackend> created) => () =>
+        public static Func<ITileBackend> Factory(List<HeldBackend> created, FrameClock? clock = null) => () =>
         {
-            var backend = new HeldBackend();
+            var backend = new HeldBackend(clock);
             lock (created)
             {
                 created.Add(backend);
@@ -432,17 +451,23 @@ public sealed class TileSchedulerTests
         };
 
         public ITileRender Begin(DisplayList list, Bitmap target, in Matrix deviceTransform, CancellationToken cancellationToken) =>
-            new Render(_inner.Begin(list, target, deviceTransform, cancellationToken), cancellationToken);
+            new Render(_inner.Begin(list, target, deviceTransform, cancellationToken), _clock, cancellationToken);
 
         public void Dispose() => _inner.Dispose();
 
-        private sealed class Render(ITileRender inner, CancellationToken token) : ITileRender
+        private sealed class Render(ITileRender inner, FrameClock? clock, CancellationToken token) : ITileRender
         {
             public bool RenderSlice(TimeSpan budget)
             {
                 if (budget != Timeout.InfiniteTimeSpan)
                 {
-                    return !_hold && inner.RenderSlice(budget);
+                    if (_hold)
+                    {
+                        clock?.Advance(budget);
+                        return false;
+                    }
+
+                    return inner.RenderSlice(budget);
                 }
 
                 Interlocked.Increment(ref _waiting);

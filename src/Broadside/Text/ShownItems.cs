@@ -8,7 +8,7 @@ namespace Broadside.Text;
 /// <summary>
 /// Which content items of the structure tree show at least one glyph, per page: what decides where an element's replacement goes
 /// when its first content items show none (issue #298). Each page is extracted for this at most once per walk, options and
-/// mutation epoch, however many pages ask about it.
+/// document epoch, however many pages ask about it.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -18,7 +18,7 @@ namespace Broadside.Text;
 /// </para>
 /// <para>
 /// One cache per <see cref="StructureWalk"/> (a structure edit makes a new walk, and the cache goes with the old one), holding the
-/// pages of one set of options. Any change to the document's objects or stream data advances <see cref="CosMutation.Epoch"/>, which
+/// pages of one set of options. Any change to the document's objects or stream data advances its epoch (<see cref="PdfDocument.Epoch"/>), which
 /// empties it, so a content edit is seen by the next extraction. Concurrent extractions share it: it is filled under a lock, each
 /// page computed outside it (two threads may both compute a page; either result is kept).
 /// </para>
@@ -42,7 +42,7 @@ internal sealed class ShownItems
     public bool Shows(PdfDocument document, StructureWalk walk, CosDictionary pageObject, int order, TextExtractionOptions options)
     {
         (bool, bool, ContentOptions?) key = (options.IncludeHiddenContent, options.IncludeArtifacts, options.ContentOptions);
-        long epoch = CosMutation.Epoch;
+        long epoch = document.Epoch;
         lock (_gate)
         {
             if (_epoch != epoch || _key != key)

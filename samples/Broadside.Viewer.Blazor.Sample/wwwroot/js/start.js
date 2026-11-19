@@ -57,5 +57,15 @@
     loadBootResource(type, name, defaultUri) {
       return remap(defaultUri);
     },
+    // Read only by a build with Mono's AOT profiler (publish-static.sh --aot-profiler, issue #547): calling AotProfile.Write writes
+    // the profile to getDotnetRuntime(0).INTERNAL.aotProfileData. Other builds ignore it.
+    configureRuntime(builder) {
+      builder.withConfig({
+        aotProfilerOptions: {
+          writeAt: "Broadside.Viewer.Blazor.Sample.AotProfile::WriteBroadsideAotProfile",
+          sendTo: "System.Runtime.InteropServices.JavaScript.JavaScriptExports::DumpAotProfileData",
+        },
+      });
+    },
   });
 })();

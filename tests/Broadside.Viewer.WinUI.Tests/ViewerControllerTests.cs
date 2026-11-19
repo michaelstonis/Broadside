@@ -247,7 +247,7 @@ public sealed class ViewerControllerTests
         int overlaysBefore = OverlayItems(shell);
         Assert.True(overlaysBefore > 0);
         shell.Events.Clear();
-        Assert.True(shell.Controller.CommitFieldText("Ada"));
+        Assert.True(shell.Controller.CommitFieldText("Ada Lovelace"));
 
         // The evicted overlay tiles stay on screen until their replacements arrive: the composed frame never loses them.
         shell.Controller.Frame();
@@ -259,7 +259,7 @@ public sealed class ViewerControllerTests
             shell.Events.Where(e => e.Kind is TileEventKind.Started or TileEventKind.Presented or TileEventKind.Evicted),
             e => Assert.Equal(DisplayLayers.None, e.Tile.Layers & DisplayLayers.Content));
         var widget = (PdfWidgetAnnotation)layer.GetAnnotation(field);
-        Assert.Equal("Ada", ((PdfTextField)widget.Field!).Value);
+        Assert.Equal("Ada Lovelace", ((PdfTextField)widget.Field!).Value);
     });
 
     [Fact]
@@ -348,6 +348,84 @@ public sealed class ViewerControllerTests
     });
 
     [Fact]
+    public void The_shared_field_set_fills_through_the_editor_and_keys_as_the_form_api_does() => UiThread.Run(async () =>
+    {
+        // #543: the editor over a widget is built from the core form filling and only feeds it input; the form filling cuts the
+        // text at MaxLen and per comb, refuses the read-only field and writes each field once, as in every other shell.
+        using Shell shell = await Shell.OpenAsync(Shell.CorpusFile(FormFillingScenario.FileName));
+        ViewerController controller = shell.Controller;
+        AnnotationLayer layer = controller.Annotations!;
+        PdfAcroForm form = layer.Session.Document.AcroForm!;
+        Assert.Same(layer, controller.Forms!.Layer);
+        FieldEditor? Open(string name, int widget = 0)
+        {
+            AnnotationTarget target = FormFillingScenario.FindWidget(
+                form, name, Enumerable.Range(0, layer.GetCount(0)).Select(i => (new AnnotationTarget(0, i), layer.GetAnnotation(new AnnotationTarget(0, i)))), widget);
+            layer.Focus(target);
+            Assert.Equal(target, controller.Forms.Target);
+            return shell.Editors[^1];
+        }
+
+        // Escape abandons an edit: the field keeps its value.
+        Assert.Equal((FieldEditorKind.Text, "Ada", 20), Open("name") is { } editor ? (editor.Kind, editor.Text, editor.MaxLength) : default);
+        Assert.True(controller.EditorInput("Changed"));
+        Assert.True(controller.CancelFieldEdit());
+        controller.EndFieldEdit();
+        Assert.Null(shell.Editors[^1]);
+        Assert.Equal("Ada", ((PdfTextField)form.FindField("name")!).Value);
+
+        Assert.NotNull(Open("name"));
+        Assert.True(controller.EditorInput(FormFillingScenario.NameTyped));
+        Assert.True(controller.CommitFieldEdit());
+        controller.EndFieldEdit();
+        Assert.Equal(5, Open("code")!.MaxLength);
+        Assert.True(controller.CommitFieldText(FormFillingScenario.CodeTyped));
+        controller.EndFieldEdit();
+
+        // A read-only field, a check box and a radio button open no editor; Space toggles the two buttons.
+        Assert.Null(Open("ref"));
+        Assert.False(controller.EditorInput("R-2"));
+        Assert.Null(Open("agree"));
+        Assert.True(controller.KeyDown(" ", InputModifiers.None));
+        Assert.Null(Open("size", FormFillingScenario.SizeWidget));
+        Assert.True(controller.KeyDown(" ", InputModifiers.None));
+
+        FieldEditor fruit = Open("fruit")!;
+        Assert.Equal((FieldEditorKind.Choice, 0, false), (fruit.Kind, fruit.SelectedIndex, fruit.IsEditable));
+        Assert.Equal(["Apple", "Banana", "Cherry"], fruit.Options);
+        Assert.True(controller.CommitFieldChoice(FormFillingScenario.Fruit));
+        Assert.Equal(["United States", "Canada", "Mexico"], Open("country")!.Options);
+        Assert.True(controller.CommitFieldChoice(FormFillingScenario.Country));
+        FieldEditor city = Open("city")!;
+        Assert.Equal((FieldEditorKind.Choice, "Lyon", -1, true), (city.Kind, city.Text, city.SelectedIndex, city.IsEditable));
+        Assert.True(controller.EditorInput(FormFillingScenario.City));
+        controller.EndFieldEdit(); // focus leaving the field commits it
+        Assert.Null(shell.Editors[^1]);
+
+        // #560: a multi-select list box opens a multi-select list; each click hands the list's whole selection to the form filling,
+        // which keeps the editor open and writes the picks once, when focus leaves the field.
+        FieldEditor colors = Open("colors")!;
+        Assert.Equal((FieldEditorKind.Choice, true, false), (colors.Kind, colors.IsMultiSelect, colors.IsEditable));
+        Assert.Equal(["Red", "Green", "Blue"], colors.Options);
+        Assert.Equal([0], colors.SelectedIndices);
+        Assert.False(fruit.IsMultiSelect);
+        var colorsField = (PdfChoiceField)form.FindField("colors")!;
+        foreach (IReadOnlyList<int> picked in FormFillingScenario.ColorsAfterEachToggle)
+        {
+            Assert.True(controller.EditorSelectedOptions(picked));
+            Assert.Equal(picked, controller.Forms.SelectedOptions);
+            Assert.Same(colors, shell.Editors[^1]);
+            Assert.Equal([0], colorsField.SelectedIndices);
+        }
+
+        controller.EndFieldEdit();
+        Assert.Null(shell.Editors[^1]);
+
+        Assert.Equal(await FormFillingScenario.ExpectedAsync(TestContext.Current.CancellationToken), FormFillingScenario.Describe(form));
+        await shell.SettleAsync();
+    });
+
+    [Fact]
     public void The_accessibility_tree_of_visible_pages_reaches_the_host_in_reading_order_with_bounds_in_view_units() => UiThread.Run(async () =>
     {
         using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("tagged-structure.pdf"));
@@ -403,35 +481,6 @@ public sealed class ViewerControllerTests
         Assert.Equal(5, shell.Controller.State.PageIndex);
         ViewerFrame.Item outline = Assert.Single(shell.Controller.LatestFrame.Items.ToArray(), item => item.Kind == ViewerFrame.ItemKind.CurrentMatch && item.A.Y > 0 && item.A.Y < shell.Viewport.Height);
         Assert.InRange(outline.A.X, 0, shell.Viewport.Width);
-    });
-
-    [Fact]
-    public void Dark_mode_redraws_the_tiles_from_the_cached_display_lists_on_black_paper() => UiThread.Run(async () =>
-    {
-        using Shell shell = await Shell.OpenAsync(Shell.SampleDocument("textbook.pdf"));
-        DocumentSession session = shell.Controller.Session!;
-        LayoutRectangle page = shell.Layout.PageToViewport(shell.Viewport, 0, shell.Layout.GetPageMetrics(0).CropBox);
-        (int darkBefore, int whiteBefore) = CountInk(shell.Draw(), page);
-        long builds = session.Document.CacheStatistics.DisplayLists.Misses;
-
-        shell.Events.Clear();
-        shell.Controller.SetColorFilter(ColorFilter.DarkMode);
-        Assert.Equal(ColorFilter.DarkMode, session.ColorFilter);
-        await shell.SettleAsync();
-        Assert.Contains(shell.Events, e => e.Kind == TileEventKind.Presented);
-        Assert.Equal(builds, session.Document.CacheStatistics.DisplayLists.Misses);
-        Assert.True(shell.Controller.LatestFrame.IsDark);
-
-        // Light text on black paper: the counts of dark and white samples swap.
-        Shell.Pixels frame = shell.Draw();
-        Assert.Equal(0xFF2B2B2Bu, frame[1, 1]);
-        (int dark, int white) = CountInk(frame, page);
-        Assert.True(dark > whiteBefore / 2, $"dark samples: {dark}, white before: {whiteBefore}");
-        Assert.True(white < darkBefore * 2, $"white samples: {white}, dark before: {darkBefore}");
-
-        // A document opened later keeps the filter; null leaves each session's own.
-        shell.Controller.SetColorFilter(null);
-        Assert.Equal(ColorFilter.DarkMode, session.ColorFilter);
     });
 
     [Fact]
@@ -501,7 +550,7 @@ public sealed class ViewerControllerTests
         Assert.All(shell.Controller.AccessiblePages, page => Assert.InRange(page, 0, 7));
     });
 
-    private static (int Dark, int White) CountInk(Shell.Pixels frame, LayoutRectangle page)
+    internal static (int Dark, int White) CountInk(Shell.Pixels frame, LayoutRectangle page)
     {
         int dark = 0;
         int white = 0;

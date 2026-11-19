@@ -68,9 +68,9 @@ public static partial class KernelBenchmarks
     private static readonly float[] CmykComponents = new float[4 * Items];
 
     // The box filter run case's columns and weights, built for the longest run it has been given.
-    private static int[] RunStarts = [];
-    private static int[] RunColumns = [];
-    private static double[] RunWeights = [];
+    private static int[] _runStarts = [];
+    private static int[] _runColumns = [];
+    private static double[] _runWeights = [];
 
     /// <summary>
     /// Runs every case and returns one line each:
@@ -246,27 +246,27 @@ public static partial class KernelBenchmarks
         ReadOnlySpan<uint> samples = MemoryMarshal.Cast<byte, uint>(footprints);
         Span<uint> averages = MemoryMarshal.Cast<byte, uint>(pixels);
         int count = averages.Length;
-        if (RunStarts.Length < count + 1)
+        if (_runStarts.Length < count + 1)
         {
-            RunStarts = new int[count + 1];
-            RunColumns = new int[2 * count];
-            RunWeights = new double[2 * count];
+            _runStarts = new int[count + 1];
+            _runColumns = new int[2 * count];
+            _runWeights = new double[2 * count];
             for (int i = 0; i < count; i++)
             {
-                RunStarts[i] = 2 * i;
-                RunColumns[2 * i] = 4 * i;
-                RunColumns[(2 * i) + 1] = (4 * i) + 1;
-                RunWeights[2 * i] = 0.25 + ((i % 7) / 10.0);
-                RunWeights[(2 * i) + 1] = 0.9 - ((i % 5) / 10.0);
+                _runStarts[i] = 2 * i;
+                _runColumns[2 * i] = 4 * i;
+                _runColumns[(2 * i) + 1] = (4 * i) + 1;
+                _runWeights[2 * i] = 0.25 + ((i % 7) / 10.0);
+                _runWeights[(2 * i) + 1] = 0.9 - ((i % 5) / 10.0);
             }
         }
 
-        RunStarts[count] = 2 * count;
+        _runStarts[count] = 2 * count;
         ReadOnlySpan<int> rows = [0, 2];
         ReadOnlySpan<double> rowWeights = [0.65, 0.35];
-        ReadOnlySpan<int> starts = RunStarts.AsSpan(0, count + 1);
-        ReadOnlySpan<int> columns = RunColumns.AsSpan(0, 2 * count);
-        ReadOnlySpan<double> weights = RunWeights.AsSpan(0, 2 * count);
+        ReadOnlySpan<int> starts = _runStarts.AsSpan(0, count + 1);
+        ReadOnlySpan<int> columns = _runColumns.AsSpan(0, 2 * count);
+        ReadOnlySpan<double> weights = _runWeights.AsSpan(0, 2 * count);
         _ = vector
             ? BoxFilter.AverageRunVector(samples, rows, rowWeights, starts, columns, weights, averages)
             : BoxFilter.AverageRunScalar(samples, rows, rowWeights, starts, columns, weights, averages);
@@ -481,64 +481,64 @@ public static partial class KernelBenchmarks
 
     private static class IdctBlocks
     {
-        private static byte[] s_source = [];
-        private static short[] s_blocks = [];
+        private static byte[] _source = [];
+        private static short[] _blocks = [];
 
         public static short[] For(ReadOnlySpan<byte> source)
         {
-            if (s_blocks.Length != source.Length / 2 || !source[..Math.Min(64, source.Length)].SequenceEqual(s_source))
+            if (_blocks.Length != source.Length / 2 || !source[..Math.Min(64, source.Length)].SequenceEqual(_source))
             {
-                s_source = source[..Math.Min(64, source.Length)].ToArray();
-                s_blocks = new short[source.Length / 2];
-                for (int i = 0; i < s_blocks.Length; i++)
+                _source = source[..Math.Min(64, source.Length)].ToArray();
+                _blocks = new short[source.Length / 2];
+                for (int i = 0; i < _blocks.Length; i++)
                 {
                     int position = i % 64;
                     int frequency = (position >> 3) + (position & 7);
-                    s_blocks[i] = source[2 * i] < 256 >> Math.Min(frequency, 8) ? (short)((sbyte)source[(2 * i) + 1] >> 2) : (short)0;
+                    _blocks[i] = source[2 * i] < 256 >> Math.Min(frequency, 8) ? (short)((sbyte)source[(2 * i) + 1] >> 2) : (short)0;
                 }
             }
 
-            return s_blocks;
+            return _blocks;
         }
     }
 
     private static class FloatPlanes
     {
-        private static byte[] s_source = [];
-        private static float[] s_values = [];
-        private static float[] s_intsOf = [];
-        private static int[] s_ints = [];
+        private static byte[] _source = [];
+        private static float[] _values = [];
+        private static float[] _intsOf = [];
+        private static int[] _ints = [];
 
         public static float[] For(ReadOnlySpan<byte> source)
         {
-            if (s_values.Length != source.Length / 4 || !source[..Math.Min(64, source.Length)].SequenceEqual(s_source))
+            if (_values.Length != source.Length / 4 || !source[..Math.Min(64, source.Length)].SequenceEqual(_source))
             {
-                s_source = source[..Math.Min(64, source.Length)].ToArray();
-                s_values = new float[source.Length / 4];
-                for (int i = 0; i < s_values.Length; i++)
+                _source = source[..Math.Min(64, source.Length)].ToArray();
+                _values = new float[source.Length / 4];
+                for (int i = 0; i < _values.Length; i++)
                 {
-                    s_values[i] = BitConverter.ToInt16(source.Slice(4 * i, 2)) / 16f;
+                    _values[i] = BitConverter.ToInt16(source.Slice(4 * i, 2)) / 16f;
                 }
             }
 
-            return s_values;
+            return _values;
         }
 
         /// <summary>The same values truncated to integers.</summary>
         public static int[] IntsFor(ReadOnlySpan<byte> source)
         {
             float[] values = For(source);
-            if (s_ints.Length != values.Length || s_intsOf != values)
+            if (_ints.Length != values.Length || _intsOf != values)
             {
-                s_intsOf = values;
-                s_ints = new int[values.Length];
+                _intsOf = values;
+                _ints = new int[values.Length];
                 for (int i = 0; i < values.Length; i++)
                 {
-                    s_ints[i] = (int)values[i];
+                    _ints[i] = (int)values[i];
                 }
             }
 
-            return s_ints;
+            return _ints;
         }
     }
 

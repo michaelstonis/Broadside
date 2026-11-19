@@ -33,60 +33,100 @@ internal static class StructureLayout
 
     public static LayoutTree Build(PdfDocument document, IReadOnlyList<PdfPage> pages, LayoutOptions options)
     {
-        var textOptions = new TextExtractionOptions
-        {
-            IncludeHiddenContent = options.IncludeHiddenContent,
-            ContentOptions = options.ContentOptions,
-        };
-        PdfStructureTreeRoot? root = options.Detection == LayoutDetection.AllPages ? null : document.StructureTree;
-        var builder = new Builder(document, root);
-        var layoutPages = new LayoutPage[pages.Count];
-        var geometry = new MarkGeometry(options.IncludeHiddenContent);
-        RulingCollector? rulings = options.Detection == LayoutDetection.None ? null : new RulingCollector(options.IncludeHiddenContent);
-
-        // Rulings (for detected tables) are collected beside the text, with the marks' geometry when a structure tree is read too.
-        Content.ContentProcessor? companion = root is null ? rulings : rulings is null ? geometry : new Content.CompositeContentProcessor(geometry, rulings);
-        GeometryLayout? detector = null;
+        var build = new PageBuild(document, pages.Count, options);
         try
         {
-            return Build(document, pages, options, textOptions, root, builder, layoutPages, geometry, (companion, rulings), ref detector);
+            for (int index = 0; index < pages.Count; index++)
+            {
+                PdfPage page = pages[index];
+                build.AddPage(index, page, page.ExtractText(build.TextOptions, build.Companion));
+            }
+
+            return build.Finish();
         }
         finally
         {
-            if (detector is not null)
-            {
-                GeometryLayout.Return(detector);
-            }
+            build.Release();
         }
     }
 
-    private static LayoutTree Build(
-        PdfDocument document, IReadOnlyList<PdfPage> pages, LayoutOptions options, TextExtractionOptions textOptions, PdfStructureTreeRoot? root,
-        Builder builder, LayoutPage[] layoutPages, MarkGeometry geometry, (Content.ContentProcessor? Companion, RulingCollector? Rulings) collectors,
-        ref GeometryLayout? detector)
+    /// <summary>
+    /// A layout build over a set of pages: each page's text, extracted with <see cref="TextOptions"/> and <see cref="Companion"/> in the
+    /// same pass, is added in order, then the tree is finished. <see cref="Build"/> extracts the pages itself;
+    /// <see cref="LayoutExtraction"/> extracts its page in slices (issue #546). A struct, so an unsliced build allocates nothing more.
+    /// </summary>
+    internal struct PageBuild
     {
-        for (int index = 0; index < pages.Count; index++)
+        private readonly PdfDocument _document;
+        private readonly LayoutOptions _options;
+        private readonly PdfStructureTreeRoot? _root;
+        private readonly Builder _builder;
+        private readonly LayoutPage[] _layoutPages;
+        private readonly MarkGeometry _geometry;
+        private readonly RulingCollector? _rulings;
+        private GeometryLayout? _detector;
+
+        public PageBuild(PdfDocument document, int pageCount, LayoutOptions options)
         {
-            PdfPage page = pages[index];
-            TextPage text = page.ExtractText(textOptions, collectors.Companion);
-            int pageIndex = document.Pages.IndexOf(page);
-            if (options.Detection != LayoutDetection.None && (root is null || (text.Glyphs.Count > 0 && !IsTagged(text))))
+            _document = document;
+            _options = options;
+            TextOptions = new TextExtractionOptions
+            {
+                IncludeHiddenContent = options.IncludeHiddenContent,
+                ContentOptions = options.ContentOptions,
+            };
+            _root = options.Detection == LayoutDetection.AllPages ? null : document.StructureTree;
+            _builder = new Builder(document, _root);
+            _layoutPages = new LayoutPage[pageCount];
+            _geometry = new MarkGeometry(options.IncludeHiddenContent);
+            _rulings = options.Detection == LayoutDetection.None ? null : new RulingCollector(options.IncludeHiddenContent);
+
+            // Rulings (for detected tables) are collected beside the text, with the marks' geometry when a structure tree is read too.
+            Companion = _root is null ? _rulings : _rulings is null ? _geometry : new Content.CompositeContentProcessor(_geometry, _rulings);
+            _detector = null;
+        }
+
+        /// <summary>The options each page's text is extracted with.</summary>
+        public TextExtractionOptions TextOptions { get; }
+
+        /// <summary>The processors run in the same pass as each page's text extraction, if any.</summary>
+        public Content.ContentProcessor? Companion { get; }
+
+        /// <summary>Adds the page at <paramref name="index"/> of the set, its text extracted with <see cref="TextOptions"/> and <see cref="Companion"/>.</summary>
+        public void AddPage(int index, PdfPage page, TextPage text)
+        {
+            int pageIndex = _document.Pages.IndexOf(page);
+            if (_options.Detection != LayoutDetection.None && (_root is null || (text.Glyphs.Count > 0 && !IsTagged(text))))
             {
                 // Spec story 36: a page with no tagged content is laid out from its geometry once every page is known.
-                (detector ??= GeometryLayout.Rent()).Analyze(index, page, pageIndex, text, collectors.Rulings);
-                continue;
+                (_detector ??= GeometryLayout.Rent()).Analyze(index, page, pageIndex, text, _rulings);
+                return;
             }
 
-            layoutPages[index] = new LayoutPage(page, pageIndex, text);
-            if (root is not null)
+            _layoutPages[index] = new LayoutPage(page, pageIndex, text);
+            if (_root is not null)
             {
-                builder.AddPage(layoutPages[index], geometry);
+                _builder.AddPage(_layoutPages[index], _geometry);
             }
         }
 
-        LayoutNode rootNode = builder.Finish();
-        detector?.Finish(rootNode, layoutPages);
-        return new LayoutTree(rootNode, layoutPages);
+        /// <summary>Finishes the tree once every page is added.</summary>
+        public readonly LayoutTree Finish()
+        {
+            LayoutNode rootNode = _builder.Finish();
+            _detector?.Finish(rootNode, _layoutPages);
+            return new LayoutTree(rootNode, _layoutPages);
+        }
+
+        /// <summary>Gives the geometry detector back, if one was rented.</summary>
+        public void Release()
+        {
+            if (_detector is { } detector)
+            {
+                _detector = null;
+                GeometryLayout.Return(detector);
+            }
+        }
     }
 
     /// <summary>Whether any of a page's glyphs belongs to a structure element.</summary>

@@ -124,20 +124,23 @@ internal sealed class HintObjectLocator : IObjectLocator
 
     /// <summary>
     /// Finds each object of <paramref name="range"/> in its bytes, in number order: <c>N 0 obj</c> at the start of the range or after
-    /// white-space, and followed by a delimiter or white-space. An object not found reads as -1.
+    /// white-space, and followed by a delimiter or white-space. An object not found reads as -1, and so does one past the range's
+    /// bytes: the result holds no more entries than the range has bytes, whatever count the hints give.
     /// </summary>
     private long[] Search(HintedRange range)
     {
-        var offsets = new long[range.ObjectCount];
-        Array.Fill(offsets, -1);
         if (range.Offset < _headerOffset || range.Length > MaxRangeLength || range.Offset >= _source.Length)
         {
-            return offsets;
+            return [];
         }
 
         int length = (int)Math.Min(range.Length, _source.Length - range.Offset);
         ReadOnlySpan<byte> bytes = _source.GetWindow(range.Offset, length).Span;
         bytes = bytes[..Math.Min(bytes.Length, length)];
+
+        // Each header takes more than one byte, so the range's bytes bound how many of its objects can be found, whatever its count.
+        var offsets = new long[Math.Min(range.ObjectCount, bytes.Length)];
+        Array.Fill(offsets, -1);
         Span<byte> header = stackalloc byte[32];
         int position = 0;
         for (int index = 0; index < offsets.Length; index++)

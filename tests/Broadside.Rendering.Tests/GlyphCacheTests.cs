@@ -7,7 +7,8 @@ namespace Broadside.Rendering.Tests;
 /// <summary>
 /// The software rasterizer's glyph cache (issue #370; ISO 32000-2 §9.2.4, §10.7.4): filled glyphs are painted from coverage computed
 /// once per font program, glyph, transform and offset inside the pixel. With exact positioning the pixels never depend on the cache
-/// (its budget, or what it held before); quantized positioning reuses far more glyphs and moves them by at most an eighth of a pixel.
+/// (its budget, or what it held before); quantized positioning (the default, issue #548) reuses far more glyphs and moves them by at
+/// most an eighth of a pixel.
 /// </summary>
 public sealed class GlyphCacheTests
 {
@@ -23,7 +24,7 @@ public sealed class GlyphCacheTests
     {
         using PdfDocument document = GoldenCorpus.Open(fileName);
         PdfPage page = document.Pages[0];
-        RenderOptions options = new RenderOptions().WithScale(scale);
+        RenderOptions options = new RenderOptions().WithScale(scale).WithGlyphPositioning(GlyphPositioning.Exact);
         using var uncached = new SoftwareRasterizer { GlyphCacheBudget = 0 };
         using var cached = new SoftwareRasterizer();
 
@@ -117,15 +118,16 @@ public sealed class GlyphCacheTests
         using var exact = new SoftwareRasterizer();
         using var quantized = new SoftwareRasterizer();
 
-        using Bitmap expected = exact.Render(page, new RenderOptions().WithScale(1.37));
-        using Bitmap actual = quantized.Render(page, new RenderOptions().WithScale(1.37).WithGlyphPositioning(GlyphPositioning.Quantized));
+        using Bitmap expected = exact.Render(page, new RenderOptions().WithScale(1.37).WithGlyphPositioning(GlyphPositioning.Exact));
+        using Bitmap actual = quantized.Render(page, new RenderOptions().WithScale(1.37));
 
         Assert.True(quantized.GlyphCacheStatistics.Hits > exact.GlyphCacheStatistics.Hits);
         Assert.True(quantized.GlyphCacheStatistics.Count < exact.GlyphCacheStatistics.Count);
         Assert.False(expected.Pixels.SequenceEqual(actual.Pixels));
 
         // A glyph moved by at most an eighth of a pixel each way sweeps at most a quarter of any pixel's area: 64 levels, plus one
-        // of rounding. Over tracemonkey and the text corpus the largest change measured is 63 (docs/benchmarks/glyph-cache.md).
+        // of rounding (glyphs drawn over each other can add their changes; this page has none). Measurements:
+        // docs/benchmarks/glyph-cache.md.
         int largest = 0;
         for (int index = 0; index < expected.Pixels.Length; index++)
         {
@@ -142,17 +144,17 @@ public sealed class GlyphCacheTests
         PdfPage page = document.Pages[0];
         RenderOptions options = new RenderOptions().WithScale(1.37);
         DisplayList list = page.CreateDisplayList();
-        using var rasterizer = new SoftwareRasterizer { GlyphPositioning = GlyphPositioning.Quantized };
-        using Bitmap quantizedPage = rasterizer.Render(page, new RenderOptions().WithScale(1.37).WithGlyphPositioning(GlyphPositioning.Quantized));
-        using var listed = new Bitmap(quantizedPage.Width, quantizedPage.Height);
+        using var rasterizer = new SoftwareRasterizer { GlyphPositioning = GlyphPositioning.Exact };
+        using Bitmap exactPage = rasterizer.Render(page, new RenderOptions().WithScale(1.37).WithGlyphPositioning(GlyphPositioning.Exact));
+        using var listed = new Bitmap(exactPage.Width, exactPage.Height);
         listed.Pixels.Fill(0xFF);
 
         rasterizer.Render(list, listed, options.GetDeviceTransform(page));
 
-        Assert.Equal(GlyphPositioning.Exact, new RenderOptions().GlyphPositioning);
+        Assert.Equal(GlyphPositioning.Quantized, new RenderOptions().GlyphPositioning);
         using var fresh = new SoftwareRasterizer();
-        Assert.Equal(GlyphPositioning.Exact, fresh.GlyphPositioning);
-        Assert.True(quantizedPage.Pixels.SequenceEqual(listed.Pixels));
+        Assert.Equal(GlyphPositioning.Quantized, fresh.GlyphPositioning);
+        Assert.True(exactPage.Pixels.SequenceEqual(listed.Pixels));
     }
 
     [Fact]
@@ -184,5 +186,60 @@ public sealed class GlyphCacheTests
         Assert.Equal(0, rasterizer.GlyphCacheStatistics.Count);
         Assert.Equal(1 << 20, rasterizer.GlyphCacheBudget);
         Assert.Throws<ArgumentOutOfRangeException>(() => rasterizer.GlyphCacheBudget = -1);
+    }
+
+    [Theory]
+    [InlineData(GlyphPositioning.Exact)]
+    [InlineData(GlyphPositioning.Quantized)]
+    public void A_glyph_whose_fill_misses_the_bitmap_strokes_the_same_when_drawn_from_the_cache(GlyphPositioning positioning)
+    {
+        // Issue #572: text rendering mode 2 (fill, then stroke) with a 200-unit pen. The first glyph's fill lies above the bitmap, its
+        // stroke reaches into it. A cache hit took the fill's miss for the whole glyph's and skipped the stroke, so the second render
+        // lost it. The second glyph is on the bitmap, so the cache is used.
+        using PdfDocument document = PdfDocument.Open(TextSamples.Page("200 w 1 j BT /F1 48 Tf 40 110 Td 2 Tr (H) Tj 0 -40 Td (H) Tj ET"u8.ToArray()));
+        DisplayList list = document.Pages[0].CreateDisplayList();
+        var device = new Matrix(0.5, 0, 0, -0.5, 0, 48);
+
+        (byte[] uncached, byte[] first, byte[] second) = RenderTwice(list, device, positioning, out PdfCacheStatistics statistics);
+
+        Assert.True(statistics.Hits > 0);
+        Assert.Contains(first.Where((value, index) => index % 4 == 3), alpha => alpha != 0);
+        Assert.True(uncached.AsSpan().SequenceEqual(first));
+        Assert.True(first.AsSpan().SequenceEqual(second));
+    }
+
+    [Theory]
+    [InlineData(GlyphPositioning.Exact)]
+    [InlineData(GlyphPositioning.Quantized)]
+    public void The_rasterize_fuzz_finding_renders_the_same_twice(GlyphPositioning positioning)
+    {
+        // The fuzz seed of issue #572: a mutation of text-render-modes.pdf, run whole as a page's content (its font is missing, so the
+        // fallback font draws), at the scale and rotation the rasterize target picks from its length (3,623 bytes: 1/2, upright).
+        byte[] content = File.ReadAllBytes(Path.Combine(Corpus.Directory, "..", "Broadside.Fuzz", "Seeds", "rasterize", "glyph-cache-hit-skips-stroke.bin"));
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(content));
+        DisplayList list = document.Pages[0].CreateDisplayList();
+        var device = new Matrix(0.5, 0, 0, -0.5, 0, 48);
+
+        (byte[] uncached, byte[] first, byte[] second) = RenderTwice(list, device, positioning, out _);
+
+        Assert.True(uncached.AsSpan().SequenceEqual(first));
+        Assert.True(first.AsSpan().SequenceEqual(second));
+    }
+
+    /// <summary>Renders a list into 48 by 48 pixels without a cache, then twice with one rasterizer (cold, then warm).</summary>
+    private static (byte[] Uncached, byte[] First, byte[] Second) RenderTwice(DisplayList list, in Matrix device, GlyphPositioning positioning, out PdfCacheStatistics statistics)
+    {
+        using var uncached = new SoftwareRasterizer { GlyphCacheBudget = 0, GlyphPositioning = positioning };
+        using var cached = new SoftwareRasterizer { GlyphPositioning = positioning };
+        using var expected = new Bitmap(48, 48);
+        using var first = new Bitmap(48, 48);
+        using var second = new Bitmap(48, 48);
+
+        uncached.Render(list, expected, device);
+        cached.Render(list, first, device);
+        cached.Render(list, second, device);
+
+        statistics = cached.GlyphCacheStatistics;
+        return (expected.Pixels.ToArray(), first.Pixels.ToArray(), second.Pixels.ToArray());
     }
 }

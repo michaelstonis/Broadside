@@ -90,19 +90,10 @@ To write reports, invoices and forms rather than single blocks, use the document
 ## Trimmed and Native AOT apps
 
 Broadside is trimmable and Native AOT compatible: publishing with `PublishAot` or `PublishTrimmed` gives no warnings, and an app
-keeps only the parts it calls. One app setting makes a large difference for apps that save, fill forms or sign. Reading a
-document's XMP metadata goes through the BCL's `XmlReader`, which keeps the code that could fetch a URL over HTTP unless the app
-turns that off, even though Broadside reads XMP with no resolver and never fetches anything:
-
-```xml
-<PropertyGroup>
-  <XmlResolverIsNetworkingEnabledByDefault>false</XmlResolverIsNetworkingEnabledByDefault>
-</PropertyGroup>
-```
-
-It removes about 2.5 MB from a Native AOT app that saves a document. The setting applies to the whole app: other code's
-`XmlReader` then cannot resolve `http` URLs by default either. The sizes of each scenario and the other settings worth knowing are
-in [`docs/benchmarks/core-size.md`](https://github.com/michaelstonis/Broadside/blob/main/docs/benchmarks/core-size.md).
+keeps only the parts it calls. It does not use `System.Xml` (XMP metadata is read and written by its own small XML reader and
+writer), so an app that saves, fills forms or signs carries neither the XML stack nor the networking code an XML resolver would
+keep. The sizes of each scenario and the app settings worth knowing are in
+[`docs/benchmarks/core-size.md`](https://github.com/michaelstonis/Broadside/blob/main/docs/benchmarks/core-size.md).
 
 ## Viewers
 

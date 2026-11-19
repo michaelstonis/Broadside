@@ -37,8 +37,8 @@ internal sealed class EngineConfiguration
     /// </summary>
     public ILogger? Logger { get; private init; }
 
-    /// <summary>Gets the filters by name: the managed defaults with the options' registrations applied (issue #38).</summary>
-    public FilterRegistry Filters { get; private init; } = FilterRegistry.Default;
+    /// <summary>Gets the filters by name: the built-in filters with the options' registrations, image codecs included, applied (issues #38, #544).</summary>
+    public FilterRegistry Filters { get; private init; } = FilterRegistry.WithoutImageCodecs;
 
     /// <summary>Gets the encoders by filter name: the managed defaults with the options' registrations applied (issue #142).</summary>
     public StreamEncoderRegistry StreamEncoders { get; private init; } = StreamEncoderRegistry.Default;
@@ -99,7 +99,7 @@ internal sealed class EngineConfiguration
     {
         DiagnosticObserver = DiagnosticLog.CreateObserver(options.LoggerFactory ?? hostLoggerFactory),
         Logger = ObjectLog.CreateLogger(options.LoggerFactory ?? hostLoggerFactory),
-        Filters = options.Filters.Count == 0 ? FilterRegistry.Default : FilterRegistry.Create(options.Filters),
+        Filters = options.CreateFilterRegistry(),
         StreamEncoders = options.StreamEncoders.Count == 0 ? StreamEncoderRegistry.Default : StreamEncoderRegistry.Create(options.StreamEncoders),
         MaxDecodedLength = options.MaxDecodedLength,
         SecurityHandlers = options.SecurityHandlers.Count == 0 ? SecurityHandlerRegistry.Default : SecurityHandlerRegistry.Create(options.SecurityHandlers),

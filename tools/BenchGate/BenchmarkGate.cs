@@ -25,8 +25,10 @@ public static class BenchmarkGate
         GateFinding[] ordered = [.. findings
             .OrderBy(static finding => finding.IsFailure ? 0 : 1)
             .ThenBy(static finding => finding.Kind)
+            .ThenBy(static finding => finding.Pass)
             .ThenBy(static finding => finding.Benchmark, StringComparer.Ordinal)];
-        return new GateReport(ordered, times, head.Count, results.Rounds.Count, baselinePath.Replace('\\', '/'));
+        Dictionary<TimePass, int> roundCounts = results.Timings.ToDictionary(static timing => timing.Key, static timing => timing.Value.Rounds.Count);
+        return new GateReport(ordered, times, head.Count, roundCounts, results.Machines, baselinePath.Replace('\\', '/'));
     }
 
     /// <summary>
@@ -38,7 +40,7 @@ public static class BenchmarkGate
         options ??= GateOptions.Default;
         GateResults results = GateResults.Load(resultsRoot);
         var filters = new SortedSet<string>(StringComparer.Ordinal);
-        foreach ((string name, Sample sample) in Samples(results))
+        foreach (((_, string name), Sample sample) in Samples(results))
         {
             if (sample.IsSlower(options))
             {
@@ -165,73 +167,105 @@ public static class BenchmarkGate
     private static List<TimeComparison> CompareTimes(GateResults results, GateOptions options, List<GateFinding> findings)
     {
         var times = new List<TimeComparison>();
-        foreach ((string name, Sample sample) in Samples(results))
+        foreach (((TimePass pass, string name), Sample sample) in Samples(results))
         {
-            double? confirmation = null;
+            // Every rerun of the case must reproduce the slowdown: one rerun after the default pass's two rounds, two (in opposite
+            // orders) after the single round of the AVX-512-off pass.
+            var reruns = new List<double>();
             bool confirmed = true;
-            if (results.Confirmation.Base.TryGetValue(name, out BenchmarkCase? confirmBase)
-                && results.Confirmation.Head.TryGetValue(name, out BenchmarkCase? confirmHead)
-                && confirmBase.NanosecondsPerOperation.Count > 0
-                && confirmHead.NanosecondsPerOperation.Count > 0)
+            foreach (GatePass rerun in results.Timings[pass].Confirmations.Values)
             {
-                var rerun = new Sample([(confirmBase.NanosecondsPerOperation, confirmHead.NanosecondsPerOperation)]);
-                confirmation = rerun.Ratio;
-                confirmed = rerun.Ratio >= options.RoundRatio && rerun.Difference >= options.MinimumDifferenceNanoseconds;
+                if (rerun.Base.TryGetValue(name, out BenchmarkCase? confirmBase)
+                    && rerun.Head.TryGetValue(name, out BenchmarkCase? confirmHead)
+                    && confirmBase.NanosecondsPerOperation.Count > 0
+                    && confirmHead.NanosecondsPerOperation.Count > 0)
+                {
+                    // Issue #554: the same build runs some cases at two or three distinct speeds depending on the process (GrayToRgb
+                    // at 101, 132 or 138 ns on the Xeon 6975P-C), so one process per commit can look 1.3x slower than itself. The
+                    // rerun measures several processes per commit and compares the pull request's fastest with the base's
+                    // slowest: a regression slows every process, a slow draw of identical code does not.
+                    double headFastest = ProcessMedians(confirmHead).Min();
+                    double baseSlowest = ProcessMedians(confirmBase).Max();
+                    reruns.Add(headFastest / baseSlowest);
+                    confirmed &= headFastest / baseSlowest >= options.RoundRatio && headFastest - baseSlowest >= options.MinimumDifferenceNanoseconds;
+                }
             }
 
-            times.Add(new TimeComparison(name, sample.BaseMedian, sample.HeadMedian, sample.Ratio, sample.RoundRatios, confirmation));
+            MachineInfo? machine = sample.Runner is string runner && results.Machines.TryGetValue(runner, out MachineInfo? found) ? found : null;
+            times.Add(new TimeComparison(name, sample.BaseMedian, sample.HeadMedian, sample.Ratio, sample.RoundRatios, reruns, pass, machine));
+            string rerunText = reruns.Count switch
+            {
+                0 => string.Empty,
+                1 => Invariant($"; rerun {reruns[0]:0.00}"),
+                _ => "; reruns " + string.Join(", ", reruns.Select(static ratio => ratio.ToString("0.00", CultureInfo.InvariantCulture))),
+            };
+            string where = machine is null ? string.Empty : $" on {machine.Describe()}";
             string detail = Invariant(
-                $"{sample.Ratio:0.00}x: {GateReport.FormatTime(sample.BaseMedian)} on base, {GateReport.FormatTime(sample.HeadMedian)} here (rounds {string.Join(", ", sample.RoundRatios.Select(static ratio => ratio.ToString("0.00", CultureInfo.InvariantCulture)))}{(confirmation is double c ? Invariant($"; rerun {c:0.00}") : "")})");
+                $"{sample.Ratio:0.00}x: {GateReport.FormatTime(sample.BaseMedian)} on base, {GateReport.FormatTime(sample.HeadMedian)} here (rounds {string.Join(", ", sample.RoundRatios.Select(static ratio => ratio.ToString("0.00", CultureInfo.InvariantCulture)))}{rerunText}){where}");
 
             if (sample.IsSlower(options) && confirmed)
             {
-                findings.Add(new GateFinding(name, FindingKind.Slower, detail));
+                findings.Add(new GateFinding(name, FindingKind.Slower, detail, Pass: pass));
             }
             else if (sample.Ratio >= options.NoticeRatio)
             {
-                findings.Add(new GateFinding(name, FindingKind.SlowerWithinTolerance, detail));
+                findings.Add(new GateFinding(name, FindingKind.SlowerWithinTolerance, detail, Pass: pass));
             }
             else if (sample.Ratio <= 1 / options.FailRatio)
             {
-                findings.Add(new GateFinding(name, FindingKind.Faster, detail));
+                findings.Add(new GateFinding(name, FindingKind.Faster, detail, Pass: pass));
             }
         }
 
         return times;
     }
 
-    /// <summary>Every case that has measured iterations on both sides of at least one round.</summary>
-    private static SortedDictionary<string, Sample> Samples(GateResults results)
+    /// <summary>Every case that has measured iterations on both sides of at least one round, by timing pass and full name.</summary>
+    private static SortedDictionary<(TimePass Pass, string Name), Sample> Samples(GateResults results)
     {
-        var rounds = new SortedDictionary<string, List<(IReadOnlyList<double>, IReadOnlyList<double>)>>(StringComparer.Ordinal);
-        foreach (GatePass pass in results.Rounds.Values)
+        var samples = new SortedDictionary<(TimePass Pass, string Name), Sample>(Comparer<(TimePass Pass, string Name)>.Create(
+            static (x, y) => x.Pass != y.Pass ? x.Pass.CompareTo(y.Pass) : string.CompareOrdinal(x.Name, y.Name)));
+        foreach ((TimePass timePass, TimingResults timing) in results.Timings)
         {
-            foreach ((string name, BenchmarkCase head) in pass.Head)
+            var rounds = new SortedDictionary<string, List<(IReadOnlyList<double>, IReadOnlyList<double>)>>(StringComparer.Ordinal);
+            var runners = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (GatePass pass in timing.Rounds.Values)
             {
-                if (!pass.Base.TryGetValue(name, out BenchmarkCase? @base)
-                    || head.NanosecondsPerOperation.Count == 0
-                    || @base.NanosecondsPerOperation.Count == 0)
+                foreach ((string name, BenchmarkCase head) in pass.Head)
                 {
-                    continue;
-                }
+                    if (!pass.Base.TryGetValue(name, out BenchmarkCase? @base)
+                        || head.NanosecondsPerOperation.Count == 0
+                        || @base.NanosecondsPerOperation.Count == 0)
+                    {
+                        continue;
+                    }
 
-                if (!rounds.TryGetValue(name, out List<(IReadOnlyList<double>, IReadOnlyList<double>)>? list))
-                {
-                    rounds[name] = list = [];
-                }
+                    if (!rounds.TryGetValue(name, out List<(IReadOnlyList<double>, IReadOnlyList<double>)>? list))
+                    {
+                        rounds[name] = list = [];
+                    }
 
-                list.Add((@base.NanosecondsPerOperation, head.NanosecondsPerOperation));
+                    list.Add((@base.NanosecondsPerOperation, head.NanosecondsPerOperation));
+                    if (pass.Runners.TryGetValue(name, out string? runner))
+                    {
+                        runners.TryAdd(name, runner);
+                    }
+                }
             }
-        }
 
-        var samples = new SortedDictionary<string, Sample>(StringComparer.Ordinal);
-        foreach ((string name, List<(IReadOnlyList<double>, IReadOnlyList<double>)> list) in rounds)
-        {
-            samples[name] = new Sample(list);
+            foreach ((string name, List<(IReadOnlyList<double>, IReadOnlyList<double>)> list) in rounds)
+            {
+                samples[(timePass, name)] = new Sample(list, runners.GetValueOrDefault(name));
+            }
         }
 
         return samples;
     }
+
+    /// <summary>The median of each measuring process's iterations of a case; processes that measured nothing are skipped.</summary>
+    private static IEnumerable<double> ProcessMedians(BenchmarkCase benchmark) => benchmark.Processes
+        .Where(static process => process.Count > 0)
+        .Select(static process => Sample.Quantile([.. process.Order()], 0.5));
 
     private static string Bytes(long[] values) => values.Length == 1
         ? Invariant($"{values[0]} B")
@@ -245,14 +279,18 @@ public static class BenchmarkGate
         private readonly double[] _base;
         private readonly double[] _head;
 
-        public Sample(IReadOnlyList<(IReadOnlyList<double> Base, IReadOnlyList<double> Head)> rounds)
+        public Sample(IReadOnlyList<(IReadOnlyList<double> Base, IReadOnlyList<double> Head)> rounds, string? runner)
         {
+            Runner = runner;
             _base = [.. rounds.SelectMany(static round => round.Base).Order()];
             _head = [.. rounds.SelectMany(static round => round.Head).Order()];
             BaseMedian = Quantile(_base, 0.5);
             HeadMedian = Quantile(_head, 0.5);
             RoundRatios = [.. rounds.Select(static round => Quantile([.. round.Head.Order()], 0.5) / Quantile([.. round.Base.Order()], 0.5))];
         }
+
+        /// <summary>The results folder the pull request's iterations came from (the first round's), when known.</summary>
+        public string? Runner { get; }
 
         public double BaseMedian { get; }
 
@@ -271,7 +309,7 @@ public static class BenchmarkGate
             && Quantile(_head, 0.25) > Quantile(_base, 0.75);
 
         /// <summary>Linear interpolation between closest ranks of a sorted sample.</summary>
-        private static double Quantile(double[] sorted, double p)
+        public static double Quantile(double[] sorted, double p)
         {
             if (sorted.Length == 1)
             {

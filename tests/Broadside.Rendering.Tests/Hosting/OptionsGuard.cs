@@ -42,6 +42,7 @@ internal static class OptionsGuard
     /// </summary>
     public static IReadOnlyDictionary<string, string> Exemptions { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
     {
+        ["PdfOptions.UseImageCodecs"] = "Registers code, the managed image codecs, like UseFilter does; filters are code, not configuration, and binding a flag that names them would keep them in every trimmed app (issue #544).",
         ["PdfOptions.WithPassword"] = "A secret: PdfOptions keeps credentials out of its public properties on purpose, so configuration binding never sees a password; a host supplies it from its secret store through the delegate.",
         ["PdfOptions.WithPlatformImageDecoder"] = "A keyed toggle (decoder name, enabled) for decoders registered in code; configuration turns platform decoding on or off as a whole with PlatformImageDecoding.",
     };

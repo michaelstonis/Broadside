@@ -75,6 +75,16 @@ jobs:
         # The second publish mode (#338): its own obj/bin folders, so it does not reuse the AOT build's intermediates.
         run: samples/Broadside.Viewer.Blazor.Sample/publish-static.sh --no-aot --runtime-folder framework artifacts/blazor-sample-lite
 
+      - name: Publish the sample with AOT of the profiled methods, under a 16 MB file cap
+        # Issue #547: --hot-aot compiles only the methods the recorded profiles list (samples/Broadside.Viewer.Blazor.Sample/
+        # hot-aot*.aotprofile), so that its runtime module fits hosts with a 16 MB per-file limit. Its own obj/bin folders.
+        shell: bash
+        run: |
+          samples/Broadside.Viewer.Blazor.Sample/publish-static.sh --hot-aot artifacts/blazor-sample-hot
+          size=$(stat -c %s artifacts/blazor-sample-hot/_framework/dotnet.native.*.wasm)
+          echo "dotnet.native.wasm of the --hot-aot build: ${size} bytes (cap 16,000,000)" >> "${GITHUB_STEP_SUMMARY}"
+          [ "${size}" -lt 16000000 ] || { echo "::error title=--hot-aot size::dotnet.native.wasm is ${size} bytes, over 16,000,000"; exit 1; }
+
       - name: Build the browser tests
         run: dotnet build tests/Broadside.Viewer.Blazor.BrowserTests -c Release -warnaserror
 

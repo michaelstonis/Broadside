@@ -2546,6 +2546,7 @@ Broadside.PdfOptions.PdfOptions() -> void
 Broadside.PdfOptions.ReadingMode.get -> Broadside.PdfReadingMode
 Broadside.PdfOptions.ReadingMode.set -> void
 Broadside.PdfOptions.UseFilter(Broadside.Filters.IStreamFilter! filter) -> Broadside.PdfOptions!
+Broadside.PdfOptions.UseImageCodecs() -> Broadside.PdfOptions!
 Broadside.PdfOptions.UseLenient() -> Broadside.PdfOptions!
 Broadside.PdfOptions.UseStrict() -> Broadside.PdfOptions!
 Broadside.PdfOptions.WithMaxDecodedLength(long maxLength) -> Broadside.PdfOptions!
@@ -5309,6 +5310,8 @@ static Broadside.Diagnostics.FileSpecificationDiagnostics.CollectionFolderInvali
 Broadside.Diagnostics.FilterDiagnostics
 static Broadside.Diagnostics.FilterDiagnostics.FilterInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.FilterDiagnostics.FilterUnsupported.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FilterDiagnostics.FilterCodecNotRegistered.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.PdfOptions.CreateWithoutImageCodecs() -> Broadside.PdfOptions!
 static Broadside.Diagnostics.FilterDiagnostics.FilterAbbreviationNotAllowed.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.FilterDiagnostics.FilterDataInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.FilterDiagnostics.FilterDataTruncated.get -> Broadside.Diagnostics.DiagnosticCode!
@@ -5790,3 +5793,15 @@ Broadside.PdfSubmitFormAction.SelectFields() -> System.Collections.Generic.IRead
 Broadside.PdfDocument.DefaultSaveOptions.get -> Broadside.PdfSaveOptions?
 Broadside.PdfDocument.DefaultSaveOptions.set -> void
 static Broadside.Diagnostics.SavingDiagnostics.ConformanceOverridden.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.PdfPage.BeginTextExtraction(Broadside.Text.TextExtractionOptions! options) -> Broadside.Text.TextExtraction!
+Broadside.PdfPage.BeginLayoutExtraction(Broadside.Layout.LayoutOptions! options) -> Broadside.Layout.LayoutExtraction!
+Broadside.Text.TextExtraction
+Broadside.Text.TextExtraction.Continue(System.TimeSpan budget) -> bool
+Broadside.Text.TextExtraction.Dispose() -> void
+Broadside.Text.TextExtraction.IsCompleted.get -> bool
+Broadside.Text.TextExtraction.Result.get -> Broadside.Text.TextPage!
+Broadside.Layout.LayoutExtraction
+Broadside.Layout.LayoutExtraction.Continue(System.TimeSpan budget) -> bool
+Broadside.Layout.LayoutExtraction.Dispose() -> void
+Broadside.Layout.LayoutExtraction.IsCompleted.get -> bool
+Broadside.Layout.LayoutExtraction.Result.get -> Broadside.Layout.LayoutTree!
