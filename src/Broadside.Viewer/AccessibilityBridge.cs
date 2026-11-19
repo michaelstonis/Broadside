@@ -645,3 +645,4 @@ public sealed class AccessibilityBridge
         _ => AccessibleRole.Text,
     };
 }
+// Probe for #587: a viewer-only change.
