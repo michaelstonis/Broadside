@@ -13,6 +13,14 @@ namespace Broadside.Rendering.Skia.Tests;
 [Collection(HeavyTestCollection.Name)]
 public sealed class SkiaAllocationTests
 {
+    /// <summary>
+    /// Replays before measuring. Fewer than <see cref="Allocations.WarmUpCalls"/>: one replay runs every per-paint method hundreds
+    /// to thousands of times, so they reach tier 1 within it, and the backend's caches are full after the first. Traced per call
+    /// (issue #587), every case here allocated nothing from its second replay on, at tier 0 included; the measured calls of
+    /// <see cref="Allocations.Measure"/> after these still decide. The 40-call default made one 300 DPI case take 148 s on CI.
+    /// </summary>
+    private const int ReplayWarmUpCalls = 3;
+
     [Theory]
     [InlineData("paths-fill-rules.pdf", 72)]
     [InlineData("paths-strokes.pdf", 72)]
@@ -110,6 +118,6 @@ public sealed class SkiaAllocationTests
         using var canvas = new SKCanvas(bitmap);
         using var backend = new SkiaBackend();
         Action replay = () => backend.Render(list, canvas, device, forceOutlines);
-        return Allocations.Measure(replay);
+        return Allocations.Measure(replay, ReplayWarmUpCalls);
     }
 }

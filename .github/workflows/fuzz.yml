@@ -103,13 +103,6 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v6
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
-          restore-keys: nuget-${{ runner.os }}-
-
       - name: Install clang with libFuzzer
         run: |
           sudo apt-get update
