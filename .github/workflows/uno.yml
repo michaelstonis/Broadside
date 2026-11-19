@@ -38,13 +38,6 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v6
-        with:
-          path: ~/.nuget/packages
-          key: nuget-uno-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
-          restore-keys: nuget-uno-${{ runner.os }}-
-
       - name: Install the wasm-tools workload
         timeout-minutes: 15
         run: dotnet workload install wasm-tools
@@ -99,13 +92,6 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
-
-      - name: Cache NuGet packages
-        uses: actions/cache@v6
-        with:
-          path: ~/.nuget/packages
-          key: nuget-uno-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
-          restore-keys: nuget-uno-${{ runner.os }}-
 
       - name: Build the desktop head
         run: dotnet build samples/Broadside.Viewer.Uno.Sample -f net10.0-desktop -c Release -warnaserror

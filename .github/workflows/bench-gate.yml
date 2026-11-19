@@ -129,14 +129,6 @@ jobs:
         with:
           global-json-file: global.json
 
-      # Restore only: ci.yml's build-test saves this cache (.github/workflows/README.md, "NuGet cache").
-      - name: Restore the NuGet cache
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
-          restore-keys: nuget-${{ runner.os }}-
-
       - name: Select this shard's benchmarks
         shell: bash
         env:
@@ -188,14 +180,6 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
-
-      # Restore only: ci.yml's build-test saves this cache (.github/workflows/README.md, "NuGet cache").
-      - name: Restore the NuGet cache
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
-          restore-keys: nuget-${{ runner.os }}-
 
       - name: Check out the base commit
         shell: bash
@@ -263,14 +247,6 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
-
-      # Restore only: ci.yml's build-test saves this cache (.github/workflows/README.md, "NuGet cache").
-      - name: Restore the NuGet cache
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
-          restore-keys: nuget-${{ runner.os }}-
 
       - name: Check out the base commit
         shell: bash

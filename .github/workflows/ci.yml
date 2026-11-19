@@ -144,15 +144,15 @@ jobs:
         with:
           global-json-file: global.json
 
-      # The NuGet cache (issue #587) is keyed on what decides the package versions, not on every project file, and only this job's
-      # full runs on Linux and Windows save it (after restoring the whole solution, so it holds every package the other jobs
-      # restore from it); a narrowed or any other job only restores it. A run that restores the exact key saves nothing.
-      # Pushes to main and the nightly save into main's scope, which every pull request can read. macOS keeps no NuGet cache:
-      # the whole solution's restore there is 3.5 GB of mobile runtime packs, slower to restore than to download, and it pushed
-      # the repository past its 10 GB cache limit so that the other entries were evicted between runs.
+      # The NuGet cache, Windows only (issue #587; .github/workflows/README.md, "NuGet cache"): keyed on what decides the package
+      # versions, not on every project file. Only this job's full runs save it, after restoring the whole solution, and only when
+      # the exact key missed: outside pull requests (pushes to main and the nightly save into main's scope, which every pull
+      # request reads), or in a pull request that restored nothing at all. A hit never saves again. Linux and macOS keep no NuGet
+      # cache: their whole-solution restores are 3 GB and more (mobile and WebAssembly runtime packs), no slower to download than
+      # to restore, and those entries pushed the repository past its 10 GB cache limit, which evicted every entry between runs.
       - name: Restore the NuGet cache
         id: nuget
-        if: env.PROJECTS != '' && runner.os != 'macOS'
+        if: env.PROJECTS != '' && runner.os == 'Windows'
         uses: actions/cache/restore@v6
         with:
           path: ~/.nuget/packages
@@ -214,7 +214,9 @@ jobs:
         run: dotnet restore ${{ env.BUILD }} -p:Configuration=Release
 
       - name: Save the NuGet cache
-        if: env.PROJECTS == 'all' && runner.os != 'macOS' && steps.nuget.outputs.cache-hit != 'true'
+        if: >-
+          env.PROJECTS == 'all' && runner.os == 'Windows' && steps.nuget.outputs.cache-hit != 'true'
+          && (github.event_name != 'pull_request' || steps.nuget.outputs.cache-matched-key == '')
         uses: actions/cache/save@v6
         with:
           path: ~/.nuget/packages
@@ -366,7 +368,7 @@ jobs:
           global-json-file: global.json
 
       - name: Restore the NuGet cache
-        if: env.RUN == 'true' && runner.os != 'macOS'
+        if: env.RUN == 'true' && runner.os == 'Windows'
         uses: actions/cache/restore@v6
         with:
           path: ~/.nuget/packages
@@ -448,13 +450,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-
-      - name: Restore the NuGet cache
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
-          restore-keys: nuget-${{ runner.os }}-
 
       - name: Install veraPDF
         # The greenfield (PDF/A and PDF/UA) command-line validator, installed headless by its IzPack installer from the pinned,
@@ -568,13 +563,6 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Restore the NuGet cache
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
-          restore-keys: nuget-${{ runner.os }}-
-
       - name: Build the packages whose citations are checked
         shell: bash
         run: |
@@ -605,13 +593,6 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
-
-      - name: Restore the NuGet cache
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
-          restore-keys: nuget-${{ runner.os }}-
 
       - name: Check the formatting of the affected projects (narrowed pull request)
         if: needs.plan.outputs.format_projects != 'all'
@@ -658,13 +639,6 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
-
-      - name: Restore the NuGet cache
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
-          restore-keys: nuget-${{ runner.os }}-
 
       - name: Build the fuzz harness
         run: dotnet build tests/Broadside.Fuzz -c Release -warnaserror
@@ -813,13 +787,6 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Restore the NuGet cache
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
-          restore-keys: nuget-${{ runner.os }}-
-
       - name: Build the benchmarks
         run: dotnet build bench/Broadside.Benchmarks -c Release -warnaserror
 
@@ -871,13 +838,6 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
-
-      - name: Cache NuGet packages
-        uses: actions/cache@v6
-        with:
-          path: ~/.nuget/packages
-          key: nuget-maui-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
-          restore-keys: nuget-maui-${{ runner.os }}-
 
       - name: Install the maui workload
         timeout-minutes: 20
@@ -939,8 +899,10 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v6
+      # Saved like build-test's (see there): outside pull requests, or in one that restored nothing.
+      - name: Restore the NuGet cache
+        id: nuget
+        uses: actions/cache/restore@v6
         with:
           path: ~/.nuget/packages
           key: nuget-winui-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
@@ -948,6 +910,13 @@ jobs:
 
       - name: Build the control
         run: dotnet build src/Broadside.Viewer.WinUI -c Release -warnaserror
+
+      - name: Save the NuGet cache
+        if: steps.nuget.outputs.cache-hit != 'true' && (github.event_name != 'pull_request' || steps.nuget.outputs.cache-matched-key == '')
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-winui-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
 
       - name: Build the sample app
         run: dotnet build samples/Broadside.Viewer.WinUI.Sample -c Release -warnaserror -r win-x64
@@ -1031,13 +1000,6 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
-
-      - name: Cache NuGet packages
-        uses: actions/cache@v6
-        with:
-          path: ~/.nuget/packages
-          key: nuget-avalonia-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
-          restore-keys: nuget-avalonia-${{ runner.os }}-
 
       - name: Cache the pinned pages' corpora
         uses: actions/cache@v6

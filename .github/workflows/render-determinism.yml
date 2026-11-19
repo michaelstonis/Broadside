@@ -71,8 +71,9 @@ jobs:
         with:
           global-json-file: global.json
 
-      # Restore only: ci.yml's build-test saves this cache (.github/workflows/README.md, "NuGet cache").
+      # Windows only, restore only: ci.yml's build-test saves it (.github/workflows/README.md, "NuGet cache").
       - name: Restore the NuGet cache
+        if: runner.os == 'Windows'
         uses: actions/cache/restore@v6
         with:
           path: ~/.nuget/packages
@@ -115,14 +116,6 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
-
-      # Restore only: ci.yml's build-test saves this cache (.github/workflows/README.md, "NuGet cache").
-      - name: Restore the NuGet cache
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
-          restore-keys: nuget-${{ runner.os }}-
 
       - name: Download every runner's manifest
         uses: actions/download-artifact@v8
