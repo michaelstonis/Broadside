@@ -345,3 +345,4 @@ internal interface IObjectLocator
     /// <returns><see langword="false"/> when the object cannot be placed this way: the cross-reference section decides.</returns>
     bool TryLocate(int objectNumber, out XrefEntry entry);
 }
+// Probe for #587: a core-library change.
