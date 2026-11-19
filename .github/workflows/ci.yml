@@ -1,15 +1,20 @@
-# Continuous integration: every pull request and every push to main.
-# See .github/workflows/README.md for what each job does and which OS it runs on.
+# Continuous integration: every pull request, every push to main, nightly on the integration branch and the "Run workflow" button.
+# See .github/workflows/README.md for what each job does, which OS it runs on and what a pull request skips.
 name: CI
 
 on:
   pull_request:
   push:
     branches: [main]
+  # Nightly on the integration branch (NIGHTLY_BRANCH), everything including the Category=Exhaustive sweeps (issue #587). GitHub
+  # runs schedules from the default branch's copy of this file, so the nightly starts once this file is on main.
+  schedule:
+    - cron: '37 4 * * *'
+  workflow_dispatch:
 
-# One run per PR or branch; a newer push cancels the older run.
+# One run per PR or branch and event; a newer push cancels the older run.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 permissions:
@@ -22,41 +27,140 @@ env:
   DOTNET_GENERATE_ASPNET_CERTIFICATE: false
   # Verify must never try to launch a diff tool on a build agent (tests/README.md, "Snapshots").
   DiffEngine_Disabled: true
+  # The branch the nightly run checks out, and the ref every job checks out (empty: the event's own commit).
+  NIGHTLY_BRANCH: spec/33-broadside-v1
+  CHECKOUT_REF: ${{ github.event_name == 'schedule' && 'spec/33-broadside-v1' || '' }}
+  # dotnet-affected, which the plan job runs on pull requests (issue #587).
+  DOTNET_AFFECTED_VERSION: 7.0.1
 
 jobs:
-  # Build the whole solution, run the core tests, and (on Linux) pack the core packages.
-  # The CoreGraphics and Android backends drop out of the build on Linux and Windows through the
+  # Decides whether this run builds and tests everything or only what a pull request affects, and which jobs run (issue #587;
+  # .github/scripts/ci-plan.sh, tested by .github/scripts/test-ci-plan.sh). Everything runs on pushes, the nightly, the "Run
+  # workflow" button, pull requests into main or from a release/* branch, pull requests that change global.json, a solution or
+  # filter, Directory.Solution.props, the CI workflows or scripts, the hand-written corpus or the golden images, and whenever
+  # dotnet-affected fails. Otherwise dotnet-affected lists the projects the pull request affects, and the job summary shows the
+  # plan. A job that is not needed is skipped, or for the matrix jobs reports success without doing anything.
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      full: ${{ steps.plan.outputs.full }}
+      linux: ${{ steps.plan.outputs.linux }}
+      windows: ${{ steps.plan.outputs.windows }}
+      macos: ${{ steps.plan.outputs.macos }}
+      format_projects: ${{ steps.plan.outputs.format_projects }}
+      aot: ${{ steps.plan.outputs.aot }}
+      size_probes: ${{ steps.plan.outputs.size_probes }}
+      verapdf: ${{ steps.plan.outputs.verapdf }}
+      conformance: ${{ steps.plan.outputs.conformance }}
+      format: ${{ steps.plan.outputs.format }}
+      fuzz: ${{ steps.plan.outputs.fuzz }}
+      bench: ${{ steps.plan.outputs.bench }}
+      blazor: ${{ steps.plan.outputs.blazor }}
+      uno: ${{ steps.plan.outputs.uno }}
+      maui: ${{ steps.plan.outputs.maui }}
+      winui: ${{ steps.plan.outputs.winui }}
+      avalonia: ${{ steps.plan.outputs.avalonia }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          # The merge commit and its first parent, the base branch as merged into.
+          fetch-depth: 2
+          ref: ${{ env.CHECKOUT_REF }}
+
+      - name: Test the decision
+        run: .github/scripts/test-ci-plan.sh
+
+      - name: Set up .NET
+        if: github.event_name == 'pull_request'
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Install dotnet-affected
+        if: github.event_name == 'pull_request'
+        run: dotnet tool install dotnet-affected --version "${DOTNET_AFFECTED_VERSION}" --tool-path "${RUNNER_TEMP}/dotnet-affected"
+
+      - name: Decide
+        id: plan
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          DOTNET_AFFECTED: ${{ runner.temp }}/dotnet-affected/dotnet-affected
+        run: .github/scripts/ci-plan.sh
+
+  # Builds and tests in Release on every OS, and (on Linux) packs the core packages. A full run builds all of Broadside.slnx and
+  # tests Broadside.Core.slnf on every OS, as below. A narrowed pull request (issue #587) builds on each OS only the affected
+  # projects of its set (the plan job's linux, windows and macos outputs, written into artifacts/ci/build.slnf): Linux the core
+  # filter and the few projects nothing else builds, and runs their tests except the Category=Exhaustive sweeps, which run as
+  # samples; Windows and macOS their platform backends and viewers, the platform tests and the render-hash test. A leg with
+  # nothing to build reports success at once. The samples and UI tests of MAUI, Uno, Blazor, Avalonia and WinUI build in their
+  # own jobs below. The CoreGraphics and Android backends drop out of the build on Linux and Windows through the
   # BroadsideBuildPlatformBackends gate in their project files; macOS installs the workloads and builds them.
   # Everything is built once in Release so that test and pack can run with --no-build.
   build-test:
     name: build-test (${{ matrix.os }})
+    needs: plan
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            leg: linux
+          - os: windows-latest
+            leg: windows
+          - os: macos-latest
+            leg: macos
+    env:
+      # `all` (everything), the projects of a narrowed pull request, or empty (nothing to do).
+      PROJECTS: ${{ needs.plan.outputs[matrix.leg] }}
     steps:
+      - name: Plan
+        shell: bash
+        run: |
+          case "${PROJECTS}" in
+            all) echo "Builds Broadside.slnx and tests everything." ;;
+            "") echo "Nothing this leg builds is affected by the pull request; see the plan job's summary." ;;
+            *) echo "Narrowed to the affected projects:"; tr ' ' '\n' <<< "${PROJECTS}" ;;
+          esac
+
       - name: Check out
+        if: env.PROJECTS != ''
         uses: actions/checkout@v7
         with:
           # MinVer computes the package version from the tag history.
           fetch-depth: 0
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Set up .NET
+        if: env.PROJECTS != ''
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v6
+      # The NuGet cache (issue #587) is keyed on what decides the package versions, not on every project file, and only this job's
+      # full runs on Linux and Windows save it (after restoring the whole solution, so it holds every package the other jobs
+      # restore from it); a narrowed or any other job only restores it. A run that restores the exact key saves nothing.
+      # Pushes to main and the nightly save into main's scope, which every pull request can read. macOS keeps no NuGet cache:
+      # the whole solution's restore there is 3.5 GB of mobile runtime packs, slower to restore than to download, and it pushed
+      # the repository past its 10 GB cache limit so that the other entries were evicted between runs.
+      - name: Restore the NuGet cache
+        id: nuget
+        if: env.PROJECTS != '' && runner.os != 'macOS'
+        uses: actions/cache/restore@v6
         with:
           path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
           restore-keys: nuget-${{ runner.os }}-
 
       - name: Install platform workloads (macOS)
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && (env.PROJECTS == 'all' || contains(env.PROJECTS, 'CoreGraphics') || contains(env.PROJECTS, 'Android'))
         timeout-minutes: 20
         run: dotnet workload install macos ios maccatalyst android
 
@@ -64,7 +168,7 @@ jobs:
         # Written files are checked with qpdf --check and pdfinfo (issue #44); the tests skip where the tools are missing.
         # The linearized writer follows qpdf 12's object placement and the tests require qpdf 12 or later (Ubuntu's package is 11.9,
         # whose linearization check disagrees with qpdf 12's own output), so qpdf comes from its pinned, checksummed release build.
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && env.PROJECTS != ''
         env:
           QPDF_VERSION: 12.4.2
           QPDF_SHA256: db367d897829f22c4198ce1094143c9d467bd6ee7dfabc44ba6f02056b24f8b1
@@ -86,25 +190,60 @@ jobs:
           echo "$QPDF_BIN" >> "$GITHUB_PATH"
           "$QPDF_BIN/qpdf" --version
 
+      - name: Write the solution filter (narrowed pull request)
+        # BUILD is what restore and build take; TESTS says which tests run: everything (all), the affected test projects of the
+        # filter without the Category=Exhaustive sweeps (affected), or none.
+        if: env.PROJECTS != ''
+        shell: bash
+        run: |
+          if [ "${PROJECTS}" = all ]; then
+            { echo "BUILD=Broadside.slnx"; echo "TESTS=all"; } >> "${GITHUB_ENV}"
+            exit 0
+          fi
+          mkdir -p artifacts/ci
+          jq -n --arg projects "${PROJECTS}" '{solution: {path: "../../Broadside.slnx", projects: ($projects | split(" "))}}' > artifacts/ci/build.slnf
+          cat artifacts/ci/build.slnf
+          tests=none
+          if [ "${RUNNER_OS}" = Linux ] && tr ' ' '\n' <<< "${PROJECTS}" | grep -q '\.Tests\.csproj$'; then tests=affected; fi
+          { echo "BUILD=artifacts/ci/build.slnf"; echo "TESTS=${tests}"; } >> "${GITHUB_ENV}"
+
       - name: Restore
         # In the configuration the build uses: a macOS app (the CoreGraphics test and benchmark apps) builds for both osx-arm64 and
         # osx-x64 in Release but only for the host in Debug, and the assets file must list every runtime the build compiles for.
-        run: dotnet restore Broadside.slnx -p:Configuration=Release
+        if: env.PROJECTS != ''
+        run: dotnet restore ${{ env.BUILD }} -p:Configuration=Release
+
+      - name: Save the NuGet cache
+        if: env.PROJECTS == 'all' && runner.os != 'macOS' && steps.nuget.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
 
       - name: Build
         # The macOS workload of the 10.0.4xx workload set (macOS SDK pack 27.0) demands Xcode 27.0 for anything that outputs an app
         # bundle (the CoreGraphics test and benchmark apps), and the macos-26 runner image has Xcode 26.x only. ValidateXcodeVersion=false
         # skips the exact major.minor check, and Registrar=dynamic skips the static registrar, the one build step that needs the macOS
         # 27.0 SDK headers (MT0179). Both only affect Apple app projects; drop them once the image ships Xcode 27.
-        run: dotnet build Broadside.slnx -c Release -warnaserror --no-restore -p:ValidateXcodeVersion=false -p:Registrar=dynamic
+        if: env.PROJECTS != ''
+        run: dotnet build ${{ env.BUILD }} -c Release -warnaserror --no-restore -p:ValidateXcodeVersion=false -p:Registrar=dynamic
 
       - name: Test
+        if: env.TESTS == 'all'
         run: dotnet test Broadside.Core.slnf -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
+
+      - name: Test the affected projects (narrowed pull request, Linux)
+        # The Category=Exhaustive sweeps run as deterministic samples here (tests/Broadside.TestSupport/Exhaustive.cs); main, the
+        # nightly and pull requests into main run them whole.
+        if: env.TESTS == 'affected'
+        run: >
+          dotnet test artifacts/ci/build.slnf -c Release --no-build --results-directory artifacts/test-results --
+          --report-xunit-trx --filter-not-trait "Category=Exhaustive"
 
       - name: Run the document builder samples (Linux)
         # The builder guide's samples (issue #397) compile with the solution; running them writes each PDF, fails on any diagnostic
         # above information, and qpdf checks every file. Their snapshots and veraPDF checks run in Broadside.Layout.Tests.
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && (env.PROJECTS == 'all' || contains(env.PROJECTS, 'samples/Broadside.BuilderSamples/'))
         run: |
           dotnet run --project samples/Broadside.BuilderSamples -c Release --no-build -- "$RUNNER_TEMP/builder-samples"
           for file in "$RUNNER_TEMP"/builder-samples/*.pdf; do qpdf --check "$file" > /dev/null; done
@@ -112,37 +251,52 @@ jobs:
       - name: Test the SIMD kernels without hardware intrinsics (Linux)
         # The SimdKernel category again with Vector128.IsHardwareAccelerated false (issue #470): each kernel's dispatcher takes its
         # scalar path and the vector method runs on the software fallback. Seconds: the build above is reused. A test project with
-        # no kernel tests exits 8 (zero tests ran), which is ignored.
-        if: runner.os == 'Linux'
+        # no kernel tests exits 8 (zero tests ran), which is ignored. Narrowed, the affected projects without the exhaustive sweeps.
+        if: runner.os == 'Linux' && (env.TESTS == 'all' || env.TESTS == 'affected')
+        shell: bash
         env:
           DOTNET_EnableHWIntrinsic: '0'
-        run: dotnet test Broadside.Core.slnf -c Release --no-build -- --filter-trait "Category=SimdKernel" --ignore-exit-code 8
+        run: |
+          if [ "${TESTS}" = all ]; then
+            dotnet test Broadside.Core.slnf -c Release --no-build -- --filter-trait "Category=SimdKernel" --ignore-exit-code 8
+          else
+            dotnet test artifacts/ci/build.slnf -c Release --no-build -- --filter-trait "Category=SimdKernel" \
+              --filter-not-trait "Category=Exhaustive" --ignore-exit-code 8
+          fi
 
       - name: Test the CoreGraphics backend (macOS)
         # The backend's render tests run on macOS only; the build above already compiled it for macOS, iOS and Mac Catalyst (issue #125).
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && (env.PROJECTS == 'all' || contains(env.PROJECTS, 'tests/Broadside.Rendering.CoreGraphics.Tests/'))
         run: dotnet test tests/Broadside.Rendering.CoreGraphics.Tests -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
 
       - name: Test the Direct2D backend (Windows)
         # Draws through Direct2D on a WARP device and compares with the golden images (issue #129); outside Broadside.Core.slnf
         # because it needs Windows. Built above with the rest of the solution.
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && (env.PROJECTS == 'all' || contains(env.PROJECTS, 'tests/Broadside.Rendering.Direct2D.Tests/'))
         run: dotnet test --project tests/Broadside.Rendering.Direct2D.Tests -c Release --no-build --minimum-expected-tests 1 --results-directory artifacts/test-results -- --report-xunit-trx
 
       - name: Test the WPF viewer (Windows)
         # The WPF shell (issue #222): the controller, the control and its UI Automation peers, then the UI Automation test that starts
         # the sample app (built above with the solution) and opens, reads, zooms, scrolls, selects and searches the pinned subset
         # through it. Needs the Windows Desktop runtime and the runner's interactive desktop; outside Broadside.Core.slnf.
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && (env.PROJECTS == 'all' || contains(env.PROJECTS, 'tests/Broadside.Viewer.Wpf.Tests/'))
         run: dotnet test --project tests/Broadside.Viewer.Wpf.Tests -c Release --no-build --minimum-expected-tests 1 --results-directory artifacts/test-results -- --report-xunit-trx
+
+      - name: Test that every corpus page renders to the same bytes twice (narrowed pull request, Windows and macOS)
+        # The cross-platform render-hash test (RenderHashTests, issue #233), the one core test a narrowed pull request runs on these
+        # two OSes; render-determinism.yml compares the hashes across them.
+        if: runner.os != 'Linux' && env.PROJECTS != 'all' && contains(env.PROJECTS, 'tests/Broadside.Rendering.Tests/')
+        run: >
+          dotnet test --project tests/Broadside.Rendering.Tests -c Release --no-build --minimum-expected-tests 1
+          --results-directory artifacts/test-results -- --report-xunit-trx --filter-trait "Category=RenderHash"
 
       - name: Dry run the Direct2D benchmarks (Windows)
         # bench-dry runs bench/Broadside.Benchmarks on Linux; the Direct2D backend's benchmarks need Windows.
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && (env.PROJECTS == 'all' || contains(env.PROJECTS, 'bench/Broadside.Rendering.Direct2D.Benchmarks/'))
         run: dotnet run -c Release --project bench/Broadside.Rendering.Direct2D.Benchmarks --no-build -- --filter '*' --job dry
 
       - name: Upload test results
-        if: always()
+        if: always() && env.PROJECTS != ''
         uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ matrix.os }}
@@ -154,7 +308,7 @@ jobs:
 
       - name: Upload golden-image differences
         # A failing golden-image comparison leaves the render and a diff image beside the golden image (issue #120).
-        if: failure()
+        if: failure() && env.PROJECTS != ''
         uses: actions/upload-artifact@v7
         with:
           name: golden-images-${{ matrix.os }}
@@ -164,11 +318,12 @@ jobs:
           if-no-files-found: ignore
 
       - name: Pack (Linux)
-        if: runner.os == 'Linux'
+        # Full runs only: a narrowed run does not build every package.
+        if: runner.os == 'Linux' && env.PROJECTS == 'all'
         run: dotnet pack Broadside.Core.slnf -c Release --no-build
 
       - name: Upload packages (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && env.PROJECTS == 'all'
         uses: actions/upload-artifact@v7
         with:
           name: packages
@@ -183,34 +338,47 @@ jobs:
   # (preinstalled with zlib on the hosted image), Xcode on macOS, the MSVC tools on Windows.
   aot-smoke:
     name: aot-smoke (${{ matrix.os }})
+    needs: plan
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+    env:
+      RUN: ${{ needs.plan.outputs.aot }}
     steps:
+      - name: Plan
+        if: env.RUN != 'true'
+        run: echo "The pull request does not affect tests/Broadside.Rendering.AotSmoke; see the plan job's summary."
+
       - name: Check out
+        if: env.RUN == 'true'
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Set up .NET
+        if: env.RUN == 'true'
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v6
+      - name: Restore the NuGet cache
+        if: env.RUN == 'true' && runner.os != 'macOS'
+        uses: actions/cache/restore@v6
         with:
           path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
           restore-keys: nuget-${{ runner.os }}-
 
       - name: Publish the AOT smoke host
+        if: env.RUN == 'true'
         run: dotnet publish tests/Broadside.Rendering.AotSmoke -c Release --use-current-runtime -o artifacts/aot-smoke
 
       - name: Run it natively compiled
+        if: env.RUN == 'true'
         shell: bash
         run: artifacts/aot-smoke/Broadside.Rendering.AotSmoke --require-aot
 
@@ -220,6 +388,8 @@ jobs:
   # sizes are an artifact, ready to record.
   size-probes:
     name: size-probes
+    needs: plan
+    if: needs.plan.outputs.size_probes == 'true'
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
@@ -227,18 +397,12 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
-
-      - name: Cache NuGet packages
-        uses: actions/cache@v6
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
-          restore-keys: nuget-${{ runner.os }}-
 
       - name: Publish and run the probes
         run: bench/size-probes.sh --out artifacts/size-probes/sizes.json
@@ -263,6 +427,8 @@ jobs:
   # BROADSIDE_REQUIRE_VERAPDF makes a test fail rather than skip if the tool cannot be found, so the check never silently stops.
   verapdf:
     name: verapdf
+    needs: plan
+    if: needs.plan.outputs.verapdf == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -270,6 +436,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
@@ -282,11 +449,11 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v6
+      - name: Restore the NuGet cache
+        uses: actions/cache/restore@v6
         with:
           path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
           restore-keys: nuget-${{ runner.os }}-
 
       - name: Install veraPDF
@@ -357,6 +524,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Public API diff against the base branch
         shell: bash
@@ -384,6 +552,8 @@ jobs:
   # per-specification counts generated into site/articles/conformance.md (issue #241).
   conformance-map:
     name: conformance-map
+    needs: plan
+    if: needs.plan.outputs.conformance == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -391,17 +561,18 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v6
+      - name: Restore the NuGet cache
+        uses: actions/cache/restore@v6
         with:
           path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
           restore-keys: nuget-${{ runner.os }}-
 
       - name: Build the packages whose citations are checked
@@ -416,9 +587,11 @@ jobs:
         run: dotnet run --project tools/ConformanceCheck -- --root . --summary --citations --site-page site/articles/conformance.md >> "${GITHUB_STEP_SUMMARY}"
 
   # Checks the formatting of everything dotnet format can see: the core solution filter, and the fuzz, benchmark and Windows-only
-  # Direct2D and WPF test, benchmark and sample projects, which are outside it.
+  # Direct2D and WPF test, benchmark and sample projects, which are outside it. A narrowed pull request checks the affected ones.
   format:
     name: format
+    needs: plan
+    if: needs.plan.outputs.format == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -426,20 +599,33 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v6
+      - name: Restore the NuGet cache
+        uses: actions/cache/restore@v6
         with:
           path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
           restore-keys: nuget-${{ runner.os }}-
 
+      - name: Check the formatting of the affected projects (narrowed pull request)
+        if: needs.plan.outputs.format_projects != 'all'
+        shell: bash
+        env:
+          PROJECTS: ${{ needs.plan.outputs.format_projects }}
+        run: |
+          mkdir -p artifacts/ci
+          jq -n --arg projects "${PROJECTS}" '{solution: {path: "../../Broadside.slnx", projects: ($projects | split(" "))}}' > artifacts/ci/format.slnf
+          tr ' ' '\n' <<< "${PROJECTS}"
+          dotnet format artifacts/ci/format.slnf --verify-no-changes
+
       - name: Check formatting
+        if: needs.plan.outputs.format_projects == 'all'
         run: |
           dotnet format Broadside.Core.slnf --verify-no-changes
           dotnet format tests/Broadside.Fuzz/Broadside.Fuzz.csproj --verify-no-changes
@@ -451,56 +637,148 @@ jobs:
           dotnet format samples/Broadside.BuilderSamples/Broadside.BuilderSamples.csproj --verify-no-changes
           dotnet format tests/Broadside.Viewer.WinUI.UITests/Broadside.Viewer.WinUI.UITests.csproj --verify-no-changes
 
-  # Runs every fuzz target in smoke mode for 60 s (tests/Broadside.Fuzz/README.md), the targets of the --list split over
-  # parallel shards (target i runs in shard i mod the shard count) so the run stays far below its timeout as targets are added.
-  fuzz-smoke:
-    name: fuzz-smoke (${{ matrix.shard }}/${{ strategy.job-total }})
+  # Builds the fuzz harness once for the fuzz-smoke shards and decides each target's time (issue #587): 60 s on full runs; on a
+  # narrowed pull request 60 s for the targets whose code changed (tests/Broadside.Fuzz/smoke-areas.txt; any change to the
+  # harness counts for all) and 15 s for the rest. Uploads the build and the plan as fuzz-harness.
+  fuzz-build:
+    name: fuzz-build
+    needs: plan
+    if: needs.plan.outputs.fuzz == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [0, 1, 2, 3, 4, 5]
+    timeout-minutes: 20
     steps:
       - name: Check out
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
+          # The merge commit and its first parent, for the changed paths.
+          fetch-depth: 2
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v6
+      - name: Restore the NuGet cache
+        uses: actions/cache/restore@v6
         with:
           path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
           restore-keys: nuget-${{ runner.os }}-
 
       - name: Build the fuzz harness
         run: dotnet build tests/Broadside.Fuzz -c Release -warnaserror
 
-      - name: Smoke this shard's targets for 60 s each
+      - name: Decide each target's time
+        shell: bash
+        env:
+          FULL: ${{ needs.plan.outputs.full }}
+        run: |
+          mapfile -t targets < <(dotnet artifacts/bin/Broadside.Fuzz/release/Broadside.Fuzz.dll --list)
+          if [ "${#targets[@]}" -eq 0 ]; then
+            echo "::error::--list returned no fuzz targets"
+            exit 1
+          fi
+          changed=""
+          if [ "${FULL}" != true ]; then
+            changed=$(git diff --name-only HEAD^1 HEAD)
+          fi
+          harness=$(grep -E '^tests/Broadside\.Fuzz/' <<< "${changed}" || true)
+          : > artifacts/fuzz-plan.txt
+          full_targets=()
+          for target in "${targets[@]}"; do
+            seconds=15
+            if [ "${FULL}" = true ] || [ -n "${harness}" ]; then
+              seconds=60
+            else
+              while read -r pattern expression; do
+                case "${pattern}" in ''|'#'*) continue ;; esac
+                # shellcheck disable=SC2053 # the pattern may be a shell glob such as filter-*
+                if [[ "${target}" == ${pattern} ]] && grep -qE "${expression}" <<< "${changed}"; then
+                  seconds=60
+                  break
+                fi
+              done < tests/Broadside.Fuzz/smoke-areas.txt
+            fi
+            [ "${seconds}" -eq 60 ] && full_targets+=("${target}")
+            echo "${target} ${seconds}" >> artifacts/fuzz-plan.txt
+          done
+          {
+            echo "## Fuzz smoke"
+            echo
+            echo "${#targets[@]} targets; ${#full_targets[@]} for 60 s, the rest for 15 s."
+            if [ "${FULL}" != true ] && [ -z "${harness}" ] && [ "${#full_targets[@]}" -gt 0 ]; then
+              echo
+              echo "60 s (their code changed): ${full_targets[*]}"
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload the harness
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-harness
+          path: |
+            artifacts/bin/Broadside.Fuzz/release/
+            artifacts/fuzz-plan.txt
+          if-no-files-found: error
+          retention-days: 1
+
+  # Runs every fuzz target in smoke mode (tests/Broadside.Fuzz/README.md) for the time fuzz-build gave it, the targets of the plan
+  # split over parallel shards (target i runs in shard i mod the shard count) so the run stays far below its timeout as targets
+  # are added. Each shard runs the harness fuzz-build uploaded on a checkout (for tests/Corpus/ and the regression seeds). A
+  # shard reports success without doing anything when the pull request does not affect the harness.
+  fuzz-smoke:
+    name: fuzz-smoke (${{ matrix.shard }}/${{ strategy.job-total }})
+    needs: [plan, fuzz-build]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5]
+    env:
+      RUN: ${{ needs.plan.outputs.fuzz == 'true' && needs.fuzz-build.result == 'success' }}
+    steps:
+      - name: Plan
+        if: env.RUN != 'true'
+        run: echo "The pull request does not affect the fuzz harness, or fuzz-build failed; see the plan and fuzz-build jobs."
+
+      - name: Check out
+        if: env.RUN == 'true'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CHECKOUT_REF }}
+
+      - name: Set up .NET
+        if: env.RUN == 'true'
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Download the harness
+        if: env.RUN == 'true'
+        uses: actions/download-artifact@v7
+        with:
+          name: fuzz-harness
+          path: artifacts
+
+      - name: Smoke this shard's targets
+        if: env.RUN == 'true'
         shell: bash
         env:
           SHARD: ${{ matrix.shard }}
           SHARDS: ${{ strategy.job-total }}
         run: |
-          mapfile -t targets < <(dotnet run -c Release --project tests/Broadside.Fuzz --no-build -- --list)
-          if [ "${#targets[@]}" -eq 0 ]; then
-            echo "::error::--list returned no fuzz targets"
-            exit 1
-          fi
+          mapfile -t plan < artifacts/fuzz-plan.txt
           status=0
-          for index in "${!targets[@]}"; do
+          for index in "${!plan[@]}"; do
             if [ $((index % SHARDS)) -ne "${SHARD}" ]; then
               continue
             fi
-            target="${targets[${index}]}"
-            echo "::group::${target}"
-            if ! dotnet run -c Release --project tests/Broadside.Fuzz --no-build -- --smoke "${target}" 60; then
+            read -r target seconds <<< "${plan[${index}]}"
+            echo "::group::${target} (${seconds} s)"
+            if ! dotnet artifacts/bin/Broadside.Fuzz/release/Broadside.Fuzz.dll --smoke "${target}" "${seconds}"; then
               echo "::error::fuzz target ${target} reported a finding"
               status=1
             fi
@@ -509,7 +787,7 @@ jobs:
           exit "${status}"
 
       - name: Upload findings
-        if: failure()
+        if: failure() && env.RUN == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: fuzz-findings-${{ matrix.shard }}
@@ -519,6 +797,8 @@ jobs:
   # Runs every benchmark once in BenchmarkDotNet's dry job so the harness cannot rot (tests/README.md, "Benchmarks").
   bench-dry:
     name: bench-dry
+    needs: plan
+    if: needs.plan.outputs.bench == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -526,17 +806,18 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v6
+      - name: Restore the NuGet cache
+        uses: actions/cache/restore@v6
         with:
           path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
           restore-keys: nuget-${{ runner.os }}-
 
       - name: Build the benchmarks
@@ -555,6 +836,9 @@ jobs:
   # blazor-wasm.yml also runs all three nightly on the integration branch.
   blazor-wasm:
     name: blazor-wasm
+    needs: plan
+    # blazor-wasm.yml runs nightly on its own, with every browser.
+    if: needs.plan.outputs.blazor == 'true' && github.event_name != 'schedule'
     uses: ./.github/workflows/blazor-wasm.yml
     with:
       browsers: ${{ (github.event_name == 'push' || github.base_ref == 'main') && 'firefox webkit' || 'firefox' }}
@@ -564,12 +848,16 @@ jobs:
   # tests build and run in build-test (Broadside.Core.slnf).
   uno:
     name: uno
+    needs: plan
+    if: needs.plan.outputs.uno == 'true'
     uses: ./.github/workflows/uno.yml
 
   # The .NET MAUI viewer sample (#226) for Mac Catalyst, the iOS simulator and Android. It needs the maui workload, so it is not in
   # Broadside.slnx; the shell library's platform targets also build in build-test (macOS) and its tests run in Broadside.Core.slnf.
   maui:
     name: maui
+    needs: plan
+    if: needs.plan.outputs.maui == 'true'
     runs-on: macos-latest
     timeout-minutes: 60
     steps:
@@ -577,6 +865,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
@@ -587,7 +876,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.nuget/packages
-          key: nuget-maui-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          key: nuget-maui-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
           restore-keys: nuget-maui-${{ runner.os }}-
 
       - name: Install the maui workload
@@ -634,6 +923,8 @@ jobs:
   # the sample needs Windows (MakePri, mt.exe), so it is not in Broadside.slnx.
   winui:
     name: winui
+    needs: plan
+    if: needs.plan.outputs.winui == 'true'
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
@@ -641,6 +932,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
@@ -651,7 +943,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.nuget/packages
-          key: nuget-winui-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          key: nuget-winui-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
           restore-keys: nuget-winui-${{ runner.os }}-
 
       - name: Build the control
@@ -719,6 +1011,8 @@ jobs:
   # build in build-test on every OS; the tests are not in Broadside.Core.slnf.
   avalonia:
     name: avalonia
+    needs: plan
+    if: needs.plan.outputs.avalonia == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -731,6 +1025,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
@@ -741,7 +1036,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.nuget/packages
-          key: nuget-avalonia-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          key: nuget-avalonia-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
           restore-keys: nuget-avalonia-${{ runner.os }}-
 
       - name: Cache the pinned pages' corpora
@@ -771,3 +1066,24 @@ jobs:
           name: test-results-avalonia
           path: artifacts/test-results/**/*.trx
           if-no-files-found: warn
+
+  # One check for the whole run (issue #587): fails if any job failed or was cancelled, and passes when every job passed or was
+  # skipped because the pull request does not affect it. A single required check for branch protection, whatever the plan skips.
+  ci:
+    name: ci
+    needs: [plan, build-test, aot-smoke, size-probes, verapdf, api-surface, conformance-map, format, fuzz-build, fuzz-smoke, bench-dry, blazor-wasm, uno, maui, winui, avalonia]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check every job's result
+        shell: bash
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "${NEEDS}"
+          failed=$(jq -r '[to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key] | join(", ")' <<< "${NEEDS}")
+          if [ -n "${failed}" ]; then
+            echo "::error::failed or cancelled: ${failed}"
+            exit 1
+          fi

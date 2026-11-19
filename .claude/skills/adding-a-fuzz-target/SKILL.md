@@ -41,7 +41,7 @@ Names: `lexer`, `object-parser`, `xref`, `filter-flate`, `filter-lzw`, `filter-d
 
 ```sh
 dotnet run -c Release --project tests/Broadside.Fuzz -- --list                              # target names
-dotnet run -c Release --project tests/Broadside.Fuzz -- --smoke pdf-header 60               # corpus + mutations for 60 s, random seed (what CI runs)
+dotnet run -c Release --project tests/Broadside.Fuzz -- --smoke pdf-header 60               # corpus + mutations for 60 s, random seed (what CI runs; 15 s on pull requests that do not change the target's code)
 dotnet run -c Release --project tests/Broadside.Fuzz -- --smoke pdf-header 5 12345          # fixed seed to replay a run
 dotnet run -c Release --project tests/Broadside.Fuzz -- --run pdf-header <file>             # one input once; replays a finding
 ```
@@ -73,5 +73,6 @@ It shows the shape: a span in, a call, an invariant that throws. `--smoke pdf-he
 - [ ] Registered in `FuzzTargets.All` under a stable kebab-case name
 - [ ] Lenient mode, no `try`/`catch`, only always-true invariants asserted
 - [ ] Extra seeds documented in `tests/Broadside.Fuzz/README.md` when whole corpus files are not the right input
+- [ ] A line in `tests/Broadside.Fuzz/smoke-areas.txt` naming the source paths the target exercises, so CI smokes it for the full 60 s on pull requests that change them (15 s otherwise)
 - [ ] `--smoke <name> 60` run locally: `no failures`, exit 0; output quoted in the PR
 - [ ] Same PR as the parser or codec

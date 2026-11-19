@@ -18,13 +18,23 @@ public sealed class CmykCharacterizationKernelTests
     private const int ChunkColors = 1 << 16;
 
     [Fact]
-    public void Twenty_million_8_bit_colors_convert_to_the_same_bits_on_both_paths()
+    [Trait("Category", Exhaustive.Category)]
+    public void Twenty_million_8_bit_colors_convert_to_the_same_bits_on_both_paths() => AssertSameBitsOnBothPaths(Colors);
+
+    /// <summary>
+    /// The pull-request sample of <see cref="Twenty_million_8_bit_colors_convert_to_the_same_bits_on_both_paths"/>: its first
+    /// million colors (the same seeds, so the same colors).
+    /// </summary>
+    [Fact]
+    public void A_million_8_bit_colors_convert_to_the_same_bits_on_both_paths() => AssertSameBitsOnBothPaths(16 * ChunkColors);
+
+    private static void AssertSameBitsOnBothPaths(int colors)
     {
         float[] cmyk = new float[4 * ChunkColors];
         float[] expected = new float[3 * ChunkColors];
         float[] actual = new float[3 * ChunkColors];
         float[] dispatched = new float[3 * ChunkColors];
-        for (int done = 0, seed = 0; done < Colors; done += ChunkColors, seed++)
+        for (int done = 0, seed = 0; done < colors; done += ChunkColors, seed++)
         {
             byte[] samples = SimdKernelAssert.RandomBytes(cmyk.Length, seed);
             for (int i = 0; i < samples.Length; i++)

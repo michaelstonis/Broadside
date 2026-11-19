@@ -30,6 +30,8 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          # Called by ci.yml's nightly run, which tests the integration branch (schedules run from main's copy of ci.yml).
+          ref: ${{ github.event_name == 'schedule' && 'spec/33-broadside-v1' || '' }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
@@ -40,7 +42,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.nuget/packages
-          key: nuget-uno-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', '**/*.csproj') }}
+          key: nuget-uno-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
           restore-keys: nuget-uno-${{ runner.os }}-
 
       - name: Install the wasm-tools workload
@@ -90,6 +92,8 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          # Called by ci.yml's nightly run, which tests the integration branch (schedules run from main's copy of ci.yml).
+          ref: ${{ github.event_name == 'schedule' && 'spec/33-broadside-v1' || '' }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
@@ -100,7 +104,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.nuget/packages
-          key: nuget-uno-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', '**/*.csproj') }}
+          key: nuget-uno-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
           restore-keys: nuget-uno-${{ runner.os }}-
 
       - name: Build the desktop head

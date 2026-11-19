@@ -1,0 +1,61 @@
+# The code each fuzz target exercises, for ci.yml's fuzz smoke (issue #587). On a pull request whose CI is narrowed to what it
+# affects, a target runs for the full 60 s when a changed path matches its expression and for 15 s otherwise; pushes to main,
+# the nightly run and every other full run give every target 60 s. A change under tests/Broadside.Fuzz/ (the harness) gives
+# every target 60 s. A target missing here runs 15 s on such pull requests, so add a line with each new target.
+#
+# <target name or shell pattern> <extended regular expression over the changed, repository-relative paths>
+lexer                       ^src/Broadside/(Parsing|Objects|IO)/
+content-lexer               ^src/Broadside/(Content|Parsing)/
+content-interpreter         ^src/Broadside/(Content|Graphics|Fonts|Images)/
+object-parser               ^src/Broadside/(Parsing|Objects)/
+document                    ^src/Broadside/(Parsing|Objects|IO|Structure|Fonts|Filters|Security)/|^src/Broadside/[^/]+\.cs$
+windowed-document           ^src/Broadside/(Parsing|Objects|IO)/|^src/Broadside/[^/]+\.cs$
+first-page-first            ^src/Broadside/(Parsing|Objects|IO)/|^src/Broadside/[^/]+\.cs$
+save                        ^src/Broadside/(Writing|Objects|Security)/|^src/Broadside/[^/]+\.cs$
+hint-tables                 ^src/Broadside/(Parsing|Writing)/
+xref-stream                 ^src/Broadside/(Parsing|Writing)/
+object-stream               ^src/Broadside/(Parsing|Objects|Writing)/
+repair                      ^src/Broadside/(Parsing|IO|Objects)/
+filter-*                    ^src/Broadside/(Filters|Images)/
+png-reader                  ^src/Broadside/Images/
+platform-image-eligibility  ^src/Broadside/Images/
+image-decode                ^src/Broadside/(Images|Filters|Graphics)/
+inline-image-end            ^src/Broadside/(Content|Images)/
+encrypted-document          ^src/Broadside/(Security|Parsing)/
+decrypt                     ^src/Broadside/Security/
+public-key                  ^src/Broadside/(Security|Signatures)/
+mac-token                   ^src/Broadside/(Security|Signatures)/
+timestamp-response          ^src/Broadside/Signatures/
+signature-validation        ^src/Broadside/Signatures/
+cms                         ^src/Broadside/Signatures/
+ocsp-response               ^src/Broadside/Signatures/
+crl                         ^src/Broadside/Signatures/
+xmp                         ^src/Broadside/(Structure|Objects)/|^src/Broadside/[^/]*Xmp[^/]*\.cs$
+xmp-xml                     ^src/Broadside/(Structure|Objects)/|^src/Broadside/[^/]*Xmp[^/]*\.cs$
+pdf-date                    ^src/Broadside/(Objects|Structure)/|^src/Broadside/[^/]*Date[^/]*\.cs$
+structure-tree              ^src/Broadside/Structure/
+layout-detection            ^src/Broadside/(Text|Structure)/
+table-detection             ^src/Broadside/(Text|Structure)/
+figure-detection            ^src/Broadside/(Text|Structure|Graphics)/
+function-*                  ^src/Broadside/(Graphics|Numerics)/
+optional-content            ^src/Broadside/[^/]*OptionalContent[^/]*\.cs$|^src/Broadside/(Content|Rendering)/
+font-*                      ^src/Broadside/Fonts/
+truetype-subset             ^src/Broadside/(Fonts|Writing)/
+cff-subset                  ^src/Broadside/(Fonts|Writing)/
+type1-to-cff                ^src/Broadside/Fonts/
+gsub                        ^src/Broadside/Fonts/|^src/Broadside\.Layout/
+gpos                        ^src/Broadside/Fonts/|^src/Broadside\.Layout/
+cmap                        ^src/Broadside/Fonts/|^src/Broadside\.Fonts\.Cmaps/
+tounicode                   ^src/Broadside/(Fonts|Text)/
+colorspace                  ^src/Broadside/Graphics/
+content-objects             ^src/Broadside/Content/
+text-extraction             ^src/Broadside/(Text|Content|Fonts)/
+shading-mesh                ^src/Broadside/(Graphics|Rendering)/|^src/Broadside\.Rendering/
+default-appearance          ^src/Broadside/(Forms|Annotations)/
+form-fill                   ^src/Broadside/(Forms|Annotations|Writing)/
+flatten                     ^src/Broadside/(Forms|Annotations|Content|Writing)/
+display-list                ^src/Broadside/(Rendering|Graphics|Content)/
+content-rewrite             ^src/Broadside/(Content|Writing)/
+icc-profile                 ^src/Broadside/Graphics/|^src/Broadside\.Rendering/Icc/
+rasterize                   ^src/Broadside\.Rendering/|^src/Broadside/(Rendering|Graphics)/
+rasterize-page              ^src/Broadside\.Rendering/|^src/Broadside/(Rendering|Graphics|Content|Fonts|Images)/

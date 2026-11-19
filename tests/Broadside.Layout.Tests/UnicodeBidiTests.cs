@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using Broadside.Layout.Flow;
+using Broadside.TestSupport;
 
 namespace Broadside.Layout.Tests;
 
@@ -16,7 +17,29 @@ public sealed class UnicodeBidiTests
     private static readonly string[] ClassNames = Enum.GetNames<BidiClass>();
 
     [Fact]
-    public void Every_case_of_the_unicode_bidi_test_resolves_and_reorders_as_the_test_file_says()
+    [Trait("Category", Exhaustive.Category)]
+    public void Every_case_of_the_unicode_bidi_test_resolves_and_reorders_as_the_test_file_says() => AssertBidiTestCases(every: 1);
+
+    /// <summary>
+    /// The pull-request sample of <see cref="Every_case_of_the_unicode_bidi_test_resolves_and_reorders_as_the_test_file_says"/>:
+    /// every file line is read and counted, every sixteenth case is checked.
+    /// </summary>
+    [Fact]
+    public void A_sample_of_the_unicode_bidi_test_resolves_and_reorders_as_the_test_file_says() => AssertBidiTestCases(every: 16);
+
+    [Fact]
+    [Trait("Category", Exhaustive.Category)]
+    public void Every_case_of_the_unicode_bidi_character_test_resolves_and_reorders_as_the_test_file_says() => AssertBidiCharacterTestCases(every: 1);
+
+    /// <summary>
+    /// The pull-request sample of
+    /// <see cref="Every_case_of_the_unicode_bidi_character_test_resolves_and_reorders_as_the_test_file_says"/>: every file line is
+    /// read and counted, every sixteenth case is checked.
+    /// </summary>
+    [Fact]
+    public void A_sample_of_the_unicode_bidi_character_test_resolves_and_reorders_as_the_test_file_says() => AssertBidiCharacterTestCases(every: 16);
+
+    private static void AssertBidiTestCases(int every)
     {
         string[] expectedLevels = [];
         string[] expectedOrder = [];
@@ -51,7 +74,11 @@ public sealed class UnicodeBidiTests
                     continue;
                 }
 
-                cases++;
+                if (cases++ % every != 0)
+                {
+                    continue;
+                }
+
                 string? failure = Check(classes, "", direction, expectedLevels, expectedOrder, null);
                 if (failure is not null)
                 {
@@ -64,14 +91,18 @@ public sealed class UnicodeBidiTests
         Assert.True(failures.Count == 0, $"{failures.Count} of {cases} cases differ:\n" + string.Join('\n', failures.Take(40)));
     }
 
-    [Fact]
-    public void Every_case_of_the_unicode_bidi_character_test_resolves_and_reorders_as_the_test_file_says()
+    private static void AssertBidiCharacterTestCases(int every)
     {
         var failures = new List<string>();
         int cases = 0;
         foreach (string line in TestFileLines("BidiCharacterTest"))
         {
             if (line.Length == 0 || line[0] == '#')
+            {
+                continue;
+            }
+
+            if (cases++ % every != 0)
             {
                 continue;
             }
@@ -96,7 +127,6 @@ public sealed class UnicodeBidiTests
             string value = text.ToString();
             byte[] classes = new byte[value.Length];
             UnicodeBidi.Classify(value, classes);
-            cases++;
             string? failure = Check(classes, value, direction, levels, order, (paragraph, [.. firstUnits]));
             if (failure is not null)
             {
