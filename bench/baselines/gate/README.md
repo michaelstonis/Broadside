@@ -357,10 +357,12 @@ baseline. A probe fails when it grows by more than 1% (`--tolerance`), when it i
 the measured runtime was not measured. A probe that shrinks by more than 1% passes, with a request to re-record so the saving is
 kept. The tolerance absorbs what a linker or runtime patch moves; a real feature costs far more.
 
-The CI job `size-probes` (`ci.yml`, every pull request) runs on the macOS runner, because the baseline is recorded for
-`osx-arm64`: Native AOT cannot cross-compile between operating systems, so a developer Mac can measure exactly what CI does. To
-record an intended change, run the probes and record (or download the job's `size-probes` artifact and record from it), and say
-in the pull request what the bytes bought:
+The CI job `size-probes` (`ci.yml`, every pull request that affects the core) runs on macOS, Linux and Windows, and each leg
+compares the probes of its own runtime identifier (`osx-arm64`, `linux-x64`, `win-x64`; issue #272): Native AOT cannot
+cross-compile between operating systems, so each runtime's sizes are recorded on that runtime. A developer Mac measures exactly
+what the macOS leg does. To record an intended change, run the probes and record (or download the leg's `size-probes-<os>` artifact
+and record from it; recording merges the runtime identifiers it measured into the file), and say in the pull request what the bytes
+bought:
 
 ```sh
 bench/size-probes.sh --out artifacts/size-probes/sizes.json

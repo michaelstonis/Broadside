@@ -56,6 +56,9 @@
     <WasmBuildNative Condition="'$(BroadsideAot)' == 'profiler'">true</WasmBuildNative>
     <PublishTrimmed>true</PublishTrimmed>
     <TrimMode>full</TrimMode>
+    <!-- Every trim warning is reported against its own assembly and fails the publish (issue #272): a Broadside assembly must trim cleanly. -->
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <ILLinkTreatWarningsAsErrors>true</ILLinkTreatWarningsAsErrors>
   </PropertyGroup>
 
   <!--

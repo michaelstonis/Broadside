@@ -95,6 +95,25 @@ writer), so an app that saves, fills forms or signs carries neither the XML stac
 keep. The sizes of each scenario and the app settings worth knowing are in
 [`docs/benchmarks/core-size.md`](https://github.com/michaelstonis/Broadside/blob/main/docs/benchmarks/core-size.md).
 
+CI checks this on every change to the library. It publishes Native AOT apps for Linux x64, Windows x64 and macOS Arm64, and the
+Blazor WebAssembly demo trimmed, with and without WebAssembly AOT. Each app opens a file, renders page 1, extracts its text and
+saves it. Any trim or AOT warning fails the build, and so does an app that grows past its size budget. The WebAssembly builds draw
+the same pixels as the desktop.
+
+## Fonts in the browser
+
+A browser app has no operating-system fonts to fall back on. Fonts embedded in the PDF work as everywhere else. For a font that is
+not embedded, Broadside needs a font program from somewhere:
+
+- **The Standard 14 fonts package.** `PdfOptions.UseStandard14Fonts()` adds metric-compatible stand-ins for Helvetica, Times,
+  Courier, Symbol and ZapfDingbats (about 1.5 MB). Other non-embedded fonts get the closest of these by family and style. This
+  is what the Blazor viewer uses.
+- **Your own fonts.** `PdfOptions.UseFontResolver(...)` serves font programs your app ships or downloads.
+
+With neither configured, a non-embedded font's glyphs are not drawn. The document records a `FontProgramNotFound` diagnostic that
+names the font and says which option to add. When a different font stands in, it records `FontSubstituted`. Text extraction does
+not need a font program and works either way.
+
 ## Viewers
 
 - **Blazor WebAssembly** (`Broadside.Viewer.Blazor`): the `PdfViewer` component. The software rasterizer draws the tiles by default. WebGL 2 is opt-in, and so is a render worker that draws content tiles in a JS Web Worker. The app has to start the worker explicitly; it uses no .NET WebAssembly threads.

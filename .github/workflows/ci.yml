@@ -389,11 +389,17 @@ jobs:
   # probes"). The baseline is recorded for osx-arm64, so this runs on the macOS runner. The job summary has the table; the measured
   # sizes are an artifact, ready to record.
   size-probes:
-    name: size-probes
+    # One leg per desktop runtime of issue #272 (Native AOT cannot cross-compile between operating systems); each compares its own
+    # runtime identifier's probes with bench/baselines/gate/sizes.json.
+    name: size-probes (${{ matrix.os }})
     needs: plan
     if: needs.plan.outputs.size_probes == 'true'
-    runs-on: macos-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
     steps:
       - name: Check out
         uses: actions/checkout@v7
@@ -406,10 +412,21 @@ jobs:
         with:
           global-json-file: global.json
 
+      # Windows only, restore only: build-test saves it (.github/workflows/README.md, "NuGet cache").
+      - name: Restore the NuGet cache
+        if: runner.os == 'Windows'
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json', 'nuget.config') }}
+          restore-keys: nuget-${{ runner.os }}-
+
       - name: Publish and run the probes
+        shell: bash
         run: bench/size-probes.sh --out artifacts/size-probes/sizes.json
 
       - name: Compare with the baseline
+        shell: bash
         run: >
           dotnet run --project tools/BenchGate -c Release --
           sizes --baseline bench/baselines/gate/sizes.json --results artifacts/size-probes/sizes.json
@@ -419,7 +436,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: size-probes
+          name: size-probes-${{ runner.os }}
           path: artifacts/size-probes/sizes.json
           if-no-files-found: ignore
 

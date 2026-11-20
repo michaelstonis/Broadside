@@ -11,7 +11,7 @@
 | `Broadside.Rendering.Android.Device` | An Android app (built only with the android workload) whose instrumentation renders corpus pages through the Android backend on a device or emulator and measures replay allocations there. Not a test project. |
 | `Broadside.Rendering.Android.Tests` | Host tests for the Android backend: install the device app over adb, run it, and compare its renders with the golden images. Skip without adb, a device or the built APK (`BROADSIDE_ANDROID_REQUIRED=1` fails instead); not in `Broadside.Core.slnf`; run by `.github/workflows/android.yml`. |
 | `Broadside.Rendering.Direct2D.Tests` | Tests for the Direct2D backend: renders on a WARP device compared with the golden images, and replay allocation tests. Windows only: outside `Broadside.Core.slnf`, run by the Windows leg of CI. |
-| `Broadside.Rendering.AotSmoke` | A console host published with Native AOT that renders the rendering corpus files and compares them with the rasterizer's snapshots. Not a test project; see "The AOT smoke host" below. |
+| `Broadside.Rendering.AotSmoke` | A console host published with Native AOT that renders the rendering corpus files and compares them with the rasterizer's snapshots, then extracts text and saves. Not a test project; see "The AOT smoke host" below. |
 | `Broadside.Fonts.Standard14.Tests` | Tests for the standard 14 font metrics and programs. |
 | `Broadside.Fonts.Cmaps.Tests` | Tests for the predefined CMaps. |
 | `Broadside.TestSupport` | A plain library shared by the test projects: the `Corpus` helper and the Verify configuration. Not a test project. |
@@ -97,7 +97,7 @@ Backend test projects reference `Broadside.GoldenImages` and call `GoldenCorpus.
 
 ## The AOT smoke host
 
-`tests/Broadside.Rendering.AotSmoke` proves that rendering runs trimmed and natively compiled with no native dependency besides the runtime (issue #95). It is a console program, not a test project, so `dotnet test` skips it; the `aot-smoke` CI job publishes and runs it on all three operating systems:
+`tests/Broadside.Rendering.AotSmoke` proves that rendering, text extraction and saving run trimmed and natively compiled with no native dependency besides the runtime (issues #95 and #272). The Blazor browser tests run the same steps in both WebAssembly builds and compare them with the desktop runtime (`PlatformParityTests`). It is a console program, not a test project, so `dotnet test` skips it; the `aot-smoke` CI job publishes and runs it on all three operating systems:
 
 ```sh
 dotnet publish tests/Broadside.Rendering.AotSmoke -c Release --use-current-runtime -o artifacts/aot-smoke
