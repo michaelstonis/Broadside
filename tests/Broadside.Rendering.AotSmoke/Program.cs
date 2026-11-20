@@ -37,6 +37,18 @@ for (int page = 0; page < 4; page++)
 
 Compare("clipping-paths.pdf", 0, "ClippingTests.Clipping_paths_pdf_matches_its_reviewed_snapshot.verified.png");
 
+// Text and saving (issue #272): a corpus file opened with the bundled Standard 14 fonts and no operating-system fonts, as in the
+// browser, has its text extracted, is saved, and opens again with the same text.
+using (PdfDocument document = new PdfEngine(new PdfOptions().UseStandard14Fonts()).Open(File.ReadAllBytes(Path.Combine(CorpusLocator.CorpusDirectory, "text-standard14.pdf"))))
+{
+    string text = document.Pages[0].ExtractText().PlainText;
+    Report($"text-standard14.pdf extracts \"{text.Trim()}\"", text.Trim() == "Hello, Broadside");
+    using var saved = new MemoryStream();
+    document.Save(saved);
+    using PdfDocument reopened = new PdfEngine(new PdfOptions().UseStandard14Fonts()).Open(saved.ToArray());
+    Report("text-standard14.pdf saves and opens again with the same text", reopened.Pages.Count == 1 && reopened.Pages[0].ExtractText().PlainText == text);
+}
+
 // The document builder (issue #397): lambdas, ref struct handles, records and C# 14 extension members must stay trimmable and AOT-clean.
 using (PdfDocument built = PdfDocument.Create(doc => doc
     .WithTitle("Hello")
