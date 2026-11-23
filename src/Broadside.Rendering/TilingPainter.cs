@@ -8,8 +8,9 @@ namespace Broadside.Rendering;
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §8.7.3.1 (the tiles, trimmed to the painted area) and §11.6.7 (the tiled pattern composites with the backdrop as one
-/// object, through the paint's alpha constant and blend mode). Hot path: allocates nothing; one read and, where the layer is not
-/// clear, one <see cref="Compositor.Composite"/> per pixel. It is a coverage sink of <see cref="ScanlineRasterizer.Paint"/>, so the
+/// object, through the paint's alpha constant and blend mode). Hot path: allocates nothing; in the Normal blend mode each run is
+/// one <see cref="Compositor.CompositeRow"/>, otherwise one read and, where the layer is not clear, one
+/// <see cref="Compositor.Composite"/> per pixel. It is a coverage sink of <see cref="ScanlineRasterizer.Paint"/>, so the
 /// runs it receives are already cut by the clipping path (§8.5.4).
 /// </remarks>
 internal readonly ref struct TilingPainter : ICoverageSink
@@ -57,6 +58,14 @@ internal readonly ref struct TilingPainter : ICoverageSink
 
         Span<uint> line = MemoryMarshal.Cast<byte, uint>(_target.Slice(row * _stride, end * 4));
         ReadOnlySpan<uint> tiles = _layer.Slice(layerRow * _width, _width);
+        if (_compositor.IsNormal)
+        {
+            // The whole run at once (vectorized where it can be). A clear layer pixel composites to the backdrop unchanged, so
+            // the pixels are those of the loop below.
+            _compositor.CompositeRow(tiles.Slice(start - _left, end - start), line[start..end], coverage);
+            return;
+        }
+
         for (int column = start; column < end; column++)
         {
             uint source = tiles[column - _left];

@@ -128,11 +128,25 @@ internal static class CompositingRows
         {
             // Full coverage, as a group composites onto its parent: s × 255 / 255 is s exactly, so the result is s + d × (255 − a) / 255,
             // clamped to 255 (the same as the scalar rounding of the whole sum, checked for every s and every product). The sum is
-            // taken in bytes, saturated where it wraps (only a source channel above its alpha can wrap it).
+            // taken in bytes, saturated where it wraps (only a source channel above its alpha can wrap it). Four opaque source pixels
+            // are the result as they are (255 − a is 0), and four clear ones leave the backdrop as it is (s is 0, d × 255 / 255 is d):
+            // both skip the arithmetic, as a tiled or grouped layer is mostly one or the other.
+            Vector128<byte> alphas = Vector128.Create(0xFF000000u).AsByte();
             for (; i <= count - 4; i += 4)
             {
                 nuint offset = (nuint)(4 * i);
                 Vector128<byte> sv = Vector128.LoadUnsafe(ref s, offset);
+                if ((sv & alphas) == alphas)
+                {
+                    sv.StoreUnsafe(ref d, offset);
+                    continue;
+                }
+
+                if (sv == Vector128<byte>.Zero)
+                {
+                    continue;
+                }
+
                 Vector128<byte> dv = Vector128.LoadUnsafe(ref d, offset);
 
                 // 255 − a of each pixel in its four 16-bit lanes (index 255 selects zero).
