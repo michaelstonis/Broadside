@@ -1,14 +1,14 @@
 {
   "label": "macOS 27, Apple M4 Max (a developer machine)",
   "slug": "macos-arm64",
-  "Date": "2026-11-20",
-  "Commit": "32c73c32b6",
+  "Date": "2026-11-23",
+  "Commit": "2337b20f2f",
   "Machine": "Apple M4 Max, 16 logical cores, 64 GB",
   "OS": "macOS 27.2.1 (arm64)",
   ".NET": "10.0.402 SDK, runtime 10.0.13",
   "PDFium": "pypdfium2 5.13.0, PDFium 153.0.7999.0, Python 3.15.2",
   "pdf.js": "pdfjs-dist 6.3.289, @napi-rs/canvas 1.0.9, Node v22.22.3",
   "Browser": "chromium 145.0.7632.6",
-  "Settings": "DPI 72,150; whole document at 150 DPI; 10 timed runs per case; one thread per engine; browser page cross-origin isolated",
-  "Load average": "7.16 10.89 9.97 at the start, 7.05 9.19 9.43 at the end"
+  "Settings": "DPI 72,150; whole document at 150 DPI; 10 timed runs per case; one thread per engine",
+  "Load average": "10.20 12.12 12.77 at the start, 85.48 103.81 58.04 at the end"
 }

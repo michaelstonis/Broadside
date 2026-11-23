@@ -6,10 +6,10 @@
 //
 // Same protocol and operations as ../pdfium/bench.py: one JSON object per line (file, page, op, dpi, median_ms, min_ms, runs or
 // error); each case warms up untimed for 0.5 s or 20 runs, whichever comes first, then runs <iterations> timed runs (at least 3,
-// fewer once a case has used 10 s). --memory prints {"peak_rss_bytes": n} after rendering every page of the file at <dpi> (150) and
-// extracting its text, or with no file after loading pdf.js only. pdf.js runs in Node with its in-thread
-// ("fake") worker and @napi-rs/canvas; each document gets a fresh copy of the bytes, made before the clock starts, because
-// getDocument takes ownership of its buffer.
+// fewer once a case has used 10 s); before the first case every page runs twice untimed. --memory prints {"peak_rss_bytes": n}
+// after rendering every page of the file at <dpi> (150) and extracting its text, or with no file after loading pdf.js only. pdf.js
+// runs in Node with its in-thread ("fake") worker and @napi-rs/canvas; each document gets a fresh copy of the bytes, made before the
+// clock starts, because getDocument takes ownership of its buffer.
 //   open         getDocument + getPage + the page's view, then destroyed
 //   text         on an open document: getPage + getTextContent, then page.cleanup()
 //   render       on an open document: getPage + render (annotations enabled), then page.cleanup() so the next run parses again
@@ -107,6 +107,26 @@ for (const line of readFileSync(pagesFile, "utf8").split("\n")) {
   const [file, pages] = line.split("\t");
   for (const page of pages.split(",")) cases.push([file, Number(page)]);
 }
+
+// Every page's operations twice, untimed, before any case is timed, as tools/PerfCompare does (issue #602).
+for (let pass = 0; pass < 2; pass++) {
+  for (const [file, index] of cases) {
+    const full = path.join(corpus, file);
+    if (!existsSync(full)) continue;
+    try {
+      const task = load(new Uint8Array(await readFile(full)));
+      const document = await task.promise;
+      const page = await document.getPage(index + 1);
+      await page.getTextContent();
+      page.cleanup();
+      for (const dpi of dpis) await render(document, index, dpi);
+      await task.destroy();
+    } catch {
+      // the timed pass reports it
+    }
+  }
+}
+await new Promise((resolve) => setTimeout(resolve, 1000));
 
 for (const [file, index] of cases) {
   const full = path.join(corpus, file);

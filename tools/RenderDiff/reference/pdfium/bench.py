@@ -7,7 +7,8 @@ Usage: python -I bench.py <pages-file> <corpus-dir> <dpis> <iterations> [<docume
 <pages-file> is tests/Broadside.Rendering.Tests/CorpusGate/pinned-pages.txt (path<TAB>zero-based pages<TAB>reason); <dpis> is a
 comma-separated list. Prints one JSON object per line: file, page, op, dpi, median_ms, min_ms, runs (or error). Each case warms up
 untimed for 0.5 s or 20 runs, whichever comes first, then runs <iterations> timed runs (at least 3, fewer once a case has used 10 s),
-the protocol of tools/PerfCompare. The operations mirror bench/Broadside.Benchmarks and tools/PerfCompare:
+the protocol of tools/PerfCompare; before the first case every page runs twice untimed. The operations mirror
+bench/Broadside.Benchmarks and tools/PerfCompare:
 
   open           FPDF_LoadMemDocument + FPDF_LoadPage + the page size, then closed      (RealWorldPageBenchmarks.Open)
   text           on an open document: load the page, its text page and all its text      (RealWorldPageBenchmarks.ExtractText)
@@ -122,6 +123,25 @@ def memory(argv):
     return 0
 
 
+def warm_up(pages_file, corpus, dpis):
+    """Every page's operations twice, untimed, before any case is timed, as tools/PerfCompare does (issue #602)."""
+    for _ in range(2):
+        for path, index in cases(pages_file):
+            full = os.path.join(corpus, path)
+            if not os.path.exists(full):
+                continue
+            try:
+                with open(full, "rb") as stream:
+                    document = open_document(stream.read())
+                run_text(document, index)
+                for dpi in dpis:
+                    render(document, index, dpi / 72)
+                document.close()
+            except Exception:  # noqa: BLE001 - the timed pass reports it
+                pass
+    time.sleep(1)
+
+
 def cases(pages_file):
     with open(pages_file, encoding="utf-8") as stream:
         for line in stream:
@@ -142,6 +162,7 @@ def main(argv):
     pages_file, corpus, dpis, iterations = argv[1], argv[2], [int(d) for d in argv[3].split(",")], int(argv[4])
     document_dpi = int(argv[5]) if len(argv) > 5 else None
     documented = set()
+    warm_up(pages_file, corpus, dpis)
     for path, index in cases(pages_file):
         full = os.path.join(corpus, path)
         if not os.path.exists(full):
