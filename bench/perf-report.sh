@@ -47,6 +47,8 @@ if [[ ${#publish[@]} -gt 0 ]]; then
   for folder in "${publish[@]}"; do
     name="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["slug"])' "$folder/environment.json")"
     target="$root/bench/baselines/v1/$name"
+    # A folder already in bench/baselines/v1 is only re-reported, not copied onto itself.
+    [[ "$(cd "$folder" && pwd)" == "$target" ]] && continue
     rm -rf "$target" && mkdir -p "$target"
     cp "$folder"/environment.json "$folder"/*.jsonl "$target/"
   done
