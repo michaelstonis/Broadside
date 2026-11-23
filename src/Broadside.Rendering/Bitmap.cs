@@ -100,6 +100,65 @@ public sealed class Bitmap : IDisposable
         PngEncoder.Write(this, stream);
     }
 
+    /// <summary>Writes the bitmap as a PNG image to the file at <paramref name="path"/>, replacing it.</summary>
+    /// <param name="path">The file path.</param>
+    /// <remarks>ISO/IEC 15948 (PNG). As <see cref="SavePng(Stream)"/>.</remarks>
+    public void SavePng(string path)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        using FileStream stream = File.Create(path);
+        SavePng(stream);
+    }
+
+    /// <summary>
+    /// Writes the bitmap as a baseline JPEG image: 8-bit YCbCr with 4:2:0 chroma subsampling at quality
+    /// <see cref="Broadside.Filters.DctEncoder.DefaultQuality"/> (75), transparent pixels composited over opaque white.
+    /// </summary>
+    /// <param name="stream">The stream to write to.</param>
+    /// <remarks>
+    /// ITU-T T.81 (ISO/IEC 10918-1) baseline sequential process; ISO 32000-2 §7.4.8 and §8.9.1. JPEG carries no alpha channel, so a pixel of
+    /// premultiplied colour <c>c</c> and alpha <c>a</c> is composited over white as <c>c + 255 − a</c>.
+    /// </remarks>
+    public void SaveJpeg(Stream stream) => SaveJpeg(stream, Broadside.Filters.DctEncoder.DefaultQuality);
+
+    /// <summary>
+    /// Writes the bitmap as a baseline JPEG image at <paramref name="quality"/>: 8-bit YCbCr with 4:2:0 chroma subsampling,
+    /// transparent pixels composited over opaque white.
+    /// </summary>
+    /// <param name="stream">The stream to write to.</param>
+    /// <param name="quality">The quality, 1 (smallest) to 100 (highest fidelity).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="quality"/> is outside 1 to 100.</exception>
+    /// <remarks>ITU-T T.81 (ISO/IEC 10918-1); ISO 32000-2 §7.4.8. As <see cref="SaveJpeg(Stream)"/>.</remarks>
+    public void SaveJpeg(Stream stream, int quality)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        ArgumentOutOfRangeException.ThrowIfLessThan(quality, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(quality, 100);
+        BitmapJpegEncoder.Write(this, stream, quality);
+    }
+
+    /// <summary>
+    /// Writes the bitmap as a baseline JPEG image to the file at <paramref name="path"/>, replacing it, at quality
+    /// <see cref="Broadside.Filters.DctEncoder.DefaultQuality"/> (75).
+    /// </summary>
+    /// <param name="path">The file path.</param>
+    /// <remarks>ITU-T T.81 (ISO/IEC 10918-1); ISO 32000-2 §7.4.8. As <see cref="SaveJpeg(Stream)"/>.</remarks>
+    public void SaveJpeg(string path) => SaveJpeg(path, Broadside.Filters.DctEncoder.DefaultQuality);
+
+    /// <summary>Writes the bitmap as a baseline JPEG image to the file at <paramref name="path"/>, replacing it, at <paramref name="quality"/>.</summary>
+    /// <param name="path">The file path.</param>
+    /// <param name="quality">The quality, 1 (smallest) to 100 (highest fidelity).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="quality"/> is outside 1 to 100.</exception>
+    /// <remarks>ITU-T T.81 (ISO/IEC 10918-1); ISO 32000-2 §7.4.8. As <see cref="SaveJpeg(Stream, int)"/>.</remarks>
+    public void SaveJpeg(string path, int quality)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        ArgumentOutOfRangeException.ThrowIfLessThan(quality, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(quality, 100);
+        using FileStream stream = File.Create(path);
+        SaveJpeg(stream, quality);
+    }
+
     /// <summary>Points this bitmap, over caller memory, at other memory: a renderer's reusable scratch surface (tiling-pattern cells).</summary>
     /// <param name="pixels">At least <c>(height − 1) × stride + width × 4</c> bytes; their contents are kept.</param>
     /// <param name="width">The width in pixels, at least 1.</param>

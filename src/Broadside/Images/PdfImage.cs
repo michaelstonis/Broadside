@@ -84,7 +84,8 @@ public sealed class PdfImage
     public IReadOnlyList<PdfFileSpecification> AssociatedFiles => AssociatedFileReader.ReadOwner(_document, Dictionary, Reference);
 
     /// <summary>Gets the document the image belongs to.</summary>
-    internal PdfDocument Document => _document;
+    /// <remarks>ISO 32000-2 §8.9.5.</remarks>
+    public PdfDocument Document => _document;
 
     /// <summary>Gets a value indicating whether this is an inline image.</summary>
     /// <remarks>ISO 32000-2 §8.9.7.</remarks>
@@ -323,6 +324,80 @@ public sealed class PdfImage
     /// </para>
     /// </remarks>
     public DecodedImage? Decode() => DecodeSamples(CancellationToken.None);
+
+    /// <summary>
+    /// Returns the image's raw JPEG codestream when the image is encoded with <c>DCTDecode</c> and the codestream can stand alone as a
+    /// JPEG file without any PDF <c>Decode</c> inversion or dictionary mask.
+    /// </summary>
+    /// <param name="jpeg">The JPEG codestream, or empty when the image cannot be passed through as a standalone JPEG file.</param>
+    /// <returns><see langword="true"/> when <paramref name="jpeg"/> holds a standalone JPEG codestream.</returns>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found in the image dictionary or the filters before <c>DCTDecode</c>.</exception>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §7.4.8 (<c>DCTDecode</c>, Table 13 <c>ColorTransform</c>) and §8.9.5 (Table 87). Any filters before <c>DCTDecode</c>
+    /// (such as <c>FlateDecode</c> or <c>ASCII85Decode</c>) are decoded first.
+    /// </para>
+    /// <para>
+    /// Returns <see langword="false"/> when the image has a mask (<see cref="MaskKind"/> other than <see cref="PdfImageMaskKind.None"/>),
+    /// is an Indexed image (whose samples are palette indices, §8.6.6.3), has a <c>Decode</c> array other than the colour space's
+    /// default (§8.9.5.2, Table 88) — except a four-component Adobe Photoshop CMYK JPEG whose <c>Decode</c> is
+    /// <c>[1 0 1 0 1 0 1 0]</c> and that carries an APP13 <c>Photoshop 3.0</c> segment, which JPEG viewers invert themselves — or has
+    /// a <c>DecodeParms</c> <c>ColorTransform</c> that disagrees with the codestream's markers.
+    /// </para>
+    /// </remarks>
+    public bool TryGetJpegData(out ReadOnlyMemory<byte> jpeg)
+    {
+        jpeg = ReadOnlyMemory<byte>.Empty;
+        if (LastFilter() is not { } last || !last.Equals(FilterNames.DctDecode) || MaskKind != PdfImageMaskKind.None)
+        {
+            return false;
+        }
+
+        ImageLayout layout = ReadLayout();
+        if (!layout.IsDecodable || layout.IsImageMask || layout.ColorSpace is null or PdfIndexedColorSpace)
+        {
+            return false;
+        }
+
+        StreamDecoder streams = _document.Streams;
+        using var data = new PooledBufferWriter(256, streams.MaxDecodedLength);
+        streams.Decode(_stream, data, 0, stopBeforeImageFilter: true, out StreamDecoder.ChainOutcome outcome, CancellationToken.None);
+        if (!outcome.Complete || outcome.ImageFilter is not { } filter || !filter.Name.Equals(FilterNames.DctDecode))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<byte> span = outcome.HasCodestream ? outcome.Codestream.Span : data.WrittenSpan;
+        if (JpegInfo.Read(span, readProfile: false, out _) is not { } info || info.Components != layout.Components)
+        {
+            return false;
+        }
+
+        if (outcome.ImageContext?.Parameters is { } parameters
+            && parameters.TryGetValue(FilterNames.ColorTransform, out CosObject? transformEntry)
+            && Resolve(transformEntry) is CosInteger { Value: 0 or 1 } transformValue
+            && info.AdobeTransform is null)
+        {
+            bool requested = transformValue.Value == 1;
+            bool natural = info.Components == 3 && !info.RgbIdentifiers;
+            if (requested != natural)
+            {
+                return false;
+            }
+        }
+
+        double[] defaultDecode = layout.ColorSpace.GetDefaultDecode(8);
+        bool isDefaultDecode = layout.Decode.AsSpan().SequenceEqual(defaultDecode);
+        bool isPhotoshopInverted = info is { Components: 4, AdobeTransform: not null, Photoshop: true }
+            && layout.Decode is [1, 0, 1, 0, 1, 0, 1, 0];
+        if (!isDefaultDecode && !isPhotoshopInverted)
+        {
+            return false;
+        }
+
+        jpeg = outcome.HasCodestream ? outcome.Codestream : data.WrittenSpan.ToArray();
+        return true;
+    }
 
     /// <summary>As <see cref="Decode()"/>, stopping with <see cref="OperationCanceledException"/> when <paramref name="cancellationToken"/> is cancelled.</summary>
     /// <param name="cancellationToken">Given to the filters (<see cref="FilterContext.CancellationToken"/>); what they rented is returned.</param>

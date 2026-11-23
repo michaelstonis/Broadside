@@ -158,3 +158,24 @@ Broadside.Rendering.SoftwareRasterizer.GlyphCacheStatistics.get -> Broadside.Pdf
 Broadside.Rendering.SoftwareRasterizer.GlyphPositioning.get -> Broadside.Rendering.GlyphPositioning
 Broadside.Rendering.SoftwareRasterizer.GlyphPositioning.set -> void
 const Broadside.Rendering.SoftwareRasterizer.DefaultGlyphCacheBudget = 4194304 -> long
+Broadside.Rendering.Bitmap.SaveJpeg(System.IO.Stream! stream) -> void
+Broadside.Rendering.Bitmap.SaveJpeg(System.IO.Stream! stream, int quality) -> void
+Broadside.Rendering.Bitmap.SaveJpeg(string! path) -> void
+Broadside.Rendering.Bitmap.SaveJpeg(string! path, int quality) -> void
+Broadside.Rendering.Bitmap.SavePng(string! path) -> void
+Broadside.Rendering.PdfImageRenderingExtensions
+static Broadside.Rendering.PdfImageRenderingExtensions.SaveJpeg(this Broadside.Images.ExtractedImage extracted, System.IO.Stream! stream) -> bool
+static Broadside.Rendering.PdfImageRenderingExtensions.SaveJpeg(this Broadside.Images.ExtractedImage extracted, System.IO.Stream! stream, int quality) -> bool
+static Broadside.Rendering.PdfImageRenderingExtensions.SaveJpeg(this Broadside.Images.ExtractedImage extracted, string! path) -> bool
+static Broadside.Rendering.PdfImageRenderingExtensions.SaveJpeg(this Broadside.Images.ExtractedImage extracted, string! path, int quality) -> bool
+static Broadside.Rendering.PdfImageRenderingExtensions.SaveJpeg(this Broadside.Images.PdfImage! image, System.IO.Stream! stream) -> bool
+static Broadside.Rendering.PdfImageRenderingExtensions.SaveJpeg(this Broadside.Images.PdfImage! image, System.IO.Stream! stream, int quality) -> bool
+static Broadside.Rendering.PdfImageRenderingExtensions.SaveJpeg(this Broadside.Images.PdfImage! image, string! path) -> bool
+static Broadside.Rendering.PdfImageRenderingExtensions.SaveJpeg(this Broadside.Images.PdfImage! image, string! path, int quality) -> bool
+static Broadside.Rendering.PdfImageRenderingExtensions.SavePng(this Broadside.Images.ExtractedImage extracted, System.IO.Stream! stream) -> bool
+static Broadside.Rendering.PdfImageRenderingExtensions.SavePng(this Broadside.Images.ExtractedImage extracted, string! path) -> bool
+static Broadside.Rendering.PdfImageRenderingExtensions.SavePng(this Broadside.Images.PdfImage! image, System.IO.Stream! stream) -> bool
+static Broadside.Rendering.PdfImageRenderingExtensions.SavePng(this Broadside.Images.PdfImage! image, string! path) -> bool
+static Broadside.Rendering.PdfImageRenderingExtensions.ToBitmap(this Broadside.Images.ExtractedImage extracted) -> Broadside.Rendering.Bitmap?
+static Broadside.Rendering.PdfImageRenderingExtensions.ToBitmap(this Broadside.Images.PdfImage! image) -> Broadside.Rendering.Bitmap?
+static Broadside.Rendering.PdfImageRenderingExtensions.ToBitmap(this Broadside.Images.PdfImage! image, Broadside.Graphics.PdfColor fillColor, Broadside.Graphics.PdfDefaultColorSpaces? defaultColorSpaces = null) -> Broadside.Rendering.Bitmap?
