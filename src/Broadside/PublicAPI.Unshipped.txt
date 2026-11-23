@@ -5805,3 +5805,48 @@ Broadside.Layout.LayoutExtraction.Continue(System.TimeSpan budget) -> bool
 Broadside.Layout.LayoutExtraction.Dispose() -> void
 Broadside.Layout.LayoutExtraction.IsCompleted.get -> bool
 Broadside.Layout.LayoutExtraction.Result.get -> Broadside.Layout.LayoutTree!
+Broadside.Images.ExtractedImage
+Broadside.Images.ExtractedImage.Bounds.get -> Broadside.PdfRectangle
+Broadside.Images.ExtractedImage.Ctm.get -> Broadside.Graphics.Matrix
+Broadside.Images.ExtractedImage.DefaultColorSpaces.get -> Broadside.Graphics.PdfDefaultColorSpaces!
+Broadside.Images.ExtractedImage.ExtractedImage() -> void
+Broadside.Images.ExtractedImage.FillColor.get -> Broadside.Graphics.PdfColor
+Broadside.Images.ExtractedImage.Flags.get -> Broadside.Images.ExtractedImageFlags
+Broadside.Images.ExtractedImage.Image.get -> Broadside.Images.PdfImage!
+Broadside.Images.ExtractedImage.Name.get -> Broadside.Objects.CosName?
+Broadside.Images.ExtractedImage.Quad.get -> Broadside.Graphics.Quad
+Broadside.Images.ExtractedImage.RenderingIntent.get -> Broadside.Graphics.RenderingIntent
+Broadside.Images.ExtractedImageFlags
+Broadside.Images.ExtractedImageFlags.Artifact = 8 -> Broadside.Images.ExtractedImageFlags
+Broadside.Images.ExtractedImageFlags.Hidden = 4 -> Broadside.Images.ExtractedImageFlags
+Broadside.Images.ExtractedImageFlags.ImageMask = 2 -> Broadside.Images.ExtractedImageFlags
+Broadside.Images.ExtractedImageFlags.Inline = 1 -> Broadside.Images.ExtractedImageFlags
+Broadside.Images.ExtractedImageFlags.None = 0 -> Broadside.Images.ExtractedImageFlags
+Broadside.Images.ImageExtractionOptions
+Broadside.Images.ImageExtractionOptions.ContentOptions.get -> Broadside.Content.ContentOptions?
+Broadside.Images.ImageExtractionOptions.ContentOptions.set -> void
+Broadside.Images.ImageExtractionOptions.ImageExtractionOptions() -> void
+Broadside.Images.ImageExtractionOptions.IncludeArtifacts.get -> bool
+Broadside.Images.ImageExtractionOptions.IncludeArtifacts.set -> void
+Broadside.Images.ImageExtractionOptions.IncludeHiddenContent.get -> bool
+Broadside.Images.ImageExtractionOptions.IncludeHiddenContent.set -> void
+Broadside.Images.ImageExtractionOptions.IncludeImageMasks.get -> bool
+Broadside.Images.ImageExtractionOptions.IncludeImageMasks.set -> void
+Broadside.Images.ImageExtractionOptions.WithArtifacts(bool include = true) -> Broadside.Images.ImageExtractionOptions!
+Broadside.Images.ImageExtractionOptions.WithContentOptions(Broadside.Content.ContentOptions? options) -> Broadside.Images.ImageExtractionOptions!
+Broadside.Images.ImageExtractionOptions.WithHiddenContent(bool include = true) -> Broadside.Images.ImageExtractionOptions!
+Broadside.Images.ImageExtractionOptions.WithImageMasks(bool include = true) -> Broadside.Images.ImageExtractionOptions!
+Broadside.Images.ImageExtractor
+Broadside.Images.ImageExtractor.Clear() -> void
+Broadside.Images.ImageExtractor.ImageExtractor() -> void
+Broadside.Images.ImageExtractor.ImageExtractor(Broadside.Images.ImageExtractionOptions! options) -> void
+Broadside.Images.ImageExtractor.Images.get -> System.ReadOnlySpan<Broadside.Images.ExtractedImage>
+override Broadside.Images.ImageExtractor.BeginMarkedContent(in Broadside.Content.MarkedContentEvent mc, Broadside.Content.ContentContext! context) -> void
+override Broadside.Images.ImageExtractor.BeginRun(Broadside.Content.ContentContext! context) -> void
+override Broadside.Images.ImageExtractor.EndMarkedContent(in Broadside.Content.MarkedContentEvent mc, Broadside.Content.ContentContext! context) -> void
+override Broadside.Images.ImageExtractor.Events.get -> Broadside.Content.ContentEvents
+override Broadside.Images.ImageExtractor.PaintImage(in Broadside.Content.ImageEvent image, Broadside.Content.ContentContext! context) -> void
+Broadside.Images.PdfImage.Document.get -> Broadside.PdfDocument!
+Broadside.Images.PdfImage.TryGetJpegData(out System.ReadOnlyMemory<byte> jpeg) -> bool
+Broadside.PdfPage.ExtractImages() -> System.Collections.Generic.IReadOnlyList<Broadside.Images.ExtractedImage>!
+Broadside.PdfPage.ExtractImages(Broadside.Images.ImageExtractionOptions! options) -> System.Collections.Generic.IReadOnlyList<Broadside.Images.ExtractedImage>!
