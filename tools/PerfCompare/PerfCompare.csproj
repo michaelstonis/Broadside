@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The v1 performance comparison (issue #275): times Broadside over the rendering gate's pinned real-world pages with the same
+    protocol as the PDFium and pdf.js harnesses in tools/RenderDiff/reference, measures peak memory in a fresh process per file, and
+    writes the report from every engine's results. bench/perf-report.sh runs it. See README.md.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Broadside.Tools.PerfCompare</RootNamespace>
+    <AssemblyName>PerfCompare</AssemblyName>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Rendering/Broadside.Rendering.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
+  </ItemGroup>
+
+</Project>
