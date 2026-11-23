@@ -51,7 +51,7 @@ Results below: GitHub-hosted Linux runner (ubuntu-24.04), GitHub-hosted macOS ru
 | | |
 |---|---|
 | Date | 2026-11-23 |
-| Commit | f6a16c0613 |
+| Commit | fa1884fd53 |
 | Machine | Intel(R) Xeon(R) 6975P-C, 4 logical cores, 15 GB |
 | OS | Ubuntu 24.04.5 LTS (x86_64) |
 | .NET | 10.0.404 SDK, runtime 11.0.0 |
@@ -59,7 +59,7 @@ Results below: GitHub-hosted Linux runner (ubuntu-24.04), GitHub-hosted macOS ru
 | pdf.js | pdfjs-dist 6.3.289, @napi-rs/canvas 1.0.9, Node v22.23.5 |
 | Browser | chromium 157.0.8103.78 |
 | Settings | DPI 72,150; whole document at 150 DPI; 10 timed runs per case; one thread per engine |
-| Load average | 5.20, 2.40, 0.94 at the start, 1.89, 2.41, 1.55 at the end |
+| Load average | 5.49, 2.52, 0.97 at the start, 1.42, 2.18, 1.51 at the end |
 
 ### Summary
 
@@ -67,13 +67,13 @@ Geometric mean of the per-page ratios, and the slowest page relative to the othe
 
 | Operation | DPI | Pages | vs PDFium | slowest page | vs pdf.js | slowest page |
 |---|---:|---:|---:|---:|---:|---:|
-| Open |  | 21 | 0.07x | 0.3x | 0.10x | 0.8x |
-| Extract text |  | 21 | 0.26x | 6.3x | 0.05x | 0.6x |
-| Render | 72 | 21 | 0.80x | 10.2x | 0.25x | 2.6x |
-| Render | 150 | 21 | 0.82x | 4.5x | 0.44x | 3.0x |
-| First render | 72 | 21 | 1.00x | 3.4x | 0.30x | 2.5x |
-| First render | 150 | 21 | 0.92x | 3.6x | 0.43x | 2.9x |
-| Whole document | 150 | 20 | 0.89x | 2.9x | 0.41x | 2.9x |
+| Open |  | 21 | 0.06x | 0.2x | 0.09x | 0.4x |
+| Extract text |  | 21 | 0.20x | 0.8x | 0.04x | 0.2x |
+| Render | 72 | 21 | 0.64x | 3.5x | 0.21x | 1.4x |
+| Render | 150 | 21 | 0.70x | 4.0x | 0.40x | 2.4x |
+| First render | 72 | 21 | 0.80x | 2.7x | 0.24x | 1.4x |
+| First render | 150 | 21 | 0.78x | 3.2x | 0.40x | 2.3x |
+| Whole document | 150 | 20 | 0.75x | 2.8x | 0.37x | 2.4x |
 
 ### Targets
 
@@ -81,13 +81,13 @@ The targets proposed with the Phase 3 baseline (issue #140). A missed target blo
 
 | Target | Measured | Status |
 |---|---|---|
-| Render at 72 DPI: at most 1.0x PDFium on average, no page over 3x | 0.80x, slowest 10.2x | **missed** |
-| Render at 150 DPI: at most 1.0x PDFium on average, no page over 3x | 0.82x, slowest 4.5x | **missed** |
-| First render at 72 DPI: at most 1.25x PDFium on average, no page over 4x | 1.00x, slowest 3.4x | met |
-| First render at 150 DPI: at most 1.25x PDFium on average, no page over 4x | 0.92x, slowest 3.6x | met |
-| Never slower than pdf.js (Node) on any page and operation | 13 slower: pdfjs/personwithdog.pdf render 72 (1.83x); pdfjs/tiling-pattern-large-steps.pdf render 72 (2.61x); ...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf render 150 (1.1x); pdfjs/alphatrans.pdf render 150 (1.06x); pdfjs/ccitt_EndOfBlock_false.pdf render 150 (1.07x); pdfjs/personwithdog.pdf render 150 (3.03x); ... | **missed** |
-| Open: under 0.25x PDFium on average | 0.07x | met |
-| Extract text: under 0.5x PDFium on average | 0.26x | met |
+| Render at 72 DPI: at most 1.0x PDFium on average, no page over 3x | 0.64x, slowest 3.5x | **missed** |
+| Render at 150 DPI: at most 1.0x PDFium on average, no page over 3x | 0.70x, slowest 4.0x | **missed** |
+| First render at 72 DPI: at most 1.25x PDFium on average, no page over 4x | 0.80x, slowest 2.7x | met |
+| First render at 150 DPI: at most 1.25x PDFium on average, no page over 4x | 0.78x, slowest 3.2x | met |
+| Never slower than pdf.js (Node) on any page and operation | 6 slower: pdfjs/personwithdog.pdf render 72 (1.4x); pdfjs/alphatrans.pdf render 150 (1.13x); pdfjs/personwithdog.pdf render 150 (2.43x); pdfjs/personwithdog.pdf open-render 72 (1.4x); pdfjs/personwithdog.pdf open-render 150 (2.28x); pdfjs/personwithdog.pdf document 150 (2.38x) | **missed** |
+| Open: under 0.25x PDFium on average | 0.06x | met |
+| Extract text: under 0.5x PDFium on average | 0.20x | met |
 | Render at 72 DPI allocates at most 1 MB per page | pdfjs/function_based_shading.pdf 2.0 MB | **missed** |
 
 ### In the browser
@@ -96,13 +96,13 @@ Broadside's WebAssembly build against pdf.js in the same Chromium. Ratios are Br
 
 | Operation | DPI | Pages | vs pdf.js | slowest page | fastest page |
 |---|---:|---:|---:|---:|---:|
-| Open |  | 21 | 0.31x | 0.8x | 0.16x |
-| Extract text |  | 21 | 0.31x | 1.1x | 0.09x |
-| Render | 72 | 21 | 0.66x | 4.8x | 0.10x |
-| Render | 150 | 21 | 0.82x | 7.3x | 0.10x |
-| First render | 72 | 21 | 0.83x | 4.5x | 0.14x |
-| First render | 150 | 21 | 0.92x | 6.3x | 0.11x |
-| Whole document | 150 | 20 | 0.84x | 6.6x | 0.11x |
+| Open |  | 21 | 0.26x | 0.9x | 0.14x |
+| Extract text |  | 21 | 0.28x | 1.0x | 0.07x |
+| Render | 72 | 21 | 0.59x | 3.4x | 0.10x |
+| Render | 150 | 21 | 0.76x | 5.6x | 0.11x |
+| First render | 72 | 21 | 0.77x | 3.3x | 0.15x |
+| First render | 150 | 21 | 0.84x | 5.2x | 0.12x |
+| Whole document | 150 | 20 | 0.79x | 5.4x | 0.13x |
 
 ### Peak memory
 
@@ -110,178 +110,178 @@ Peak resident memory to open each file, render every page at 150 DPI and extract
 
 | File | Broadside | PDFium | pdf.js |
 |---|---:|---:|---:|
-| *(engine loaded, nothing open: subtracted below)* | 120.5 MB | 20.9 MB | 89.5 MB |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 0 B | 4.6 MB | 37.3 MB |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 34.8 MB | 33.3 MB | 255.2 MB |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 164 KB | 5.1 MB | 27.1 MB |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 0 B | 4.8 MB | 25.6 MB |
-| `pdfjs/alphatrans.pdf` | 0 B | 9.4 MB | 32.4 MB |
-| `pdfjs/annotation-highlight.pdf` | 120 KB | 8.8 MB | 30.7 MB |
-| `pdfjs/bug_jpx.pdf` | 0 B | 7.5 MB | 34.0 MB |
-| `pdfjs/calgray.pdf` | 0 B | 13.5 MB | 66.0 MB |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 0 B | 7.6 MB | 25.9 MB |
-| `pdfjs/cmykjpeg.pdf` | 0 B | 9.2 MB | 30.3 MB |
-| `pdfjs/devicen.pdf` | 0 B | 7.8 MB | 24.1 MB |
-| `pdfjs/function_based_shading.pdf` | 92 KB | 8.1 MB | 77.8 MB |
-| `pdfjs/issue2948.pdf` | 0 B | 14.2 MB | 71.9 MB |
-| `pdfjs/issue3584.pdf` | 32 KB | 1.8 MB | 21.0 MB |
-| `pdfjs/issue6296.pdf` | 112 KB | 1.9 MB | 15.7 MB |
-| `pdfjs/jbig2_symbol_offset.pdf` | 72 KB | 6.9 MB | 24.2 MB |
-| `pdfjs/personwithdog.pdf` | 16 KB | 9.9 MB | 54.3 MB |
-| `pdfjs/smask_alpha_oob.pdf` | 0 B | 15.0 MB | 28.9 MB |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 1.3 MB | 60.9 MB | 41.6 MB |
-| `pdfjs/tracemonkey.pdf` | 1.1 MB | 17.0 MB | 156.2 MB |
+| *(engine loaded, nothing open: subtracted below)* | 120.3 MB | 20.9 MB | 89.4 MB |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 0 B | 4.5 MB | 37.4 MB |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 35.9 MB | 33.4 MB | 264.0 MB |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 0 B | 5.1 MB | 26.9 MB |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 52 KB | 5.0 MB | 25.4 MB |
+| `pdfjs/alphatrans.pdf` | 236 KB | 9.5 MB | 32.6 MB |
+| `pdfjs/annotation-highlight.pdf` | 0 B | 8.8 MB | 30.6 MB |
+| `pdfjs/bug_jpx.pdf` | 0 B | 7.6 MB | 34.7 MB |
+| `pdfjs/calgray.pdf` | 376 KB | 13.5 MB | 65.8 MB |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 0 B | 7.9 MB | 25.6 MB |
+| `pdfjs/cmykjpeg.pdf` | 388 KB | 9.4 MB | 30.4 MB |
+| `pdfjs/devicen.pdf` | 32 KB | 7.9 MB | 24.2 MB |
+| `pdfjs/function_based_shading.pdf` | 0 B | 8.1 MB | 77.3 MB |
+| `pdfjs/issue2948.pdf` | 168 KB | 14.1 MB | 72.3 MB |
+| `pdfjs/issue3584.pdf` | 0 B | 1.8 MB | 20.7 MB |
+| `pdfjs/issue6296.pdf` | 0 B | 1.8 MB | 16.6 MB |
+| `pdfjs/jbig2_symbol_offset.pdf` | 0 B | 7.0 MB | 24.1 MB |
+| `pdfjs/personwithdog.pdf` | 52 KB | 10.0 MB | 54.8 MB |
+| `pdfjs/smask_alpha_oob.pdf` | 0 B | 15.0 MB | 29.3 MB |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 96 KB | 60.8 MB | 41.8 MB |
+| `pdfjs/tracemonkey.pdf` | 1.5 MB | 17.1 MB | 162.8 MB |
 
 <details><summary>Every page (median milliseconds)</summary>
 
 | File | Page | Operation | DPI | Broadside | PDFium | pdf.js | Broadside allocated |
 |---|---:|---|---:|---:|---:|---:|---:|
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | open |  | 0.63 | 2.29 | 0.76 |  |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | text |  | 3.09 | 0.49 | 5.10 |  |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | render | 72 | 11.3 | 1.11 | 14.2 | 142 KB |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | open-render | 72 | 11.3 | 3.82 | 20.6 |  |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | render | 150 | 6.86 | 1.81 | 14.5 | 142 KB |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | open-render | 150 | 8.05 | 4.68 | 19.5 |  |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | document | 150 | 8.07 | 4.67 | 18.6 |  |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | open |  | 0.55 | 10.7 | 0.86 |  |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | text |  | 3.43 | 3.29 | 9.04 |  |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | render | 72 | 90.1 | 20.6 | 122 | 562 KB |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | open-render | 72 | 111 | 32.9 | 189 |  |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | render | 150 | 143 | 31.7 | 130 | 562 KB |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | open-render | 150 | 160 | 44.8 | 198 |  |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | document | 150 | 404 | 139 | 872 |  |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | open |  | 0.01 | 0.37 | 0.18 |  |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | text |  | 0.15 | 0.06 | 0.58 |  |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | render | 72 | 0.90 | 0.55 | 3.78 | 39 KB |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | open-render | 72 | 1.78 | 0.96 | 5.51 |  |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | render | 150 | 1.57 | 1.48 | 4.75 | 39 KB |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | open-render | 150 | 2.81 | 1.94 | 6.00 |  |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | document | 150 | 3.08 | 1.88 | 6.64 |  |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | open |  | 0.02 | 0.33 | 0.17 |  |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | text |  | 0.02 | 0.04 | 0.33 |  |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | render | 72 | 0.17 | 0.24 | 1.15 | 29 KB |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | open-render | 72 | 0.72 | 0.61 | 3.13 |  |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | render | 150 | 0.62 | 0.93 | 2.44 | 29 KB |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | open-render | 150 | 1.40 | 1.33 | 3.70 |  |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | document | 150 | 1.87 | 2.30 | 6.11 |  |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | open |  | 0.11 | 2.36 | 0.43 |  |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | text |  | 0.28 | 0.50 | 5.14 |  |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | render | 72 | 2.15 | 1.12 | 12.7 | 142 KB |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | open-render | 72 | 4.27 | 3.84 | 19.0 |  |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | render | 150 | 4.77 | 1.82 | 12.4 | 142 KB |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | open-render | 150 | 6.90 | 4.72 | 17.1 |  |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | document | 150 | 6.69 | 4.72 | 18.1 |  |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | open |  | 0.15 | 10.8 | 0.90 |  |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | text |  | 1.98 | 3.34 | 9.51 |  |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | render | 72 | 72.2 | 20.7 | 114 | 562 KB |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | open-render | 72 | 88.2 | 33.1 | 189 |  |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | render | 150 | 126 | 31.7 | 128 | 562 KB |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | open-render | 150 | 141 | 44.9 | 197 |  |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | document | 150 | 380 | 138 | 853 |  |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | open |  | 0.01 | 0.35 | 0.14 |  |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | text |  | 0.03 | 0.06 | 0.36 |  |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | render | 72 | 1.05 | 0.51 | 3.87 | 39 KB |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | open-render | 72 | 1.90 | 0.97 | 5.68 |  |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | render | 150 | 1.62 | 1.49 | 4.74 | 39 KB |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | open-render | 150 | 2.54 | 1.93 | 6.09 |  |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | document | 150 | 3.03 | 1.93 | 5.97 |  |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | open |  | 0.01 | 0.32 | 0.20 |  |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | text |  | 0.02 | 0.04 | 0.41 |  |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | render | 72 | 0.14 | 0.23 | 1.14 | 29 KB |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | open-render | 72 | 0.55 | 0.60 | 2.95 |  |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | render | 150 | 0.57 | 0.94 | 2.47 | 29 KB |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | open-render | 150 | 1.18 | 1.35 | 3.42 |  |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | document | 150 | 1.80 | 2.31 | 6.41 |  |
 | `pdfjs/alphatrans.pdf` | 1 | open |  | 0.02 | 0.44 | 0.15 |  |
-| `pdfjs/alphatrans.pdf` | 1 | text |  | 0.03 | 0.07 | 0.86 |  |
-| `pdfjs/alphatrans.pdf` | 1 | render | 72 | 1.96 | 2.41 | 4.13 | 36 KB |
-| `pdfjs/alphatrans.pdf` | 1 | open-render | 72 | 2.76 | 2.96 | 6.22 |  |
-| `pdfjs/alphatrans.pdf` | 1 | render | 150 | 5.67 | 8.88 | 5.34 | 36 KB |
-| `pdfjs/alphatrans.pdf` | 1 | open-render | 150 | 6.69 | 9.39 | 6.89 |  |
-| `pdfjs/alphatrans.pdf` | 1 | document | 150 | 6.65 | 9.40 | 8.20 |  |
-| `pdfjs/annotation-highlight.pdf` | 1 | open |  | 0.02 | 0.65 | 0.31 |  |
-| `pdfjs/annotation-highlight.pdf` | 1 | text |  | 0.01 | 0.25 | 0.30 |  |
-| `pdfjs/annotation-highlight.pdf` | 1 | render | 72 | 0.15 | 0.83 | 1.31 | 30 KB |
-| `pdfjs/annotation-highlight.pdf` | 1 | open-render | 72 | 1.04 | 1.86 | 4.73 |  |
-| `pdfjs/annotation-highlight.pdf` | 1 | render | 150 | 0.75 | 1.84 | 2.49 | 30 KB |
-| `pdfjs/annotation-highlight.pdf` | 1 | open-render | 150 | 1.67 | 2.90 | 7.32 |  |
-| `pdfjs/annotation-highlight.pdf` | 1 | document | 150 | 1.67 | 2.90 | 8.80 |  |
+| `pdfjs/alphatrans.pdf` | 1 | text |  | 0.03 | 0.07 | 0.42 |  |
+| `pdfjs/alphatrans.pdf` | 1 | render | 72 | 1.82 | 2.37 | 3.82 | 36 KB |
+| `pdfjs/alphatrans.pdf` | 1 | open-render | 72 | 2.59 | 2.96 | 5.71 |  |
+| `pdfjs/alphatrans.pdf` | 1 | render | 150 | 5.28 | 8.92 | 4.68 | 36 KB |
+| `pdfjs/alphatrans.pdf` | 1 | open-render | 150 | 6.22 | 9.44 | 6.90 |  |
+| `pdfjs/alphatrans.pdf` | 1 | document | 150 | 6.22 | 9.44 | 6.52 |  |
+| `pdfjs/annotation-highlight.pdf` | 1 | open |  | 0.02 | 0.65 | 0.39 |  |
+| `pdfjs/annotation-highlight.pdf` | 1 | text |  | 0.01 | 0.26 | 0.46 |  |
+| `pdfjs/annotation-highlight.pdf` | 1 | render | 72 | 0.15 | 0.84 | 1.25 | 30 KB |
+| `pdfjs/annotation-highlight.pdf` | 1 | open-render | 72 | 1.05 | 1.89 | 4.75 |  |
+| `pdfjs/annotation-highlight.pdf` | 1 | render | 150 | 0.75 | 1.86 | 1.92 | 30 KB |
+| `pdfjs/annotation-highlight.pdf` | 1 | open-render | 150 | 1.65 | 2.92 | 5.66 |  |
+| `pdfjs/annotation-highlight.pdf` | 1 | document | 150 | 1.65 | 2.92 | 6.14 |  |
 | `pdfjs/bug_jpx.pdf` | 1 | open |  | 0.02 | 0.11 | 0.17 |  |
-| `pdfjs/bug_jpx.pdf` | 1 | text |  | 0.00 | 0.01 | 0.09 |  |
-| `pdfjs/bug_jpx.pdf` | 1 | render | 72 | 0.14 | 0.58 | 1.07 | 648 B |
-| `pdfjs/bug_jpx.pdf` | 1 | open-render | 72 | 0.65 | 0.74 | 4.14 |  |
-| `pdfjs/bug_jpx.pdf` | 1 | render | 150 | 0.73 | 1.61 | 3.18 | 648 B |
-| `pdfjs/bug_jpx.pdf` | 1 | open-render | 150 | 1.27 | 1.77 | 6.01 |  |
-| `pdfjs/bug_jpx.pdf` | 1 | document | 150 | 1.27 | 1.76 | 5.61 |  |
-| `pdfjs/calgray.pdf` | 1 | open |  | 0.01 | 0.23 | 0.19 |  |
-| `pdfjs/calgray.pdf` | 1 | text |  | 0.04 | 0.10 | 0.69 |  |
-| `pdfjs/calgray.pdf` | 1 | render | 72 | 0.66 | 1.06 | 2.29 | 46 KB |
-| `pdfjs/calgray.pdf` | 1 | open-render | 72 | 1.09 | 1.32 | 4.36 |  |
-| `pdfjs/calgray.pdf` | 1 | render | 150 | 2.39 | 4.28 | 6.65 | 46 KB |
-| `pdfjs/calgray.pdf` | 1 | open-render | 150 | 3.13 | 4.54 | 8.11 |  |
-| `pdfjs/calgray.pdf` | 1 | document | 150 | 7.99 | 13.2 | 22.3 |  |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | open |  | 0.01 | 0.08 | 0.12 |  |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | text |  | 0.00 | 0.02 | 0.11 |  |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | render | 72 | 1.01 | 1.18 | 2.02 | 2 KB |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | open-render | 72 | 1.23 | 1.26 | 4.39 |  |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | render | 150 | 4.57 | 4.61 | 4.29 | 2 KB |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | open-render | 150 | 4.66 | 4.69 | 7.39 |  |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | document | 150 | 4.67 | 4.69 | 7.50 |  |
+| `pdfjs/bug_jpx.pdf` | 1 | text |  | 0.00 | 0.02 | 0.05 |  |
+| `pdfjs/bug_jpx.pdf` | 1 | render | 72 | 0.11 | 0.59 | 1.11 | 712 B |
+| `pdfjs/bug_jpx.pdf` | 1 | open-render | 72 | 0.63 | 0.75 | 3.81 |  |
+| `pdfjs/bug_jpx.pdf` | 1 | render | 150 | 0.70 | 1.63 | 3.37 | 712 B |
+| `pdfjs/bug_jpx.pdf` | 1 | open-render | 150 | 1.22 | 1.78 | 6.14 |  |
+| `pdfjs/bug_jpx.pdf` | 1 | document | 150 | 1.19 | 1.80 | 6.03 |  |
+| `pdfjs/calgray.pdf` | 1 | open |  | 0.01 | 0.23 | 0.15 |  |
+| `pdfjs/calgray.pdf` | 1 | text |  | 0.04 | 0.10 | 0.66 |  |
+| `pdfjs/calgray.pdf` | 1 | render | 72 | 0.68 | 1.09 | 2.29 | 46 KB |
+| `pdfjs/calgray.pdf` | 1 | open-render | 72 | 1.08 | 1.34 | 4.60 |  |
+| `pdfjs/calgray.pdf` | 1 | render | 150 | 2.41 | 4.33 | 7.07 | 46 KB |
+| `pdfjs/calgray.pdf` | 1 | open-render | 150 | 3.16 | 4.58 | 7.41 |  |
+| `pdfjs/calgray.pdf` | 1 | document | 150 | 8.06 | 13.3 | 20.2 |  |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | open |  | 0.01 | 0.07 | 0.25 |  |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | text |  | 0.00 | 0.02 | 0.17 |  |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | render | 72 | 0.80 | 1.17 | 1.95 | 2 KB |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | open-render | 72 | 0.90 | 1.29 | 4.42 |  |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | render | 150 | 3.65 | 4.62 | 4.47 | 2 KB |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | open-render | 150 | 3.75 | 4.71 | 7.52 |  |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | document | 150 | 3.75 | 4.72 | 7.61 |  |
 | `pdfjs/cmykjpeg.pdf` | 1 | open |  | 0.02 | 0.88 | 0.18 |  |
-| `pdfjs/cmykjpeg.pdf` | 1 | text |  | 0.00 | 0.02 | 0.22 |  |
-| `pdfjs/cmykjpeg.pdf` | 1 | render | 72 | 0.22 | 1.04 | 4.31 | 776 B |
-| `pdfjs/cmykjpeg.pdf` | 1 | open-render | 72 | 2.45 | 2.03 | 4.95 |  |
-| `pdfjs/cmykjpeg.pdf` | 1 | render | 150 | 1.11 | 2.57 | 5.39 | 776 B |
-| `pdfjs/cmykjpeg.pdf` | 1 | open-render | 150 | 3.32 | 3.53 | 6.10 |  |
-| `pdfjs/cmykjpeg.pdf` | 1 | document | 150 | 3.34 | 3.53 | 5.98 |  |
-| `pdfjs/devicen.pdf` | 1 | open |  | 0.02 | 0.15 | 0.22 |  |
-| `pdfjs/devicen.pdf` | 1 | text |  | 0.01 | 0.02 | 0.19 |  |
-| `pdfjs/devicen.pdf` | 1 | render | 72 | 0.14 | 0.37 | 1.10 | 1 KB |
-| `pdfjs/devicen.pdf` | 1 | open-render | 72 | 0.25 | 0.58 | 1.53 |  |
-| `pdfjs/devicen.pdf` | 1 | render | 150 | 0.73 | 1.45 | 2.22 | 1 KB |
-| `pdfjs/devicen.pdf` | 1 | open-render | 150 | 0.87 | 1.68 | 2.71 |  |
-| `pdfjs/devicen.pdf` | 1 | document | 150 | 0.86 | 1.67 | 2.88 |  |
-| `pdfjs/function_based_shading.pdf` | 1 | open |  | 0.01 | 0.14 | 0.13 |  |
+| `pdfjs/cmykjpeg.pdf` | 1 | text |  | 0.00 | 0.02 | 0.17 |  |
+| `pdfjs/cmykjpeg.pdf` | 1 | render | 72 | 0.18 | 1.06 | 4.37 | 840 B |
+| `pdfjs/cmykjpeg.pdf` | 1 | open-render | 72 | 2.26 | 2.03 | 4.74 |  |
+| `pdfjs/cmykjpeg.pdf` | 1 | render | 150 | 0.96 | 2.59 | 6.16 | 840 B |
+| `pdfjs/cmykjpeg.pdf` | 1 | open-render | 150 | 3.02 | 3.54 | 5.45 |  |
+| `pdfjs/cmykjpeg.pdf` | 1 | document | 150 | 3.01 | 3.53 | 5.26 |  |
+| `pdfjs/devicen.pdf` | 1 | open |  | 0.02 | 0.15 | 0.15 |  |
+| `pdfjs/devicen.pdf` | 1 | text |  | 0.01 | 0.03 | 0.17 |  |
+| `pdfjs/devicen.pdf` | 1 | render | 72 | 0.13 | 0.37 | 1.10 | 1 KB |
+| `pdfjs/devicen.pdf` | 1 | open-render | 72 | 0.25 | 0.59 | 1.57 |  |
+| `pdfjs/devicen.pdf` | 1 | render | 150 | 0.74 | 1.48 | 1.69 | 1 KB |
+| `pdfjs/devicen.pdf` | 1 | open-render | 150 | 0.88 | 1.71 | 2.01 |  |
+| `pdfjs/devicen.pdf` | 1 | document | 150 | 0.87 | 1.69 | 2.11 |  |
+| `pdfjs/function_based_shading.pdf` | 1 | open |  | 0.01 | 0.13 | 0.14 |  |
 | `pdfjs/function_based_shading.pdf` | 1 | text |  | 0.00 | 0.02 | 0.07 |  |
-| `pdfjs/function_based_shading.pdf` | 1 | render | 72 | 37.5 | 13.4 | 166 | 2.0 MB |
-| `pdfjs/function_based_shading.pdf` | 1 | open-render | 72 | 37.6 | 13.5 | 165 |  |
-| `pdfjs/function_based_shading.pdf` | 1 | render | 150 | 103 | 58.1 | 208 | 4.5 MB |
-| `pdfjs/function_based_shading.pdf` | 1 | open-render | 150 | 102 | 58.3 | 209 |  |
-| `pdfjs/function_based_shading.pdf` | 1 | document | 150 | 103 | 58.0 | 208 |  |
-| `pdfjs/issue2948.pdf` | 1 | open |  | 0.01 | 0.37 | 0.12 |  |
-| `pdfjs/issue2948.pdf` | 1 | text |  | 0.08 | 0.16 | 0.85 |  |
-| `pdfjs/issue2948.pdf` | 1 | render | 72 | 3.16 | 1.58 | 12.5 | 50 KB |
-| `pdfjs/issue2948.pdf` | 1 | open-render | 72 | 4.20 | 2.58 | 16.5 |  |
-| `pdfjs/issue2948.pdf` | 1 | render | 150 | 12.6 | 5.65 | 48.0 | 50 KB |
-| `pdfjs/issue2948.pdf` | 1 | open-render | 150 | 14.0 | 6.90 | 60.1 |  |
-| `pdfjs/issue2948.pdf` | 1 | document | 150 | 13.9 | 6.90 | 59.1 |  |
-| `pdfjs/issue3584.pdf` | 1 | open |  | 0.01 | 0.25 | 0.32 |  |
-| `pdfjs/issue3584.pdf` | 1 | text |  | 0.00 | 0.02 | 0.07 |  |
-| `pdfjs/issue3584.pdf` | 1 | render | 72 | 0.04 | 0.05 | 0.32 | 11 KB |
-| `pdfjs/issue3584.pdf` | 1 | open-render | 72 | 0.53 | 0.34 | 2.44 |  |
-| `pdfjs/issue3584.pdf` | 1 | render | 150 | 0.07 | 0.08 | 0.38 | 11 KB |
-| `pdfjs/issue3584.pdf` | 1 | open-render | 150 | 0.58 | 0.40 | 3.30 |  |
-| `pdfjs/issue3584.pdf` | 1 | document | 150 | 0.58 | 0.38 | 2.17 |  |
-| `pdfjs/issue6296.pdf` | 1 | open |  | 0.01 | 0.07 | 0.23 |  |
-| `pdfjs/issue6296.pdf` | 1 | text |  | 0.00 | 0.02 | 0.19 |  |
-| `pdfjs/issue6296.pdf` | 1 | render | 72 | 0.14 | 0.27 | 0.94 | 896 B |
-| `pdfjs/issue6296.pdf` | 1 | open-render | 72 | 0.16 | 0.34 | 0.85 |  |
-| `pdfjs/issue6296.pdf` | 1 | render | 150 | 0.43 | 1.03 | 0.56 | 896 B |
-| `pdfjs/issue6296.pdf` | 1 | open-render | 150 | 0.45 | 1.10 | 0.87 |  |
-| `pdfjs/issue6296.pdf` | 1 | document | 150 | 0.45 | 1.12 | 0.89 |  |
-| `pdfjs/jbig2_symbol_offset.pdf` | 1 | open |  | 0.01 | 0.04 | 0.12 |  |
+| `pdfjs/function_based_shading.pdf` | 1 | render | 72 | 34.5 | 13.4 | 159 | 2.0 MB |
+| `pdfjs/function_based_shading.pdf` | 1 | open-render | 72 | 34.6 | 13.6 | 164 |  |
+| `pdfjs/function_based_shading.pdf` | 1 | render | 150 | 91.8 | 57.7 | 202 | 4.5 MB |
+| `pdfjs/function_based_shading.pdf` | 1 | open-render | 150 | 91.6 | 58.0 | 203 |  |
+| `pdfjs/function_based_shading.pdf` | 1 | document | 150 | 91.9 | 58.0 | 206 |  |
+| `pdfjs/issue2948.pdf` | 1 | open |  | 0.01 | 0.37 | 0.29 |  |
+| `pdfjs/issue2948.pdf` | 1 | text |  | 0.07 | 0.17 | 1.29 |  |
+| `pdfjs/issue2948.pdf` | 1 | render | 72 | 2.82 | 1.61 | 13.5 | 50 KB |
+| `pdfjs/issue2948.pdf` | 1 | open-render | 72 | 3.82 | 2.62 | 15.4 |  |
+| `pdfjs/issue2948.pdf` | 1 | render | 150 | 11.1 | 5.72 | 46.6 | 50 KB |
+| `pdfjs/issue2948.pdf` | 1 | open-render | 150 | 12.4 | 6.99 | 55.0 |  |
+| `pdfjs/issue2948.pdf` | 1 | document | 150 | 12.4 | 6.98 | 59.8 |  |
+| `pdfjs/issue3584.pdf` | 1 | open |  | 0.01 | 0.25 | 0.14 |  |
+| `pdfjs/issue3584.pdf` | 1 | text |  | 0.00 | 0.02 | 0.11 |  |
+| `pdfjs/issue3584.pdf` | 1 | render | 72 | 0.04 | 0.05 | 0.30 | 11 KB |
+| `pdfjs/issue3584.pdf` | 1 | open-render | 72 | 0.30 | 0.34 | 2.21 |  |
+| `pdfjs/issue3584.pdf` | 1 | render | 150 | 0.08 | 0.08 | 0.35 | 11 KB |
+| `pdfjs/issue3584.pdf` | 1 | open-render | 150 | 0.36 | 0.39 | 2.07 |  |
+| `pdfjs/issue3584.pdf` | 1 | document | 150 | 0.35 | 0.40 | 2.00 |  |
+| `pdfjs/issue6296.pdf` | 1 | open |  | 0.01 | 0.07 | 0.11 |  |
+| `pdfjs/issue6296.pdf` | 1 | text |  | 0.00 | 0.02 | 0.09 |  |
+| `pdfjs/issue6296.pdf` | 1 | render | 72 | 0.14 | 0.26 | 0.54 | 960 B |
+| `pdfjs/issue6296.pdf` | 1 | open-render | 72 | 0.16 | 0.34 | 0.89 |  |
+| `pdfjs/issue6296.pdf` | 1 | render | 150 | 0.42 | 1.04 | 0.52 | 960 B |
+| `pdfjs/issue6296.pdf` | 1 | open-render | 150 | 0.45 | 1.11 | 0.85 |  |
+| `pdfjs/issue6296.pdf` | 1 | document | 150 | 0.45 | 1.11 | 0.88 |  |
+| `pdfjs/jbig2_symbol_offset.pdf` | 1 | open |  | 0.01 | 0.04 | 0.11 |  |
 | `pdfjs/jbig2_symbol_offset.pdf` | 1 | text |  | 0.00 | 0.01 | 0.05 |  |
-| `pdfjs/jbig2_symbol_offset.pdf` | 1 | render | 72 | 0.20 | 0.40 | 1.08 | 648 B |
-| `pdfjs/jbig2_symbol_offset.pdf` | 1 | open-render | 72 | 0.28 | 0.44 | 3.09 |  |
-| `pdfjs/jbig2_symbol_offset.pdf` | 1 | render | 150 | 1.05 | 1.59 | 2.24 | 648 B |
-| `pdfjs/jbig2_symbol_offset.pdf` | 1 | open-render | 150 | 1.16 | 1.64 | 4.05 |  |
-| `pdfjs/jbig2_symbol_offset.pdf` | 1 | document | 150 | 1.16 | 1.64 | 4.78 |  |
-| `pdfjs/personwithdog.pdf` | 1 | open |  | 0.02 | 1.54 | 0.25 |  |
-| `pdfjs/personwithdog.pdf` | 1 | text |  | 0.10 | 0.45 | 0.73 |  |
-| `pdfjs/personwithdog.pdf` | 1 | render | 72 | 43.3 | 66.3 | 23.7 | 18 KB |
-| `pdfjs/personwithdog.pdf` | 1 | open-render | 72 | 44.8 | 69.4 | 23.2 |  |
-| `pdfjs/personwithdog.pdf` | 1 | render | 150 | 106 | 100 | 34.9 | 18 KB |
-| `pdfjs/personwithdog.pdf` | 1 | open-render | 150 | 107 | 104 | 37.4 |  |
-| `pdfjs/personwithdog.pdf` | 1 | document | 150 | 107 | 105 | 37.4 |  |
-| `pdfjs/smask_alpha_oob.pdf` | 1 | open |  | 0.01 | 0.04 | 0.10 |  |
+| `pdfjs/jbig2_symbol_offset.pdf` | 1 | render | 72 | 0.17 | 0.41 | 1.26 | 712 B |
+| `pdfjs/jbig2_symbol_offset.pdf` | 1 | open-render | 72 | 0.25 | 0.45 | 3.03 |  |
+| `pdfjs/jbig2_symbol_offset.pdf` | 1 | render | 150 | 0.94 | 1.60 | 2.20 | 712 B |
+| `pdfjs/jbig2_symbol_offset.pdf` | 1 | open-render | 150 | 1.04 | 1.65 | 4.63 |  |
+| `pdfjs/jbig2_symbol_offset.pdf` | 1 | document | 150 | 1.04 | 1.65 | 3.69 |  |
+| `pdfjs/personwithdog.pdf` | 1 | open |  | 0.02 | 1.56 | 0.20 |  |
+| `pdfjs/personwithdog.pdf` | 1 | text |  | 0.10 | 0.45 | 0.68 |  |
+| `pdfjs/personwithdog.pdf` | 1 | render | 72 | 30.6 | 68.5 | 21.9 | 18 KB |
+| `pdfjs/personwithdog.pdf` | 1 | open-render | 72 | 31.6 | 72.5 | 22.6 |  |
+| `pdfjs/personwithdog.pdf` | 1 | render | 150 | 80.4 | 105 | 33.1 | 18 KB |
+| `pdfjs/personwithdog.pdf` | 1 | open-render | 150 | 81.7 | 109 | 35.9 |  |
+| `pdfjs/personwithdog.pdf` | 1 | document | 150 | 82.8 | 108 | 34.9 |  |
+| `pdfjs/smask_alpha_oob.pdf` | 1 | open |  | 0.01 | 0.04 | 0.11 |  |
 | `pdfjs/smask_alpha_oob.pdf` | 1 | text |  | 0.00 | 0.02 | 0.05 |  |
-| `pdfjs/smask_alpha_oob.pdf` | 1 | render | 72 | 0.13 | 0.80 | 2.52 | 2 KB |
-| `pdfjs/smask_alpha_oob.pdf` | 1 | open-render | 72 | 0.15 | 0.88 | 2.46 |  |
-| `pdfjs/smask_alpha_oob.pdf` | 1 | render | 150 | 0.64 | 3.28 | 6.22 | 2 KB |
-| `pdfjs/smask_alpha_oob.pdf` | 1 | open-render | 150 | 0.67 | 3.34 | 9.48 |  |
-| `pdfjs/smask_alpha_oob.pdf` | 1 | document | 150 | 0.67 | 3.35 | 9.93 |  |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | open |  | 0.01 | 0.04 | 0.21 |  |
+| `pdfjs/smask_alpha_oob.pdf` | 1 | render | 72 | 0.13 | 0.81 | 2.43 | 2 KB |
+| `pdfjs/smask_alpha_oob.pdf` | 1 | open-render | 72 | 0.15 | 0.87 | 2.51 |  |
+| `pdfjs/smask_alpha_oob.pdf` | 1 | render | 150 | 0.64 | 3.31 | 5.95 | 2 KB |
+| `pdfjs/smask_alpha_oob.pdf` | 1 | open-render | 150 | 0.68 | 3.39 | 6.43 |  |
+| `pdfjs/smask_alpha_oob.pdf` | 1 | document | 150 | 0.66 | 3.41 | 10.4 |  |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | open |  | 0.01 | 0.04 | 0.19 |  |
 | `pdfjs/tiling-pattern-large-steps.pdf` | 1 | text |  | 0.00 | 0.02 | 0.03 |  |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | render | 72 | 4.59 | 4.27 | 1.76 | 2 KB |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | open-render | 72 | 4.61 | 4.32 | 1.81 |  |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | render | 150 | 22.7 | 33.3 | 9.74 | 2 KB |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | open-render | 150 | 21.6 | 39.0 | 10.2 |  |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | document | 150 | 21.6 | 35.2 | 12.1 |  |
-| `pdfjs/tracemonkey.pdf` | 1 | open |  | 0.17 | 2.97 | 0.77 |  |
-| `pdfjs/tracemonkey.pdf` | 1 | text |  | 0.73 | 1.27 | 4.64 |  |
-| `pdfjs/tracemonkey.pdf` | 1 | render | 72 | 2.32 | 2.25 | 14.4 | 619 KB |
-| `pdfjs/tracemonkey.pdf` | 1 | open-render | 72 | 8.13 | 6.81 | 32.6 |  |
-| `pdfjs/tracemonkey.pdf` | 1 | render | 150 | 4.26 | 5.29 | 16.3 | 619 KB |
-| `pdfjs/tracemonkey.pdf` | 1 | open-render | 150 | 12.2 | 10.4 | 35.2 |  |
-| `pdfjs/tracemonkey.pdf` | 1 | document | 150 | 139 | 146 | 465 |  |
-| `pdfjs/tracemonkey.pdf` | 2 | open |  | 0.17 | 5.75 | 0.40 |  |
-| `pdfjs/tracemonkey.pdf` | 2 | text |  | 1.35 | 1.78 | 6.07 |  |
-| `pdfjs/tracemonkey.pdf` | 2 | render | 72 | 4.16 | 4.56 | 25.1 | 745 KB |
-| `pdfjs/tracemonkey.pdf` | 2 | open-render | 72 | 9.22 | 11.1 | 37.1 |  |
-| `pdfjs/tracemonkey.pdf` | 2 | render | 150 | 6.95 | 8.67 | 25.0 | 745 KB |
-| `pdfjs/tracemonkey.pdf` | 2 | open-render | 150 | 13.6 | 15.6 | 38.0 |  |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | render | 72 | 1.17 | 4.30 | 1.64 | 2 KB |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | open-render | 72 | 1.20 | 4.36 | 1.79 |  |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | render | 150 | 4.85 | 33.4 | 10.4 | 2 KB |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | open-render | 150 | 4.89 | 33.0 | 11.2 |  |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | document | 150 | 4.89 | 34.7 | 10.5 |  |
+| `pdfjs/tracemonkey.pdf` | 1 | open |  | 0.17 | 2.97 | 0.62 |  |
+| `pdfjs/tracemonkey.pdf` | 1 | text |  | 0.96 | 1.27 | 4.37 |  |
+| `pdfjs/tracemonkey.pdf` | 1 | render | 72 | 2.42 | 2.26 | 14.2 | 619 KB |
+| `pdfjs/tracemonkey.pdf` | 1 | open-render | 72 | 7.81 | 6.83 | 30.9 |  |
+| `pdfjs/tracemonkey.pdf` | 1 | render | 150 | 4.41 | 5.32 | 16.3 | 619 KB |
+| `pdfjs/tracemonkey.pdf` | 1 | open-render | 150 | 12.3 | 10.4 | 31.2 |  |
+| `pdfjs/tracemonkey.pdf` | 1 | document | 150 | 143 | 146 | 479 |  |
+| `pdfjs/tracemonkey.pdf` | 2 | open |  | 0.17 | 5.77 | 0.43 |  |
+| `pdfjs/tracemonkey.pdf` | 2 | text |  | 1.11 | 1.81 | 6.30 |  |
+| `pdfjs/tracemonkey.pdf` | 2 | render | 72 | 4.13 | 4.57 | 24.3 | 746 KB |
+| `pdfjs/tracemonkey.pdf` | 2 | open-render | 72 | 9.23 | 11.2 | 38.0 |  |
+| `pdfjs/tracemonkey.pdf` | 2 | render | 150 | 7.33 | 8.76 | 25.5 | 746 KB |
+| `pdfjs/tracemonkey.pdf` | 2 | open-render | 150 | 13.8 | 15.7 | 38.9 |  |
 
 </details>
 
@@ -290,7 +290,7 @@ Peak resident memory to open each file, render every page at 150 DPI and extract
 | | |
 |---|---|
 | Date | 2026-11-23 |
-| Commit | f6a16c0613 |
+| Commit | fa1884fd53 |
 | Machine | Apple M1 (Virtual), 3 logical cores, 7 GB |
 | OS | macOS 26.7.2 (arm64) |
 | .NET | 10.0.404 SDK, runtime 11.0.0 |
@@ -298,7 +298,7 @@ Peak resident memory to open each file, render every page at 150 DPI and extract
 | pdf.js | pdfjs-dist 6.3.289, @napi-rs/canvas 1.0.9, Node v22.23.5 |
 | Browser | chromium 157.0.8103.79 |
 | Settings | DPI 72,150; whole document at 150 DPI; 10 timed runs per case; one thread per engine |
-| Load average | 37.17 32.56 20.21 at the start, 4.80 9.00 12.62 at the end |
+| Load average | 22.56 26.53 17.16 at the start, 4.71 9.20 11.73 at the end |
 
 ### Summary
 
@@ -306,13 +306,13 @@ Geometric mean of the per-page ratios, and the slowest page relative to the othe
 
 | Operation | DPI | Pages | vs PDFium | slowest page | vs pdf.js | slowest page |
 |---|---:|---:|---:|---:|---:|---:|
-| Open |  | 21 | 0.06x | 0.2x | 0.10x | 0.8x |
-| Extract text |  | 21 | 0.28x | 2.5x | 0.05x | 0.6x |
-| Render | 72 | 21 | 0.85x | 14.7x | 0.18x | 2.8x |
-| Render | 150 | 21 | 0.93x | 15.9x | 0.30x | 1.9x |
-| First render | 72 | 21 | 0.93x | 4.3x | 0.21x | 1.8x |
-| First render | 150 | 21 | 1.04x | 7.4x | 0.31x | 1.6x |
-| Whole document | 150 | 20 | 0.92x | 7.6x | 0.27x | 1.9x |
+| Open |  | 21 | 0.06x | 0.4x | 0.13x | 0.6x |
+| Extract text |  | 21 | 0.28x | 2.5x | 0.06x | 0.6x |
+| Render | 72 | 21 | 0.72x | 2.6x | 0.20x | 1.3x |
+| Render | 150 | 21 | 0.81x | 2.9x | 0.33x | 1.7x |
+| First render | 72 | 21 | 0.85x | 2.1x | 0.21x | 1.2x |
+| First render | 150 | 21 | 0.89x | 2.3x | 0.33x | 2.1x |
+| Whole document | 150 | 20 | 0.85x | 2.1x | 0.30x | 2.0x |
 
 ### Targets
 
@@ -320,11 +320,11 @@ The targets proposed with the Phase 3 baseline (issue #140). A missed target blo
 
 | Target | Measured | Status |
 |---|---|---|
-| Render at 72 DPI: at most 1.0x PDFium on average, no page over 3x | 0.85x, slowest 14.7x | **missed** |
-| Render at 150 DPI: at most 1.0x PDFium on average, no page over 3x | 0.93x, slowest 15.9x | **missed** |
-| First render at 72 DPI: at most 1.25x PDFium on average, no page over 4x | 0.93x, slowest 4.3x | **missed** |
-| First render at 150 DPI: at most 1.25x PDFium on average, no page over 4x | 1.04x, slowest 7.4x | **missed** |
-| Never slower than pdf.js (Node) on any page and operation | 16 slower: ...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf render 72 (1.19x); ...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf render 72 (2.76x); pdfjs/personwithdog.pdf render 72 (1.72x); pdfjs/tiling-pattern-large-steps.pdf render 72 (1.86x); ...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf render 150 (1.43x); ...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf render 150 (1.1x); ... | **missed** |
+| Render at 72 DPI: at most 1.0x PDFium on average, no page over 3x | 0.72x, slowest 2.6x | met |
+| Render at 150 DPI: at most 1.0x PDFium on average, no page over 3x | 0.81x, slowest 2.9x | met |
+| First render at 72 DPI: at most 1.25x PDFium on average, no page over 4x | 0.85x, slowest 2.1x | met |
+| First render at 150 DPI: at most 1.25x PDFium on average, no page over 4x | 0.89x, slowest 2.3x | met |
+| Never slower than pdf.js (Node) on any page and operation | 7 slower: pdfjs/personwithdog.pdf render 72 (1.27x); pdfjs/alphatrans.pdf render 150 (1.11x); pdfjs/issue6296.pdf render 150 (1.05x); pdfjs/personwithdog.pdf render 150 (1.7x); pdfjs/personwithdog.pdf open-render 72 (1.17x); pdfjs/personwithdog.pdf open-render 150 (2.09x); ... | **missed** |
 | Open: under 0.25x PDFium on average | 0.06x | met |
 | Extract text: under 0.5x PDFium on average | 0.28x | met |
 | Render at 72 DPI allocates at most 1 MB per page | pdfjs/function_based_shading.pdf 2.0 MB | **missed** |
@@ -335,13 +335,13 @@ Broadside's WebAssembly build against pdf.js in the same Chromium. Ratios are Br
 
 | Operation | DPI | Pages | vs pdf.js | slowest page | fastest page |
 |---|---:|---:|---:|---:|---:|
-| Open |  | 21 | 0.21x | 0.8x | 0.05x |
-| Extract text |  | 21 | 0.18x | 1.1x | 0.03x |
-| Render | 72 | 21 | 0.17x | 2.6x | 0.02x |
-| Render | 150 | 21 | 0.28x | 3.5x | 0.03x |
-| First render | 72 | 21 | 0.31x | 2.3x | 0.02x |
-| First render | 150 | 21 | 0.40x | 3.4x | 0.05x |
-| Whole document | 150 | 20 | 0.37x | 4.9x | 0.04x |
+| Open |  | 21 | 0.27x | 1.3x | 0.10x |
+| Extract text |  | 21 | 0.22x | 1.3x | 0.04x |
+| Render | 72 | 21 | 0.15x | 2.4x | 0.02x |
+| Render | 150 | 21 | 0.27x | 3.4x | 0.03x |
+| First render | 72 | 21 | 0.27x | 1.6x | 0.03x |
+| First render | 150 | 21 | 0.38x | 3.7x | 0.03x |
+| Whole document | 150 | 20 | 0.34x | 4.8x | 0.04x |
 
 ### Peak memory
 
@@ -349,178 +349,178 @@ Peak resident memory to open each file, render every page at 150 DPI and extract
 
 | File | Broadside | PDFium | pdf.js |
 |---|---:|---:|---:|
-| *(engine loaded, nothing open: subtracted below)* | 57.0 MB | 29.8 MB | 95.0 MB |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 10.9 MB | 5.7 MB | 38.4 MB |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 107.6 MB | 47.2 MB | 282.9 MB |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 11.1 MB | 7.0 MB | 27.8 MB |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 9.7 MB | 6.1 MB | 29.0 MB |
-| `pdfjs/alphatrans.pdf` | 18.3 MB | 13.1 MB | 33.3 MB |
-| `pdfjs/annotation-highlight.pdf` | 14.0 MB | 10.2 MB | 30.6 MB |
-| `pdfjs/bug_jpx.pdf` | 13.8 MB | 6.8 MB | 31.3 MB |
-| `pdfjs/calgray.pdf` | 21.9 MB | 15.0 MB | 68.1 MB |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 11.3 MB | 6.9 MB | 25.0 MB |
-| `pdfjs/cmykjpeg.pdf` | 12.5 MB | 7.8 MB | 31.8 MB |
-| `pdfjs/devicen.pdf` | 11.0 MB | 6.5 MB | 24.5 MB |
-| `pdfjs/function_based_shading.pdf` | 18.3 MB | 7.0 MB | 75.2 MB |
-| `pdfjs/issue2948.pdf` | 21.4 MB | 13.1 MB | 74.1 MB |
-| `pdfjs/issue3584.pdf` | 4.5 MB | 2.1 MB | 19.6 MB |
-| `pdfjs/issue6296.pdf` | 2.9 MB | 1.2 MB | 16.5 MB |
-| `pdfjs/jbig2_symbol_offset.pdf` | 11.1 MB | 7.0 MB | 24.9 MB |
-| `pdfjs/personwithdog.pdf` | 32.3 MB | 9.6 MB | 53.4 MB |
-| `pdfjs/smask_alpha_oob.pdf` | 9.3 MB | 13.3 MB | 37.3 MB |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 72.1 MB | 62.8 MB | 42.5 MB |
-| `pdfjs/tracemonkey.pdf` | 71.6 MB | 29.1 MB | 179.4 MB |
+| *(engine loaded, nothing open: subtracted below)* | 57.8 MB | 30.8 MB | 94.9 MB |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 10.8 MB | 5.5 MB | 38.6 MB |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 107.0 MB | 50.0 MB | 267.8 MB |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 10.9 MB | 6.2 MB | 28.4 MB |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 9.5 MB | 5.5 MB | 28.8 MB |
+| `pdfjs/alphatrans.pdf` | 18.1 MB | 12.6 MB | 33.5 MB |
+| `pdfjs/annotation-highlight.pdf` | 14.0 MB | 9.9 MB | 31.1 MB |
+| `pdfjs/bug_jpx.pdf` | 13.8 MB | 6.4 MB | 31.4 MB |
+| `pdfjs/calgray.pdf` | 21.7 MB | 14.5 MB | 68.4 MB |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 11.0 MB | 6.1 MB | 25.5 MB |
+| `pdfjs/cmykjpeg.pdf` | 12.4 MB | 7.5 MB | 31.5 MB |
+| `pdfjs/devicen.pdf` | 11.3 MB | 6.2 MB | 25.0 MB |
+| `pdfjs/function_based_shading.pdf` | 17.6 MB | 7.3 MB | 74.6 MB |
+| `pdfjs/issue2948.pdf` | 21.0 MB | 13.6 MB | 74.8 MB |
+| `pdfjs/issue3584.pdf` | 4.3 MB | 2.2 MB | 19.7 MB |
+| `pdfjs/issue6296.pdf` | 2.8 MB | 0 B | 16.6 MB |
+| `pdfjs/jbig2_symbol_offset.pdf` | 11.0 MB | 6.7 MB | 25.2 MB |
+| `pdfjs/personwithdog.pdf` | 31.0 MB | 9.4 MB | 52.8 MB |
+| `pdfjs/smask_alpha_oob.pdf` | 9.1 MB | 14.0 MB | 36.0 MB |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 49.1 MB | 63.0 MB | 42.6 MB |
+| `pdfjs/tracemonkey.pdf` | 72.3 MB | 38.3 MB | 182.5 MB |
 
 <details><summary>Every page (median milliseconds)</summary>
 
 | File | Page | Operation | DPI | Broadside | PDFium | pdf.js | Broadside allocated |
 |---|---:|---|---:|---:|---:|---:|---:|
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | open |  | 0.34 | 3.87 | 1.85 |  |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | text |  | 2.36 | 1.28 | 4.05 |  |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | render | 72 | 18.3 | 1.24 | 15.3 | 142 KB |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | open-render | 72 | 20.9 | 4.82 | 17.6 |  |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | render | 150 | 36.1 | 2.27 | 25.2 | 142 KB |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | open-render | 150 | 45.6 | 6.16 | 28.3 |  |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | document | 150 | 41.1 | 5.40 | 21.2 |  |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | open |  | 0.50 | 17.2 | 0.62 |  |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | text |  | 8.08 | 3.29 | 20.1 |  |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | render | 72 | 432 | 29.4 | 156 | 562 KB |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | open-render | 72 | 202 | 48.8 | 267 |  |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | render | 150 | 165 | 46.9 | 149 | 562 KB |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | open-render | 150 | 158 | 53.6 | 247 |  |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | document | 150 | 555 | 206 | 1412 |  |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | open |  | 0.01 | 0.56 | 0.14 |  |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | text |  | 0.17 | 0.23 | 0.63 |  |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | render | 72 | 0.85 | 0.65 | 7.53 | 39 KB |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | open-render | 72 | 3.29 | 1.55 | 9.96 |  |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | render | 150 | 3.23 | 1.89 | 7.39 | 39 KB |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | open-render | 150 | 3.01 | 3.04 | 11.6 |  |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | document | 150 | 4.34 | 3.68 | 12.4 |  |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | open |  | 0.02 | 0.47 | 0.17 |  |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | text |  | 0.09 | 0.06 | 0.44 |  |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | render | 72 | 0.14 | 0.18 | 1.86 | 29 KB |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | open-render | 72 | 0.49 | 1.21 | 3.60 |  |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | render | 150 | 0.40 | 1.18 | 3.70 | 29 KB |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | open-render | 150 | 2.08 | 1.64 | 4.18 |  |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | document | 150 | 1.47 | 3.60 | 10.4 |  |
-| `pdfjs/alphatrans.pdf` | 1 | open |  | 0.06 | 1.28 | 0.19 |  |
-| `pdfjs/alphatrans.pdf` | 1 | text |  | 0.10 | 0.07 | 0.65 |  |
-| `pdfjs/alphatrans.pdf` | 1 | render | 72 | 1.82 | 2.02 | 10.0 | 36 KB |
-| `pdfjs/alphatrans.pdf` | 1 | open-render | 72 | 3.48 | 3.03 | 9.06 |  |
-| `pdfjs/alphatrans.pdf` | 1 | render | 150 | 9.21 | 6.76 | 5.53 | 36 KB |
-| `pdfjs/alphatrans.pdf` | 1 | open-render | 150 | 8.13 | 9.03 | 11.6 |  |
-| `pdfjs/alphatrans.pdf` | 1 | document | 150 | 7.88 | 11.1 | 13.7 |  |
-| `pdfjs/annotation-highlight.pdf` | 1 | open |  | 0.02 | 1.26 | 1.16 |  |
-| `pdfjs/annotation-highlight.pdf` | 1 | text |  | 0.01 | 0.44 | 0.97 |  |
-| `pdfjs/annotation-highlight.pdf` | 1 | render | 72 | 0.37 | 0.53 | 1.52 | 30 KB |
-| `pdfjs/annotation-highlight.pdf` | 1 | open-render | 72 | 1.08 | 2.07 | 6.00 |  |
-| `pdfjs/annotation-highlight.pdf` | 1 | render | 150 | 0.63 | 2.32 | 2.18 | 30 KB |
-| `pdfjs/annotation-highlight.pdf` | 1 | open-render | 150 | 2.78 | 3.77 | 10.4 |  |
-| `pdfjs/annotation-highlight.pdf` | 1 | document | 150 | 1.82 | 3.17 | 10.3 |  |
-| `pdfjs/bug_jpx.pdf` | 1 | open |  | 0.03 | 0.12 | 0.14 |  |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | open |  | 0.15 | 2.75 | 0.27 |  |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | text |  | 1.10 | 0.44 | 4.29 |  |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | render | 72 | 2.39 | 0.93 | 12.0 | 142 KB |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | open-render | 72 | 4.87 | 4.16 | 18.6 |  |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | render | 150 | 4.64 | 1.60 | 10.2 | 142 KB |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | open-render | 150 | 6.81 | 5.21 | 19.0 |  |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | document | 150 | 6.97 | 5.11 | 16.8 |  |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | open |  | 0.15 | 12.9 | 0.59 |  |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | text |  | 4.42 | 3.34 | 7.63 |  |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | render | 72 | 57.7 | 22.2 | 117 | 562 KB |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | open-render | 72 | 70.3 | 36.6 | 182 |  |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | render | 150 | 89.1 | 34.0 | 124 | 562 KB |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | open-render | 150 | 114 | 50.2 | 192 |  |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | document | 150 | 318 | 149 | 928 |  |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | open |  | 0.01 | 0.34 | 0.12 |  |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | text |  | 0.02 | 0.06 | 0.37 |  |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | render | 72 | 0.87 | 0.42 | 4.15 | 39 KB |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | open-render | 72 | 1.50 | 0.71 | 7.23 |  |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | render | 150 | 1.29 | 0.99 | 5.20 | 39 KB |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | open-render | 150 | 2.33 | 1.32 | 6.20 |  |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | document | 150 | 2.37 | 1.32 | 5.47 |  |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | open |  | 0.01 | 0.33 | 0.16 |  |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | text |  | 0.01 | 0.04 | 0.17 |  |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | render | 72 | 0.13 | 0.15 | 0.67 | 29 KB |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | open-render | 72 | 0.47 | 0.42 | 2.63 |  |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | render | 150 | 0.41 | 0.53 | 1.15 | 29 KB |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | open-render | 150 | 0.88 | 0.83 | 2.97 |  |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | document | 150 | 1.41 | 1.41 | 4.00 |  |
+| `pdfjs/alphatrans.pdf` | 1 | open |  | 0.02 | 0.46 | 0.12 |  |
+| `pdfjs/alphatrans.pdf` | 1 | text |  | 0.03 | 0.06 | 0.29 |  |
+| `pdfjs/alphatrans.pdf` | 1 | render | 72 | 1.62 | 1.30 | 3.57 | 36 KB |
+| `pdfjs/alphatrans.pdf` | 1 | open-render | 72 | 2.52 | 1.69 | 5.81 |  |
+| `pdfjs/alphatrans.pdf` | 1 | render | 150 | 4.45 | 4.47 | 4.01 | 36 KB |
+| `pdfjs/alphatrans.pdf` | 1 | open-render | 150 | 5.32 | 4.94 | 6.24 |  |
+| `pdfjs/alphatrans.pdf` | 1 | document | 150 | 5.36 | 5.03 | 6.45 |  |
+| `pdfjs/annotation-highlight.pdf` | 1 | open |  | 0.02 | 0.70 | 0.22 |  |
+| `pdfjs/annotation-highlight.pdf` | 1 | text |  | 0.01 | 0.21 | 0.26 |  |
+| `pdfjs/annotation-highlight.pdf` | 1 | render | 72 | 0.12 | 0.45 | 0.95 | 30 KB |
+| `pdfjs/annotation-highlight.pdf` | 1 | open-render | 72 | 1.06 | 1.53 | 5.09 |  |
+| `pdfjs/annotation-highlight.pdf` | 1 | render | 150 | 0.51 | 0.97 | 1.70 | 30 KB |
+| `pdfjs/annotation-highlight.pdf` | 1 | open-render | 150 | 1.41 | 2.04 | 6.71 |  |
+| `pdfjs/annotation-highlight.pdf` | 1 | document | 150 | 1.41 | 2.04 | 5.15 |  |
+| `pdfjs/bug_jpx.pdf` | 1 | open |  | 0.02 | 0.11 | 0.13 |  |
 | `pdfjs/bug_jpx.pdf` | 1 | text |  | 0.00 | 0.01 | 0.05 |  |
-| `pdfjs/bug_jpx.pdf` | 1 | render | 72 | 0.09 | 0.47 | 0.87 | 648 B |
-| `pdfjs/bug_jpx.pdf` | 1 | open-render | 72 | 0.93 | 0.51 | 8.36 |  |
-| `pdfjs/bug_jpx.pdf` | 1 | render | 150 | 0.42 | 1.24 | 5.98 | 648 B |
-| `pdfjs/bug_jpx.pdf` | 1 | open-render | 150 | 1.39 | 1.15 | 18.2 |  |
-| `pdfjs/bug_jpx.pdf` | 1 | document | 150 | 2.50 | 1.55 | 72.6 |  |
-| `pdfjs/calgray.pdf` | 1 | open |  | 0.02 | 0.41 | 0.87 |  |
-| `pdfjs/calgray.pdf` | 1 | text |  | 0.04 | 0.10 | 1.89 |  |
-| `pdfjs/calgray.pdf` | 1 | render | 72 | 0.57 | 1.28 | 7.62 | 46 KB |
-| `pdfjs/calgray.pdf` | 1 | open-render | 72 | 0.97 | 0.76 | 6.93 |  |
-| `pdfjs/calgray.pdf` | 1 | render | 150 | 3.85 | 2.18 | 15.8 | 46 KB |
-| `pdfjs/calgray.pdf` | 1 | open-render | 150 | 4.62 | 5.49 | 8.68 |  |
-| `pdfjs/calgray.pdf` | 1 | document | 150 | 13.4 | 13.6 | 19.9 |  |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | open |  | 0.01 | 0.07 | 0.12 |  |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | text |  | 0.00 | 0.02 | 0.11 |  |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | render | 72 | 0.57 | 1.90 | 5.36 | 2 KB |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | open-render | 72 | 0.80 | 0.89 | 7.73 |  |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | render | 150 | 2.67 | 4.93 | 2.77 | 2 KB |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | open-render | 150 | 5.35 | 9.00 | 21.4 |  |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | document | 150 | 2.89 | 9.76 | 67.8 |  |
-| `pdfjs/cmykjpeg.pdf` | 1 | open |  | 0.02 | 1.16 | 1.00 |  |
-| `pdfjs/cmykjpeg.pdf` | 1 | text |  | 0.00 | 0.01 | 0.27 |  |
-| `pdfjs/cmykjpeg.pdf` | 1 | render | 72 | 0.13 | 1.10 | 12.4 | 776 B |
-| `pdfjs/cmykjpeg.pdf` | 1 | open-render | 72 | 1.46 | 2.29 | 14.6 |  |
-| `pdfjs/cmykjpeg.pdf` | 1 | render | 150 | 1.27 | 2.91 | 6.43 | 776 B |
-| `pdfjs/cmykjpeg.pdf` | 1 | open-render | 150 | 3.53 | 4.54 | 9.64 |  |
-| `pdfjs/cmykjpeg.pdf` | 1 | document | 150 | 2.67 | 4.01 | 6.49 |  |
-| `pdfjs/devicen.pdf` | 1 | open |  | 0.02 | 0.17 | 0.13 |  |
-| `pdfjs/devicen.pdf` | 1 | text |  | 0.01 | 0.02 | 0.17 |  |
-| `pdfjs/devicen.pdf` | 1 | render | 72 | 0.23 | 0.20 | 2.29 | 1 KB |
-| `pdfjs/devicen.pdf` | 1 | open-render | 72 | 0.27 | 0.58 | 2.22 |  |
-| `pdfjs/devicen.pdf` | 1 | render | 150 | 0.54 | 0.89 | 4.05 | 1 KB |
-| `pdfjs/devicen.pdf` | 1 | open-render | 150 | 0.66 | 1.11 | 3.14 |  |
-| `pdfjs/devicen.pdf` | 1 | document | 150 | 0.59 | 2.56 | 1.85 |  |
-| `pdfjs/function_based_shading.pdf` | 1 | open |  | 0.01 | 0.12 | 0.12 |  |
-| `pdfjs/function_based_shading.pdf` | 1 | text |  | 0.01 | 0.07 | 0.09 |  |
-| `pdfjs/function_based_shading.pdf` | 1 | render | 72 | 120 | 35.7 | 246 | 2.0 MB |
-| `pdfjs/function_based_shading.pdf` | 1 | open-render | 72 | 65.4 | 27.7 | 257 |  |
-| `pdfjs/function_based_shading.pdf` | 1 | render | 150 | 180 | 110 | 326 | 4.5 MB |
-| `pdfjs/function_based_shading.pdf` | 1 | open-render | 150 | 145 | 103 | 306 |  |
-| `pdfjs/function_based_shading.pdf` | 1 | document | 150 | 120 | 105 | 296 |  |
-| `pdfjs/issue2948.pdf` | 1 | open |  | 0.01 | 0.36 | 0.17 |  |
-| `pdfjs/issue2948.pdf` | 1 | text |  | 0.24 | 0.18 | 2.52 |  |
-| `pdfjs/issue2948.pdf` | 1 | render | 72 | 4.14 | 2.37 | 22.2 | 50 KB |
-| `pdfjs/issue2948.pdf` | 1 | open-render | 72 | 5.02 | 2.61 | 43.9 |  |
-| `pdfjs/issue2948.pdf` | 1 | render | 150 | 17.5 | 5.59 | 97.1 | 50 KB |
-| `pdfjs/issue2948.pdf` | 1 | open-render | 150 | 21.4 | 7.85 | 124 |  |
-| `pdfjs/issue2948.pdf` | 1 | document | 150 | 23.3 | 6.92 | 106 |  |
+| `pdfjs/bug_jpx.pdf` | 1 | render | 72 | 0.08 | 0.36 | 0.43 | 712 B |
+| `pdfjs/bug_jpx.pdf` | 1 | open-render | 72 | 0.54 | 0.47 | 3.58 |  |
+| `pdfjs/bug_jpx.pdf` | 1 | render | 150 | 0.43 | 0.87 | 2.97 | 712 B |
+| `pdfjs/bug_jpx.pdf` | 1 | open-render | 150 | 0.96 | 1.00 | 10.2 |  |
+| `pdfjs/bug_jpx.pdf` | 1 | document | 150 | 0.95 | 1.02 | 12.5 |  |
+| `pdfjs/calgray.pdf` | 1 | open |  | 0.02 | 0.33 | 0.17 |  |
+| `pdfjs/calgray.pdf` | 1 | text |  | 0.04 | 0.10 | 0.43 |  |
+| `pdfjs/calgray.pdf` | 1 | render | 72 | 0.49 | 0.46 | 2.92 | 46 KB |
+| `pdfjs/calgray.pdf` | 1 | open-render | 72 | 0.77 | 0.91 | 3.98 |  |
+| `pdfjs/calgray.pdf` | 1 | render | 150 | 2.92 | 2.03 | 3.52 | 46 KB |
+| `pdfjs/calgray.pdf` | 1 | open-render | 150 | 3.92 | 2.22 | 6.00 |  |
+| `pdfjs/calgray.pdf` | 1 | document | 150 | 11.5 | 6.01 | 14.6 |  |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | open |  | 0.02 | 0.06 | 0.11 |  |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | text |  | 0.01 | 0.02 | 0.35 |  |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | render | 72 | 0.48 | 0.77 | 1.43 | 2 KB |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | open-render | 72 | 0.68 | 0.83 | 7.36 |  |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | render | 150 | 1.98 | 3.30 | 2.54 | 2 KB |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | open-render | 150 | 2.13 | 3.45 | 6.31 |  |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | document | 150 | 2.11 | 3.44 | 19.8 |  |
+| `pdfjs/cmykjpeg.pdf` | 1 | open |  | 0.02 | 1.05 | 0.15 |  |
+| `pdfjs/cmykjpeg.pdf` | 1 | text |  | 0.00 | 0.01 | 0.15 |  |
+| `pdfjs/cmykjpeg.pdf` | 1 | render | 72 | 0.12 | 0.84 | 4.47 | 840 B |
+| `pdfjs/cmykjpeg.pdf` | 1 | open-render | 72 | 1.35 | 1.95 | 4.73 |  |
+| `pdfjs/cmykjpeg.pdf` | 1 | render | 150 | 0.60 | 2.09 | 5.40 | 840 B |
+| `pdfjs/cmykjpeg.pdf` | 1 | open-render | 150 | 1.92 | 3.23 | 5.43 |  |
+| `pdfjs/cmykjpeg.pdf` | 1 | document | 150 | 1.90 | 3.05 | 5.54 |  |
+| `pdfjs/devicen.pdf` | 1 | open |  | 0.02 | 0.16 | 0.13 |  |
+| `pdfjs/devicen.pdf` | 1 | text |  | 0.01 | 0.02 | 0.21 |  |
+| `pdfjs/devicen.pdf` | 1 | render | 72 | 0.12 | 0.19 | 0.68 | 1 KB |
+| `pdfjs/devicen.pdf` | 1 | open-render | 72 | 0.20 | 0.38 | 2.08 |  |
+| `pdfjs/devicen.pdf` | 1 | render | 150 | 0.49 | 0.80 | 1.72 | 1 KB |
+| `pdfjs/devicen.pdf` | 1 | open-render | 150 | 0.65 | 0.98 | 3.74 |  |
+| `pdfjs/devicen.pdf` | 1 | document | 150 | 0.62 | 0.96 | 2.01 |  |
+| `pdfjs/function_based_shading.pdf` | 1 | open |  | 0.01 | 0.12 | 0.11 |  |
+| `pdfjs/function_based_shading.pdf` | 1 | text |  | 0.00 | 0.02 | 0.07 |  |
+| `pdfjs/function_based_shading.pdf` | 1 | render | 72 | 34.8 | 16.7 | 177 | 2.0 MB |
+| `pdfjs/function_based_shading.pdf` | 1 | open-render | 72 | 34.8 | 16.9 | 176 |  |
+| `pdfjs/function_based_shading.pdf` | 1 | render | 150 | 92.1 | 72.4 | 229 | 4.5 MB |
+| `pdfjs/function_based_shading.pdf` | 1 | open-render | 150 | 98.0 | 72.6 | 237 |  |
+| `pdfjs/function_based_shading.pdf` | 1 | document | 150 | 99.3 | 72.6 | 233 |  |
+| `pdfjs/issue2948.pdf` | 1 | open |  | 0.01 | 0.35 | 0.13 |  |
+| `pdfjs/issue2948.pdf` | 1 | text |  | 0.09 | 0.15 | 0.69 |  |
+| `pdfjs/issue2948.pdf` | 1 | render | 72 | 3.47 | 1.35 | 16.7 | 50 KB |
+| `pdfjs/issue2948.pdf` | 1 | open-render | 72 | 4.14 | 2.26 | 19.4 |  |
+| `pdfjs/issue2948.pdf` | 1 | render | 150 | 15.6 | 5.66 | 63.1 | 50 KB |
+| `pdfjs/issue2948.pdf` | 1 | open-render | 150 | 15.4 | 7.16 | 68.5 |  |
+| `pdfjs/issue2948.pdf` | 1 | document | 150 | 14.7 | 8.44 | 71.0 |  |
 | `pdfjs/issue3584.pdf` | 1 | open |  | 0.01 | 0.39 | 0.10 |  |
-| `pdfjs/issue3584.pdf` | 1 | text |  | 0.00 | 0.02 | 0.08 |  |
-| `pdfjs/issue3584.pdf` | 1 | render | 72 | 0.04 | 0.04 | 0.29 | 11 KB |
-| `pdfjs/issue3584.pdf` | 1 | open-render | 72 | 0.55 | 1.30 | 2.70 |  |
-| `pdfjs/issue3584.pdf` | 1 | render | 150 | 0.07 | 0.07 | 0.25 | 11 KB |
-| `pdfjs/issue3584.pdf` | 1 | open-render | 150 | 0.60 | 0.55 | 3.21 |  |
-| `pdfjs/issue3584.pdf` | 1 | document | 150 | 0.59 | 0.56 | 3.46 |  |
-| `pdfjs/issue6296.pdf` | 1 | open |  | 0.01 | 0.08 | 0.37 |  |
-| `pdfjs/issue6296.pdf` | 1 | text |  | 0.00 | 0.05 | 0.41 |  |
-| `pdfjs/issue6296.pdf` | 1 | render | 72 | 0.10 | 0.07 | 0.49 | 896 B |
-| `pdfjs/issue6296.pdf` | 1 | open-render | 72 | 0.13 | 0.14 | 0.73 |  |
-| `pdfjs/issue6296.pdf` | 1 | render | 150 | 0.33 | 0.24 | 1.04 | 896 B |
-| `pdfjs/issue6296.pdf` | 1 | open-render | 150 | 0.40 | 0.30 | 0.70 |  |
-| `pdfjs/issue6296.pdf` | 1 | document | 150 | 0.42 | 0.39 | 1.68 |  |
-| `pdfjs/jbig2_symbol_offset.pdf` | 1 | open |  | 0.01 | 0.04 | 0.10 |  |
-| `pdfjs/jbig2_symbol_offset.pdf` | 1 | text |  | 0.00 | 0.01 | 0.18 |  |
-| `pdfjs/jbig2_symbol_offset.pdf` | 1 | render | 72 | 0.12 | 0.55 | 1.93 | 648 B |
-| `pdfjs/jbig2_symbol_offset.pdf` | 1 | open-render | 72 | 0.19 | 0.22 | 9.95 |  |
-| `pdfjs/jbig2_symbol_offset.pdf` | 1 | render | 150 | 0.63 | 1.12 | 40.6 | 648 B |
-| `pdfjs/jbig2_symbol_offset.pdf` | 1 | open-render | 150 | 1.27 | 1.02 | 20.5 |  |
-| `pdfjs/jbig2_symbol_offset.pdf` | 1 | document | 150 | 1.26 | 0.95 | 11.8 |  |
-| `pdfjs/personwithdog.pdf` | 1 | open |  | 0.02 | 1.66 | 0.24 |  |
-| `pdfjs/personwithdog.pdf` | 1 | text |  | 0.17 | 0.51 | 1.05 |  |
-| `pdfjs/personwithdog.pdf` | 1 | render | 72 | 58.5 | 102 | 34.0 | 18 KB |
-| `pdfjs/personwithdog.pdf` | 1 | open-render | 72 | 56.4 | 94.2 | 31.1 |  |
-| `pdfjs/personwithdog.pdf` | 1 | render | 150 | 129 | 146 | 68.8 | 18 KB |
-| `pdfjs/personwithdog.pdf` | 1 | open-render | 150 | 124 | 196 | 83.4 |  |
-| `pdfjs/personwithdog.pdf` | 1 | document | 150 | 123 | 177 | 93.4 |  |
-| `pdfjs/smask_alpha_oob.pdf` | 1 | open |  | 0.01 | 0.03 | 0.10 |  |
-| `pdfjs/smask_alpha_oob.pdf` | 1 | text |  | 0.00 | 0.05 | 0.17 |  |
-| `pdfjs/smask_alpha_oob.pdf` | 1 | render | 72 | 0.11 | 0.75 | 6.93 | 2 KB |
-| `pdfjs/smask_alpha_oob.pdf` | 1 | open-render | 72 | 0.15 | 0.80 | 4.49 |  |
-| `pdfjs/smask_alpha_oob.pdf` | 1 | render | 150 | 0.73 | 5.57 | 22.7 | 2 KB |
-| `pdfjs/smask_alpha_oob.pdf` | 1 | open-render | 150 | 0.44 | 3.95 | 16.2 |  |
-| `pdfjs/smask_alpha_oob.pdf` | 1 | document | 150 | 0.50 | 3.61 | 19.4 |  |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | open |  | 0.01 | 0.03 | 0.30 |  |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | text |  | 0.00 | 0.01 | 0.06 |  |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | render | 72 | 3.99 | 4.74 | 2.15 | 2 KB |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | open-render | 72 | 3.54 | 7.30 | 2.71 |  |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | render | 150 | 20.2 | 33.2 | 26.4 | 2 KB |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | open-render | 150 | 25.2 | 29.9 | 76.1 |  |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | document | 150 | 29.7 | 27.4 | 19.2 |  |
-| `pdfjs/tracemonkey.pdf` | 1 | open |  | 0.54 | 7.49 | 1.12 |  |
-| `pdfjs/tracemonkey.pdf` | 1 | text |  | 1.05 | 1.28 | 6.09 |  |
-| `pdfjs/tracemonkey.pdf` | 1 | render | 72 | 3.23 | 2.17 | 18.9 | 619 KB |
-| `pdfjs/tracemonkey.pdf` | 1 | open-render | 72 | 11.5 | 12.2 | 55.8 |  |
-| `pdfjs/tracemonkey.pdf` | 1 | render | 150 | 6.34 | 8.95 | 23.8 | 619 KB |
-| `pdfjs/tracemonkey.pdf` | 1 | open-render | 150 | 17.6 | 15.9 | 36.2 |  |
-| `pdfjs/tracemonkey.pdf` | 1 | document | 150 | 214 | 208 | 626 |  |
-| `pdfjs/tracemonkey.pdf` | 2 | open |  | 0.23 | 7.46 | 0.34 |  |
-| `pdfjs/tracemonkey.pdf` | 2 | text |  | 1.08 | 1.76 | 10.2 |  |
-| `pdfjs/tracemonkey.pdf` | 2 | render | 72 | 4.83 | 11.5 | 37.7 | 745 KB |
-| `pdfjs/tracemonkey.pdf` | 2 | open-render | 72 | 10.9 | 22.1 | 38.6 |  |
-| `pdfjs/tracemonkey.pdf` | 2 | render | 150 | 11.4 | 12.9 | 42.3 | 745 KB |
-| `pdfjs/tracemonkey.pdf` | 2 | open-render | 150 | 18.8 | 18.7 | 67.3 |  |
+| `pdfjs/issue3584.pdf` | 1 | text |  | 0.00 | 0.02 | 0.06 |  |
+| `pdfjs/issue3584.pdf` | 1 | render | 72 | 0.04 | 0.04 | 0.22 | 11 KB |
+| `pdfjs/issue3584.pdf` | 1 | open-render | 72 | 0.47 | 0.50 | 1.94 |  |
+| `pdfjs/issue3584.pdf` | 1 | render | 150 | 0.07 | 0.06 | 0.19 | 11 KB |
+| `pdfjs/issue3584.pdf` | 1 | open-render | 150 | 0.50 | 0.50 | 1.90 |  |
+| `pdfjs/issue3584.pdf` | 1 | document | 150 | 0.49 | 0.49 | 1.92 |  |
+| `pdfjs/issue6296.pdf` | 1 | open |  | 0.01 | 0.07 | 0.09 |  |
+| `pdfjs/issue6296.pdf` | 1 | text |  | 0.00 | 0.01 | 0.12 |  |
+| `pdfjs/issue6296.pdf` | 1 | render | 72 | 0.10 | 0.08 | 0.40 | 960 B |
+| `pdfjs/issue6296.pdf` | 1 | open-render | 72 | 0.13 | 0.14 | 0.57 |  |
+| `pdfjs/issue6296.pdf` | 1 | render | 150 | 0.34 | 0.27 | 0.32 | 960 B |
+| `pdfjs/issue6296.pdf` | 1 | open-render | 150 | 0.35 | 0.36 | 0.57 |  |
+| `pdfjs/issue6296.pdf` | 1 | document | 150 | 0.35 | 0.33 | 0.53 |  |
+| `pdfjs/jbig2_symbol_offset.pdf` | 1 | open |  | 0.01 | 0.03 | 0.09 |  |
+| `pdfjs/jbig2_symbol_offset.pdf` | 1 | text |  | 0.00 | 0.01 | 0.05 |  |
+| `pdfjs/jbig2_symbol_offset.pdf` | 1 | render | 72 | 0.11 | 0.19 | 0.78 | 712 B |
+| `pdfjs/jbig2_symbol_offset.pdf` | 1 | open-render | 72 | 0.16 | 0.21 | 2.79 |  |
+| `pdfjs/jbig2_symbol_offset.pdf` | 1 | render | 150 | 0.52 | 0.97 | 5.63 | 712 B |
+| `pdfjs/jbig2_symbol_offset.pdf` | 1 | open-render | 150 | 1.24 | 1.03 | 10.9 |  |
+| `pdfjs/jbig2_symbol_offset.pdf` | 1 | document | 150 | 0.59 | 1.06 | 9.05 |  |
+| `pdfjs/personwithdog.pdf` | 1 | open |  | 0.02 | 1.63 | 0.29 |  |
+| `pdfjs/personwithdog.pdf` | 1 | text |  | 0.13 | 0.45 | 2.45 |  |
+| `pdfjs/personwithdog.pdf` | 1 | render | 72 | 31.5 | 99.4 | 24.8 | 18 KB |
+| `pdfjs/personwithdog.pdf` | 1 | open-render | 72 | 33.3 | 82.7 | 28.5 |  |
+| `pdfjs/personwithdog.pdf` | 1 | render | 150 | 78.0 | 118 | 45.9 | 18 KB |
+| `pdfjs/personwithdog.pdf` | 1 | open-render | 150 | 82.1 | 117 | 39.2 |  |
+| `pdfjs/personwithdog.pdf` | 1 | document | 150 | 79.8 | 119 | 38.9 |  |
+| `pdfjs/smask_alpha_oob.pdf` | 1 | open |  | 0.01 | 0.03 | 0.09 |  |
+| `pdfjs/smask_alpha_oob.pdf` | 1 | text |  | 0.00 | 0.01 | 0.05 |  |
+| `pdfjs/smask_alpha_oob.pdf` | 1 | render | 72 | 0.11 | 0.80 | 1.97 | 2 KB |
+| `pdfjs/smask_alpha_oob.pdf` | 1 | open-render | 72 | 0.12 | 0.86 | 2.86 |  |
+| `pdfjs/smask_alpha_oob.pdf` | 1 | render | 150 | 0.40 | 3.64 | 4.60 | 2 KB |
+| `pdfjs/smask_alpha_oob.pdf` | 1 | open-render | 150 | 0.41 | 3.77 | 7.19 |  |
+| `pdfjs/smask_alpha_oob.pdf` | 1 | document | 150 | 0.43 | 4.11 | 12.0 |  |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | open |  | 0.01 | 0.03 | 0.11 |  |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | text |  | 0.00 | 0.01 | 0.04 |  |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | render | 72 | 0.68 | 4.71 | 1.86 | 2 KB |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | open-render | 72 | 0.71 | 4.89 | 2.04 |  |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | render | 150 | 4.00 | 19.9 | 45.9 | 2 KB |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | open-render | 150 | 4.14 | 21.2 | 11.6 |  |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | document | 150 | 4.33 | 21.4 | 8.62 |  |
+| `pdfjs/tracemonkey.pdf` | 1 | open |  | 0.20 | 4.16 | 0.47 |  |
+| `pdfjs/tracemonkey.pdf` | 1 | text |  | 0.81 | 1.57 | 4.31 |  |
+| `pdfjs/tracemonkey.pdf` | 1 | render | 72 | 2.56 | 2.20 | 15.7 | 619 KB |
+| `pdfjs/tracemonkey.pdf` | 1 | open-render | 72 | 9.64 | 8.03 | 28.3 |  |
+| `pdfjs/tracemonkey.pdf` | 1 | render | 150 | 5.27 | 5.05 | 16.1 | 619 KB |
+| `pdfjs/tracemonkey.pdf` | 1 | open-render | 150 | 12.5 | 11.1 | 28.4 |  |
+| `pdfjs/tracemonkey.pdf` | 1 | document | 150 | 151 | 144 | 441 |  |
+| `pdfjs/tracemonkey.pdf` | 2 | open |  | 0.20 | 6.01 | 0.31 |  |
+| `pdfjs/tracemonkey.pdf` | 2 | text |  | 0.96 | 1.75 | 5.28 |  |
+| `pdfjs/tracemonkey.pdf` | 2 | render | 72 | 3.94 | 4.54 | 25.3 | 746 KB |
+| `pdfjs/tracemonkey.pdf` | 2 | open-render | 72 | 8.95 | 11.6 | 36.8 |  |
+| `pdfjs/tracemonkey.pdf` | 2 | render | 150 | 7.30 | 7.88 | 33.5 | 746 KB |
+| `pdfjs/tracemonkey.pdf` | 2 | open-render | 150 | 13.7 | 15.6 | 35.9 |  |
 
 </details>
 
@@ -529,7 +529,7 @@ Peak resident memory to open each file, render every page at 150 DPI and extract
 | | |
 |---|---|
 | Date | 2026-11-23 |
-| Commit | 2337b20f2f |
+| Commit | 35e08385b0 |
 | Machine | Apple M4 Max, 16 logical cores, 64 GB |
 | OS | macOS 27.2.1 (arm64) |
 | .NET | 10.0.402 SDK, runtime 10.0.13 |
@@ -537,7 +537,7 @@ Peak resident memory to open each file, render every page at 150 DPI and extract
 | pdf.js | pdfjs-dist 6.3.289, @napi-rs/canvas 1.0.9, Node v22.22.3 |
 | Browser | chromium 145.0.7632.6 |
 | Settings | DPI 72,150; whole document at 150 DPI; 10 timed runs per case; one thread per engine |
-| Load average | 10.20 12.12 12.77 at the start, 85.48 103.81 58.04 at the end |
+| Load average | 40.59 18.44 12.81 at the start, 12.49 14.90 12.76 at the end |
 
 ### Summary
 
@@ -545,13 +545,13 @@ Geometric mean of the per-page ratios, and the slowest page relative to the othe
 
 | Operation | DPI | Pages | vs PDFium | slowest page | vs pdf.js | slowest page |
 |---|---:|---:|---:|---:|---:|---:|
-| Open |  | 21 | 0.06x | 0.3x | 0.15x | 0.7x |
-| Extract text |  | 21 | 0.23x | 0.8x | 0.06x | 0.3x |
-| Render | 72 | 21 | 0.82x | 2.4x | 0.25x | 3.5x |
-| Render | 150 | 21 | 1.04x | 2.7x | 0.48x | 2.7x |
-| First render | 72 | 21 | 1.00x | 2.2x | 0.28x | 3.8x |
-| First render | 150 | 21 | 1.09x | 2.5x | 0.44x | 2.9x |
-| Whole document | 150 | 20 | 1.07x | 2.4x | 0.45x | 2.4x |
+| Open |  | 21 | 0.05x | 0.2x | 0.14x | 0.7x |
+| Extract text |  | 21 | 0.23x | 0.6x | 0.06x | 0.3x |
+| Render | 72 | 21 | 0.76x | 2.6x | 0.25x | 1.4x |
+| Render | 150 | 21 | 0.97x | 3.0x | 0.40x | 2.1x |
+| First render | 72 | 21 | 0.85x | 2.0x | 0.25x | 1.4x |
+| First render | 150 | 21 | 0.96x | 2.5x | 0.38x | 2.1x |
+| Whole document | 150 | 20 | 0.95x | 2.3x | 0.39x | 2.0x |
 
 ### Targets
 
@@ -559,12 +559,12 @@ The targets proposed with the Phase 3 baseline (issue #140). A missed target blo
 
 | Target | Measured | Status |
 |---|---|---|
-| Render at 72 DPI: at most 1.0x PDFium on average, no page over 3x | 0.82x, slowest 2.4x | met |
-| Render at 150 DPI: at most 1.0x PDFium on average, no page over 3x | 1.04x, slowest 2.7x | **missed** |
-| First render at 72 DPI: at most 1.25x PDFium on average, no page over 4x | 1.00x, slowest 2.2x | met |
-| First render at 150 DPI: at most 1.25x PDFium on average, no page over 4x | 1.09x, slowest 2.5x | met |
-| Never slower than pdf.js (Node) on any page and operation | 12 slower: pdfjs/personwithdog.pdf render 72 (1.45x); pdfjs/tiling-pattern-large-steps.pdf render 72 (3.49x); pdfjs/alphatrans.pdf render 150 (1.03x); pdfjs/issue6296.pdf render 150 (1.19x); pdfjs/personwithdog.pdf render 150 (2.13x); pdfjs/tiling-pattern-large-steps.pdf render 150 (2.72x); ... | **missed** |
-| Open: under 0.25x PDFium on average | 0.06x | met |
+| Render at 72 DPI: at most 1.0x PDFium on average, no page over 3x | 0.76x, slowest 2.6x | met |
+| Render at 150 DPI: at most 1.0x PDFium on average, no page over 3x | 0.97x, slowest 3.0x | **missed** |
+| First render at 72 DPI: at most 1.25x PDFium on average, no page over 4x | 0.85x, slowest 2.0x | met |
+| First render at 150 DPI: at most 1.25x PDFium on average, no page over 4x | 0.96x, slowest 2.5x | met |
+| Never slower than pdf.js (Node) on any page and operation | 8 slower: pdfjs/personwithdog.pdf render 72 (1.37x); pdfjs/alphatrans.pdf render 150 (1.97x); pdfjs/ccitt_EndOfBlock_false.pdf render 150 (1.08x); pdfjs/issue6296.pdf render 150 (1.21x); pdfjs/personwithdog.pdf render 150 (2.13x); pdfjs/personwithdog.pdf open-render 72 (1.37x); ... | **missed** |
+| Open: under 0.25x PDFium on average | 0.05x | met |
 | Extract text: under 0.5x PDFium on average | 0.23x | met |
 | Render at 72 DPI allocates at most 1 MB per page | pdfjs/function_based_shading.pdf 2.0 MB | **missed** |
 
@@ -574,13 +574,13 @@ Broadside's WebAssembly build against pdf.js in the same Chromium. Ratios are Br
 
 | Operation | DPI | Pages | vs pdf.js | slowest page | fastest page |
 |---|---:|---:|---:|---:|---:|
-| Open |  | 21 | 0.34x | 1.4x | 0.16x |
-| Extract text |  | 21 | 0.27x | 1.1x | 0.06x |
-| Render | 72 | 21 | 0.48x | 5.3x | 0.06x |
-| Render | 150 | 21 | 0.87x | 6.1x | 0.12x |
-| First render | 72 | 21 | 0.60x | 4.0x | 0.09x |
-| First render | 150 | 21 | 0.96x | 10.7x | 0.11x |
-| Whole document | 150 | 20 | 0.93x | 10.0x | 0.12x |
+| Open |  | 21 | 0.33x | 1.4x | 0.19x |
+| Extract text |  | 21 | 0.26x | 1.1x | 0.05x |
+| Render | 72 | 21 | 0.42x | 3.2x | 0.04x |
+| Render | 150 | 21 | 0.76x | 5.0x | 0.08x |
+| First render | 72 | 21 | 0.51x | 3.1x | 0.07x |
+| First render | 150 | 21 | 0.79x | 4.9x | 0.09x |
+| Whole document | 150 | 20 | 0.79x | 4.8x | 0.10x |
 
 ### Peak memory
 
@@ -588,178 +588,178 @@ Peak resident memory to open each file, render every page at 150 DPI and extract
 
 | File | Broadside | PDFium | pdf.js |
 |---|---:|---:|---:|
-| *(engine loaded, nothing open: subtracted below)* | 59.0 MB | 27.0 MB | 164.6 MB |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 10.7 MB | 7.4 MB | 41.0 MB |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 107.5 MB | 41.0 MB | 289.1 MB |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 11.0 MB | 7.8 MB | 28.8 MB |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 9.7 MB | 7.4 MB | 29.0 MB |
-| `pdfjs/alphatrans.pdf` | 18.3 MB | 13.4 MB | 34.0 MB |
-| `pdfjs/annotation-highlight.pdf` | 14.3 MB | 11.8 MB | 31.7 MB |
-| `pdfjs/bug_jpx.pdf` | 14.0 MB | 7.4 MB | 31.6 MB |
-| `pdfjs/calgray.pdf` | 21.7 MB | 16.3 MB | 69.4 MB |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 11.3 MB | 7.2 MB | 25.0 MB |
-| `pdfjs/cmykjpeg.pdf` | 12.4 MB | 8.9 MB | 31.5 MB |
-| `pdfjs/devicen.pdf` | 11.6 MB | 7.5 MB | 25.4 MB |
-| `pdfjs/function_based_shading.pdf` | 17.8 MB | 7.3 MB | 77.2 MB |
-| `pdfjs/issue2948.pdf` | 21.2 MB | 14.7 MB | 74.5 MB |
-| `pdfjs/issue3584.pdf` | 4.7 MB | 3.4 MB | 20.3 MB |
-| `pdfjs/issue6296.pdf` | 3.3 MB | 992 KB | 18.5 MB |
-| `pdfjs/jbig2_symbol_offset.pdf` | 11.4 MB | 7.4 MB | 25.4 MB |
-| `pdfjs/personwithdog.pdf` | 31.6 MB | 10.8 MB | 54.2 MB |
-| `pdfjs/smask_alpha_oob.pdf` | 9.2 MB | 14.4 MB | 36.7 MB |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 72.1 MB | 63.5 MB | 43.1 MB |
-| `pdfjs/tracemonkey.pdf` | 71.6 MB | 24.9 MB | 174.6 MB |
+| *(engine loaded, nothing open: subtracted below)* | 59.2 MB | 27.0 MB | 164.7 MB |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 10.4 MB | 7.3 MB | 40.2 MB |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 108.0 MB | 39.2 MB | 289.1 MB |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 10.7 MB | 7.7 MB | 27.3 MB |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 9.6 MB | 7.5 MB | 28.5 MB |
+| `pdfjs/alphatrans.pdf` | 17.9 MB | 12.5 MB | 33.0 MB |
+| `pdfjs/annotation-highlight.pdf` | 14.0 MB | 11.4 MB | 30.8 MB |
+| `pdfjs/bug_jpx.pdf` | 13.8 MB | 7.4 MB | 31.2 MB |
+| `pdfjs/calgray.pdf` | 21.6 MB | 16.6 MB | 68.6 MB |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 11.0 MB | 7.0 MB | 25.0 MB |
+| `pdfjs/cmykjpeg.pdf` | 12.2 MB | 8.8 MB | 30.9 MB |
+| `pdfjs/devicen.pdf` | 11.5 MB | 7.2 MB | 24.5 MB |
+| `pdfjs/function_based_shading.pdf` | 17.5 MB | 7.5 MB | 75.8 MB |
+| `pdfjs/issue2948.pdf` | 21.0 MB | 14.6 MB | 74.2 MB |
+| `pdfjs/issue3584.pdf` | 4.0 MB | 3.1 MB | 19.6 MB |
+| `pdfjs/issue6296.pdf` | 2.7 MB | 1.0 MB | 17.3 MB |
+| `pdfjs/jbig2_symbol_offset.pdf` | 10.8 MB | 7.1 MB | 25.8 MB |
+| `pdfjs/personwithdog.pdf` | 31.0 MB | 10.6 MB | 53.0 MB |
+| `pdfjs/smask_alpha_oob.pdf` | 9.2 MB | 14.3 MB | 35.4 MB |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 49.2 MB | 63.3 MB | 42.1 MB |
+| `pdfjs/tracemonkey.pdf` | 71.5 MB | 22.5 MB | 179.5 MB |
 
 <details><summary>Every page (median milliseconds)</summary>
 
 | File | Page | Operation | DPI | Broadside | PDFium | pdf.js | Broadside allocated |
 |---|---:|---|---:|---:|---:|---:|---:|
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | open |  | 0.16 | 2.06 | 0.21 |  |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | text |  | 0.24 | 0.33 | 2.54 |  |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | render | 72 | 1.19 | 0.62 | 7.12 | 142 KB |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | open-render | 72 | 2.07 | 2.67 | 9.23 |  |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | render | 150 | 2.50 | 1.02 | 6.57 | 142 KB |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | open-render | 150 | 3.65 | 3.31 | 9.27 |  |
-| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | document | 150 | 3.70 | 2.96 | 8.93 |  |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | open |  | 0.10 | 9.09 | 0.37 |  |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | text |  | 1.23 | 2.16 | 4.60 |  |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | render | 72 | 33.3 | 13.7 | 70.3 | 562 KB |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | open-render | 72 | 45.2 | 23.4 | 108 |  |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | render | 150 | 56.1 | 20.7 | 75.4 | 562 KB |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | open-render | 150 | 68.2 | 30.5 | 116 |  |
-| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | document | 150 | 203 | 94.7 | 501 |  |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | open |  | 0.01 | 0.34 | 0.07 |  |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | text |  | 0.02 | 0.04 | 0.20 |  |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | render | 72 | 0.52 | 0.28 | 2.15 | 39 KB |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | open-render | 72 | 0.97 | 0.45 | 3.71 |  |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | render | 150 | 0.84 | 0.60 | 2.15 | 39 KB |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | open-render | 150 | 1.46 | 0.72 | 3.06 |  |
-| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | document | 150 | 1.32 | 0.72 | 3.02 |  |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | open |  | 0.01 | 0.32 | 0.09 |  |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | open |  | 0.06 | 1.90 | 0.43 |  |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | text |  | 0.18 | 0.30 | 2.31 |  |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | render | 72 | 1.12 | 0.60 | 6.13 | 142 KB |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | open-render | 72 | 1.99 | 2.47 | 8.40 |  |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | render | 150 | 2.45 | 0.94 | 6.05 | 142 KB |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | open-render | 150 | 3.73 | 2.99 | 8.44 |  |
+| `...hes/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf` | 1 | document | 150 | 4.07 | 2.99 | 8.81 |  |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | open |  | 0.10 | 8.47 | 0.27 |  |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | text |  | 1.25 | 2.11 | 4.62 |  |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | render | 72 | 32.1 | 13.5 | 67.8 | 562 KB |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | open-render | 72 | 43.8 | 23.2 | 103 |  |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | render | 150 | 56.7 | 19.8 | 73.9 | 562 KB |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | open-render | 150 | 68.9 | 29.1 | 108 |  |
+| `...s/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf` | 1 | document | 150 | 208 | 90.1 | 492 |  |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | open |  | 0.01 | 0.34 | 0.08 |  |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | text |  | 0.02 | 0.05 | 0.17 |  |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | render | 72 | 0.54 | 0.27 | 1.78 | 39 KB |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | open-render | 72 | 0.80 | 0.42 | 3.32 |  |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | render | 150 | 0.76 | 0.56 | 2.36 | 39 KB |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | open-render | 150 | 1.20 | 0.73 | 3.32 |  |
+| `pdf20examples/PDF 2.0 image with BPC.pdf` | 1 | document | 150 | 1.01 | 0.72 | 3.40 |  |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | open |  | 0.01 | 0.25 | 0.10 |  |
 | `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | text |  | 0.01 | 0.03 | 0.11 |  |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | render | 72 | 0.09 | 0.10 | 0.37 | 29 KB |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | open-render | 72 | 0.37 | 0.26 | 1.91 |  |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | render | 150 | 0.28 | 0.28 | 0.71 | 29 KB |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | open-render | 150 | 0.47 | 0.43 | 2.05 |  |
-| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | document | 150 | 0.79 | 0.73 | 2.61 |  |
-| `pdfjs/alphatrans.pdf` | 1 | open |  | 0.01 | 0.39 | 0.12 |  |
-| `pdfjs/alphatrans.pdf` | 1 | text |  | 0.02 | 0.05 | 0.26 |  |
-| `pdfjs/alphatrans.pdf` | 1 | render | 72 | 1.00 | 0.73 | 1.78 | 36 KB |
-| `pdfjs/alphatrans.pdf` | 1 | open-render | 72 | 1.55 | 0.92 | 3.19 |  |
-| `pdfjs/alphatrans.pdf` | 1 | render | 150 | 2.64 | 2.34 | 2.58 | 36 KB |
-| `pdfjs/alphatrans.pdf` | 1 | open-render | 150 | 2.93 | 2.51 | 3.76 |  |
-| `pdfjs/alphatrans.pdf` | 1 | document | 150 | 3.22 | 2.57 | 3.62 |  |
-| `pdfjs/annotation-highlight.pdf` | 1 | open |  | 0.02 | 0.41 | 0.14 |  |
-| `pdfjs/annotation-highlight.pdf` | 1 | text |  | 0.01 | 0.11 | 0.13 |  |
-| `pdfjs/annotation-highlight.pdf` | 1 | render | 72 | 0.07 | 0.26 | 0.49 | 30 KB |
-| `pdfjs/annotation-highlight.pdf` | 1 | open-render | 72 | 0.59 | 0.82 | 2.11 |  |
-| `pdfjs/annotation-highlight.pdf` | 1 | render | 150 | 0.34 | 0.39 | 0.53 | 30 KB |
-| `pdfjs/annotation-highlight.pdf` | 1 | open-render | 150 | 0.85 | 1.00 | 2.48 |  |
-| `pdfjs/annotation-highlight.pdf` | 1 | document | 150 | 0.83 | 0.96 | 2.10 |  |
-| `pdfjs/bug_jpx.pdf` | 1 | open |  | 0.01 | 0.08 | 0.08 |  |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | render | 72 | 0.08 | 0.11 | 0.36 | 29 KB |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | open-render | 72 | 0.26 | 0.25 | 1.41 |  |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | render | 150 | 0.26 | 0.27 | 0.51 | 29 KB |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | open-render | 150 | 0.47 | 0.41 | 1.94 |  |
+| `pdf20examples/PDF 2.0 with page level output intent.pdf` | 1 | document | 150 | 0.72 | 0.69 | 2.36 |  |
+| `pdfjs/alphatrans.pdf` | 1 | open |  | 0.01 | 0.31 | 0.08 |  |
+| `pdfjs/alphatrans.pdf` | 1 | text |  | 0.02 | 0.05 | 0.28 |  |
+| `pdfjs/alphatrans.pdf` | 1 | render | 72 | 1.01 | 0.76 | 1.93 | 36 KB |
+| `pdfjs/alphatrans.pdf` | 1 | open-render | 72 | 1.30 | 0.90 | 3.19 |  |
+| `pdfjs/alphatrans.pdf` | 1 | render | 150 | 3.76 | 2.26 | 1.91 | 36 KB |
+| `pdfjs/alphatrans.pdf` | 1 | open-render | 150 | 2.97 | 2.43 | 3.05 |  |
+| `pdfjs/alphatrans.pdf` | 1 | document | 150 | 2.83 | 2.40 | 2.91 |  |
+| `pdfjs/annotation-highlight.pdf` | 1 | open |  | 0.02 | 0.39 | 0.15 |  |
+| `pdfjs/annotation-highlight.pdf` | 1 | text |  | 0.01 | 0.11 | 0.14 |  |
+| `pdfjs/annotation-highlight.pdf` | 1 | render | 72 | 0.07 | 0.25 | 0.38 | 30 KB |
+| `pdfjs/annotation-highlight.pdf` | 1 | open-render | 72 | 0.48 | 0.77 | 2.26 |  |
+| `pdfjs/annotation-highlight.pdf` | 1 | render | 150 | 0.31 | 0.38 | 0.70 | 30 KB |
+| `pdfjs/annotation-highlight.pdf` | 1 | open-render | 150 | 0.76 | 0.87 | 2.45 |  |
+| `pdfjs/annotation-highlight.pdf` | 1 | document | 150 | 0.72 | 0.88 | 2.25 |  |
+| `pdfjs/bug_jpx.pdf` | 1 | open |  | 0.01 | 0.08 | 0.09 |  |
 | `pdfjs/bug_jpx.pdf` | 1 | text |  | 0.00 | 0.01 | 0.03 |  |
-| `pdfjs/bug_jpx.pdf` | 1 | render | 72 | 0.05 | 0.19 | 0.17 | 712 B |
-| `pdfjs/bug_jpx.pdf` | 1 | open-render | 72 | 0.34 | 0.26 | 1.55 |  |
-| `pdfjs/bug_jpx.pdf` | 1 | render | 150 | 0.28 | 0.36 | 0.67 | 712 B |
-| `pdfjs/bug_jpx.pdf` | 1 | open-render | 150 | 0.52 | 0.43 | 1.94 |  |
-| `pdfjs/bug_jpx.pdf` | 1 | document | 150 | 0.51 | 0.42 | 2.06 |  |
-| `pdfjs/calgray.pdf` | 1 | open |  | 0.01 | 0.27 | 0.08 |  |
-| `pdfjs/calgray.pdf` | 1 | text |  | 0.03 | 0.07 | 0.22 |  |
-| `pdfjs/calgray.pdf` | 1 | render | 72 | 0.34 | 0.23 | 1.01 | 46 KB |
-| `pdfjs/calgray.pdf` | 1 | open-render | 72 | 0.51 | 0.36 | 2.68 |  |
-| `pdfjs/calgray.pdf` | 1 | render | 150 | 1.18 | 0.72 | 2.49 | 46 KB |
-| `pdfjs/calgray.pdf` | 1 | open-render | 150 | 1.75 | 0.91 | 3.80 |  |
-| `pdfjs/calgray.pdf` | 1 | document | 150 | 4.91 | 2.43 | 6.90 |  |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | open |  | 0.01 | 0.05 | 0.08 |  |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | text |  | 0.00 | 0.01 | 0.08 |  |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | render | 72 | 0.32 | 0.51 | 0.71 | 2 KB |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | open-render | 72 | 0.48 | 0.52 | 2.61 |  |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | render | 150 | 1.48 | 1.77 | 1.56 | 2 KB |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | open-render | 150 | 1.58 | 1.82 | 2.82 |  |
-| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | document | 150 | 1.57 | 1.78 | 2.88 |  |
-| `pdfjs/cmykjpeg.pdf` | 1 | open |  | 0.01 | 0.65 | 0.08 |  |
-| `pdfjs/cmykjpeg.pdf` | 1 | text |  | 0.00 | 0.01 | 0.09 |  |
-| `pdfjs/cmykjpeg.pdf` | 1 | render | 72 | 0.07 | 0.46 | 4.11 | 840 B |
-| `pdfjs/cmykjpeg.pdf` | 1 | open-render | 72 | 0.85 | 1.14 | 3.21 |  |
-| `pdfjs/cmykjpeg.pdf` | 1 | render | 150 | 0.38 | 0.93 | 3.16 | 840 B |
-| `pdfjs/cmykjpeg.pdf` | 1 | open-render | 150 | 1.21 | 1.57 | 3.44 |  |
-| `pdfjs/cmykjpeg.pdf` | 1 | document | 150 | 1.08 | 1.60 | 3.15 |  |
-| `pdfjs/devicen.pdf` | 1 | open |  | 0.01 | 0.12 | 0.08 |  |
-| `pdfjs/devicen.pdf` | 1 | text |  | 0.01 | 0.02 | 0.11 |  |
-| `pdfjs/devicen.pdf` | 1 | render | 72 | 0.07 | 0.10 | 0.46 | 1 KB |
-| `pdfjs/devicen.pdf` | 1 | open-render | 72 | 0.12 | 0.20 | 0.56 |  |
-| `pdfjs/devicen.pdf` | 1 | render | 150 | 0.32 | 0.31 | 0.74 | 1 KB |
-| `pdfjs/devicen.pdf` | 1 | open-render | 150 | 0.38 | 0.43 | 0.84 |  |
-| `pdfjs/devicen.pdf` | 1 | document | 150 | 0.36 | 0.43 | 0.79 |  |
-| `pdfjs/function_based_shading.pdf` | 1 | open |  | 0.01 | 0.09 | 0.07 |  |
+| `pdfjs/bug_jpx.pdf` | 1 | render | 72 | 0.04 | 0.18 | 0.19 | 712 B |
+| `pdfjs/bug_jpx.pdf` | 1 | open-render | 72 | 0.31 | 0.25 | 1.19 |  |
+| `pdfjs/bug_jpx.pdf` | 1 | render | 150 | 0.23 | 0.34 | 0.67 | 712 B |
+| `pdfjs/bug_jpx.pdf` | 1 | open-render | 150 | 0.51 | 0.41 | 1.96 |  |
+| `pdfjs/bug_jpx.pdf` | 1 | document | 150 | 0.49 | 0.43 | 1.75 |  |
+| `pdfjs/calgray.pdf` | 1 | open |  | 0.01 | 0.28 | 0.08 |  |
+| `pdfjs/calgray.pdf` | 1 | text |  | 0.03 | 0.07 | 0.21 |  |
+| `pdfjs/calgray.pdf` | 1 | render | 72 | 0.32 | 0.22 | 1.02 | 46 KB |
+| `pdfjs/calgray.pdf` | 1 | open-render | 72 | 0.45 | 0.35 | 2.11 |  |
+| `pdfjs/calgray.pdf` | 1 | render | 150 | 1.22 | 0.70 | 1.81 | 46 KB |
+| `pdfjs/calgray.pdf` | 1 | open-render | 150 | 1.44 | 0.85 | 2.40 |  |
+| `pdfjs/calgray.pdf` | 1 | document | 150 | 4.15 | 2.25 | 6.10 |  |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | open |  | 0.01 | 0.05 | 0.07 |  |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | text |  | 0.00 | 0.01 | 0.07 |  |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | render | 72 | 0.29 | 0.47 | 0.57 | 2 KB |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | open-render | 72 | 0.44 | 0.51 | 1.58 |  |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | render | 150 | 1.24 | 1.72 | 1.16 | 2 KB |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | open-render | 150 | 1.41 | 1.82 | 2.60 |  |
+| `pdfjs/ccitt_EndOfBlock_false.pdf` | 1 | document | 150 | 1.43 | 1.78 | 2.53 |  |
+| `pdfjs/cmykjpeg.pdf` | 1 | open |  | 0.01 | 0.63 | 0.08 |  |
+| `pdfjs/cmykjpeg.pdf` | 1 | text |  | 0.00 | 0.01 | 0.06 |  |
+| `pdfjs/cmykjpeg.pdf` | 1 | render | 72 | 0.07 | 0.45 | 2.95 | 840 B |
+| `pdfjs/cmykjpeg.pdf` | 1 | open-render | 72 | 0.83 | 1.10 | 2.49 |  |
+| `pdfjs/cmykjpeg.pdf` | 1 | render | 150 | 0.36 | 0.91 | 2.63 | 840 B |
+| `pdfjs/cmykjpeg.pdf` | 1 | open-render | 150 | 1.16 | 1.51 | 2.76 |  |
+| `pdfjs/cmykjpeg.pdf` | 1 | document | 150 | 1.15 | 1.50 | 2.86 |  |
+| `pdfjs/devicen.pdf` | 1 | open |  | 0.01 | 0.11 | 0.09 |  |
+| `pdfjs/devicen.pdf` | 1 | text |  | 0.00 | 0.02 | 0.12 |  |
+| `pdfjs/devicen.pdf` | 1 | render | 72 | 0.07 | 0.10 | 0.31 | 1 KB |
+| `pdfjs/devicen.pdf` | 1 | open-render | 72 | 0.13 | 0.21 | 0.47 |  |
+| `pdfjs/devicen.pdf` | 1 | render | 150 | 0.32 | 0.31 | 0.66 | 1 KB |
+| `pdfjs/devicen.pdf` | 1 | open-render | 150 | 0.37 | 0.41 | 0.59 |  |
+| `pdfjs/devicen.pdf` | 1 | document | 150 | 0.38 | 0.41 | 0.63 |  |
+| `pdfjs/function_based_shading.pdf` | 1 | open |  | 0.01 | 0.08 | 0.07 |  |
 | `pdfjs/function_based_shading.pdf` | 1 | text |  | 0.00 | 0.01 | 0.04 |  |
-| `pdfjs/function_based_shading.pdf` | 1 | render | 72 | 20.3 | 11.0 | 104 | 2.0 MB |
-| `pdfjs/function_based_shading.pdf` | 1 | open-render | 72 | 20.6 | 11.0 | 106 |  |
-| `pdfjs/function_based_shading.pdf` | 1 | render | 150 | 55.1 | 46.7 | 134 | 4.5 MB |
-| `pdfjs/function_based_shading.pdf` | 1 | open-render | 150 | 55.2 | 46.2 | 136 |  |
-| `pdfjs/function_based_shading.pdf` | 1 | document | 150 | 56.1 | 47.0 | 134 |  |
-| `pdfjs/issue2948.pdf` | 1 | open |  | 0.01 | 0.28 | 0.06 |  |
-| `pdfjs/issue2948.pdf` | 1 | text |  | 0.06 | 0.11 | 0.53 |  |
-| `pdfjs/issue2948.pdf` | 1 | render | 72 | 2.05 | 0.96 | 10.4 | 50 KB |
-| `pdfjs/issue2948.pdf` | 1 | open-render | 72 | 2.66 | 1.50 | 12.4 |  |
-| `pdfjs/issue2948.pdf` | 1 | render | 150 | 8.24 | 3.04 | 38.7 | 50 KB |
-| `pdfjs/issue2948.pdf` | 1 | open-render | 150 | 9.23 | 3.74 | 42.0 |  |
-| `pdfjs/issue2948.pdf` | 1 | document | 150 | 9.27 | 3.81 | 41.2 |  |
+| `pdfjs/function_based_shading.pdf` | 1 | render | 72 | 20.3 | 11.2 | 100 | 2.0 MB |
+| `pdfjs/function_based_shading.pdf` | 1 | open-render | 72 | 20.2 | 10.7 | 103 |  |
+| `pdfjs/function_based_shading.pdf` | 1 | render | 150 | 54.0 | 46.7 | 135 | 4.5 MB |
+| `pdfjs/function_based_shading.pdf` | 1 | open-render | 150 | 55.4 | 46.8 | 131 |  |
+| `pdfjs/function_based_shading.pdf` | 1 | document | 150 | 54.6 | 46.0 | 128 |  |
+| `pdfjs/issue2948.pdf` | 1 | open |  | 0.01 | 0.23 | 0.07 |  |
+| `pdfjs/issue2948.pdf` | 1 | text |  | 0.06 | 0.11 | 0.45 |  |
+| `pdfjs/issue2948.pdf` | 1 | render | 72 | 2.05 | 0.78 | 10.4 | 50 KB |
+| `pdfjs/issue2948.pdf` | 1 | open-render | 72 | 2.35 | 1.16 | 12.4 |  |
+| `pdfjs/issue2948.pdf` | 1 | render | 150 | 8.32 | 2.76 | 38.9 | 50 KB |
+| `pdfjs/issue2948.pdf` | 1 | open-render | 150 | 9.19 | 3.64 | 41.4 |  |
+| `pdfjs/issue2948.pdf` | 1 | document | 150 | 9.08 | 3.87 | 41.9 |  |
 | `pdfjs/issue3584.pdf` | 1 | open |  | 0.01 | 0.28 | 0.06 |  |
 | `pdfjs/issue3584.pdf` | 1 | text |  | 0.00 | 0.01 | 0.04 |  |
 | `pdfjs/issue3584.pdf` | 1 | render | 72 | 0.03 | 0.03 | 0.10 | 11 KB |
-| `pdfjs/issue3584.pdf` | 1 | open-render | 72 | 0.45 | 0.33 | 1.33 |  |
-| `pdfjs/issue3584.pdf` | 1 | render | 150 | 0.05 | 0.04 | 0.12 | 11 KB |
-| `pdfjs/issue3584.pdf` | 1 | open-render | 150 | 0.48 | 0.33 | 1.13 |  |
-| `pdfjs/issue3584.pdf` | 1 | document | 150 | 0.41 | 0.36 | 0.99 |  |
-| `pdfjs/issue6296.pdf` | 1 | open |  | 0.01 | 0.04 | 0.07 |  |
-| `pdfjs/issue6296.pdf` | 1 | text |  | 0.00 | 0.01 | 0.06 |  |
-| `pdfjs/issue6296.pdf` | 1 | render | 72 | 0.07 | 0.05 | 0.21 | 960 B |
-| `pdfjs/issue6296.pdf` | 1 | open-render | 72 | 0.08 | 0.10 | 0.26 |  |
-| `pdfjs/issue6296.pdf` | 1 | render | 150 | 0.19 | 0.14 | 0.16 | 960 B |
-| `pdfjs/issue6296.pdf` | 1 | open-render | 150 | 0.20 | 0.19 | 0.26 |  |
-| `pdfjs/issue6296.pdf` | 1 | document | 150 | 0.21 | 0.19 | 0.32 |  |
-| `pdfjs/jbig2_symbol_offset.pdf` | 1 | open |  | 0.01 | 0.02 | 0.06 |  |
+| `pdfjs/issue3584.pdf` | 1 | open-render | 72 | 0.22 | 0.32 | 1.50 |  |
+| `pdfjs/issue3584.pdf` | 1 | render | 150 | 0.05 | 0.04 | 0.20 | 11 KB |
+| `pdfjs/issue3584.pdf` | 1 | open-render | 150 | 0.24 | 0.33 | 1.39 |  |
+| `pdfjs/issue3584.pdf` | 1 | document | 150 | 0.24 | 0.33 | 1.29 |  |
+| `pdfjs/issue6296.pdf` | 1 | open |  | 0.01 | 0.05 | 0.08 |  |
+| `pdfjs/issue6296.pdf` | 1 | text |  | 0.00 | 0.01 | 0.11 |  |
+| `pdfjs/issue6296.pdf` | 1 | render | 72 | 0.07 | 0.05 | 0.17 | 960 B |
+| `pdfjs/issue6296.pdf` | 1 | open-render | 72 | 0.08 | 0.10 | 0.49 |  |
+| `pdfjs/issue6296.pdf` | 1 | render | 150 | 0.21 | 0.14 | 0.18 | 960 B |
+| `pdfjs/issue6296.pdf` | 1 | open-render | 150 | 0.22 | 0.19 | 0.43 |  |
+| `pdfjs/issue6296.pdf` | 1 | document | 150 | 0.22 | 0.19 | 0.46 |  |
+| `pdfjs/jbig2_symbol_offset.pdf` | 1 | open |  | 0.01 | 0.02 | 0.07 |  |
 | `pdfjs/jbig2_symbol_offset.pdf` | 1 | text |  | 0.00 | 0.01 | 0.03 |  |
-| `pdfjs/jbig2_symbol_offset.pdf` | 1 | render | 72 | 0.07 | 0.12 | 0.44 | 712 B |
-| `pdfjs/jbig2_symbol_offset.pdf` | 1 | open-render | 72 | 0.09 | 0.13 | 1.47 |  |
-| `pdfjs/jbig2_symbol_offset.pdf` | 1 | render | 150 | 0.34 | 0.37 | 0.86 | 712 B |
-| `pdfjs/jbig2_symbol_offset.pdf` | 1 | open-render | 150 | 0.39 | 0.39 | 2.28 |  |
-| `pdfjs/jbig2_symbol_offset.pdf` | 1 | document | 150 | 0.41 | 0.38 | 1.99 |  |
-| `pdfjs/personwithdog.pdf` | 1 | open |  | 0.02 | 0.99 | 0.09 |  |
-| `pdfjs/personwithdog.pdf` | 1 | text |  | 0.09 | 0.30 | 0.53 |  |
-| `pdfjs/personwithdog.pdf` | 1 | render | 72 | 21.8 | 50.9 | 15.0 | 18 KB |
-| `pdfjs/personwithdog.pdf` | 1 | open-render | 72 | 22.5 | 51.2 | 15.6 |  |
-| `pdfjs/personwithdog.pdf` | 1 | render | 150 | 53.4 | 74.1 | 25.1 | 18 KB |
-| `pdfjs/personwithdog.pdf` | 1 | open-render | 150 | 55.6 | 74.5 | 26.1 |  |
-| `pdfjs/personwithdog.pdf` | 1 | document | 150 | 54.9 | 74.6 | 26.3 |  |
+| `pdfjs/jbig2_symbol_offset.pdf` | 1 | render | 72 | 0.06 | 0.12 | 0.41 | 712 B |
+| `pdfjs/jbig2_symbol_offset.pdf` | 1 | open-render | 72 | 0.09 | 0.13 | 1.80 |  |
+| `pdfjs/jbig2_symbol_offset.pdf` | 1 | render | 150 | 0.35 | 0.37 | 2.79 | 712 B |
+| `pdfjs/jbig2_symbol_offset.pdf` | 1 | open-render | 150 | 0.37 | 0.39 | 4.93 |  |
+| `pdfjs/jbig2_symbol_offset.pdf` | 1 | document | 150 | 0.38 | 0.39 | 2.30 |  |
+| `pdfjs/personwithdog.pdf` | 1 | open |  | 0.02 | 0.98 | 0.09 |  |
+| `pdfjs/personwithdog.pdf` | 1 | text |  | 0.09 | 0.30 | 0.44 |  |
+| `pdfjs/personwithdog.pdf` | 1 | render | 72 | 20.9 | 48.2 | 15.2 | 18 KB |
+| `pdfjs/personwithdog.pdf` | 1 | open-render | 72 | 21.4 | 49.0 | 15.6 |  |
+| `pdfjs/personwithdog.pdf` | 1 | render | 150 | 51.2 | 74.5 | 24.0 | 18 KB |
+| `pdfjs/personwithdog.pdf` | 1 | open-render | 150 | 51.6 | 72.8 | 25.2 |  |
+| `pdfjs/personwithdog.pdf` | 1 | document | 150 | 52.2 | 74.4 | 25.7 |  |
 | `pdfjs/smask_alpha_oob.pdf` | 1 | open |  | 0.00 | 0.02 | 0.06 |  |
 | `pdfjs/smask_alpha_oob.pdf` | 1 | text |  | 0.00 | 0.01 | 0.03 |  |
-| `pdfjs/smask_alpha_oob.pdf` | 1 | render | 72 | 0.07 | 0.39 | 0.75 | 2 KB |
-| `pdfjs/smask_alpha_oob.pdf` | 1 | open-render | 72 | 0.08 | 0.39 | 1.26 |  |
-| `pdfjs/smask_alpha_oob.pdf` | 1 | render | 150 | 0.28 | 1.48 | 2.59 | 2 KB |
-| `pdfjs/smask_alpha_oob.pdf` | 1 | open-render | 150 | 0.30 | 1.50 | 2.82 |  |
-| `pdfjs/smask_alpha_oob.pdf` | 1 | document | 150 | 0.27 | 1.53 | 3.03 |  |
+| `pdfjs/smask_alpha_oob.pdf` | 1 | render | 72 | 0.07 | 0.37 | 0.78 | 2 KB |
+| `pdfjs/smask_alpha_oob.pdf` | 1 | open-render | 72 | 0.08 | 0.39 | 0.98 |  |
+| `pdfjs/smask_alpha_oob.pdf` | 1 | render | 150 | 0.26 | 1.49 | 2.14 | 2 KB |
+| `pdfjs/smask_alpha_oob.pdf` | 1 | open-render | 150 | 0.28 | 1.51 | 2.42 |  |
+| `pdfjs/smask_alpha_oob.pdf` | 1 | document | 150 | 0.32 | 1.52 | 2.40 |  |
 | `pdfjs/tiling-pattern-large-steps.pdf` | 1 | open |  | 0.01 | 0.02 | 0.06 |  |
 | `pdfjs/tiling-pattern-large-steps.pdf` | 1 | text |  | 0.00 | 0.01 | 0.02 |  |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | render | 72 | 2.24 | 2.38 | 0.64 | 2 KB |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | open-render | 72 | 2.53 | 2.16 | 0.67 |  |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | render | 150 | 11.4 | 9.96 | 4.17 | 2 KB |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | open-render | 150 | 11.2 | 10.5 | 3.89 |  |
-| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | document | 150 | 10.9 | 10.7 | 4.63 |  |
-| `pdfjs/tracemonkey.pdf` | 1 | open |  | 0.14 | 2.62 | 0.36 |  |
-| `pdfjs/tracemonkey.pdf` | 1 | text |  | 0.43 | 0.79 | 2.59 |  |
-| `pdfjs/tracemonkey.pdf` | 1 | render | 72 | 1.51 | 1.22 | 9.94 | 619 KB |
-| `pdfjs/tracemonkey.pdf` | 1 | open-render | 72 | 5.24 | 5.12 | 18.7 |  |
-| `pdfjs/tracemonkey.pdf` | 1 | render | 150 | 2.85 | 2.78 | 10.6 | 619 KB |
-| `pdfjs/tracemonkey.pdf` | 1 | open-render | 150 | 8.14 | 7.18 | 19.9 |  |
-| `pdfjs/tracemonkey.pdf` | 1 | document | 150 | 98.0 | 86.9 | 281 |  |
-| `pdfjs/tracemonkey.pdf` | 2 | open |  | 0.16 | 3.57 | 0.27 |  |
-| `pdfjs/tracemonkey.pdf` | 2 | text |  | 0.62 | 1.14 | 3.55 |  |
-| `pdfjs/tracemonkey.pdf` | 2 | render | 72 | 2.42 | 2.58 | 16.2 | 746 KB |
-| `pdfjs/tracemonkey.pdf` | 2 | open-render | 72 | 6.01 | 7.60 | 24.0 |  |
-| `pdfjs/tracemonkey.pdf` | 2 | render | 150 | 4.38 | 5.31 | 16.4 | 746 KB |
-| `pdfjs/tracemonkey.pdf` | 2 | open-render | 150 | 9.10 | 9.93 | 23.9 |  |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | render | 72 | 0.44 | 2.36 | 0.54 | 2 KB |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | open-render | 72 | 0.45 | 2.51 | 0.68 |  |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | render | 150 | 1.81 | 10.2 | 17.1 | 2 KB |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | open-render | 150 | 1.70 | 9.04 | 4.79 |  |
+| `pdfjs/tiling-pattern-large-steps.pdf` | 1 | document | 150 | 1.69 | 10.3 | 4.50 |  |
+| `pdfjs/tracemonkey.pdf` | 1 | open |  | 0.14 | 2.59 | 0.21 |  |
+| `pdfjs/tracemonkey.pdf` | 1 | text |  | 0.40 | 0.79 | 2.42 |  |
+| `pdfjs/tracemonkey.pdf` | 1 | render | 72 | 1.57 | 1.23 | 9.39 | 619 KB |
+| `pdfjs/tracemonkey.pdf` | 1 | open-render | 72 | 4.94 | 4.85 | 15.6 |  |
+| `pdfjs/tracemonkey.pdf` | 1 | render | 150 | 2.74 | 2.85 | 9.30 | 619 KB |
+| `pdfjs/tracemonkey.pdf` | 1 | open-render | 150 | 8.01 | 7.07 | 15.8 |  |
+| `pdfjs/tracemonkey.pdf` | 1 | document | 150 | 104 | 94.6 | 269 |  |
+| `pdfjs/tracemonkey.pdf` | 2 | open |  | 0.17 | 3.56 | 0.23 |  |
+| `pdfjs/tracemonkey.pdf` | 2 | text |  | 0.64 | 1.08 | 3.55 |  |
+| `pdfjs/tracemonkey.pdf` | 2 | render | 72 | 2.50 | 2.74 | 16.2 | 746 KB |
+| `pdfjs/tracemonkey.pdf` | 2 | open-render | 72 | 5.81 | 7.66 | 22.9 |  |
+| `pdfjs/tracemonkey.pdf` | 2 | render | 150 | 4.17 | 4.70 | 15.3 | 746 KB |
+| `pdfjs/tracemonkey.pdf` | 2 | open-render | 150 | 8.41 | 9.63 | 22.5 |  |
 
 </details>
 

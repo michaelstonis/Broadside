@@ -85,23 +85,33 @@ public sealed partial class SoftwareRasterizer
                 return;
             }
 
-            int layerLength = area.Width * area.Height;
-            Pooled.Ensure(ref _tileLayer, layerLength);
-            Span<uint> layer = _tileLayer.AsSpan(0, layerLength);
             if (_probe.Inspect(pattern.Cell).Blends)
             {
+                Span<uint> blendLayer = TileLayer(area);
                 // §11.6.7: the cell is a non-isolated group, so its blend modes see the backdrop; only a cell in the Normal mode alone
                 // may be rendered once on a clear surface (NOTE 1).
-                PaintNonIsolatedTiles(pattern.Cell, layout, area, layer);
+                PaintNonIsolatedTiles(pattern.Cell, layout, area, blendLayer);
                 Bitmap ground = _target!;
-                var blended = new TilingPainter(ground.Pixels, ground.Stride, layer, area.Left, area.Top, area.Width, area.Height, compositor);
+                var blended = new TilingPainter(ground.Pixels, ground.Stride, blendLayer, area.Left, area.Top, area.Width, area.Height, compositor);
                 _scan.Paint(rule, ref blended);
                 return;
             }
 
             Bitmap cellBitmap = RenderCell(pattern.Cell, layout.CellMatrix, cell);
-            layer.Clear();
             ReadOnlySpan<uint> cellPixels = MemoryMarshal.Cast<byte, uint>(cellBitmap.Pixels[..(cell.Width * cell.Height * 4)]);
+            if (!_previewing && layout.TryGetOnlyTile(area, out long tileX, out long tileY))
+            {
+                // One tile meets the area (a cell as large as the page, or steps larger than it): laid over a clear layer it is the
+                // cell itself, moved by the tile's offset, and the painter reads nothing outside it, so the cell is painted directly
+                // without clearing and filling the layer. The pixels are the same.
+                Bitmap ground = _target!;
+                var direct = new TilingPainter(ground.Pixels, ground.Stride, cellPixels, (int)(cell.Left + tileX), (int)(cell.Top + tileY), cell.Width, cell.Height, compositor);
+                _scan.Paint(rule, ref direct);
+                return;
+            }
+
+            Span<uint> layer = TileLayer(area);
+            layer.Clear();
             for (long j = layout.JFirst; j <= layout.JLast; j++)
             {
                 for (long i = layout.IFirst; i <= layout.ILast; i++)
@@ -120,6 +130,14 @@ public sealed partial class SoftwareRasterizer
             Bitmap target = _target!;
             var painter = new TilingPainter(target.Pixels, target.Stride, layer, area.Left, area.Top, area.Width, area.Height, compositor);
             _scan.Paint(rule, ref painter);
+        }
+
+        /// <summary>The pooled layer the tiles of a paint over <paramref name="area"/> are laid on.</summary>
+        private Span<uint> TileLayer(PixelBox area)
+        {
+            int length = area.Width * area.Height;
+            Pooled.Ensure(ref _tileLayer, length);
+            return _tileLayer.AsSpan(0, length);
         }
 
         /// <summary>Renders the cell list into the cell bitmap, which covers <paramref name="box"/> of the device, on a clear surface.</summary>
@@ -385,6 +403,32 @@ public sealed partial class SoftwareRasterizer
             double fromOriginJ = j + _baseJ;
             x = (long)(Round((fromOriginI * _ux) + (fromOriginJ * _vx)) - _baseX);
             y = (long)(Round((fromOriginI * _uy) + (fromOriginJ * _vy)) - _baseY);
+        }
+
+        /// <summary>The offset of the one tile that meets <paramref name="area"/>; false when none or several do.</summary>
+        public bool TryGetOnlyTile(PixelBox area, out long x, out long y)
+        {
+            x = 0;
+            y = 0;
+            int found = 0;
+            for (long j = JFirst; j <= JLast; j++)
+            {
+                for (long i = IFirst; i <= ILast; i++)
+                {
+                    GetOffset(i, j, out long tx, out long ty);
+                    if (_cellLeft + tx < area.Right && _cellRight + tx > area.Left && _cellTop + ty < area.Bottom && _cellBottom + ty > area.Top)
+                    {
+                        if (++found > 1)
+                        {
+                            return false;
+                        }
+
+                        (x, y) = (tx, ty);
+                    }
+                }
+            }
+
+            return found == 1;
         }
 
         /// <summary>
