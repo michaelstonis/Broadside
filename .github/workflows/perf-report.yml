@@ -1,0 +1,93 @@
+# The v1 performance comparison with PDFium and pdf.js (issue #275) on GitHub's Linux and macOS runners: bench/perf-report.sh times
+# the three engines on the rendering gate's pinned real-world pages, measures their peak memory, and times Broadside's WebAssembly
+# build against pdf.js in the image's Chrome. Each leg uploads its result folder; publish them with
+# `bench/perf-report.sh --publish <folder>...` (bench/baselines/v1/README.md). Run by hand, or by adding the `perf-report` label to
+# a pull request (which runs that pull request's code, with this file's read-only permissions): hosted runners are shared, so their
+# numbers move between runs, and the report says which machine each table comes from.
+name: Performance report
+
+on:
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: Timed runs per case
+        type: string
+        default: '10'
+      browser:
+        description: Also time the WebAssembly build against pdf.js in Chrome
+        type: boolean
+        default: true
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+env:
+  # A labeled pull request has no inputs: it runs with the defaults.
+  ITERATIONS: ${{ inputs.iterations || '10' }}
+  BROWSER: ${{ github.event_name == 'pull_request' || inputs.browser }}
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_GENERATE_ASPNET_CERTIFICATE: false
+
+jobs:
+  report:
+    name: report (${{ matrix.os }})
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'perf-report'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest]
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install the wasm-tools workload
+        if: env.BROWSER == 'true'
+        timeout-minutes: 15
+        run: dotnet workload install wasm-tools
+
+      - name: Fetch the corpora of the pinned pages
+        run: dotnet run -c Release --project tools/CorpusFetcher -- --only pdfjs,pdf20examples,gwg-output-suite
+
+      - name: Run the comparison
+        env:
+          # The image's Google Chrome, as the Blazor browser tests use: no Playwright browser download.
+          BROADSIDE_BROWSER_CHANNEL: chrome
+          PERF_SLUG_SUFFIX: github
+        shell: bash
+        run: |
+          label="GitHub-hosted ${{ runner.os }} runner (${{ matrix.os }})"
+          if [ "${BROWSER}" = true ]; then
+            bench/perf-report.sh --label "${label}" --iterations "${ITERATIONS}" --out artifacts/perf-report/result
+          else
+            bench/perf-report.sh --label "${label}" --iterations "${ITERATIONS}" --out artifacts/perf-report/result --no-browser
+          fi
+          cat artifacts/perf-report/result/report.md >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload the results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: perf-report-${{ runner.os }}
+          path: artifacts/perf-report/result
+          if-no-files-found: ignore

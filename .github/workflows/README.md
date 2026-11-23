@@ -152,6 +152,14 @@ Pull requests only build and check. GitHub Pages is configured with the "GitHub 
 
 Locally, `./check-docs.sh` runs the same build and checks, without the demo (links into `demo/` are then left unchecked); `samples/Broadside.Viewer.Blazor.Sample/publish-static.sh --no-aot out/demo && ./check-docs.sh --demo out/demo` checks it too. To preview with live reload, `cd site && dotnet tool run lunet serve` (the dev environment drops the `/Broadside` base path).
 
+## `perf-report.yml`: the "Run workflow" button
+
+| Job | Runs on | What it does |
+|---|---|---|
+| `report` | ubuntu-24.04, macos | The v1 performance comparison (#275): fetches the corpora of the pinned pages, installs PDFium and pdf.js (`tools/RenderDiff/acquire-references.sh`), and runs `bench/perf-report.sh`: Broadside, PDFium and pdf.js timed with one protocol on the rendering gate's pinned pages (open, text, render and first render at 72 and 150 DPI, the whole document at 150 DPI), peak memory per file, and, with the `browser` input, Broadside's WebAssembly build against pdf.js in the image's Chrome. Writes the run's report to the job summary and uploads the result folder as `perf-report-<os>`. |
+
+Hosted runners are shared, so the numbers move between runs. To put a run in the published report, download the artifacts and run `bench/perf-report.sh --publish <folder>...` (`bench/baselines/v1/README.md`).
+
 ## `release.yml`: tags `v*` and the "Run workflow" button
 
 1. `build-linux`: builds, tests and packs the core packages (`Broadside.Core.slnf`), including `Broadside.Rendering.Direct2D` (a single `net10.0-windows10.0.19041.0` target that builds anywhere through `EnableWindowsTargeting`).
@@ -171,6 +179,12 @@ gh run watch
 ```
 
 The dry run builds, tests and packs on all three runners and uploads the merged `packages` artifact, but pushes nothing and creates no release. It needs no secrets. Setting `dry_run` to false on a tag ref performs a real release; on a branch ref it still publishes nothing, because the push and release steps also require a `v*` tag.
+
+### Release notes
+
+The generated notes get a hand-written summary on top (`gh release edit <tag> --notes-file`). Every release from 1.0 on links the
+[performance comparison](https://michaelstonis.github.io/Broadside/articles/performance/) (`site/articles/performance.md`), and,
+when the release changes rendering, parsing or text speed, publishes a fresh run of it first (`bench/baselines/v1/README.md`).
 
 ### Trusted publishing (one-time setup by the owner)
 

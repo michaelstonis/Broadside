@@ -1,0 +1,14 @@
+{
+  "label": "GitHub-hosted macOS runner (macos-latest)",
+  "slug": "macos-arm64-github",
+  "Date": "2026-11-23",
+  "Commit": "f6a16c0613",
+  "Machine": "Apple M1 (Virtual), 3 logical cores, 7 GB",
+  "OS": "macOS 26.7.2 (arm64)",
+  ".NET": "10.0.404 SDK, runtime 11.0.0",
+  "PDFium": "pypdfium2 5.13.0, PDFium 153.0.7999.0, Python 3.12.10",
+  "pdf.js": "pdfjs-dist 6.3.289, @napi-rs/canvas 1.0.9, Node v22.23.5",
+  "Browser": "chromium 157.0.8103.79",
+  "Settings": "DPI 72,150; whole document at 150 DPI; 10 timed runs per case; one thread per engine",
+  "Load average": "37.17 32.56 20.21 at the start, 4.80 9.00 12.62 at the end"
+}
