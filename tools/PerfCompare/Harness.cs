@@ -9,13 +9,16 @@ namespace Broadside.Tools.PerfCompare;
 /// The Broadside side of the comparison, with the protocol of <c>tools/RenderDiff/reference/pdfium/bench.py</c> and
 /// <c>../pdfjs/bench.mjs</c>: each case warms up untimed (until <see cref="WarmupMilliseconds"/> or <see cref="WarmupRuns"/> runs),
 /// then runs up to the requested number of timed iterations (at least three, fewer once a case has spent
-/// <see cref="BudgetMilliseconds"/>); the median and minimum are reported. Everything runs on one thread.
+/// <see cref="BudgetMilliseconds"/>); the median and minimum are reported. Before the first case, every page runs twice untimed
+/// (<see cref="WarmUp"/>). Everything runs on one thread.
 /// </summary>
 internal static class Harness
 {
     public const double WarmupMilliseconds = 500;
     public const int WarmupRuns = 20;
     public const double BudgetMilliseconds = 10_000;
+    public const int WarmupPasses = 2;
+    public const int WarmupPauseMilliseconds = 1000;
 
     /// <summary>
     /// The engine every case opens with, the rendering gate's: Standard 14 and predefined CMaps bundled, no system fonts (so the same
@@ -32,6 +35,7 @@ internal static class Harness
     public static void Bench(string pagesFile, string corpus, int[] dpis, int documentDpi, int iterations, TextWriter output)
     {
         using var rasterizer = new SoftwareRasterizer();
+        WarmUp(pagesFile, corpus, dpis, rasterizer);
         var documented = new HashSet<string>(StringComparer.Ordinal);
         foreach ((string file, int index) in PinnedPages.Read(pagesFile))
         {
@@ -79,6 +83,43 @@ internal static class Harness
                 }
             });
         }
+    }
+
+    /// <summary>
+    /// Runs every page's operations twice, untimed, before any case is timed, then waits for the runtime's background compilation:
+    /// without it the first files are timed while their code is still being compiled and optimized (issue #602 found the first pinned
+    /// page five times slower than its steady state). The reference harnesses do the same pass.
+    /// </summary>
+    private static void WarmUp(string pagesFile, string corpus, int[] dpis, SoftwareRasterizer rasterizer)
+    {
+        for (int pass = 0; pass < WarmupPasses; pass++)
+        {
+            foreach ((string file, int index) in PinnedPages.Read(pagesFile))
+            {
+                string full = Path.Combine(corpus, file);
+                if (!File.Exists(full))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    using PdfDocument document = Engine.Open(File.ReadAllBytes(full));
+                    _ = document.Pages[index].ExtractText().PlainText.Length;
+                    foreach (int dpi in dpis)
+                    {
+                        using Bitmap bitmap = rasterizer.Render(document.Pages[index], new RenderOptions { Dpi = dpi });
+                    }
+                }
+#pragma warning disable CA1031 // The timed pass reports the failure.
+                catch (Exception)
+#pragma warning restore CA1031
+                {
+                }
+            }
+        }
+
+        Thread.Sleep(WarmupPauseMilliseconds);
     }
 
     /// <summary>

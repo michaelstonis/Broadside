@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace Broadside.Graphics.Colors;
 
 /// <summary>A device, CIE-based or ICCBased space, converted by the colour-management extension point after clipping into range.</summary>
@@ -157,9 +159,14 @@ internal sealed class IndexedPipeline : ColorPipeline
 /// </remarks>
 internal sealed class TintPipeline : ColorPipeline
 {
+    private static long _nextId;
+
     private readonly PdfFunction? _function;
     private readonly ColorPipeline _alternate;
     private readonly PdfColorSpaceFamily _alternateFamily;
+
+    // Identifies this pipeline to the per-thread memo without a reference that would keep it, and its document, alive.
+    private readonly long _id = Interlocked.Increment(ref _nextId);
 
     public TintPipeline(int inputs, PdfFunction? function, PdfColorSpace alternate, ColorPipeline alternatePipeline)
         : base(Unit(inputs), alternatePipeline.OutputCount)
@@ -178,6 +185,7 @@ internal sealed class TintPipeline : ColorPipeline
         Span<float> components = stackalloc float[ScratchLength];
         Span<float> input = stackalloc float[PdfColor.MaxComponents];
         Span<float> output = stackalloc float[PdfColor.MaxComponents];
+        TintMemo memo = _function is null ? null! : TintMemo.For(_id, inputs, m);
         for (int start = 0; start < count; start += chunk)
         {
             int n = Math.Min(chunk, count - start);
@@ -189,12 +197,20 @@ internal sealed class TintPipeline : ColorPipeline
                 if (_function is { } function)
                 {
                     // The function takes its own number of inputs (it clips them to its domain) and its outputs fill the alternate.
+                    // Images repeat a few tints over many samples, so a tint seen before is looked up rather than evaluated again:
+                    // the same function on the same inputs gives the same outputs, so the pixels do not change.
+                    if (memo.TryGet(tints, target))
+                    {
+                        continue;
+                    }
+
                     int k = function.InputCount;
                     input[..k].Clear();
                     tints[..Math.Min(k, inputs)].CopyTo(input);
                     function.Evaluate(input[..k], output);
                     target.Clear();
                     output[..Math.Min(function.OutputCount, m)].CopyTo(target);
+                    memo.Add(tints, target);
                 }
                 else
                 {
@@ -234,6 +250,81 @@ internal sealed class TintPipeline : ColorPipeline
                 target[3] = tint;
                 break;
         }
+    }
+}
+
+/// <summary>
+/// The tint transform outputs a thread computed last, for one <see cref="TintPipeline"/> at a time: a direct-mapped table keyed by the
+/// tints' bits (compared bit for bit, so −0 and 0 stay apart, as a function can tell them apart). Per thread, because a document's
+/// pipelines are shared by concurrent renders; allocated once per thread and reused for every pipeline (switching pipelines starts a
+/// new generation instead of clearing it). The pipeline is known by its number, so the table keeps no document alive.
+/// </summary>
+internal sealed class TintMemo
+{
+    private const int Entries = 1024;
+
+    [ThreadStatic]
+    private static TintMemo? _current;
+
+    private readonly float[] _keys = new float[Entries * PdfColor.MaxComponents];
+    private readonly float[] _values = new float[Entries * PdfColor.MaxComponents];
+    private readonly int[] _generations = new int[Entries];
+    private long _owner;
+    private int _generation;
+    private int _inputs;
+    private int _outputs;
+
+    /// <summary>Returns this thread's table, emptied if it last served another pipeline or shape.</summary>
+    public static TintMemo For(long owner, int inputs, int outputs)
+    {
+        TintMemo memo = _current ??= new TintMemo();
+        if (memo._owner != owner || memo._inputs != inputs || memo._outputs != outputs)
+        {
+            memo._owner = owner;
+            memo._inputs = inputs;
+            memo._outputs = outputs;
+            if (++memo._generation == int.MaxValue)
+            {
+                Array.Clear(memo._generations);
+                memo._generation = 1;
+            }
+        }
+
+        return memo;
+    }
+
+    /// <summary>Copies the outputs recorded for exactly these tints into <paramref name="target"/>, if there are any.</summary>
+    public bool TryGet(ReadOnlySpan<float> tints, Span<float> target)
+    {
+        int slot = Slot(tints);
+        ReadOnlySpan<float> key = _keys.AsSpan(slot * PdfColor.MaxComponents, _inputs);
+        if (_generations[slot] != _generation || !MemoryMarshal.Cast<float, uint>(tints).SequenceEqual(MemoryMarshal.Cast<float, uint>(key)))
+        {
+            return false;
+        }
+
+        _values.AsSpan(slot * PdfColor.MaxComponents, _outputs).CopyTo(target);
+        return true;
+    }
+
+    /// <summary>Records the outputs of <paramref name="tints"/>, replacing whatever shared its slot.</summary>
+    public void Add(ReadOnlySpan<float> tints, ReadOnlySpan<float> outputs)
+    {
+        int slot = Slot(tints);
+        tints.CopyTo(_keys.AsSpan(slot * PdfColor.MaxComponents, _inputs));
+        outputs[.._outputs].CopyTo(_values.AsSpan(slot * PdfColor.MaxComponents, _outputs));
+        _generations[slot] = _generation;
+    }
+
+    private static int Slot(ReadOnlySpan<float> tints)
+    {
+        uint hash = 2166136261;
+        foreach (float tint in tints)
+        {
+            hash = (hash ^ BitConverter.SingleToUInt32Bits(tint)) * 16777619;
+        }
+
+        return (int)((hash ^ (hash >> 15)) & (Entries - 1));
     }
 }
 

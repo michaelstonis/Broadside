@@ -16,6 +16,13 @@ namespace Broadside.Viewer.Blazor.BrowserTests;
 /// </summary>
 public sealed class PerfComparisonTests(BrowserHost host)
 {
+    private const string BroadsideHarness = """
+        async ([address, page, dpis, documentDpi, iterations]) => {
+          const exports = await getDotnetRuntime(0).getAssemblyExports('Broadside.Viewer.Blazor.Sample.dll');
+          return exports.Broadside.Viewer.Blazor.Sample.PerfProbe.MeasureAsync(address, page, dpis, documentDpi, iterations);
+        }
+        """;
+
     private const string PdfJsHarness = """
         async ([base, address, page, dpis, documentDpi, iterations]) => {
           const pdfjs = await import(base + "pdfjs/build/pdf.mjs");
@@ -136,6 +143,7 @@ public sealed class PerfComparisonTests(BrowserHost host)
         var lines = new List<string>();
         var documented = new HashSet<string>(StringComparer.Ordinal);
         int served = 0;
+        var pages = new List<(string File, int Page, string Address)>();
         foreach ((string file, int page) in PinnedPages(pinned))
         {
             string full = Path.Combine(corpus!, file);
@@ -146,17 +154,22 @@ public sealed class PerfComparisonTests(BrowserHost host)
 
             string name = string.Create(CultureInfo.InvariantCulture, $"perf-{served++}.pdf");
             host.Serve(name, await File.ReadAllBytesAsync(full, TestContext.Current.CancellationToken));
-            string address = new Uri(host.BaseAddress, "files/" + name).ToString();
+            pages.Add((file, page, new Uri(host.BaseAddress, "files/" + name).ToString()));
+        }
+
+        // Every page once, untimed and discarded, before anything is timed, as the native harnesses do (issue #602): pdf.js's
+        // JavaScript is compiled at run time, and the first pages would otherwise be timed before it is optimized.
+        foreach ((_, int page, string address) in pages)
+        {
+            await broadside.EvaluateAsync<string>(BroadsideHarness, new object[] { address, page, dpis, 0, 3 });
+            await pdfjs.EvaluateAsync<string>(PdfJsHarness, new object[] { host.BaseAddress.ToString(), address, page, dpis, 0, 3 });
+        }
+
+        foreach ((string file, int page, string address) in pages)
+        {
             int whole = documented.Add(file) ? documentDpi : 0;
 
-            string ours = await broadside.EvaluateAsync<string>(
-                """
-                async ([address, page, dpis, documentDpi, iterations]) => {
-                  const exports = await getDotnetRuntime(0).getAssemblyExports('Broadside.Viewer.Blazor.Sample.dll');
-                  return exports.Broadside.Viewer.Blazor.Sample.PerfProbe.MeasureAsync(address, page, dpis, documentDpi, iterations);
-                }
-                """,
-                new object[] { address, page, dpis, whole, iterations });
+            string ours = await broadside.EvaluateAsync<string>(BroadsideHarness, new object[] { address, page, dpis, whole, iterations });
             string theirs = await pdfjs.EvaluateAsync<string>(PdfJsHarness, new object[] { host.BaseAddress.ToString(), address, page, dpis, whole, iterations });
 
             foreach (string line in (ours + "\n" + theirs).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))

@@ -53,8 +53,10 @@ internal static class Report
         text.AppendLine("- **Engines.** Broadside with its software rasterizer on .NET; PDFium through pypdfium2; pdf.js in Node with its in-process");
         text.AppendLine("  worker and `@napi-rs/canvas`. Each runs in its own process with the same protocol (`tools/PerfCompare`,");
         text.AppendLine("  `tools/RenderDiff/reference/pdfium/bench.py`, `tools/RenderDiff/reference/pdfjs/bench.mjs`).");
-        text.AppendLine("- **Protocol.** Each case warms up untimed for 0.5 s or 20 runs, whichever comes first, then is timed for up to the");
-        text.AppendLine("  configured number of runs (at least 3, fewer once a case has used 10 s). Times are medians. Everything runs on one thread.");
+        text.AppendLine("- **Protocol.** Before anything is timed, every page runs twice untimed, so that code compiled at run time (.NET, V8) is");
+        text.AppendLine("  fully optimized for the first file as for the last. Then each case warms up untimed for 0.5 s or 20 runs, whichever");
+        text.AppendLine("  comes first, and is timed for up to the configured number of runs (at least 3, fewer once a case has used 10 s). Times");
+        text.AppendLine("  are medians. Everything runs on one thread.");
         text.AppendLine("- **Fonts.** Broadside uses its bundled Standard 14 fonts and CMaps and no system fonts; the others use their own bundled fonts.");
         text.AppendLine("- **Cold and warm.** *First render* and *whole document* open a fresh copy of the file each run, so nothing from an earlier");
         text.AppendLine("  run is reused. *Render* and *extract text* reuse an open document, as a viewer does when it redraws a page. The process");
