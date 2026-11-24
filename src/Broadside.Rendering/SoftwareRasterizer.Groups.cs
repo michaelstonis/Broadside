@@ -34,6 +34,9 @@ public sealed partial class SoftwareRasterizer
         // The converted results of group pixels (see ConvertResult): key = generation << 40 | black byte << 32 | pixel.
         private const int ResultCacheBits = 12;
         private const int ResultCacheSize = 1 << ResultCacheBits;
+
+        // The pixels of a run of equal group pixels compared one by one before the rest is compared a vector at a time.
+        private const int ShortRun = 8;
         private ulong[] _resultCacheKeys = [];
         private uint[] _resultCacheValues = [];
         private int _resultCacheGeneration;
@@ -515,11 +518,23 @@ public sealed partial class SoftwareRasterizer
                 uint pixel = first[x];
                 if (x > 0 && pixel == first[x - 1] && (!cmyk || black[x] == black[x - 1]))
                 {
-                    // The whole run of pixels equal to x − 1, found a vector at a time: known already, or waiting with x − 1.
-                    int length = first[x..].CommonPrefixLength(first[(x - 1)..^1]);
-                    if (cmyk)
+                    // The whole run of pixels equal to x − 1 (known already, or waiting with x − 1): a short run pixel by pixel, a long
+                    // one (a flat area, the backdrop) a vector at a time past its first pixels.
+                    int length = 1;
+                    while (length < ShortRun && x + length < width && first[x + length] == pixel && (!cmyk || black[x + length] == black[x]))
                     {
-                        length = Math.Min(length, black[x..].CommonPrefixLength(black[(x - 1)..^1]));
+                        length++;
+                    }
+
+                    if (length == ShortRun && x + length < width)
+                    {
+                        int rest = first[(x + length)..].CommonPrefixLength(first[(x + length - 1)..^1]);
+                        if (cmyk)
+                        {
+                            rest = Math.Min(rest, black[(x + length)..].CommonPrefixLength(black[(x + length - 1)..^1]));
+                        }
+
+                        length += rest;
                     }
 
                     if (pending)
