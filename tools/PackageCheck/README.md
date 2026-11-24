@@ -53,6 +53,14 @@ core's list changes only with the rule that it depends on nothing but Microsoft-
 (SourceLink and the nuspec read it), packs `Broadside.Core.slnf` in Release with `ContinuousIntegrationBuild=true` in each, and runs
 `compare`: both folders must hold the same `.nupkg`/`.snupkg` files with byte-identical entries. NuGet's OPC bookkeeping
 (`_rels/.rels`, `package/services/metadata/**`, which get a fresh random ID on every pack) and zip timestamps are not compared.
+The `LastWriteTime` elements of the static web asset manifests the Razor SDK packs into the WebGL backend and the Blazor viewer
+(`build/Microsoft.AspNetCore.StaticWebAsset*.props`) are ignored too: they record when git checked each asset out. The assets are
+still compared byte for byte.
+
+What the check has caught: the logging source generator wrote the core's two generated logging classes in a different order from one
+build to the next, so the core assembly and PDB differed between builds of the same commit. The core now has one generated logging
+class (`DiagnosticLog`); `ObjectLog` uses `LoggerMessage.Define` directly. Keep it that way: a second `[LoggerMessage]` class in one
+assembly brings the difference back, and this check fails.
 
 ## The SBOM
 
