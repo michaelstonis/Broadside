@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The reading guide (site/articles/reading.md): opening encrypted files with a password or a certificate. -->
+  <PropertyGroup>
+    <AssemblyName>Broadside.Samples.ReadingEncrypted</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Broadside/Broadside.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(CorpusDirectory)encrypted-user-password.pdf" Link="encrypted-user-password.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(CorpusDirectory)encrypted-aes-128.pdf" Link="encrypted-aes-128.pdf" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The getting started guide (site/articles/getting-started.md): open, inspect, change and save a file, create one and render it. -->
+  <PropertyGroup>
+    <AssemblyName>Broadside.Samples.GettingStarted</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Broadside/Broadside.csproj" />
+    <ProjectReference Include="../../../src/Broadside.Rendering/Broadside.Rendering.csproj" />
+    <ProjectReference Include="../../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(CorpusDirectory)text-standard14.pdf" Link="text-standard14.pdf" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
