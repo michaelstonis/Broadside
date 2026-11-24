@@ -68,6 +68,7 @@ public static partial class ReleaseNotesGenerator
         var seen = new HashSet<string>(StringComparer.Ordinal);
         Walk(git, toSha, fromSha is null ? [] : [fromSha], entries, seen);
         entries.Reverse();
+        entries = RemoveDuplicates(entries);
 
         IReadOnlyList<PackageApiChange> api = ApiDiff.Compare(git, fromSha, toSha);
         string date = git.Run("log", "-1", "--format=%cs", toSha).Trim();
@@ -137,6 +138,26 @@ public static partial class ReleaseNotesGenerator
             string? note = ConventionalTitle.BreakingFooter(commit.Body) ?? (conventional.Bang ? conventional.Description : null);
             entries.Add(new ReleaseNoteEntry(conventional.Type, conventional.Scope, conventional.Description, note, commit.Sha));
         }
+    }
+
+    /// <summary>
+    /// One entry per change: the same type, scope and description (ignoring trailing <c>(#N)</c> references) on two commits, as when a
+    /// fix lands on main and on the integration branch, is listed once, keeping the copy with the most references.
+    /// </summary>
+    private static List<ReleaseNoteEntry> RemoveDuplicates(List<ReleaseNoteEntry> entries)
+    {
+        static (string, string?, string) Key(ReleaseNoteEntry entry) => (entry.Type, entry.Scope, TrailingReferences().Replace(entry.Description, string.Empty));
+
+        var best = new Dictionary<(string, string?, string), ReleaseNoteEntry>();
+        foreach (ReleaseNoteEntry entry in entries)
+        {
+            if (!best.TryGetValue(Key(entry), out ReleaseNoteEntry? kept) || entry.Description.Length > kept.Description.Length)
+            {
+                best[Key(entry)] = entry;
+            }
+        }
+
+        return [.. entries.Where(entry => ReferenceEquals(best[Key(entry)], entry))];
     }
 
     /// <summary>The title a merge commit carries: GitHub's pull request title (the body's first line) or the subject.</summary>
@@ -242,6 +263,9 @@ public static partial class ReleaseNotesGenerator
 
     [GeneratedRegex(@"^Merge pull request #(?<number>\d+) from \S+", RegexOptions.CultureInvariant)]
     private static partial Regex GitHubMergePattern();
+
+    [GeneratedRegex(@"(\s*\((PR )?#\d+(, #\d+)*\))+$", RegexOptions.CultureInvariant)]
+    private static partial Regex TrailingReferences();
 
     [GeneratedRegex(@"(?<![\w&\[/])#(?<n>\d+)\b", RegexOptions.CultureInvariant)]
     private static partial Regex IssueReference();

@@ -42,6 +42,23 @@ public sealed class MergeTests
     }
 
     [Fact]
+    public void A_change_landed_on_two_branches_is_listed_once_with_its_pull_request()
+    {
+        // A docs fix merged into main and cherry-picked onto the integration branch: two commits, one change.
+        using var repo = new TempRepository();
+        repo.Tag("v0.1.0")
+            .Checkout("spec", create: true)
+            .Commit("docs: drop stale links")
+            .Checkout("main")
+            .Commit("docs: drop stale links (#5)")
+            .Merge("spec", "Merge pull request #6 from owner/release/0.2.0\n\nrelease: v0.2.0");
+
+        ReleaseNotesResult result = ReleaseNotesGenerator.Generate(repo.Root, new ReleaseNotesOptions());
+
+        Assert.Equal(["drop stale links (#5)"], result.Entries.Select(e => e.Description));
+    }
+
+    [Fact]
     public void A_release_pull_request_is_replaced_by_the_pull_requests_merged_into_its_branch()
     {
         using var repo = new TempRepository();

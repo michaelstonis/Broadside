@@ -2027,8 +2027,6 @@ Changes since [`v0.1.0-preview.1`](https://github.com/michaelstonis/Broadside/re
 - fix punctuation left by removing ADR citations ([#400](https://github.com/michaelstonis/Broadside/issues/400))
 - bring the README and docs up to the project's current state
 - install Broadside.Layout for the example, and size the Blazor viewer example
-- drop ADR references from user-facing text and enforce it
-- fix punctuation left by removing ADR citations
 - **readme:** a plain blockquote for the preview notice, which NuGet.org renders too
 - **site:** API reference for every package ([#403](https://github.com/michaelstonis/Broadside/issues/403))
 
