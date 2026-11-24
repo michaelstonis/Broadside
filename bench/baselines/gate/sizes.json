@@ -12,23 +12,23 @@
     },
     "osx-arm64": {
       "empty": 1102768,
-      "extract-text": 6423848,
-      "fill-form": 7634064,
-      "open-metadata": 4551704,
-      "open-metadata-no-image-codecs": 3738784,
-      "render": 7551568,
-      "save": 7086720,
-      "sign": 7868928
+      "extract-text": 6457080,
+      "fill-form": 7617648,
+      "open-metadata": 4568264,
+      "open-metadata-no-image-codecs": 3738880,
+      "render": 7650992,
+      "save": 7086832,
+      "sign": 7869040
     },
     "win-x64": {
       "empty": 933376,
-      "extract-text": 6668800,
-      "fill-form": 8251392,
-      "open-metadata": 4581888,
+      "extract-text": 6699520,
+      "fill-form": 8251904,
+      "open-metadata": 4582400,
       "open-metadata-no-image-codecs": 3748864,
-      "render": 8008192,
-      "save": 7640064,
-      "sign": 8562176
+      "render": 8092160,
+      "save": 7640576,
+      "sign": 8562688
     }
   }
 }
