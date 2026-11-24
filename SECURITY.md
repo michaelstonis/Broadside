@@ -35,11 +35,8 @@ Include what you can of the following:
 |---|---|
 | Acknowledgement of the report | within 7 days |
 | Triage: confirmed or declined, with a severity (CVSS) | within 14 days |
-| Fixed release, critical or high severity | within 30 days of confirmation |
-| Fixed release, moderate severity | within 90 days of confirmation |
-| Fixed release, low severity | in the next scheduled release |
 
-We keep you updated in the advisory thread at each step. If a fix will miss its target, we say so there, with the reason and a new date.
+Fixes are prioritized by severity and ship in a patch release as soon as they are ready. We keep you updated in the advisory thread, including the expected release once a fix is under way.
 
 ## Advisories, CVEs and disclosure
 
