@@ -73,6 +73,10 @@ jobs:
       - name: Test the decision
         run: .github/scripts/test-ci-plan.sh
 
+      - name: Test the pull request checks
+        # pr-checks.yml's title and DCO scripts (issue #264).
+        run: .github/scripts/test-pr-checks.sh
+
       - name: Set up .NET
         if: github.event_name == 'pull_request'
         uses: actions/setup-dotnet@v6

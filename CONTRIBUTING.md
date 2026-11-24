@@ -35,11 +35,13 @@ This appends a trailer to the commit message:
 Signed-off-by: Your Name <your.email@example.com>
 ```
 
-Use a real name and an email address you control. Pull requests with unsigned commits cannot be merged; fix them with `git rebase --signoff` (or `git commit --amend -s` for a single commit) and force-push your branch.
+Use a real name and an email address you control: the sign-off must name the commit's author email. To sign off every commit in a clone without remembering the flag, add `-s` through an alias (`git config alias.cs 'commit -s'`) or a `prepare-commit-msg` hook.
+
+The **DCO sign-off** check (`.github/workflows/pr-checks.yml`) fails a pull request when any commit it adds (merge commits aside) has no `Signed-off-by:` line for its author. It checks only the pull request's own commits, never history that is already merged; pull requests opened by bots such as Dependabot, and release pull requests (from `release/*`, whose commits were checked when they were merged), are exempt. Fix unsigned commits with `git rebase --signoff <base>` (or `git commit --amend -s` for the last commit) and force-push your branch.
 
 ## Commits
 
-Commits follow [Conventional Commits](https://www.conventionalcommits.org): `type(scope): summary`, where `type` is one of `feat`, `fix`, `docs`, `test`, `build`, `ci`, `perf`, `refactor` or `chore`, and `scope` is the area (`cos`, `filters`, `fonts`, `rendering`, and so on). Examples:
+Commits and pull request titles follow [Conventional Commits](https://www.conventionalcommits.org): `type(scope): summary`, where `type` is one of `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `bench`, `build`, `ci`, `chore`, `style`, `revert` or `release` (release pull requests only), and `scope` is the area in lower case (`cos`, `filters`, `fonts`, `rendering`, and so on). A breaking change puts `!` before the colon (`refactor(api)!: rename PdfDocument.Load to Open`) or adds a `BREAKING CHANGE: <what breaks>` footer to the commit body. Examples:
 
 ```
 feat(fonts): parse CFF charstrings
@@ -48,6 +50,8 @@ docs: repository hygiene files (#9)
 ```
 
 Keep commits focused. One PR per issue.
+
+The **pull request title** is what lands on the target branch (the squash commit's title, or the body of GitHub's merge commit), and it is what the release notes list, so the **conventional title** check (`.github/workflows/pr-checks.yml`) fails a pull request whose title does not follow the format above; edit the title and the check runs again. Bot pull requests are exempt. Release notes are generated from these titles by `tools/ReleaseNotes`, grouped by type and scope, with breaking changes first; see the [versioning policy](https://michaelstonis.github.io/Broadside/articles/versioning/).
 
 ## Pull requests
 

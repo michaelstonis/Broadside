@@ -117,6 +117,7 @@ for route in \
     articles/roadmap/index.html \
     articles/performance/index.html \
     articles/untrusted-files/index.html \
+    articles/versioning/index.html \
     articles/conformance/index.html \
     articles/diagnostics/index.html \
     articles/contributing/index.html \

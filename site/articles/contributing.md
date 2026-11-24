@@ -4,7 +4,7 @@ title: "Contributing"
 
 # Contributing
 
-People and AI agents contribute the same way: pick an unassigned, unblocked issue in the current milestone, claim it, branch as `<issue-number>-<slug>`, and open a pull request that closes the issue, updates the conformance map and the public API files, and adds tests. Every commit carries a [Developer Certificate of Origin](https://developercertificate.org) sign-off.
+People and AI agents contribute the same way: pick an unassigned, unblocked issue in the current milestone, claim it, branch as `<issue-number>-<slug>`, and open a pull request that closes the issue, updates the conformance map and the public API files, and adds tests. Pull request titles follow [Conventional Commits](https://www.conventionalcommits.org) (they become the release notes, see [Versioning and support](versioning.md)), and every commit carries a [Developer Certificate of Origin](https://developercertificate.org) sign-off (`git commit -s`); a check enforces both on every pull request.
 
 - [`CONTRIBUTING.md`](https://github.com/michaelstonis/Broadside/blob/main/CONTRIBUTING.md): the full issue, branch, commit and review process.
 - [`CLAUDE.md`](https://github.com/michaelstonis/Broadside/blob/main/CLAUDE.md): the hard rules (dependencies, target, spec citations, hot-path allocation).
