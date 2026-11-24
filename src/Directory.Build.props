@@ -10,16 +10,24 @@
     <IsAotCompatible>true</IsAotCompatible>
     <EnablePackageValidation>true</EnablePackageValidation>
     <!--
+      Package validation also compares each package with the last published version (issue #265): a breaking change to public API
+      fails the pack unless it is recorded in the package's CompatibilitySuppressions.xml. Raise this at every release (see the release
+      checklist in .github/workflows/README.md). A package not yet published sets it empty in its project file until its first release.
+    -->
+    <PackageValidationBaselineVersion>0.1.0-preview.10</PackageValidationBaselineVersion>
+    <!--
       Nullable metadata only where a consumer can see it (public and protected members, and internal ones for the assemblies
       InternalsVisibleTo names): private members' NullableAttribute and NullableContextAttribute are dropped (issue #361).
     -->
     <Features>$(Features);nullablePublicOnly</Features>
+    <PackageIcon>icon.png</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="MinVer" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
     <None Include="$(MSBuildThisFileDirectory)../README.md" Pack="true" PackagePath="/" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)icon.png" Pack="true" PackagePath="/" Visible="false" />
   </ItemGroup>
 
   <ItemGroup>

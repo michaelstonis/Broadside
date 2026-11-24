@@ -1,4 +1,5 @@
-# Release: build and test on Linux and macOS (plus the MAUI viewer's Windows target on Windows), pack every package, publish to NuGet.org and create a GitHub release.
+# Release: build and test on Linux and macOS (plus the MAUI viewer's Windows target on Windows), pack and check every package, check that
+# the build is reproducible, write an SPDX SBOM, publish to NuGet.org and create a GitHub release.
 #
 # Triggers:
 #   - a tag v* (MinVer turns the tag into the package version; see Directory.Build.props)
@@ -80,6 +81,11 @@ jobs:
 
       - name: Pack the core packages
         run: dotnet pack Broadside.Core.slnf -c Release --no-build
+
+      - name: Check the core packages
+        # Dependency allowlists, symbols, SourceLink (every URL fetched), licences, README and icon (issue #265;
+        # tools/PackageCheck/README.md). Package validation against the last release already ran inside dotnet pack.
+        run: dotnet run --project tools/PackageCheck -c Release --no-build -- verify artifacts/package/release --online
 
       - name: Upload core packages
         uses: actions/upload-artifact@v7
@@ -210,6 +216,15 @@ jobs:
           done
           exit "${missing}"
 
+      - name: Check the platform packages
+        # The same checks as build-linux, on the three packages this job uploads (issue #265).
+        shell: bash
+        run: |
+          mkdir -p artifacts/package/platform
+          cp artifacts/package/release/Broadside.Rendering.CoreGraphics.* artifacts/package/release/Broadside.Rendering.Android.* \
+             artifacts/package/release/Broadside.Viewer.Maui.* artifacts/package/platform/
+          dotnet run --project tools/PackageCheck -c Release --no-build -- verify artifacts/package/platform --online
+
       - name: Upload platform packages
         uses: actions/upload-artifact@v7
         with:
@@ -223,10 +238,37 @@ jobs:
             artifacts/package/release/Broadside.Viewer.Maui.*.snupkg
           if-no-files-found: error
 
-  # Merge the packages, then (tag and not a dry run) push them to NuGet.org and create the GitHub release.
+  # Reproducible build (issue #265): the core packages built twice from clean clones in two different folders must be byte-identical.
+  reproducible:
+    name: reproducible build (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          # The clones need the tags: MinVer gives both builds the same version.
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Build twice and compare
+        run: tools/PackageCheck/check-reproducible.sh "${RUNNER_TEMP}/reproducible"
+
+  # Merge the packages and write the SBOM, then (tag and not a dry run) push them to NuGet.org and create the GitHub release.
   publish:
     name: publish
-    needs: [build-linux, build-macos]
+    needs: [build-linux, build-macos, reproducible]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -248,12 +290,31 @@ jobs:
             echo "Dry run (tag: ${IS_TAG}, dry_run: ${DRY_RUN:-n/a}): packages are built and uploaded as an artifact only."
           fi
 
+      - name: Check out
+        # For the SBOM: generate-sbom.sh and the projects whose NuGet dependencies it lists.
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
       - name: Download packages
         uses: actions/download-artifact@v8
         with:
           pattern: packages-*
           merge-multiple: true
           path: artifacts/package/release
+
+      - name: Generate the SBOM
+        # An SPDX 2.2 SBOM of every package (issue #265), from Microsoft's sbom-tool (a local dotnet tool, never a package
+        # dependency). It travels in the packages artifact, so a dry run carries it too, and is attached to the GitHub release.
+        shell: bash
+        run: |
+          nupkg="$(ls artifacts/package/release/Broadside.[0-9]*.nupkg)"
+          version="${nupkg##*/Broadside.}"
+          version="${version%.nupkg}"
+          tools/PackageCheck/generate-sbom.sh artifacts/package/release "${version}" "artifacts/package/release/broadside-${version}.spdx.json"
 
       - name: List packages
         shell: bash
@@ -275,14 +336,6 @@ jobs:
           name: packages
           path: artifacts/package/release
           if-no-files-found: error
-
-      - name: Set up .NET
-        if: steps.decide.outputs.publish == 'true'
-        uses: actions/setup-dotnet@v6
-        with:
-          # This job does not check out the repository (it only pushes the packages the build jobs made), so there is no
-          # global.json here; any .NET 10 SDK can push.
-          dotnet-version: 10.0.x
 
       - name: Log in to NuGet.org (trusted publishing)
         if: steps.decide.outputs.publish == 'true'
@@ -310,3 +363,4 @@ jobs:
           files: |
             artifacts/package/release/*.nupkg
             artifacts/package/release/*.snupkg
+            artifacts/package/release/*.spdx.json

@@ -324,6 +324,12 @@ jobs:
         if: runner.os == 'Linux' && env.PROJECTS == 'all'
         run: dotnet pack Broadside.Core.slnf -c Release --no-build
 
+      - name: Check packages (Linux)
+        # Dependency allowlists, symbols, SourceLink, licences, README and icon of every package just packed (issue #265;
+        # tools/PackageCheck/README.md). Offline here; release.yml also fetches every SourceLink URL (--online).
+        if: runner.os == 'Linux' && env.PROJECTS == 'all'
+        run: dotnet run --project tools/PackageCheck -c Release -- verify artifacts/package/release
+
       - name: Upload packages (Linux)
         if: runner.os == 'Linux' && env.PROJECTS == 'all'
         uses: actions/upload-artifact@v7

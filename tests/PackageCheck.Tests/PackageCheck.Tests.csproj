@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Drives tools/PackageCheck with synthetic packages (assemblies and portable PDBs compiled by Roslyn) and the real package policy. -->
+  <PropertyGroup>
+    <RootNamespace>Broadside.Tools.PackageCheck.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../tools/PackageCheck/PackageCheck.csproj" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+</Project>
