@@ -8,7 +8,7 @@ Broadside is a fully managed .NET implementation of the PDF specification (ISO 3
 
 ## Status
 
-**Preview.** The first preview, `0.1.0-preview.1`, is on NuGet.org as 13 packages. The public API is not frozen yet, so expect breaking changes between previews. Phases 0 to 5 (the COS layer, the model and codecs, rendering, writing and editing, and the cross-cutting capabilities) are complete. The viewer (Phase 6) and hardening for v1 (Phase 7) are in progress. The [API reference](api/readme.md) is generated from the XML documentation of every package; [API coverage](articles/api-coverage.md) says which target framework each one is built from.
+**Preview.** The packages are on NuGet.org as previews (`0.1.0-preview.N`) until v1. The public API is not frozen yet, so expect breaking changes between previews. Phases 0 to 5 (the COS layer, the model and codecs, rendering, writing and editing, and the cross-cutting capabilities) are complete. The viewer (Phase 6) and hardening for v1 (Phase 7) are in progress. The [API reference](api/readme.md) is generated from the XML documentation of every package; [API coverage](articles/api-coverage.md) says which target framework each one is built from.
 
 ## Try it in the browser
 
@@ -18,6 +18,7 @@ The [live demo](/demo/) is the Blazor WebAssembly sample, running entirely in yo
 
 - [Live demo](/demo/): the Blazor WebAssembly viewer and the library, in your browser.
 - [Getting started](articles/getting-started.md): install the packages and run a first example.
+- [Guides](articles/guides.md): reading, rendering, writing, editing and more, with code from compiled, tested samples.
 - [Architecture](articles/architecture.md): the vocabulary and the decisions behind the design.
 - [Roadmap](articles/roadmap.md): the phases and their status, and the known issues.
 - [Conformance](articles/conformance.md): what is implemented, clause by clause.

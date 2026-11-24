@@ -33,6 +33,7 @@ linux_extra=(
   tools/BenchGate/BenchGate.csproj
   tools/ConformanceCheck/ConformanceCheck.csproj
   tools/CorpusFetcher/CorpusFetcher.csproj
+  tools/DocSnippets/DocSnippets.csproj
 )
 windows_set=(
   src/Broadside.Rendering.Direct2D/Broadside.Rendering.Direct2D.csproj

@@ -250,6 +250,19 @@ jobs:
           dotnet run --project samples/Broadside.BuilderSamples -c Release --no-build -- "$RUNNER_TEMP/builder-samples"
           for file in "$RUNNER_TEMP"/builder-samples/*.pdf; do qpdf --check "$file" > /dev/null; done
 
+      - name: Run the guide samples (Linux)
+        # The site's guides include their code from these samples (issue #267; tools/DocSnippets keeps the pages equal to them). They
+        # compile with the core filter; running them checks that each still does what its guide says. A narrowed pull request built
+        # only the affected ones, so the script builds the rest first.
+        if: runner.os == 'Linux' && (env.PROJECTS == 'all' || contains(env.PROJECTS, 'samples/guides/'))
+        shell: bash
+        run: |
+          if [ "${PROJECTS}" = all ]; then
+            samples/guides/run-samples.sh -c Release --no-build
+          else
+            samples/guides/run-samples.sh -c Release
+          fi
+
       - name: Test the SIMD kernels without hardware intrinsics (Linux)
         # The SimdKernel category again with Vector128.IsHardwareAccelerated false (issue #470): each kernel's dispatcher takes its
         # scalar path and the vector method runs on the software fallback. Seconds: the build above is reused. A test project with

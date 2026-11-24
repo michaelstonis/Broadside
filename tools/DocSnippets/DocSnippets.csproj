@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Keeps the code in the site's guides equal to regions of the compiled samples in samples/guides/. See README.md. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Broadside.Tools.DocSnippets</RootNamespace>
+    <AssemblyName>DocSnippets</AssemblyName>
+    <Description>Checks or regenerates the sample code included in the documentation site's pages.</Description>
+  </PropertyGroup>
+
+</Project>
