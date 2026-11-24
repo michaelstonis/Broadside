@@ -76,7 +76,7 @@
     "Broadside.Benchmarks.ContentInterpretationBenchmarks.InterpretWarm(File: \"synthetic: path-heavy-1mb\")": 0,
     "Broadside.Benchmarks.ContentInterpretationBenchmarks.InterpretWarm(File: \"text-heavy: text-truetype-embedded.pdf\")": 0,
     "Broadside.Benchmarks.ContentInterpretationBenchmarks.InterpretWarm(File: \"tiling-pattern: pattern-tiling-colored.pdf\")": 0,
-    "Broadside.Benchmarks.ContentInterpretationBenchmarks.InterpretWarm(File: \"vector-heavy: form-xobject-nested.pdf\")": 488,
+    "Broadside.Benchmarks.ContentInterpretationBenchmarks.InterpretWarm(File: \"vector-heavy: form-xobject-nested.pdf\")": 416,
     "Broadside.Benchmarks.ContentInterpretationBenchmarks.OpenAndInterpretFirstPage(File: \"cjk: text-cid-identity-h.pdf\")": 34512,
     "Broadside.Benchmarks.ContentInterpretationBenchmarks.OpenAndInterpretFirstPage(File: \"image-heavy: image-smask.pdf\")": 19512,
     "Broadside.Benchmarks.ContentInterpretationBenchmarks.OpenAndInterpretFirstPage(File: \"inline-image-heavy: inline-image-filters.pdf\")": 21104,
