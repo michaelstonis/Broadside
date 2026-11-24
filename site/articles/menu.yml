@@ -6,5 +6,6 @@ articles:
   - {path: roadmap.md, title: "Roadmap"}
   - {path: performance.md, title: "Performance"}
   - {path: conformance.md, title: "Conformance"}
+  - {path: diagnostics.md, title: "Diagnostic codes"}
   - {path: api-coverage.md, title: "API coverage"}
   - {path: contributing.md, title: "Contributing"}

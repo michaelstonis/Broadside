@@ -84,6 +84,7 @@
     <Project Path="tools/BenchGate/BenchGate.csproj" />
     <Project Path="tools/ConformanceCheck/ConformanceCheck.csproj" />
     <Project Path="tools/CorpusFetcher/CorpusFetcher.csproj" />
+    <Project Path="tools/DiagnosticCatalogPage/DiagnosticCatalogPage.csproj" />
     <Project Path="tools/PerfCompare/PerfCompare.csproj" />
     <Project Path="tools/RenderDiff/RenderDiff.csproj" />
   </Folder>

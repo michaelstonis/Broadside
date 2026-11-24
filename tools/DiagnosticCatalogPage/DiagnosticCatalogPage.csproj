@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Generates the code tables of site/articles/diagnostics.md from Broadside's public diagnostic catalog (issue #263) and fails when
+    they are stale. Run by ./check-docs.sh; CatalogPage.cs is also linked into Broadside.Tests. Never packed.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Broadside.Tools.DiagnosticCatalogPage</RootNamespace>
+    <AssemblyName>DiagnosticCatalogPage</AssemblyName>
+    <Description>Generates and checks the documentation site's diagnostic catalog page.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside/Broadside.csproj" />
+  </ItemGroup>
+
+</Project>

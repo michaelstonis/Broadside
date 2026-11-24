@@ -56,6 +56,12 @@ if ! dotnet run --project "${ROOT}/tools/ConformanceCheck" -- --root "${ROOT}" -
     fail "the conformance map is invalid or the counts in site/articles/conformance.md are stale (lines above)"
 fi
 
+# 0c. The diagnostic catalog page's code tables are generated from the public catalog and must be current
+#     (regenerate with: dotnet run --project tools/DiagnosticCatalogPage -- site/articles/diagnostics.md --write).
+if ! dotnet run --project "${ROOT}/tools/DiagnosticCatalogPage" -- "${ROOT}/site/articles/diagnostics.md"; then
+    fail "the code tables in site/articles/diagnostics.md are stale (lines above)"
+fi
+
 dotnet tool restore
 
 # Start from a clean output so a page removed from the sources cannot survive in www/.
@@ -91,6 +97,7 @@ for route in \
     articles/architecture/index.html \
     articles/roadmap/index.html \
     articles/conformance/index.html \
+    articles/diagnostics/index.html \
     articles/contributing/index.html \
     articles/api-coverage/index.html \
     api/index.html \
