@@ -64,6 +64,28 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
     /// <summary>The hinted page count while the hints are in use: before the tree is read or edited, and while no page failed.</summary>
     private int? HintedCount => _hinted is { } hinted && _edited is null && !_hintsRejected && !_read.TryGet(true, out _) ? hinted.Count : null;
 
+    /// <summary>
+    /// Reads the first page through the hint tables and returns whether it read; a first page the hints cannot give rejects them,
+    /// so the page tree is used. Unlike the indexer it never throws when the rejected hints counted more pages than the tree holds
+    /// (fuzz target <c>range-response</c>, issue #274).
+    /// </summary>
+    /// <returns>Whether the hints are in use and give the first page.</returns>
+    internal bool FirstPageReadsThroughHints()
+    {
+        if (HintedCount is not int count || count == 0)
+        {
+            return false;
+        }
+
+        if (_hinted!.Get(0) is not null)
+        {
+            return true;
+        }
+
+        _hintsRejected = true;
+        return false;
+    }
+
     /// <summary>Gets the page objects removed through <see cref="RemoveAt"/> or <see cref="Remove"/>, for the save-time report; <see langword="null"/> when none.</summary>
     internal IReadOnlySet<CosReference>? RemovedPages => _removed;
 
