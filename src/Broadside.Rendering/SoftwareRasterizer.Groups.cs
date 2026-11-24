@@ -808,6 +808,13 @@ public sealed partial class SoftwareRasterizer
                     return;
                 }
 
+                if (backdrop.IsEmpty && !tracksAlpha && !tracksShape && _isolatedSource && !removesBackdrop)
+                {
+                    // An isolated group (or one already converted) in another blend mode: the row through the blend function.
+                    compositor.CompositeRow(_source.Slice(start, count), target, coverage);
+                    return;
+                }
+
                 if (backdrop.IsEmpty && !tracksAlpha && !tracksShape && !_isolatedSource)
                 {
                     // A non-isolated group in any blend mode and no knockout or alpha tracking: the mix with what it started from.
