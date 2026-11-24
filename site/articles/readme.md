@@ -10,6 +10,7 @@ Broadside is in preview: `0.1.0-preview.1` is on NuGet.org, and the public API m
 - [Building documents](building-documents.md): the document builder, from a one-page hello to reports, tables, invoices, profiles and escape hatches.
 - [Architecture](architecture.md): the terms used throughout the code and the architecture decision records.
 - [Roadmap](roadmap.md): the phases and their status, what is unreleased, and the known issues.
+- [Versioning and support](versioning.md): how packages are numbered, the 1.x support policy, and where release notes come from.
 - [Conformance](conformance.md): the per-clause record of what is implemented.
 - [Contributing](contributing.md): the issue, branch and pull request flow.
 - [API coverage](api-coverage.md): which target framework each package's API reference is built from, and the API of the one package it cannot build.

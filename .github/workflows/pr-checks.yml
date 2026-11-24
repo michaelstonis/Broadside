@@ -1,0 +1,54 @@
+# Pull request hygiene (issue #264): the title follows Conventional Commits, and every commit the pull request adds is signed off
+# under the Developer Certificate of Origin. Both run on pull requests only, and neither runs for pull requests opened by a bot
+# (Dependabot and other GitHub Apps). Commits that are already on a branch are never checked again: the DCO check reads only
+# base..head, and it skips pull requests from release/* branches, whose commits were checked when their own pull requests merged
+# into the integration branch. To make the checks required, the owner adds `conventional title` and `DCO sign-off` to the
+# branch protection of main (and of the integration branch). See .github/workflows/README.md.
+name: PR checks
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  title:
+    name: conventional title
+    if: github.event.pull_request.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Check the title
+        env:
+          # Passed through the environment, never interpolated into the script, so a title cannot inject shell.
+          TITLE: ${{ github.event.pull_request.title }}
+        run: .github/scripts/check-pr-title.sh "${TITLE}"
+
+  dco:
+    name: DCO sign-off
+    if: github.event.pull_request.user.type != 'Bot' && !startsWith(github.head_ref, 'release/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          # The merge commit's history holds both the base and the head commit.
+          fetch-depth: 0
+
+      - name: Check the sign-offs
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: .github/scripts/check-dco.sh "${BASE_SHA}" "${HEAD_SHA}"
