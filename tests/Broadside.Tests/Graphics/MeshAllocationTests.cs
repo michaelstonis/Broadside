@@ -78,6 +78,33 @@ public sealed class MeshAllocationTests
         Assert.Equal(0, allocated);
     }
 
+    [Fact]
+    public void A_shading_function_repaired_on_every_evaluation_is_reported_once_and_allocates_nothing_after()
+    {
+        // Issue #605: a repeat of a diagnostic already recorded for the object is dropped before it is built.
+        using PdfDocument document = PdfDocument.Create();
+        CosReference function = document.AddObject(Program("<< /FunctionType 4 /Domain [0 1 0 1] /Range [0 1] >>", "{ 0 div add }"));
+        CosReference reference = document.AddObject(Cos($"<< /ShadingType 1 /ColorSpace /DeviceGray /Function {function.ObjectNumber} 0 R >>"));
+        PdfFunctionShading shading = Assert.IsType<PdfFunctionShading>(document.GetShading(reference));
+        float[] input = new float[2];
+        float[] color = new float[1];
+        long allocated = Allocations.Measure(
+            () =>
+            {
+                for (int i = 0; i < 1000; i++)
+                {
+                    input[0] = i / 1000f;
+                    input[1] = 1 - input[0];
+                    shading.EvaluateFunction(input, color);
+                }
+            },
+            warmUpCalls: 1);
+
+        Assert.Equal(0, allocated);
+        Assert.Equal(0.999f, color[0]);
+        Assert.Single(document.Diagnostics, static d => d.Code == "FunctionEvaluationRepaired");
+    }
+
     [Theory]
     [InlineData("shading-type2-axial.pdf")]
     [InlineData("pattern-shading-axial.pdf")]
