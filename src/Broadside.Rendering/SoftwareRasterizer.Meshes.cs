@@ -465,6 +465,13 @@ public sealed partial class SoftwareRasterizer
                 return;
             }
 
+            // Converted already (a patch grid's cells): when no edge bends, the midpoints' components are not needed.
+            if (!midpoints.IsEmpty && Near(midpoints[..3], a, b) && Near(midpoints[3..6], b, c) && Near(midpoints[6..9], c, a))
+            {
+                _meshLayer.FillTriangle(a, b, c);
+                return;
+            }
+
             int n = sa.Length;
             Span<float> sab = stackalloc float[n];
             Span<float> sbc = stackalloc float[n];

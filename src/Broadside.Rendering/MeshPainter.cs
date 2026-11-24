@@ -59,6 +59,20 @@ internal readonly ref struct MeshPainter : ICoverageSink
         Span<uint> line = MemoryMarshal.Cast<byte, uint>(_target.Slice(row * _stride, (x + count) * 4));
         int layerRow = row - _top;
         bool inRows = layerRow >= 0 && layerRow < _height;
+        if (!_hasBackground && _compositor.IsNormal)
+        {
+            // Without a Background an empty pixel (0) leaves the backdrop as it is, which is what the row compositor does with a
+            // clear source pixel: the part of the span over the layer is one row composite, the rest is left alone.
+            int first = Math.Max(x, _left);
+            int end = Math.Min(x + count, _left + _width);
+            if (inRows && first < end)
+            {
+                _compositor.CompositeRow(_layer.Slice((layerRow * _width) + (first - _left), end - first), line[first..end], coverage);
+            }
+
+            return;
+        }
+
         for (int i = 0; i < count; i++)
         {
             int column = x + i - _left;
