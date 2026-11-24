@@ -1,0 +1,18 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!--
+    The guide samples: one small console app per topic of the documentation site's guides. The guides include their code by region
+    (tools/DocSnippets), so the code a reader sees is the code that compiles here. Each sample runs from its output folder, where its
+    input files from tests/Corpus/ are copied, checks what it prints and exits with 1 when something is not as the guide says.
+    ./run-samples.sh builds and runs them all; CI and ./check-docs.sh call it.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <CorpusDirectory>$(MSBuildThisFileDirectory)../../tests/Corpus/</CorpusDirectory>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Shared/*.cs" Link="Shared/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

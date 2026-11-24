@@ -21,18 +21,14 @@ Capability order: Read, then Render, then Write and Edit, then the cross-cutting
 | 4. Write and Edit | Canvas API with font subsetting, incremental update and edit, forms, flow layout (`Broadside.Layout`), encryption on write. | done |
 | 5. Cross-cutting | Text extraction, layout tree and auto-tagging, signatures, PDF/A and PDF/UA output, streaming sources. | done |
 | 6. Viewer | Viewer core, then one shell per UI framework. | In progress. The viewer core and the Blazor and MAUI shells are done, with a WebGL 2 backend for the browser and rendering off the UI thread. Still open: search with background indexing (#215), outline and thumbnails (#216), form filling in the viewer (#218), smart dark mode (#219), and the Uno, Avalonia, WPF and WinUI shells (#222 to #225). |
-| 7. Hardening and v1 release | Coverage gaps, deferred hardening, release engineering. | In progress (#231). The first preview, `0.1.0-preview.1`, is published. Still open: the coverage gaps, typed diagnostic codes, API tidy and the v1 API freeze, the guides, trimming and AOT verification, the threat model, the security review, and the comparison with PDFium and pdf.js. |
+| 7. Hardening and v1 release | Coverage gaps, deferred hardening, release engineering. | In progress (#231). Previews (`0.1.0-preview.N`) are on NuGet.org. Still open: the API review and the v1 API freeze, the published diagnostic-code catalogue, versioning and release notes, package validation, the guides, the threat model and the security review, and the release-candidate gate. |
 | Post-v1 | Earmarked work (#232). | JBIG2 extended templates, shaping for complex scripts. |
 
 The dependency graph between tracks, and the exit criteria of each phase, are in the plan.
 
-## Not released yet
+## Releases
 
-These are on the integration branch since `0.1.0-preview.1`:
-
-- Saves stay bounded on damaged files that declare huge object numbers (#371).
-- The MAUI package includes the Windows target (#381).
-- The WebGL backend reads thumbnails and other pixel surfaces back from the GPU (#380).
+Previews are published from `main`, every package with the same version. Work merged into the integration branch `spec/33-broadside-v1` reaches the next preview when it merges into `main`. What each preview changed is on the [releases page](https://github.com/michaelstonis/Broadside/releases).
 
 ## Known issues
 

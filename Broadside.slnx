@@ -20,6 +20,13 @@
     <Project Path="samples/Broadside.Viewer.Blazor.Sample/Broadside.Viewer.Blazor.Sample.csproj" />
     <Project Path="samples/Broadside.Viewer.Wpf.Sample/Broadside.Viewer.Wpf.Sample.csproj" />
     <Project Path="samples/documents/generator/Broadside.SampleDocuments.csproj" />
+    <Project Path="samples/guides/GettingStarted/GettingStarted.csproj" />
+    <Project Path="samples/guides/ReadingConcurrency/ReadingConcurrency.csproj" />
+    <Project Path="samples/guides/ReadingCos/ReadingCos.csproj" />
+    <Project Path="samples/guides/ReadingDiagnostics/ReadingDiagnostics.csproj" />
+    <Project Path="samples/guides/ReadingEncrypted/ReadingEncrypted.csproj" />
+    <Project Path="samples/guides/ReadingHosted/ReadingHosted.csproj" />
+    <Project Path="samples/guides/ReadingSources/ReadingSources.csproj" />
   </Folder>
   <Folder Name="/solution-items/">
     <File Path="Directory.Build.props" />
@@ -77,6 +84,7 @@
     <Project Path="tests/Broadside.TestSupport/Broadside.TestSupport.csproj" />
     <Project Path="tests/BenchGate.Tests/BenchGate.Tests.csproj" />
     <Project Path="tests/ConformanceCheck.Tests/ConformanceCheck.Tests.csproj" />
+    <Project Path="tests/DocSnippets.Tests/DocSnippets.Tests.csproj" />
     <Project Path="tests/RenderDiff.Tests/RenderDiff.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
@@ -85,6 +93,7 @@
     <Project Path="tools/ConformanceCheck/ConformanceCheck.csproj" />
     <Project Path="tools/CorpusFetcher/CorpusFetcher.csproj" />
     <Project Path="tools/DiagnosticCatalogPage/DiagnosticCatalogPage.csproj" />
+    <Project Path="tools/DocSnippets/DocSnippets.csproj" />
     <Project Path="tools/PerfCompare/PerfCompare.csproj" />
     <Project Path="tools/RenderDiff/RenderDiff.csproj" />
   </Folder>

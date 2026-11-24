@@ -4,7 +4,7 @@ title: "API coverage"
 
 # API coverage
 
-The [API reference](../api/readme.md) is generated from the XML documentation of every package under `src/`, built on a Linux runner. A package that targets several platforms is built for one target framework there, so this page says which one each package's reference shows and what it leaves out. The site's build check fails when a package has no reference, so this list stays complete.
+The [API reference](../api/readme.md) is generated from the XML documentation of every package under `src/`, built on a Linux runner. A package that targets several platforms is built for one target framework there, so this page says which one each package's reference shows and what it leaves out. The site's build check fails when a package has no reference, so this list stays complete. Every package v1 ships is here, the platform rendering backends included. The viewer packages (`Broadside.Viewer` and its shells) are listed too, but they are previews on their own track and not part of v1.
 
 | Package | Reference built from | What the reference shows |
 | --- | --- | --- |
@@ -18,13 +18,13 @@ The [API reference](../api/readme.md) is generated from the XML documentation of
 | `Broadside.Fonts.Standard14` | `net10.0` | The whole public API. |
 | `Broadside.Fonts.Cmaps` | `net10.0` | The whole public API. |
 | `Broadside.Layout` | `net10.0` | The whole public API. |
-| `Broadside.Viewer` | `net10.0` | The whole public API. |
-| `Broadside.Viewer.Avalonia` | `net10.0` | The whole public API. It depends on Avalonia 12.1.4 and runs on Windows, macOS and Linux desktops. |
-| `Broadside.Viewer.Blazor` | `net10.0` | The whole public API. It runs in the browser only. |
-| `Broadside.Viewer.Maui` | `net10.0` | The whole public API. The package also targets `net10.0-ios`, `net10.0-android`, `net10.0-maccatalyst` and `net10.0-windows10.0.19041.0`. Its public API is the same on every target, and the platform handlers are internal. |
-| `Broadside.Viewer.Uno` | `net10.0` | The whole public API. One `net10.0` assembly that Uno's Skia desktop and WebAssembly heads both load; the Uno.Sdk version is pinned in `global.json`. |
-| `Broadside.Viewer.WinUI` | `net10.0-windows10.0.19041.0` | The whole public API. The Windows App SDK is a NuGet package and the library has no XAML or resources, so it builds on Linux. |
-| `Broadside.Viewer.Wpf` | `net10.0-windows` | The whole public API. The Windows targeting pack and WPF's build tasks are NuGet packages, so it builds on Linux; it runs on Windows only. |
+| `Broadside.Viewer` | `net10.0` | Preview, not part of v1. The whole public API. |
+| `Broadside.Viewer.Avalonia` | `net10.0` | Preview, not part of v1. The whole public API. It depends on Avalonia 12.1.4 and runs on Windows, macOS and Linux desktops. |
+| `Broadside.Viewer.Blazor` | `net10.0` | Preview, not part of v1. The whole public API. It runs in the browser only. |
+| `Broadside.Viewer.Maui` | `net10.0` | Preview, not part of v1. The whole public API. The package also targets `net10.0-ios`, `net10.0-android`, `net10.0-maccatalyst` and `net10.0-windows10.0.19041.0`. Its public API is the same on every target, and the platform handlers are internal. |
+| `Broadside.Viewer.Uno` | `net10.0` | Preview, not part of v1. The whole public API. One `net10.0` assembly that Uno's Skia desktop and WebAssembly heads both load; the Uno.Sdk version is pinned in `global.json`. |
+| `Broadside.Viewer.WinUI` | `net10.0-windows10.0.19041.0` | Preview, not part of v1. The whole public API. The Windows App SDK is a NuGet package and the library has no XAML or resources, so it builds on Linux. |
+| `Broadside.Viewer.Wpf` | `net10.0-windows` | Preview, not part of v1. The whole public API. The Windows targeting pack and WPF's build tasks are NuGet packages, so it builds on Linux; it runs on Windows only. |
 
 ## Broadside.Rendering.CoreGraphics
 
