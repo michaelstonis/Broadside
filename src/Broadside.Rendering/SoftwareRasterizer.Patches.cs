@@ -29,6 +29,13 @@ public sealed partial class SoftwareRasterizer
         private float[] _patchComponents = [];
         private float[] _patchRgb = [];
         private double[] _patchWeights = [];
+        private bool[] _patchCells = [];
+        private int[] _patchUsed = [];
+        private int[] _patchEdgeSlots = [];
+        private float[] _patchEdgeComponents = [];
+        private float[] _patchEdgeRgb = [];
+        private float[] _patchUsedComponents = [];
+        private float[] _patchUsedRgb = [];
 
         /// <summary>Gets the triangles cut from patches since <see cref="Begin"/>.</summary>
         public long PatchTriangles { get; private set; }
@@ -124,6 +131,8 @@ public sealed partial class SoftwareRasterizer
             Pooled.Ensure(ref _patchComponents, points * n);
             Pooled.Ensure(ref _patchRgb, points * _pixelModel.Components);
             Pooled.Ensure(ref _patchWeights, across * 4);
+            Pooled.Ensure(ref _patchCells, steps * steps);
+            Pooled.Ensure(ref _patchUsed, points);
             for (int k = 0; k <= steps; k++)
             {
                 // Written so that k and steps − k give the same weights in reverse, bit for bit.
@@ -143,16 +152,22 @@ public sealed partial class SoftwareRasterizer
                 }
 
                 EvaluateGrid(net, steps);
+                int used = MarkCells(steps);
+                if (used == 0)
+                {
+                    PatchTriangles += 2L * steps * steps;
+                    continue;
+                }
+
                 ReadOnlySpan<float> corners = colors.Slice(patch * 4 * n, 4 * n);
-                BlendCorners(corners, n, steps);
+                BlendCorners(corners, n, steps, used == points);
                 if (model.HasFunction)
                 {
                     DrawParametricGrid(steps, t0, scale);
                 }
                 else
                 {
-                    converter.Convert(_patchComponents.AsSpan(0, points * n), _patchRgb.AsSpan(0, points * _pixelModel.Components), points);
-                    ToLayerChannels(_patchRgb, points);
+                    ConvertUsedPoints(converter, n, points, used);
                     DrawColorGrid(steps, n, converter);
                 }
 
@@ -271,8 +286,84 @@ public sealed partial class SoftwareRasterizer
             ((p0.X * w[0]) + (p3.X * w[3])) + ((p1.X * w[1]) + (p2.X * w[2])),
             ((p0.Y * w[0]) + (p3.Y * w[3])) + ((p1.Y * w[1]) + (p2.Y * w[2])));
 
-        /// <summary>The bilinear blend of the corner colours (c00, c03, c33, c30) at every grid point, n components each.</summary>
-        private void BlendCorners(ReadOnlySpan<float> corners, int n, int steps)
+        /// <summary>
+        /// Marks the grid cells whose box holds a pixel centre of the layer (only they can paint: their two triangles lie in the box)
+        /// and the grid points at their corners; returns the number of points marked.
+        /// </summary>
+        private int MarkCells(int steps)
+        {
+            int across = steps + 1;
+            Span<int> used = _patchUsed.AsSpan(0, across * across);
+            used.Clear();
+            int count = 0;
+            for (int j = 0; j < steps; j++)
+            {
+                for (int i = 0; i < steps; i++)
+                {
+                    int k = (j * across) + i;
+                    bool covers = CellCovers(k, across);
+                    _patchCells[(j * steps) + i] = covers;
+                    if (covers)
+                    {
+                        count += Mark(used, k) + Mark(used, k + 1) + Mark(used, k + across) + Mark(used, k + across + 1);
+                    }
+                }
+            }
+
+            return count;
+
+            static int Mark(Span<int> used, int point)
+            {
+                if (used[point] != 0)
+                {
+                    return 0;
+                }
+
+                used[point] = 1;
+                return 1;
+            }
+        }
+
+        /// <summary>
+        /// Converts the marked grid points' components to the layer's channels: in place when every point is marked, otherwise gathered,
+        /// converted as one run and scattered back (each point converts alone, so the bits do not depend on its neighbours in the run).
+        /// </summary>
+        private void ConvertUsedPoints(PdfColorConverter converter, int n, int points, int used)
+        {
+            int m = _pixelModel.Components;
+            if (used == points)
+            {
+                converter.Convert(_patchComponents.AsSpan(0, points * n), _patchRgb.AsSpan(0, points * m), points);
+                ToLayerChannels(_patchRgb, points);
+                return;
+            }
+
+            Pooled.Ensure(ref _patchUsedComponents, used * n);
+            Pooled.Ensure(ref _patchUsedRgb, used * m);
+            ReadOnlySpan<int> marks = _patchUsed.AsSpan(0, points);
+            for (int k = 0, at = 0; k < points; k++)
+            {
+                if (marks[k] != 0)
+                {
+                    _patchComponents.AsSpan(k * n, n).CopyTo(_patchUsedComponents.AsSpan(at * n, n));
+                    at++;
+                }
+            }
+
+            converter.Convert(_patchUsedComponents.AsSpan(0, used * n), _patchUsedRgb.AsSpan(0, used * m), used);
+            ToLayerChannels(_patchUsedRgb, used);
+            for (int k = 0, at = 0; k < points; k++)
+            {
+                if (marks[k] != 0)
+                {
+                    _patchUsedRgb.AsSpan(at * 3, 3).CopyTo(_patchRgb.AsSpan(k * 3, 3));
+                    at++;
+                }
+            }
+        }
+
+        /// <summary>The bilinear blend of the corner colours (c00, c03, c33, c30) at the grid points (every one, or the marked ones), n components each.</summary>
+        private void BlendCorners(ReadOnlySpan<float> corners, int n, int steps, bool all)
         {
             int across = steps + 1;
             for (int j = 0; j <= steps; j++)
@@ -280,6 +371,11 @@ public sealed partial class SoftwareRasterizer
                 double v = (double)j / steps;
                 for (int i = 0; i <= steps; i++)
                 {
+                    if (!all && _patchUsed[(j * across) + i] == 0)
+                    {
+                        continue;
+                    }
+
                     double u = (double)i / steps;
                     Span<float> target = _patchComponents.AsSpan(((j * across) + i) * n, n);
                     for (int c = 0; c < n; c++)
@@ -301,6 +397,11 @@ public sealed partial class SoftwareRasterizer
                 for (int i = 0; i < steps; i++)
                 {
                     int k = (j * across) + i;
+                    if (!_patchCells[(j * steps) + i])
+                    {
+                        continue;
+                    }
+
                     MeshVertex a = GridVertex(k, (float)((_patchComponents[k] - t0) * scale));
                     MeshVertex b = GridVertex(k + 1, (float)((_patchComponents[k + 1] - t0) * scale));
                     MeshVertex c = GridVertex(k + across, (float)((_patchComponents[k + across] - t0) * scale));
@@ -315,11 +416,19 @@ public sealed partial class SoftwareRasterizer
         private void DrawColorGrid(int steps, int n, PdfColorConverter converter)
         {
             int across = steps + 1;
+            ConvertCellEdges(steps, n, converter);
+            Span<float> first = stackalloc float[9];
+            Span<float> second = stackalloc float[9];
             for (int j = 0; j < steps; j++)
             {
                 for (int i = 0; i < steps; i++)
                 {
                     int k = (j * across) + i;
+                    if (!_patchCells[(j * steps) + i])
+                    {
+                        continue;
+                    }
+
                     MeshVertex a = GridColorVertex(k);
                     MeshVertex b = GridColorVertex(k + 1);
                     MeshVertex c = GridColorVertex(k + across);
@@ -328,10 +437,127 @@ public sealed partial class SoftwareRasterizer
                     ReadOnlySpan<float> sb = _patchComponents.AsSpan((k + 1) * n, n);
                     ReadOnlySpan<float> sc = _patchComponents.AsSpan((k + across) * n, n);
                     ReadOnlySpan<float> sd = _patchComponents.AsSpan((k + across + 1) * n, n);
-                    FillGouraud(a, b, c, sa, sb, sc, converter, 0);
-                    FillGouraud(b, c, d, sb, sc, sd, converter, 0);
+
+                    // (a, b, c): edges ab (the top), bc (the diagonal), ca (the left); (b, c, d): bc, cd (the bottom), db (the right).
+                    EdgeChannels(Top(j, i, steps)).CopyTo(first);
+                    EdgeChannels(Diagonal(j, i, steps, across)).CopyTo(first[3..]);
+                    EdgeChannels(Left(j, i, steps, across)).CopyTo(first[6..]);
+                    EdgeChannels(Diagonal(j, i, steps, across)).CopyTo(second);
+                    EdgeChannels(Top(j + 1, i, steps)).CopyTo(second[3..]);
+                    EdgeChannels(Left(j, i + 1, steps, across)).CopyTo(second[6..]);
+                    FillGouraud(a, b, c, sa, sb, sc, converter, 0, first);
+                    FillGouraud(b, c, d, sb, sc, sd, converter, 0, second);
                 }
             }
+        }
+
+        /// <summary>
+        /// Converts, in one run, the midpoints of the edges of every marked cell, as <see cref="FillGouraud"/> would convert each
+        /// alone: the components averaged in <see langword="float"/> ((x + y) / 2, the same bits either way round), then to the layer's
+        /// channels. Edges are numbered: across × steps horizontal (row j, cell i), then steps × across vertical, then steps × steps
+        /// diagonals (from b to c of each cell); <see cref="EdgeChannels"/> reads them back.
+        /// </summary>
+        private void ConvertCellEdges(int steps, int n, PdfColorConverter converter)
+        {
+            int across = steps + 1;
+            int edges = (2 * across * steps) + (steps * steps);
+            Pooled.Ensure(ref _patchEdgeSlots, edges);
+            Span<int> slots = _patchEdgeSlots.AsSpan(0, edges);
+            slots.Fill(-1);
+            int count = 0;
+            for (int j = 0; j < steps; j++)
+            {
+                for (int i = 0; i < steps; i++)
+                {
+                    if (_patchCells[(j * steps) + i])
+                    {
+                        Claim(slots, Top(j, i, steps), ref count);
+                        Claim(slots, Top(j + 1, i, steps), ref count);
+                        Claim(slots, Left(j, i, steps, across), ref count);
+                        Claim(slots, Left(j, i + 1, steps, across), ref count);
+                        Claim(slots, Diagonal(j, i, steps, across), ref count);
+                    }
+                }
+            }
+
+            int m = _pixelModel.Components;
+            Pooled.Ensure(ref _patchEdgeComponents, count * n);
+            Pooled.Ensure(ref _patchEdgeRgb, count * Math.Max(m, 3));
+            Span<float> components = _patchEdgeComponents.AsSpan(0, count * n);
+            for (int j = 0; j <= steps; j++)
+            {
+                for (int i = 0; i <= steps; i++)
+                {
+                    int k = (j * across) + i;
+                    if (i < steps)
+                    {
+                        Midpoint(slots[Top(j, i, steps)], k, k + 1);
+                    }
+
+                    if (j < steps)
+                    {
+                        Midpoint(slots[Left(j, i, steps, across)], k, k + across);
+                    }
+
+                    if (i < steps && j < steps)
+                    {
+                        Midpoint(slots[Diagonal(j, i, steps, across)], k + 1, k + across);
+                    }
+                }
+            }
+
+            converter.Convert(components, _patchEdgeRgb.AsSpan(0, count * m), count);
+            ToLayerChannels(_patchEdgeRgb, count);
+
+            static void Claim(Span<int> slots, int edge, ref int count)
+            {
+                if (slots[edge] < 0)
+                {
+                    slots[edge] = count++;
+                }
+            }
+
+            void Midpoint(int slot, int from, int to)
+            {
+                if (slot < 0)
+                {
+                    return;
+                }
+
+                ReadOnlySpan<float> x = _patchComponents.AsSpan(from * n, n);
+                ReadOnlySpan<float> y = _patchComponents.AsSpan(to * n, n);
+                Span<float> target = _patchEdgeComponents.AsSpan(slot * n, n);
+                for (int c = 0; c < n; c++)
+                {
+                    target[c] = (x[c] + y[c]) / 2;
+                }
+            }
+        }
+
+        /// <summary>The converted layer channels of an edge's midpoint (see <see cref="ConvertCellEdges"/>).</summary>
+        private ReadOnlySpan<float> EdgeChannels(int edge) => _patchEdgeRgb.AsSpan(_patchEdgeSlots[edge] * 3, 3);
+
+        /// <summary>The horizontal edge from grid point (i, j) to (i + 1, j).</summary>
+        private static int Top(int j, int i, int steps) => (j * steps) + i;
+
+        /// <summary>The vertical edge from grid point (i, j) to (i, j + 1).</summary>
+        private static int Left(int j, int i, int steps, int across) => (across * steps) + (j * across) + i;
+
+        /// <summary>The diagonal of cell (i, j), from grid point (i + 1, j) to (i, j + 1).</summary>
+        private static int Diagonal(int j, int i, int steps, int across) => (2 * across * steps) + (j * steps) + i;
+
+        /// <summary>Whether a pixel centre of the layer lies in the box of the grid cell from point <paramref name="k"/>; its two triangles lie in that box.</summary>
+        private bool CellCovers(int k, int across)
+        {
+            PathPoint a = _patchGrid[k];
+            PathPoint b = _patchGrid[k + 1];
+            PathPoint c = _patchGrid[k + across];
+            PathPoint d = _patchGrid[k + across + 1];
+            return _meshLayer.Covers(
+                Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X)),
+                Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y)),
+                Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X)),
+                Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y)));
         }
 
         private MeshVertex GridVertex(int index, float s)
@@ -357,6 +583,13 @@ public sealed partial class SoftwareRasterizer
             Pooled.Return(ref _patchComponents);
             Pooled.Return(ref _patchRgb);
             Pooled.Return(ref _patchWeights);
+            Pooled.Return(ref _patchCells);
+            Pooled.Return(ref _patchUsed);
+            Pooled.Return(ref _patchUsedComponents);
+            Pooled.Return(ref _patchUsedRgb);
+            Pooled.Return(ref _patchEdgeSlots);
+            Pooled.Return(ref _patchEdgeComponents);
+            Pooled.Return(ref _patchEdgeRgb);
         }
     }
 }

@@ -435,13 +435,26 @@ public sealed partial class SoftwareRasterizer
         /// more than <see cref="SubdivisionTolerance"/> the triangle is split in four at its edges' midpoints, up to
         /// <see cref="MaxSubdivision"/> times, and never below two pixels across.
         /// </summary>
-        private void FillGouraud(in MeshVertex a, in MeshVertex b, in MeshVertex c, ReadOnlySpan<float> sa, ReadOnlySpan<float> sb, ReadOnlySpan<float> sc, PdfColorConverter converter, int depth)
+        /// <param name="a">The first vertex, in device pixels with its layer channels.</param>
+        /// <param name="b">The second vertex.</param>
+        /// <param name="c">The third vertex.</param>
+        /// <param name="sa">The first vertex's components in the shading's colour space.</param>
+        /// <param name="sb">The second vertex's components.</param>
+        /// <param name="sc">The third vertex's components.</param>
+        /// <param name="converter">The shading's colour converter.</param>
+        /// <param name="depth">The number of splits so far.</param>
+        /// <param name="midpoints">
+        /// Empty, or the layer channels of the edges' midpoints ab, bc and ca (three each) already converted, as this method would
+        /// convert them (a patch grid converts the edges of all its cells in one run).
+        /// </param>
+        private void FillGouraud(in MeshVertex a, in MeshVertex b, in MeshVertex c, ReadOnlySpan<float> sa, ReadOnlySpan<float> sb, ReadOnlySpan<float> sc, PdfColorConverter converter, int depth, ReadOnlySpan<float> midpoints = default)
         {
             double minX = Math.Min(a.X, Math.Min(b.X, c.X));
             double maxX = Math.Max(a.X, Math.Max(b.X, c.X));
             double minY = Math.Min(a.Y, Math.Min(b.Y, c.Y));
             double maxY = Math.Max(a.Y, Math.Max(b.Y, c.Y));
-            if (maxX < _meshLayer.Left || minX > _meshLayer.Left + _meshLayer.Width || maxY < _meshLayer.Top || minY > _meshLayer.Top + _meshLayer.Height)
+            // No pixel centre in the box: neither this triangle nor any part of it paints, so its colours need not be converted.
+            if (!_meshLayer.Covers(minX, minY, maxX, maxY))
             {
                 return;
             }
@@ -466,10 +479,17 @@ public sealed partial class SoftwareRasterizer
             // Converted to the layer's pixel model (4 components in a CMYK group), then to the layer's three channels.
             int m = _pixelModel.Components;
             Span<float> rgb = stackalloc float[12];
-            converter.Convert(sab, rgb.Slice(0, m));
-            converter.Convert(sbc, rgb.Slice(m, m));
-            converter.Convert(sca, rgb.Slice(2 * m, m));
-            ToLayerChannels(rgb, 3);
+            if (midpoints.IsEmpty)
+            {
+                converter.Convert(sab, rgb.Slice(0, m));
+                converter.Convert(sbc, rgb.Slice(m, m));
+                converter.Convert(sca, rgb.Slice(2 * m, m));
+                ToLayerChannels(rgb, 3);
+            }
+            else
+            {
+                midpoints[..9].CopyTo(rgb);
+            }
             if (Near(rgb[..3], a, b) && Near(rgb[3..6], b, c) && Near(rgb[6..], c, a))
             {
                 _meshLayer.FillTriangle(a, b, c);

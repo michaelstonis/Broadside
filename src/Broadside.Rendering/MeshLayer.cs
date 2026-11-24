@@ -102,10 +102,20 @@ internal sealed class MeshLayer
         _table = null;
     }
 
+    /// <summary>
+    /// Gets a value indicating whether a pixel centre of the layer lies in [<paramref name="minX"/>, <paramref name="maxX"/>) ×
+    /// [<paramref name="minY"/>, <paramref name="maxY"/>): when not, no triangle inside that box paints a pixel (its rows and spans
+    /// are half-open at the same ends), so it can be skipped before any of its setup.
+    /// </summary>
+    public bool Covers(double minX, double minY, double maxX, double maxY) =>
+        Math.Max(_top, CeilingCentre(minY)) < Math.Min(_top + _height, CeilingCentre(maxY))
+        && Math.Max(_left, CeilingCentre(minX)) < Math.Min(_left + _width, CeilingCentre(maxX));
+
     /// <summary>Paints the pixels whose centres lie in the triangle (half-open spans) with the colour interpolated linearly from its vertices.</summary>
     public void FillTriangle(in MeshVertex a, in MeshVertex b, in MeshVertex c)
     {
-        if (_width == 0)
+        if (_width == 0
+            || !Covers(Math.Min(a.X, Math.Min(b.X, c.X)), Math.Min(a.Y, Math.Min(b.Y, c.Y)), Math.Max(a.X, Math.Max(b.X, c.X)), Math.Max(a.Y, Math.Max(b.Y, c.Y))))
         {
             return;
         }
