@@ -2,13 +2,13 @@
   "label": "GitHub-hosted Linux runner (ubuntu-24.04)",
   "slug": "linux-x86_64-github",
   "Date": "2026-11-24",
-  "Commit": "87624fd086",
-  "Machine": "AMD EPYC 9V74 80-Core Processor, 4 logical cores, 15 GB",
+  "Commit": "8ecf80affe",
+  "Machine": "Intel(R) Xeon(R) 6975P-C, 4 logical cores, 15 GB",
   "OS": "Ubuntu 24.04.5 LTS (x86_64)",
   ".NET": "10.0.404 SDK, runtime 11.0.0",
   "PDFium": "pypdfium2 5.13.0, PDFium 153.0.7999.0, Python 3.12.16",
   "pdf.js": "pdfjs-dist 6.3.289, @napi-rs/canvas 1.0.9, Node v22.23.5",
   "Browser": "chromium 157.0.8103.78",
   "Settings": "DPI 72,150; whole document at 150 DPI; 10 timed runs per case; one thread per engine",
-  "Load average": "4.56, 2.60, 1.05 at the start, 1.73, 2.40, 1.67 at the end"
+  "Load average": "4.98, 2.14, 0.83 at the start, 1.49, 2.08, 1.42 at the end"
 }
