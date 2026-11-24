@@ -18,3 +18,4 @@ articles:
   - {path: conformance.md, title: "Conformance"}
   - {path: api-coverage.md, title: "API coverage"}
   - {path: contributing.md, title: "Contributing"}
+  - {path: api-review.md, title: "API review checklist"}

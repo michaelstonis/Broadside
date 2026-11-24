@@ -13,6 +13,7 @@ Broadside's packages are on NuGet.org as previews (`0.1.0-preview.N`), and the p
 - [Performance](performance.md): how fast Broadside opens, renders and extracts text next to PDFium and pdf.js.
 - [Conformance](conformance.md): the per-clause record of what is implemented.
 - [Contributing](contributing.md): the issue, branch and pull request flow.
+- [API review checklist](api-review.md): the rules every public API change follows, and which of them the tests enforce.
 - [API coverage](api-coverage.md): which target framework each package's API reference is built from, and the API of the one package it cannot build.
 
 The [API reference](../api/readme.md) is generated from the XML documentation of every package on every build of this site.

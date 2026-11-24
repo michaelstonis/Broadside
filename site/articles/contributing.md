@@ -8,6 +8,7 @@ People and AI agents contribute the same way: pick an unassigned, unblocked issu
 
 - [`CONTRIBUTING.md`](https://github.com/michaelstonis/Broadside/blob/main/CONTRIBUTING.md): the full issue, branch, commit and review process.
 - [`CLAUDE.md`](https://github.com/michaelstonis/Broadside/blob/main/CLAUDE.md): the hard rules (dependencies, target, spec citations, hot-path allocation).
+- [API review checklist](api-review.md): what every change to a shipping package's public API is checked against, and which rules the tests enforce.
 - [`CODE_OF_CONDUCT.md`](https://github.com/michaelstonis/Broadside/blob/main/CODE_OF_CONDUCT.md) and [`SECURITY.md`](https://github.com/michaelstonis/Broadside/blob/main/SECURITY.md).
 - [Open issues](https://github.com/michaelstonis/Broadside/issues) and the [project board](https://github.com/users/michaelstonis/projects/1).
 

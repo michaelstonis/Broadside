@@ -113,6 +113,7 @@ for route in \
     articles/untrusted-files/index.html \
     articles/conformance/index.html \
     articles/contributing/index.html \
+    articles/api-review/index.html \
     articles/api-coverage/index.html \
     api/index.html \
     css/site.css \
