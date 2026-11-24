@@ -97,6 +97,65 @@ public static class GroupSamples
         return ContentSamples.OnePage(Encoding.Latin1.GetBytes(text.ToString()), resources, [.. objects]);
     }
 
+    /// <summary>
+    /// A 612 x 792 page in a DeviceCMYK page group, shaped like the Ghent Workgroup's blend-mode patch (GWG 16.0): flat CMYK
+    /// backdrop bands, then a 4 x 4 grid of non-isolated DeviceCMYK form groups, each filling one cross shape in Normal, painted
+    /// with one of the 16 blend modes (§11.3.5). Each group's result is blended onto the page group, in both of its passes.
+    /// </summary>
+    /// <returns>The file.</returns>
+    public static byte[] BlendModesInCmykPage()
+    {
+        string[] modes =
+        [
+            "Normal", "Multiply", "Screen", "Overlay", "Darken", "Lighten", "ColorDodge", "ColorBurn",
+            "HardLight", "SoftLight", "Difference", "Exclusion", "Hue", "Saturation", "Color", "Luminosity",
+        ];
+        string[] inks = ["0 0 0 1", "1 0.49 0 0", "0 0 0 0.35", "0.46 0 0 0"];
+        var text = new StringBuilder("0 0 0 0 k 0 0 612 792 re f\n");
+        for (int band = 0; band < 4; band++)
+        {
+            text.Append(Format("{0} k 0 {1} 612 99 re f\n", inks[band], (band * 198) + 50));
+        }
+
+        var states = new StringBuilder("/ExtGState <<");
+        var xobjects = new StringBuilder("/XObject <<");
+        var objects = new List<string>();
+        for (int index = 0; index < modes.Length; index++)
+        {
+            double x = (index % 4 * 153) + 1;
+            double y = index / 4 * 198;
+            states.Append(Format(" /B{0} << /BM /{1} >>", index, modes[index]));
+            xobjects.Append(Format(" /X{0} {1} 0 R", index, 5 + index));
+            text.Append(Format("/B{0} gs /X{0} Do\n", index));
+
+            // A cross: the box's corners cut in, as the GWG patch's 'X'.
+            string cross = Format(
+                "{0} k {1} {2} m {3} {4} l {5} {2} l {6} {4} l {6} {7} l {5} {8} l {3} {7} l {1} {8} l h f",
+                inks[(index + 1) % 4],
+                x + 10,
+                y + 10,
+                x + 75,
+                y + 60,
+                x + 140,
+                x + 140,
+                y + 138,
+                y + 188);
+            objects.Add(ContentSamples.Stream(
+                cross,
+                Format("/Type /XObject /Subtype /Form /BBox [{0} {1} {2} {3}] /Group << /S /Transparency /CS /DeviceCMYK >>", x, y, x + 150, y + 198)));
+        }
+
+        string resources = states + " >> " + xobjects + " >>";
+        return ContentSamples.File(
+        [
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Group << /S /Transparency /CS /DeviceCMYK >> /Resources << {resources} >> /Contents 4 0 R >>",
+            ContentSamples.Stream(text.ToString()),
+            .. objects,
+        ]);
+    }
+
     private static string Form(string group, string content) =>
         ContentSamples.Stream(content, $"/Type /XObject /Subtype /Form /BBox [0 0 204 198] /Group << /S /Transparency {group} >> /Resources << RESOURCES >>");
 

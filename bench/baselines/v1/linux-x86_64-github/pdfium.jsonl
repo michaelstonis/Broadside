@@ -1,146 +1,146 @@
-{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 2.549041500003568, "min_ms": 2.5175740000236146, "runs": 10}
-{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.5216240000152084, "min_ms": 0.4999409999868476, "runs": 10}
-{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 1.2146054999959688, "min_ms": 1.1958869999944, "runs": 10}
-{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 4.109571499995468, "min_ms": 4.081865000017615, "runs": 10}
-{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 2.0328305000134606, "min_ms": 2.022549000002982, "runs": 10}
-{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 5.0992084999847975, "min_ms": 5.049808999984862, "runs": 10}
-{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 5.09684000002153, "min_ms": 5.066904999978306, "runs": 10}
-{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 10.903197000004639, "min_ms": 10.826191000006702, "runs": 10}
-{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 3.2902500000062673, "min_ms": 3.2729690000223854, "runs": 10}
-{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 22.865089500001545, "min_ms": 22.699767000005977, "runs": 10}
-{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 35.35498149999228, "min_ms": 35.21705900001848, "runs": 10}
-{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 35.02690799999186, "min_ms": 34.51715700001046, "runs": 10}
-{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 48.15081249999764, "min_ms": 47.89502299999526, "runs": 10}
-{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 148.09328949996825, "min_ms": 147.41242200000215, "runs": 10}
-{"file": "pdf20examples/PDF 2.0 image with BPC.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.3842419999955382, "min_ms": 0.37374200002204816, "runs": 10}
-{"file": "pdf20examples/PDF 2.0 image with BPC.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.07115249999856132, "min_ms": 0.06691000004366288, "runs": 10}
-{"file": "pdf20examples/PDF 2.0 image with BPC.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 0.5626855000002706, "min_ms": 0.5110479999643758, "runs": 10}
-{"file": "pdf20examples/PDF 2.0 image with BPC.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 0.9945600000094146, "min_ms": 0.9474739999859594, "runs": 10}
-{"file": "pdf20examples/PDF 2.0 image with BPC.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 1.391391499993233, "min_ms": 1.3671749999843996, "runs": 10}
-{"file": "pdf20examples/PDF 2.0 image with BPC.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 1.8285085000115942, "min_ms": 1.773376000016924, "runs": 10}
-{"file": "pdf20examples/PDF 2.0 image with BPC.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 1.8396549999977196, "min_ms": 1.8224189999500595, "runs": 10}
-{"file": "pdf20examples/PDF 2.0 with page level output intent.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.3588094999997793, "min_ms": 0.34568000000945176, "runs": 10}
-{"file": "pdf20examples/PDF 2.0 with page level output intent.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.04724100000430553, "min_ms": 0.04597899999225774, "runs": 10}
-{"file": "pdf20examples/PDF 2.0 with page level output intent.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 0.2574215000095137, "min_ms": 0.2527800000393654, "runs": 10}
-{"file": "pdf20examples/PDF 2.0 with page level output intent.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 0.6546540000158529, "min_ms": 0.6370479999873169, "runs": 10}
-{"file": "pdf20examples/PDF 2.0 with page level output intent.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 0.8451905000015358, "min_ms": 0.8370979999767769, "runs": 10}
-{"file": "pdf20examples/PDF 2.0 with page level output intent.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 1.2470695000104115, "min_ms": 1.238541000020632, "runs": 10}
-{"file": "pdf20examples/PDF 2.0 with page level output intent.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 2.1211680000021715, "min_ms": 2.110042000026624, "runs": 10}
-{"file": "pdfjs/alphatrans.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.48539900001287606, "min_ms": 0.46998700003086924, "runs": 10}
-{"file": "pdfjs/alphatrans.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.07558849998190453, "min_ms": 0.07378100002597421, "runs": 10}
-{"file": "pdfjs/alphatrans.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 2.6368929999875945, "min_ms": 2.619928000001437, "runs": 10}
-{"file": "pdfjs/alphatrans.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 3.3218019999878834, "min_ms": 3.1564339999476942, "runs": 10}
-{"file": "pdfjs/alphatrans.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 10.082066999984818, "min_ms": 10.05811699997139, "runs": 10}
-{"file": "pdfjs/alphatrans.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 10.43865350001738, "min_ms": 10.393290000024535, "runs": 10}
-{"file": "pdfjs/alphatrans.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 10.554232499998761, "min_ms": 10.408262999987983, "runs": 10}
-{"file": "pdfjs/annotation-highlight.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.5965414999877794, "min_ms": 0.5832969999914894, "runs": 10}
-{"file": "pdfjs/annotation-highlight.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.28283049999799914, "min_ms": 0.26760200000808254, "runs": 10}
-{"file": "pdfjs/annotation-highlight.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 0.8037979999926392, "min_ms": 0.7981489999906444, "runs": 10}
-{"file": "pdfjs/annotation-highlight.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 1.7491390000259344, "min_ms": 1.7264449999743192, "runs": 10}
-{"file": "pdfjs/annotation-highlight.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 1.6391590000068845, "min_ms": 1.6194140000038715, "runs": 10}
-{"file": "pdfjs/annotation-highlight.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 2.6035635000027924, "min_ms": 2.5782050000202617, "runs": 10}
-{"file": "pdfjs/annotation-highlight.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 2.6161119999983384, "min_ms": 2.5944899999785775, "runs": 10}
-{"file": "pdfjs/bug_jpx.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.13372600000138846, "min_ms": 0.12879300004442484, "runs": 10}
-{"file": "pdfjs/bug_jpx.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.017661500038457234, "min_ms": 0.016644999959680717, "runs": 10}
-{"file": "pdfjs/bug_jpx.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 0.5919295000182956, "min_ms": 0.5812140000216459, "runs": 10}
-{"file": "pdfjs/bug_jpx.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 0.7507685000121, "min_ms": 0.7341630000041732, "runs": 10}
-{"file": "pdfjs/bug_jpx.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 1.4443010000206868, "min_ms": 1.436808999983441, "runs": 10}
-{"file": "pdfjs/bug_jpx.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 1.611286500008191, "min_ms": 1.6017370000440678, "runs": 10}
-{"file": "pdfjs/bug_jpx.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 1.619178499993268, "min_ms": 1.6102399999908812, "runs": 10}
-{"file": "pdfjs/calgray.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.2560445000199252, "min_ms": 0.2443070000026637, "runs": 10}
-{"file": "pdfjs/calgray.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.1063795000106893, "min_ms": 0.10549899997158718, "runs": 10}
-{"file": "pdfjs/calgray.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 1.0106894999921678, "min_ms": 1.0035679999873537, "runs": 10}
-{"file": "pdfjs/calgray.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 1.26644300001999, "min_ms": 1.2525230000051124, "runs": 10}
-{"file": "pdfjs/calgray.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 3.8291850000007344, "min_ms": 3.8166059999866775, "runs": 10}
-{"file": "pdfjs/calgray.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 4.105995999992729, "min_ms": 4.096086999993531, "runs": 10}
-{"file": "pdfjs/calgray.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 11.871151500002952, "min_ms": 11.833625999997821, "runs": 10}
-{"file": "pdfjs/ccitt_EndOfBlock_false.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.0783179999928052, "min_ms": 0.07783699999208693, "runs": 10}
-{"file": "pdfjs/ccitt_EndOfBlock_false.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.02214799999933348, "min_ms": 0.021432000039567356, "runs": 10}
-{"file": "pdfjs/ccitt_EndOfBlock_false.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 1.2445905000220137, "min_ms": 1.2379700000337834, "runs": 10}
-{"file": "pdfjs/ccitt_EndOfBlock_false.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 1.337940500008017, "min_ms": 1.3263239999901089, "runs": 10}
-{"file": "pdfjs/ccitt_EndOfBlock_false.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 4.72540699999513, "min_ms": 4.714175000003706, "runs": 10}
-{"file": "pdfjs/ccitt_EndOfBlock_false.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 4.81715949999284, "min_ms": 4.8007149999875764, "runs": 10}
-{"file": "pdfjs/ccitt_EndOfBlock_false.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 4.82101550002767, "min_ms": 4.802668000024823, "runs": 10}
-{"file": "pdfjs/cmykjpeg.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 1.0548704999848724, "min_ms": 1.0454810000055659, "runs": 10}
-{"file": "pdfjs/cmykjpeg.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.020520500015663856, "min_ms": 0.019108000003598136, "runs": 10}
-{"file": "pdfjs/cmykjpeg.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 1.1277295000127197, "min_ms": 1.1233679999804735, "runs": 10}
-{"file": "pdfjs/cmykjpeg.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 2.2082939999847895, "min_ms": 2.193567000006169, "runs": 10}
-{"file": "pdfjs/cmykjpeg.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 2.6026169999795457, "min_ms": 2.5886899999818525, "runs": 10}
-{"file": "pdfjs/cmykjpeg.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 3.711317500005862, "min_ms": 3.6829450000368524, "runs": 10}
-{"file": "pdfjs/cmykjpeg.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 3.7029499999903237, "min_ms": 3.668333000007351, "runs": 10}
-{"file": "pdfjs/devicen.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.1743215000260534, "min_ms": 0.1716180000244094, "runs": 10}
-{"file": "pdfjs/devicen.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.02926899998101362, "min_ms": 0.028122000003349967, "runs": 10}
-{"file": "pdfjs/devicen.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 0.3715730000237727, "min_ms": 0.36101300003110737, "runs": 10}
-{"file": "pdfjs/devicen.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 0.5882189999795173, "min_ms": 0.5643680000275708, "runs": 10}
-{"file": "pdfjs/devicen.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 1.3055370000074618, "min_ms": 1.2955270000247765, "runs": 10}
-{"file": "pdfjs/devicen.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 1.521070999984886, "min_ms": 1.5105900000094152, "runs": 10}
-{"file": "pdfjs/devicen.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 1.5176715000109198, "min_ms": 1.5083669999853555, "runs": 10}
-{"file": "pdfjs/function_based_shading.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.13745199998993485, "min_ms": 0.13588499996330938, "runs": 10}
-{"file": "pdfjs/function_based_shading.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.023610499994219936, "min_ms": 0.023004000013315817, "runs": 10}
-{"file": "pdfjs/function_based_shading.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 16.552617499996813, "min_ms": 16.483243000038783, "runs": 10}
-{"file": "pdfjs/function_based_shading.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 16.772233000011738, "min_ms": 16.64342399999441, "runs": 10}
-{"file": "pdfjs/function_based_shading.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 71.52351600001339, "min_ms": 71.38027999997121, "runs": 10}
-{"file": "pdfjs/function_based_shading.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 72.2427065000204, "min_ms": 71.6990499999497, "runs": 10}
-{"file": "pdfjs/function_based_shading.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 71.90609149998295, "min_ms": 71.65230900000097, "runs": 10}
-{"file": "pdfjs/issue2948.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.39283550000845935, "min_ms": 0.38386699998227414, "runs": 10}
-{"file": "pdfjs/issue2948.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.16854300000090916, "min_ms": 0.16554899997345274, "runs": 10}
-{"file": "pdfjs/issue2948.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 1.5521775000024718, "min_ms": 1.5368999999623156, "runs": 10}
-{"file": "pdfjs/issue2948.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 2.515465500010805, "min_ms": 2.5016700000151104, "runs": 10}
-{"file": "pdfjs/issue2948.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 5.562159499987729, "min_ms": 5.539174999967145, "runs": 10}
-{"file": "pdfjs/issue2948.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 6.809909499992273, "min_ms": 6.781521999982942, "runs": 10}
-{"file": "pdfjs/issue2948.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 6.819945000017924, "min_ms": 6.783344000041325, "runs": 10}
-{"file": "pdfjs/issue3584.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.2711729999589352, "min_ms": 0.2627650000022186, "runs": 10}
-{"file": "pdfjs/issue3584.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.024251499979754954, "min_ms": 0.023565999981656205, "runs": 10}
-{"file": "pdfjs/issue3584.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 0.055308000014520076, "min_ms": 0.05366099998127538, "runs": 10}
-{"file": "pdfjs/issue3584.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 0.3753034999931515, "min_ms": 0.36615099998016376, "runs": 10}
-{"file": "pdfjs/issue3584.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 0.08649000000104934, "min_ms": 0.08536799998637434, "runs": 10}
-{"file": "pdfjs/issue3584.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 0.4096709999998893, "min_ms": 0.401393000004191, "runs": 10}
-{"file": "pdfjs/issue3584.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 0.4073519999963082, "min_ms": 0.39994100001194965, "runs": 10}
-{"file": "pdfjs/issue6296.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.07840300000339084, "min_ms": 0.0754029999825434, "runs": 10}
-{"file": "pdfjs/issue6296.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.01894350000952727, "min_ms": 0.01833700002862315, "runs": 10}
-{"file": "pdfjs/issue6296.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 0.2964560000009442, "min_ms": 0.29380199998740864, "runs": 10}
-{"file": "pdfjs/issue6296.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 0.3842479999889292, "min_ms": 0.3768860000263885, "runs": 10}
-{"file": "pdfjs/issue6296.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 1.1566230000141786, "min_ms": 1.1542649999682908, "runs": 10}
-{"file": "pdfjs/issue6296.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 1.2574649999805843, "min_ms": 1.2488869999742747, "runs": 10}
-{"file": "pdfjs/issue6296.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 1.2549760000126753, "min_ms": 1.24936700001399, "runs": 10}
-{"file": "pdfjs/jbig2_symbol_offset.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.04031499997836363, "min_ms": 0.03902899999275178, "runs": 10}
-{"file": "pdfjs/jbig2_symbol_offset.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.01683499999671767, "min_ms": 0.01619500000060725, "runs": 10}
-{"file": "pdfjs/jbig2_symbol_offset.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 0.40391199999589844, "min_ms": 0.3988299999946321, "runs": 10}
-{"file": "pdfjs/jbig2_symbol_offset.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 0.44878949998405915, "min_ms": 0.43648600001233717, "runs": 10}
-{"file": "pdfjs/jbig2_symbol_offset.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 1.429623000007041, "min_ms": 1.4224280000121325, "runs": 10}
-{"file": "pdfjs/jbig2_symbol_offset.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 1.4818324999907873, "min_ms": 1.4648510000370152, "runs": 10}
-{"file": "pdfjs/jbig2_symbol_offset.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 1.4764789999901495, "min_ms": 1.4668050000068433, "runs": 10}
-{"file": "pdfjs/personwithdog.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 1.6859735000025466, "min_ms": 1.671521999980996, "runs": 10}
-{"file": "pdfjs/personwithdog.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.49841399999195346, "min_ms": 0.4880239999920377, "runs": 10}
-{"file": "pdfjs/personwithdog.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 69.12035899998159, "min_ms": 67.44659400004593, "runs": 10}
-{"file": "pdfjs/personwithdog.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 73.46974000000728, "min_ms": 72.05894499998067, "runs": 10}
-{"file": "pdfjs/personwithdog.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 105.70830100002127, "min_ms": 104.93925100001888, "runs": 10}
-{"file": "pdfjs/personwithdog.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 111.23112649997324, "min_ms": 108.18083100002696, "runs": 10}
-{"file": "pdfjs/personwithdog.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 111.42145200000186, "min_ms": 107.74715999997397, "runs": 10}
-{"file": "pdfjs/smask_alpha_oob.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.04057600000351158, "min_ms": 0.038427999982104666, "runs": 10}
-{"file": "pdfjs/smask_alpha_oob.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.018462999975099592, "min_ms": 0.018127000032563956, "runs": 10}
-{"file": "pdfjs/smask_alpha_oob.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 0.9126570000148604, "min_ms": 0.909417000002577, "runs": 10}
-{"file": "pdfjs/smask_alpha_oob.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 0.9727119999922706, "min_ms": 0.9540130000118552, "runs": 10}
-{"file": "pdfjs/smask_alpha_oob.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 3.7079374999962056, "min_ms": 3.6929799999825264, "runs": 10}
-{"file": "pdfjs/smask_alpha_oob.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 3.771523500006424, "min_ms": 3.761593999968227, "runs": 10}
-{"file": "pdfjs/smask_alpha_oob.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 3.7873219999937646, "min_ms": 3.76584000002822, "runs": 10}
-{"file": "pdfjs/tiling-pattern-large-steps.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.04373550001446347, "min_ms": 0.04075100002864929, "runs": 10}
-{"file": "pdfjs/tiling-pattern-large-steps.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.01770149998492343, "min_ms": 0.017065999998067127, "runs": 10}
-{"file": "pdfjs/tiling-pattern-large-steps.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 4.464700999960769, "min_ms": 4.448056000001088, "runs": 10}
-{"file": "pdfjs/tiling-pattern-large-steps.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 4.580479499992407, "min_ms": 4.511371000035069, "runs": 10}
-{"file": "pdfjs/tiling-pattern-large-steps.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 47.191752500026496, "min_ms": 46.92461600001252, "runs": 10}
-{"file": "pdfjs/tiling-pattern-large-steps.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 47.45912949996978, "min_ms": 47.17934900003229, "runs": 10}
-{"file": "pdfjs/tiling-pattern-large-steps.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 47.482784999999694, "min_ms": 47.16824299998734, "runs": 10}
-{"file": "pdfjs/tracemonkey.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 3.0453219999913017, "min_ms": 3.0270299999983763, "runs": 10}
-{"file": "pdfjs/tracemonkey.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 1.2806749999754174, "min_ms": 1.2604049999822564, "runs": 10}
-{"file": "pdfjs/tracemonkey.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 2.3859855000125663, "min_ms": 2.3735679999958847, "runs": 10}
-{"file": "pdfjs/tracemonkey.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 7.135639500006619, "min_ms": 7.112871000003906, "runs": 10}
-{"file": "pdfjs/tracemonkey.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 5.357863000000407, "min_ms": 5.3379019999511, "runs": 10}
-{"file": "pdfjs/tracemonkey.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 10.716536500012808, "min_ms": 10.692299999959687, "runs": 10}
-{"file": "pdfjs/tracemonkey.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 156.22832549999544, "min_ms": 155.83641599999964, "runs": 10}
-{"file": "pdfjs/tracemonkey.pdf", "page": 1, "op": "open", "dpi": null, "median_ms": 6.1311645000046155, "min_ms": 6.1110749999784275, "runs": 10}
-{"file": "pdfjs/tracemonkey.pdf", "page": 1, "op": "text", "dpi": null, "median_ms": 1.798763500005407, "min_ms": 1.7870660000198768, "runs": 10}
-{"file": "pdfjs/tracemonkey.pdf", "page": 1, "op": "render", "dpi": 72, "median_ms": 5.053876000005175, "min_ms": 5.038393000006636, "runs": 10}
-{"file": "pdfjs/tracemonkey.pdf", "page": 1, "op": "open-render", "dpi": 72, "median_ms": 12.053205499995556, "min_ms": 12.033335000012357, "runs": 10}
-{"file": "pdfjs/tracemonkey.pdf", "page": 1, "op": "render", "dpi": 150, "median_ms": 9.276476999986016, "min_ms": 9.237153000015041, "runs": 10}
-{"file": "pdfjs/tracemonkey.pdf", "page": 1, "op": "open-render", "dpi": 150, "median_ms": 16.698486499990395, "min_ms": 16.63869699996212, "runs": 10}
+{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 2.3451370000202587, "min_ms": 2.3273000000472166, "runs": 10}
+{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.49541250001539083, "min_ms": 0.4815829999529342, "runs": 10}
+{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 1.1139229999912459, "min_ms": 1.0991909999802374, "runs": 10}
+{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 3.8280524999834142, "min_ms": 3.7987470000189205, "runs": 10}
+{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 1.837482000013324, "min_ms": 1.8226729999923919, "runs": 10}
+{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 4.704004499984649, "min_ms": 4.681730000015705, "runs": 10}
+{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 4.718751499979135, "min_ms": 4.691621999995732, "runs": 10}
+{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 10.771308000016688, "min_ms": 10.736507999979494, "runs": 10}
+{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 3.3138250000206426, "min_ms": 3.2895209999992403, "runs": 10}
+{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 20.65345950001074, "min_ms": 20.568676999971558, "runs": 10}
+{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 33.07301300000631, "min_ms": 32.97711599998365, "runs": 10}
+{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 31.737483499995278, "min_ms": 31.67972699998245, "runs": 10}
+{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 45.07651049999595, "min_ms": 44.89639299998771, "runs": 10}
+{"file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 137.63016249998827, "min_ms": 136.66999999998097, "runs": 10}
+{"file": "pdf20examples/PDF 2.0 image with BPC.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.34563450000746343, "min_ms": 0.3412249999996675, "runs": 10}
+{"file": "pdf20examples/PDF 2.0 image with BPC.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.06272249996186474, "min_ms": 0.06046999999398395, "runs": 10}
+{"file": "pdf20examples/PDF 2.0 image with BPC.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 0.51865449998445, "min_ms": 0.4646579999985079, "runs": 10}
+{"file": "pdf20examples/PDF 2.0 image with BPC.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 0.9356734999812488, "min_ms": 0.9042140000019572, "runs": 10}
+{"file": "pdf20examples/PDF 2.0 image with BPC.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 1.4646409999841126, "min_ms": 1.39811600001849, "runs": 10}
+{"file": "pdf20examples/PDF 2.0 image with BPC.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 1.896236000021645, "min_ms": 1.8713249999677828, "runs": 10}
+{"file": "pdf20examples/PDF 2.0 image with BPC.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 1.9029454999781592, "min_ms": 1.8494090000444885, "runs": 10}
+{"file": "pdf20examples/PDF 2.0 with page level output intent.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.3255720000083784, "min_ms": 0.3154460000018844, "runs": 10}
+{"file": "pdf20examples/PDF 2.0 with page level output intent.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.04260349999185564, "min_ms": 0.04171500000893502, "runs": 10}
+{"file": "pdf20examples/PDF 2.0 with page level output intent.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 0.245642999999518, "min_ms": 0.2269439999622591, "runs": 10}
+{"file": "pdf20examples/PDF 2.0 with page level output intent.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 0.5978139999740506, "min_ms": 0.5812539999965338, "runs": 10}
+{"file": "pdf20examples/PDF 2.0 with page level output intent.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 0.9290744999930212, "min_ms": 0.8942899999624387, "runs": 10}
+{"file": "pdf20examples/PDF 2.0 with page level output intent.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 1.3348044999759168, "min_ms": 1.316733999999542, "runs": 10}
+{"file": "pdf20examples/PDF 2.0 with page level output intent.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 2.2954760000004626, "min_ms": 2.2770550000359435, "runs": 10}
+{"file": "pdfjs/alphatrans.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.43802400000458874, "min_ms": 0.42392500000687505, "runs": 10}
+{"file": "pdfjs/alphatrans.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.06700649998947483, "min_ms": 0.06532400004743977, "runs": 10}
+{"file": "pdfjs/alphatrans.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 2.372703499986528, "min_ms": 2.3456889999806663, "runs": 10}
+{"file": "pdfjs/alphatrans.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 2.9267529999970066, "min_ms": 2.874999000027856, "runs": 10}
+{"file": "pdfjs/alphatrans.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 8.92326449999814, "min_ms": 8.88406999996505, "runs": 10}
+{"file": "pdfjs/alphatrans.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 9.412142000002177, "min_ms": 9.303133000003072, "runs": 10}
+{"file": "pdfjs/alphatrans.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 9.444001999980856, "min_ms": 9.309499999972104, "runs": 10}
+{"file": "pdfjs/annotation-highlight.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.6533465000302385, "min_ms": 0.6304560000103265, "runs": 10}
+{"file": "pdfjs/annotation-highlight.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.2596859999925982, "min_ms": 0.245324999980312, "runs": 10}
+{"file": "pdfjs/annotation-highlight.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 0.8246719999931429, "min_ms": 0.7916239999872232, "runs": 10}
+{"file": "pdfjs/annotation-highlight.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 1.870559000025196, "min_ms": 1.8548179999697822, "runs": 10}
+{"file": "pdfjs/annotation-highlight.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 1.8574079999780224, "min_ms": 1.8178219999640532, "runs": 10}
+{"file": "pdfjs/annotation-highlight.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 2.9036269999949127, "min_ms": 2.8552370000056726, "runs": 10}
+{"file": "pdfjs/annotation-highlight.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 2.908849499988264, "min_ms": 2.8574469999966823, "runs": 10}
+{"file": "pdfjs/bug_jpx.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.11296599998900092, "min_ms": 0.1110219999986839, "runs": 10}
+{"file": "pdfjs/bug_jpx.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.0143835000017134, "min_ms": 0.013526000032015872, "runs": 10}
+{"file": "pdfjs/bug_jpx.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 0.5839165000054436, "min_ms": 0.5629610000141838, "runs": 10}
+{"file": "pdfjs/bug_jpx.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 0.7445600000153263, "min_ms": 0.7225560000279074, "runs": 10}
+{"file": "pdfjs/bug_jpx.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 1.6172365000102218, "min_ms": 1.5932679999650645, "runs": 10}
+{"file": "pdfjs/bug_jpx.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 1.7684670000051028, "min_ms": 1.7412429999694723, "runs": 10}
+{"file": "pdfjs/bug_jpx.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 1.7813800000112678, "min_ms": 1.7413890000170795, "runs": 10}
+{"file": "pdfjs/calgray.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.22759099999802856, "min_ms": 0.22028099999715778, "runs": 10}
+{"file": "pdfjs/calgray.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.098995000001878, "min_ms": 0.09607700002334241, "runs": 10}
+{"file": "pdfjs/calgray.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 1.0684240000102818, "min_ms": 1.0616370000207098, "runs": 10}
+{"file": "pdfjs/calgray.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 1.336315999992621, "min_ms": 1.3216160000411037, "runs": 10}
+{"file": "pdfjs/calgray.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 4.283213999997315, "min_ms": 4.2658460000097875, "runs": 10}
+{"file": "pdfjs/calgray.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 4.561180000024478, "min_ms": 4.530660000000353, "runs": 10}
+{"file": "pdfjs/calgray.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 13.21613450002701, "min_ms": 13.179909000029966, "runs": 10}
+{"file": "pdfjs/ccitt_EndOfBlock_false.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.07437499999696229, "min_ms": 0.07322999999814783, "runs": 10}
+{"file": "pdfjs/ccitt_EndOfBlock_false.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.019328999968593052, "min_ms": 0.018683999996937928, "runs": 10}
+{"file": "pdfjs/ccitt_EndOfBlock_false.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 1.1657654999908118, "min_ms": 1.1615889999916362, "runs": 10}
+{"file": "pdfjs/ccitt_EndOfBlock_false.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 1.270582999978842, "min_ms": 1.2498500000219792, "runs": 10}
+{"file": "pdfjs/ccitt_EndOfBlock_false.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 4.609338500017657, "min_ms": 4.591113000003588, "runs": 10}
+{"file": "pdfjs/ccitt_EndOfBlock_false.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 4.699138500001254, "min_ms": 4.676125999992564, "runs": 10}
+{"file": "pdfjs/ccitt_EndOfBlock_false.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 4.709700000006478, "min_ms": 4.684278000013364, "runs": 10}
+{"file": "pdfjs/cmykjpeg.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.8747434999918369, "min_ms": 0.8569290000082219, "runs": 10}
+{"file": "pdfjs/cmykjpeg.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.01764499998557767, "min_ms": 0.016016000017771148, "runs": 10}
+{"file": "pdfjs/cmykjpeg.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 1.0604824999802531, "min_ms": 1.040121999949406, "runs": 10}
+{"file": "pdfjs/cmykjpeg.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 2.017411000025504, "min_ms": 1.9975249999788502, "runs": 10}
+{"file": "pdfjs/cmykjpeg.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 2.5722269999732816, "min_ms": 2.5477689999888753, "runs": 10}
+{"file": "pdfjs/cmykjpeg.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 3.531701999975212, "min_ms": 3.4950419999972837, "runs": 10}
+{"file": "pdfjs/cmykjpeg.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 3.519512499991606, "min_ms": 3.4963839999591073, "runs": 10}
+{"file": "pdfjs/devicen.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.15565850000598402, "min_ms": 0.15405400000645386, "runs": 10}
+{"file": "pdfjs/devicen.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.026812000015752346, "min_ms": 0.025124999979198037, "runs": 10}
+{"file": "pdfjs/devicen.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 0.3616265000232488, "min_ms": 0.3522940000380004, "runs": 10}
+{"file": "pdfjs/devicen.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 0.5865109999945162, "min_ms": 0.5638619999785988, "runs": 10}
+{"file": "pdfjs/devicen.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 1.4757830000178274, "min_ms": 1.4472970000269925, "runs": 10}
+{"file": "pdfjs/devicen.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 1.690803000002461, "min_ms": 1.6593629999874793, "runs": 10}
+{"file": "pdfjs/devicen.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 1.683268499988344, "min_ms": 1.6618760000142174, "runs": 10}
+{"file": "pdfjs/function_based_shading.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.13485849999028687, "min_ms": 0.13136100000110673, "runs": 10}
+{"file": "pdfjs/function_based_shading.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.02110849999326092, "min_ms": 0.020443000039449544, "runs": 10}
+{"file": "pdfjs/function_based_shading.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 13.380599500010248, "min_ms": 13.176408999981959, "runs": 10}
+{"file": "pdfjs/function_based_shading.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 13.60647750001931, "min_ms": 13.481403000014325, "runs": 10}
+{"file": "pdfjs/function_based_shading.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 57.80070900001988, "min_ms": 57.51770199998418, "runs": 10}
+{"file": "pdfjs/function_based_shading.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 58.366191999994044, "min_ms": 58.22717499995633, "runs": 10}
+{"file": "pdfjs/function_based_shading.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 58.444247499977564, "min_ms": 58.008432999997694, "runs": 10}
+{"file": "pdfjs/issue2948.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.3699349999806145, "min_ms": 0.36242499999161737, "runs": 10}
+{"file": "pdfjs/issue2948.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.16481150001368405, "min_ms": 0.1617710000232364, "runs": 10}
+{"file": "pdfjs/issue2948.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 1.593686499973046, "min_ms": 1.5748509999866656, "runs": 10}
+{"file": "pdfjs/issue2948.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 2.6062004999971577, "min_ms": 2.571901000010257, "runs": 10}
+{"file": "pdfjs/issue2948.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 5.679202500004976, "min_ms": 5.654443000025822, "runs": 10}
+{"file": "pdfjs/issue2948.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 6.977460999991081, "min_ms": 6.94328599996652, "runs": 10}
+{"file": "pdfjs/issue2948.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 6.951839000009841, "min_ms": 6.901923000043553, "runs": 10}
+{"file": "pdfjs/issue3584.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.2508834999730425, "min_ms": 0.243842000031691, "runs": 10}
+{"file": "pdfjs/issue3584.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.0211675000230116, "min_ms": 0.02011700001958161, "runs": 10}
+{"file": "pdfjs/issue3584.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 0.0520465000022341, "min_ms": 0.04765200003475911, "runs": 10}
+{"file": "pdfjs/issue3584.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 0.3509659999849646, "min_ms": 0.3420470000037312, "runs": 10}
+{"file": "pdfjs/issue3584.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 0.07712950002769503, "min_ms": 0.07565900000372494, "runs": 10}
+{"file": "pdfjs/issue3584.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 0.3901799999823652, "min_ms": 0.3718229999662981, "runs": 10}
+{"file": "pdfjs/issue3584.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 0.39448250001328233, "min_ms": 0.37181199996894065, "runs": 10}
+{"file": "pdfjs/issue6296.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.06649700000593839, "min_ms": 0.06430199999840625, "runs": 10}
+{"file": "pdfjs/issue6296.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.016592500003298483, "min_ms": 0.015521000022999942, "runs": 10}
+{"file": "pdfjs/issue6296.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 0.2624180000054821, "min_ms": 0.25895099997796933, "runs": 10}
+{"file": "pdfjs/issue6296.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 0.33903450002981117, "min_ms": 0.3305810000142628, "runs": 10}
+{"file": "pdfjs/issue6296.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 1.031003500031602, "min_ms": 1.0281579999968926, "runs": 10}
+{"file": "pdfjs/issue6296.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 1.1127639999983785, "min_ms": 1.1090020000210643, "runs": 10}
+{"file": "pdfjs/issue6296.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 1.1147365000283571, "min_ms": 1.1066089999758333, "runs": 10}
+{"file": "pdfjs/jbig2_symbol_offset.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.03618149997919318, "min_ms": 0.03431700002920479, "runs": 10}
+{"file": "pdfjs/jbig2_symbol_offset.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.014025000012907185, "min_ms": 0.01337000003331923, "runs": 10}
+{"file": "pdfjs/jbig2_symbol_offset.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 0.39709149999112014, "min_ms": 0.37923399997907836, "runs": 10}
+{"file": "pdfjs/jbig2_symbol_offset.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 0.4513650000319558, "min_ms": 0.42902899997443456, "runs": 10}
+{"file": "pdfjs/jbig2_symbol_offset.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 1.596709499978033, "min_ms": 1.5654460000291692, "runs": 10}
+{"file": "pdfjs/jbig2_symbol_offset.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 1.646585999992567, "min_ms": 1.6191970000249967, "runs": 10}
+{"file": "pdfjs/jbig2_symbol_offset.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 1.6506929999877684, "min_ms": 1.6255059999821242, "runs": 10}
+{"file": "pdfjs/personwithdog.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 1.5519635000202925, "min_ms": 1.5201930000330321, "runs": 10}
+{"file": "pdfjs/personwithdog.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.45477249997816216, "min_ms": 0.4375230000164265, "runs": 10}
+{"file": "pdfjs/personwithdog.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 68.94221400000333, "min_ms": 67.85724600001686, "runs": 10}
+{"file": "pdfjs/personwithdog.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 72.40885350000781, "min_ms": 70.20426399998314, "runs": 10}
+{"file": "pdfjs/personwithdog.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 106.1697195000022, "min_ms": 105.14443599998913, "runs": 10}
+{"file": "pdfjs/personwithdog.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 110.05656649999196, "min_ms": 108.75813300003756, "runs": 10}
+{"file": "pdfjs/personwithdog.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 110.33600700000079, "min_ms": 104.97645899999952, "runs": 10}
+{"file": "pdfjs/smask_alpha_oob.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.035668500004248926, "min_ms": 0.034406999986913434, "runs": 10}
+{"file": "pdfjs/smask_alpha_oob.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.016068999997287392, "min_ms": 0.015437999991263496, "runs": 10}
+{"file": "pdfjs/smask_alpha_oob.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 0.8034610000038356, "min_ms": 0.7675900000094771, "runs": 10}
+{"file": "pdfjs/smask_alpha_oob.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 0.8624034999797914, "min_ms": 0.8479159999978947, "runs": 10}
+{"file": "pdfjs/smask_alpha_oob.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 3.2803924999882383, "min_ms": 3.2481740000207537, "runs": 10}
+{"file": "pdfjs/smask_alpha_oob.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 3.356080000003203, "min_ms": 3.3196910000015123, "runs": 10}
+{"file": "pdfjs/smask_alpha_oob.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 3.3573285000159103, "min_ms": 3.327259000002414, "runs": 10}
+{"file": "pdfjs/tiling-pattern-large-steps.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 0.03947100000800674, "min_ms": 0.03697599998986334, "runs": 10}
+{"file": "pdfjs/tiling-pattern-large-steps.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 0.014563000007683513, "min_ms": 0.014112000030763738, "runs": 10}
+{"file": "pdfjs/tiling-pattern-large-steps.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 4.2764519999991535, "min_ms": 4.240914999968481, "runs": 10}
+{"file": "pdfjs/tiling-pattern-large-steps.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 4.338909500006594, "min_ms": 4.278346999967653, "runs": 10}
+{"file": "pdfjs/tiling-pattern-large-steps.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 35.23190750001959, "min_ms": 32.51509299997224, "runs": 10}
+{"file": "pdfjs/tiling-pattern-large-steps.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 34.03772100000424, "min_ms": 33.57721300000094, "runs": 10}
+{"file": "pdfjs/tiling-pattern-large-steps.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 32.438572000017984, "min_ms": 31.535832999963986, "runs": 10}
+{"file": "pdfjs/tracemonkey.pdf", "page": 0, "op": "open", "dpi": null, "median_ms": 2.9560554999932265, "min_ms": 2.934487999993962, "runs": 10}
+{"file": "pdfjs/tracemonkey.pdf", "page": 0, "op": "text", "dpi": null, "median_ms": 1.2625094999805242, "min_ms": 1.2419919999615558, "runs": 10}
+{"file": "pdfjs/tracemonkey.pdf", "page": 0, "op": "render", "dpi": 72, "median_ms": 2.2530365000079655, "min_ms": 2.2159100000180842, "runs": 10}
+{"file": "pdfjs/tracemonkey.pdf", "page": 0, "op": "open-render", "dpi": 72, "median_ms": 6.824773999994704, "min_ms": 6.775655000012648, "runs": 10}
+{"file": "pdfjs/tracemonkey.pdf", "page": 0, "op": "render", "dpi": 150, "median_ms": 5.302551499994479, "min_ms": 5.268339999986438, "runs": 10}
+{"file": "pdfjs/tracemonkey.pdf", "page": 0, "op": "open-render", "dpi": 150, "median_ms": 10.391389000005802, "min_ms": 10.368893000020307, "runs": 10}
+{"file": "pdfjs/tracemonkey.pdf", "page": 0, "op": "document", "dpi": 150, "median_ms": 145.83143950002864, "min_ms": 145.0463040000045, "runs": 10}
+{"file": "pdfjs/tracemonkey.pdf", "page": 1, "op": "open", "dpi": null, "median_ms": 5.766012999970371, "min_ms": 5.732492999982242, "runs": 10}
+{"file": "pdfjs/tracemonkey.pdf", "page": 1, "op": "text", "dpi": null, "median_ms": 1.796079999991207, "min_ms": 1.7434760000014649, "runs": 10}
+{"file": "pdfjs/tracemonkey.pdf", "page": 1, "op": "render", "dpi": 72, "median_ms": 4.547808499978601, "min_ms": 4.516828000021178, "runs": 10}
+{"file": "pdfjs/tracemonkey.pdf", "page": 1, "op": "open-render", "dpi": 72, "median_ms": 11.143867500038596, "min_ms": 11.09175800002049, "runs": 10}
+{"file": "pdfjs/tracemonkey.pdf", "page": 1, "op": "render", "dpi": 150, "median_ms": 8.71493200003215, "min_ms": 8.680647000005592, "runs": 10}
+{"file": "pdfjs/tracemonkey.pdf", "page": 1, "op": "open-render", "dpi": 150, "median_ms": 15.6606609999983, "min_ms": 15.6098150000048, "runs": 10}

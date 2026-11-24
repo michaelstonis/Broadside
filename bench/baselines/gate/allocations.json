@@ -9,6 +9,8 @@
     "Broadside.Benchmarks.Ascii85Benchmarks.Decode": 0,
     "Broadside.Benchmarks.AsciiHexBenchmarks.Decode": 0,
     "Broadside.Benchmarks.BidiBenchmarks.Resolve": 0,
+    "Broadside.Benchmarks.BlendGroupRenderingBenchmarks.Replay(Dpi: 300)": 0,
+    "Broadside.Benchmarks.BlendGroupRenderingBenchmarks.Replay(Dpi: 72)": 0,
     "Broadside.Benchmarks.BoxFilterBenchmarks.Average": 0,
     "Broadside.Benchmarks.BoxFilterBenchmarks.AverageRun": 0,
     "Broadside.Benchmarks.BoxFilterBenchmarks.AverageScalar": 0,

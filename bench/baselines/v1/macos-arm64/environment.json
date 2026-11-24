@@ -2,7 +2,7 @@
   "label": "macOS 27, Apple M4 Max (a developer machine)",
   "slug": "macos-arm64",
   "Date": "2026-11-24",
-  "Commit": "87624fd086",
+  "Commit": "8ecf80affe",
   "Machine": "Apple M4 Max, 16 logical cores, 64 GB",
   "OS": "macOS 27.2.1 (arm64)",
   ".NET": "10.0.403 SDK, runtime 10.0.14",
@@ -10,5 +10,5 @@
   "pdf.js": "pdfjs-dist 6.3.289, @napi-rs/canvas 1.0.9, Node v22.22.3",
   "Browser": "chromium 145.0.7632.6",
   "Settings": "DPI 72,150; whole document at 150 DPI; 10 timed runs per case; one thread per engine",
-  "Load average": "7.13 4.48 3.44 at the start, 5.41 4.52 3.65 at the end"
+  "Load average": "49.79 54.86 57.42 at the start, 26.58 36.93 48.12 at the end"
 }
