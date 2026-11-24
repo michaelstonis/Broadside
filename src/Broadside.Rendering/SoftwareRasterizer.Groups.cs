@@ -28,13 +28,12 @@ public sealed partial class SoftwareRasterizer
         private float[] _groupComponents = [];
         private float[] _groupConverted = [];
         private int[] _groupRuns = [];
+        private int[] _groupRunEnds = [];
         private ulong[] _groupMissKeys = [];
 
         // The converted results of group pixels (see ConvertResult): key = generation << 40 | black byte << 32 | pixel.
         private const int ResultCacheBits = 12;
         private const int ResultCacheSize = 1 << ResultCacheBits;
-        private const int Copy = -1;
-        private const int Cached = -2;
         private ulong[] _resultCacheKeys = [];
         private uint[] _resultCacheValues = [];
         private int _resultCacheGeneration;
@@ -298,6 +297,7 @@ public sealed partial class SoftwareRasterizer
             Pooled.Return(ref _groupComponents);
             Pooled.Return(ref _groupConverted);
             Pooled.Return(ref _groupRuns);
+            Pooled.Return(ref _groupRunEnds);
             Pooled.Return(ref _groupMissKeys);
             Pooled.Return(ref _groupRow);
             _groundBitmap?.Dispose();
@@ -494,35 +494,44 @@ public sealed partial class SoftwareRasterizer
             Span<float> components = _groupComponents.AsSpan(0, width * inputs);
             Span<uint> first = layer.PlaneRow(0, row, 0, width);
             Span<uint> black = cmyk ? layer.PlaneRow(1, row, 0, width) : default;
-            Span<int> runs = _groupRuns.AsSpan(0, width);
+            Pooled.Ensure(ref _groupRunEnds, width);
 
             // A pixel equal to the one before it (in every plane) converts to the same colour, so a run of equal pixels (a flat area,
             // the backdrop) is converted once; and a pixel's result depends on its bits alone (with the converter and the layer's
             // mode), so results are kept in a small direct-mapped table (a gradient repeats its colours from row to row). The pixels
-            // left are converted in one run, in order. runs[x]: the converted colour of x, Copy (x − 1's result) or Cached.
+            // left are converted in one run, in order: miss i is at starts[i], and the pixels to ends[i] repeat it.
             UseResultCache(converter, layer.OntoWhite, cmyk);
             Pooled.Ensure(ref _groupMissKeys, width);
             Span<ulong> missKeys = _groupMissKeys.AsSpan(0, width);
+            Span<int> starts = _groupRuns.AsSpan(0, width);
+            Span<int> ends = _groupRunEnds.AsSpan(0, width);
             ulong[] cacheKeys = _resultCacheKeys;
             uint[] cacheValues = _resultCacheValues;
             ulong generation = (ulong)_resultCacheGeneration << 40;
             int count = 0;
+            bool pending = false;
             for (int x = 0; x < width; x++)
             {
                 uint pixel = first[x];
                 if (x > 0 && pixel == first[x - 1] && (!cmyk || black[x] == black[x - 1]))
                 {
-                    // Known already unless x − 1 waits for the conversion.
-                    if (runs[x - 1] == Cached)
+                    // The whole run of pixels equal to x − 1, found a vector at a time: known already, or waiting with x − 1.
+                    int length = first[x..].CommonPrefixLength(first[(x - 1)..^1]);
+                    if (cmyk)
                     {
-                        destination[x] = destination[x - 1];
-                        runs[x] = Cached;
+                        length = Math.Min(length, black[x..].CommonPrefixLength(black[(x - 1)..^1]));
+                    }
+
+                    if (pending)
+                    {
+                        ends[count - 1] = x + length;
                     }
                     else
                     {
-                        runs[x] = Copy;
+                        destination.Slice(x, length).Fill(destination[x - 1]);
                     }
 
+                    x += length - 1;
                     continue;
                 }
 
@@ -531,12 +540,14 @@ public sealed partial class SoftwareRasterizer
                 if (cacheKeys[slot] == key)
                 {
                     destination[x] = cacheValues[slot];
-                    runs[x] = Cached;
+                    pending = false;
                     continue;
                 }
 
+                pending = true;
                 missKeys[count] = key;
-                runs[x] = count;
+                starts[count] = x;
+                ends[count] = x + 1;
                 float alpha = (pixel >> 24) / 255f;
                 Span<float> c = components.Slice(count++ * inputs, inputs);
                 if (alpha <= 0 && !layer.OntoWhite)
@@ -569,23 +580,15 @@ public sealed partial class SoftwareRasterizer
 
             Span<float> converted = _groupConverted.AsSpan(0, count * outputs);
             converter.Convert(components[..(count * inputs)], converted, count);
-
-            for (int x = 0; x < width; x++)
+            for (int i = 0; i < count; i++)
             {
-                int run = runs[x];
-                if (run == Copy)
-                {
-                    destination[x] = destination[x - 1];
-                }
-                else if (run >= 0)
-                {
-                    int alpha = layer.OntoWhite ? 255 : (int)(first[x] >> 24);
-                    uint value = alpha == 0 ? 0 : Premultiply(_pixelModel.Pack(converted.Slice(run * outputs, outputs)), alpha);
-                    destination[x] = value;
-                    int slot = ResultSlot(missKeys[run]);
-                    cacheKeys[slot] = missKeys[run];
-                    cacheValues[slot] = value;
-                }
+                int x = starts[i];
+                int alpha = layer.OntoWhite ? 255 : (int)(first[x] >> 24);
+                uint value = alpha == 0 ? 0 : Premultiply(_pixelModel.Pack(converted.Slice(i * outputs, outputs)), alpha);
+                destination[x..ends[i]].Fill(value);
+                int slot = ResultSlot(missKeys[i]);
+                cacheKeys[slot] = missKeys[i];
+                cacheValues[slot] = value;
             }
         }
 
