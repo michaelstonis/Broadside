@@ -37,6 +37,24 @@ public sealed class PackageComparerTests : IDisposable
         Assert.Contains(new Finding($"Broadside.{TestPackage.Version}.snupkg", "lib/net10.0/Broadside.pdb differs between the builds"), findings);
     }
 
+    [Theory]
+    [InlineData("<LastWriteTime>Tue, 24 Nov 2026 19:07:20 GMT</LastWriteTime><Integrity>abc</Integrity>", true)]
+    [InlineData("<LastWriteTime>Tue, 24 Nov 2026 19:02:48 GMT</LastWriteTime><Integrity>xyz</Integrity>", false)]
+    public void Static_web_asset_manifests_differ_only_in_checkout_times(string second, bool identical)
+    {
+        const string entry = "build/Microsoft.AspNetCore.StaticWebAssets.props";
+        var a = new TestPackage("Broadside.Rendering.WebGL");
+        a.Contents[entry] = "<LastWriteTime>Tue, 24 Nov 2026 19:02:48 GMT</LastWriteTime><Integrity>abc</Integrity>";
+        var b = new TestPackage("Broadside.Rendering.WebGL");
+        b.Contents[entry] = second;
+        a.WriteTo(_first);
+        b.WriteTo(_second);
+
+        IReadOnlyList<Finding> findings = PackageComparer.Compare(_first, _second).Findings;
+
+        Assert.Equal(identical, findings.Count == 0);
+    }
+
     [Fact]
     public void A_package_missing_from_one_build_fails()
     {

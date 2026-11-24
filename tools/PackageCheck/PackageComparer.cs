@@ -1,13 +1,18 @@
 using System.IO.Compression;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Broadside.Tools.PackageCheck;
 
 /// <summary>
 /// Compares two pack outputs of the same commit, built in different folders: every <c>.nupkg</c> and <c>.snupkg</c> must exist in both
 /// with byte-identical entries (assemblies, PDBs, XML docs, nuspec, content). Only the OPC bookkeeping NuGet writes with a fresh random
-/// ID on every pack (<c>_rels/.rels</c>, <c>package/services/metadata/**</c>) is skipped, and zip timestamps are not compared.
+/// ID on every pack (<c>_rels/.rels</c>, <c>package/services/metadata/**</c>) is skipped, and zip timestamps are not compared. In the
+/// static web asset manifests the Razor SDK packs (<c>build/Microsoft.AspNetCore.StaticWebAsset*.props</c>), each asset's
+/// <c>LastWriteTime</c> is the file's modification time on disk, which is when git checked it out, so those elements are ignored; the
+/// assets themselves are still compared byte for byte.
 /// </summary>
-public static class PackageComparer
+public static partial class PackageComparer
 {
     /// <summary>Compares the packages in <paramref name="first"/> and <paramref name="second"/>.</summary>
     /// <returns>The packages compared (file names) and one finding per difference.</returns>
@@ -44,7 +49,7 @@ public static class PackageComparer
                 {
                     findings.Add(new Finding(name, $"{entry} is in only one build"));
                 }
-                else if (!SameBytes(x, y))
+                else if (IsStaticWebAssetManifest(entry) ? !SameIgnoringWriteTimes(x, y) : !SameBytes(x, y))
                 {
                     findings.Add(new Finding(name, $"{entry} differs between the builds"));
                 }
@@ -62,6 +67,21 @@ public static class PackageComparer
         !entry.FullName.StartsWith("_rels/", StringComparison.Ordinal)
         && !entry.FullName.StartsWith("package/services/metadata/", StringComparison.Ordinal)
         && !entry.FullName.EndsWith('/');
+
+    private static bool IsStaticWebAssetManifest(string entry) =>
+        entry.StartsWith("build/Microsoft.AspNetCore.StaticWebAsset", StringComparison.Ordinal) && entry.EndsWith(".props", StringComparison.Ordinal);
+
+    private static bool SameIgnoringWriteTimes(ZipArchiveEntry x, ZipArchiveEntry y) =>
+        string.Equals(WithoutWriteTimes(x), WithoutWriteTimes(y), StringComparison.Ordinal);
+
+    private static string WithoutWriteTimes(ZipArchiveEntry entry)
+    {
+        using var reader = new StreamReader(entry.Open(), Encoding.UTF8);
+        return WriteTime().Replace(reader.ReadToEnd(), string.Empty);
+    }
+
+    [GeneratedRegex("<LastWriteTime>[^<]*</LastWriteTime>")]
+    private static partial Regex WriteTime();
 
     private static bool SameBytes(ZipArchiveEntry x, ZipArchiveEntry y)
     {

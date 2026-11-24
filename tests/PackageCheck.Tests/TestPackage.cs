@@ -34,6 +34,9 @@ internal sealed class TestPackage
 
     public List<string> ExtraFiles { get; } = [];
 
+    /// <summary>Files written with the given text.</summary>
+    public Dictionary<string, string> Contents { get; } = [];
+
     /// <summary>The source of the one assembly; its path in the PDB is <see cref="SourcePath"/>.</summary>
     public string Source { get; set; } = "namespace Sample; public sealed class Thing { }";
 
@@ -70,6 +73,11 @@ internal sealed class TestPackage
             foreach (string file in new[] { Readme, Icon, LicenseType == "file" ? License : null }.OfType<string>().Concat(ExtraFiles).Distinct())
             {
                 Add(zip, file, Encoding.UTF8.GetBytes(file));
+            }
+
+            foreach ((string file, string text) in Contents)
+            {
+                Add(zip, file, Encoding.UTF8.GetBytes(text));
             }
         }
 
