@@ -109,6 +109,8 @@ for route in \
     articles/building-documents/index.html \
     articles/architecture/index.html \
     articles/roadmap/index.html \
+    articles/performance/index.html \
+    articles/untrusted-files/index.html \
     articles/conformance/index.html \
     articles/contributing/index.html \
     articles/api-coverage/index.html \
