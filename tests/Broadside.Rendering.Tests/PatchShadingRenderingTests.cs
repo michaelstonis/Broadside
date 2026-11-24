@@ -286,6 +286,33 @@ public sealed class PatchShadingRenderingTests
         }
     }
 
+    [Theory]
+    [InlineData(72)]
+    [InlineData(150)]
+    public void A_cmyk_groups_black_pass_paints_its_patch_meshes_as_drawing_them_again_does(double dpi)
+    {
+        // A DeviceCMYK group draws C, M, Y and then K (§11.4.7); its first pass draws each patch mesh's black layer too, and the
+        // second uses it (issue #604). Where the passes would cut a mesh differently (a black-only twist, a split for one pass and
+        // not the other) the second pass draws its own, so the pixels are those of drawing every mesh in both passes.
+        foreach (byte[] sample in new[] { MeshShadingSamples.PatchesInCmykGroup(), MeshShadingSamples.MeshesInCmykGroup() })
+        {
+            using PdfDocument document = PdfDocument.Open(sample);
+            using var twinned = new SoftwareRasterizer();
+            using var drawn = new SoftwareRasterizer { TwinsMeshPasses = false };
+            var options = new RenderOptions { Dpi = dpi };
+            using Bitmap expected = drawn.Render(document.Pages[0], options);
+            using Bitmap actual = twinned.Render(document.Pages[0], options);
+
+            Assert.True(twinned.TwinnedMeshPaints > 0);
+            Assert.Equal(0, drawn.TwinnedMeshPaints);
+            Assert.Equal(drawn.PatchTriangleCount, twinned.PatchTriangleCount);
+            for (int y = 0; y < expected.Height; y++)
+            {
+                Assert.True(expected.GetRow(y).SequenceEqual(actual.GetRow(y)), $"row {y} at {dpi} DPI");
+            }
+        }
+    }
+
     [Fact]
     public void One_rasterizer_converts_the_pixels_of_groups_of_several_documents_as_fresh_rasterizers_do()
     {

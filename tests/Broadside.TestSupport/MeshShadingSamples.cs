@@ -116,6 +116,49 @@ public static class MeshShadingSamples
     }
 
     /// <summary>
+    /// A 612 x 792 page whose content paints, at ca 0.9, an isolated DeviceCMYK transparency group (ISO 32000-2 §11.4.7, §11.6.6) holding, in
+    /// order: <c>sh</c> of a DeviceRGB tensor-product mesh (converted to CMYK, so its triangles split where the conversion bends, and
+    /// not always alike for C, M, Y and for K), <c>sh</c> of a DeviceCMYK Coons patch whose black alone twists (so its black is cut
+    /// into a finer grid than its C, M and Y), a fill in a Coons pattern with a Function, and <c>sh</c> of a DeviceCMYK tensor-product
+    /// mesh (§8.7.4.5.7, §8.7.4.5.8). The group draws C, M, Y and then K (issue #604).
+    /// </summary>
+    public static byte[] PatchesInCmykGroup()
+    {
+        const string content = "q 2 0 0 2 0 0 cm /Rgb sh Q q 2 0 0 2 210 0 cm /Black sh Q "
+            + "q /Pattern cs /Fn scn 10 410 180 180 re f Q q 2 0 0 2 210 400 cm /Tensor sh Q";
+        return ContentSamples.OnePage(
+            "/A gs /G Do"u8.ToArray(),
+            "/ExtGState << /A << /ca 0.9 >> >> /XObject << /G 5 0 R >>",
+            ContentSamples.Stream(content, "/Type /XObject /Subtype /Form /BBox [0 0 612 792] /Group << /S /Transparency /CS /DeviceCMYK /I true >> /Resources << /Shading << /Rgb 6 0 R /Black 7 0 R /Tensor 8 0 R >> /Pattern << /Fn 9 0 R >> >>"),
+            PatchGrid("/ShadingType 7 /ColorSpace /DeviceRGB", 3, tensor: true, components: 3),
+            FlatPatch("/ShadingType 6 /ColorSpace /DeviceCMYK", [0.2, 0.4, 0.1, 0, 0.2, 0.4, 0.1, 1, 0.2, 0.4, 0.1, 0, 0.2, 0.4, 0.1, 1]),
+            PatchGrid("/ShadingType 7 /ColorSpace /DeviceCMYK", 3, tensor: true, components: 4),
+            "<< /Type /Pattern /PatternType 2 /Shading 10 0 R >>",
+            PatchGrid("/ShadingType 6 /ColorSpace /DeviceCMYK /Function << /FunctionType 2 /Domain [0 1] /C0 [1 0 0 0.2] /C1 [0 0.6 1 0.7] /N 1.7 >>", 2, tensor: false, components: 1));
+    }
+
+    /// <summary>One Coons patch (flag 0) over a 100 x 100 cell with straight edges, its four corner colours given in stream order (c00, c03, c33, c30).</summary>
+    private static string FlatPatch(string entries, double[] corners)
+    {
+        (int I, int J)[] ring = [(0, 0), (0, 1), (0, 2), (0, 3), (1, 3), (2, 3), (3, 3), (3, 2), (3, 1), (3, 0), (2, 0), (1, 0)];
+        var data = new StringBuilder();
+        data.Append('\0');
+        foreach ((int i, int j) in ring)
+        {
+            data.Append((char)(i * 85)).Append((char)(j * 85));
+        }
+
+        int components = corners.Length / 4;
+        foreach (double value in corners)
+        {
+            data.Append((char)(int)Math.Round(value * 255));
+        }
+
+        string decode = string.Concat(Enumerable.Repeat(" 0 1", components));
+        return ContentSamples.Stream(data.ToString(), $"{entries} /BitsPerCoordinate 8 /BitsPerComponent 8 /BitsPerFlag 8 /Decode [0 100 0 100{decode}]");
+    }
+
+    /// <summary>
     /// A patch mesh of <paramref name="across"/> × <paramref name="across"/> patches over a 100 x 100 cell, every patch written in
     /// full (flag 0) with 8-bit fields; every control point but the corners is moved off the straight lattice, so the patches are curved and share
     /// their edges point for point.

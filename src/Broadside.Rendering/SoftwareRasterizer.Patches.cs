@@ -10,6 +10,19 @@ public sealed partial class SoftwareRasterizer
     /// <remarks>Observes the adaptive subdivision of §8.7.4.5.7 and §8.7.4.5.8 (see <see cref="Backend.DrawPatchMesh"/>).</remarks>
     internal long PatchTriangleCount => _backend.PatchTriangles;
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the first pass of a DeviceCMYK group draws its patch meshes' black layers too, for the
+    /// second pass to use (on by default; the pixels are the same either way, which tests compare with it off).
+    /// </summary>
+    internal bool TwinsMeshPasses
+    {
+        get => _backend.TwinsMeshPasses;
+        set => _backend.TwinsMeshPasses = value;
+    }
+
+    /// <summary>Gets the mesh paints of the last render whose black layer came from the first pass of their CMYK group.</summary>
+    internal int TwinnedMeshPaints => _backend.TwinnedPaints;
+
     /// <summary>The backend's patch half: each patch is cut into a grid of Gouraud triangles drawn into the mesh layer.</summary>
     private sealed partial class Backend
     {
@@ -36,6 +49,9 @@ public sealed partial class SoftwareRasterizer
         private float[] _patchEdgeRgb = [];
         private float[] _patchUsedComponents = [];
         private float[] _patchUsedRgb = [];
+        private float[] _patchK = [];
+        private float[] _patchEdgeK = [];
+        private float[] _meshK = [];
 
         /// <summary>Gets the triangles cut from patches since <see cref="Begin"/>.</summary>
         public long PatchTriangles { get; private set; }
@@ -96,6 +112,12 @@ public sealed partial class SoftwareRasterizer
                 {
                     Pooled.Ensure(ref _meshRgb, corners * _pixelModel.Components);
                     converter.Convert(colors, _meshRgb.AsSpan(0, corners * _pixelModel.Components), corners);
+                    if (_pixelModel.Model == DeviceColorModel.Cmyk)
+                    {
+                        Pooled.Ensure(ref _meshK, corners);
+                        BlackChannel(_meshRgb, _meshK, corners);
+                    }
+
                     ToLayerChannels(_meshRgb, corners);
                     _meshRgbShading = model;
                     _meshRgbConverter = converter;
@@ -103,10 +125,17 @@ public sealed partial class SoftwareRasterizer
                 }
             }
 
-            // The grid every patch is cut into, set by all of them, so it does not depend on the part of the page being drawn.
+            if (model.HasFunction)
+            {
+                StopTwin();
+            }
+
+            // The grid every patch is cut into, set by all of them, so it does not depend on the part of the page being drawn. The
+            // black pass cuts its own from the black corners' twist; the twin serves it only when the two are the same.
             Span<PathPoint> net = stackalloc PathPoint[16];
             int finite = 0;
             int steps = 1;
+            int blackSteps = 1;
             for (int patch = 0; patch < patches; patch++)
             {
                 if (MapPatch(control.Slice(patch * 16, 16), toDevice, net, out _))
@@ -116,7 +145,17 @@ public sealed partial class SoftwareRasterizer
                         ? Math.Abs(((colors[patch * 4] - colors[(patch * 4) + 1] + colors[(patch * 4) + 2] - colors[(patch * 4) + 3]) * scale))
                         : RgbTwist(_meshRgb.AsSpan(patch * 12, 12));
                     steps = Math.Max(steps, PatchSteps(net, twist));
+                    if (_twinning)
+                    {
+                        ReadOnlySpan<float> k = _meshK.AsSpan(patch * 4, 4);
+                        blackSteps = Math.Max(blackSteps, PatchSteps(net, Math.Abs(k[0] - k[1] + k[2] - k[3])));
+                    }
                 }
+            }
+
+            if (_twinning && blackSteps != steps)
+            {
+                StopTwin();
             }
 
             if (finite == 0)
@@ -331,9 +370,19 @@ public sealed partial class SoftwareRasterizer
         private void ConvertUsedPoints(PdfColorConverter converter, int n, int points, int used)
         {
             int m = _pixelModel.Components;
+            if (_twinning)
+            {
+                Pooled.Ensure(ref _patchK, points);
+            }
+
             if (used == points)
             {
                 converter.Convert(_patchComponents.AsSpan(0, points * n), _patchRgb.AsSpan(0, points * m), points);
+                if (_twinning)
+                {
+                    BlackChannel(_patchRgb, _patchK, points);
+                }
+
                 ToLayerChannels(_patchRgb, points);
                 return;
             }
@@ -351,6 +400,20 @@ public sealed partial class SoftwareRasterizer
             }
 
             converter.Convert(_patchUsedComponents.AsSpan(0, used * n), _patchUsedRgb.AsSpan(0, used * m), used);
+            bool twinning = _twinning;
+            if (twinning)
+            {
+                // The black of each used point, kept past the first used * 3 channels of the run, which the scatter reads.
+                for (int k = 0, at = 0; k < points; k++)
+                {
+                    if (marks[k] != 0)
+                    {
+                        _patchK[k] = 1 - _patchUsedRgb[(at * m) + 3];
+                        at++;
+                    }
+                }
+            }
+
             ToLayerChannels(_patchUsedRgb, used);
             for (int k = 0, at = 0; k < points; k++)
             {
@@ -419,6 +482,8 @@ public sealed partial class SoftwareRasterizer
             ConvertCellEdges(steps, n, converter);
             Span<float> first = stackalloc float[9];
             Span<float> second = stackalloc float[9];
+            Span<float> firstBlack = stackalloc float[3];
+            Span<float> secondBlack = stackalloc float[3];
             for (int j = 0; j < steps; j++)
             {
                 for (int i = 0; i < steps; i++)
@@ -439,12 +504,34 @@ public sealed partial class SoftwareRasterizer
                     ReadOnlySpan<float> sd = _patchComponents.AsSpan((k + across + 1) * n, n);
 
                     // (a, b, c): edges ab (the top), bc (the diagonal), ca (the left); (b, c, d): bc, cd (the bottom), db (the right).
-                    EdgeChannels(Top(j, i, steps)).CopyTo(first);
-                    EdgeChannels(Diagonal(j, i, steps, across)).CopyTo(first[3..]);
-                    EdgeChannels(Left(j, i, steps, across)).CopyTo(first[6..]);
-                    EdgeChannels(Diagonal(j, i, steps, across)).CopyTo(second);
-                    EdgeChannels(Top(j + 1, i, steps)).CopyTo(second[3..]);
-                    EdgeChannels(Left(j, i + 1, steps, across)).CopyTo(second[6..]);
+                    int top = Top(j, i, steps);
+                    int diagonal = Diagonal(j, i, steps, across);
+                    int left = Left(j, i, steps, across);
+                    int bottom = Top(j + 1, i, steps);
+                    int right = Left(j, i + 1, steps, across);
+                    EdgeChannels(top).CopyTo(first);
+                    EdgeChannels(diagonal).CopyTo(first[3..]);
+                    EdgeChannels(left).CopyTo(first[6..]);
+                    EdgeChannels(diagonal).CopyTo(second);
+                    EdgeChannels(bottom).CopyTo(second[3..]);
+                    EdgeChannels(right).CopyTo(second[6..]);
+                    if (_twinning)
+                    {
+                        float ka = _patchK[k];
+                        float kb = _patchK[k + 1];
+                        float kc = _patchK[k + across];
+                        float kd = _patchK[k + across + 1];
+                        firstBlack[0] = EdgeBlack(top);
+                        firstBlack[1] = EdgeBlack(diagonal);
+                        firstBlack[2] = EdgeBlack(left);
+                        secondBlack[0] = firstBlack[1];
+                        secondBlack[1] = EdgeBlack(bottom);
+                        secondBlack[2] = EdgeBlack(right);
+                        FillGouraudTwin(a, b, c, ka, kb, kc, sa, sb, sc, converter, 0, first, firstBlack);
+                        FillGouraudTwin(b, c, d, kb, kc, kd, sb, sc, sd, converter, 0, second, secondBlack);
+                        continue;
+                    }
+
                     FillGouraud(a, b, c, sa, sb, sc, converter, 0, first);
                     FillGouraud(b, c, d, sb, sc, sd, converter, 0, second);
                 }
@@ -507,6 +594,12 @@ public sealed partial class SoftwareRasterizer
             }
 
             converter.Convert(components, _patchEdgeRgb.AsSpan(0, count * m), count);
+            if (_twinning)
+            {
+                Pooled.Ensure(ref _patchEdgeK, count);
+                BlackChannel(_patchEdgeRgb, _patchEdgeK, count);
+            }
+
             ToLayerChannels(_patchEdgeRgb, count);
 
             static void Claim(Span<int> slots, int edge, ref int count)
@@ -536,6 +629,21 @@ public sealed partial class SoftwareRasterizer
 
         /// <summary>The converted layer channels of an edge's midpoint (see <see cref="ConvertCellEdges"/>).</summary>
         private ReadOnlySpan<float> EdgeChannels(int edge) => _patchEdgeRgb.AsSpan(_patchEdgeSlots[edge] * 3, 3);
+
+        /// <summary>The black pass's channel (1 − K) of an edge's midpoint, while the twin is drawn.</summary>
+        private float EdgeBlack(int edge) => _patchEdgeK[_patchEdgeSlots[edge]];
+
+        /// <summary>
+        /// Keeps 1 − K of <paramref name="count"/> CMYK colours, the channel a CMYK group's black pass gives the mesh layer
+        /// (<see cref="ToLayerChannels"/>), before the colours are turned into the C, M, Y pass's channels in place.
+        /// </summary>
+        private static void BlackChannel(ReadOnlySpan<float> cmyk, Span<float> black, int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                black[i] = 1 - cmyk[(i * 4) + 3];
+            }
+        }
 
         /// <summary>The horizontal edge from grid point (i, j) to (i + 1, j).</summary>
         private static int Top(int j, int i, int steps) => (j * steps) + i;
@@ -574,7 +682,11 @@ public sealed partial class SoftwareRasterizer
         }
 
         /// <summary>Starts the render's patch count.</summary>
-        private void BeginPatches() => PatchTriangles = 0;
+        private void BeginPatches()
+        {
+            PatchTriangles = 0;
+            TwinnedPaints = 0;
+        }
 
         /// <summary>Returns the patch buffers to the pool.</summary>
         private void DisposePatches()
@@ -590,6 +702,9 @@ public sealed partial class SoftwareRasterizer
             Pooled.Return(ref _patchEdgeSlots);
             Pooled.Return(ref _patchEdgeComponents);
             Pooled.Return(ref _patchEdgeRgb);
+            Pooled.Return(ref _patchK);
+            Pooled.Return(ref _patchEdgeK);
+            Pooled.Return(ref _meshK);
         }
     }
 }

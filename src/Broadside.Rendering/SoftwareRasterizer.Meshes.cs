@@ -24,6 +24,22 @@ public sealed partial class SoftwareRasterizer
         private PdfColorConverter? _meshRgbConverter;
         private PixelModel _meshRgbModel;
 
+        /// <summary>Gets or sets a value indicating whether two-pass CMYK groups draw their patch meshes' black layers in the first pass.</summary>
+        public bool TwinsMeshPasses { get; set; } = true;
+
+        /// <summary>Gets the mesh paints since the render began whose black layer was the first pass's twin.</summary>
+        public int TwinnedPaints { get; private set; }
+
+        /// <summary>Whether the patch mesh being drawn also draws the black pass's layer (<see cref="MeshLayer.BeginTwin"/>).</summary>
+        private bool _twinning;
+
+        /// <summary>The black layers of the two-pass CMYK group being drawn (<see cref="MeshTwins"/>), or null.</summary>
+        private MeshTwins? _twins;
+
+        /// <summary>The scopes of nested two-pass groups, reused from render to render.</summary>
+        private readonly List<MeshTwins> _twinScopes = [];
+        private int _twinDepth;
+
         /// <summary>
         /// Turns <paramref name="count"/> colours converted to the pixel model's target (#114: RGB, or CMYK in a CMYK group) into the
         /// three channels the mesh layer interpolates and packs as RGB, in place: RGB as is, a gray group's level in all three, a CMYK
@@ -153,30 +169,63 @@ public sealed partial class SoftwareRasterizer
             top = Math.Max(top, clipTop);
             right = Math.Min(right, clipRight);
             bottom = Math.Min(bottom, clipBottom);
-            if (TryGetMeshBounds(model, toDevice, out int meshLeft, out int meshTop, out int meshRight, out int meshBottom)
-                && _meshLayer.Begin(Math.Max(left, meshLeft), Math.Max(top, meshTop), Math.Min(right, meshRight), Math.Min(bottom, meshBottom)))
+            bool hasBox = clipToBox && model.BoundingBox is not null;
+            MeshTwin? twin = NextTwin();
+            if (!TryGetMeshBounds(model, toDevice, out int meshLeft, out int meshTop, out int meshRight, out int meshBottom))
             {
-                if (clipToBox && model.BoundingBox is { } box)
-                {
-                    _meshLayer.UseBox(inverse, box);
-                }
-
-                switch (model)
-                {
-                    case PdfFunctionShading function:
-                        DrawFunctionShading(function, toDevice);
-                        break;
-                    case PdfTriangleMeshShading mesh:
-                        DrawTriangleMesh(mesh, toDevice);
-                        break;
-                    case PdfPatchMeshShading patches:
-                        DrawPatchMesh(patches, toDevice);
-                        break;
-                }
+                _meshLayer.Begin(0, 0, 0, 0);
             }
             else
             {
-                _meshLayer.Begin(0, 0, 0, 0);
+                left = Math.Max(left, meshLeft);
+                top = Math.Max(top, meshTop);
+                right = Math.Min(right, meshRight);
+                bottom = Math.Min(bottom, meshBottom);
+                if (twin is not null && !_twins!.Recording && twin.Matches(model, toDevice, _shadingSource.Converter, left, top, right, bottom, hasBox))
+                {
+                    // The black pass of a paint the first pass drew with its twin: its layer is that twin.
+                    twin.Pixels = _meshLayer.Adopt(twin.Pixels, left, top, right, bottom, twin.HasPaint);
+                    twin.Valid = false;
+                    PatchTriangles += twin.Triangles;
+                    TwinnedPaints++;
+                }
+                else if (_meshLayer.Begin(left, top, right, bottom))
+                {
+                    if (hasBox)
+                    {
+                        _meshLayer.UseBox(inverse, model.BoundingBox!.Value);
+                    }
+
+                    _twinning = twin is not null && _twins!.Recording && !hasBox && model is PdfPatchMeshShading { HasFunction: false };
+                    if (_twinning)
+                    {
+                        _meshLayer.BeginTwin();
+                    }
+
+                    long triangles = PatchTriangles;
+                    switch (model)
+                    {
+                        case PdfFunctionShading function:
+                            DrawFunctionShading(function, toDevice);
+                            break;
+                        case PdfTriangleMeshShading mesh:
+                            DrawTriangleMesh(mesh, toDevice);
+                            break;
+                        case PdfPatchMeshShading patches:
+                            DrawPatchMesh(patches, toDevice);
+                            break;
+                    }
+
+                    if (_twinning)
+                    {
+                        twin!.Keep(model, toDevice, _shadingSource.Converter, left, top, right, bottom, _meshLayer, PatchTriangles - triangles);
+                        _twinning = false;
+                    }
+                }
+                else
+                {
+                    _meshLayer.Begin(0, 0, 0, 0);
+                }
             }
 
             if (!_meshLayer.HasPaint && !hasBackground)
@@ -512,14 +561,188 @@ public sealed partial class SoftwareRasterizer
             FillGouraud(ab, bc, ca, sab, sbc, sca, converter, depth + 1);
         }
 
+        /// <summary>
+        /// <see cref="FillGouraud"/> for a CMYK group's first pass with the twin of its black pass (<see cref="MeshLayer.BeginTwin"/>):
+        /// each triangle's split is decided for both passes, from one conversion of its midpoints, as each pass alone decides it; where
+        /// they agree it is drawn (or split) for both at once, and where they part the twin is given up and the black pass draws its
+        /// own mesh.
+        /// </summary>
+        private void FillGouraudTwin(
+            in MeshVertex a,
+            in MeshVertex b,
+            in MeshVertex c,
+            float ka,
+            float kb,
+            float kc,
+            ReadOnlySpan<float> sa,
+            ReadOnlySpan<float> sb,
+            ReadOnlySpan<float> sc,
+            PdfColorConverter converter,
+            int depth,
+            ReadOnlySpan<float> midpoints = default,
+            ReadOnlySpan<float> blackMidpoints = default)
+        {
+            if (!_twinning)
+            {
+                FillGouraud(a, b, c, sa, sb, sc, converter, depth, midpoints);
+                return;
+            }
+
+            double minX = Math.Min(a.X, Math.Min(b.X, c.X));
+            double maxX = Math.Max(a.X, Math.Max(b.X, c.X));
+            double minY = Math.Min(a.Y, Math.Min(b.Y, c.Y));
+            double maxY = Math.Max(a.Y, Math.Max(b.Y, c.Y));
+            if (!_meshLayer.Covers(minX, minY, maxX, maxY))
+            {
+                return;
+            }
+
+            if (depth >= MaxSubdivision || Math.Max(maxX - minX, maxY - minY) <= 2)
+            {
+                _meshLayer.FillTriangle(a, b, c, ka, kb, kc);
+                return;
+            }
+
+            // Converted already (a patch grid's cells): when no edge bends in either pass, the midpoints' components are not needed.
+            if (!midpoints.IsEmpty
+                && Near(midpoints[..3], a, b) && Near(midpoints[3..6], b, c) && Near(midpoints[6..9], c, a)
+                && NearBlack(blackMidpoints[0], ka, kb) && NearBlack(blackMidpoints[1], kb, kc) && NearBlack(blackMidpoints[2], kc, ka))
+            {
+                _meshLayer.FillTriangle(a, b, c, ka, kb, kc);
+                return;
+            }
+
+            int n = sa.Length;
+            Span<float> sab = stackalloc float[n];
+            Span<float> sbc = stackalloc float[n];
+            Span<float> sca = stackalloc float[n];
+            Span<float> rgb = stackalloc float[12];
+            Span<float> black = stackalloc float[3];
+            if (midpoints.IsEmpty)
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    sab[i] = (sa[i] + sb[i]) / 2;
+                    sbc[i] = (sb[i] + sc[i]) / 2;
+                    sca[i] = (sc[i] + sa[i]) / 2;
+                }
+
+                converter.Convert(sab, rgb.Slice(0, 4));
+                converter.Convert(sbc, rgb.Slice(4, 4));
+                converter.Convert(sca, rgb.Slice(8, 4));
+                black[0] = 1 - rgb[3];
+                black[1] = 1 - rgb[7];
+                black[2] = 1 - rgb[11];
+                ToLayerChannels(rgb, 3);
+            }
+            else
+            {
+                midpoints[..9].CopyTo(rgb);
+                blackMidpoints[..3].CopyTo(black);
+            }
+
+            bool near = Near(rgb[..3], a, b) && Near(rgb[3..6], b, c) && Near(rgb[6..9], c, a);
+            bool blackNear = NearBlack(black[0], ka, kb) && NearBlack(black[1], kb, kc) && NearBlack(black[2], kc, ka);
+            if (near && blackNear)
+            {
+                _meshLayer.FillTriangle(a, b, c, ka, kb, kc);
+                return;
+            }
+
+            if (near != blackNear)
+            {
+                // The passes cut this triangle differently: this pass goes on alone, and the black pass draws its own mesh.
+                StopTwin();
+                FillGouraud(a, b, c, sa, sb, sc, converter, depth, midpoints);
+                return;
+            }
+
+            if (!midpoints.IsEmpty)
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    sab[i] = (sa[i] + sb[i]) / 2;
+                    sbc[i] = (sb[i] + sc[i]) / 2;
+                    sca[i] = (sc[i] + sa[i]) / 2;
+                }
+            }
+
+            var ab = new MeshVertex((a.X + b.X) / 2, (a.Y + b.Y) / 2, rgb[0], rgb[1], rgb[2]);
+            var bc = new MeshVertex((b.X + c.X) / 2, (b.Y + c.Y) / 2, rgb[3], rgb[4], rgb[5]);
+            var ca = new MeshVertex((c.X + a.X) / 2, (c.Y + a.Y) / 2, rgb[6], rgb[7], rgb[8]);
+            float kab = black[0];
+            float kbc = black[1];
+            float kca = black[2];
+            FillGouraudTwin(a, ab, ca, ka, kab, kca, sa, sab, sca, converter, depth + 1);
+            FillGouraudTwin(ab, b, bc, kab, kb, kbc, sab, sb, sbc, converter, depth + 1);
+            FillGouraudTwin(ca, bc, c, kca, kbc, kc, sca, sbc, sc, converter, depth + 1);
+            FillGouraudTwin(ab, bc, ca, kab, kbc, kca, sab, sbc, sca, converter, depth + 1);
+        }
+
+        /// <summary><see cref="Near"/> for the black pass, whose three channels are all 1 − K.</summary>
+        private static bool NearBlack(float converted, float from, float to) =>
+            Math.Abs(converted - ((from + to) / 2)) <= SubdivisionTolerance;
+
+        /// <summary>Gives up the twin being drawn: the black pass draws this paint itself.</summary>
+        private void StopTwin()
+        {
+            _twinning = false;
+            _meshLayer.EndTwin();
+        }
+
         private static bool Near(ReadOnlySpan<float> converted, in MeshVertex from, in MeshVertex to) =>
             Math.Abs(converted[0] - ((from.C0 + to.C0) / 2)) <= SubdivisionTolerance
             && Math.Abs(converted[1] - ((from.C1 + to.C1) / 2)) <= SubdivisionTolerance
             && Math.Abs(converted[2] - ((from.C2 + to.C2) / 2)) <= SubdivisionTolerance;
 
+        /// <summary>
+        /// The next paint's place among the black layers of the two-pass CMYK group being drawn: in its first pass a slot to keep the
+        /// paint's twin in, in its second the slot the same paint of the first pass filled; null outside such a group or when the
+        /// paint is not in its colour model (a nested group of another).
+        /// </summary>
+        private MeshTwin? NextTwin()
+        {
+            if (_twins is not { } twins || !TwinsMeshPasses || _previewing || _pixelModel.Model != DeviceColorModel.Cmyk || _pixelModel.Pass != (twins.Recording ? 0 : 1))
+            {
+                return null;
+            }
+
+            return twins.Next();
+        }
+
+        /// <summary>Opens the scope of a two-pass CMYK group's black layers, for its first pass to fill and its second to read.</summary>
+        /// <returns>The scope it hides, to give back to <see cref="EndTwins"/>.</returns>
+        private MeshTwins? BeginTwins()
+        {
+            MeshTwins? outer = _twins;
+            if (_twinDepth == _twinScopes.Count)
+            {
+                _twinScopes.Add(new MeshTwins());
+            }
+
+            _twins = _twinScopes[_twinDepth++];
+            _twins.Start();
+            return outer;
+        }
+
+        /// <summary>Closes the scope <see cref="BeginTwins"/> opened, returning its layers to the pool.</summary>
+        private void EndTwins(MeshTwins? outer)
+        {
+            _twins!.Release();
+            _twinDepth--;
+            _twins = outer;
+        }
+
         /// <summary>Lets go of the render's mesh colours; the buffers stay for the next render.</summary>
         private void EndMeshes()
         {
+            while (_twinDepth > 0)
+            {
+                _twinScopes[--_twinDepth].Release();
+            }
+
+            _twins = null;
+            _twinning = false;
             _meshRgbShading = null;
             _meshRgbConverter = null;
             _meshRgbModel = default;
@@ -534,5 +757,121 @@ public sealed partial class SoftwareRasterizer
             Pooled.Return(ref _meshComponents);
             Pooled.Return(ref _meshRgb);
         }
+    }
+}
+
+/// <summary>
+/// The black layers the first pass of a two-pass CMYK group (§11.4.7, a DeviceCMYK group drawn as a C, M, Y plane and a K plane)
+/// drew alongside its patch meshes, one slot per mesh paint in paint order, for the second pass to use instead of drawing each mesh
+/// again: the second pass replays the same paints, so its k-th mesh paint is the first pass's k-th, which its key confirms.
+/// </summary>
+internal sealed class MeshTwins
+{
+    private readonly List<MeshTwin> _slots = [];
+    private int _count;
+    private int _cursor;
+
+    /// <summary>Gets a value indicating whether the first pass is filling the slots (otherwise the second is reading them).</summary>
+    public bool Recording { get; private set; }
+
+    /// <summary>Starts the first pass.</summary>
+    public void Start()
+    {
+        _count = 0;
+        _cursor = 0;
+        Recording = true;
+    }
+
+    /// <summary>Starts the second pass, reading the slots from the first.</summary>
+    public void Rewind()
+    {
+        _cursor = 0;
+        Recording = false;
+    }
+
+    /// <summary>The next paint's slot: a new one in the first pass, the first pass's in the second (null past its last).</summary>
+    public MeshTwin? Next()
+    {
+        if (Recording)
+        {
+            if (_count == _slots.Count)
+            {
+                _slots.Add(new MeshTwin());
+            }
+
+            MeshTwin slot = _slots[_count++];
+            slot.Valid = false;
+            return slot;
+        }
+
+        return _cursor < _count ? _slots[_cursor++] : null;
+    }
+
+    /// <summary>Returns the slots' layers to the pool; the slots stay for the next group.</summary>
+    public void Release()
+    {
+        for (int i = 0; i < _count; i++)
+        {
+            _slots[i].Release();
+        }
+
+        _count = 0;
+        _cursor = 0;
+    }
+}
+
+/// <summary>One mesh paint's black layer, kept by the first pass of a two-pass CMYK group, and what the paint was.</summary>
+internal sealed class MeshTwin
+{
+    private PdfShading? _shading;
+    private Matrix _toDevice;
+    private PdfColorConverter? _converter;
+    private int _left;
+    private int _top;
+    private int _right;
+    private int _bottom;
+
+    /// <summary>Gets or sets the layer's pixels (pooled).</summary>
+    public uint[] Pixels { get; set; } = [];
+
+    /// <summary>Gets or sets a value indicating whether the slot holds a layer the second pass can use.</summary>
+    public bool Valid { get; set; }
+
+    /// <summary>Gets a value indicating whether the layer has a painted pixel.</summary>
+    public bool HasPaint { get; private set; }
+
+    /// <summary>Gets the patch triangles the paint was cut into.</summary>
+    public long Triangles { get; private set; }
+
+    /// <summary>Keeps the twin <paramref name="layer"/> drew for the paint.</summary>
+    public void Keep(PdfShading shading, in Matrix toDevice, PdfColorConverter? converter, int left, int top, int right, int bottom, MeshLayer layer, long triangles)
+    {
+        _shading = shading;
+        _toDevice = toDevice;
+        _converter = converter;
+        (_left, _top, _right, _bottom) = (left, top, right, bottom);
+        HasPaint = layer.TwinHasPaint;
+        Triangles = triangles;
+        uint[] pixels = layer.TakeTwin();
+        uint[] stale = Pixels;
+        Pooled.Return(ref stale);
+        Pixels = pixels;
+        Valid = true;
+    }
+
+    /// <summary>Whether the second pass's paint is the one the layer was drawn for: same shading, transform, conversion and pixels, no BBox.</summary>
+    public bool Matches(PdfShading shading, in Matrix toDevice, PdfColorConverter? converter, int left, int top, int right, int bottom, bool hasBox) =>
+        Valid && !hasBox && ReferenceEquals(_shading, shading) && _toDevice == toDevice && ReferenceEquals(_converter, converter)
+        && converter is not null && _left == left && _top == top && _right == right && _bottom == bottom;
+
+    /// <summary>Returns the layer to the pool and forgets the paint.</summary>
+    public void Release()
+    {
+        uint[] pixels = Pixels;
+        Pooled.Return(ref pixels);
+        Pixels = pixels;
+        Valid = false;
+        _shading = null;
+        _converter = null;
     }
 }

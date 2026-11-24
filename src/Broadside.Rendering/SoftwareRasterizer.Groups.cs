@@ -170,11 +170,24 @@ public sealed partial class SoftwareRasterizer
                 sameModel ? null : group.ColorSpace,
                 group.DefaultColorSpaces,
                 group.Conversion);
+            // Both passes of a CMYK group: the first draws its patch meshes' black layers too, for the second to use.
+            bool twoPasses = lastPass > firstPass;
+            MeshTwins? outerTwins = twoPasses ? BeginTwins() : null;
             for (int pass = firstPass; pass <= lastPass; pass++)
             {
+                if (twoPasses && pass > firstPass)
+                {
+                    _twins!.Rewind();
+                }
+
                 BeginPass(layer, pass, pass == firstPass);
                 group.Replay(this);
                 EndPass(layer);
+            }
+
+            if (twoPasses)
+            {
+                EndTwins(outerTwins);
             }
 
             CloseLayer(layer, mask, masked && group.SoftMask.IsShape);
