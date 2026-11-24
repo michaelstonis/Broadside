@@ -46,6 +46,12 @@ public sealed class FunctionAllocationTests
         ["Type 4, hexachrome"] = static () => Program(
             "<< /FunctionType 4 /Domain [0 1 0 1 0 1 0 1 0 1 0 1] /Range [0 1 0 1 0 1 0 1] >>",
             HexachromeProgram),
+        ["Type 4, branches in registers"] = static () => Program(
+            "<< /FunctionType 4 /Domain [0 1 0 1] /Range [0 1 0 1] >>",
+            "{ 2 copy gt { exch } if dup 0.5 lt { 2 mul } { dup 0.75 gt { pop 1 } if } ifelse exch 0.3 mul add dup 0.5 sub }"),
+        ["Type 4, interpreted"] = static () => Program(
+            "<< /FunctionType 4 /Domain [0 1] /Range [-10 10] >>",
+            "{ dup 0.5 gt { 2 } if dup 2 eq { pop } if }"),
     };
 
     /// <summary>

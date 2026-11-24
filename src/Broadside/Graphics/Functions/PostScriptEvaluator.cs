@@ -32,21 +32,31 @@ internal sealed class PostScriptEvaluator : FunctionEvaluator
     private const byte Boolean = 2;
 
     private readonly PostScriptInstruction[] _code;
+    private readonly PostScriptRegisterProgram? _lowered;
 
     /// <summary>Initializes a new instance of the <see cref="PostScriptEvaluator"/> class.</summary>
     /// <param name="domain">m pairs.</param>
     /// <param name="range">n pairs, or <see langword="null"/> when missing (repaired).</param>
     /// <param name="outputCount">n.</param>
     /// <param name="code">The compiled program.</param>
-    public PostScriptEvaluator(double[] domain, double[]? range, int outputCount, PostScriptInstruction[] code)
+    /// <param name="lower">Whether to run the program as registers when it can be lowered (<see cref="PostScriptLowering"/>); tests compare the two.</param>
+    public PostScriptEvaluator(double[] domain, double[]? range, int outputCount, PostScriptInstruction[] code, bool lower = true)
         : base(domain, range, outputCount)
     {
         _code = code;
+        _lowered = lower ? PostScriptLowering.Lower(code, InputCount, outputCount) : null;
     }
 
+    /// <summary>Gets a value indicating whether the program runs as registers rather than on the interpreter.</summary>
+    internal bool IsLowered => _lowered is not null;
+
     /// <inheritdoc/>
+    protected override FunctionStatus EvaluateCore(ReadOnlySpan<double> input, Span<double> output) =>
+        _lowered is { } lowered ? lowered.Evaluate(input, output) : Interpret(input, output);
+
+    /// <summary>Runs the program on the operand stack.</summary>
     [SkipLocalsInit]
-    protected override FunctionStatus EvaluateCore(ReadOnlySpan<double> input, Span<double> output)
+    private FunctionStatus Interpret(ReadOnlySpan<double> input, Span<double> output)
     {
         Span<double> values = stackalloc double[StackLimit];
         Span<byte> kinds = stackalloc byte[StackLimit];

@@ -82,8 +82,15 @@ internal sealed class DiagnosticSink(bool strict, Action<Diagnostic>? observer =
     /// <param name="offset">The absolute byte offset in the file, when known; not part of the key.</param>
     /// <param name="objectReference">The object the deviation is in, when known.</param>
     /// <exception cref="DiagnosticException">The sink is strict and the severity is not <see cref="DiagnosticSeverity.Information"/>.</exception>
-    public void ReportOnce(string code, DiagnosticSeverity severity, string message, long? offset = null, CosReference? objectReference = null) =>
+    public void ReportOnce(string code, DiagnosticSeverity severity, string message, long? offset = null, CosReference? objectReference = null)
+    {
+        if (IsDroppedRepeat(code, severity, objectReference))
+        {
+            return;
+        }
+
         ReportOnce(new Diagnostic(code, severity, message, offset, objectReference));
+    }
 
     /// <summary>Records a deviation unless one with the same code is already recorded for <paramref name="objectReference"/>; see the string overload.</summary>
     /// <param name="code">The diagnostic code, from the catalog (<see cref="DiagnosticCatalog"/>).</param>
@@ -92,8 +99,35 @@ internal sealed class DiagnosticSink(bool strict, Action<Diagnostic>? observer =
     /// <param name="offset">The absolute byte offset in the file, when known; not part of the key.</param>
     /// <param name="objectReference">The object the deviation is in, when known.</param>
     /// <exception cref="DiagnosticException">The sink is strict and the severity is not <see cref="DiagnosticSeverity.Information"/>.</exception>
-    public void ReportOnce(DiagnosticCode code, DiagnosticSeverity severity, string message, long? offset = null, CosReference? objectReference = null) =>
-        ReportOnce(new Diagnostic(code, severity, message, offset, objectReference));
+    public void ReportOnce(DiagnosticCode code, DiagnosticSeverity severity, string message, long? offset = null, CosReference? objectReference = null)
+    {
+        if (code is not null && IsDroppedRepeat(code.Name, severity, objectReference))
+        {
+            return;
+        }
+
+        ReportOnce(new Diagnostic(code!, severity, message, offset, objectReference));
+    }
+
+    /// <summary>
+    /// Whether a <see cref="ReportOnce(string, DiagnosticSeverity, string, long?, CosReference?)"/> would be dropped without effect:
+    /// the code is recorded for the object with the same or a higher severity, and the sink would not throw it. Checked before the
+    /// diagnostic is built, so a deviation repeated per pixel or per glyph allocates nothing after the first (issue #605).
+    /// </summary>
+    private bool IsDroppedRepeat(string code, DiagnosticSeverity severity, CosReference? objectReference)
+    {
+        if (strict && severity != DiagnosticSeverity.Information)
+        {
+            return false;
+        }
+
+        lock (_gate)
+        {
+            return _recordedPerObject is { } recorded
+                && recorded.TryGetValue((code, objectReference), out int index)
+                && severity <= _diagnostics[index].Severity;
+        }
+    }
 
     private void ReportOnce(Diagnostic diagnostic)
     {
