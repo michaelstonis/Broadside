@@ -95,16 +95,16 @@ public sealed class ResourceLimitTests
     public void A_page_tree_deeper_than_the_limit_is_cut_with_a_diagnostic()
     {
         // ISO 32000-2 §7.7.3.2: intermediate nodes may nest; a chain of hundreds is cut rather than walked without bound.
-        const int Levels = 300;
+        const int levels = 300;
         var objects = new List<string> { "<< /Type /Catalog /Pages 2 0 R >>" };
-        for (int level = 0; level < Levels; level++)
+        for (int level = 0; level < levels; level++)
         {
             int number = level + 2;
             string parent = level == 0 ? string.Empty : $"/Parent {number - 1} 0 R";
             objects.Add($"<< /Type /Pages /Kids [{number + 1} 0 R] /Count 1 {parent} >>");
         }
 
-        objects.Add($"<< /Type /Page /Parent {Levels + 1} 0 R /MediaBox [0 0 612 792] >>");
+        objects.Add($"<< /Type /Page /Parent {levels + 1} 0 R /MediaBox [0 0 612 792] >>");
 
         using PdfDocument document = PdfDocument.Open(new TestPdf().Build([.. objects]));
 
