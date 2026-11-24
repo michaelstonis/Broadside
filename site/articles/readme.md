@@ -12,6 +12,7 @@ Broadside is in preview: `0.1.0-preview.1` is on NuGet.org, and the public API m
 - [Roadmap](roadmap.md): the phases and their status, what is unreleased, and the known issues.
 - [Conformance](conformance.md): the per-clause record of what is implemented.
 - [Contributing](contributing.md): the issue, branch and pull request flow.
+- [API review checklist](api-review.md): the rules every public API change follows, and which of them the tests enforce.
 - [API coverage](api-coverage.md): which target framework each package's API reference is built from, and the API of the one package it cannot build.
 
 The [API reference](../api/readme.md) is generated from the XML documentation of every package on every build of this site.
