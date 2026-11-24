@@ -113,6 +113,7 @@ internal static class SeedWriter
         "xmp" => Streams(file).Where(stream => Metadata.Equals(stream.Value.Dictionary.TryGetValue(Type, out CosObject? type) ? type : null))
             .Select(stream => stream.Document.DecodeStream(stream.Value).ToArray()),
         "decrypt" => EncryptedBodies(file),
+        "jpeg-reader" => Streams(file).Where(stream => FirstFilter(stream.Value) == "DCTDecode").Select(stream => stream.Value.EncodedData.ToArray()),
         "filter-jbig2" => Streams(file).Select(stream => Jbig2Seed(stream.Document, stream.Value)).OfType<byte[]>(),
         "icc-profile" => Streams(file).Select(stream => stream.Document.DecodeStream(stream.Value).ToArray())
             .Where(static data => data.Length >= 40 && data.AsSpan(36, 4).SequenceEqual("acsp"u8)),
