@@ -49,7 +49,7 @@
       "dependencies": [ "@microsoft-managed", "SkiaSharp" ]
     },
     "Broadside.Viewer.Avalonia": {
-      "$comment": "Viewer shells (preview, outside v1.0) depend on their UI framework.",
+      "$comment": "Viewer shells may depend on their UI framework.",
       "dependencies": [ "@microsoft-managed", "Avalonia" ]
     },
     "Broadside.Viewer.Blazor": {

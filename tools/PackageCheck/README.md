@@ -42,7 +42,7 @@ A package without an entry under `packages` gets `default`: Microsoft packages w
 set) and an MIT licence. That is the rule for the core, `Broadside.Rendering`, `Broadside.Layout` and both font packages, and for any
 package added later, which therefore needs no policy change unless it is a backend or carries third-party files. A backend may add its
 platform library (`Broadside.Rendering.Skia`: SkiaSharp; the other backends reach theirs through the SDK or a workload, not a package).
-The viewer shells are previews outside v1.0 and may add their UI framework. Adding a package to an allowlist is a review decision: the
+A viewer shell may add its UI framework (and the Microsoft packages that framework pins). Adding a package to an allowlist is a review decision: the
 core's list changes only with the rule that it depends on nothing but Microsoft-shipped packages without native code.
 
 `Every_package_the_policy_names_exists_under_src` in `tests/PackageCheck.Tests` fails when an entry names a package that no longer exists.
@@ -59,8 +59,9 @@ record when git checked the asset out. The assets, their sizes and their content
 
 `compare --except <package id>` reports a package's differences as warnings instead of failures. The script names one package:
 `Broadside.Viewer.WinUI`, because CsWinRT's WinRT AOT source generator (which the WinUI viewer needs for its AOT-safe WinRT
-projections) writes its generated files in a different order from one build to the next. The viewer is a preview outside v1.0; every
-other package must be identical. Remove the exception when a CsWinRT update makes the generator's output order stable.
+projections) writes its generated files in a different order from one build to the next. The order comes from CsWinRT, not from this
+repository, so the WinUI viewer is the one package whose assembly and PDB are not byte-identical between builds; every other package
+must be. Remove the exception when a CsWinRT update makes the generator's output order stable.
 
 What the check has caught: the logging source generator wrote the core's two generated logging classes in a different order from one
 build to the next, so the core assembly and PDB differed between builds of the same commit. The core now has one generated logging
