@@ -1,292 +1,292 @@
-{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.2525,"min_ms":0.2349,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
-{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.8825000000000001,"min_ms":0.87,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":5.387499999999999,"min_ms":5.325,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":9.3525,"min_ms":9.3,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":10.16,"min_ms":10.09,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":15.14,"min_ms":15,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":15.065000000000001,"min_ms":14.975,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":1.084999999962747,"min_ms":0.9599999999627471,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":2.129999999946449,"min_ms":1.974999999976717,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":6.567500000004657,"min_ms":5.325000000069849,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":10.924999999988358,"min_ms":9.974999999976717,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":5.337500000023283,"min_ms":5.199999999953434,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":11.25,"min_ms":10.099999999976717,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":10.547500000044238,"min_ms":10.150000000023283,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
-{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.4175,"min_ms":0.405,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
-{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":5.115,"min_ms":5.075,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":142.1825,"min_ms":141.31,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":172.8525,"min_ms":171.615,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":231.015,"min_ms":229.775,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":269.385,"min_ms":267.06,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":776.585,"min_ms":769.9,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":2.352500000037253,"min_ms":2.2299999999813735,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":6.03000000002794,"min_ms":5.380000000004657,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":63.490000000048894,"min_ms":57.910000000032596,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":114.1425000000163,"min_ms":107.40000000002328,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":71.33250000001863,"min_ms":67.15000000002328,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":126.89750000002095,"min_ms":116.47999999998137,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":464.8150000000023,"min_ms":453.0899999999674,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
-{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.04245,"min_ms":0.04,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
-{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.11,"min_ms":0.1,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":1.535,"min_ms":1.505,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":3.4825,"min_ms":3.455,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":2.585,"min_ms":2.545,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":5.545,"min_ms":5.445,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":5.5225,"min_ms":5.47,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.23499999998603016,"min_ms":0.2099999999627471,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.1925000000046566,"min_ms":0.17999999993480742,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":1.8000000000465661,"min_ms":1.7449999999953434,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":2.9274999999906868,"min_ms":2.8199999999487773,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":2.8850000000093132,"min_ms":2.2850000000325963,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":4.547500000044238,"min_ms":3.3649999999906868,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":3.3549999999813735,"min_ms":3.1949999999487773,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
+{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.2925,"min_ms":0.275,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
+{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":1.01745,"min_ms":1.005,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":5.05,"min_ms":4.98,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":9.0525,"min_ms":8.995,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":8.484950000000001,"min_ms":8.39,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":13.399999999999999,"min_ms":13.26,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":13.5275,"min_ms":13.39,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":1.025000000023283,"min_ms":0.9600000000791624,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":2.4600000000209548,"min_ms":2.434999999939464,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":6.1749999999883585,"min_ms":6.024999999906868,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":12.497499999997672,"min_ms":11.135000000009313,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":6.48499999998603,"min_ms":6.135000000009313,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":11.815000000002328,"min_ms":11.119999999995343,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":12.252500000002328,"min_ms":11.315000000060536,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
+{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.45495,"min_ms":0.44,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
+{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":5.8774999999999995,"min_ms":5.765,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":90.5925,"min_ms":90.4049,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":125.995,"min_ms":122.495,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":137.4525,"min_ms":136.7449,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":176.605,"min_ms":173.755,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":658.5775,"min_ms":654.375,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":3.5375000000349246,"min_ms":2.519999999902211,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":6.9874999999883585,"min_ms":6.125,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":68.13749999995343,"min_ms":63.46999999997206,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":123.90749999997206,"min_ms":117.02500000002328,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":77.32250000000931,"min_ms":73.19499999994878,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":134.68499999999767,"min_ms":128.02500000002328,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":507.0625,"min_ms":501.3199999999488,"runs":10,"file":"gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
+{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.09,"min_ms":0.075,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
+{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.195,"min_ms":0.185,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":1.5925,"min_ms":1.57,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":3.4649,"min_ms":3.435,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":2.295,"min_ms":2.29,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":5.2575,"min_ms":5.2,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":5.24,"min_ms":5.185,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.34000000002561137,"min_ms":0.2899999999208376,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.31749999994644895,"min_ms":0.30999999993946403,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":1.8400000000256114,"min_ms":1.7899999999208376,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":2.8225000000093132,"min_ms":2.7449999999953434,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":3.3100000000558794,"min_ms":3.1450000000186265,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":4.022499999962747,"min_ms":3.6350000000093132,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":4.242499999993015,"min_ms":3.7100000000791624,"runs":10,"file":"pdf20examples/PDF 2.0 image with BPC.pdf"}
 {"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.055,"min_ms":0.05,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
-{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.065,"min_ms":0.0599,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":0.4875,"min_ms":0.465,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":1.73,"min_ms":1.7,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":1.17495,"min_ms":1.1549,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":2.82995,"min_ms":2.77,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":4.08495,"min_ms":4.05,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.1900000000023283,"min_ms":0.1749999999301508,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.15999999997438863,"min_ms":0.13500000000931323,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":1.0200000000186265,"min_ms":0.9549999999580905,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":1.7149999999674037,"min_ms":1.5649999999441206,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":2.550000000046566,"min_ms":2.424999999930151,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":3.6275000000023283,"min_ms":3.0050000000046566,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":6.599999999976717,"min_ms":5.15500000002794,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
+{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.075,"min_ms":0.0699,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":0.4925,"min_ms":0.48,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":1.7650000000000001,"min_ms":1.695,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":0.925,"min_ms":0.92,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":2.7,"min_ms":2.61,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":3.545,"min_ms":3.52,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.345000000030268,"min_ms":0.31999999994877726,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.23749999998835847,"min_ms":0.22499999997671694,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":1.0424999999813735,"min_ms":1.0100000000093132,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":1.8350000000209548,"min_ms":1.440000000060536,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":2.792500000039581,"min_ms":2.4649999999674037,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":3.9500000000116415,"min_ms":3.409999999916181,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":7.75,"min_ms":6.705000000074506,"runs":10,"file":"pdf20examples/PDF 2.0 with page level output intent.pdf"}
 {"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.065,"min_ms":0.06,"runs":10,"file":"pdfjs/alphatrans.pdf"}
-{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.1275,"min_ms":0.125,"runs":10,"file":"pdfjs/alphatrans.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":2.9325,"min_ms":2.88,"runs":10,"file":"pdfjs/alphatrans.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":4.63,"min_ms":4.58,"runs":10,"file":"pdfjs/alphatrans.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":9.3225,"min_ms":9.2799,"runs":10,"file":"pdfjs/alphatrans.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":11.48,"min_ms":11.415,"runs":10,"file":"pdfjs/alphatrans.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":11.5225,"min_ms":11.47,"runs":10,"file":"pdfjs/alphatrans.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.30500000005122274,"min_ms":0.21999999997206032,"runs":10,"file":"pdfjs/alphatrans.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.3200000000069849,"min_ms":0.2549999998882413,"runs":10,"file":"pdfjs/alphatrans.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":2.2999999999883585,"min_ms":2.205000000074506,"runs":10,"file":"pdfjs/alphatrans.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":3.012499999953434,"min_ms":2.8199999999487773,"runs":10,"file":"pdfjs/alphatrans.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":5.85999999998603,"min_ms":5.084999999962747,"runs":10,"file":"pdfjs/alphatrans.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":7.652500000083819,"min_ms":5.64000000001397,"runs":10,"file":"pdfjs/alphatrans.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":6.897499999962747,"min_ms":5.375,"runs":10,"file":"pdfjs/alphatrans.pdf"}
-{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.0925,"min_ms":0.0899,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
+{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.145,"min_ms":0.14,"runs":10,"file":"pdfjs/alphatrans.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":3.3925,"min_ms":3.335,"runs":10,"file":"pdfjs/alphatrans.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":5.1475,"min_ms":5.08,"runs":10,"file":"pdfjs/alphatrans.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":10.64,"min_ms":10.5,"runs":10,"file":"pdfjs/alphatrans.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":13.3975,"min_ms":13.225,"runs":10,"file":"pdfjs/alphatrans.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":13.36,"min_ms":13.26,"runs":10,"file":"pdfjs/alphatrans.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.33750000002328306,"min_ms":0.2949999999254942,"runs":10,"file":"pdfjs/alphatrans.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.4775000000372529,"min_ms":0.4199999999254942,"runs":10,"file":"pdfjs/alphatrans.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":2.2725000000209548,"min_ms":2.040000000037253,"runs":10,"file":"pdfjs/alphatrans.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":3.5350000000325963,"min_ms":3.184999999939464,"runs":10,"file":"pdfjs/alphatrans.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":7.277499999967404,"min_ms":5.7700000000186265,"runs":10,"file":"pdfjs/alphatrans.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":9.607499999983702,"min_ms":7.190000000060536,"runs":10,"file":"pdfjs/alphatrans.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":9.142500000016298,"min_ms":7.309999999939464,"runs":10,"file":"pdfjs/alphatrans.pdf"}
+{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.11,"min_ms":0.1,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
 {"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.055,"min_ms":0.05,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":0.3425,"min_ms":0.315,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":2.005,"min_ms":1.9799,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":0.99,"min_ms":0.975,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":2.755,"min_ms":2.72,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":2.72745,"min_ms":2.675,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.3649999999906868,"min_ms":0.34999999997671694,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.15000000002328306,"min_ms":0.14000000001396984,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":1.182500000053551,"min_ms":1.0549999999348074,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":3.377500000060536,"min_ms":3.2850000000325963,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":3.792499999923166,"min_ms":3.190000000060536,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":6.552499999932479,"min_ms":5.160000000032596,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":6.957499999960419,"min_ms":4.7700000000186265,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
-{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.0975,"min_ms":0.09,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
-{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.005,"min_ms":0,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":0.195,"min_ms":0.185,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":1.055,"min_ms":1.02,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":0.8774500000000001,"min_ms":0.8699,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":1.67,"min_ms":1.6549,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":1.6800000000000002,"min_ms":1.6449,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.17499999998835847,"min_ms":0.1650000000372529,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.06750000000465661,"min_ms":0.060000000055879354,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":1.5099999999511056,"min_ms":1.2800000000279397,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":3.4050000000861473,"min_ms":2.6199999999953434,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":4.087500000023283,"min_ms":3.480000000097789,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":5.812499999941792,"min_ms":4.189999999944121,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":5.724999999976717,"min_ms":4.0200000000186265,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
-{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.09245,"min_ms":0.085,"runs":10,"file":"pdfjs/calgray.pdf"}
-{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.24,"min_ms":0.235,"runs":10,"file":"pdfjs/calgray.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":2.125,"min_ms":2.075,"runs":10,"file":"pdfjs/calgray.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":3.285,"min_ms":3.23,"runs":10,"file":"pdfjs/calgray.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":5.8125,"min_ms":5.72,"runs":10,"file":"pdfjs/calgray.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":7.76,"min_ms":7.7349,"runs":10,"file":"pdfjs/calgray.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":19.3875,"min_ms":19.265,"runs":10,"file":"pdfjs/calgray.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.23999999999068677,"min_ms":0.22999999998137355,"runs":10,"file":"pdfjs/calgray.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.2525000000023283,"min_ms":0.22999999998137355,"runs":10,"file":"pdfjs/calgray.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":2.60999999998603,"min_ms":2.4300000000512227,"runs":10,"file":"pdfjs/calgray.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":2.8325000000186265,"min_ms":2.7299999999813735,"runs":10,"file":"pdfjs/calgray.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":9.012499999953434,"min_ms":8.494999999995343,"runs":10,"file":"pdfjs/calgray.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":10.049999999988358,"min_ms":9.334999999962747,"runs":10,"file":"pdfjs/calgray.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":30.197500000009313,"min_ms":26.684999999939464,"runs":10,"file":"pdfjs/calgray.pdf"}
-{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.045,"min_ms":0.035,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
-{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.019950000000000002,"min_ms":0.01,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":1.8425,"min_ms":1.8249,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":2.2425,"min_ms":2.1999,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":6.965,"min_ms":6.9099,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":7.305,"min_ms":7.265,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":7.2775,"min_ms":7.24,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.15250000002561137,"min_ms":0.14000000001396984,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.09999999997671694,"min_ms":0.09499999997206032,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":1.6425000000162981,"min_ms":1.559999999939464,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":1.9900000000488944,"min_ms":1.809999999939464,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":5.542500000039581,"min_ms":4.650000000023283,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":5.76500000001397,"min_ms":4.885000000009313,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":6.239999999990687,"min_ms":4.990000000107102,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":0.285,"min_ms":0.275,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":1.8,"min_ms":1.755,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":0.6275,"min_ms":0.61,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":2.34995,"min_ms":2.33,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":2.4475,"min_ms":2.385,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.4949999999953434,"min_ms":0.4649999999674037,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.2774999999674037,"min_ms":0.26500000001396984,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":1.4549999999580905,"min_ms":1.3050000000512227,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":4.4500000000116415,"min_ms":4.1450000000186265,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":5.642500000016298,"min_ms":4.48499999998603,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":8.67249999998603,"min_ms":6.909999999916181,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":9.175000000046566,"min_ms":6.599999999976717,"runs":10,"file":"pdfjs/annotation-highlight.pdf"}
+{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.18,"min_ms":0.165,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
+{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.01,"min_ms":0.005,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":0.22,"min_ms":0.195,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":0.9775,"min_ms":0.97,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":0.45,"min_ms":0.43,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":1.315,"min_ms":1.285,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":1.3524500000000002,"min_ms":1.31,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.2525000000023283,"min_ms":0.23999999999068677,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.08500000007916242,"min_ms":0.07499999995343387,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":1.4799999999813735,"min_ms":1.4200000000419095,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":3.2000000000116415,"min_ms":2.355000000097789,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":5.255000000004657,"min_ms":4.150000000023283,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":7.972499999974389,"min_ms":5.580000000074506,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":7.102499999979045,"min_ms":5.660000000032596,"runs":10,"file":"pdfjs/bug_jpx.pdf"}
+{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.07,"min_ms":0.065,"runs":10,"file":"pdfjs/calgray.pdf"}
+{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.2,"min_ms":0.19,"runs":10,"file":"pdfjs/calgray.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":1.96245,"min_ms":1.93,"runs":10,"file":"pdfjs/calgray.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":3.1574999999999998,"min_ms":3.11,"runs":10,"file":"pdfjs/calgray.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":6.0425,"min_ms":5.555,"runs":10,"file":"pdfjs/calgray.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":7.8025,"min_ms":7.7,"runs":10,"file":"pdfjs/calgray.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":19.52,"min_ms":18.885,"runs":10,"file":"pdfjs/calgray.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.32750000001396984,"min_ms":0.2449999999953434,"runs":10,"file":"pdfjs/calgray.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.29499999998370185,"min_ms":0.27500000002328306,"runs":10,"file":"pdfjs/calgray.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":2.5025000000023283,"min_ms":2.3299999999580905,"runs":10,"file":"pdfjs/calgray.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":3.637500000069849,"min_ms":3.2950000000419095,"runs":10,"file":"pdfjs/calgray.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":9.1875,"min_ms":8.839999999967404,"runs":10,"file":"pdfjs/calgray.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":14.59499999997206,"min_ms":13.28000000002794,"runs":10,"file":"pdfjs/calgray.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":38.490000000048894,"min_ms":32.00500000000466,"runs":10,"file":"pdfjs/calgray.pdf"}
+{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.07,"min_ms":0.065,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
+{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.03,"min_ms":0.02,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":1.22,"min_ms":1.195,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":1.5375,"min_ms":1.505,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":4.1775,"min_ms":4.12,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":4.63,"min_ms":4.58,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":4.68,"min_ms":4.555,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.3250000000698492,"min_ms":0.3049999999348074,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.11499999999068677,"min_ms":0.10499999998137355,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":1.5625,"min_ms":1.4350000000558794,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":2.5,"min_ms":2.0100000000093132,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":5.800000000046566,"min_ms":5.300000000046566,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":8.502500000060536,"min_ms":6.3899999998975545,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":8.837500000023283,"min_ms":6.564999999944121,"runs":10,"file":"pdfjs/ccitt_EndOfBlock_false.pdf"}
 {"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.075,"min_ms":0.07,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
-{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.00995,"min_ms":0.005,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":0.3625,"min_ms":0.335,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":3.9675000000000002,"min_ms":3.955,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":1.4574500000000001,"min_ms":1.425,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":5.0225,"min_ms":5.005,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":5.0600000000000005,"min_ms":5.025,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.5200000000186265,"min_ms":0.43999999994412065,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.15250000002561137,"min_ms":0.14500000001862645,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":3.7199999999720603,"min_ms":3.6199999999953434,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":4.462499999965075,"min_ms":4.375,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":4.574999999953434,"min_ms":4.084999999962747,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":5.972499999974389,"min_ms":4.569999999948777,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":5.9375,"min_ms":4.440000000060536,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
-{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.07995,"min_ms":0.07,"runs":10,"file":"pdfjs/devicen.pdf"}
-{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.025,"min_ms":0.0249,"runs":10,"file":"pdfjs/devicen.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":0.365,"min_ms":0.3449,"runs":10,"file":"pdfjs/devicen.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":0.7975000000000001,"min_ms":0.76,"runs":10,"file":"pdfjs/devicen.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":1.2074500000000001,"min_ms":1.1749,"runs":10,"file":"pdfjs/devicen.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":1.60745,"min_ms":1.57,"runs":10,"file":"pdfjs/devicen.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":1.60745,"min_ms":1.575,"runs":10,"file":"pdfjs/devicen.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.2600000000093132,"min_ms":0.22499999997671694,"runs":10,"file":"pdfjs/devicen.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.13250000000698492,"min_ms":0.125,"runs":10,"file":"pdfjs/devicen.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":1.0625,"min_ms":0.9450000000651926,"runs":10,"file":"pdfjs/devicen.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":1.382500000006985,"min_ms":1.3149999999441206,"runs":10,"file":"pdfjs/devicen.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":4.3325000000186265,"min_ms":3.10999999998603,"runs":10,"file":"pdfjs/devicen.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":5.005000000004657,"min_ms":3.809999999939464,"runs":10,"file":"pdfjs/devicen.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":5.0499999999883585,"min_ms":3.9200000000419095,"runs":10,"file":"pdfjs/devicen.pdf"}
-{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.05495,"min_ms":0.05,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
-{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.0225,"min_ms":0.015,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":68.2975,"min_ms":67.775,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":69.155,"min_ms":67.805,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":175.535,"min_ms":174.97,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":178.905,"min_ms":174.805,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":176.7025,"min_ms":175.1699,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.2749999999650754,"min_ms":0.23500000010244548,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.10500000003958121,"min_ms":0.09499999997206032,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":94.8125,"min_ms":90.38000000000466,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":94.7149999999674,"min_ms":91.93500000005588,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":126.17499999998836,"min_ms":120.95499999995809,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":126.50500000000466,"min_ms":124.40000000002328,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":124.76999999996042,"min_ms":122.23999999999069,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
-{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.045,"min_ms":0.0449,"runs":10,"file":"pdfjs/issue2948.pdf"}
-{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.2925,"min_ms":0.285,"runs":10,"file":"pdfjs/issue2948.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":6.64745,"min_ms":6.585,"runs":10,"file":"pdfjs/issue2948.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":9.2125,"min_ms":9.13,"runs":10,"file":"pdfjs/issue2948.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":24.58745,"min_ms":24.47,"runs":10,"file":"pdfjs/issue2948.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":28.1525,"min_ms":27.93,"runs":10,"file":"pdfjs/issue2948.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":28.1175,"min_ms":27.92,"runs":10,"file":"pdfjs/issue2948.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.21999999997206032,"min_ms":0.17500000004656613,"runs":10,"file":"pdfjs/issue2948.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.7425000000512227,"min_ms":0.5299999999115244,"runs":10,"file":"pdfjs/issue2948.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":9.755000000062864,"min_ms":9.289999999920838,"runs":10,"file":"pdfjs/issue2948.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":12.302500000048894,"min_ms":11.684999999939464,"runs":10,"file":"pdfjs/issue2948.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":37.29999999998836,"min_ms":36.20999999996275,"runs":10,"file":"pdfjs/issue2948.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":41.524999999965075,"min_ms":39.23999999999069,"runs":10,"file":"pdfjs/issue2948.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":39.72499999997672,"min_ms":38.75500000000466,"runs":10,"file":"pdfjs/issue2948.pdf"}
-{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.044950000000000004,"min_ms":0.0399,"runs":10,"file":"pdfjs/issue3584.pdf"}
-{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.01,"min_ms":0.0099,"runs":10,"file":"pdfjs/issue3584.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":0.13,"min_ms":0.12,"runs":10,"file":"pdfjs/issue3584.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":0.835,"min_ms":0.81,"runs":10,"file":"pdfjs/issue3584.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":0.245,"min_ms":0.23,"runs":10,"file":"pdfjs/issue3584.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":0.98,"min_ms":0.97,"runs":10,"file":"pdfjs/issue3584.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":0.955,"min_ms":0.9249,"runs":10,"file":"pdfjs/issue3584.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.24000000004889444,"min_ms":0.22499999997671694,"runs":10,"file":"pdfjs/issue3584.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.09999999997671694,"min_ms":0.0800000000745058,"runs":10,"file":"pdfjs/issue3584.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":0.3324999999604188,"min_ms":0.31999999994877726,"runs":10,"file":"pdfjs/issue3584.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":1.8300000000162981,"min_ms":1.7600000000093132,"runs":10,"file":"pdfjs/issue3584.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":0.3800000000046566,"min_ms":0.34999999997671694,"runs":10,"file":"pdfjs/issue3584.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":1.8024999999906868,"min_ms":1.724999999976717,"runs":10,"file":"pdfjs/issue3584.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":1.8699999999953434,"min_ms":1.7650000000139698,"runs":10,"file":"pdfjs/issue3584.pdf"}
-{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.044950000000000004,"min_ms":0.0399,"runs":10,"file":"pdfjs/issue6296.pdf"}
-{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.01,"min_ms":0.005,"runs":10,"file":"pdfjs/issue6296.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":0.265,"min_ms":0.265,"runs":10,"file":"pdfjs/issue6296.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":0.4525,"min_ms":0.4249,"runs":10,"file":"pdfjs/issue6296.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":0.78495,"min_ms":0.77,"runs":10,"file":"pdfjs/issue6296.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":0.9875,"min_ms":0.975,"runs":10,"file":"pdfjs/issue6296.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":0.97,"min_ms":0.95,"runs":10,"file":"pdfjs/issue6296.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.2449999999953434,"min_ms":0.2099999999627471,"runs":10,"file":"pdfjs/issue6296.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.09749999997438863,"min_ms":0.0849999999627471,"runs":10,"file":"pdfjs/issue6296.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":0.2624999998952262,"min_ms":0.22499999997671694,"runs":10,"file":"pdfjs/issue6296.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":0.6799999999348074,"min_ms":0.6400000000139698,"runs":10,"file":"pdfjs/issue6296.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":0.48749999998835847,"min_ms":0.4699999999720603,"runs":10,"file":"pdfjs/issue6296.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":0.8524999999790452,"min_ms":0.75,"runs":10,"file":"pdfjs/issue6296.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":0.8249999999534339,"min_ms":0.7149999999674037,"runs":10,"file":"pdfjs/issue6296.pdf"}
+{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.01,"min_ms":0.005,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":0.225,"min_ms":0.2249,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":4.84,"min_ms":4.785,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":0.7475,"min_ms":0.745,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":5.44745,"min_ms":5.415,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":5.4975000000000005,"min_ms":5.455,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.5524999999906868,"min_ms":0.534999999916181,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.15999999997438863,"min_ms":0.125,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":4.050000000046566,"min_ms":4.010000000009313,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":4.9874999999883585,"min_ms":4.459999999962747,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":5.814999999944121,"min_ms":4.34499999997206,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":8.177499999990687,"min_ms":5.769999999902211,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":9,"min_ms":5.915000000037253,"runs":10,"file":"pdfjs/cmykjpeg.pdf"}
+{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.0825,"min_ms":0.075,"runs":10,"file":"pdfjs/devicen.pdf"}
+{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.025,"min_ms":0.02,"runs":10,"file":"pdfjs/devicen.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":0.32,"min_ms":0.31,"runs":10,"file":"pdfjs/devicen.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":0.6675,"min_ms":0.645,"runs":10,"file":"pdfjs/devicen.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":0.78,"min_ms":0.765,"runs":10,"file":"pdfjs/devicen.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":1.1524999999999999,"min_ms":1.135,"runs":10,"file":"pdfjs/devicen.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":1.1825,"min_ms":1.155,"runs":10,"file":"pdfjs/devicen.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.26750000001629815,"min_ms":0.23499999998603016,"runs":10,"file":"pdfjs/devicen.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.23250000004190952,"min_ms":0.15500000002793968,"runs":10,"file":"pdfjs/devicen.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":1.287499999976717,"min_ms":1.1999999999534339,"runs":10,"file":"pdfjs/devicen.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":1.5800000000162981,"min_ms":1.5300000000279397,"runs":10,"file":"pdfjs/devicen.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":5.335000000079162,"min_ms":4.09499999997206,"runs":10,"file":"pdfjs/devicen.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":7.119999999995343,"min_ms":5.5200000000186265,"runs":10,"file":"pdfjs/devicen.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":6.902500000025611,"min_ms":5.415000000037253,"runs":10,"file":"pdfjs/devicen.pdf"}
+{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.045,"min_ms":0.04,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
+{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.025,"min_ms":0.02,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":69.61500000000001,"min_ms":69.325,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":69.86250000000001,"min_ms":69.465,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":173.78745,"min_ms":172.93,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":174.54495,"min_ms":173.915,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":173.99,"min_ms":173.165,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.3074999999953434,"min_ms":0.27500000002328306,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.17249999998603016,"min_ms":0.1300000000046566,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":101.01000000000931,"min_ms":97.7050000000745,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":102.44500000000698,"min_ms":97.38000000000466,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":137.60000000003492,"min_ms":131.4199999999255,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":132.1974999999511,"min_ms":129.81999999994878,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":133.69500000000698,"min_ms":131.99499999999534,"runs":10,"file":"pdfjs/function_based_shading.pdf"}
+{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.05,"min_ms":0.045,"runs":10,"file":"pdfjs/issue2948.pdf"}
+{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.3425,"min_ms":0.34,"runs":10,"file":"pdfjs/issue2948.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":4.452500000000001,"min_ms":4.425,"runs":10,"file":"pdfjs/issue2948.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":7.047499999999999,"min_ms":6.99,"runs":10,"file":"pdfjs/issue2948.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":15.4375,"min_ms":15.345,"runs":10,"file":"pdfjs/issue2948.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":19.064999999999998,"min_ms":18.905,"runs":10,"file":"pdfjs/issue2948.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":18.95,"min_ms":18.875,"runs":10,"file":"pdfjs/issue2948.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.2600000000093132,"min_ms":0.22999999998137355,"runs":10,"file":"pdfjs/issue2948.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.8049999999930151,"min_ms":0.5799999999580905,"runs":10,"file":"pdfjs/issue2948.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":10.522499999962747,"min_ms":9.974999999976717,"runs":10,"file":"pdfjs/issue2948.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":14.127500000002328,"min_ms":12.895000000018626,"runs":10,"file":"pdfjs/issue2948.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":42.84500000003027,"min_ms":41.97499999997672,"runs":10,"file":"pdfjs/issue2948.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":47.88750000001164,"min_ms":44.2599999998929,"runs":10,"file":"pdfjs/issue2948.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":47.20749999996042,"min_ms":43.72499999997672,"runs":10,"file":"pdfjs/issue2948.pdf"}
+{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.04,"min_ms":0.035,"runs":10,"file":"pdfjs/issue3584.pdf"}
+{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.01,"min_ms":0.005,"runs":10,"file":"pdfjs/issue3584.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":0.14,"min_ms":0.13,"runs":10,"file":"pdfjs/issue3584.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":0.835,"min_ms":0.8,"runs":10,"file":"pdfjs/issue3584.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":0.2475,"min_ms":0.235,"runs":10,"file":"pdfjs/issue3584.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":0.935,"min_ms":0.92,"runs":10,"file":"pdfjs/issue3584.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":0.93,"min_ms":0.915,"runs":10,"file":"pdfjs/issue3584.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.3200000000651926,"min_ms":0.3049999999348074,"runs":10,"file":"pdfjs/issue3584.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.125,"min_ms":0.09499999997206032,"runs":10,"file":"pdfjs/issue3584.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":0.3125,"min_ms":0.28499999991618097,"runs":10,"file":"pdfjs/issue3584.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":1.9575000000768341,"min_ms":1.659999999916181,"runs":10,"file":"pdfjs/issue3584.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":0.39750000002095476,"min_ms":0.39000000001396984,"runs":10,"file":"pdfjs/issue3584.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":1.8250000000116415,"min_ms":1.6550000000279397,"runs":10,"file":"pdfjs/issue3584.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":1.7550000000046566,"min_ms":1.6800000000512227,"runs":10,"file":"pdfjs/issue3584.pdf"}
+{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.06,"min_ms":0.04,"runs":10,"file":"pdfjs/issue6296.pdf"}
+{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.00995,"min_ms":0.005,"runs":10,"file":"pdfjs/issue6296.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":0.37495,"min_ms":0.325,"runs":10,"file":"pdfjs/issue6296.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":0.5375000000000001,"min_ms":0.52,"runs":10,"file":"pdfjs/issue6296.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":1.05,"min_ms":1.0299,"runs":10,"file":"pdfjs/issue6296.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":1.225,"min_ms":1.2,"runs":10,"file":"pdfjs/issue6296.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":1.275,"min_ms":1.225,"runs":10,"file":"pdfjs/issue6296.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.22249999997438863,"min_ms":0.2099999999627471,"runs":10,"file":"pdfjs/issue6296.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.13750000001164153,"min_ms":0.1299999998882413,"runs":10,"file":"pdfjs/issue6296.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":0.3475000000325963,"min_ms":0.3299999999580905,"runs":10,"file":"pdfjs/issue6296.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":0.8624999999883585,"min_ms":0.8249999999534339,"runs":10,"file":"pdfjs/issue6296.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":0.4425000000046566,"min_ms":0.39500000001862645,"runs":10,"file":"pdfjs/issue6296.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":0.8974999999627471,"min_ms":0.7149999999674037,"runs":10,"file":"pdfjs/issue6296.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":0.7075000000186265,"min_ms":0.6850000000558794,"runs":10,"file":"pdfjs/issue6296.pdf"}
 {"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.035,"min_ms":0.03,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
 {"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.005,"min_ms":0.005,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":0.30245,"min_ms":0.285,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":0.52495,"min_ms":0.5,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":1.33,"min_ms":1.305,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":1.5325,"min_ms":1.505,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":1.525,"min_ms":1.5,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.1625000000349246,"min_ms":0.14500000001862645,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.07000000000698492,"min_ms":0.06499999994412065,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":1.2775000000256114,"min_ms":0.9200000000419095,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":1.757500000006985,"min_ms":1.5150000000139698,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":4.752500000002328,"min_ms":4.34499999997206,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":4.637499999953434,"min_ms":3.550000000046566,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":5.034999999974389,"min_ms":3.5300000000279397,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
-{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.085,"min_ms":0.0799,"runs":10,"file":"pdfjs/personwithdog.pdf"}
-{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.415,"min_ms":0.4099,"runs":10,"file":"pdfjs/personwithdog.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":55.2175,"min_ms":55.0849,"runs":10,"file":"pdfjs/personwithdog.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":56.980000000000004,"min_ms":56.93,"runs":10,"file":"pdfjs/personwithdog.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":144.58499999999998,"min_ms":144.2049,"runs":10,"file":"pdfjs/personwithdog.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":147.61495,"min_ms":147.115,"runs":10,"file":"pdfjs/personwithdog.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":146.60500000000002,"min_ms":145.225,"runs":10,"file":"pdfjs/personwithdog.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.3699999999953434,"min_ms":0.31999999994877726,"runs":10,"file":"pdfjs/personwithdog.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.6125000000465661,"min_ms":0.559999999939464,"runs":10,"file":"pdfjs/personwithdog.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":16.197500000009313,"min_ms":15.434999999939464,"runs":10,"file":"pdfjs/personwithdog.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":17.349999999976717,"min_ms":16.565000000060536,"runs":10,"file":"pdfjs/personwithdog.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":25.967499999969732,"min_ms":24.095000000088476,"runs":10,"file":"pdfjs/personwithdog.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":28.397500000079162,"min_ms":25.190000000060536,"runs":10,"file":"pdfjs/personwithdog.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":26.98499999998603,"min_ms":25.175000000046566,"runs":10,"file":"pdfjs/personwithdog.pdf"}
-{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.037500000000000006,"min_ms":0.0299,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
-{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.01,"min_ms":0.0049,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":0.32245,"min_ms":0.3,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":0.47495,"min_ms":0.4399,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":1.0549499999999998,"min_ms":1.04,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":1.205,"min_ms":1.19,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":1.21,"min_ms":1.1899,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.22000000003026798,"min_ms":0.2099999999627471,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.07749999995576218,"min_ms":0.06499999994412065,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":3.125,"min_ms":3.034999999916181,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":3.2625000000116415,"min_ms":3.1350000000093132,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":9.835000000020955,"min_ms":9.48499999998603,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":10.12749999994412,"min_ms":8.824999999953434,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":9.657500000030268,"min_ms":9.20499999995809,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":0.18,"min_ms":0.175,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":0.365,"min_ms":0.36,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":0.6475,"min_ms":0.635,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":0.8425,"min_ms":0.82,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":0.8525,"min_ms":0.83,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.21500000002561137,"min_ms":0.20499999995809048,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.09499999997206032,"min_ms":0.0849999999627471,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":1.3425000000279397,"min_ms":1.2199999999720603,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":1.7374999999883585,"min_ms":1.6550000000279397,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":6.45250000001397,"min_ms":5.025000000023283,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":7.222500000032596,"min_ms":5.069999999948777,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":6.502499999944121,"min_ms":4.994999999995343,"runs":10,"file":"pdfjs/jbig2_symbol_offset.pdf"}
+{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.09,"min_ms":0.0849,"runs":10,"file":"pdfjs/personwithdog.pdf"}
+{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.49,"min_ms":0.48,"runs":10,"file":"pdfjs/personwithdog.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":24.112499999999997,"min_ms":23.865,"runs":10,"file":"pdfjs/personwithdog.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":25.985,"min_ms":25.675,"runs":10,"file":"pdfjs/personwithdog.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":51.4275,"min_ms":51.25,"runs":10,"file":"pdfjs/personwithdog.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":53.48995,"min_ms":53.135,"runs":10,"file":"pdfjs/personwithdog.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":53.2225,"min_ms":53.105,"runs":10,"file":"pdfjs/personwithdog.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.559999999939464,"min_ms":0.35000000009313226,"runs":10,"file":"pdfjs/personwithdog.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.6300000000046566,"min_ms":0.559999999939464,"runs":10,"file":"pdfjs/personwithdog.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":18.134999999951106,"min_ms":17.239999999990687,"runs":10,"file":"pdfjs/personwithdog.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":19.275000000023283,"min_ms":18.619999999995343,"runs":10,"file":"pdfjs/personwithdog.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":29.65500000002794,"min_ms":27.14000000001397,"runs":10,"file":"pdfjs/personwithdog.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":30.98749999998836,"min_ms":27.90999999991618,"runs":10,"file":"pdfjs/personwithdog.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":31.34000000002561,"min_ms":29.510000000009313,"runs":10,"file":"pdfjs/personwithdog.pdf"}
+{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.05,"min_ms":0.045,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
+{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.015,"min_ms":0.0099,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":0.315,"min_ms":0.31,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":0.4575,"min_ms":0.445,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":0.875,"min_ms":0.86,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":0.9975,"min_ms":0.985,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":0.995,"min_ms":0.9849,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.21250000002328306,"min_ms":0.19499999994877726,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.07500000001164153,"min_ms":0.07499999995343387,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":3.1625000000349246,"min_ms":3.0350000000325963,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":3.6849999999976717,"min_ms":3.5,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":11.382500000006985,"min_ms":10.834999999962747,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":13.182499999995343,"min_ms":12.964999999967404,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":14.245000000053551,"min_ms":12.880000000004657,"runs":10,"file":"pdfjs/smask_alpha_oob.pdf"}
 {"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.035,"min_ms":0.03,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
-{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.0125,"min_ms":0.005,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":1.33,"min_ms":1.31,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":1.48245,"min_ms":1.4649,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":5.4575,"min_ms":5.415,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":5.625,"min_ms":5.58,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":5.592499999999999,"min_ms":5.57,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.15000000002328306,"min_ms":0.14500000001862645,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.052499999990686774,"min_ms":0.04999999993015081,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":3.360000000044238,"min_ms":3.1450000000186265,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":4.01500000001397,"min_ms":3.209999999962747,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":14.002500000002328,"min_ms":13.10999999998603,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":11.872499999997672,"min_ms":11.679999999934807,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":11.970000000030268,"min_ms":10.675000000046566,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
-{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.69,"min_ms":0.6699,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":2.595,"min_ms":2.55,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":10.627500000000001,"min_ms":10.485,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":25.145,"min_ms":24.9299,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":15.65745,"min_ms":15.605,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":36.72,"min_ms":36.545,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":440.88995,"min_ms":437.6,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.8250000000698492,"min_ms":0.7800000000279397,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":2.76500000001397,"min_ms":2.684999999939464,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":6.6749999999883585,"min_ms":6.185000000055879,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":20.722500000032596,"min_ms":17.895000000018626,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":9.607499999925494,"min_ms":8.96999999997206,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":19.55999999999767,"min_ms":17.520000000018626,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":273.9725000000326,"min_ms":262.4199999999255,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"broadside","page":1,"op":"open","dpi":null,"median_ms":0.6924999999999999,"min_ms":0.66,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"broadside","page":1,"op":"text","dpi":null,"median_ms":3.83,"min_ms":3.795,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"broadside","page":1,"op":"render","dpi":72,"median_ms":16.0425,"min_ms":15.85,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"broadside","page":1,"op":"open-render","dpi":72,"median_ms":28.7625,"min_ms":28.675,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"broadside","page":1,"op":"render","dpi":150,"median_ms":23.7375,"min_ms":23.6,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"broadside","page":1,"op":"open-render","dpi":150,"median_ms":40.9025,"min_ms":40.705,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"pdfjs","page":1,"op":"open","dpi":null,"median_ms":0.8074999999371357,"min_ms":0.7299999999813735,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"pdfjs","page":1,"op":"text","dpi":null,"median_ms":3.8125,"min_ms":3.7600000000093132,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"pdfjs","page":1,"op":"render","dpi":72,"median_ms":11.287499999976717,"min_ms":11.130000000004657,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"pdfjs","page":1,"op":"open-render","dpi":72,"median_ms":22.03249999997206,"min_ms":20.915000000037253,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"pdfjs","page":1,"op":"render","dpi":150,"median_ms":12.807499999995343,"min_ms":11.184999999939464,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
-{"engine":"pdfjs","page":1,"op":"open-render","dpi":150,"median_ms":24.510000000009313,"min_ms":22.459999999962747,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":0.01,"min_ms":0.005,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":0.8775,"min_ms":0.86,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":1.0125,"min_ms":1.005,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":5.055,"min_ms":4.93,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":5.295,"min_ms":5.215,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":5.365,"min_ms":5.17,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.1925000000046566,"min_ms":0.18500000005587935,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":0.060000000055879354,"min_ms":0.05499999993480742,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":4.147499999904539,"min_ms":3.349999999976717,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":5.277499999967404,"min_ms":3.7550000000046566,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":15.282500000030268,"min_ms":13.729999999981374,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":18.23499999998603,"min_ms":15.139999999897555,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":18.292499999981374,"min_ms":15.134999999892898,"runs":10,"file":"pdfjs/tiling-pattern-large-steps.pdf"}
+{"engine":"broadside","page":0,"op":"open","dpi":null,"median_ms":0.745,"min_ms":0.735,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"broadside","page":0,"op":"text","dpi":null,"median_ms":2.9925,"min_ms":2.975,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":72,"median_ms":12.605,"min_ms":12.43,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":72,"median_ms":27.13995,"min_ms":27.005,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"broadside","page":0,"op":"render","dpi":150,"median_ms":17.985,"min_ms":17.805,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"broadside","page":0,"op":"open-render","dpi":150,"median_ms":38.8125,"min_ms":38.325,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"broadside","page":0,"op":"document","dpi":150,"median_ms":481.1,"min_ms":473.955,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"pdfjs","page":0,"op":"open","dpi":null,"median_ms":0.9650000000256114,"min_ms":0.875,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"pdfjs","page":0,"op":"text","dpi":null,"median_ms":3.5625,"min_ms":3.459999999962747,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":72,"median_ms":7.144999999960419,"min_ms":6.845000000088476,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":72,"median_ms":21.489999999990687,"min_ms":18.755000000004657,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"pdfjs","page":0,"op":"render","dpi":150,"median_ms":11.055000000051223,"min_ms":9.354999999981374,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"pdfjs","page":0,"op":"open-render","dpi":150,"median_ms":22.777499999967404,"min_ms":20.360000000102445,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"pdfjs","page":0,"op":"document","dpi":150,"median_ms":310.9824999999837,"min_ms":290.10999999998603,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"broadside","page":1,"op":"open","dpi":null,"median_ms":0.7375,"min_ms":0.72,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"broadside","page":1,"op":"text","dpi":null,"median_ms":4.39995,"min_ms":4.335,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"broadside","page":1,"op":"render","dpi":72,"median_ms":18.18,"min_ms":18.08,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"broadside","page":1,"op":"open-render","dpi":72,"median_ms":31.5975,"min_ms":30.94,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"broadside","page":1,"op":"render","dpi":150,"median_ms":25.909950000000002,"min_ms":25.665,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"broadside","page":1,"op":"open-render","dpi":150,"median_ms":43.365,"min_ms":42.9,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"pdfjs","page":1,"op":"open","dpi":null,"median_ms":0.9924999999930151,"min_ms":0.9000000000232831,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"pdfjs","page":1,"op":"text","dpi":null,"median_ms":4.559999999997672,"min_ms":4.449999999953434,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"pdfjs","page":1,"op":"render","dpi":72,"median_ms":13.90500000002794,"min_ms":12.03000000002794,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"pdfjs","page":1,"op":"open-render","dpi":72,"median_ms":25.73250000004191,"min_ms":21.729999999981374,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"pdfjs","page":1,"op":"render","dpi":150,"median_ms":14.79500000004191,"min_ms":12.75,"runs":10,"file":"pdfjs/tracemonkey.pdf"}
+{"engine":"pdfjs","page":1,"op":"open-render","dpi":150,"median_ms":25.00250000000233,"min_ms":22.81499999994412,"runs":10,"file":"pdfjs/tracemonkey.pdf"}

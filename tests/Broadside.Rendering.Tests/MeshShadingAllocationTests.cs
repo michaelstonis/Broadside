@@ -64,4 +64,27 @@ public sealed class MeshShadingAllocationTests
         Assert.True(rasterizer.PatchTriangleCount > 0);
         Assert.Contains(bitmap.Pixels.ToArray(), value => value is not (0 or 0xFF));
     }
+
+    [Theory]
+    [InlineData(72)]
+    [InlineData(300)]
+    public void Painting_patch_meshes_in_a_cmyk_group_allocates_nothing_per_patch_triangle_scanline_or_pixel(double dpi)
+    {
+        // A tensor-product patch mesh and a free-form strip in an isolated DeviceCMYK group: the grid's edges convert in one run and
+        // the group's pixels convert back to RGB through the result table, all in buffers kept from the warm-up renders.
+        using PdfDocument document = PdfDocument.Open(MeshShadingSamples.MeshesInCmykGroup());
+        PdfPage page = document.Pages[0];
+        DisplayList list = page.CreateDisplayList();
+        var options = new RenderOptions().WithDpi(dpi);
+        PixelSize size = options.GetPixelSize(page);
+        Matrix device = options.GetDeviceTransform(page);
+        using var bitmap = new Bitmap(size.Width, size.Height);
+        using var rasterizer = new SoftwareRasterizer();
+        Action render = () => rasterizer.Render(list, bitmap, device);
+
+        long allocated = Allocations.Measure(render, warmUpCalls: 3);
+
+        Assert.Equal(0, allocated);
+        Assert.True(rasterizer.PatchTriangleCount > 0);
+    }
 }

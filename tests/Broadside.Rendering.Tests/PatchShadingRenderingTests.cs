@@ -259,6 +259,84 @@ public sealed class PatchShadingRenderingTests
         }
     }
 
+    [Theory]
+    [InlineData(72)]
+    [InlineData(300)]
+    public void A_region_of_patch_meshes_paints_as_the_whole_page_paints_it(double dpi)
+    {
+        // Cells and triangles that reach no pixel centre of the region are skipped before any setup (issue #604); the region's
+        // pixels stay those of the whole page, in a group and out of one.
+        foreach (byte[] sample in new[] { MeshShadingSamples.Patches(), MeshShadingSamples.MeshesInCmykGroup() })
+        {
+            using PdfDocument document = PdfDocument.Open(sample);
+            using var rasterizer = new SoftwareRasterizer();
+            using Bitmap page = rasterizer.Render(document.Pages[0], new RenderOptions { Dpi = dpi });
+            RenderOptions regionOptions = new RenderOptions { Dpi = dpi }.WithRegion(new PdfRectangle(37, 403, 191, 611));
+            using Bitmap part = rasterizer.Render(document.Pages[0], regionOptions);
+            PixelRectangle at = regionOptions.GetPixelRectangle(document.Pages[0]);
+
+            Assert.Equal((at.Width, at.Height), (part.Width, part.Height));
+            for (int y = 0; y < part.Height; y++)
+            {
+                for (int x = 0; x < part.Width; x++)
+                {
+                    Assert.Equal(page.At(x + at.X, y + at.Y), part.At(x, y));
+                }
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(72)]
+    [InlineData(150)]
+    public void A_cmyk_groups_black_pass_paints_its_patch_meshes_as_drawing_them_again_does(double dpi)
+    {
+        // A DeviceCMYK group draws C, M, Y and then K (§11.4.7); its first pass draws each patch mesh's black layer too, and the
+        // second uses it (issue #604). Where the passes would cut a mesh differently (a black-only twist, a split for one pass and
+        // not the other) the second pass draws its own, so the pixels are those of drawing every mesh in both passes.
+        foreach (byte[] sample in new[] { MeshShadingSamples.PatchesInCmykGroup(), MeshShadingSamples.MeshesInCmykGroup() })
+        {
+            using PdfDocument document = PdfDocument.Open(sample);
+            using var twinned = new SoftwareRasterizer();
+            using var drawn = new SoftwareRasterizer { TwinsMeshPasses = false };
+            var options = new RenderOptions { Dpi = dpi };
+            using Bitmap expected = drawn.Render(document.Pages[0], options);
+            using Bitmap actual = twinned.Render(document.Pages[0], options);
+
+            Assert.True(twinned.TwinnedMeshPaints > 0);
+            Assert.Equal(0, drawn.TwinnedMeshPaints);
+            Assert.Equal(drawn.PatchTriangleCount, twinned.PatchTriangleCount);
+            for (int y = 0; y < expected.Height; y++)
+            {
+                Assert.True(expected.GetRow(y).SequenceEqual(actual.GetRow(y)), $"row {y} at {dpi} DPI");
+            }
+        }
+    }
+
+    [Fact]
+    public void One_rasterizer_converts_the_pixels_of_groups_of_several_documents_as_fresh_rasterizers_do()
+    {
+        // The converted results of a group's pixels are kept between rows and groups (issue #604); a group with another converter
+        // or another mode starts afresh, so renders in turn match renders by rasterizers of their own.
+        byte[][] samples =
+        [
+            MeshShadingSamples.MeshesInCmykGroup(),
+            File.ReadAllBytes(Corpus.Path("transparency-groups.pdf")),
+            File.ReadAllBytes(Corpus.Path("output-intent-cmyk.pdf")),
+            MeshShadingSamples.MeshesInCmykGroup(),
+        ];
+        using var shared = new SoftwareRasterizer();
+        foreach (byte[] sample in samples)
+        {
+            using PdfDocument document = PdfDocument.Open(sample);
+            using var fresh = new SoftwareRasterizer();
+            using Bitmap expected = fresh.Render(document.Pages[0], new RenderOptions { Dpi = 100 });
+            using Bitmap actual = shared.Render(document.Pages[0], new RenderOptions { Dpi = 100 });
+
+            Assert.True(expected.Pixels.SequenceEqual(actual.Pixels));
+        }
+    }
+
     private static Bitmap RenderContent(string content, string resources = "", params string[] objects)
     {
         using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(Encoding.ASCII.GetBytes(content), resources, objects));

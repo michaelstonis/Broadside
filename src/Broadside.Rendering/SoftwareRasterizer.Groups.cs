@@ -28,6 +28,22 @@ public sealed partial class SoftwareRasterizer
         private float[] _groupComponents = [];
         private float[] _groupConverted = [];
         private int[] _groupRuns = [];
+        private int[] _groupRunEnds = [];
+        private ulong[] _groupMissKeys = [];
+
+        // The converted results of group pixels (see ConvertResult): key = generation << 40 | black byte << 32 | pixel.
+        private const int ResultCacheBits = 12;
+        private const int ResultCacheSize = 1 << ResultCacheBits;
+
+        // The pixels of a run of equal group pixels compared one by one before the rest is compared a vector at a time.
+        private const int ShortRun = 8;
+        private ulong[] _resultCacheKeys = [];
+        private uint[] _resultCacheValues = [];
+        private int _resultCacheGeneration;
+        private PdfColorConverter? _resultCacheConverter;
+        private bool _resultCacheOntoWhite;
+        private bool _resultCacheCmyk;
+        private PixelModel _resultCacheModel;
         private uint[] _groupRow = [];
 
         // The backdrop a non-isolated tiling cell is rendered over, and the bitmap over it.
@@ -154,11 +170,24 @@ public sealed partial class SoftwareRasterizer
                 sameModel ? null : group.ColorSpace,
                 group.DefaultColorSpaces,
                 group.Conversion);
+            // Both passes of a CMYK group: the first draws its patch meshes' black layers too, for the second to use.
+            bool twoPasses = lastPass > firstPass;
+            MeshTwins? outerTwins = twoPasses ? BeginTwins() : null;
             for (int pass = firstPass; pass <= lastPass; pass++)
             {
+                if (twoPasses && pass > firstPass)
+                {
+                    _twins!.Rewind();
+                }
+
                 BeginPass(layer, pass, pass == firstPass);
                 group.Replay(this);
                 EndPass(layer);
+            }
+
+            if (twoPasses)
+            {
+                EndTwins(outerTwins);
             }
 
             CloseLayer(layer, mask, masked && group.SoftMask.IsShape);
@@ -270,6 +299,7 @@ public sealed partial class SoftwareRasterizer
 
             _layerDepth = 0;
             _scan.Hook = null;
+            _resultCacheConverter = null;
         }
 
         private void DisposeGroups()
@@ -283,6 +313,8 @@ public sealed partial class SoftwareRasterizer
             Pooled.Return(ref _groupComponents);
             Pooled.Return(ref _groupConverted);
             Pooled.Return(ref _groupRuns);
+            Pooled.Return(ref _groupRunEnds);
+            Pooled.Return(ref _groupMissKeys);
             Pooled.Return(ref _groupRow);
             _groundBitmap?.Dispose();
             _groundBitmap = null;
@@ -478,21 +510,72 @@ public sealed partial class SoftwareRasterizer
             Span<float> components = _groupComponents.AsSpan(0, width * inputs);
             Span<uint> first = layer.PlaneRow(0, row, 0, width);
             Span<uint> black = cmyk ? layer.PlaneRow(1, row, 0, width) : default;
-            Span<int> runs = _groupRuns.AsSpan(0, width);
+            Pooled.Ensure(ref _groupRunEnds, width);
 
-            // A pixel equal to the one before it (in every plane) converts to the same colour, so each run of equal pixels (a flat
-            // area, the backdrop) is converted once: the colours converted are the runs' first pixels, in order.
+            // A pixel equal to the one before it (in every plane) converts to the same colour, so a run of equal pixels (a flat area,
+            // the backdrop) is converted once; and a pixel's result depends on its bits alone (with the converter and the layer's
+            // mode), so results are kept in a small direct-mapped table (a gradient repeats its colours from row to row). The pixels
+            // left are converted in one run, in order: miss i is at starts[i], and the pixels to ends[i] repeat it.
+            UseResultCache(converter, layer.OntoWhite, cmyk);
+            Pooled.Ensure(ref _groupMissKeys, width);
+            Span<ulong> missKeys = _groupMissKeys.AsSpan(0, width);
+            Span<int> starts = _groupRuns.AsSpan(0, width);
+            Span<int> ends = _groupRunEnds.AsSpan(0, width);
+            ulong[] cacheKeys = _resultCacheKeys;
+            uint[] cacheValues = _resultCacheValues;
+            ulong generation = (ulong)_resultCacheGeneration << 40;
             int count = 0;
+            bool pending = false;
             for (int x = 0; x < width; x++)
             {
                 uint pixel = first[x];
                 if (x > 0 && pixel == first[x - 1] && (!cmyk || black[x] == black[x - 1]))
                 {
-                    runs[x] = runs[x - 1];
+                    // The whole run of pixels equal to x − 1 (known already, or waiting with x − 1): a short run pixel by pixel, a long
+                    // one (a flat area, the backdrop) a vector at a time past its first pixels.
+                    int length = 1;
+                    while (length < ShortRun && x + length < width && first[x + length] == pixel && (!cmyk || black[x + length] == black[x]))
+                    {
+                        length++;
+                    }
+
+                    if (length == ShortRun && x + length < width)
+                    {
+                        int rest = first[(x + length)..].CommonPrefixLength(first[(x + length - 1)..^1]);
+                        if (cmyk)
+                        {
+                            rest = Math.Min(rest, black[(x + length)..].CommonPrefixLength(black[(x + length - 1)..^1]));
+                        }
+
+                        length += rest;
+                    }
+
+                    if (pending)
+                    {
+                        ends[count - 1] = x + length;
+                    }
+                    else
+                    {
+                        destination.Slice(x, length).Fill(destination[x - 1]);
+                    }
+
+                    x += length - 1;
                     continue;
                 }
 
-                runs[x] = count;
+                ulong key = generation | ((ulong)(cmyk ? black[x] & 0xFF : 0) << 32) | pixel;
+                int slot = ResultSlot(key);
+                if (cacheKeys[slot] == key)
+                {
+                    destination[x] = cacheValues[slot];
+                    pending = false;
+                    continue;
+                }
+
+                pending = true;
+                missKeys[count] = key;
+                starts[count] = x;
+                ends[count] = x + 1;
                 float alpha = (pixel >> 24) / 255f;
                 Span<float> c = components.Slice(count++ * inputs, inputs);
                 if (alpha <= 0 && !layer.OntoWhite)
@@ -518,20 +601,48 @@ public sealed partial class SoftwareRasterizer
                 }
             }
 
+            if (count == 0)
+            {
+                return;
+            }
+
             Span<float> converted = _groupConverted.AsSpan(0, count * outputs);
             converter.Convert(components[..(count * inputs)], converted, count);
-            for (int x = 0; x < width; x++)
+            for (int i = 0; i < count; i++)
             {
-                if (x > 0 && runs[x] == runs[x - 1])
-                {
-                    destination[x] = destination[x - 1];
-                    continue;
-                }
-
+                int x = starts[i];
                 int alpha = layer.OntoWhite ? 255 : (int)(first[x] >> 24);
-                destination[x] = alpha == 0 ? 0 : Premultiply(_pixelModel.Pack(converted.Slice(runs[x] * outputs, outputs)), alpha);
+                uint value = alpha == 0 ? 0 : Premultiply(_pixelModel.Pack(converted.Slice(i * outputs, outputs)), alpha);
+                destination[x..ends[i]].Fill(value);
+                int slot = ResultSlot(missKeys[i]);
+                cacheKeys[slot] = missKeys[i];
+                cacheValues[slot] = value;
             }
         }
+
+        /// <summary>Starts a new generation of the result table unless the converter, the layer's mode and the pixel model are those it holds results for.</summary>
+        private void UseResultCache(PdfColorConverter converter, bool ontoWhite, bool cmyk)
+        {
+            if (ReferenceEquals(converter, _resultCacheConverter) && ontoWhite == _resultCacheOntoWhite && cmyk == _resultCacheCmyk && _pixelModel == _resultCacheModel)
+            {
+                return;
+            }
+
+            _resultCacheConverter = converter;
+            _resultCacheOntoWhite = ontoWhite;
+            _resultCacheCmyk = cmyk;
+            _resultCacheModel = _pixelModel;
+            if (_resultCacheKeys.Length == 0 || ++_resultCacheGeneration >= (1 << 23))
+            {
+                // Generation 0 is never used, so a zeroed key matches nothing.
+                _resultCacheKeys = new ulong[ResultCacheSize];
+                _resultCacheValues = new uint[ResultCacheSize];
+                _resultCacheGeneration = 1;
+            }
+        }
+
+        /// <summary>The table slot of a result key: Fibonacci hashing of the whole key.</summary>
+        private static int ResultSlot(ulong key) => (int)((key * 0x9E3779B97F4A7C15UL) >> (64 - ResultCacheBits));
 
         /// <summary>One row of an RGB layer's result as gray, for a gray parent: the luminosity of each (premultiplied) pixel.</summary>
         private void GrayResult(GroupLayer layer, int row, Span<uint> destination)
