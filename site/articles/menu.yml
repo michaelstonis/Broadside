@@ -5,6 +5,7 @@ articles:
   - {path: architecture.md, title: "Architecture"}
   - {path: roadmap.md, title: "Roadmap"}
   - {path: performance.md, title: "Performance"}
+  - {path: untrusted-files.md, title: "Processing untrusted files"}
   - {path: conformance.md, title: "Conformance"}
   - {path: api-coverage.md, title: "API coverage"}
   - {path: contributing.md, title: "Contributing"}
