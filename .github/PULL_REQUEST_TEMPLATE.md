@@ -10,6 +10,7 @@ Closes #
 - [ ] Tests (unit, corpus, snapshot or fuzz as appropriate)
 - [ ] Conformance map rows updated in `docs/conformance/` (no row marked `done` without a linked test)
 - [ ] `PublicAPI.Unshipped.txt` updated if the public surface changed, and the change explained below
+- [ ] Public API changes checked against the [API review checklist](https://github.com/michaelstonis/Broadside/blob/main/site/articles/api-review.md); any new entry in `KnownViolations` (tests/Broadside.ApiGuard.Tests) says why
 - [ ] Benchmark with a `MemoryDiagnoser` assertion if on a hot path (lexer, content interpreter, rasterizer, codecs)
 - [ ] All commits signed off (`git commit -s`, see CONTRIBUTING.md) and follow Conventional Commits
 
