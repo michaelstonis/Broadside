@@ -9,8 +9,8 @@ namespace Broadside.Tools.PackageCheck;
 /// with byte-identical entries (assemblies, PDBs, XML docs, nuspec, content). Only the OPC bookkeeping NuGet writes with a fresh random
 /// ID on every pack (<c>_rels/.rels</c>, <c>package/services/metadata/**</c>) is skipped, and zip timestamps are not compared. In the
 /// static web asset manifests the Razor SDK packs (<c>build/Microsoft.AspNetCore.StaticWebAsset*.props</c>), each asset's
-/// <c>LastWriteTime</c> is the file's modification time on disk, which is when git checked it out, so those elements are ignored; the
-/// assets themselves are still compared byte for byte.
+/// <c>LastWriteTime</c> and its <c>Last-Modified</c> response header are the file's modification time on disk, which is when git checked
+/// it out, so those values are ignored; the assets themselves, their sizes and their content hashes (ETags) are still compared.
 /// </summary>
 public static partial class PackageComparer
 {
@@ -59,6 +59,12 @@ public static partial class PackageComparer
         return (left.Keys.Order(StringComparer.Ordinal).ToList(), findings);
     }
 
+    /// <summary>True when <paramref name="fileName"/> is a <c>.nupkg</c> or <c>.snupkg</c> of package <paramref name="id"/> (<c>&lt;id&gt;.&lt;version&gt;.nupkg</c>).</summary>
+    public static bool IsPackageFile(string fileName, string id) =>
+        fileName.Length > id.Length + 1
+        && fileName.StartsWith(id + ".", StringComparison.OrdinalIgnoreCase)
+        && char.IsAsciiDigit(fileName[id.Length + 1]);
+
     private static Dictionary<string, string> PackageFiles(string directory) =>
         Directory.GetFiles(directory, "*.nupkg").Concat(Directory.GetFiles(directory, "*.snupkg"))
             .ToDictionary(p => Path.GetFileName(p), StringComparer.Ordinal);
@@ -80,7 +86,7 @@ public static partial class PackageComparer
         return WriteTime().Replace(reader.ReadToEnd(), string.Empty);
     }
 
-    [GeneratedRegex("<LastWriteTime>[^<]*</LastWriteTime>")]
+    [GeneratedRegex("<LastWriteTime>[^<]*</LastWriteTime>|\"Last-Modified\",\"Value\":\"[^\"]*\"")]
     private static partial Regex WriteTime();
 
     private static bool SameBytes(ZipArchiveEntry x, ZipArchiveEntry y)

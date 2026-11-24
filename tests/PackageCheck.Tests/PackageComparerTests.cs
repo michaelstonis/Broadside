@@ -38,13 +38,16 @@ public sealed class PackageComparerTests : IDisposable
     }
 
     [Theory]
-    [InlineData("<LastWriteTime>Tue, 24 Nov 2026 19:07:20 GMT</LastWriteTime><Integrity>abc</Integrity>", true)]
-    [InlineData("<LastWriteTime>Tue, 24 Nov 2026 19:02:48 GMT</LastWriteTime><Integrity>xyz</Integrity>", false)]
-    public void Static_web_asset_manifests_differ_only_in_checkout_times(string second, bool identical)
+    [InlineData("19:07:20", "21:00:00", "abc", true)]
+    [InlineData("19:02:48", "20:57:01", "xyz", false)]
+    public void Static_web_asset_manifests_differ_only_in_checkout_times(string writeTime, string lastModified, string hash, bool identical)
     {
         const string entry = "build/Microsoft.AspNetCore.StaticWebAssets.props";
+        static string Manifest(string writeTime, string lastModified, string hash) =>
+            $$"""<LastWriteTime>Tue, 24 Nov 2026 {{writeTime}} GMT</LastWriteTime><ResponseHeaders>[{"Name":"ETag","Value":"{{hash}}"},{"Name":"Last-Modified","Value":"Tue, 24 Nov 2026 {{lastModified}} GMT"}]</ResponseHeaders>""";
+        string second = Manifest(writeTime, lastModified, hash);
         var a = new TestPackage("Broadside.Rendering.WebGL");
-        a.Contents[entry] = "<LastWriteTime>Tue, 24 Nov 2026 19:02:48 GMT</LastWriteTime><Integrity>abc</Integrity>";
+        a.Contents[entry] = Manifest("19:02:48", "20:57:01", "abc");
         var b = new TestPackage("Broadside.Rendering.WebGL");
         b.Contents[entry] = second;
         a.WriteTo(_first);
@@ -53,6 +56,16 @@ public sealed class PackageComparerTests : IDisposable
         IReadOnlyList<Finding> findings = PackageComparer.Compare(_first, _second).Findings;
 
         Assert.Equal(identical, findings.Count == 0);
+    }
+
+    [Theory]
+    [InlineData("Broadside.Viewer.WinUI.1.2.3.nupkg", "Broadside.Viewer.WinUI", true)]
+    [InlineData("Broadside.Viewer.WinUI.1.2.3.snupkg", "Broadside.Viewer.WinUI", true)]
+    [InlineData("Broadside.Viewer.WinUI.1.2.3.nupkg", "Broadside.Viewer", false)]
+    [InlineData("Broadside.1.2.3.nupkg", "Broadside.Viewer.WinUI", false)]
+    public void Except_names_exactly_one_package(string fileName, string id, bool matches)
+    {
+        Assert.Equal(matches, PackageComparer.IsPackageFile(fileName, id));
     }
 
     [Fact]

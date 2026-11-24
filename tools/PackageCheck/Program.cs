@@ -5,18 +5,19 @@ namespace Broadside.Tools.PackageCheck;
 /// <summary>
 /// Entry point:
 /// <c>dotnet run --project tools/PackageCheck -- verify &lt;packages dir&gt; [--policy &lt;file&gt;] [--online]</c> or
-/// <c>dotnet run --project tools/PackageCheck -- compare &lt;packages dir A&gt; &lt;packages dir B&gt;</c>.
+/// <c>dotnet run --project tools/PackageCheck -- compare &lt;packages dir A&gt; &lt;packages dir B&gt; [--except &lt;package id&gt;]...</c>.
 /// </summary>
 internal static class Program
 {
     private const string Usage = """
         Usage:
           PackageCheck verify <packages dir> [--policy <package-policy.json>] [--online]
-          PackageCheck compare <packages dir A> <packages dir B>
+          PackageCheck compare <packages dir A> <packages dir B> [--except <package id>]...
 
         verify   checks every .nupkg (and its .snupkg) in the folder against the package policy (default: the
                  package-policy.json next to the tool). --online also fetches every SourceLink URL.
-        compare  fails unless both folders hold the same packages with byte-identical contents.
+        compare  fails unless both folders hold the same packages with byte-identical contents. Differences in a
+                 package named with --except are printed as warnings instead (a known, documented exception).
         Exit code 0 when everything passes, 1 on findings, 2 on a bad command line.
         """;
 
@@ -45,8 +46,21 @@ internal static class Program
             return await VerifyAsync(args[1], policyPath ?? Path.Combine(AppContext.BaseDirectory, "package-policy.json"), online).ConfigureAwait(false);
         }
 
-        if (args.Length == 3 && args[0] == "compare")
+        if (args.Length >= 3 && args[0] == "compare")
         {
+            var excepted = new List<string>();
+            for (int i = 3; i < args.Length; i++)
+            {
+                if (args[i] == "--except" && i + 1 < args.Length)
+                {
+                    excepted.Add(args[++i]);
+                }
+                else
+                {
+                    return BadUsage();
+                }
+            }
+
             if (!Directory.Exists(args[1]) || !Directory.Exists(args[2]))
             {
                 Console.Error.WriteLine("Both package folders must exist.");
@@ -54,7 +68,20 @@ internal static class Program
             }
 
             (IReadOnlyList<string> packages, IReadOnlyList<Finding> findings) = PackageComparer.Compare(args[1], args[2]);
-            return Report(findings, string.Create(CultureInfo.InvariantCulture, $"{packages.Count} package file(s) identical in both builds."));
+            var failures = new List<Finding>();
+            foreach (Finding finding in findings)
+            {
+                if (excepted.Exists(id => PackageComparer.IsPackageFile(finding.Package, id)))
+                {
+                    Console.Out.WriteLine($"warning (--except): {finding}");
+                }
+                else
+                {
+                    failures.Add(finding);
+                }
+            }
+
+            return Report(failures, string.Create(CultureInfo.InvariantCulture, $"{packages.Count} package file(s) compared: identical in both builds, apart from any --except package."));
         }
 
         return BadUsage();
@@ -99,7 +126,7 @@ internal static class Program
         return Report(all, string.Create(CultureInfo.InvariantCulture, $"{packages.Count} package(s) pass the package policy."));
     }
 
-    private static int Report(IReadOnlyList<Finding> findings, string success)
+    private static int Report(List<Finding> findings, string success)
     {
         foreach (Finding finding in findings)
         {
