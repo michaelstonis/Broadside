@@ -50,6 +50,7 @@
       "samples/guides/ReadingHosted/ReadingHosted.csproj",
       "samples/guides/ReadingSources/ReadingSources.csproj",
       "tools/RenderDiff/RenderDiff.csproj",
+      "tools/DiagnosticCatalogPage/DiagnosticCatalogPage.csproj",
       "tools/ApkAotCheck/ApkAotCheck.csproj",
       "tests/RenderDiff.Tests/RenderDiff.Tests.csproj",
       "tests/BenchGate.Tests/BenchGate.Tests.csproj"

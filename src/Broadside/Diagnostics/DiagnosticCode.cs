@@ -25,12 +25,12 @@ public sealed class DiagnosticCode : IEquatable<DiagnosticCode>
     /// <summary>The owner Broadside reserves for itself: a third-party code cannot use it.</summary>
     private const string ReservedOwner = "Broadside";
 
-    internal DiagnosticCode(string name, DiagnosticArea area, DiagnosticSeverity defaultSeverity, string? clause)
-        : this(name, area, defaultSeverity, clause, owner: null)
+    internal DiagnosticCode(string name, DiagnosticArea area, DiagnosticSeverity defaultSeverity, string? clause, string? description)
+        : this(name, area, defaultSeverity, clause, owner: null, description)
     {
     }
 
-    private DiagnosticCode(string name, DiagnosticArea area, DiagnosticSeverity defaultSeverity, string? clause, string? owner)
+    private DiagnosticCode(string name, DiagnosticArea area, DiagnosticSeverity defaultSeverity, string? clause, string? owner, string? description)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
         Name = name;
@@ -38,6 +38,7 @@ public sealed class DiagnosticCode : IEquatable<DiagnosticCode>
         DefaultSeverity = defaultSeverity;
         Clause = clause;
         Owner = owner;
+        Description = description;
     }
 
     /// <summary>Gets the stable PascalCase name of the code, such as <c>StartxrefMissing</c>; it is <see cref="Diagnostic.Code"/>.</summary>
@@ -54,6 +55,15 @@ public sealed class DiagnosticCode : IEquatable<DiagnosticCode>
     /// <c>ISO 32000-2 §7.5.5</c>, or <see langword="null"/> for a code outside the catalog.
     /// </summary>
     public string? Clause { get; }
+
+    /// <summary>
+    /// Gets what the code means and how Broadside usually repairs it, or <see langword="null"/> for a code outside the catalog.
+    /// </summary>
+    /// <remarks>
+    /// The text is the one the published diagnostic catalog shows for the code. It describes the code in general; the
+    /// <see cref="Diagnostic.Message"/> of one occurrence says what was found and what was done in that file.
+    /// </remarks>
+    public string? Description { get; }
 
     /// <summary>
     /// Gets the owner of a third-party code made with <see cref="Create"/>, such as <c>Contoso</c>, or <see langword="null"/> for a
@@ -104,7 +114,7 @@ public sealed class DiagnosticCode : IEquatable<DiagnosticCode>
             throw new ArgumentException("The name shall be PascalCase: an uppercase ASCII letter followed by ASCII letters and digits.", nameof(name));
         }
 
-        return new DiagnosticCode(string.Concat(owner, ".", name), DiagnosticArea.None, defaultSeverity, clause, owner);
+        return new DiagnosticCode(string.Concat(owner, ".", name), DiagnosticArea.None, defaultSeverity, clause, owner, description: null);
     }
 
     /// <summary>Returns whether two codes have the same name.</summary>

@@ -66,6 +66,12 @@ if ! "${ROOT}/samples/guides/run-samples.sh" --build-only; then
     fail "a guide sample in samples/guides/ does not build (lines above)"
 fi
 
+# 0d. The diagnostic catalog page's code tables are generated from the public catalog and must be current
+#     (regenerate with: dotnet run --project tools/DiagnosticCatalogPage -- site/articles/diagnostics.md --write).
+if ! dotnet run --project "${ROOT}/tools/DiagnosticCatalogPage" -- "${ROOT}/site/articles/diagnostics.md"; then
+    fail "the code tables in site/articles/diagnostics.md are stale (lines above)"
+fi
+
 dotnet tool restore
 
 # Start from a clean output so a page removed from the sources cannot survive in www/.
@@ -112,6 +118,7 @@ for route in \
     articles/performance/index.html \
     articles/untrusted-files/index.html \
     articles/conformance/index.html \
+    articles/diagnostics/index.html \
     articles/contributing/index.html \
     articles/api-review/index.html \
     articles/api-coverage/index.html \
