@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Broadside.Graphics;
 
 namespace Broadside.Rendering;
@@ -612,6 +613,29 @@ public sealed partial class SoftwareRasterizer
                 return;
             }
 
+            SplitGouraudTwin(a, b, c, ka, kb, kc, sa, sb, sc, converter, depth, midpoints, blackMidpoints);
+        }
+
+        /// <summary>
+        /// The rest of <see cref="FillGouraudTwin"/>, kept apart so that the common case above (a triangle drawn as it is) stays small
+        /// and free of stack buffers: the midpoints converted, the passes' decisions compared, the triangle drawn or split.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void SplitGouraudTwin(
+            in MeshVertex a,
+            in MeshVertex b,
+            in MeshVertex c,
+            float ka,
+            float kb,
+            float kc,
+            ReadOnlySpan<float> sa,
+            ReadOnlySpan<float> sb,
+            ReadOnlySpan<float> sc,
+            PdfColorConverter converter,
+            int depth,
+            ReadOnlySpan<float> midpoints,
+            ReadOnlySpan<float> blackMidpoints)
+        {
             int n = sa.Length;
             Span<float> sab = stackalloc float[n];
             Span<float> sbc = stackalloc float[n];
@@ -680,6 +704,7 @@ public sealed partial class SoftwareRasterizer
         }
 
         /// <summary><see cref="Near"/> for the black pass, whose three channels are all 1 − K.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool NearBlack(float converted, float from, float to) =>
             Math.Abs(converted - ((from + to) / 2)) <= SubdivisionTolerance;
 
@@ -690,6 +715,7 @@ public sealed partial class SoftwareRasterizer
             _meshLayer.EndTwin();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool Near(ReadOnlySpan<float> converted, in MeshVertex from, in MeshVertex to) =>
             Math.Abs(converted[0] - ((from.C0 + to.C0) / 2)) <= SubdivisionTolerance
             && Math.Abs(converted[1] - ((from.C1 + to.C1) / 2)) <= SubdivisionTolerance

@@ -169,6 +169,7 @@ internal sealed class MeshLayer
     /// [<paramref name="minY"/>, <paramref name="maxY"/>): when not, no triangle inside that box paints a pixel (its rows and spans
     /// are half-open at the same ends), so it can be skipped before any of its setup.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Covers(double minX, double minY, double maxX, double maxY) =>
         Math.Max(_top, CeilingCentre(minY)) < Math.Min(_top + _height, CeilingCentre(maxY))
         && Math.Max(_left, CeilingCentre(minX)) < Math.Min(_left + _width, CeilingCentre(maxX));
@@ -360,10 +361,12 @@ internal sealed class MeshLayer
     /// <summary>A triangle edge's x at a row's centre y, computed alike by both triangles that share it.</summary>
     private readonly struct Edge(double x, double y, double dx, double dy)
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public double At(double row) => dy == 0 ? x : x + ((row - y) * dx / dy);
     }
 
     /// <summary>The first whole number n with n + ½ ≥ <paramref name="value"/>, kept within ±2^30.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int CeilingCentre(double value) => (int)Math.Clamp(Math.Ceiling(value - 0.5), -(1 << 30), 1 << 30);
 
     private static double EdgeX(in MeshVertex from, in MeshVertex to, double y)
@@ -381,18 +384,22 @@ internal sealed class MeshLayer
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int Index(double s) => (int)((Math.Clamp(s, 0, 1) * (ShadingSource.Size - 1)) + 0.5);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static uint Pack(double r, double g, double b) =>
         (uint)Channel(b) | ((uint)Channel(g) << 8) | ((uint)Channel(r) << 16) | 0xFF000000u;
 
     /// <summary>The pixel <see cref="Pack"/> makes of <paramref name="level"/> in all three channels.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static uint Grey(double level)
     {
         uint channel = Channel(level);
         return channel | (channel << 8) | (channel << 16) | 0xFF000000u;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static byte Channel(double value) => (byte)((Math.Clamp(value, 0, 1) * 255) + 0.5);
 
     /// <summary>Whether a fill paints the twin too, fixed per instantiation so the plain fill pays nothing for it.</summary>
@@ -425,6 +432,7 @@ internal sealed class MeshLayer
             return new Plane(c0, dx, dy);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public double At(double dx, double dy) => C + (Dx * dx) + (Dy * dy);
     }
 }

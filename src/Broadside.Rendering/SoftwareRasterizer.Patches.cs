@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Broadside.Graphics;
 
 namespace Broadside.Rendering;
@@ -480,10 +481,15 @@ public sealed partial class SoftwareRasterizer
         {
             int across = steps + 1;
             ConvertCellEdges(steps, n, converter);
-            Span<float> first = stackalloc float[9];
-            Span<float> second = stackalloc float[9];
-            Span<float> firstBlack = stackalloc float[3];
-            Span<float> secondBlack = stackalloc float[3];
+            // Fixed buffers, not stackalloc, so the loop is compiled with the profile like any other.
+            EdgeColors firstColors = default;
+            EdgeColors secondColors = default;
+            EdgeBlacks firstBlacks = default;
+            EdgeBlacks secondBlacks = default;
+            Span<float> first = firstColors;
+            Span<float> second = secondColors;
+            Span<float> firstBlack = firstBlacks;
+            Span<float> secondBlack = secondBlacks;
             for (int j = 0; j < steps; j++)
             {
                 for (int i = 0; i < steps; i++)
@@ -628,9 +634,11 @@ public sealed partial class SoftwareRasterizer
         }
 
         /// <summary>The converted layer channels of an edge's midpoint (see <see cref="ConvertCellEdges"/>).</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private ReadOnlySpan<float> EdgeChannels(int edge) => _patchEdgeRgb.AsSpan(_patchEdgeSlots[edge] * 3, 3);
 
         /// <summary>The black pass's channel (1 − K) of an edge's midpoint, while the twin is drawn.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private float EdgeBlack(int edge) => _patchEdgeK[_patchEdgeSlots[edge]];
 
         /// <summary>
@@ -646,15 +654,19 @@ public sealed partial class SoftwareRasterizer
         }
 
         /// <summary>The horizontal edge from grid point (i, j) to (i + 1, j).</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int Top(int j, int i, int steps) => (j * steps) + i;
 
         /// <summary>The vertical edge from grid point (i, j) to (i, j + 1).</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int Left(int j, int i, int steps, int across) => (across * steps) + (j * across) + i;
 
         /// <summary>The diagonal of cell (i, j), from grid point (i + 1, j) to (i, j + 1).</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int Diagonal(int j, int i, int steps, int across) => (2 * across * steps) + (j * steps) + i;
 
         /// <summary>Whether a pixel centre of the layer lies in the box of the grid cell from point <paramref name="k"/>; its two triangles lie in that box.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool CellCovers(int k, int across)
         {
             PathPoint a = _patchGrid[k];
@@ -674,11 +686,26 @@ public sealed partial class SoftwareRasterizer
             return new MeshVertex(p.X, p.Y, s, 0, 0);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private MeshVertex GridColorVertex(int index)
         {
             PathPoint p = _patchGrid[index];
             ReadOnlySpan<float> rgb = _patchRgb.AsSpan(index * 3, 3);
             return new MeshVertex(p.X, p.Y, rgb[0], rgb[1], rgb[2]);
+        }
+
+        /// <summary>The converted midpoints of a triangle's three edges, three channels each.</summary>
+        [InlineArray(9)]
+        private struct EdgeColors
+        {
+            private float _channel;
+        }
+
+        /// <summary>The black pass's channel of a triangle's three edge midpoints.</summary>
+        [InlineArray(3)]
+        private struct EdgeBlacks
+        {
+            private float _channel;
         }
 
         /// <summary>Starts the render's patch count.</summary>
