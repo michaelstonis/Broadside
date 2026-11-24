@@ -97,7 +97,7 @@ internal static class KnownViolations
     };
 
     /// <summary>The rule name of the PublicAPI-file checks over the platform backends.</summary>
-    public const string PlatformSignatures = "PlatformSignatures";
+    public const string PlatformSignatures = "Platform backend signatures";
 
     /// <summary>The listed breaches of a rule (none for a rule with no entry).</summary>
     public static IReadOnlyDictionary<string, string> For(string rule) =>
