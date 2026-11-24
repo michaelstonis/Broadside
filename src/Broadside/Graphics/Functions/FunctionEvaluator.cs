@@ -58,6 +58,36 @@ internal abstract class FunctionEvaluator
             clipped[i] = Clip(input[i], _domain[2 * i], _domain[(2 * i) + 1]);
         }
 
+        return EvaluateClipped(clipped, output);
+    }
+
+    /// <summary>Evaluates the function at one point, in single precision.</summary>
+    /// <param name="input">At least <see cref="InputCount"/> values.</param>
+    /// <param name="output">At least <see cref="OutputCount"/> values; receives the outputs.</param>
+    /// <returns>How the evaluation went.</returns>
+    public FunctionStatus Evaluate(ReadOnlySpan<float> input, Span<float> output)
+    {
+        // The inputs are widened and clipped in one pass (issue #605); the arithmetic is that of the double overload.
+        int m = InputCount;
+        Span<double> x = stackalloc double[m];
+        Span<double> y = stackalloc double[OutputCount];
+        for (int i = 0; i < m; i++)
+        {
+            x[i] = Clip(input[i], _domain[2 * i], _domain[(2 * i) + 1]);
+        }
+
+        FunctionStatus status = EvaluateClipped(x, y);
+        for (int j = 0; j < y.Length; j++)
+        {
+            output[j] = (float)Math.Clamp(y[j], float.MinValue, float.MaxValue);
+        }
+
+        return status;
+    }
+
+    /// <summary>Runs the type's evaluation on inputs already clipped to the domain, then clips the outputs to the range.</summary>
+    private FunctionStatus EvaluateClipped(ReadOnlySpan<double> clipped, Span<double> output)
+    {
         output = output[..OutputCount];
         FunctionStatus status = EvaluateCore(clipped, output);
         for (int j = 0; j < output.Length; j++)
@@ -70,28 +100,6 @@ internal abstract class FunctionEvaluator
             }
 
             output[j] = _range is null ? value : Clip(value, _range[2 * j], _range[(2 * j) + 1]);
-        }
-
-        return status;
-    }
-
-    /// <summary>Evaluates the function at one point, in single precision.</summary>
-    /// <param name="input">At least <see cref="InputCount"/> values.</param>
-    /// <param name="output">At least <see cref="OutputCount"/> values; receives the outputs.</param>
-    /// <returns>How the evaluation went.</returns>
-    public FunctionStatus Evaluate(ReadOnlySpan<float> input, Span<float> output)
-    {
-        Span<double> x = stackalloc double[InputCount];
-        Span<double> y = stackalloc double[OutputCount];
-        for (int i = 0; i < x.Length; i++)
-        {
-            x[i] = input[i];
-        }
-
-        FunctionStatus status = Evaluate(x, y);
-        for (int j = 0; j < y.Length; j++)
-        {
-            output[j] = (float)Math.Clamp(y[j], float.MinValue, float.MaxValue);
         }
 
         return status;

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Broadside.Graphics.Functions;
 
 namespace Broadside.Graphics.Colors;
 
@@ -186,6 +187,11 @@ internal sealed class TintPipeline : ColorPipeline
         Span<float> input = stackalloc float[PdfColor.MaxComponents];
         Span<float> output = stackalloc float[PdfColor.MaxComponents];
         TintMemo memo = _function is null ? null! : TintMemo.For(_id, inputs, m);
+
+        // One staleness check for the run, as a batch evaluation makes, rather than three per tint (issue #605).
+        CompiledFunction? compiled = _function?.Compiled;
+        int k = compiled?.Evaluator.InputCount ?? 0;
+        int produced = compiled is null ? 0 : Math.Min(compiled.Evaluator.OutputCount, m);
         for (int start = 0; start < count; start += chunk)
         {
             int n = Math.Min(chunk, count - start);
@@ -204,12 +210,11 @@ internal sealed class TintPipeline : ColorPipeline
                         continue;
                     }
 
-                    int k = function.InputCount;
                     input[..k].Clear();
                     tints[..Math.Min(k, inputs)].CopyTo(input);
-                    function.Evaluate(input[..k], output);
+                    function.Evaluate(compiled!, input[..k], output);
                     target.Clear();
-                    output[..Math.Min(function.OutputCount, m)].CopyTo(target);
+                    output[..produced].CopyTo(target);
                     memo.Add(tints, target);
                 }
                 else

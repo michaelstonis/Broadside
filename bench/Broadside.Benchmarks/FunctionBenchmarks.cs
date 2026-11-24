@@ -26,6 +26,14 @@ public class FunctionBenchmarks
             "<< /FunctionType 4 /Domain [0 1 0 1 0 1 0 1 0 1 0 1] /Range [0 1 0 1 0 1 0 1] >>",
             "{ 5 index 1 index 0.6 mul add 5 index 3 index 0.5 mul add 5 index 4 index 0.9 mul add 3 index 0.8 mul add " +
             "5 index 10 4 roll pop pop pop pop pop pop dup 0.99 gt { pop 1 } if }"),
+        ["Type4GhentTint"] = static () => Program(
+            "<< /FunctionType 4 /Domain [0 1 0 1] /Range [0 1 0 1 0 1 0 1] >>",
+            "{1 index 1.000000 cvr exch sub 3 1 roll 1.000000 3 1 roll 1.000000 3 1 roll 0 index 1.000000 cvr exch sub 3 1 roll " +
+            "6 -1 roll 1.000000 cvr exch sub 6 1 roll 5 -1 roll 1.000000 cvr exch sub 5 1 roll 4 -1 roll 1.000000 cvr exch sub 4 1 roll " +
+            "3 -1 roll 1.000000 cvr exch sub 3 1 roll pop pop }"),
+        ["Type4Clamp"] = static () => Program(
+            "<< /FunctionType 4 /Domain [0 1 0 1] /Range [0 1 0 1] >>",
+            "{ 2 copy gt { exch } if dup 0.5 lt { 2 mul } { dup 0.75 gt { pop 1 } if } ifelse exch 0.3 mul add dup 0.5 sub }"),
         ["Type0OneInThreeOut"] = static () => new CosStream(
             Dictionary("<< /FunctionType 0 /Domain [0 1] /Range [0 1 0 1 0 1] /Size [256] /BitsPerSample 8 >>"),
             Enumerable.Range(0, 768).Select(static i => (byte)(i * 7)).ToArray()),
@@ -51,7 +59,7 @@ public class FunctionBenchmarks
     private float[] _outputs = [];
 
     /// <summary>The function to evaluate.</summary>
-    [Params("Type4LogoGreen", "Type4DoubleDot", "Type4Hexachrome", "Type0OneInThreeOut", "Type0TwoIn", "Type0Order3OneIn", "Type0Order3ThreeIn", "Type2", "Type3")]
+    [Params("Type4LogoGreen", "Type4DoubleDot", "Type4Hexachrome", "Type4GhentTint", "Type4Clamp", "Type0OneInThreeOut", "Type0TwoIn", "Type0Order3OneIn", "Type0Order3ThreeIn", "Type2", "Type3")]
     public string Function { get; set; } = "";
 
     [GlobalSetup]
