@@ -109,7 +109,7 @@ lastPage.Save("book-last-page.pdf");
 
 ## Forms
 
-Fields are found by their fully qualified names. Setting a value regenerates the field's appearance, so the value shows in every reader; `GenerateAppearances` does it again for a field you changed through its dictionary. `Flatten` draws every field's appearance into its page and removes the form, for a file that can no longer be filled in; `new PdfFlattenOptions().WithAnnotations(true)` flattens the other annotations too:
+Fields are found by their fully qualified names. Setting a value regenerates the field's appearance, so the value shows in every reader; `WriteAppearances` does it again for a field you changed through its dictionary. `Flatten` draws every field's appearance into its page and removes the form, for a file that can no longer be filled in; `new PdfFlattenOptions().WithAnnotations(true)` flattens the other annotations too:
 
 <!-- snippet: samples/guides/Editing/Program.cs#forms -->
 ```csharp
