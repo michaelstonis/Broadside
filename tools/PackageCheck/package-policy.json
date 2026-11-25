@@ -1,0 +1,83 @@
+{
+  "$comment": "What every packed Broadside package must satisfy (issue #265). A package not listed under 'packages' gets 'default', so a new package (Broadside.Layout was the first) is held to the strictest rule until it is listed. Dependencies name package IDs or '@set' references; a dependency on another Broadside package is allowed only at the same version. License is an SPDX expression, or 'file:<path>' for a licence file in the package. Files are paths that must be in the package. See README.md.",
+  "repositoryUrl": "https://github.com/michaelstonis/Broadside",
+  "sourceLinkUrlPrefix": "https://raw.githubusercontent.com/michaelstonis/Broadside/",
+  "dependencySets": {
+    "microsoft-managed": [
+      "Microsoft.Extensions.DependencyInjection.Abstractions",
+      "Microsoft.Extensions.Logging.Abstractions",
+      "Microsoft.Extensions.Options",
+      "Microsoft.Extensions.Primitives",
+      "System.Security.Cryptography.Pkcs"
+    ]
+  },
+  "default": {
+    "dependencies": [ "@microsoft-managed" ],
+    "license": "MIT"
+  },
+  "packages": {
+    "Broadside": {
+      "license": "file:LICENSE.txt",
+      "files": [
+        "LICENSE.txt",
+        "THIRD-PARTY-NOTICES.txt",
+        "licenses/adobe-core14-afm/MustRead.html",
+        "licenses/adobe-glyph-list/LICENSE.md",
+        "licenses/adobe-cmap-resources/LICENSE.md",
+        "licenses/ijg/README.ijg"
+      ]
+    },
+    "Broadside.Fonts.Standard14": {
+      "license": "MIT AND OFL-1.1 AND BSD-3-Clause AND Apache-2.0",
+      "files": [
+        "THIRD-PARTY-NOTICES.txt",
+        "licenses/liberation/LICENSE",
+        "licenses/liberation/AUTHORS",
+        "licenses/pdfium/LICENSE"
+      ]
+    },
+    "Broadside.Fonts.Cmaps": {
+      "license": "MIT AND BSD-3-Clause",
+      "files": [
+        "THIRD-PARTY-NOTICES.txt",
+        "licenses/cmap-resources/LICENSE.md",
+        "licenses/mapping-resources-pdf/LICENSE.txt"
+      ]
+    },
+    "Broadside.Rendering.Skia": {
+      "$comment": "A backend may depend on its platform library and nothing else.",
+      "dependencies": [ "@microsoft-managed", "SkiaSharp" ]
+    },
+    "Broadside.Viewer.Avalonia": {
+      "$comment": "Viewer shells may depend on their UI framework.",
+      "dependencies": [ "@microsoft-managed", "Avalonia" ]
+    },
+    "Broadside.Viewer.Blazor": {
+      "dependencies": [
+        "@microsoft-managed",
+        "Microsoft.AspNetCore.Components.Web",
+        "Microsoft.Extensions.Configuration",
+        "Microsoft.Extensions.DependencyInjection",
+        "Microsoft.Extensions.Options.ConfigurationExtensions"
+      ]
+    },
+    "Broadside.Viewer.Maui": {
+      "dependencies": [
+        "@microsoft-managed",
+        "Microsoft.Maui.Controls",
+        "Microsoft.Extensions.Configuration",
+        "Microsoft.Extensions.DependencyInjection",
+        "Microsoft.Extensions.Logging",
+        "SkiaSharp",
+        "SkiaSharp.Views.Maui.Controls",
+        "Microsoft.WindowsAppSDK"
+      ]
+    },
+    "Broadside.Viewer.Uno": {
+      "dependencies": [ "@microsoft-managed", "Uno.WinUI" ]
+    },
+    "Broadside.Viewer.WinUI": {
+      "dependencies": [ "@microsoft-managed", "Microsoft.WindowsAppSDK" ]
+    }
+  }
+}
