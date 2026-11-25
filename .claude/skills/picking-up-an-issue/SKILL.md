@@ -70,7 +70,7 @@ dotnet run -c Release --project bench/Broadside.Benchmarks -- --filter '*' --job
 
 ## 6. Commit
 
-Conventional Commits with the area as scope, the issue number in the subject, and two trailers at the end: the DCO sign-off `CONTRIBUTING.md` requires and the co-author line. Some sandboxes refuse any command whose text contains `git commit -s` or `.github`, so write the message to a scratch file and pass it with `-F`; the `Signed-off-by` line written by hand is exactly what `-s` appends.
+Conventional Commits with the area as scope and the issue number in the subject. No trailers. Some sandboxes refuse commands whose text contains `.github`, so write the message to a scratch file and pass it with `-F`.
 
 ```sh
 cat > /tmp/commit-msg.txt <<'MSG'
@@ -78,9 +78,6 @@ feat(cos): parse COS objects from bytes (#36)
 
 Tokenizes the character set, delimiters, numbers, names, strings and
 comments of ISO 32000-2 clause 7.2 without allocating per token.
-
-Signed-off-by: Your Name <you@example.com>
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 MSG
 git add -A && git -c commit.gpgsign=false commit -F /tmp/commit-msg.txt
 ```
@@ -125,7 +122,7 @@ git worktree remove ../<n>-<slug> && git branch -D <n>-<slug>                 # 
 - [ ] Spec clauses read from `Specs/`; plan row, research report and conformance rows read
 - [ ] Code, tests, conformance rows, `PublicAPI.Unshipped.txt`, fuzz target and benchmark as the issue requires
 - [ ] `dotnet build -warnaserror`, `dotnet test`, `dotnet format --verify-no-changes` clean
-- [ ] Conventional Commit with `Signed-off-by` and `Co-Authored-By` trailers
+- [ ] Conventional Commit
 - [ ] PR body starts with `Closes #<n>` and ends with the Claude Code footer
 - [ ] Phase 0–1: self-merged when green; Phase 2+: owner review requested, not merged
 - [ ] `in-progress` removed, worktree and branch deleted

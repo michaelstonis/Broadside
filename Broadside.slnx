@@ -86,6 +86,7 @@
     <Project Path="tests/BenchGate.Tests/BenchGate.Tests.csproj" />
     <Project Path="tests/ConformanceCheck.Tests/ConformanceCheck.Tests.csproj" />
     <Project Path="tests/DocSnippets.Tests/DocSnippets.Tests.csproj" />
+    <Project Path="tests/ReleaseNotes.Tests/ReleaseNotes.Tests.csproj" />
     <Project Path="tests/RenderDiff.Tests/RenderDiff.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
@@ -96,6 +97,7 @@
     <Project Path="tools/DiagnosticCatalogPage/DiagnosticCatalogPage.csproj" />
     <Project Path="tools/DocSnippets/DocSnippets.csproj" />
     <Project Path="tools/PerfCompare/PerfCompare.csproj" />
+    <Project Path="tools/ReleaseNotes/ReleaseNotes.csproj" />
     <Project Path="tools/RenderDiff/RenderDiff.csproj" />
   </Folder>
 </Solution>

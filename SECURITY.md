@@ -12,7 +12,6 @@ Broadside follows Semantic Versioning: there are no breaking changes within 1.x.
 | Previous 1.x minor | Security fixes only, for 6 months after the next minor is released. |
 | Older 1.x minors | No. Upgrade to the latest minor; within 1.x that needs no code changes. |
 | `0.x` previews and `1.0.0-rc.N` release candidates | No. Previews are superseded by the next preview; upgrade to 1.0 or later. |
-| Viewer packages (`Broadside.Viewer*`) | Previews on their own release track, not covered by the 1.x guarantee: fixes go into the next viewer preview only. |
 
 Every 1.x release targets .NET 10 (`net10.0`) for its whole life. Fixes are made on the `main` branch and, for a supported previous minor, backported to its release branch.
 
