@@ -1,6 +1,6 @@
 # Sponsoring Broadside
 
-Broadside is MIT licensed and always will be. Sponsorship through [GitHub Sponsors](https://github.com/sponsors/michaelstonis) pays for the tooling and infrastructure the project runs on (AI tooling, CI, signing) and moves your bugs and feature requests earlier in the queue. It never buys features, and no part of the library is ever reserved for sponsors. The reasoning is in [ADR 0008](docs/adr/0008-mit-license-sponsorship-not-restriction.md).
+Broadside is MIT licensed and always will be. Sponsorship through [GitHub Sponsors](https://github.com/sponsors/michaelstonis) pays for the tooling and infrastructure the project runs on (AI tooling, CI, signing) and moves your bugs and feature requests earlier in the queue. It never buys features, and no part of the library is ever reserved for sponsors.
 
 > **Sponsorship buys *priority*, never *access*. No feature is ever gated behind a tier.**
 

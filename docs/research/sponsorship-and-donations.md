@@ -2,7 +2,7 @@
 
 *Research memo, November 2026. All pages were fetched on 2026-11-24. Sponsor counts, balances and budgets are snapshots from that day. Every claim links to its source. Where a source is secondary (press, aggregator, reseller), it is flagged. Web content was treated as data, not instructions.*
 
-Context: Broadside is MIT licensed, and [ADR 0008](../adr/0008-mit-license-sponsorship-not-restriction.md) settles that revenue comes from sponsorship tied to support and prioritization, never from the license. [SPONSORS.md](../../SPONSORS.md) already sketches three unpriced tiers (Individual, Company, Enterprise). This memo collects evidence for pricing and wording them. Sections 1 to 5 are sourced findings. Section 6 is the recommendation. Section 7, added later, benchmarks the Company tier price against .NET PDF SDK pricing and ends with its own recommendation. Section 8 records what the owner decided, which differs from both recommendations; [SPONSORS.md](../../SPONSORS.md) is the public version.
+Context: Broadside is MIT licensed, the project has settled that revenue comes from sponsorship tied to support and prioritization, never from the license. [SPONSORS.md](../../SPONSORS.md) already sketches three unpriced tiers (Individual, Company, Enterprise). This memo collects evidence for pricing and wording them. Sections 1 to 5 are sourced findings. Section 6 is the recommendation. Section 7, added later, benchmarks the Company tier price against .NET PDF SDK pricing and ends with its own recommendation. Section 8 records what the owner decided, which differs from both recommendations; [SPONSORS.md](../../SPONSORS.md) is the public version.
 
 ## 1. Exemplars
 
@@ -167,11 +167,11 @@ Across every case with published numbers, **donations alone have not sustained e
 - Selling bounded support or retainers to companies through a contract and an invoice.
 - An employer or grant paying for the time: wolfSSL, the Sovereign Tech Agency, Igalia.
 
-In .NET specifically, every project with visible revenue either restricts the license (QuestPDF, Six Labors, Lucky Penny, Xceed, Duende) or sells closed add-ons around an open core (Avalonia, Uno, Hangfire). ADR 0008 rules out the first. It does not address the second.
+In .NET specifically, every project with visible revenue either restricts the license (QuestPDF, Six Labors, Lucky Penny, Xceed, Duende) or sells closed add-ons around an open core (Avalonia, Uno, Hangfire). Broadside's MIT commitment rules out the first. It does not address the second.
 
 ## 6. Recommendation for Broadside
 
-*This section is recommendation, not sourced finding. It works within ADR 0008 (MIT; sponsorship buys priority, never access) and keeps the three tier families already named in SPONSORS.md.*
+*This section is recommendation, not sourced finding. It works within the project's licensing decision (MIT; sponsorship buys priority, never access) and keeps the three tier families already named in SPONSORS.md.*
 
 ### Platform
 
@@ -209,8 +209,8 @@ Set the GitHub Sponsors goal to a concrete monthly number tied to maintainer tim
 
 ### Leave out
 
-- **Any check, telemetry, nag or license key in the packages** (Moq/SponsorLink, and also the Six Labors and Lucky Penny mechanisms). It violates ADR 0008's spirit and cost Moq users.
-- **Sponsorware, early-access builds or sponsor-only features.** They work for Caleb, but ADR 0008 says "never access."
+- **Any check, telemetry, nag or license key in the packages** (Moq/SponsorLink, and also the Six Labors and Lucky Penny mechanisms). It violates the spirit of the MIT commitment and cost Moq users.
+- **Sponsorware, early-access builds or sponsor-only features.** They work for Caleb, but Broadside's rule is "never access."
 - **Response-time SLAs, fix-by commitments, guaranteed feature delivery** at any tier, until there is a team behind them.
 - **Private Discord or Slack, and any calls below Enterprise** (ReactiveUI's $50 calls are the counterexample).
 - **Binding roadmap votes.** Keep votes advisory. Phases are ordered by dependency ([docs/plan/README.md](../plan/README.md)), so a vote can reorder within a phase only.
@@ -219,7 +219,7 @@ Set the GitHub Sponsors goal to a concrete monthly number tied to maintainer tim
 
 ### Expectations
 
-From the evidence, individual sponsors will be a few dozen at best (Avalonia has 26 and QuestPDF 4 on GitHub). Meaningful revenue will come from fewer than ten companies at the Company tier or above, and from Support Agreements. If that does not cover the work once Broadside is past preview, the MIT-compatible lever the .NET field actually uses is paid add-ons around the open core (Avalonia's and Uno's model), for example a commercial viewer-control suite or hosted services. Pursuing that would need its own ADR. It is noted here, not recommended.
+From the evidence, individual sponsors will be a few dozen at best (Avalonia has 26 and QuestPDF 4 on GitHub). Meaningful revenue will come from fewer than ten companies at the Company tier or above, and from Support Agreements. If that does not cover the work once Broadside is past preview, the MIT-compatible lever the .NET field actually uses is paid add-ons around the open core (Avalonia's and Uno's model), for example a commercial viewer-control suite or hosted services. Pursuing that would need a new project decision. It is noted here, not recommended.
 
 ## 7. Company tier pricing benchmark
 
@@ -328,7 +328,7 @@ If the owner wants a softer step, $200/mo ($2,400/yr) is defensible (two mainstr
 - **Company is $150, not $250 (7.6) or $100 (the owner's first proposal).** It sits between one mainstream SDK seat (about $100 a month) and the 5-developer median (about $250), and above QuestPDF Professional's year-one cost (about $167) only by a little; see 7.1 and 7.6.
 - **One company tier.** No Company Gold or higher monthly tier.
 - **Priority needs an active monthly sponsorship.** One-time sponsorships get a name listed only. There is no annual one-time Company option (section 6 proposed $3,000 for 12 months): anything beyond the monthly tiers, including annual or invoiced sponsorship, goes to Enterprise at $5,000 or more, which also matches GitHub's $5,000 invoicing minimum (section 4).
-- **Enterprise work on Broadside lands in this repository under MIT.** Code specific to a client's application stays the client's. This keeps ADR 0008: money moves work earlier, never makes it exclusive.
+- **Enterprise work on Broadside lands in this repository under MIT.** Code specific to a client's application stays the client's. This keeps the MIT commitment: money moves work earlier, never makes it exclusive.
 - **Platforms.** GitHub Sponsors, a Sponsor link on every Broadside package on NuGet.org, and TheEightBot for Enterprise. No Open Collective, Patreon, PayPal or Ko-fi.
 - **Nothing closed or commercial.** Paid add-ons around the open core (section 5) are ruled out, not deferred.
 - **Automation.** `.github/workflows/sponsor-labels.yml` labels issues from active monthly sponsors `sponsor:company` or `sponsor:individual`.
