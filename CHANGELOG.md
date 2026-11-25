@@ -21,11 +21,13 @@ Changes since [`v0.1.0-preview.10`](https://github.com/michaelstonis/Broadside/r
 
 - **diagnostics:** make the core assembly build reproducibly ([#265](https://github.com/michaelstonis/Broadside/issues/265))
 - **fuzz:** fix the release-candidate fuzz findings that are library or harness bugs ([#620](https://github.com/michaelstonis/Broadside/issues/620))
+- **fuzz:** fix the follow-up release-candidate fuzz findings ([#620](https://github.com/michaelstonis/Broadside/issues/620))
 - **release:** list a change landed on two branches once; exempt CHANGELOG.md from the ADR check ([#264](https://github.com/michaelstonis/Broadside/issues/264))
 - **security:** close the unsafe and pooled buffer review findings ([#274](https://github.com/michaelstonis/Broadside/issues/274))
 - **viewer:** pack a padded caller-memory tile before WPF reads it ([#274](https://github.com/michaelstonis/Broadside/issues/274))
 - **viewer:** release the window's scaling event and yield search on the slice budget ([#599](https://github.com/michaelstonis/Broadside/issues/599), [#600](https://github.com/michaelstonis/Broadside/issues/600))
 - **writing:** refuse an incremental update of a file with a damaged Encrypt entry ([#620](https://github.com/michaelstonis/Broadside/issues/620))
+- **writing:** refuse an incremental update of a rebuilt cross-reference ([#620](https://github.com/michaelstonis/Broadside/issues/620))
 
 ### Performance
 
@@ -44,6 +46,7 @@ Changes since [`v0.1.0-preview.10`](https://github.com/michaelstonis/Broadside/r
 - **conformance:** record the refused incremental update of a damaged Encrypt entry ([#620](https://github.com/michaelstonis/Broadside/issues/620))
 - **diagnostics:** publish the diagnostic-code catalog with its stability policy ([#263](https://github.com/michaelstonis/Broadside/issues/263))
 - **guides:** writing, editing, extraction, accessibility, signatures and viewers guides ([#269](https://github.com/michaelstonis/Broadside/issues/269), [#270](https://github.com/michaelstonis/Broadside/issues/270))
+- **known-limitations:** slow hostile inputs ([#620](https://github.com/michaelstonis/Broadside/issues/620))
 - **packaging:** note what the reproducible-build check caught ([#265](https://github.com/michaelstonis/Broadside/issues/265))
 - **packaging:** the viewer packages ship in v1.0 ([#265](https://github.com/michaelstonis/Broadside/issues/265))
 - **release:** 1.0 release-candidate notes, gate checklist and GA criteria ([#276](https://github.com/michaelstonis/Broadside/issues/276))
@@ -67,11 +70,13 @@ Changes since [`v0.1.0-preview.10`](https://github.com/michaelstonis/Broadside/r
 - **fuzz:** seed the image readers from the test suites and judge each target on the parsers it owns ([#274](https://github.com/michaelstonis/Broadside/issues/274))
 - **fuzz:** small limits for whole-file targets and two looser oracles ([#620](https://github.com/michaelstonis/Broadside/issues/620))
 - **security:** name the page tree depth constant by the local naming rule ([#273](https://github.com/michaelstonis/Broadside/issues/273))
+- **viewer-blazor:** wait for ink on the remote first page instead of reading it once
 
 ### Benchmarks
 
 - compare Broadside with PDFium and pdf.js for v1 ([#275](https://github.com/michaelstonis/Broadside/issues/275))
 - **gate:** record the size probes after the v1 merges
+- **gate:** record the document builder allocations after the [#620](https://github.com/michaelstonis/Broadside/issues/620) layout-table fix
 
 ### Build and CI
 
