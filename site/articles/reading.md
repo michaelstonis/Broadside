@@ -95,6 +95,8 @@ Console.WriteLine($"{kind.Name}: area {kind.Area}, {kind.Clause}");
 ```
 <!-- endsnippet -->
 
+[Diagnostic codes](diagnostics.md) lists every code with its default severity, clause, meaning and typical repair, and gives the stability policy: from 1.0 a code is never renamed or reused, so matching on a code keeps working across releases, while messages may be reworded at any time.
+
 Because objects load on first use, so do their repairs. A damage that only affects a page is recorded when that page is read, and `Diagnostics` grows as more of the document is used:
 
 <!-- snippet: samples/guides/ReadingDiagnostics/Program.cs#lazy -->

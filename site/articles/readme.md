@@ -12,6 +12,7 @@ Broadside's packages are on NuGet.org as previews (`0.1.0-preview.N`), and the p
 - [Roadmap](roadmap.md): the phases and their status, how releases are made, and the known issues.
 - [Performance](performance.md): how fast Broadside opens, renders and extracts text next to PDFium and pdf.js.
 - [Conformance](conformance.md): the per-clause record of what is implemented.
+- [Diagnostic codes](diagnostics.md): every code a repair can record, what it means and how it is repaired, and the stability policy that says how codes may change between releases.
 - [Contributing](contributing.md): the issue, branch and pull request flow.
 - [API review checklist](api-review.md): the rules every public API change follows, and which of them the tests enforce.
 - [API coverage](api-coverage.md): which target framework each package's API reference is built from, and the API of the one package it cannot build.

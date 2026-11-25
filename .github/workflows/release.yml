@@ -357,6 +357,8 @@ jobs:
           # The generated notes follow this body; the known-limitations list (issue #241) is pinned to the released tag.
           body: |
             **Known limitations:** [docs/known-limitations.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/docs/known-limitations.md) lists what this release does not do yet, each item with the issue that tracks it.
+
+            **Diagnostic codes:** [the catalog and its stability policy](https://michaelstonis.github.io/Broadside/articles/diagnostics/) say which codes this release can report and how codes may change between releases.
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-') }}
           fail_on_unmatched_files: true

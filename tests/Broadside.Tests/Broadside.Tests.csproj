@@ -11,6 +11,11 @@
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
   </ItemGroup>
 
+  <!-- The diagnostic catalog page's generator (#263), so a stale site/articles/diagnostics.md fails the test suite too. -->
+  <ItemGroup>
+    <Compile Include="../../tools/DiagnosticCatalogPage/CatalogPage.cs" Link="Document/CatalogPage.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <None Include="Images/jpx-corpus-references.txt" CopyToOutputDirectory="PreserveNewest" LinkBase="Images" />
   </ItemGroup>
