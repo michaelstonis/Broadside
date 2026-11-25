@@ -53,7 +53,10 @@
       "tools/DiagnosticCatalogPage/DiagnosticCatalogPage.csproj",
       "tools/ApkAotCheck/ApkAotCheck.csproj",
       "tests/RenderDiff.Tests/RenderDiff.Tests.csproj",
-      "tests/BenchGate.Tests/BenchGate.Tests.csproj"
+      "tests/BenchGate.Tests/BenchGate.Tests.csproj",
+      "tools/ReleaseNotes/ReleaseNotes.csproj",
+      "tests/ReleaseNotes.Tests/ReleaseNotes.Tests.csproj",
+      "tests/PackageCheck.Tests/PackageCheck.Tests.csproj"
     ]
   }
 }

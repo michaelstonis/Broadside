@@ -73,6 +73,10 @@ jobs:
       - name: Test the decision
         run: .github/scripts/test-ci-plan.sh
 
+      - name: Test the pull request checks
+        # pr-checks.yml's title and DCO scripts (issue #264).
+        run: .github/scripts/test-pr-checks.sh
+
       - name: Set up .NET
         if: github.event_name == 'pull_request'
         uses: actions/setup-dotnet@v6
@@ -336,6 +340,12 @@ jobs:
         # Full runs only: a narrowed run does not build every package.
         if: runner.os == 'Linux' && env.PROJECTS == 'all'
         run: dotnet pack Broadside.Core.slnf -c Release --no-build
+
+      - name: Check packages (Linux)
+        # Dependency allowlists, symbols, SourceLink, licences, README and icon of every package just packed (issue #265;
+        # tools/PackageCheck/README.md). Offline here; release.yml also fetches every SourceLink URL (--online).
+        if: runner.os == 'Linux' && env.PROJECTS == 'all'
+        run: dotnet run --project tools/PackageCheck -c Release -- verify artifacts/package/release
 
       - name: Upload packages (Linux)
         if: runner.os == 'Linux' && env.PROJECTS == 'all'

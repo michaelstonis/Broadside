@@ -1,0 +1,99 @@
+# Every parser and codec of the core (Broadside) and rendering (Broadside.Rendering) assemblies, with the fuzz targets that
+# exercise it (issue #274). FuzzTargetMapTests (tests/Broadside.Rendering.Tests) fails when a parser or codec has no line here or
+# a line names a target FuzzTargets.All does not register; the coverage report (docs/fuzz-coverage.md, coverage.sh) measures each
+# target over the types mapped to it, the first target of a line being the one that owns the type.
+#
+# A parser or codec is a type behind the filter or font program parser extension point, a type whose name ends in Parser,
+# Reader, Decoder, Tokenizer or Lexer, or one of the Phase 3 to 5 parsers named in the test.
+#
+# <full type name> <target> [<target>...]
+
+# File structure
+Broadside.Objects.CosLexer                              lexer content-lexer
+Broadside.Objects.CosParser                             object-parser document
+Broadside.Objects.TextStringDecoder                     document pdf-date
+Broadside.Parsing.CrossReferenceReader                  windowed-document document repair
+Broadside.Parsing.XrefTableReader                       document repair
+Broadside.Parsing.XrefStreamReader                      xref-stream document
+Broadside.Parsing.RevisionReader                        document save
+Broadside.Parsing.LinearizationReader                   first-page-first hint-tables
+Broadside.Parsing.HintTableReader                       hint-tables first-page-first
+Broadside.Parsing.HintBitReader                         hint-tables
+Broadside.IO.HttpRangeSource                            range-response
+
+# Document model
+Broadside.PageTreeReader                                document flatten
+Broadside.NameTreeReader                                document
+Broadside.NumberTreeReader                              document
+Broadside.TreeReader`1                                  document
+Broadside.EntryReader                                   document
+Broadside.AssociatedFileReader                          document
+Broadside.Structure.KidReader                           structure-tree
+Broadside.Structure.AttributeReader                     structure-tree
+Broadside.XmpPacketReader                               xmp
+Broadside.XmpXmlReader                                  xmp-xml xmp
+Broadside.Forms.PdfDefaultAppearance                    default-appearance form-fill
+
+# Filters and image codecs
+Broadside.Filters.StreamDecoder                         filter-sliced filter-predictor document
+Broadside.Filters.AsciiHexDecodeFilter                  filter-asciihex
+Broadside.Filters.Ascii85DecodeFilter                   filter-ascii85
+Broadside.Filters.FlateDecodeFilter                     filter-flate
+Broadside.Filters.LzwDecodeFilter                       filter-lzw
+Broadside.Filters.RunLengthDecodeFilter                 filter-runlength
+Broadside.Filters.CcittFaxDecodeFilter                  filter-ccitt
+Broadside.Filters.Ccitt.CcittFaxDecoder                 filter-ccitt
+Broadside.Filters.Ccitt.CcittLineDecoder                filter-ccitt
+Broadside.Filters.Ccitt.CcittBitReader                  filter-ccitt
+Broadside.Filters.Ccitt.MmrDecoder                      filter-ccitt filter-jbig2
+Broadside.Filters.DctDecodeFilter                       filter-dct image-decode
+Broadside.Filters.Dct.JpegDecoder                       filter-dct image-decode
+Broadside.Filters.Dct.JpegMarkerReader                  filter-dct
+Broadside.Filters.Dct.JpegScanDecoder                   filter-dct
+Broadside.Filters.Dct.JpegBitReader                     filter-dct
+Broadside.Filters.Dct.ArithmeticDecoder                 filter-dct
+Broadside.Images.JpegInfo                               jpeg-reader
+Broadside.Images.Png.PngReader                          png-reader
+Broadside.Filters.Jbig2DecodeFilter                     filter-jbig2
+Broadside.Filters.Jbig2.Jbig2PageDecoder                filter-jbig2
+Broadside.Filters.Jbig2.Jbig2IntegerDecoder             filter-jbig2
+Broadside.Filters.Jbig2.Jbig2BitReader                  filter-jbig2
+Broadside.Filters.Codecs.MqDecoder                      filter-jbig2 filter-jpx
+Broadside.Filters.JpxDecodeFilter                       filter-jpx
+Broadside.Filters.Jpx.JpxDecoder                        filter-jpx
+Broadside.Filters.Jpx.JpxCodestreamReader               filter-jpx
+Broadside.Filters.Jpx.JpxTileDecoder                    filter-jpx
+Broadside.Filters.Jpx.JpxPacketHeaderReader             filter-jpx
+Broadside.Filters.Jpx.JpxCodeBlockDecoder               filter-jpx
+Broadside.Filters.Jpx.JpxRawDecoder                     filter-jpx
+
+# Fonts and CMaps
+Broadside.Fonts.TrueType.TrueTypeFontProgramParser      font-truetype
+Broadside.Fonts.Cff.CffFontProgramParser                font-cff
+Broadside.Fonts.Cff.CffDictReader                       font-cff cff-subset
+Broadside.Fonts.Type1.Type1FontProgramParser            font-type1
+Broadside.Fonts.Type1.Type1ProgramReader                font-type1 type1-to-cff
+Broadside.Fonts.Type1.PostScriptTokenizer               font-type1
+Broadside.Fonts.OpenType.LayoutTable                    gsub gpos
+Broadside.Fonts.OpenType.GdefTable                      gpos gsub
+Broadside.Fonts.OpenType.KernTable                      gpos
+Broadside.Fonts.Resolution.FontFileReader               font-scanner font-index
+Broadside.Fonts.Resolution.MemoryFontFileReader         font-scanner
+Broadside.Fonts.Resolution.HandleFontFileReader         font-index
+Broadside.Fonts.Resolution.FontNameParser               font-scanner font-index
+Broadside.Fonts.CMapParser                              cmap tounicode
+Broadside.Fonts.CMapParser+Reader                       cmap tounicode
+
+# Content and graphics
+Broadside.Content.ContentReader                         content-lexer content-interpreter
+Broadside.Graphics.Functions.PostScriptLexer            function-type4
+Broadside.Graphics.Shadings.ShadingReader               shading-mesh display-list
+Broadside.Graphics.Shadings.MeshDecoder                 shading-mesh
+Broadside.Graphics.Shadings.MeshBitReader               shading-mesh
+Broadside.Rendering.Icc.IccProfile                      icc-profile
+
+# Signatures
+Broadside.Signatures.Validation.CmsSignature            cms signature-validation public-key
+Broadside.Signatures.TimestampProtocol                  timestamp-response
+Broadside.Signatures.Validation.OcspResponse            ocsp-response cms
+Broadside.Signatures.Validation.RevocationList          crl cms

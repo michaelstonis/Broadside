@@ -105,6 +105,12 @@ internal static class Predictor
                 return false;
             }
 
+            if (data.IsEmpty)
+            {
+                // No rows to undo: Columns alone must not size the row buffers (issue #274).
+                return false;
+            }
+
             long dataRow = predictor == 2 ? data.Length : data.Length - 1;
             if (rowLength > dataRow && !data.IsEmpty)
             {

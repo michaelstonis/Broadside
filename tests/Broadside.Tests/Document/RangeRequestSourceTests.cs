@@ -230,6 +230,33 @@ public sealed class RangeRequestSourceTests
     }
 
     [Fact]
+    public async Task A_linearized_file_whose_hints_count_pages_its_page_tree_lacks_opens_remotely()
+    {
+        // Fuzz target range-response (issue #274): the hint tables count 2 pages, the first is not where they say, and the damaged
+        // page tree holds none; the open read page 0 through the indexer and threw ArgumentOutOfRangeException.
+        string root = AppContext.BaseDirectory;
+        while (!File.Exists(Path.Combine(root, "Broadside.slnx")))
+        {
+            root = Path.GetDirectoryName(root.TrimEnd(Path.DirectorySeparatorChar))!;
+        }
+
+        byte[] file = await File.ReadAllBytesAsync(Path.Combine(root, "tests", "Broadside.Fuzz", "Seeds", "range-response", "hinted-pages-beyond-page-tree.pdf"), TestContext.Current.CancellationToken);
+        using var server = new RangeServer(file);
+        using HttpClient client = server.CreateClient();
+
+        using PdfDocument document = await PdfDocument.OpenAsync(client, FileUri, TestContext.Current.CancellationToken);
+
+        int enumerated = 0;
+        foreach (PdfPage page in document.Pages)
+        {
+            Assert.NotNull(page);
+            enumerated++;
+        }
+
+        Assert.Equal(enumerated, document.Pages.Count);
+    }
+
+    [Fact]
     public async Task A_server_error_fails_the_open_with_the_HTTP_status()
     {
         using var handler = new StatusHandler(HttpStatusCode.NotFound);

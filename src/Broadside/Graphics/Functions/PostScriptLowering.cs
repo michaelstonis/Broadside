@@ -22,7 +22,7 @@ namespace Broadside.Graphics.Functions;
 /// </remarks>
 internal static class PostScriptLowering
 {
-    /// <summary>The most registers a lowered program may use.</summary>
+    /// <summary>The most registers a lowered program may use, constants included.</summary>
     public const int MaxRegisters = 1024;
 
     /// <summary>A real.</summary>
@@ -142,7 +142,9 @@ internal static class PostScriptLowering
                     return null;
                 }
 
-                if (_registers > MaxRegisters)
+                // Constants become registers too (Finish), and the evaluator stack-allocates them all: a program of many distinct
+                // literals that never grows the stack must still fall back to the interpreter (issue #274).
+                if (_registers + _constants.Count > MaxRegisters)
                 {
                     return null;
                 }

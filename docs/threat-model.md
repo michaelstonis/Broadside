@@ -2,8 +2,8 @@
 
 This is the threat model for Broadside reading untrusted PDF files, and the inventory of every resource limit that protects it:
 its default, the option that changes it (or "fixed"), and the test that proves it holds. It covers the packages that ship as 1.x:
-the core (`Broadside`), `Broadside.Rendering`, the native rendering backends, `Broadside.Layout` and the font data packages. The
-viewer packages (`Broadside.Viewer*`) ship as previews on their own track and are not covered here.
+the core (`Broadside`), `Broadside.Rendering`, the native rendering backends, `Broadside.Layout`, the font data packages and the
+viewer packages (`Broadside.Viewer*`).
 
 How to report a vulnerability, which versions get fixes and how fast: [SECURITY.md](../SECURITY.md). Guidance for applications:
 [Processing untrusted files](../site/articles/untrusted-files.md).
@@ -37,7 +37,9 @@ who can open them: permissions in an encrypted file are advice to the applicatio
 - **Managed parsing.** Everything that interprets the file's syntax (object syntax, cross-reference data, filters and image codecs,
   font programs, CMaps, ICC profiles, functions, content streams, CMS signed data, OCSP responses and CRLs) is C# in the core,
   with no native dependency. A memory-safety bug there is limited to what `Span<T>`, `unsafe` blocks and pooled buffers allow, and
-  every parser and codec is fuzzed (`tests/Broadside.Fuzz`, one target per parser; `.github/workflows/fuzz.yml`). Two things
+  every parser and codec is fuzzed (`tests/Broadside.Fuzz`, one target per parser; `.github/workflows/fuzz.yml`; per-target
+  coverage and the last full run in the [fuzzing coverage report](fuzz-coverage.md)). Every `unsafe` block and pooled buffer is
+  reviewed, with its bounds, in the [unsafe code and pooled buffer review](unsafe-code-review.md). Two things
   reach the platform through .NET's own cryptography: certificates are loaded as `X509Certificate2` and public-key envelopes are
   opened with `EnvelopedCms`, which parse with the operating system's library; and the cipher and hash primitives (AES, MD5, SHA-2)
   use the platform where it has them, the managed implementations elsewhere (always in the browser).
@@ -174,7 +176,7 @@ can be given others.
 | G3 | Function nesting (stitching; cycles cut separately) | 8 | `FunctionCompilation.MaxDepth` | `StitchingFunctionTests.Stitching_functions_nest_eight_deep_but_not_nine` |
 | G4 | Function inputs and outputs | 32 | `FunctionEvaluator.MaxArity` | no focused test (fuzz target `function-sampled`) |
 | G5 | Sample values in a sampled function | 2^24 | `SampledCompiler.MaxSampleValues` | `SampledFunctionTests.A_size_that_would_need_too_many_samples_is_rejected_without_allocating_them` |
-| G6 | PostScript calculator stack; brace nesting; compiled registers | 100; 256; 1,024 | `PostScriptEvaluator.StackLimit`, `PostScriptCompiler.MaxNesting`, `PostScriptLowering.MaxRegisters` | `PostScriptFunctionTests.The_stack_holds_100_entries`, `.Overflowing_the_stack_fails_the_evaluation_with_outputs_of_zero_clipped_to_the_range`, `.Braces_nest_256_deep_including_the_program_but_not_257` (registers: fuzz target `function-type4`) |
+| G6 | PostScript calculator stack; brace nesting; compiled registers (constants included) | 100; 256; 1,024 | `PostScriptEvaluator.StackLimit`, `PostScriptCompiler.MaxNesting`, `PostScriptLowering.MaxRegisters` | `PostScriptFunctionTests.The_stack_holds_100_entries`, `.Overflowing_the_stack_fails_the_evaluation_with_outputs_of_zero_clipped_to_the_range`, `.Braces_nest_256_deep_including_the_program_but_not_257` (registers: **`PostScriptLoweringTests.A_program_of_more_distinct_literals_than_registers_runs_in_the_interpreter`**; fuzz target `function-type4`) |
 | G7 | ICC lookup table channels | 15 | `IccClut.MaxChannels` | fuzz target `icc-profile` |
 | G8 | Image components | 32 | `ImageGeometry.MaxComponents` | `ImageFilterFacetTests` |
 | G9 | Colour space depth while walking resources | 8 | `DocumentObjectWalker.MaxColorSpaceDepth` | no focused test |

@@ -12,7 +12,7 @@ Closes #
 - [ ] `PublicAPI.Unshipped.txt` updated if the public surface changed, and the change explained below
 - [ ] Public API changes checked against the [API review checklist](https://github.com/michaelstonis/Broadside/blob/main/site/articles/api-review.md); any new entry in `KnownViolations` (tests/Broadside.ApiGuard.Tests) says why
 - [ ] Benchmark with a `MemoryDiagnoser` assertion if on a hot path (lexer, content interpreter, rasterizer, codecs)
-- [ ] All commits signed off (`git commit -s`, see CONTRIBUTING.md) and follow Conventional Commits
+- [ ] The title and commits follow Conventional Commits
 
 ## Public API changes
 
