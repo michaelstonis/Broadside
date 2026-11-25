@@ -5058,6 +5058,7 @@ Broadside.Diagnostics.DiagnosticCode
 Broadside.Diagnostics.DiagnosticCode.Area.get -> Broadside.Diagnostics.DiagnosticArea
 Broadside.Diagnostics.DiagnosticCode.Clause.get -> string?
 Broadside.Diagnostics.DiagnosticCode.DefaultSeverity.get -> Broadside.Diagnostics.DiagnosticSeverity
+Broadside.Diagnostics.DiagnosticCode.Description.get -> string?
 Broadside.Diagnostics.DiagnosticCode.Equals(Broadside.Diagnostics.DiagnosticCode? other) -> bool
 Broadside.Diagnostics.DiagnosticCode.Name.get -> string!
 Broadside.Diagnostics.DiagnosticCode.Owner.get -> string?

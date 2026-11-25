@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The reading guide (site/articles/reading.md): reading one document from many threads, and one engine for many documents. -->
+  <PropertyGroup>
+    <AssemblyName>Broadside.Samples.ReadingConcurrency</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Broadside/Broadside.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(CorpusDirectory)page-tree-inherited.pdf" Link="page-tree-inherited.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(CorpusDirectory)linearized.pdf" Link="linearized.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(CorpusDirectory)text-standard14.pdf" Link="text-standard14.pdf" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

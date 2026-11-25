@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The reading guide (site/articles/reading.md): diagnostics in lenient mode, and strict mode. -->
+  <PropertyGroup>
+    <AssemblyName>Broadside.Samples.ReadingDiagnostics</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Broadside/Broadside.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(CorpusDirectory)startxref-wrong.pdf" Link="startxref-wrong.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(CorpusDirectory)broken-xref-offsets.pdf" Link="broken-xref-offsets.pdf" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

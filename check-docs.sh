@@ -3,7 +3,8 @@
 # search is wired in, every package under src/ has an API reference, and every internal link and asset
 # reference resolves to a generated file.
 # First runs ./check-adr-refs.sh: no doc, README, site page, template or XML doc comment references an ADR; then checks that the
-# per-specification counts on the conformance page match the maps in docs/conformance/ (tools/ConformanceCheck --site-page).
+# per-specification counts on the conformance page match the maps in docs/conformance/ (tools/ConformanceCheck --site-page), that
+# the sample code in the pages equals the samples it includes (tools/DocSnippets), and that those samples build.
 # Modelled on wieslawsoltes/TreeDataGrid check-docs.sh; see docs/research/doc-site-tooling.md.
 #
 #   ./check-docs.sh                  build into site/.lunet/build/www and check it
@@ -56,6 +57,21 @@ if ! dotnet run --project "${ROOT}/tools/ConformanceCheck" -- --root "${ROOT}" -
     fail "the conformance map is invalid or the counts in site/articles/conformance.md are stale (lines above)"
 fi
 
+# 0c. Guide code is included from compiled samples: every snippet block in the site's pages must equal the region of
+#     samples/guides/ it names (regenerate with: dotnet run --project tools/DocSnippets -- --write), and every sample must build.
+if ! dotnet run --project "${ROOT}/tools/DocSnippets" -- --root "${ROOT}"; then
+    fail "the sample code in the site's pages differs from samples/guides/ (lines above)"
+fi
+if ! "${ROOT}/samples/guides/run-samples.sh" --build-only; then
+    fail "a guide sample in samples/guides/ does not build (lines above)"
+fi
+
+# 0d. The diagnostic catalog page's code tables are generated from the public catalog and must be current
+#     (regenerate with: dotnet run --project tools/DiagnosticCatalogPage -- site/articles/diagnostics.md --write).
+if ! dotnet run --project "${ROOT}/tools/DiagnosticCatalogPage" -- "${ROOT}/site/articles/diagnostics.md"; then
+    fail "the code tables in site/articles/diagnostics.md are stale (lines above)"
+fi
+
 dotnet tool restore
 
 # Start from a clean output so a page removed from the sources cannot survive in www/.
@@ -87,11 +103,24 @@ for route in \
     404.html \
     articles/index.html \
     articles/getting-started/index.html \
+    articles/guides/index.html \
+    articles/reading/index.html \
+    articles/rendering/index.html \
+    articles/writing/index.html \
+    articles/editing/index.html \
+    articles/extracting-text/index.html \
+    articles/signatures/index.html \
+    articles/accessibility-and-conformance/index.html \
+    articles/migration/index.html \
     articles/building-documents/index.html \
     articles/architecture/index.html \
     articles/roadmap/index.html \
+    articles/performance/index.html \
+    articles/untrusted-files/index.html \
     articles/conformance/index.html \
+    articles/diagnostics/index.html \
     articles/contributing/index.html \
+    articles/api-review/index.html \
     articles/api-coverage/index.html \
     api/index.html \
     css/site.css \

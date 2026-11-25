@@ -55,10 +55,10 @@ Open a PR from your branch against `main` using the [pull request template](.git
 
 - starts its description with `Closes #<issue>`, so merging closes the issue;
 - updates the [conformance map](docs/conformance) rows for every clause the change touches, in the same PR as the code; a row is not `done` without a linked test;
-- updates `PublicAPI.Unshipped.txt` in every package whose public surface changed, and says why in the description;
+- updates `PublicAPI.Unshipped.txt` in every package whose public surface changed, says why in the description, and follows the [API review checklist](site/articles/api-review.md) (the tests in `tests/Broadside.ApiGuard.Tests` enforce its mechanical rules over every shipping package);
 - adds tests: unit tests next to the feature, corpus tests driven by `tests/Corpus/`, rendering snapshots through Verify, fuzz targets for every parser and codec;
 - carries `<remarks>ISO 32000-2 §x.y.z</remarks>` (or the relevant TS or reference) in the XML docs of every public type and member that implements a spec concept;
-- adds any new diagnostic code to the public catalog in `src/Broadside/Diagnostics/`, in the class of its area (`FileStructureDiagnostics`, `FontDiagnostics`, `ImageDiagnostics`, ...; `DiagnosticCatalog` lists them all), with its default severity and clause, and accepts the catalog snapshot of `DiagnosticCatalogTests`; a code is declared nowhere else, and `DiagnosticCatalogArchitectureTests` fails if one is;
+- adds any new diagnostic code to the public catalog in `src/Broadside/Diagnostics/`, in the class of its area (`FileStructureDiagnostics`, `FontDiagnostics`, `ImageDiagnostics`, ...; `DiagnosticCatalog` lists them all), with its default severity, clause and description, accepts the catalog snapshot of `DiagnosticCatalogTests` and regenerates the [diagnostic codes page](site/articles/diagnostics.md) (`dotnet run --project tools/DiagnosticCatalogPage -- site/articles/diagnostics.md --write`); a code is declared nowhere else, and `DiagnosticCatalogArchitectureTests` fails if one is. The page's stability policy applies from 1.0: a code is never renamed or reused, and a default severity change is a documented behavior change;
 - includes a BenchmarkDotNet benchmark with a `MemoryDiagnoser` assertion when it touches a hot path (lexer, content interpreter, rasterizer, codecs);
 - must have green CI before it can be merged.
 

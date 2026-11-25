@@ -70,7 +70,7 @@ public sealed class Diagnostic
     /// </summary>
     public DiagnosticCode Kind => _kind ??= DiagnosticCatalog.TryGet(Code, out DiagnosticCode? known)
         ? known
-        : new DiagnosticCode(Code, DiagnosticArea.None, Severity, clause: null);
+        : new DiagnosticCode(Code, DiagnosticArea.None, Severity, clause: null, description: null);
 
     /// <summary>
     /// Gets the typed code this diagnostic was made with, or <see langword="null"/> when it was made from a plain string and
