@@ -4,17 +4,11 @@ Broadside reads PDF files that nobody has checked: files uploaded by users, atta
 
 ## Supported versions
 
-Broadside follows Semantic Versioning: there are no breaking changes within 1.x. Every package, the viewers included, ships under one shared version number. Broadside is at its 1.0 release candidate; 1.0.0 follows the soak period.
+Broadside follows Semantic Versioning: there are no breaking changes within 1.x. Every package, the viewers included, ships under one shared version number. Broadside is at its 1.0 release candidate. It is maintained on a best-effort basis: there are no guaranteed support windows or response times.
 
-| Version | Supported |
-|---|---|
-| Latest 1.x minor (for example 1.2.x when 1.2 is current) | Yes: every fix, security fixes included, ships as a patch release of this minor. |
-| Previous 1.x minor | Security fixes only, for 6 months after the next minor is released. |
-| Older 1.x minors | No. Upgrade to the latest minor; within 1.x that needs no code changes. |
-| `1.0.0-rc.N` release candidates | The latest candidate, until 1.0.0 is released: security fixes ship in the next candidate or in 1.0.0. Earlier candidates are not; upgrade to the latest. |
-| `0.x` previews | No. Upgrade to the latest release candidate, or to 1.0 or later once it is out. |
+Fixes, security fixes included, ship in the next release. Older releases are not patched: upgrade to the latest release to get a fix. Within 1.x that needs no code changes.
 
-Every 1.x release targets .NET 10 (`net10.0`) for its whole life. Fixes are made on the `main` branch and, for a supported previous minor, backported to its release branch.
+Every 1.x release targets .NET 10 (`net10.0`). Fixes are made on the `main` branch.
 
 ## Reporting a vulnerability
 
@@ -31,18 +25,15 @@ Include what you can of the following:
 
 ## What happens next
 
-| Step | Target |
-|---|---|
-| Acknowledgement of the report | within 7 days |
-| Triage: confirmed or declined, with a severity (CVSS) | within 14 days |
+We aim to acknowledge a report within about a week and to confirm or decline it, with a severity (CVSS), soon after. This is a best-effort project, so these are goals, not guarantees.
 
-Fixes are prioritized by severity and ship in a patch release as soon as they are ready. We keep you updated in the advisory thread, including the expected release once a fix is under way.
+Fixes are prioritized by severity and ship in a release as soon as they are ready. We keep you updated in the advisory thread, including the expected release once a fix is under way.
 
 ## Advisories, CVEs and disclosure
 
 - Every confirmed vulnerability gets a GitHub security advisory in this repository. For any issue of moderate severity or higher we request a CVE identifier through GitHub, which is a CVE Numbering Authority, from the same advisory.
 - The advisory is published when the fixed packages are on NuGet.org, and it lists the affected and fixed versions so that `dotnet list package --vulnerable` and Dependabot alerts pick it up. The release notes of the fixed version link to it.
-- We follow coordinated disclosure: please keep the details private until the advisory is published, or until 90 days after your report, whichever comes first. If a fix needs longer, we will ask you in the advisory thread before that date. If a vulnerability is already public or actively exploited, we publish as soon as a fix is available.
+- We follow coordinated disclosure: please keep the details private until the advisory is published, or until 90 days after your report, whichever comes first. If a fix needs longer, we will ask you in the advisory thread. If a vulnerability is already public or actively exploited, we publish as soon as a fix is available.
 - We credit you in the advisory unless you prefer otherwise.
 
 ## Scope

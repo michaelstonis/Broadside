@@ -471,7 +471,9 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
     /// <summary>
     /// Before a save, writes a page tree for pages recovered from the page objects of a file whose catalog has no usable
     /// <c>Pages</c> entry (issue #258), so that the saved file has the pages the document reads; a page tree is only written when
-    /// the list was not edited here (an edit already wrote one) and holds at least one page.
+    /// the list was not edited here (an edit already wrote one). A document that recovered no page gets an empty tree (issue #620):
+    /// without one, reading the saved file would rebuild its cross-reference information by scanning for a catalog with a page tree,
+    /// and could take any dictionary with a <c>Pages</c> entry for it.
     /// </summary>
     /// <returns><see langword="true"/> when a page tree was written.</returns>
     /// <remarks>
@@ -487,11 +489,6 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
         }
 
         IReadOnlyList<PdfPage> previous = Pages;
-        if (previous.Count == 0)
-        {
-            return false;
-        }
-
         var links = new (PdfPage Page, CosReference? Reference, PageTreeAncestor? Ancestors)[previous.Count];
         for (int index = 0; index < previous.Count; index++)
         {

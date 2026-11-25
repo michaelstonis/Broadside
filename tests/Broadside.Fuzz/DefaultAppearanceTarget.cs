@@ -1,3 +1,4 @@
+using Broadside.Content;
 using Broadside.Forms;
 
 namespace Broadside.Fuzz;
@@ -8,7 +9,7 @@ namespace Broadside.Fuzz;
 /// <c>FontOperatorMissing</c> problem is reported; the other operators are no longer than twice the input; and when the input had
 /// no syntax problem, the other operators parse again on their own to themselves, with no problem but the missing <c>Tf</c> and no
 /// colour or text matrix (every operator kept is allowed, has fitting operands and is written whole); and renaming its font
-/// (issue #308) changes nothing but the font name.
+/// (issue #308) changes nothing but the font name, unless the string holds an inline image (issue #620, <see cref="HasInlineImage"/>).
 /// </summary>
 /// <remarks>ISO 32000-2 §12.7.4.3, §7.8.2.</remarks>
 internal static class DefaultAppearanceTarget
@@ -40,7 +41,10 @@ internal static class DefaultAppearanceTarget
             return;
         }
 
-        CheckRename(data, appearance);
+        if (!HasInlineImage(data))
+        {
+            CheckRename(data, appearance);
+        }
 
         PdfDefaultAppearance again = PdfDefaultAppearance.Parse(appearance.OtherOperators.Span);
         if (again.Problems != PdfDefaultAppearanceProblems.FontOperatorMissing
@@ -50,6 +54,28 @@ internal static class DefaultAppearanceTarget
         {
             throw new InvalidOperationException($"The other operators do not parse to themselves: problems {again.Problems}, colour {again.Color is not null}, matrix {again.TextMatrix is not null}.");
         }
+    }
+
+    /// <summary>
+    /// Whether the string holds an inline image (never allowed in a default appearance): where its data ends is found from the 75
+    /// bytes after a candidate <c>EI</c> (<c>InlineImageEnd</c>), so a renamed font operator there can move the end and change what
+    /// the rest reads as, and renaming cannot be expected to change only the name (issue #620).
+    /// </summary>
+    private static bool HasInlineImage(ReadOnlySpan<byte> data)
+    {
+        var arena = new OperandArena();
+        var reader = new ContentReader(data, arena);
+        while (reader.Next(out ReadOperator op))
+        {
+            if (op.Code == ContentOperatorCode.BeginInlineImage)
+            {
+                return true;
+            }
+
+            arena.Clear();
+        }
+
+        return false;
     }
 
     /// <summary>

@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Broadside.Graphics;
 
 namespace Broadside.Layout.Flow;
@@ -9,7 +8,6 @@ namespace Broadside.Layout.Flow;
 /// <c>c.Paragraph(text).Justify().SpaceAfter(6)</c>.
 /// </summary>
 /// <remarks>ISO 32000-2 §14.8.1 and §14.8.4 (standard structure types): each element names the structure element it becomes when tagged.</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct ContainerBuilder
 {
     private readonly BuildContext? _context;
@@ -374,7 +372,6 @@ public readonly ref struct ContainerBuilder
 
 /// <summary>The spans of a paragraph in the document builder: text, links and line breaks, each with its own style.</summary>
 /// <remarks>ISO 32000-2 §14.8.4.4 (<c>Span</c>, <c>Link</c>).</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct TextBuilder
 {
     private readonly BuildContext? _context;
@@ -457,7 +454,6 @@ public readonly ref struct TextBuilder
 
 /// <summary>A span's modifiers in the document builder: they apply to the span only.</summary>
 /// <remarks>ISO 32000-2 §14.8.4: a span with its own language or alternate text is tagged <c>Span</c>.</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct SpanElement
 {
     private readonly BuildContext? _context;
@@ -569,7 +565,6 @@ public readonly ref struct SpanElement
 
 /// <summary>A paragraph's or heading's modifiers in the document builder: they apply to the element and its spans.</summary>
 /// <remarks>ISO 32000-2 §14.8.4: a paragraph is tagged <c>P</c> and a heading <c>H1</c> to <c>H6</c>.</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct ParagraphElement
 {
     private readonly BuildContext? _context;
@@ -775,7 +770,6 @@ public readonly ref struct ParagraphElement
 
 /// <summary>The items of a list in the document builder.</summary>
 /// <remarks>ISO 32000-2 §14.8.4.7.2 (<c>LI</c>, <c>Lbl</c>, <c>LBody</c>).</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct ListBuilder
 {
     private readonly BuildContext? _context;
@@ -812,7 +806,6 @@ public readonly ref struct ListBuilder
 
 /// <summary>A list's modifiers in the document builder: its numbering and the style its items inherit.</summary>
 /// <remarks>ISO 32000-2 §14.8.5.5 (<c>ListNumbering</c>, written from the numbering).</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct ListElement
 {
     private readonly BuildContext? _context;
@@ -975,7 +968,6 @@ public readonly ref struct ListElement
 /// ISO 32000-2 §8.9.5 (image XObjects), §14.8.4.6 (<c>Figure</c>) and §14.8.4.4 (<c>Caption</c>). With no size set, an image is drawn at
 /// 72 pixels per inch; one wider than the space it is in, or taller than a page, is scaled down to fit.
 /// </remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct ImageElement
 {
     private readonly BuildContext? _context;
@@ -1107,7 +1099,6 @@ public readonly ref struct ImageElement
 
 /// <summary>A group's modifiers in the document builder: the style its content inherits.</summary>
 /// <remarks>ISO 32000-2 §14.8.4.4: a group tagged with <c>.Role(...)</c> becomes a grouping element such as <c>Div</c>.</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct GroupElement
 {
     private readonly BuildContext? _context;
@@ -1250,7 +1241,6 @@ public readonly ref struct GroupElement
 
 /// <summary>A rule's modifiers in the document builder.</summary>
 /// <remarks>ISO 32000-2 §14.8.2.2: a rule is a layout artifact.</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct RuleElement
 {
     private readonly BuildContext? _context;

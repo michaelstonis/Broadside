@@ -9,6 +9,7 @@ What v1 leaves out on purpose is not listed as a limitation: JavaScript executio
 - **Typed views of preserved data.** Articles and threads, thumbnails, measurement and geospatial dictionaries, page-piece dictionaries, web capture and document parts are kept as stored but have no typed view; some output intent entries are not read and output intents are written only by PDF/A saves; stream data in external files (`F`, `FFilter`) is not read. [#531](https://github.com/michaelstonis/Broadside/issues/531)
 - **Forms.** The page's annotation tab order (`Tabs`) is not exposed; rich text field values appear as plain text, and an existing field appearance is replaced rather than updated; FDF import and export are not implemented. [#532](https://github.com/michaelstonis/Broadside/issues/532)
 - **Linearization.** Thumbnail, generic, extended generic and embedded file hint tables are neither read nor written (the outline table is written), part ordering is not validated, and an updated linearized file is read as an ordinary one. [#530](https://github.com/michaelstonis/Broadside/issues/530)
+- **Remote reading of a missing page tree.** When the catalog's `Pages` entry is missing or names an object the cross-reference information does not list, a local read rebuilds the cross-reference information by scanning the whole file for a catalog with a page tree; a remote read through range requests does not, so it can find different pages, or none, in such a damaged file. [#620](https://github.com/michaelstonis/Broadside/issues/620)
 
 ## Images and fonts
 

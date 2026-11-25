@@ -27,9 +27,9 @@ never published.
 Pre-release tags have a `-` suffix; their GitHub releases are marked as pre-releases and NuGet shows their packages as
 pre-release.
 
-Broadside is at its 1.0 release candidate; 1.0.0 follows the soak period. The
-[general-availability criteria](https://github.com/michaelstonis/Broadside/blob/main/docs/release/ga-criteria.md) say how long
-a candidate soaks, which issues block 1.0.0, and how the owner tags it.
+Broadside is at its 1.0 release candidate; 1.0.0 follows once the owner is satisfied it is ready. The
+[general-availability notes](https://github.com/michaelstonis/Broadside/blob/main/docs/release/ga-criteria.md) say which issues
+would hold 1.0.0 back and how the owner tags it.
 
 ## Semantic Versioning from 1.0
 
@@ -44,12 +44,12 @@ compiling or running as documented: removing or changing a public type or member
 `PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt`, and the build fails on an undeclared change), or changing documented
 behavior. Reading untrusted files stays lenient as documented; a repair that records a new diagnostic is not a breaking change.
 
-## 1.x support policy
+## Support
 
-- **Fixes land in the latest 1.x minor.** A bug fixed in 1.x ships in a patch of the newest minor release (or in the next minor).
-  Upgrading within 1.x is the supported way to get fixes, and Semantic Versioning makes it safe.
-- **Security fixes are backported to the previous minor for 6 months.** When a new minor release ships, the minor before it
-  still receives security fixes, as patch releases, for six months from that date. Older minors receive none.
+Broadside is maintained on a best-effort basis, with no guaranteed support windows or response times.
+
+- **Fixes ship in the latest release.** Older releases are not patched; upgrade to get a fix. Within 1.x, Semantic Versioning
+  makes upgrading safe.
 - **No breaking changes within 1.x**, as above.
 
 How to report a vulnerability, and which versions are supported now, is in

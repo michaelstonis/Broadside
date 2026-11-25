@@ -140,11 +140,17 @@ internal sealed class LayoutTable
             return;
         }
 
+        // Each feature once, and only indices inside the table: a damaged LangSys that lists one feature thousands of times (or
+        // counts past the end, reading feature 0 over and over) would otherwise add its lookups as many times (issue #620).
         int count = U16(span, languageSystem + 4);
-        for (int index = 0; index < count; index++)
+        var seen = new HashSet<int>();
+        for (int index = 0; index < count && languageSystem + 8 + (index * 2) <= span.Length; index++)
         {
             int featureIndex = U16(span, languageSystem + 6 + (index * 2));
-            AddFeatureLookups(span, featureIndex, featureCount, feature, lookups);
+            if (seen.Add(featureIndex))
+            {
+                AddFeatureLookups(span, featureIndex, featureCount, feature, lookups);
+            }
         }
     }
 
@@ -175,10 +181,10 @@ internal sealed class LayoutTable
 
         int table = Offset16(span, _featureList, record + 4);
         int count = table < 0 ? 0 : U16(span, table + 2);
-        for (int index = 0; index < count; index++)
+        for (int index = 0; index < count && table + 6 + (index * 2) <= span.Length; index++)
         {
             int lookup = U16(span, table + 4 + (index * 2));
-            if (lookup < Lookups.Length && table + 6 + (index * 2) <= span.Length)
+            if (lookup < Lookups.Length)
             {
                 lookups.Add(lookup);
             }

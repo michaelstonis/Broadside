@@ -212,6 +212,35 @@ public sealed class SignatureValidationTests
     }
 
     [Fact]
+    public void An_issuer_whose_basic_constraints_cannot_be_decoded_is_reported_rather_than_thrown()
+    {
+        // Fuzz finding (#620, signature-validation): reading the extension threw a CryptographicException out of the validation.
+        using X509Certificate2 root = ValidationCertificates.Authority("CN=Broadside root");
+        X509Certificate2 damaged;
+        try
+        {
+            damaged = ValidationCertificates.IssueAuthority(root, "CN=Broadside damaged authority", malformedConstraints: true);
+        }
+        catch (CryptographicException exception)
+        {
+            // macOS refuses to load such a certificate at all, so the signature's certificates leave it out before any check.
+            Assert.Skip($"This platform does not load a certificate whose basic constraints cannot be decoded: {exception.Message}");
+            return;
+        }
+
+        using (damaged)
+        {
+            using X509Certificate2 leaf = ValidationCertificates.IssueRsaSigner(damaged, "CN=Broadside signer");
+            byte[] signed = SignCorpusFile("empty-page.pdf", new PdfCertificateSigner(leaf, [damaged, root]));
+
+            PdfSignatureValidation validation = ValidateSingle(signed, Trusting(root));
+
+            Assert.Equal(PdfSignatureStatus.Invalid, validation.Status);
+            Assert.Equal([PdfSignatureProblemKind.SignatureEncodingInvalid], validation.Problems.Select(static problem => problem.Kind));
+        }
+    }
+
+    [Fact]
     public void A_chain_longer_than_an_issuers_path_length_constraint_is_reported()
     {
         using X509Certificate2 root = ValidationCertificates.Authority("CN=Broadside root");

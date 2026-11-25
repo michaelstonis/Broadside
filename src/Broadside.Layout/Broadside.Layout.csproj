@@ -3,8 +3,6 @@
   <PropertyGroup>
     <Description>Flow layout for Broadside: paragraphs broken into lines, aligned and justified, and flowed across pages of a set size and margins through the core's canvas API. A document builder describes documents as nested content in C# and lays them out through the flow engine. Depends only on the Broadside core and its Standard 14 font package. No native dependencies.</Description>
     <RootNamespace>Broadside.Layout.Flow</RootNamespace>
-    <!-- The document builder is experimental (BROADSIDE0001); the package itself uses it freely. -->
-    <NoWarn>$(NoWarn);BROADSIDE0001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

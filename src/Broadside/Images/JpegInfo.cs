@@ -59,8 +59,10 @@ internal sealed record JpegInfo(int Width, int Height, int Components, bool Prog
             }
 
             byte marker = jpeg[position++];
-            if (marker is 0x01 or (>= 0xD0 and <= 0xD7))
+            if (marker is 0x00 or 0x01 or (>= 0xD0 and <= 0xD7))
             {
+                // FF 00 is a stuffed byte, not a marker (T.81 B.1.1.5): skipped as the decoder skips it, so both find the same frame
+                // header (issue #620).
                 continue;
             }
 

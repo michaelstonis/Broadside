@@ -7,7 +7,6 @@ namespace Broadside.Layout.Flow.Units;
 /// <c>1.In</c> and <c>12.Pt</c>.
 /// </summary>
 /// <remarks>ISO 32000-2 §8.3.2.3: lengths are stored in points, 1/72 inch.</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 [SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "C# 14 extension blocks, which the analyzer sees as nested types.")]
 [SuppressMessage("Naming", "CA1708:Identifiers should differ by more than case", Justification = "C# 14 extension blocks, which the analyzer sees as members named alike.")]
 public static class LengthUnits
