@@ -2,6 +2,436 @@
 
 Every release of the Broadside packages, newest first. Each section is written by `tools/ReleaseNotes` from the Conventional Commit titles merged since the previous tag (see the [versioning policy](https://michaelstonis.github.io/Broadside/articles/versioning/)). The GitHub release of each tag carries the same notes and the packages.
 
+## 1.0.0-rc.1 (2026-11-24)
+
+Changes since [`v0.1.0-preview.10`](https://github.com/michaelstonis/Broadside/releases/tag/v0.1.0-preview.10). Full diff: [`v0.1.0-preview.10...v1.0.0-rc.1`](https://github.com/michaelstonis/Broadside/compare/v0.1.0-preview.10...v1.0.0-rc.1).
+
+### Breaking changes
+
+- **api:** renamed WebGLRenderer to WebGLBackend, CoreGraphicsRenderer
+- Public API removed or changed in `Broadside`, `Broadside.Layout`, `Broadside.Rendering`, `Broadside.Rendering.CoreGraphics`, `Broadside.Rendering.Direct2D`, `Broadside.Rendering.WebGL`, `Broadside.Viewer`, `Broadside.Viewer.Avalonia`, `Broadside.Viewer.Blazor`, `Broadside.Viewer.Maui`, `Broadside.Viewer.Uno`, `Broadside.Viewer.WinUI`, `Broadside.Viewer.Wpf`: see Public API below.
+
+### Features
+
+- **api:** review and freeze the v1 public API ([#262](https://github.com/michaelstonis/Broadside/issues/262))
+- **images:** extract painted images from pages and save PdfImage as PNG or JPEG ([#607](https://github.com/michaelstonis/Broadside/issues/607)) ([#608](https://github.com/michaelstonis/Broadside/issues/608))
+- **release:** generated release notes, changelog, PR title and DCO checks ([#264](https://github.com/michaelstonis/Broadside/issues/264))
+
+### Fixes
+
+- **diagnostics:** make the core assembly build reproducibly ([#265](https://github.com/michaelstonis/Broadside/issues/265))
+- **release:** list a change landed on two branches once; exempt CHANGELOG.md from the ADR check ([#264](https://github.com/michaelstonis/Broadside/issues/264))
+- **security:** close the unsafe and pooled buffer review findings ([#274](https://github.com/michaelstonis/Broadside/issues/274))
+- **viewer:** pack a padded caller-memory tile before WPF reads it ([#274](https://github.com/michaelstonis/Broadside/issues/274))
+- **viewer:** release the window's scaling event and yield search on the slice budget ([#599](https://github.com/michaelstonis/Broadside/issues/599), [#600](https://github.com/michaelstonis/Broadside/issues/600))
+
+### Performance
+
+- **functions:** Type 4 programs as registers; no allocation for repeated diagnostics ([#612](https://github.com/michaelstonis/Broadside/issues/612))
+- **rendering:** remember tint transform results per thread ([#602](https://github.com/michaelstonis/Broadside/issues/602))
+- **rendering:** paint a lone tile from the cell and composite tiled runs a row at a time ([#603](https://github.com/michaelstonis/Broadside/issues/603)) ([#610](https://github.com/michaelstonis/Broadside/issues/610))
+- **rendering:** faster patch meshes and CMYK group conversion ([#611](https://github.com/michaelstonis/Broadside/issues/611))
+- **rendering:** blend a run of equal pixel pairs once ([#602](https://github.com/michaelstonis/Broadside/issues/602)) ([#613](https://github.com/michaelstonis/Broadside/issues/613))
+
+### Documentation
+
+- **diagnostics:** publish the diagnostic-code catalog with its stability policy ([#263](https://github.com/michaelstonis/Broadside/issues/263))
+- **guides:** writing, editing, extraction, accessibility, signatures and viewers guides ([#269](https://github.com/michaelstonis/Broadside/issues/269), [#270](https://github.com/michaelstonis/Broadside/issues/270))
+- **packaging:** note what the reproducible-build check caught ([#265](https://github.com/michaelstonis/Broadside/issues/265))
+- **packaging:** the viewer packages ship in v1.0 ([#265](https://github.com/michaelstonis/Broadside/issues/265))
+- **rendering:** use the renamed native backends in the rendering guide ([#262](https://github.com/michaelstonis/Broadside/issues/262))
+- **security:** threat model, resource limit inventory and 1.x security policy ([#273](https://github.com/michaelstonis/Broadside/issues/273))
+- **security:** drop committed fix windows from the security policy ([#273](https://github.com/michaelstonis/Broadside/issues/273))
+- **security:** fuzzing coverage report and full run, with seeds for low-coverage targets ([#274](https://github.com/michaelstonis/Broadside/issues/274))
+- **site:** guide structure, compiled samples, getting started and reading ([#267](https://github.com/michaelstonis/Broadside/issues/267))
+- **site:** require the performance and untrusted-files routes in check-docs ([#267](https://github.com/michaelstonis/Broadside/issues/267))
+- **site:** rendering guide for every backend ([#268](https://github.com/michaelstonis/Broadside/issues/268))
+- **site:** editing guide uses WriteAppearances after the [#262](https://github.com/michaelstonis/Broadside/issues/262) rename
+
+### Tests
+
+- **api:** API review checklist and automated API guards ([#261](https://github.com/michaelstonis/Broadside/issues/261))
+- **api:** keep the guard's rule key clear of the diagnostic-name pattern ([#261](https://github.com/michaelstonis/Broadside/issues/261))
+- **fuzz:** map every parser to a target, add coverage report tooling ([#274](https://github.com/michaelstonis/Broadside/issues/274))
+- **fuzz:** seed the image readers from the test suites and judge each target on the parsers it owns ([#274](https://github.com/michaelstonis/Broadside/issues/274))
+- **security:** name the page tree depth constant by the local naming rule ([#273](https://github.com/michaelstonis/Broadside/issues/273))
+
+### Benchmarks
+
+- compare Broadside with PDFium and pdf.js for v1 ([#275](https://github.com/michaelstonis/Broadside/issues/275))
+
+### Build and CI
+
+- verify trimming, Native AOT and WebAssembly on every target ([#272](https://github.com/michaelstonis/Broadside/issues/272))
+- **packaging:** check packages, reproducibility and SBOM in release ([#265](https://github.com/michaelstonis/Broadside/issues/265))
+- **packaging:** mask asset checkout times and except the WinUI viewer in the reproducibility check ([#265](https://github.com/michaelstonis/Broadside/issues/265))
+- **packaging:** record the v1 API breaks against the preview baseline ([#262](https://github.com/michaelstonis/Broadside/issues/262))
+- **pr-checks:** drop the DCO check; viewers ship in v1
+
+### Public API
+
+Entries added to and removed from each package's `PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt` ([diff](https://github.com/michaelstonis/Broadside/compare/v0.1.0-preview.10...v1.0.0-rc.1)).
+
+| Package | Added | Removed |
+|---|---:|---:|
+| `Broadside` | 65 | 13 |
+| `Broadside.Layout` | 2 | 1 |
+| `Broadside.Rendering` | 23 | 1 |
+| `Broadside.Rendering.CoreGraphics` | 12 | 12 |
+| `Broadside.Rendering.Direct2D` | 19 | 19 |
+| `Broadside.Rendering.WebGL` | 20 | 20 |
+| `Broadside.Viewer` | 12 | 12 |
+| `Broadside.Viewer.Avalonia` | 1 | 1 |
+| `Broadside.Viewer.Blazor` | 3 | 3 |
+| `Broadside.Viewer.Maui` | 4 | 4 |
+| `Broadside.Viewer.Uno` | 1 | 1 |
+| `Broadside.Viewer.WinUI` | 1 | 1 |
+| `Broadside.Viewer.Wpf` | 1 | 1 |
+
+<details><summary><code>Broadside</code>: 65 added, 13 removed</summary>
+
+```diff
+- Broadside.Forms.PdfChoiceField.GenerateAppearances() -> void
+- Broadside.Forms.PdfTextField.GenerateAppearances() -> void
+- Broadside.Forms.PdfToggleButtonField.GenerateAppearances() -> void
+- Broadside.PdfDocument.AddEmbeddedFile(string! fileName, System.ReadOnlySpan<byte> contents, Broadside.PdfEmbeddedFileOptions? options = null) -> Broadside.PdfEmbeddedFileEntry!
+- Broadside.PdfDocument.EmbedFont(System.ReadOnlyMemory<byte> program, int faceIndex = 0) -> Broadside.Fonts.PdfCanvasFont!
+- Broadside.PdfDocument.EmbedTrueTypeFont(System.ReadOnlyMemory<byte> program, int faceIndex = 0) -> Broadside.Fonts.PdfCanvasFont!
+- Broadside.PdfDocument.GetColorConverter(Broadside.Graphics.PdfColorSpace! source, Broadside.Graphics.ColorConversion conversion, Broadside.Graphics.PdfDefaultColorSpaces? defaults = null) -> Broadside.Graphics.PdfColorConverter!
+- Broadside.PdfEngine.PdfEngine(Microsoft.Extensions.Options.IOptions<Broadside.PdfOptions!>! options, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null) -> void
+- Broadside.PdfOptions.WithLoggerFactory(Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory) -> Broadside.PdfOptions!
+- Broadside.PdfPage.CreateHitTestIndex(Broadside.Rendering.DisplayList! displayList, Broadside.PdfOptionalContentState? optionalContentState = null) -> Broadside.Rendering.HitTestIndex!
+- Broadside.Rendering.DisplayList.BeginReplay(Broadside.Rendering.IRenderingBackend! backend, Broadside.PdfRectangle region, System.Threading.CancellationToken cancellationToken, System.IProgress<double>? progress) -> Broadside.Rendering.DisplayListReplay!
+- Broadside.Rendering.DisplayList.BeginReplay(Broadside.Rendering.IRenderingBackend! backend, System.Threading.CancellationToken cancellationToken, System.IProgress<double>? progress) -> Broadside.Rendering.DisplayListReplay!
+- Broadside.Rendering.DisplayList.Replay(Broadside.Rendering.IRenderingBackend! backend, System.Threading.CancellationToken cancellationToken, System.IProgress<double>? progress) -> void
++ Broadside.Diagnostics.DiagnosticCode.Description.get -> string?
++ Broadside.Forms.PdfChoiceField.WriteAppearances() -> void
++ Broadside.Forms.PdfTextField.WriteAppearances() -> void
++ Broadside.Forms.PdfToggleButtonField.WriteAppearances() -> void
++ Broadside.Images.ExtractedImage
++ Broadside.Images.ExtractedImage.Bounds.get -> Broadside.PdfRectangle
++ Broadside.Images.ExtractedImage.Ctm.get -> Broadside.Graphics.Matrix
++ Broadside.Images.ExtractedImage.DefaultColorSpaces.get -> Broadside.Graphics.PdfDefaultColorSpaces!
++ Broadside.Images.ExtractedImage.ExtractedImage() -> void
++ Broadside.Images.ExtractedImage.FillColor.get -> Broadside.Graphics.PdfColor
++ Broadside.Images.ExtractedImage.Flags.get -> Broadside.Images.ExtractedImageFlags
++ Broadside.Images.ExtractedImage.Image.get -> Broadside.Images.PdfImage!
++ Broadside.Images.ExtractedImage.Name.get -> Broadside.Objects.CosName?
++ Broadside.Images.ExtractedImage.Quad.get -> Broadside.Graphics.Quad
++ Broadside.Images.ExtractedImage.RenderingIntent.get -> Broadside.Graphics.RenderingIntent
++ Broadside.Images.ExtractedImageFlags
++ Broadside.Images.ExtractedImageFlags.Artifact = 8 -> Broadside.Images.ExtractedImageFlags
++ Broadside.Images.ExtractedImageFlags.Hidden = 4 -> Broadside.Images.ExtractedImageFlags
++ Broadside.Images.ExtractedImageFlags.ImageMask = 2 -> Broadside.Images.ExtractedImageFlags
++ Broadside.Images.ExtractedImageFlags.Inline = 1 -> Broadside.Images.ExtractedImageFlags
++ Broadside.Images.ExtractedImageFlags.None = 0 -> Broadside.Images.ExtractedImageFlags
++ Broadside.Images.ImageExtractionOptions
++ Broadside.Images.ImageExtractionOptions.ContentOptions.get -> Broadside.Content.ContentOptions?
++ Broadside.Images.ImageExtractionOptions.ContentOptions.set -> void
++ Broadside.Images.ImageExtractionOptions.ImageExtractionOptions() -> void
++ Broadside.Images.ImageExtractionOptions.IncludeArtifacts.get -> bool
++ Broadside.Images.ImageExtractionOptions.IncludeArtifacts.set -> void
++ Broadside.Images.ImageExtractionOptions.IncludeHiddenContent.get -> bool
++ Broadside.Images.ImageExtractionOptions.IncludeHiddenContent.set -> void
++ Broadside.Images.ImageExtractionOptions.IncludeImageMasks.get -> bool
++ Broadside.Images.ImageExtractionOptions.IncludeImageMasks.set -> void
++ Broadside.Images.ImageExtractionOptions.WithArtifacts(bool include = true) -> Broadside.Images.ImageExtractionOptions!
++ Broadside.Images.ImageExtractionOptions.WithContentOptions(Broadside.Content.ContentOptions? options) -> Broadside.Images.ImageExtractionOptions!
++ Broadside.Images.ImageExtractionOptions.WithHiddenContent(bool include = true) -> Broadside.Images.ImageExtractionOptions!
++ Broadside.Images.ImageExtractionOptions.WithImageMasks(bool include = true) -> Broadside.Images.ImageExtractionOptions!
++ Broadside.Images.ImageExtractor
++ Broadside.Images.ImageExtractor.Clear() -> void
++ Broadside.Images.ImageExtractor.ImageExtractor() -> void
++ Broadside.Images.ImageExtractor.ImageExtractor(Broadside.Images.ImageExtractionOptions! options) -> void
++ Broadside.Images.ImageExtractor.Images.get -> System.ReadOnlySpan<Broadside.Images.ExtractedImage>
++ Broadside.Images.PdfImage.Document.get -> Broadside.PdfDocument!
++ Broadside.Images.PdfImage.TryGetJpegData(out System.ReadOnlyMemory<byte> jpeg) -> bool
++ Broadside.PdfDocument.AddEmbeddedFile(string! fileName, System.ReadOnlySpan<byte> contents) -> Broadside.PdfEmbeddedFileEntry!
++ Broadside.PdfDocument.AddEmbeddedFile(string! fileName, System.ReadOnlySpan<byte> contents, Broadside.PdfEmbeddedFileOptions? options) -> Broadside.PdfEmbeddedFileEntry!
++ Broadside.PdfDocument.EmbedFont(System.ReadOnlyMemory<byte> program) -> Broadside.Fonts.PdfCanvasFont!
++ Broadside.PdfDocument.EmbedFont(System.ReadOnlyMemory<byte> program, int faceIndex) -> Broadside.Fonts.PdfCanvasFont!
++ Broadside.PdfDocument.EmbedTrueTypeFont(System.ReadOnlyMemory<byte> program) -> Broadside.Fonts.PdfCanvasFont!
++ Broadside.PdfDocument.EmbedTrueTypeFont(System.ReadOnlyMemory<byte> program, int faceIndex) -> Broadside.Fonts.PdfCanvasFont!
++ Broadside.PdfDocument.GetColorConverter(Broadside.Graphics.PdfColorSpace! source, Broadside.Graphics.ColorConversion conversion) -> Broadside.Graphics.PdfColorConverter!
++ Broadside.PdfDocument.GetColorConverter(Broadside.Graphics.PdfColorSpace! source, Broadside.Graphics.ColorConversion conversion, Broadside.Graphics.PdfDefaultColorSpaces? defaults) -> Broadside.Graphics.PdfColorConverter!
++ Broadside.PdfEngine.PdfEngine(Microsoft.Extensions.Options.IOptions<Broadside.PdfOptions!>! options) -> void
++ Broadside.PdfEngine.PdfEngine(Microsoft.Extensions.Options.IOptions<Broadside.PdfOptions!>! options, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory) -> void
++ Broadside.PdfOptions.UseLoggerFactory(Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory) -> Broadside.PdfOptions!
++ Broadside.PdfPage.CreateHitTestIndex(Broadside.Rendering.DisplayList! displayList) -> Broadside.Rendering.HitTestIndex!
++ Broadside.PdfPage.CreateHitTestIndex(Broadside.Rendering.DisplayList! displayList, Broadside.PdfOptionalContentState? optionalContentState) -> Broadside.Rendering.HitTestIndex!
++ Broadside.PdfPage.ExtractImages() -> System.Collections.Generic.IReadOnlyList<Broadside.Images.ExtractedImage>!
++ Broadside.PdfPage.ExtractImages(Broadside.Images.ImageExtractionOptions! options) -> System.Collections.Generic.IReadOnlyList<Broadside.Images.ExtractedImage>!
++ Broadside.Rendering.DisplayList.BeginReplay(Broadside.Rendering.IRenderingBackend! backend, Broadside.PdfRectangle region, System.IProgress<double>? progress, System.Threading.CancellationToken cancellationToken) -> Broadside.Rendering.DisplayListReplay!
++ Broadside.Rendering.DisplayList.BeginReplay(Broadside.Rendering.IRenderingBackend! backend, System.IProgress<double>? progress, System.Threading.CancellationToken cancellationToken) -> Broadside.Rendering.DisplayListReplay!
++ Broadside.Rendering.DisplayList.Replay(Broadside.Rendering.IRenderingBackend! backend, System.IProgress<double>? progress, System.Threading.CancellationToken cancellationToken) -> void
++ override Broadside.Images.ImageExtractor.BeginMarkedContent(in Broadside.Content.MarkedContentEvent mc, Broadside.Content.ContentContext! context) -> void
++ override Broadside.Images.ImageExtractor.BeginRun(Broadside.Content.ContentContext! context) -> void
++ override Broadside.Images.ImageExtractor.EndMarkedContent(in Broadside.Content.MarkedContentEvent mc, Broadside.Content.ContentContext! context) -> void
++ override Broadside.Images.ImageExtractor.Events.get -> Broadside.Content.ContentEvents
++ override Broadside.Images.ImageExtractor.PaintImage(in Broadside.Content.ImageEvent image, Broadside.Content.ContentContext! context) -> void
+```
+
+</details>
+
+<details><summary><code>Broadside.Layout</code>: 2 added, 1 removed</summary>
+
+```diff
+- Broadside.Layout.Flow.TableElement.Border(Broadside.Layout.Flow.Length width, Broadside.Graphics.PdfColor? color = null) -> Broadside.Layout.Flow.TableElement
++ Broadside.Layout.Flow.TableElement.Border(Broadside.Layout.Flow.Length width) -> Broadside.Layout.Flow.TableElement
++ Broadside.Layout.Flow.TableElement.Border(Broadside.Layout.Flow.Length width, Broadside.Graphics.PdfColor? color) -> Broadside.Layout.Flow.TableElement
+```
+
+</details>
+
+<details><summary><code>Broadside.Rendering</code>: 23 added, 1 removed</summary>
+
+```diff
+- Broadside.Rendering.SoftwareRasterizer.BeginRender(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, System.Threading.CancellationToken cancellationToken, System.IProgress<double>? progress) -> Broadside.Rendering.ProgressiveRender!
++ Broadside.Rendering.Bitmap.SaveJpeg(System.IO.Stream! stream) -> void
++ Broadside.Rendering.Bitmap.SaveJpeg(System.IO.Stream! stream, int quality) -> void
++ Broadside.Rendering.Bitmap.SaveJpeg(string! path) -> void
++ Broadside.Rendering.Bitmap.SaveJpeg(string! path, int quality) -> void
++ Broadside.Rendering.Bitmap.SavePng(string! path) -> void
++ Broadside.Rendering.PdfImageRenderingExtensions
++ Broadside.Rendering.SoftwareRasterizer.BeginRender(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, System.IProgress<double>? progress, System.Threading.CancellationToken cancellationToken) -> Broadside.Rendering.ProgressiveRender!
++ static Broadside.Rendering.PdfImageRenderingExtensions.SaveJpeg(this Broadside.Images.ExtractedImage extracted, System.IO.Stream! stream) -> bool
++ static Broadside.Rendering.PdfImageRenderingExtensions.SaveJpeg(this Broadside.Images.ExtractedImage extracted, System.IO.Stream! stream, int quality) -> bool
++ static Broadside.Rendering.PdfImageRenderingExtensions.SaveJpeg(this Broadside.Images.ExtractedImage extracted, string! path) -> bool
++ static Broadside.Rendering.PdfImageRenderingExtensions.SaveJpeg(this Broadside.Images.ExtractedImage extracted, string! path, int quality) -> bool
++ static Broadside.Rendering.PdfImageRenderingExtensions.SaveJpeg(this Broadside.Images.PdfImage! image, System.IO.Stream! stream) -> bool
++ static Broadside.Rendering.PdfImageRenderingExtensions.SaveJpeg(this Broadside.Images.PdfImage! image, System.IO.Stream! stream, int quality) -> bool
++ static Broadside.Rendering.PdfImageRenderingExtensions.SaveJpeg(this Broadside.Images.PdfImage! image, string! path) -> bool
++ static Broadside.Rendering.PdfImageRenderingExtensions.SaveJpeg(this Broadside.Images.PdfImage! image, string! path, int quality) -> bool
++ static Broadside.Rendering.PdfImageRenderingExtensions.SavePng(this Broadside.Images.ExtractedImage extracted, System.IO.Stream! stream) -> bool
++ static Broadside.Rendering.PdfImageRenderingExtensions.SavePng(this Broadside.Images.ExtractedImage extracted, string! path) -> bool
++ static Broadside.Rendering.PdfImageRenderingExtensions.SavePng(this Broadside.Images.PdfImage! image, System.IO.Stream! stream) -> bool
++ static Broadside.Rendering.PdfImageRenderingExtensions.SavePng(this Broadside.Images.PdfImage! image, string! path) -> bool
++ static Broadside.Rendering.PdfImageRenderingExtensions.ToBitmap(this Broadside.Images.ExtractedImage extracted) -> Broadside.Rendering.Bitmap?
++ static Broadside.Rendering.PdfImageRenderingExtensions.ToBitmap(this Broadside.Images.PdfImage! image) -> Broadside.Rendering.Bitmap?
++ static Broadside.Rendering.PdfImageRenderingExtensions.ToBitmap(this Broadside.Images.PdfImage! image, Broadside.Graphics.PdfColor fillColor) -> Broadside.Rendering.Bitmap?
++ static Broadside.Rendering.PdfImageRenderingExtensions.ToBitmap(this Broadside.Images.PdfImage! image, Broadside.Graphics.PdfColor fillColor, Broadside.Graphics.PdfDefaultColorSpaces? defaultColorSpaces) -> Broadside.Rendering.Bitmap?
+```
+
+</details>
+
+<details><summary><code>Broadside.Rendering.CoreGraphics</code>: 12 added, 12 removed</summary>
+
+```diff
+- Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer
+- Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.CoreGraphicsRenderer() -> void
+- Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+- Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.Dispose() -> void
+- Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.ImageSamplesPerPixel.get -> double
+- Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.ImageSamplesPerPixel.set -> void
+- Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.PrefetchImagesAsync(Broadside.Rendering.DisplayList! list, in Broadside.Graphics.Matrix deviceTransform, int width, int height, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+- Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.Render(Broadside.PdfPage! page, CoreGraphics.CGBitmapContext! target, Broadside.Rendering.RenderOptions! options) -> void
+- Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.Render(Broadside.Rendering.DisplayList! list, CoreGraphics.CGContext! context, in Broadside.Graphics.Matrix deviceTransform) -> void
+- Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.Render(Broadside.Rendering.DisplayList! list, CoreGraphics.CGContext! context, in Broadside.Graphics.Matrix deviceTransform, bool forceOutlines) -> void
+- Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.ScaledImageDecode.get -> bool
+- Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.ScaledImageDecode.set -> void
++ Broadside.Rendering.CoreGraphics.CoreGraphicsBackend
++ Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.CoreGraphicsBackend() -> void
++ Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
++ Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.Dispose() -> void
++ Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.ImageSamplesPerPixel.get -> double
++ Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.ImageSamplesPerPixel.set -> void
++ Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.PrefetchImagesAsync(Broadside.Rendering.DisplayList! list, in Broadside.Graphics.Matrix deviceTransform, int width, int height, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
++ Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.Render(Broadside.PdfPage! page, CoreGraphics.CGBitmapContext! target, Broadside.Rendering.RenderOptions! options) -> void
++ Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.Render(Broadside.Rendering.DisplayList! list, CoreGraphics.CGContext! context, in Broadside.Graphics.Matrix deviceTransform) -> void
++ Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.Render(Broadside.Rendering.DisplayList! list, CoreGraphics.CGContext! context, in Broadside.Graphics.Matrix deviceTransform, bool forceOutlines) -> void
++ Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.ScaledImageDecode.get -> bool
++ Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.ScaledImageDecode.set -> void
+```
+
+</details>
+
+<details><summary><code>Broadside.Rendering.Direct2D</code>: 19 added, 19 removed</summary>
+
+```diff
+- Broadside.Rendering.Direct2D.Direct2DDriver
+- Broadside.Rendering.Direct2D.Direct2DDriver.Hardware = 0 -> Broadside.Rendering.Direct2D.Direct2DDriver
+- Broadside.Rendering.Direct2D.Direct2DDriver.Warp = 1 -> Broadside.Rendering.Direct2D.Direct2DDriver
+- Broadside.Rendering.Direct2D.Direct2DRenderer
+- Broadside.Rendering.Direct2D.Direct2DRenderer.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+- Broadside.Rendering.Direct2D.Direct2DRenderer.Direct2DRenderer() -> void
+- Broadside.Rendering.Direct2D.Direct2DRenderer.Direct2DRenderer(Broadside.Rendering.Direct2D.Direct2DDriver driver) -> void
+- Broadside.Rendering.Direct2D.Direct2DRenderer.Dispose() -> void
+- Broadside.Rendering.Direct2D.Direct2DRenderer.Driver.get -> Broadside.Rendering.Direct2D.Direct2DDriver
+- Broadside.Rendering.Direct2D.Direct2DRenderer.ImageSamplesPerPixel.get -> double
+- Broadside.Rendering.Direct2D.Direct2DRenderer.ImageSamplesPerPixel.set -> void
+- Broadside.Rendering.Direct2D.Direct2DRenderer.PrefetchImagesAsync(Broadside.Rendering.DisplayList! list, in Broadside.Graphics.Matrix deviceTransform, int width, int height, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+- Broadside.Rendering.Direct2D.Direct2DRenderer.Render(Broadside.PdfPage! page) -> Broadside.Rendering.Bitmap!
+- Broadside.Rendering.Direct2D.Direct2DRenderer.Render(Broadside.PdfPage! page, Broadside.Rendering.Bitmap! target, Broadside.Rendering.RenderOptions! options) -> void
+- Broadside.Rendering.Direct2D.Direct2DRenderer.Render(Broadside.PdfPage! page, Broadside.Rendering.RenderOptions! options) -> Broadside.Rendering.Bitmap!
+- Broadside.Rendering.Direct2D.Direct2DRenderer.Render(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform) -> void
+- Broadside.Rendering.Direct2D.Direct2DRenderer.Render(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, bool forceOutlines) -> void
+- Broadside.Rendering.Direct2D.Direct2DRenderer.ScaledImageDecode.get -> bool
+- Broadside.Rendering.Direct2D.Direct2DRenderer.ScaledImageDecode.set -> void
++ Broadside.Rendering.Direct2D.Direct2DBackend
++ Broadside.Rendering.Direct2D.Direct2DBackend.DeviceType.get -> Broadside.Rendering.Direct2D.Direct2DDeviceType
++ Broadside.Rendering.Direct2D.Direct2DBackend.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
++ Broadside.Rendering.Direct2D.Direct2DBackend.Direct2DBackend() -> void
++ Broadside.Rendering.Direct2D.Direct2DBackend.Direct2DBackend(Broadside.Rendering.Direct2D.Direct2DDeviceType deviceType) -> void
++ Broadside.Rendering.Direct2D.Direct2DBackend.Dispose() -> void
++ Broadside.Rendering.Direct2D.Direct2DBackend.ImageSamplesPerPixel.get -> double
++ Broadside.Rendering.Direct2D.Direct2DBackend.ImageSamplesPerPixel.set -> void
++ Broadside.Rendering.Direct2D.Direct2DBackend.PrefetchImagesAsync(Broadside.Rendering.DisplayList! list, in Broadside.Graphics.Matrix deviceTransform, int width, int height, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
++ Broadside.Rendering.Direct2D.Direct2DBackend.Render(Broadside.PdfPage! page) -> Broadside.Rendering.Bitmap!
++ Broadside.Rendering.Direct2D.Direct2DBackend.Render(Broadside.PdfPage! page, Broadside.Rendering.Bitmap! target, Broadside.Rendering.RenderOptions! options) -> void
++ Broadside.Rendering.Direct2D.Direct2DBackend.Render(Broadside.PdfPage! page, Broadside.Rendering.RenderOptions! options) -> Broadside.Rendering.Bitmap!
++ Broadside.Rendering.Direct2D.Direct2DBackend.Render(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform) -> void
++ Broadside.Rendering.Direct2D.Direct2DBackend.Render(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, bool forceOutlines) -> void
++ Broadside.Rendering.Direct2D.Direct2DBackend.ScaledImageDecode.get -> bool
++ Broadside.Rendering.Direct2D.Direct2DBackend.ScaledImageDecode.set -> void
++ Broadside.Rendering.Direct2D.Direct2DDeviceType
++ Broadside.Rendering.Direct2D.Direct2DDeviceType.Hardware = 0 -> Broadside.Rendering.Direct2D.Direct2DDeviceType
++ Broadside.Rendering.Direct2D.Direct2DDeviceType.Warp = 1 -> Broadside.Rendering.Direct2D.Direct2DDeviceType
+```
+
+</details>
+
+<details><summary><code>Broadside.Rendering.WebGL</code>: 20 added, 20 removed</summary>
+
+```diff
+- Broadside.Rendering.WebGL.WebGLRenderer
+- Broadside.Rendering.WebGL.WebGLRenderer.BeginRender(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, bool readBack, System.Threading.CancellationToken cancellationToken) -> Broadside.Rendering.WebGL.WebGLRender!
+- Broadside.Rendering.WebGL.WebGLRenderer.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+- Broadside.Rendering.WebGL.WebGLRenderer.Dispose() -> void
+- Broadside.Rendering.WebGL.WebGLRenderer.ImageSamplesPerPixel.get -> double
+- Broadside.Rendering.WebGL.WebGLRenderer.ImageSamplesPerPixel.set -> void
+- Broadside.Rendering.WebGL.WebGLRenderer.Render(Broadside.PdfPage! page, Broadside.Rendering.RenderOptions! options) -> Broadside.Rendering.Bitmap!
+- Broadside.Rendering.WebGL.WebGLRenderer.Render(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform) -> void
+- Broadside.Rendering.WebGL.WebGLRenderer.ScaledImageDecode.get -> bool
+- Broadside.Rendering.WebGL.WebGLRenderer.ScaledImageDecode.set -> void
+- Broadside.Rendering.WebGL.WebGLRenderer.WebGLRenderer() -> void
+- static Broadside.Rendering.WebGL.WebGLRenderer.Canvas.get -> System.Runtime.InteropServices.JavaScript.JSObject!
+- static Broadside.Rendering.WebGL.WebGLRenderer.Description.get -> string?
+- static Broadside.Rendering.WebGL.WebGLRenderer.InitializeAsync() -> System.Threading.Tasks.Task<bool>!
+- static Broadside.Rendering.WebGL.WebGLRenderer.IsAvailable.get -> bool
+- static Broadside.Rendering.WebGL.WebGLRenderer.PrefetchImageBitmapsAsync(Broadside.Rendering.DisplayList! list, Broadside.Graphics.Matrix deviceTransform, Broadside.PdfRectangle? region, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+- static Broadside.Rendering.WebGL.WebGLRenderer.ReadCanvas(Broadside.Rendering.Bitmap! target) -> void
+- static Broadside.Rendering.WebGL.WebGLRenderer.TextureBudget.get -> long
+- static Broadside.Rendering.WebGL.WebGLRenderer.TextureBudget.set -> void
+- static Broadside.Rendering.WebGL.WebGLRenderer.TextureBytes.get -> long
++ Broadside.Rendering.WebGL.WebGLBackend
++ Broadside.Rendering.WebGL.WebGLBackend.BeginRender(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, bool readBack, System.Threading.CancellationToken cancellationToken) -> Broadside.Rendering.WebGL.WebGLRender!
++ Broadside.Rendering.WebGL.WebGLBackend.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
++ Broadside.Rendering.WebGL.WebGLBackend.Dispose() -> void
++ Broadside.Rendering.WebGL.WebGLBackend.ImageSamplesPerPixel.get -> double
++ Broadside.Rendering.WebGL.WebGLBackend.ImageSamplesPerPixel.set -> void
++ Broadside.Rendering.WebGL.WebGLBackend.Render(Broadside.PdfPage! page, Broadside.Rendering.RenderOptions! options) -> Broadside.Rendering.Bitmap!
++ Broadside.Rendering.WebGL.WebGLBackend.Render(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform) -> void
++ Broadside.Rendering.WebGL.WebGLBackend.ScaledImageDecode.get -> bool
++ Broadside.Rendering.WebGL.WebGLBackend.ScaledImageDecode.set -> void
++ Broadside.Rendering.WebGL.WebGLBackend.WebGLBackend() -> void
++ static Broadside.Rendering.WebGL.WebGLBackend.Canvas.get -> System.Runtime.InteropServices.JavaScript.JSObject!
++ static Broadside.Rendering.WebGL.WebGLBackend.Description.get -> string?
++ static Broadside.Rendering.WebGL.WebGLBackend.InitializeAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
++ static Broadside.Rendering.WebGL.WebGLBackend.IsAvailable.get -> bool
++ static Broadside.Rendering.WebGL.WebGLBackend.PrefetchImageBitmapsAsync(Broadside.Rendering.DisplayList! list, Broadside.Graphics.Matrix deviceTransform, Broadside.PdfRectangle? region, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
++ static Broadside.Rendering.WebGL.WebGLBackend.ReadCanvas(Broadside.Rendering.Bitmap! target) -> void
++ static Broadside.Rendering.WebGL.WebGLBackend.TextureBudget.get -> long
++ static Broadside.Rendering.WebGL.WebGLBackend.TextureBudget.set -> void
++ static Broadside.Rendering.WebGL.WebGLBackend.TextureBytes.get -> long
+```
+
+</details>
+
+<details><summary><code>Broadside.Viewer</code>: 12 added, 12 removed</summary>
+
+```diff
+- Broadside.Viewer.AccessibilityBridge.AccessibilityBridge(Broadside.Viewer.DocumentSession! session, Broadside.Viewer.IAccessibleElementProvider? elements) -> void
+- Broadside.Viewer.AccessibilityBridge.Elements.get -> Broadside.Viewer.IAccessibleElementProvider?
+- Broadside.Viewer.AccessibilityBridge.LoadPage(int pageIndex) -> Broadside.Viewer.AccessibleNode!
+- Broadside.Viewer.AccessibilityBridge.LoadPageAsync(int pageIndex, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.AccessibleNode!>
+- Broadside.Viewer.AnnotationLayer.LoadPageAsync(int pageIndex, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<int>
+- Broadside.Viewer.IAccessibleElementProvider
+- Broadside.Viewer.IAccessibleElementProvider.GetElements(Broadside.PdfPage! page, int pageIndex, System.Collections.Generic.ICollection<Broadside.Viewer.AccessibleElement>! destination) -> void
+- Broadside.Viewer.TextSelection.LoadPageAsync(int pageIndex, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.SelectableText!>
+- static Broadside.Viewer.DocumentOutline.LoadAsync(Broadside.Viewer.DocumentSession! session, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.DocumentOutline!>
+- static Broadside.Viewer.DocumentSession.OpenAsync(System.IO.Stream! stream) -> System.Threading.Tasks.Task<Broadside.Viewer.DocumentSession!>!
+- static Broadside.Viewer.DocumentSession.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri) -> System.Threading.Tasks.Task<Broadside.Viewer.DocumentSession!>!
+- static Broadside.Viewer.PageLabelTable.LoadAsync(Broadside.Viewer.DocumentSession! session, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.PageLabelTable!>
++ Broadside.Viewer.AccessibilityBridge.AccessibilityBridge(Broadside.Viewer.DocumentSession! session, Broadside.Viewer.IAccessibleElementSource? elements) -> void
++ Broadside.Viewer.AccessibilityBridge.Elements.get -> Broadside.Viewer.IAccessibleElementSource?
++ Broadside.Viewer.AccessibilityBridge.ReadPage(int pageIndex) -> Broadside.Viewer.AccessibleNode!
++ Broadside.Viewer.AccessibilityBridge.ReadPageAsync(int pageIndex, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.AccessibleNode!>
++ Broadside.Viewer.AnnotationLayer.ReadPageAsync(int pageIndex, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<int>
++ Broadside.Viewer.IAccessibleElementSource
++ Broadside.Viewer.IAccessibleElementSource.GetElements(Broadside.PdfPage! page, int pageIndex, System.Collections.Generic.ICollection<Broadside.Viewer.AccessibleElement>! destination) -> void
++ Broadside.Viewer.TextSelection.ReadPageAsync(int pageIndex, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.SelectableText!>
++ static Broadside.Viewer.DocumentOutline.ReadAsync(Broadside.Viewer.DocumentSession! session, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.DocumentOutline!>
++ static Broadside.Viewer.DocumentSession.OpenAsync(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.Viewer.DocumentSession!>!
++ static Broadside.Viewer.DocumentSession.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.Viewer.DocumentSession!>!
++ static Broadside.Viewer.PageLabelTable.ReadAsync(Broadside.Viewer.DocumentSession! session, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.PageLabelTable!>
+```
+
+</details>
+
+<details><summary><code>Broadside.Viewer.Avalonia</code>: 1 added, 1 removed</summary>
+
+```diff
+- Broadside.Viewer.Avalonia.PdfView.CopySelectionAsync() -> System.Threading.Tasks.Task<string?>!
++ Broadside.Viewer.Avalonia.PdfView.CopySelectionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string?>!
+```
+
+</details>
+
+<details><summary><code>Broadside.Viewer.Blazor</code>: 3 added, 3 removed</summary>
+
+```diff
+- static Broadside.Viewer.Blazor.BrowserImageDecoder.InitializeAsync() -> System.Threading.Tasks.Task!
+- static Broadside.Viewer.Blazor.RenderWorker.StartAsync(System.TimeSpan? timeout = null) -> System.Threading.Tasks.Task<bool>!
+- static Broadside.Viewer.Blazor.WebGLTileBackend.InitializeAsync() -> System.Threading.Tasks.Task<bool>!
++ static Broadside.Viewer.Blazor.BrowserImageDecoder.InitializeAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
++ static Broadside.Viewer.Blazor.RenderWorker.StartAsync(System.TimeSpan? timeout = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
++ static Broadside.Viewer.Blazor.WebGLTileBackend.InitializeAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+```
+
+</details>
+
+<details><summary><code>Broadside.Viewer.Maui</code>: 4 added, 4 removed</summary>
+
+```diff
+- Broadside.Viewer.Maui.PdfAnnotationsPanel.RefreshAsync() -> System.Threading.Tasks.Task!
+- Broadside.Viewer.Maui.PdfFormPanel.RefreshAsync() -> System.Threading.Tasks.Task!
+- Broadside.Viewer.Maui.PdfSignaturesPanel.RefreshAsync() -> System.Threading.Tasks.Task!
+- Broadside.Viewer.Maui.PdfView.CopySelectionAsync() -> System.Threading.Tasks.Task<string?>!
++ Broadside.Viewer.Maui.PdfAnnotationsPanel.RefreshAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
++ Broadside.Viewer.Maui.PdfFormPanel.RefreshAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
++ Broadside.Viewer.Maui.PdfSignaturesPanel.RefreshAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
++ Broadside.Viewer.Maui.PdfView.CopySelectionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string?>!
+```
+
+</details>
+
+<details><summary><code>Broadside.Viewer.Uno</code>: 1 added, 1 removed</summary>
+
+```diff
+- Broadside.Viewer.Uno.PdfView.CopySelectionAsync() -> System.Threading.Tasks.Task<string?>!
++ Broadside.Viewer.Uno.PdfView.CopySelectionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string?>!
+```
+
+</details>
+
+<details><summary><code>Broadside.Viewer.WinUI</code>: 1 added, 1 removed</summary>
+
+```diff
+- Broadside.Viewer.WinUI.PdfView.CopySelectionAsync() -> System.Threading.Tasks.Task<string?>!
++ Broadside.Viewer.WinUI.PdfView.CopySelectionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string?>!
+```
+
+</details>
+
+<details><summary><code>Broadside.Viewer.Wpf</code>: 1 added, 1 removed</summary>
+
+```diff
+- Broadside.Viewer.Wpf.PdfView.CopySelectionAsync() -> System.Threading.Tasks.Task<string?>!
++ Broadside.Viewer.Wpf.PdfView.CopySelectionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string?>!
+```
+
+</details>
+
 ## 0.1.0-preview.10 (2026-11-19)
 
 Changes since [`v0.1.0-preview.9`](https://github.com/michaelstonis/Broadside/releases/tag/v0.1.0-preview.9). Full diff: [`v0.1.0-preview.9...v0.1.0-preview.10`](https://github.com/michaelstonis/Broadside/compare/v0.1.0-preview.9...v0.1.0-preview.10).
