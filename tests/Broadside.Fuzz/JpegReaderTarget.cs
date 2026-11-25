@@ -13,6 +13,13 @@ namespace Broadside.Fuzz;
 /// <remarks>ISO 32000-2 §7.4.8 (Table 13), §8.9.5 (Table 87); ITU-T T.81 Annex B; ICC.1:2022 Annex B.4.</remarks>
 internal static class JpegReaderTarget
 {
+    /// <summary>
+    /// The engine the target makes its documents with (issue #620): at the defaults a 65479 x 1480 frame of non-interleaved scans
+    /// decodes within the 2^28-pixel and 1 GiB limits through a whole-image coefficient buffer, about 1.1 GB at its peak, more than a
+    /// 3 GiB fuzzing worker holds beside what it has. 2^22 pixels (2048 x 2048) and 16 MiB per stream bound it to tens of megabytes.
+    /// </summary>
+    private static readonly PdfEngine Engine = new(new PdfOptions().WithMaxImagePixels(1 << 22).WithMaxDecodedLength(1 << 24));
+
     public static void Target(ReadOnlySpan<byte> data)
     {
         if (data.StartsWith("%PDF-"u8))
@@ -22,7 +29,7 @@ internal static class JpegReaderTarget
         }
 
         byte[] jpeg = data.ToArray();
-        using PdfDocument document = PdfDocument.Create();
+        using PdfDocument document = Engine.Create();
         PdfImage image;
         try
         {

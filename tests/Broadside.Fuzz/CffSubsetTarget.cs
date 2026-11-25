@@ -95,15 +95,23 @@ internal static class CffSubsetTarget
 
             // Relative, as for the points (issue #620): a matrix of 134174 makes an advance of 53,669,600, which the subset carries
             // through its own matrix of 0.001 as 53,669,600,000 and gives back within a few units in the last place.
+            // A glyph whose Font DICT matrix skews or rotates against the program's has an advance with a vertical component in the
+            // program's space, which GlyphMetrics does not carry, so the program and its subset (with another program matrix) keep
+            // different parts of it; such advances are not compared (issue #620).
             double advance = original.GetMetrics(originalGlyph).AdvanceWidth * original.FontMatrix.A;
             double subsetAdvance = program.GetMetrics(glyph).AdvanceWidth * program.FontMatrix.A;
+            bool advanceComparable = !AdvanceTilts(original, originalGlyph) && !AdvanceTilts(program, glyph);
             if (subsetStatus != status || !Same(before, original.FontMatrix, after, program.FontMatrix)
-                || Math.Abs(advance - subsetAdvance) > 1e-9 * Math.Max(1, Math.Abs(advance)))
+                || (advanceComparable && Math.Abs(advance - subsetAdvance) > 1e-9 * Math.Max(1, Math.Abs(advance))))
             {
                 throw new InvalidOperationException($"Glyph {originalGlyph} ({status}) draws differently in the subset ({subsetStatus}) as glyph {glyph}.");
             }
         }
     }
+
+    /// <summary>Whether the glyph's Font DICT matrix turns its advance out of the program's x axis.</summary>
+    private static bool AdvanceTilts(FontProgram program, int glyph) =>
+        program is CffFontProgram { Font: var font } && font.TryGetMatrixAdjustment(glyph, out Matrix adjustment) && adjustment.B != 0;
 
     /// <summary>Two outlines with the same verbs and the same points in text space (each through its program's whole matrix).</summary>
     private static bool Same(GlyphOutline left, Matrix leftMatrix, GlyphOutline right, Matrix rightMatrix)
