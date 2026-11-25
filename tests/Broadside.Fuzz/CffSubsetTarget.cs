@@ -132,7 +132,15 @@ internal static class CffSubsetTarget
             double ay = (p.X * leftMatrix.B) + (p.Y * leftMatrix.D) + leftMatrix.F;
             double bx = (q.X * rightMatrix.A) + (q.Y * rightMatrix.C) + rightMatrix.E;
             double by = (q.X * rightMatrix.B) + (q.Y * rightMatrix.D) + rightMatrix.F;
-            if (Math.Abs(ax - bx) > 1e-9 * Math.Max(1, Math.Abs(ax)) || Math.Abs(ay - by) > 1e-9 * Math.Max(1, Math.Abs(ay)))
+
+            // Relative to the size of the terms, not of their sum (issue #620): a Font DICT matrix that is singular against the
+            // program's makes terms of 10^8 cancel to 0 in the program, which leaves a few units in their last place, while the subset,
+            // which folds the two matrices into one, gives exactly 0.
+            double xScale = Math.Max(Math.Abs(p.X * leftMatrix.A) + Math.Abs(p.Y * leftMatrix.C) + Math.Abs(leftMatrix.E),
+                Math.Abs(q.X * rightMatrix.A) + Math.Abs(q.Y * rightMatrix.C) + Math.Abs(rightMatrix.E));
+            double yScale = Math.Max(Math.Abs(p.X * leftMatrix.B) + Math.Abs(p.Y * leftMatrix.D) + Math.Abs(leftMatrix.F),
+                Math.Abs(q.X * rightMatrix.B) + Math.Abs(q.Y * rightMatrix.D) + Math.Abs(rightMatrix.F));
+            if (Math.Abs(ax - bx) > 1e-9 * Math.Max(1, xScale) || Math.Abs(ay - by) > 1e-9 * Math.Max(1, yScale))
             {
                 return false;
             }
