@@ -4,34 +4,6 @@
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:Broadside.Viewer.Maui.PdfAnnotationsPanel.RefreshAsync</Target>
-    <Left>lib/net10.0-android36.0/Broadside.Viewer.Maui.dll</Left>
-    <Right>lib/net10.0/Broadside.Viewer.Maui.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0002</DiagnosticId>
-    <Target>M:Broadside.Viewer.Maui.PdfFormPanel.RefreshAsync</Target>
-    <Left>lib/net10.0-android36.0/Broadside.Viewer.Maui.dll</Left>
-    <Right>lib/net10.0/Broadside.Viewer.Maui.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0002</DiagnosticId>
-    <Target>M:Broadside.Viewer.Maui.PdfSignaturesPanel.RefreshAsync</Target>
-    <Left>lib/net10.0-android36.0/Broadside.Viewer.Maui.dll</Left>
-    <Right>lib/net10.0/Broadside.Viewer.Maui.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0002</DiagnosticId>
-    <Target>M:Broadside.Viewer.Maui.PdfView.CopySelectionAsync</Target>
-    <Left>lib/net10.0-android36.0/Broadside.Viewer.Maui.dll</Left>
-    <Right>lib/net10.0/Broadside.Viewer.Maui.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0002</DiagnosticId>
-    <Target>M:Broadside.Viewer.Maui.PdfAnnotationsPanel.RefreshAsync</Target>
     <Left>lib/net10.0-ios26.0/Broadside.Viewer.Maui.dll</Left>
     <Right>lib/net10.0-ios26.0/Broadside.Viewer.Maui.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
@@ -83,34 +55,6 @@
     <Target>M:Broadside.Viewer.Maui.PdfView.CopySelectionAsync</Target>
     <Left>lib/net10.0-maccatalyst26.0/Broadside.Viewer.Maui.dll</Left>
     <Right>lib/net10.0-maccatalyst26.0/Broadside.Viewer.Maui.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0002</DiagnosticId>
-    <Target>M:Broadside.Viewer.Maui.PdfAnnotationsPanel.RefreshAsync</Target>
-    <Left>lib/net10.0-windows10.0.19041/Broadside.Viewer.Maui.dll</Left>
-    <Right>lib/net10.0/Broadside.Viewer.Maui.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0002</DiagnosticId>
-    <Target>M:Broadside.Viewer.Maui.PdfFormPanel.RefreshAsync</Target>
-    <Left>lib/net10.0-windows10.0.19041/Broadside.Viewer.Maui.dll</Left>
-    <Right>lib/net10.0/Broadside.Viewer.Maui.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0002</DiagnosticId>
-    <Target>M:Broadside.Viewer.Maui.PdfSignaturesPanel.RefreshAsync</Target>
-    <Left>lib/net10.0-windows10.0.19041/Broadside.Viewer.Maui.dll</Left>
-    <Right>lib/net10.0/Broadside.Viewer.Maui.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0002</DiagnosticId>
-    <Target>M:Broadside.Viewer.Maui.PdfView.CopySelectionAsync</Target>
-    <Left>lib/net10.0-windows10.0.19041/Broadside.Viewer.Maui.dll</Left>
-    <Right>lib/net10.0/Broadside.Viewer.Maui.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
