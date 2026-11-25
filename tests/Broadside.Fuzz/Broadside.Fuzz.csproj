@@ -28,6 +28,12 @@
     <Compile Include="../Broadside.TestSupport/FormWalker.cs" Link="FormWalker.cs" />
     <!-- The content corpus gate's counting processor (issue #80). -->
     <Compile Include="../Broadside.TestSupport/CountingContentProcessor.cs" Link="CountingContentProcessor.cs" />
+    <!-- Test fonts built table by table (issue #274): seeds with GSUB, GPOS, GDEF and kern tables for the gsub and gpos targets. -->
+    <Compile Include="../Broadside.TestSupport/TrueTypeBuilder.cs" Link="TrueTypeBuilder.cs" />
+    <Compile Include="../Broadside.TestSupport/OpenTypeLayoutBuilder.cs" Link="OpenTypeLayoutBuilder.cs" />
+    <Compile Include="../Broadside.TestSupport/GposBuilder.cs" Link="GposBuilder.cs" />
+    <Compile Include="../Broadside.TestSupport/ShapingTestFont.cs" Link="ShapingTestFont.cs" />
+    <Compile Include="../Broadside.TestSupport/PositioningTestFont.cs" Link="PositioningTestFont.cs" />
     <!-- The folder props add a global using for xunit; this harness does not reference it. -->
     <Using Remove="Xunit" />
   </ItemGroup>

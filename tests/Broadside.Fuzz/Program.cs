@@ -12,6 +12,8 @@ namespace Broadside.Fuzz;
 /// <item><c>--afl &lt;target&gt;</c>: run under afl-fuzz (SharpFuzz's AFL fork-server mode).</item>
 /// <item><c>--smoke &lt;target&gt; [seconds] [seed]</c>: no fuzzer needed; corpus files plus random mutations for the given time (default 10 s).</item>
 /// <item><c>--run &lt;target&gt; &lt;file&gt;</c>: run the target once on one input, to replay a finding.</item>
+/// <item><c>--corpus &lt;target&gt; &lt;file or directory&gt;...</c>: run the target once on every file given and every file under the
+/// directories given, in ordinal order, and stop at the first failure; the coverage report runs the seeds through it (README.md, "Coverage").</item>
 /// <item><c>--seeds &lt;target&gt; &lt;directory&gt; [pdf-directory...]</c>: write the target's seed inputs for libFuzzer or AFL (see <see cref="SeedWriter"/>).</item>
 /// <item><c>--list</c>: print the target names.</item>
 /// </list>
@@ -110,6 +112,16 @@ internal static class Program
                     return 0;
                 }
 
+            case "--corpus":
+                {
+                    if (args.Length < 3 || !TryGetTarget(args[1], out ReadOnlySpanAction? target))
+                    {
+                        return Usage();
+                    }
+
+                    return RunCorpus(args[1], target, args[2..]);
+                }
+
             case "--seeds":
                 {
                     if (args.Length < 3 || !TryGetTarget(args[1], out _))
@@ -141,6 +153,40 @@ internal static class Program
         return false;
     }
 
+    private static int RunCorpus(string name, ReadOnlySpanAction target, string[] paths)
+    {
+        List<string> files = [];
+        foreach (string path in paths)
+        {
+            if (Directory.Exists(path))
+            {
+                List<string> found = [.. Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories)];
+                found.Sort(StringComparer.Ordinal);
+                files.AddRange(found);
+            }
+            else if (File.Exists(path))
+            {
+                files.Add(path);
+            }
+        }
+
+        foreach (string file in files)
+        {
+            try
+            {
+                target(File.ReadAllBytes(file));
+            }
+            catch (Exception exception)
+            {
+                Console.Error.WriteLine($"corpus: target '{name}' failed on {file}: {exception}");
+                return 1;
+            }
+        }
+
+        Console.WriteLine($"corpus: target '{name}', {files.Count} inputs, no failures");
+        return 0;
+    }
+
     private static bool TryParseInt(string[] args, int index, int fallback, out int value)
     {
         if (args.Length <= index)
@@ -166,6 +212,7 @@ internal static class Program
               --afl <target>                    run under afl-fuzz
               --smoke <target> [seconds] [seed] corpus files plus random mutations, no fuzzer needed (default 10 s)
               --run <target> <file>             run the target once on one input
+              --corpus <target> <path>...       run the target once on every file given or under the directories given
               --seeds <target> <dir> [pdf-dir...] write the target's seed inputs from tests/Corpus and the PDFs under pdf-dir
               --list                            list the targets
             """);

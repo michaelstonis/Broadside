@@ -145,4 +145,22 @@ public sealed class PostScriptLoweringTests
 
         Assert.Equal(2, program.Length);
     }
+
+    [Fact]
+    public void A_program_of_more_distinct_literals_than_registers_runs_in_the_interpreter()
+    {
+        // Constants take registers too, and the register program stack-allocates them all (issue #274): a file must not size a
+        // stack allocation with its literal count.
+        using var document = PdfDocument.Create();
+        var compilation = new FunctionCompilation(document, new DiagnosticSink(strict: false));
+        var text = new StringBuilder("{ ");
+        for (int i = 0; i < 2 * PostScriptLowering.MaxRegisters; i++)
+        {
+            text.Append(System.Globalization.CultureInfo.InvariantCulture, $"{i + 1} pop ");
+        }
+
+        PostScriptInstruction[] code = PostScriptCompiler.Parse(Encoding.ASCII.GetBytes(text.Append('}').ToString()), compilation)!;
+
+        Assert.Null(PostScriptLowering.Lower(code, 1, 1));
+    }
 }

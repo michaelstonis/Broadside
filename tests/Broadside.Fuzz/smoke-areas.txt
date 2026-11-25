@@ -10,6 +10,7 @@ content-interpreter         ^src/Broadside/(Content|Graphics|Fonts|Images)/
 object-parser               ^src/Broadside/(Parsing|Objects)/
 document                    ^src/Broadside/(Parsing|Objects|IO|Structure|Fonts|Filters|Security)/|^src/Broadside/[^/]+\.cs$
 windowed-document           ^src/Broadside/(Parsing|Objects|IO)/|^src/Broadside/[^/]+\.cs$
+range-response              ^src/Broadside/IO/|^src/Broadside/PdfDocument\.Remote\.cs$
 first-page-first            ^src/Broadside/(Parsing|Objects|IO)/|^src/Broadside/[^/]+\.cs$
 save                        ^src/Broadside/(Writing|Objects|Security)/|^src/Broadside/[^/]+\.cs$
 hint-tables                 ^src/Broadside/(Parsing|Writing)/
@@ -18,6 +19,7 @@ object-stream               ^src/Broadside/(Parsing|Objects|Writing)/
 repair                      ^src/Broadside/(Parsing|IO|Objects)/
 filter-*                    ^src/Broadside/(Filters|Images)/
 png-reader                  ^src/Broadside/Images/
+jpeg-reader                 ^src/Broadside/(Images|Filters/Dct)/|^src/Broadside/PdfDocument\.ImageWriting\.cs$
 platform-image-eligibility  ^src/Broadside/Images/
 image-decode                ^src/Broadside/(Images|Filters|Graphics)/
 inline-image-end            ^src/Broadside/(Content|Images)/

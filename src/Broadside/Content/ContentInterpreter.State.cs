@@ -241,10 +241,7 @@ internal sealed partial class ContentInterpreter
 
         if (_depth + 1 == _states.Length)
         {
-            GraphicsState[] larger = ArrayPool<GraphicsState>.Shared.Rent(_states.Length * 2);
-            _states.AsSpan(0, _depth + 1).CopyTo(larger);
-            ArrayPool<GraphicsState>.Shared.Return(_states, clearArray: true);
-            _states = larger;
+            GrowStates();
         }
 
         _states[_depth + 1] = _states[_depth];

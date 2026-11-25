@@ -74,5 +74,6 @@ It shows the shape: a span in, a call, an invariant that throws. `--smoke pdf-he
 - [ ] Lenient mode, no `try`/`catch`, only always-true invariants asserted
 - [ ] Extra seeds documented in `tests/Broadside.Fuzz/README.md` when whole corpus files are not the right input
 - [ ] A line in `tests/Broadside.Fuzz/smoke-areas.txt` naming the source paths the target exercises, so CI smokes it for the full 60 s on pull requests that change them (15 s otherwise)
+- [ ] A line in `tests/Broadside.Fuzz/parsers.txt` for every parser or codec type the target covers (`FuzzTargetMapTests` fails without it), and the target's coverage from `tests/Broadside.Fuzz/Coverage/coverage.sh <name>` at or above the threshold in `docs/fuzz-coverage.md`
 - [ ] `--smoke <name> 60` run locally: `no failures`, exit 0; output quoted in the PR
 - [ ] Same PR as the parser or codec
