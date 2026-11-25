@@ -27,15 +27,15 @@ public sealed class ShippingSurfaceTests
     private static Type[] Types => [.. ShippingPackages.PublicTypes];
 
     [Fact]
-    public void Every_project_under_src_is_a_shipping_package_or_a_viewer_preview()
+    public void Every_project_under_src_is_a_shipping_package()
     {
         string[] projects = [.. Directory.GetDirectories(Path.Combine(ShippingPackages.RepositoryRoot, "src"))
             .Where(d => File.Exists(Path.Combine(d, Path.GetFileName(d) + ".csproj")))
             .Select(Path.GetFileName).OfType<string>()];
-        string[] unlisted = [.. projects.Where(p => !ShippingPackages.All.Contains(p) && !p.StartsWith(ShippingPackages.PreviewPrefix, StringComparison.Ordinal))];
+        string[] unlisted = [.. projects.Where(p => !ShippingPackages.All.Contains(p))];
         string[] missing = [.. ShippingPackages.All.Where(p => !projects.Contains(p))];
 
-        Assert.True(unlisted.Length == 0, $"Add to ShippingPackages (or make a viewer preview): {string.Join(", ", unlisted)}");
+        Assert.True(unlisted.Length == 0, $"Add to ShippingPackages: {string.Join(", ", unlisted)}");
         Assert.True(missing.Length == 0, $"Listed in ShippingPackages but not under src/: {string.Join(", ", missing)}");
     }
 
@@ -51,6 +51,29 @@ public sealed class ShippingSurfaceTests
             PublicApiLine[] lines = [.. PublicApiFiles.Read(package)];
             Assert.NotEmpty(lines);
             Assert.All(lines, line => Assert.False(string.IsNullOrWhiteSpace(line.Member), line.Text));
+        }
+    }
+
+    /// <summary>
+    /// The v1 freeze (#262): every shipping package records its public API in <c>PublicAPI.Shipped.txt</c>, so removing or changing
+    /// a shipped member fails the build (RS0017, which <c>check-api-freeze.sh</c> proves). The analyzer's code fix silences that
+    /// error by writing a <c>*REMOVED*</c> line into <c>PublicAPI.Unshipped.txt</c>; this test fails on such a line instead, so a
+    /// breaking change cannot pass CI in 1.x.
+    /// </summary>
+    [Fact]
+    public void No_shipped_member_is_removed_or_changed()
+    {
+        foreach (string package in ShippingPackages.All)
+        {
+            string[] paths = [.. PublicApiFiles.Paths(package)];
+            Assert.True(File.Exists(paths[0]), $"{package} has no PublicAPI.Shipped.txt.");
+            Assert.Contains(File.ReadLines(paths[0]), line => PublicApiLine.Parse(package, line) is not null);
+
+            string[] removed = [.. paths.Where(File.Exists).SelectMany(File.ReadLines).Where(l => l.TrimStart().StartsWith("*REMOVED*", StringComparison.Ordinal))];
+            Assert.True(
+                removed.Length == 0,
+                $"{package}: a shipped member was removed or changed, which breaks 1.x consumers. Add an overload or a new member "
+                + $"instead:\n  {string.Join("\n  ", removed)}");
         }
     }
 
@@ -95,8 +118,8 @@ public sealed class ShippingSurfaceTests
         AssertKnown(nameof(PublicApiFiles.Nullable), ShippingPackages.All.SelectMany(PublicApiFiles.Nullable));
 
     [Fact]
-    public void The_platform_backends_follow_the_signature_rules() =>
-        AssertKnown(KnownViolations.PlatformSignatures, ShippingPackages.PlatformBackends.SelectMany(p => PublicApiFiles.Signatures(PublicApiFiles.Read(p))));
+    public void The_platform_packages_follow_the_signature_rules() =>
+        AssertKnown(KnownViolations.PlatformSignatures, ShippingPackages.Platform.SelectMany(p => PublicApiFiles.Signatures(PublicApiFiles.Read(p))));
 
     private static void AssertKnown(string rule, IEnumerable<Violation> violations)
     {

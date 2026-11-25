@@ -249,7 +249,7 @@ public abstract class PdfChoiceField : PdfTerminalField
     /// used"), and removed otherwise. A list box whose first selected option is not visible scrolls to it (<c>TI</c>).
     /// </para>
     /// <para>
-    /// Appearances are generated as <see cref="GenerateAppearances"/> describes, before anything changes, so a failure leaves the
+    /// Appearances are generated as <see cref="WriteAppearances"/> describes, before anything changes, so a failure leaves the
     /// document as it was. When the form also has an XFA resource (Annex K), only the AcroForm value changes and an
     /// <c>XfaDataNotUpdated</c> information diagnostic is recorded.
     /// </para>
@@ -281,12 +281,12 @@ public abstract class PdfChoiceField : PdfTerminalField
     /// </exception>
     /// <remarks>
     /// ISO 32000-2 §12.7.4.3 and §12.7.5.4. Each widget gets a new form XObject as its normal appearance, built as for a text field
-    /// (<see cref="PdfTextField.GenerateAppearances"/>: <c>MK</c> background and border, default appearance font, size and colour,
+    /// (<see cref="PdfTextField.WriteAppearances"/>: <c>MK</c> background and border, default appearance font, size and colour,
     /// quadding): a combo box shows the selected option's displayed text (or an editable one's typed value) on one line; a list box
     /// shows its options one per line from the top index (<see cref="TopIndex"/>), an auto size being 12 points, with a highlight
     /// behind each selected option.
     /// </remarks>
-    public void GenerateAppearances()
+    public void WriteAppearances()
     {
         IReadOnlyList<int> selected = SelectedIndices;
         string? text = selected.Count == 0 && AllowsFreeText && Values is [var typed, ..] ? typed : null;

@@ -35,6 +35,20 @@ public sealed class PdfEngine
     }
 
     /// <summary>
+    /// Initializes a new instance of the <see cref="PdfEngine"/> class from the options pattern, logging diagnostics only through a
+    /// logger factory the options name (<see cref="PdfOptions.UseLoggerFactory"/>).
+    /// </summary>
+    /// <param name="options">
+    /// The options. Their <see cref="IOptions{TOptions}.Value"/> is read once, here, and copied, so the engine behaves exactly like
+    /// one built with <see cref="PdfEngine(PdfOptions)"/> from the same values.
+    /// </param>
+    /// <remarks>Spec #33, user story 43. As <see cref="PdfEngine(IOptions{PdfOptions}, ILoggerFactory?)"/>.</remarks>
+    public PdfEngine(IOptions<PdfOptions> options)
+        : this(options, null)
+    {
+    }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="PdfEngine"/> class from the options pattern: the constructor dependency injection
     /// uses, which <see cref="Microsoft.Extensions.DependencyInjection.BroadsideServiceCollectionExtensions.AddBroadside(Microsoft.Extensions.DependencyInjection.IServiceCollection)"/>
     /// registers.
@@ -45,10 +59,10 @@ public sealed class PdfEngine
     /// </param>
     /// <param name="loggerFactory">
     /// Where diagnostics are logged, unless the options name their own logger factory through
-    /// <see cref="PdfOptions.WithLoggerFactory"/>; <see langword="null"/> logs nothing.
+    /// <see cref="PdfOptions.UseLoggerFactory"/>; <see langword="null"/> logs nothing.
     /// </param>
     /// <remarks>Spec #33, user stories 43 and 45: one engine for the fluent and the hosted paths.</remarks>
-    public PdfEngine(IOptions<PdfOptions> options, ILoggerFactory? loggerFactory = null)
+    public PdfEngine(IOptions<PdfOptions> options, ILoggerFactory? loggerFactory)
     {
         ArgumentNullException.ThrowIfNull(options);
         PdfOptions value = options.Value ?? throw new ArgumentException("The options have no value.", nameof(options));

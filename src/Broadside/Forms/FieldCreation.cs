@@ -167,7 +167,7 @@ internal static class FieldCreation
             }
 
             var created = (T)form.FindFields(name).Single(candidate => ReferenceEquals(candidate.Dictionary, field));
-            GenerateAppearances(created, widgets, options);
+            WriteAppearances(created, widgets, options);
             RecordFeatures(document, kind, flags, options);
             return created;
         }
@@ -499,21 +499,21 @@ internal static class FieldCreation
     }
 
     /// <summary>Gives every widget of the new field its normal appearance, as the field's own generation does.</summary>
-    private static void GenerateAppearances(PdfTerminalField field, IReadOnlyList<(PdfPage Page, PdfRectangle Rectangle, CosName? State)> widgets, PdfFieldOptions options)
+    private static void WriteAppearances(PdfTerminalField field, IReadOnlyList<(PdfPage Page, PdfRectangle Rectangle, CosName? State)> widgets, PdfFieldOptions options)
     {
         switch (field)
         {
             case PdfTextField text:
-                text.GenerateAppearances();
+                text.WriteAppearances();
                 break;
             case PdfRadioButtonField radio:
                 ToggleButtonAppearance.Build(radio, [.. widgets.Select(widget => widget.State!)]).Apply();
                 break;
             case PdfToggleButtonField toggle:
-                toggle.GenerateAppearances();
+                toggle.WriteAppearances();
                 break;
             case PdfChoiceField choice:
-                choice.GenerateAppearances();
+                choice.WriteAppearances();
                 break;
             case PdfPushButtonField button:
                 TextFieldAppearance.BuildCaption(button, options.Caption ?? string.Empty).Apply();

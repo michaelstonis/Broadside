@@ -55,7 +55,7 @@ internal static class TextureCache
     /// <param name="document">The document, for its colour converters.</param>
     /// <param name="defaults">The default colour spaces.</param>
     /// <param name="conversion">The conversion.</param>
-    /// <param name="native">Whether the browser's own decode may stand for the converted samples (<see cref="WebGLRenderer.IsNativeImagePaint"/>).</param>
+    /// <param name="native">Whether the browser's own decode may stand for the converted samples (<see cref="WebGLBackend.IsNativeImagePaint"/>).</param>
     /// <param name="samples">The samples to convert, at the reduction drawn (issue #362); null to take the image's own when it must be converted.</param>
     /// <param name="foldSoft">Whether the soft mask folds into the samples (<see cref="ImageConverter.FoldsSoftMask(DisplayImage, DisplayImageSamples, out DisplayImageSamples?)"/>).</param>
     /// <param name="softSamples">The soft mask's samples that fold, or null.</param>

@@ -38,7 +38,7 @@ public sealed partial class PdfDocument
     /// Annotations with the Hidden flag, and with the NoView flag (<see cref="PdfFlattenIntent.View"/>) or without the Print flag
     /// (<see cref="PdfFlattenIntent.Print"/>), are removed without being drawn, as are those without an appearance. The
     /// appearances are flattened as they are: a form whose <c>NeedAppearances</c> is set may need its appearances regenerated first
-    /// (<see cref="Forms.PdfTextField.GenerateAppearances"/>). A signed form records a <c>FlattenInvalidatesSignatures</c> warning,
+    /// (<see cref="Forms.PdfTextField.WriteAppearances"/>). A signed form records a <c>FlattenInvalidatesSignatures</c> warning,
     /// since removing the signature fields changes what the signatures cover.
     /// </para>
     /// <para>

@@ -22,7 +22,7 @@ public sealed class LazyLoadingTests
         using var logs = new CapturingLoggerProvider();
         using ILoggerFactory loggerFactory = TraceLogging(logs);
 
-        using PdfDocument document = PdfDocument.Open(ManyPages(), new PdfOptions().WithLoggerFactory(loggerFactory));
+        using PdfDocument document = PdfDocument.Open(ManyPages(), new PdfOptions().UseLoggerFactory(loggerFactory));
 
         Assert.Equal([(1, 0)], ParsedObjects(logs));
     }
@@ -32,7 +32,7 @@ public sealed class LazyLoadingTests
     {
         using var logs = new CapturingLoggerProvider();
         using ILoggerFactory loggerFactory = TraceLogging(logs);
-        using PdfDocument document = PdfDocument.Open(ManyPages(), new PdfOptions().WithLoggerFactory(loggerFactory));
+        using PdfDocument document = PdfDocument.Open(ManyPages(), new PdfOptions().UseLoggerFactory(loggerFactory));
 
         Assert.Equal(PageCount, document.Pages.Count);
 
@@ -46,7 +46,7 @@ public sealed class LazyLoadingTests
     {
         using var logs = new CapturingLoggerProvider();
         using ILoggerFactory loggerFactory = TraceLogging(logs);
-        using PdfDocument document = PdfDocument.Open(ManyPages(), new PdfOptions().WithLoggerFactory(loggerFactory));
+        using PdfDocument document = PdfDocument.Open(ManyPages(), new PdfOptions().UseLoggerFactory(loggerFactory));
         int objectCount = 2 + (3 * PageCount);
 
         var seen = new ConcurrentDictionary<int, CosObject>();
@@ -91,7 +91,7 @@ public sealed class LazyLoadingTests
     {
         using var logs = new CapturingLoggerProvider();
         using ILoggerFactory loggerFactory = TraceLogging(logs);
-        using PdfDocument document = PdfDocument.Open(Corpus.Path("object-stream.pdf"), new PdfOptions().WithLoggerFactory(loggerFactory));
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("object-stream.pdf"), new PdfOptions().UseLoggerFactory(loggerFactory));
         int size = (int)((CosInteger)document.Trailer[new CosName("Size")]).Value;
 
         Parallel.For(0, 64, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount * 2 }, iteration =>

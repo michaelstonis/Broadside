@@ -200,7 +200,7 @@ public sealed class WicImageDecoderTests
         int height = (int)Math.Ceiling(page.MediaBox.Height * scale);
         var device = new Matrix(scale, 0, 0, -scale, -page.MediaBox.Left * scale, page.MediaBox.Top * scale);
         DisplayList list = page.CreateDisplayList();
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp) { ScaledImageDecode = true };
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp) { ScaledImageDecode = true };
         if (prefetch)
         {
             renderer.PrefetchImagesAsync(list, device, width, height, TestContext.Current.CancellationToken).AsTask().GetAwaiter().GetResult();

@@ -9,7 +9,7 @@ namespace Broadside.Rendering.CoreGraphics;
 /// shading's transform: by <c>sh</c> within the clip, and as a shading pattern within the filled path or the stroke's outline, over
 /// its Background.
 /// </summary>
-internal sealed partial class CoreGraphicsBackend
+internal sealed partial class CoreGraphicsReplayer
 {
     private static readonly Diagnostic ShadingSkipped = new(
         "BackendShadingUnsupported",

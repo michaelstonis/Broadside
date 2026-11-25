@@ -51,6 +51,22 @@ public static class PdfImageRenderingExtensions
 
     /// <summary>
     /// Decodes <paramref name="image"/> and converts its samples, colour space and masks into a premultiplied BGRA <see cref="Bitmap"/>
+    /// at the image's sample dimensions, using <paramref name="fillColor"/> when the image is an image mask (<c>ImageMask true</c>),
+    /// with no default colour spaces in effect.
+    /// </summary>
+    /// <param name="image">The image to decode and convert.</param>
+    /// <param name="fillColor">The colour to paint an image mask with; ignored for images that carry their own colour.</param>
+    /// <returns>
+    /// A new <see cref="Bitmap"/> that the caller disposes; <see langword="null"/> when the image cannot be decoded or has no usable
+    /// colour space.
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while decoding the image or its mask.</exception>
+    /// <remarks>ISO 32000-2 §8.9.3, §8.9.5.2, §8.9.6, §8.6.5.6 and §11.6.5.2. As <see cref="ToBitmap(PdfImage, PdfColor, PdfDefaultColorSpaces?)"/>.</remarks>
+    public static Bitmap? ToBitmap(this PdfImage image, PdfColor fillColor) => ToBitmap(image, fillColor, null);
+
+    /// <summary>
+    /// Decodes <paramref name="image"/> and converts its samples, colour space and masks into a premultiplied BGRA <see cref="Bitmap"/>
     /// at the image's sample dimensions, using <paramref name="fillColor"/> when the image is an image mask (<c>ImageMask true</c>).
     /// </summary>
     /// <param name="image">The image to decode and convert.</param>
@@ -63,7 +79,7 @@ public static class PdfImageRenderingExtensions
     /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while decoding the image or its mask.</exception>
     /// <remarks>ISO 32000-2 §8.9.3, §8.9.5.2, §8.9.6, §8.6.5.6 and §11.6.5.2.</remarks>
-    public static Bitmap? ToBitmap(this PdfImage image, PdfColor fillColor, PdfDefaultColorSpaces? defaultColorSpaces = null)
+    public static Bitmap? ToBitmap(this PdfImage image, PdfColor fillColor, PdfDefaultColorSpaces? defaultColorSpaces)
     {
         ArgumentNullException.ThrowIfNull(image);
         return RenderToBitmap(image, fillColor, image.Intent ?? RenderingIntent.RelativeColorimetric, defaultColorSpaces ?? PdfDefaultColorSpaces.None);

@@ -110,7 +110,7 @@ public static class UiTests
         await OpenAsync(page, "documents/textbook.pdf");
         Click(page, "tool-annotate");
         AnnotationLayer layer = page.Viewer.Annotations!;
-        int before = await layer.LoadPageAsync(0);
+        int before = await layer.ReadPageAsync(0);
         Click(page, "annotate-note");
         await WaitAsync(() => page.Document.IsEdited, "the document is marked edited");
         Check(layer.GetCount(0) == before + 1, "a note was added to page 1");

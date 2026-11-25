@@ -15,7 +15,7 @@ namespace Broadside.Rendering.CoreGraphics;
 /// not expose (a view's context has a backing scale in it, a pattern cell's context another), so its tiles could not be put on the
 /// pixels the rasterizer puts them on.
 /// </remarks>
-internal sealed partial class CoreGraphicsBackend
+internal sealed partial class CoreGraphicsReplayer
 {
     /// <summary>The deepest nesting of tiling patterns drawn; a deeper cell is left out and reported.</summary>
     private const int MaxPatternDepth = 8;
@@ -35,13 +35,13 @@ internal sealed partial class CoreGraphicsBackend
         "The CoreGraphics backend drew a tiling pattern only in part (ISO 32000-2 §8.7.3.1): its cells nest more deeply than it draws, " +
         "overlap their neighbours more often than it repeats them, or are too large or too many to draw; the parts left out were not drawn.");
 
-    private readonly CoreGraphicsBackend? _owner;
+    private readonly CoreGraphicsReplayer? _owner;
     private readonly int _patternDepth;
     private ConditionalWeakTable<DisplayList, Tile> _tiles = [];
-    private CoreGraphicsBackend? _cellBackend;
+    private CoreGraphicsReplayer? _cellBackend;
 
     /// <summary>Initializes a backend that renders pattern cells for <paramref name="owner"/>, sharing its image and shading caches.</summary>
-    private CoreGraphicsBackend(CoreGraphicsBackend owner, int patternDepth)
+    private CoreGraphicsReplayer(CoreGraphicsReplayer owner, int patternDepth)
     {
         _owner = owner;
         _patternDepth = patternDepth;
@@ -270,7 +270,7 @@ internal sealed partial class CoreGraphicsBackend
         byte[] pixels = new byte[w * h * 4];
         using CGColorSpace space = CGColorSpace.CreateSrgb() ?? throw new PlatformNotSupportedException("CoreGraphics has no sRGB colour space.");
         using var bitmap = new CGBitmapContext(pixels, w, h, 8, w * 4, space, CGBitmapFlags.PremultipliedFirst | CGBitmapFlags.ByteOrder32Little);
-        CoreGraphicsBackend cell = _cellBackend ??= new CoreGraphicsBackend(_owner ?? this, _patternDepth + 1);
+        CoreGraphicsReplayer cell = _cellBackend ??= new CoreGraphicsReplayer(_owner ?? this, _patternDepth + 1);
         cell.ForceOutlines = ForceOutlines;
 
         // The bitmap's pixels are the tile's space moved to the area's corner (both y up).
@@ -299,7 +299,7 @@ internal sealed partial class CoreGraphicsBackend
     }
 
     /// <summary>Takes the diagnostics a cell's replay reported that this replay has not.</summary>
-    private void MergeDiagnostics(CoreGraphicsBackend cell)
+    private void MergeDiagnostics(CoreGraphicsReplayer cell)
     {
         foreach (Diagnostic diagnostic in cell.Diagnostics)
         {

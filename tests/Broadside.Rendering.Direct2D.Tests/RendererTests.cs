@@ -5,7 +5,7 @@ using Broadside.TestSupport;
 
 namespace Broadside.Rendering.Direct2D.Tests;
 
-/// <summary>What <see cref="Direct2DRenderer"/> promises besides matching the golden images: where it draws, and what it reports.</summary>
+/// <summary>What <see cref="Direct2DBackend"/> promises besides matching the golden images: where it draws, and what it reports.</summary>
 public sealed class RendererTests
 {
     private const uint Blue = 0xFF0000FF;
@@ -13,9 +13,9 @@ public sealed class RendererTests
     [Fact]
     public void A_warp_renderer_reports_its_driver()
     {
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
-        Assert.Equal(Direct2DDriver.Warp, renderer.Driver);
+        Assert.Equal(Direct2DDeviceType.Warp, renderer.DeviceType);
     }
 
     [Fact]
@@ -27,7 +27,7 @@ public sealed class RendererTests
         PixelSize size = options.GetPixelSize(page);
         using var bitmap = new Bitmap(size.Width + 7, size.Height + 5);
         Fill(bitmap, Blue);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         renderer.Render(page, bitmap, options);
 
@@ -50,7 +50,7 @@ public sealed class RendererTests
         Matrix device = options.GetDeviceTransform(page);
         using var bitmap = new Bitmap(size.Width, size.Height);
         Fill(bitmap, Blue);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         renderer.Render(page.CreateDisplayList(), bitmap, device);
 
@@ -62,7 +62,7 @@ public sealed class RendererTests
     public void A_page_of_paths_records_no_diagnostics()
     {
         using PdfDocument document = GoldenCorpus.Open("paths-strokes.pdf");
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         using Bitmap bitmap = renderer.Render(document.Pages[0]);
 
@@ -73,7 +73,7 @@ public sealed class RendererTests
     public void A_disposed_renderer_renders_no_more()
     {
         using PdfDocument document = GoldenCorpus.Open("paths-fill-rules.pdf");
-        var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
         renderer.Dispose();
 
         Assert.Throws<ObjectDisposedException>(() => renderer.Render(document.Pages[0]));

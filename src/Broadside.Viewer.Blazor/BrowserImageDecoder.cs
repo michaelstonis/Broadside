@@ -116,8 +116,9 @@ public sealed class BrowserImageDecoder : IPlatformImageDecoder
     /// Imports the decoder's script and probes what this context can decode with; the viewer awaits it before it opens a document.
     /// Until it completes, no image is offered to the browser.
     /// </summary>
+    /// <param name="cancellationToken">Stops waiting for the probe, which still completes for later calls.</param>
     /// <returns>A task that completes when the probe is done.</returns>
-    public static Task InitializeAsync() => _probe ??= ProbeAsync();
+    public static Task InitializeAsync(CancellationToken cancellationToken = default) => (_probe ??= ProbeAsync()).WaitAsync(cancellationToken);
 
     /// <inheritdoc/>
     public bool CanDecode(in PlatformImageRequest request) =>

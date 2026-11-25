@@ -7,7 +7,7 @@ using Broadside.Rendering.WebGL;
 namespace Broadside.Viewer.Blazor;
 
 /// <summary>
-/// The WebGL 2 tile backend for the browser viewer: tiles are drawn on the GPU (<see cref="WebGLRenderer"/>) and copied from its canvas
+/// The WebGL 2 tile backend for the browser viewer: tiles are drawn on the GPU (<see cref="WebGLBackend"/>) and copied from its canvas
 /// into the viewer's tile canvases without reading the pixels back; a surface that reads pixels (a thumbnail, a PNG) gets them read back
 /// (<see cref="IRenderSurface.AcceptsDevicePixels"/>, #380). Select it with
 /// <c>new ViewerOptions().UseBackend(WebGLTileBackend.Create)</c> after awaiting <see cref="InitializeAsync"/>; the software
@@ -24,7 +24,7 @@ namespace Broadside.Viewer.Blazor;
 [SupportedOSPlatform("browser")]
 public sealed class WebGLTileBackend : ITileBackend
 {
-    private readonly WebGLRenderer _renderer = new();
+    private readonly WebGLBackend _renderer = new();
 
     /// <summary>Initializes a new instance of the <see cref="WebGLTileBackend"/> class that decodes images at the resolution they are drawn at, keeping 2 samples per device pixel.</summary>
     public WebGLTileBackend()
@@ -43,14 +43,15 @@ public sealed class WebGLTileBackend : ITileBackend
     }
 
     /// <summary>Gets a value indicating whether WebGL 2 is available (after <see cref="InitializeAsync"/>); without it tiles are drawn by the software rasterizer.</summary>
-    public static bool IsAvailable => WebGLRenderer.IsAvailable;
+    public static bool IsAvailable => WebGLBackend.IsAvailable;
 
     /// <summary>Gets the diagnostics of this backend's last tile.</summary>
     public IReadOnlyList<Diagnostic> Diagnostics => _renderer.Diagnostics;
 
     /// <summary>Loads the WebGL backend's script and creates its context; completes with false when WebGL 2 is unavailable.</summary>
+    /// <param name="cancellationToken">Stops waiting for the initialization, which still completes for later calls.</param>
     /// <returns>Whether WebGL 2 is available.</returns>
-    public static Task<bool> InitializeAsync() => WebGLRenderer.InitializeAsync();
+    public static Task<bool> InitializeAsync(CancellationToken cancellationToken = default) => WebGLBackend.InitializeAsync(cancellationToken);
 
     /// <summary>Creates a backend (for <see cref="ViewerOptions.UseBackend"/>).</summary>
     /// <returns>A new backend.</returns>
@@ -61,7 +62,7 @@ public sealed class WebGLTileBackend : ITileBackend
     /// ISO 32000-2 §7.4.8 and §8.9.4. The platform decodes images at the reduction this backend draws them at (at full size in Chrome
     /// and Edge, the YCbCr planes: bit-identical to the managed decoder). In a browser without WebCodecs <c>ImageDecoder</c>
     /// (Safari), simple JPEG paints go to <c>createImageBitmap</c> and are uploaded straight to a texture, never read back
-    /// (<see cref="WebGLRenderer.PrefetchImageBitmapsAsync"/>); the rest decode with the managed codec.
+    /// (<see cref="WebGLBackend.PrefetchImageBitmapsAsync"/>); the rest decode with the managed codec.
     /// </remarks>
     public ValueTask PrefetchImagesAsync(DisplayList list, in Matrix deviceTransform, int width, int height, CancellationToken cancellationToken)
     {
@@ -80,7 +81,7 @@ public sealed class WebGLTileBackend : ITileBackend
 
     private static async Task BothAsync(DisplayList list, Matrix deviceTransform, PdfRectangle? region, double samplesPerPixel, CancellationToken cancellationToken)
     {
-        await WebGLRenderer.PrefetchImageBitmapsAsync(list, deviceTransform, region, cancellationToken).ConfigureAwait(true);
+        await WebGLBackend.PrefetchImageBitmapsAsync(list, deviceTransform, region, cancellationToken).ConfigureAwait(true);
         await list.PrefetchImagesAsync(deviceTransform, region, samplesPerPixel, cancellationToken).ConfigureAwait(true);
     }
 
@@ -172,7 +173,7 @@ internal static class GpuPresentation
         if (_held is { } held)
         {
             _held = null;
-            WebGLRenderer.ReadCanvas(held);
+            WebGLBackend.ReadCanvas(held);
         }
     }
 }

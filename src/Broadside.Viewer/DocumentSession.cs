@@ -1,3 +1,6 @@
+// RS0026: the open entry points follow the core's rule (every asynchronous overload ends in a defaulted cancellation token), so
+// several overloads of OpenAsync carry an optional parameter. Options are overloads, never optional.
+#pragma warning disable RS0026
 using Broadside.Content;
 using Broadside.Graphics;
 using Broadside.Rendering;
@@ -19,7 +22,7 @@ namespace Broadside.Viewer;
 /// thread-pool workers; in <see cref="ViewerThreading.Cooperative"/> mode (the browser) it runs on the caller's thread in slices with
 /// yields between them. Finished tiles are presented on the context that awaited the render. Display lists come from the document's
 /// own cache (<see cref="PdfOptions.DisplayListCacheBudget"/>), so the tiles of one page at any zoom share one list. Pages of a
-/// remote document (<see cref="OpenAsync(HttpClient, Uri)"/>) are prefetched before use, which is
+/// remote document (<see cref="OpenAsync(HttpClient, Uri, CancellationToken)"/>) are prefetched before use, which is
 /// how a browser reaches them (<see cref="PdfPageCollection.PrefetchAsync"/>).
 /// </para>
 /// <para>
@@ -186,16 +189,20 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
 
     /// <summary>Opens a document from a stream asynchronously with default options.</summary>
     /// <param name="stream">The stream.</param>
+    /// <param name="cancellationToken">Cancels the open.</param>
     /// <returns>The session; the caller closes it.</returns>
     /// <remarks>ISO 32000-2 §7.5.</remarks>
-    public static Task<DocumentSession> OpenAsync(Stream stream) => OpenAsync(stream, null, CancellationToken.None);
+    public static Task<DocumentSession> OpenAsync(Stream stream, CancellationToken cancellationToken = default) =>
+        OpenAsync(stream, null, cancellationToken);
 
     /// <summary>Opens a remote document over HTTP range requests with default options, first page first.</summary>
     /// <param name="httpClient">The client the requests go through.</param>
     /// <param name="uri">The document's address.</param>
+    /// <param name="cancellationToken">Cancels the open.</param>
     /// <returns>The session; the caller closes it.</returns>
     /// <remarks>ISO 32000-2 §7.5 and Annex F. Spec #33 viewer capability 5.</remarks>
-    public static Task<DocumentSession> OpenAsync(HttpClient httpClient, Uri uri) => OpenAsync(httpClient, uri, null, CancellationToken.None);
+    public static Task<DocumentSession> OpenAsync(HttpClient httpClient, Uri uri, CancellationToken cancellationToken = default) =>
+        OpenAsync(httpClient, uri, null, cancellationToken);
 
     /// <summary>Opens the document at a path.</summary>
     /// <param name="path">The file.</param>
@@ -326,7 +333,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         CancellationTokenSource operation = Enter(cancellationToken);
         try
         {
-            await LoadPageAsync(pageIndex, operation.Token).ConfigureAwait(false);
+            await ReadPageAsync(pageIndex, operation.Token).ConfigureAwait(false);
             TryGetPageMetrics(pageIndex, out metrics);
             return metrics;
         }
@@ -352,7 +359,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         CancellationTokenSource operation = Enter(cancellationToken);
         try
         {
-            PdfPage page = await LoadPageAsync(pageIndex, operation.Token).ConfigureAwait(false);
+            PdfPage page = await ReadPageAsync(pageIndex, operation.Token).ConfigureAwait(false);
             return await BuildAsync(pageIndex, page, layers, operation.Token).ConfigureAwait(false);
         }
         finally
@@ -373,7 +380,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         CancellationTokenSource operation = Enter(cancellationToken);
         try
         {
-            PdfPage page = await LoadPageAsync(pageIndex, operation.Token).ConfigureAwait(false);
+            PdfPage page = await ReadPageAsync(pageIndex, operation.Token).ConfigureAwait(false);
             PixelRectangle region = new RenderOptions().WithScale(scale).WithRotation(rotation).GetPixelRectangle(page);
             return new Tile(pageIndex, scale, region) { Rotation = rotation };
         }
@@ -409,7 +416,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         ITileBackend? backend = null;
         try
         {
-            PdfPage page = await LoadPageAsync(tile.PageIndex, token).ConfigureAwait(true);
+            PdfPage page = await ReadPageAsync(tile.PageIndex, token).ConfigureAwait(true);
             DisplayList list = await BuildAsync(tile.PageIndex, page, tile.Layers, token).ConfigureAwait(true);
             Matrix transform = await GetTileTransformAsync(page, tile, token).ConfigureAwait(true);
             if (list.OperationCount == 0 && (tile.Layers & DisplayLayers.Content) == 0 && surface is IEmptyTileSink empty)
@@ -655,7 +662,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         }
     }
 
-    internal async ValueTask<PdfPage> LoadPageAsync(int pageIndex, CancellationToken token)
+    internal async ValueTask<PdfPage> ReadPageAsync(int pageIndex, CancellationToken token)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, PageCount);
@@ -706,7 +713,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     }
 
     // The lambdas live in methods of their own: a lambda that captures a parameter makes the compiler allocate its closure on every
-    // call of the method that declares the parameter, so LoadPageAsync and BuildCoreAsync would allocate even in cooperative mode.
+    // call of the method that declares the parameter, so ReadPageAsync and BuildCoreAsync would allocate even in cooperative mode.
     private Task<(PdfPage, PageMetrics)> ReadPageAsync(DocumentGate reads, int pageIndex, CancellationToken token) =>
         reads.ReadAsync(
             _ =>

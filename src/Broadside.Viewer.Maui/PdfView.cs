@@ -240,10 +240,11 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
     public void ScrollBy(double deltaX, double deltaY) => HandleScroll(deltaX, deltaY, InputModifiers.None, Width / 2, Height / 2);
 
     /// <summary>Copies the selected text to the clipboard.</summary>
+    /// <param name="cancellationToken">Stops waiting for the selection's pages to load; nothing is copied then.</param>
     /// <returns>The copied text, or null when nothing is selected or the document closed before the selection's pages loaded.</returns>
-    public async Task<string?> CopySelectionAsync()
+    public async Task<string?> CopySelectionAsync(CancellationToken cancellationToken = default)
     {
-        string? text = await _controller.GetSelectedTextAsync().ConfigureAwait(true);
+        string? text = await _controller.GetSelectedTextAsync().WaitAsync(cancellationToken).ConfigureAwait(true);
         if (!string.IsNullOrEmpty(text))
         {
             await Clipboard.Default.SetTextAsync(text).ConfigureAwait(true);

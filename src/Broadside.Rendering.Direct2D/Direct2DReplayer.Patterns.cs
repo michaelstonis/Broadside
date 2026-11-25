@@ -15,7 +15,7 @@ namespace Broadside.Rendering.Direct2D;
 /// lattice is laid out like the software rasterizer's. A lattice Direct2D can repeat exactly (whole-pixel steps, or rotated) is a
 /// wrapping bitmap brush; an upright lattice with fractional steps draws each tile at its rounded pixel position under the clip.
 /// </summary>
-internal sealed unsafe partial class Direct2DBackend
+internal sealed unsafe partial class Direct2DReplayer
 {
     private const int MaxPatternDepth = 8;
 
@@ -31,19 +31,19 @@ internal sealed unsafe partial class Direct2DBackend
         "The Direct2D backend drew a tiling pattern only in part (ISO 32000-2 §8.7.3.1): its cells nest more deeply than it draws, " +
         "overlap their neighbours more often than it repeats them, or are too large or too many to draw; the parts left out were not drawn.");
 
-    private readonly Direct2DBackend? _owner;
+    private readonly Direct2DReplayer? _owner;
     private readonly int _patternDepth;
     private ConditionalWeakTable<DisplayList, Tile> _tiles = [];
-    private Direct2DBackend? _cellBackend;
+    private Direct2DReplayer? _cellBackend;
 
-    public Direct2DBackend()
+    public Direct2DReplayer()
     {
         Diagnostics = new ReadOnlyCollection<Diagnostic>(_diagnostics);
         _images = new ImageCache();
         _shadings = new ShadingCache();
     }
 
-    private Direct2DBackend(Direct2DBackend owner, int patternDepth)
+    private Direct2DReplayer(Direct2DReplayer owner, int patternDepth)
     {
         Diagnostics = new ReadOnlyCollection<Diagnostic>(_diagnostics);
         _owner = owner;
@@ -282,7 +282,7 @@ internal sealed unsafe partial class Direct2DBackend
         };
         ID2D1Bitmap1* bitmap;
         context->CreateBitmap(new D2D_SIZE_U { width = (uint)w, height = (uint)h }, null, 0, &properties, &bitmap);
-        Direct2DBackend cell = _cellBackend ??= new Direct2DBackend(_owner ?? this, _patternDepth + 1);
+        Direct2DReplayer cell = _cellBackend ??= new Direct2DReplayer(_owner ?? this, _patternDepth + 1);
         cell.ForceOutlines = ForceOutlines;
         HRESULT result;
         context->SetTarget((ID2D1Image*)bitmap);

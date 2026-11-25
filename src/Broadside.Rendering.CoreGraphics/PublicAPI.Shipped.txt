@@ -1,0 +1,21 @@
+#nullable enable
+Broadside.Rendering.CoreGraphics.CoreGraphicsBackend
+Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.CoreGraphicsBackend() -> void
+Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.Dispose() -> void
+Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.Render(Broadside.PdfPage! page, CoreGraphics.CGBitmapContext! target, Broadside.Rendering.RenderOptions! options) -> void
+Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.Render(Broadside.Rendering.DisplayList! list, CoreGraphics.CGContext! context, in Broadside.Graphics.Matrix deviceTransform) -> void
+Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.Render(Broadside.Rendering.DisplayList! list, CoreGraphics.CGContext! context, in Broadside.Graphics.Matrix deviceTransform, bool forceOutlines) -> void
+Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.ImageSamplesPerPixel.get -> double
+Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.ImageSamplesPerPixel.set -> void
+Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.ScaledImageDecode.get -> bool
+Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.ScaledImageDecode.set -> void
+Broadside.Rendering.CoreGraphics.CoreGraphicsBackend.PrefetchImagesAsync(Broadside.Rendering.DisplayList! list, in Broadside.Graphics.Matrix deviceTransform, int width, int height, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Broadside.Rendering.CoreGraphics.ImageIODecoder
+Broadside.Rendering.CoreGraphics.ImageIODecoder.CanDecode(in Broadside.Images.PlatformImageRequest request) -> bool
+Broadside.Rendering.CoreGraphics.ImageIODecoder.DecodeAsync(System.ReadOnlyMemory<byte> encoded, Broadside.Images.PlatformImageRequest request, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Broadside.Images.DecodedImage?>
+Broadside.Rendering.CoreGraphics.ImageIODecoder.Features.get -> Broadside.Images.PlatformImageFeatures
+Broadside.Rendering.CoreGraphics.ImageIODecoder.Fidelity.get -> Broadside.Images.PlatformImageFidelity
+Broadside.Rendering.CoreGraphics.ImageIODecoder.Name.get -> string!
+const Broadside.Rendering.CoreGraphics.ImageIODecoder.DecoderName = "imageio" -> string!
+static Broadside.Rendering.CoreGraphics.ImageIODecoder.Shared.get -> Broadside.Rendering.CoreGraphics.ImageIODecoder!

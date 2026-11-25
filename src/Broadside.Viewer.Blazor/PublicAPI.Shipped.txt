@@ -1,1 +1,102 @@
 #nullable enable
+Broadside.Viewer.Blazor.PdfViewer
+Broadside.Viewer.Blazor.PdfViewer.AllowAnnotationEditing.get -> bool
+Broadside.Viewer.Blazor.PdfViewer.AllowAnnotationEditing.set -> void
+Broadside.Viewer.Blazor.PdfViewer.Annotations.get -> Broadside.Viewer.AnnotationLayer?
+Broadside.Viewer.Blazor.PdfViewer.Class.get -> string?
+Broadside.Viewer.Blazor.PdfViewer.Class.set -> void
+Broadside.Viewer.Blazor.PdfViewer.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Broadside.Viewer.Blazor.PdfViewer.GoToPage(int pageIndex) -> void
+Broadside.Viewer.Blazor.PdfViewer.HttpClient.get -> System.Net.Http.HttpClient?
+Broadside.Viewer.Blazor.PdfViewer.HttpClient.set -> void
+Broadside.Viewer.Blazor.PdfViewer.Label.get -> string?
+Broadside.Viewer.Blazor.PdfViewer.Label.set -> void
+Broadside.Viewer.Blazor.PdfViewer.LayoutOptions.get -> Broadside.Viewer.PageLayoutOptions?
+Broadside.Viewer.Blazor.PdfViewer.LayoutOptions.set -> void
+Broadside.Viewer.Blazor.PdfViewer.NextPage() -> void
+Broadside.Viewer.Blazor.PdfViewer.OnAction.get -> Microsoft.AspNetCore.Components.EventCallback<Broadside.Viewer.ViewerActionEventArgs!>
+Broadside.Viewer.Blazor.PdfViewer.OnAction.set -> void
+Broadside.Viewer.Blazor.PdfViewer.OnError.get -> Microsoft.AspNetCore.Components.EventCallback<System.Exception!>
+Broadside.Viewer.Blazor.PdfViewer.OnError.set -> void
+Broadside.Viewer.Blazor.PdfViewer.OnStateChanged.get -> Microsoft.AspNetCore.Components.EventCallback<Broadside.Viewer.Blazor.PdfViewerState>
+Broadside.Viewer.Blazor.PdfViewer.OnStateChanged.set -> void
+Broadside.Viewer.Blazor.PdfViewer.Options.get -> Broadside.Viewer.ViewerOptions?
+Broadside.Viewer.Blazor.PdfViewer.Options.set -> void
+Broadside.Viewer.Blazor.PdfViewer.PdfViewer() -> void
+Broadside.Viewer.Blazor.PdfViewer.PreviousPage() -> void
+Broadside.Viewer.Blazor.PdfViewer.Reveal(int pageIndex, Broadside.PdfRectangle area) -> void
+Broadside.Viewer.Blazor.PdfViewer.Selection.get -> Broadside.Viewer.TextSelection?
+Broadside.Viewer.Blazor.PdfViewer.Session.get -> Broadside.Viewer.DocumentSession?
+Broadside.Viewer.Blazor.PdfViewer.Session.set -> void
+Broadside.Viewer.Blazor.PdfViewer.ShowAnnotations.get -> bool
+Broadside.Viewer.Blazor.PdfViewer.ShowAnnotations.set -> void
+Broadside.Viewer.Blazor.PdfViewer.Source.get -> System.Uri?
+Broadside.Viewer.Blazor.PdfViewer.Source.set -> void
+Broadside.Viewer.Blazor.PdfViewer.State.get -> Broadside.Viewer.Blazor.PdfViewerState
+Broadside.Viewer.Blazor.PdfViewer.ZoomBy(double factor) -> void
+Broadside.Viewer.Blazor.PdfViewer.ZoomTo(Broadside.Viewer.ZoomMode mode) -> void
+Broadside.Viewer.Blazor.PdfViewerState
+Broadside.Viewer.Blazor.PdfViewerState.IsLoading.get -> bool
+Broadside.Viewer.Blazor.PdfViewerState.IsLoading.init -> void
+Broadside.Viewer.Blazor.PdfViewerState.PageCount.get -> int
+Broadside.Viewer.Blazor.PdfViewerState.PageCount.init -> void
+Broadside.Viewer.Blazor.PdfViewerState.PageIndex.get -> int
+Broadside.Viewer.Blazor.PdfViewerState.PageIndex.init -> void
+Broadside.Viewer.Blazor.PdfViewerState.PdfViewerState() -> void
+Broadside.Viewer.Blazor.PdfViewerState.PdfViewerState(int PageIndex, int PageCount, double Zoom, bool IsLoading) -> void
+Broadside.Viewer.Blazor.PdfViewerState.Zoom.get -> double
+Broadside.Viewer.Blazor.PdfViewerState.Zoom.init -> void
+Broadside.Viewer.Blazor.PdfViewer.Redraw() -> void
+Broadside.Viewer.Blazor.PdfViewer.TileObserver.get -> System.Action<Broadside.Viewer.TileSchedulerEvent>?
+Broadside.Viewer.Blazor.PdfViewer.TileObserver.set -> void
+Broadside.Viewer.Blazor.WebGLTileBackend
+Broadside.Viewer.Blazor.WebGLTileBackend.Begin(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, System.Threading.CancellationToken cancellationToken) -> Broadside.Viewer.ITileRender!
+Broadside.Viewer.Blazor.WebGLTileBackend.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+Broadside.Viewer.Blazor.WebGLTileBackend.Dispose() -> void
+Broadside.Viewer.Blazor.WebGLTileBackend.WebGLTileBackend() -> void
+static Broadside.Viewer.Blazor.WebGLTileBackend.Create() -> Broadside.Viewer.ITileBackend!
+static Broadside.Viewer.Blazor.WebGLTileBackend.InitializeAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+static Broadside.Viewer.Blazor.WebGLTileBackend.IsAvailable.get -> bool
+Broadside.Viewer.Blazor.RenderWorker
+static Broadside.Viewer.Blazor.RenderWorker.IsRunning.get -> bool
+static Broadside.Viewer.Blazor.RenderWorker.IsWorker.get -> bool
+static Broadside.Viewer.Blazor.RenderWorker.Open(System.ReadOnlySpan<byte> document, Broadside.Rendering.DisplayIntent intent) -> Broadside.Viewer.IRemoteTileRenderer?
+static Broadside.Viewer.Blazor.RenderWorker.Open(System.Uri! address, Broadside.Rendering.DisplayIntent intent) -> Broadside.Viewer.IRemoteTileRenderer?
+static Broadside.Viewer.Blazor.RenderWorker.Open(System.ReadOnlySpan<byte> document, Broadside.Viewer.ViewerOptions! options) -> Broadside.Viewer.IRemoteTileRenderer?
+static Broadside.Viewer.Blazor.RenderWorker.Open(System.Uri! address, Broadside.Viewer.ViewerOptions! options) -> Broadside.Viewer.IRemoteTileRenderer?
+static Broadside.Viewer.Blazor.RenderWorker.Serve(System.Func<Broadside.PdfEngine!>! engine) -> void
+static Broadside.Viewer.Blazor.RenderWorker.StartAsync(System.TimeSpan? timeout = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Broadside.Viewer.Blazor.BrowserImageDecoder
+Broadside.Viewer.Blazor.BrowserImageDecoder.BrowserImageDecoder(Broadside.Viewer.Blazor.BrowserImageDecoderOptions? options = null) -> void
+Broadside.Viewer.Blazor.BrowserImageDecoder.CanDecode(in Broadside.Images.PlatformImageRequest request) -> bool
+Broadside.Viewer.Blazor.BrowserImageDecoder.DecodeAsync(System.ReadOnlyMemory<byte> encoded, Broadside.Images.PlatformImageRequest request, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Broadside.Images.DecodedImage?>
+Broadside.Viewer.Blazor.BrowserImageDecoder.Description.get -> string!
+Broadside.Viewer.Blazor.BrowserImageDecoder.Features.get -> Broadside.Images.PlatformImageFeatures
+Broadside.Viewer.Blazor.BrowserImageDecoder.Fidelity.get -> Broadside.Images.PlatformImageFidelity
+Broadside.Viewer.Blazor.BrowserImageDecoder.IsAvailable.get -> bool
+Broadside.Viewer.Blazor.BrowserImageDecoder.Name.get -> string!
+Broadside.Viewer.Blazor.BrowserImageDecoderExtensions
+Broadside.Viewer.Blazor.BrowserImageDecoderOptions
+Broadside.Viewer.Blazor.BrowserImageDecoderOptions.BrowserImageDecoderOptions() -> void
+Broadside.Viewer.Blazor.BrowserImageDecoderOptions.UseImageBitmapInWorker.get -> bool
+Broadside.Viewer.Blazor.BrowserImageDecoderOptions.UseImageBitmapInWorker.set -> void
+Broadside.Viewer.Blazor.BrowserImageDecoderOptions.UseImageBitmapOnPage.get -> bool
+Broadside.Viewer.Blazor.BrowserImageDecoderOptions.UseImageBitmapOnPage.set -> void
+Broadside.Viewer.Blazor.BrowserImageDecoderOptions.UseWebCodecs.get -> bool
+Broadside.Viewer.Blazor.BrowserImageDecoderOptions.UseWebCodecs.set -> void
+Broadside.Viewer.Blazor.BrowserImageDecoderOptions.WithImageBitmapInWorker(bool enabled) -> Broadside.Viewer.Blazor.BrowserImageDecoderOptions!
+Broadside.Viewer.Blazor.BrowserImageDecoderOptions.WithImageBitmapOnPage(bool enabled) -> Broadside.Viewer.Blazor.BrowserImageDecoderOptions!
+Broadside.Viewer.Blazor.BrowserImageDecoderOptions.WithWebCodecs(bool enabled) -> Broadside.Viewer.Blazor.BrowserImageDecoderOptions!
+Broadside.Viewer.Blazor.WebGLTileBackend.PrefetchImagesAsync(Broadside.Rendering.DisplayList! list, in Broadside.Graphics.Matrix deviceTransform, int width, int height, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+const Broadside.Viewer.Blazor.BrowserImageDecoder.DecoderName = "browser" -> string!
+static Broadside.Viewer.Blazor.BrowserImageDecoder.InitializeAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+static Broadside.Viewer.Blazor.BrowserImageDecoder.Shared.get -> Broadside.Viewer.Blazor.BrowserImageDecoder!
+static Broadside.Viewer.Blazor.BrowserImageDecoderExtensions.UseBrowserImageDecoder(this Broadside.PdfOptions! options, Broadside.Viewer.Blazor.BrowserImageDecoderOptions? decoderOptions = null) -> Broadside.PdfOptions!
+Broadside.Viewer.Blazor.WebGLTileBackend.WebGLTileBackend(bool scaledImageDecode, double imageSamplesPerPixel) -> void
+Broadside.Viewer.Blazor.PdfViewer.Search.get -> Broadside.Viewer.DocumentSearch?
+Broadside.Viewer.Blazor.PdfViewer.ColorFilter.get -> Broadside.Rendering.ColorFilter?
+Broadside.Viewer.Blazor.PdfViewer.ColorFilter.set -> void
+Broadside.Viewer.Blazor.PdfViewer.GoTo(Broadside.Viewer.ViewTarget target) -> void
+Broadside.Viewer.Blazor.PdfViewer.Forms.get -> Broadside.Viewer.FormFilling?
+Broadside.Viewer.Blazor.PdfViewer.OnXfaForm.get -> Microsoft.AspNetCore.Components.EventCallback<Broadside.Viewer.XfaFormEventArgs!>
+Broadside.Viewer.Blazor.PdfViewer.OnXfaForm.set -> void

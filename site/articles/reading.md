@@ -348,7 +348,7 @@ Without a container, give the options a logger factory:
 <!-- snippet: samples/guides/ReadingHosted/Program.cs#logger-factory -->
 ```csharp
 using ILoggerFactory loggerFactory = LoggerFactory.Create(logging => logging.AddConsole());
-PdfOptions options = new PdfOptions().WithLoggerFactory(loggerFactory);
+PdfOptions options = new PdfOptions().UseLoggerFactory(loggerFactory);
 using PdfDocument document = PdfDocument.Open("startxref-wrong.pdf", options);
 ```
 <!-- endsnippet -->

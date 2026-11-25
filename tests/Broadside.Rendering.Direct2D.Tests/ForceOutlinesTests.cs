@@ -28,7 +28,7 @@ public sealed class ForceOutlinesTests
     {
         using PdfDocument document = GoldenCorpus.Open(fileName);
         using PdfDocument paths = PdfDocument.Open(OutlinePage.Write(document.Pages[0]));
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
         RenderOptions options = GoldenCorpus.CreateRenderOptions().WithForceOutlines(true);
 
         using Bitmap text = renderer.Render(document.Pages[0], options);

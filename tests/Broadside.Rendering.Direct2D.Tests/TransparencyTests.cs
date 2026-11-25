@@ -23,7 +23,7 @@ public sealed class TransparencyTests
     public void A_transparency_page_matches_its_golden_image(string fileName, int page)
     {
         using PdfDocument document = GoldenCorpus.Open(fileName);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         using Bitmap bitmap = renderer.Render(document.Pages[page], GoldenCorpus.CreateRenderOptions());
 
@@ -40,7 +40,7 @@ public sealed class TransparencyTests
         // pages (the soft mask extgstate-params sets is drawn with them). Page 2's page group is isolated and DeviceCMYK, and its
         // discs multiply. Soft-mask values always come from the software rasterizer.
         using PdfDocument document = GoldenCorpus.Open(fileName);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         using Bitmap bitmap = renderer.Render(document.Pages[page], GoldenCorpus.CreateRenderOptions());
 
@@ -57,7 +57,7 @@ public sealed class TransparencyTests
         RenderOptions options = GoldenCorpus.CreateRenderOptions();
         using var rasterizer = new SoftwareRasterizer();
         using Bitmap expected = rasterizer.Render(page, options);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         using Bitmap actual = renderer.Render(page, options);
 
@@ -74,7 +74,7 @@ public sealed class TransparencyTests
         RenderOptions options = GoldenCorpus.CreateRenderOptions();
         using var rasterizer = new SoftwareRasterizer();
         using Bitmap expected = rasterizer.Render(document.Pages[0], options);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         using Bitmap actual = renderer.Render(document.Pages[0], options);
 
@@ -87,7 +87,7 @@ public sealed class TransparencyTests
     {
         using PdfDocument document = GoldenCorpus.Open("transparency-soft-masks.pdf");
         RenderOptions options = GoldenCorpus.CreateRenderOptions();
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         using Bitmap first = renderer.Render(document.Pages[0], options);
         using Bitmap second = renderer.Render(document.Pages[0], options);
@@ -106,7 +106,7 @@ public sealed class TransparencyTests
         RenderOptions options = GoldenCorpus.CreateRenderOptions();
         using var rasterizer = new SoftwareRasterizer();
         using Bitmap expected = rasterizer.Render(document.Pages[0], options);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         using Bitmap actual = renderer.Render(document.Pages[0], options);
 

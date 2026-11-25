@@ -21,7 +21,7 @@ public static class Renderers
 
     /// <summary>Gets the GPU the WebGL context reports, or why WebGL is not used.</summary>
     public static string Status =>
-        UseWebGL ? WebGLRenderer.Description ?? "WebGL 2" : WebGLRenderer.IsAvailable ? "Software rasterizer (WebGL 2 available)" : "Software rasterizer";
+        UseWebGL ? WebGLBackend.Description ?? "WebGL 2" : WebGLBackend.IsAvailable ? "Software rasterizer (WebGL 2 available)" : "Software rasterizer";
 
     /// <summary>Selects the renderer; false when WebGL was asked for and is not available.</summary>
     public static async Task<bool> SetAsync(bool webgl)
@@ -185,10 +185,10 @@ public static partial class RenderStats
         json.Append(CultureInfo.InvariantCulture, $",\"meanTile\":{(sorted.Length == 0 ? 0 : sorted.Average()):0.###}");
         json.Append(CultureInfo.InvariantCulture, $",\"p95Tile\":{Percentile(sorted, 0.95):0.###},\"maxTile\":{(sorted.Length == 0 ? 0 : sorted[^1]):0.###}");
         json.Append(CultureInfo.InvariantCulture, $",\"firstSharp\":{FirstSharp:0.###},\"fallbackTiles\":{FallbackTiles}");
-        json.Append(CultureInfo.InvariantCulture, $",\"managedBytes\":{GC.GetTotalMemory(false)},\"textureBytes\":{WebGLRenderer.TextureBytes}");
+        json.Append(CultureInfo.InvariantCulture, $",\"managedBytes\":{GC.GetTotalMemory(false)},\"textureBytes\":{WebGLBackend.TextureBytes}");
         json.Append(",\"fallbacks\":{");
         json.AppendJoin(',', Fallbacks.Select(static pair => $"\"{pair.Key}\":{pair.Value.ToString(CultureInfo.InvariantCulture)}"));
-        json.Append(CultureInfo.InvariantCulture, $"}},\"gpu\":\"{(WebGLRenderer.Description ?? "").Replace("\"", "'", StringComparison.Ordinal)}\"}}");
+        json.Append(CultureInfo.InvariantCulture, $"}},\"gpu\":\"{(WebGLBackend.Description ?? "").Replace("\"", "'", StringComparison.Ordinal)}\"}}");
         return json.ToString();
     }
 
@@ -219,7 +219,7 @@ public static partial class RenderStats
         byte[] bytes = await http.GetByteArrayAsync(new Uri(address)).ConfigureAwait(true);
         if (webgl)
         {
-            await WebGLRenderer.InitializeAsync().ConfigureAwait(true);
+            await WebGLBackend.InitializeAsync().ConfigureAwait(true);
         }
 
         using PdfDocument document = await new PdfEngine(new PdfOptions().UseStandard14Fonts()).OpenAsync(bytes).ConfigureAwait(true);
@@ -231,7 +231,7 @@ public static partial class RenderStats
         string codes = "";
         if (webgl)
         {
-            using var renderer = new WebGLRenderer();
+            using var renderer = new WebGLBackend();
             bitmap = renderer.Render(pdfPage, options);
             codes = string.Join(',', renderer.Diagnostics.Select(static d => d.Code));
         }
@@ -260,7 +260,7 @@ public static partial class RenderStats
     {
         using var http = new HttpClient();
         byte[] bytes = await http.GetByteArrayAsync(new Uri(address)).ConfigureAwait(true);
-        await WebGLRenderer.InitializeAsync().ConfigureAwait(true);
+        await WebGLBackend.InitializeAsync().ConfigureAwait(true);
         using PdfDocument document = await new PdfEngine(new PdfOptions().UseStandard14Fonts()).OpenAsync(bytes).ConfigureAwait(true);
         RenderOptions options = new RenderOptions().WithScale(scale).WithScaledImageDecode(samplesPerPixel >= 1);
         if (samplesPerPixel >= 1)
@@ -268,12 +268,12 @@ public static partial class RenderStats
             options.ImageSamplesPerPixel = samplesPerPixel;
         }
 
-        using var renderer = new WebGLRenderer();
+        using var renderer = new WebGLBackend();
         using Bitmap bitmap = renderer.Render(document.Pages[page], options);
         string codes = string.Join(',', renderer.Diagnostics.Select(static d => d.Code));
         using var png = new MemoryStream();
         bitmap.SavePng(png);
-        return string.Create(CultureInfo.InvariantCulture, $"{WebGLRenderer.TextureBytes};{codes};{Convert.ToBase64String(png.ToArray())}");
+        return string.Create(CultureInfo.InvariantCulture, $"{WebGLBackend.TextureBytes};{codes};{Convert.ToBase64String(png.ToArray())}");
     }
 
     /// <summary>

@@ -979,7 +979,7 @@ internal sealed class ViewerController : IAsyncDisposable
             }
 
             _requested.Add(page.PageIndex);
-            _ = LoadPageAsync(page.PageIndex, _generation);
+            _ = ReadPageAsync(page.PageIndex, _generation);
             start = false;
         }
 
@@ -995,7 +995,7 @@ internal sealed class ViewerController : IAsyncDisposable
         }
     }
 
-    private async Task LoadPageAsync(int pageIndex, int generation)
+    private async Task ReadPageAsync(int pageIndex, int generation)
     {
         // The open document's layers, held here: a document opened while this page loads replaces the fields, and the page index
         // belongs to this document, never to the next one (#358: a late page of a novel reached an 8-page textbook's layers).
@@ -1006,7 +1006,7 @@ internal sealed class ViewerController : IAsyncDisposable
         {
             CancellationToken token = _closing.Token;
             // Links and fields first: they are cheap and make the page interactive; text selection extracts the page's layout (#350).
-            await annotations.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            await annotations.ReadPageAsync(pageIndex, token).ConfigureAwait(true);
 
             // Text selection builds the page's display list and accessibility extracts its layout on this thread, each one long task:
             // with a render worker they wait until the view is still, so a scroll that starts meanwhile is not held up (#357).
@@ -1016,14 +1016,14 @@ internal sealed class ViewerController : IAsyncDisposable
                 return;
             }
 
-            await selection.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            await selection.ReadPageAsync(pageIndex, token).ConfigureAwait(true);
             await SettledAsync(token).ConfigureAwait(true);
             if (generation != _generation)
             {
                 return;
             }
 
-            await bridge.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            await bridge.ReadPageAsync(pageIndex, token).ConfigureAwait(true);
             if (generation == _generation)
             {
                 RefreshAccessiblePages();

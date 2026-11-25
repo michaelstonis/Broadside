@@ -79,7 +79,7 @@ public sealed class TransparencyTests
         RenderOptions options = GoldenCorpus.CreateRenderOptions();
         PdfPage page = document.Pages[0];
         PixelSize size = options.GetPixelSize(page);
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
         using var first = BitmapRendering.CreateContext(size.Width, size.Height, out byte[] firstPixels, out _);
         using var second = BitmapRendering.CreateContext(size.Width, size.Height, out byte[] secondPixels, out _);
 

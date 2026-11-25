@@ -66,7 +66,7 @@ public sealed class CoreGraphicsUndecodableSoftMaskTests
 
         context.FillRect(new CGRect(0, 0, size.Width, size.Height));
         context.ConcatCTM(new CGAffineTransform(1, 0, 0, -1, 0, size.Height));
-        using var renderer = new CoreGraphicsRenderer { ScaledImageDecode = scaled };
+        using var renderer = new CoreGraphicsBackend { ScaledImageDecode = scaled };
         renderer.Render(page.CreateDisplayList(), context, options.GetDeviceTransform(page));
         context.Flush();
         int row = size.Width * 4;

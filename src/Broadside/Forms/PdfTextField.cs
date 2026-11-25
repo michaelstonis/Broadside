@@ -92,7 +92,7 @@ public sealed class PdfTextField : PdfTerminalField
     /// the program.
     /// </para>
     /// <para>
-    /// Appearances are generated as <see cref="GenerateAppearances"/> describes, before anything changes, so a failure leaves the
+    /// Appearances are generated as <see cref="WriteAppearances"/> describes, before anything changes, so a failure leaves the
     /// document as it was. When the form also has an XFA resource (Annex K), only the AcroForm value changes and an
     /// <c>XfaDataNotUpdated</c> information diagnostic is recorded: the XFA datasets keep the old value.
     /// </para>
@@ -154,5 +154,5 @@ public sealed class PdfTextField : PdfTerminalField
     /// that needs it and reduced to the glyphs used when the document is saved. Rich text (<see cref="IsRichText"/>) is shown as plain text.
     /// </para>
     /// </remarks>
-    public void GenerateAppearances() => TextFieldAppearance.Build(this, Value).Apply();
+    public void WriteAppearances() => TextFieldAppearance.Build(this, Value).Apply();
 }

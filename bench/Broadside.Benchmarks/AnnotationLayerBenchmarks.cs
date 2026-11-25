@@ -27,9 +27,9 @@ public class AnnotationLayerBenchmarks
         _session = DocumentSession.Open(AnnotationSamples.Grid());
         _layout = PageLayout.CreateAsync(_session).AsTask().GetAwaiter().GetResult();
         _hover = new AnnotationLayer(_session);
-        _hover.LoadPageAsync(0).AsTask().GetAwaiter().GetResult();
+        _hover.ReadPageAsync(0).AsTask().GetAwaiter().GetResult();
         _drag = new AnnotationLayer(_session);
-        _drag.LoadPageAsync(0).AsTask().GetAwaiter().GetResult();
+        _drag.ReadPageAsync(0).AsTask().GetAwaiter().GetResult();
         _drag.PointerDown(new PagePoint(0, 100, 30));
     }
 

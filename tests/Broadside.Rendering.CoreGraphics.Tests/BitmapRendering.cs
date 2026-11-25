@@ -3,7 +3,7 @@ using CoreGraphics;
 
 namespace Broadside.Rendering.CoreGraphics.Tests;
 
-/// <summary>Renders a page through <see cref="CoreGraphicsRenderer"/> into a CoreGraphics bitmap context and hands its pixels over.</summary>
+/// <summary>Renders a page through <see cref="CoreGraphicsBackend"/> into a CoreGraphics bitmap context and hands its pixels over.</summary>
 internal static class BitmapRendering
 {
     /// <summary>Premultiplied BGRA in memory order: 32-bit little-endian words with alpha first, as Apple's own bitmaps.</summary>
@@ -14,7 +14,7 @@ internal static class BitmapRendering
     {
         PixelSize size = options.GetPixelSize(page);
         using var context = CreateContext(size.Width, size.Height, out byte[] pixels, out int stride);
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
         renderer.Render(page, context, options);
         context.Flush();
         return GoldenImage.FromPixels(pixels, size.Width, size.Height, stride, GoldenPixelFormat.Bgra8Premultiplied);

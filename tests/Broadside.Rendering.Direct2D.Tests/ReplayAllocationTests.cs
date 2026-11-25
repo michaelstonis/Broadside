@@ -133,7 +133,7 @@ public sealed class ReplayAllocationTests
         PixelSize size = options.GetPixelSize(page);
         Matrix device = options.GetDeviceTransform(page);
         using var bitmap = new Bitmap(size.Width, size.Height);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
         Action render = () => renderer.Render(list, bitmap, device, options.ForceOutlines);
 
         long allocated = Allocations.Measure(render, warmUpCalls: 5);

@@ -20,7 +20,7 @@ public sealed class ImageCacheTests
         using PdfDocument document = PdfDocument.Open(RepeatedImage(paints: 5, size: 8));
         DisplayList list = document.Pages[0].CreateDisplayList(DisplayLayers.Content);
         using CGBitmapContext context = Flipped(612, 792);
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
         Matrix device = new RenderOptions().GetDeviceTransform(document.Pages[0]);
         renderer.Render(list, context, device);
         Assert.Equal(1, renderer.ImagesCreated);
@@ -69,7 +69,7 @@ public sealed class ImageCacheTests
         using PdfDocument document = GoldenCorpus.Open(fileName);
         DisplayList list = document.Pages[0].CreateDisplayList(DisplayLayers.Content);
         using CGBitmapContext context = Flipped(1300, 1700);
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
         Matrix at72 = new RenderOptions().GetDeviceTransform(document.Pages[0]);
         Matrix at144 = new RenderOptions().WithDpi(144).GetDeviceTransform(document.Pages[0]);
         renderer.Render(list, context, at72);
@@ -95,7 +95,7 @@ public sealed class ImageCacheTests
     {
         PixelSize size = options.GetPixelSize(page);
         using CGBitmapContext context = BitmapRendering.CreateContext(size.Width, size.Height, out byte[] pixels, out int stride);
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
         renderer.Render(page, context, options);
         context.Flush();
         created = renderer.ImagesCreated;

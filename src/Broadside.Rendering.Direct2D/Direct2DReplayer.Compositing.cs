@@ -6,7 +6,7 @@ using Windows.Win32.Graphics.Direct2D.Common;
 namespace Broadside.Rendering.Direct2D;
 
 /// <summary>Constant alpha, blend modes and annotations (ISO 32000-2 §11.3.5, §11.6.4.4, §12.5.5) on Direct2D.</summary>
-internal sealed unsafe partial class Direct2DBackend
+internal sealed unsafe partial class Direct2DReplayer
 {
     private Compositing _compositing = Compositing.Initial;
     private Compositing[] _savedCompositing = new Compositing[16];

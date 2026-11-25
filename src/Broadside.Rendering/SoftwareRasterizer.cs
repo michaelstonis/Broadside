@@ -134,7 +134,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// Viewer capability 2 (issue #97). The display list is built here, at once (cancellable, reporting progress from 0 to 0.5); the
     /// slices draw it, reporting from 0.5 to 1. To keep a long build off a thread that must not block, build the list elsewhere
     /// (<see cref="PdfPage.CreateDisplayList(ContentOptions)"/>) and use
-    /// <see cref="BeginRender(DisplayList, Bitmap, in Matrix, CancellationToken, IProgress{double})"/>.
+    /// <see cref="BeginRender(DisplayList, Bitmap, in Matrix, IProgress{double}, CancellationToken)"/>.
     /// </remarks>
     public ProgressiveRender BeginRender(PdfPage page, Bitmap target, RenderOptions options)
     {
@@ -156,12 +156,12 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// <param name="list">The display list.</param>
     /// <param name="target">The bitmap; drawing is clipped to it.</param>
     /// <param name="deviceTransform">The transform from the list's default user space to the bitmap's pixels, as for <see cref="Render(DisplayList, Bitmap, in Matrix)"/>.</param>
+    /// <param name="progress">Receives the share of the list's operations drawn so far, from 0 to 1 (see <see cref="DisplayList.BeginReplay(IRenderingBackend, IProgress{double}, CancellationToken)"/>), or <see langword="null"/>.</param>
     /// <param name="cancellationToken">Cancels the render before its next operation.</param>
-    /// <param name="progress">Receives the share of the list's operations drawn so far, from 0 to 1 (see <see cref="DisplayList.BeginReplay(IRenderingBackend, CancellationToken, IProgress{double})"/>), or <see langword="null"/>.</param>
     /// <returns>The render, with nothing drawn yet. Continue it to the end, or dispose it.</returns>
     /// <exception cref="InvalidOperationException">Another progressive render of this rasterizer has not ended.</exception>
     /// <remarks>Viewer capability 2 (issue #97). Continued to the end, it draws exactly what <see cref="Render(DisplayList, Bitmap, in Matrix)"/> draws.</remarks>
-    public ProgressiveRender BeginRender(DisplayList list, Bitmap target, in Matrix deviceTransform, CancellationToken cancellationToken, IProgress<double>? progress)
+    public ProgressiveRender BeginRender(DisplayList list, Bitmap target, in Matrix deviceTransform, IProgress<double>? progress, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
@@ -299,7 +299,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
     /// <summary>
     /// Gets or sets a value indicating whether the renders of a display list given to this rasterizer
-    /// (<see cref="Render(DisplayList, Bitmap, in Matrix)"/> and <see cref="BeginRender(DisplayList, Bitmap, in Matrix, CancellationToken, IProgress{double})"/>)
+    /// (<see cref="Render(DisplayList, Bitmap, in Matrix)"/> and <see cref="BeginRender(DisplayList, Bitmap, in Matrix, IProgress{double}, CancellationToken)"/>)
     /// decode images at the resolution they are drawn at rather than their own; <see langword="false"/> by default. Page renders
     /// take <see cref="RenderOptions.ScaledImageDecode"/> instead.
     /// </summary>
@@ -309,7 +309,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// <summary>
     /// Gets or sets the color filter the renders of a display list given to this rasterizer apply when they finish
     /// (<see cref="Render(DisplayList, Bitmap, in Matrix)"/> and
-    /// <see cref="BeginRender(DisplayList, Bitmap, in Matrix, CancellationToken, IProgress{double})"/>);
+    /// <see cref="BeginRender(DisplayList, Bitmap, in Matrix, IProgress{double}, CancellationToken)"/>);
     /// <see cref="Rendering.ColorFilter.None"/> by default. Page renders take <see cref="RenderOptions.ColorFilter"/> instead.
     /// </summary>
     /// <remarks>
@@ -325,7 +325,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// <summary>
     /// Gets or sets how the renders of a display list given to this rasterizer
     /// (<see cref="Render(DisplayList, Bitmap, in Matrix)"/> and
-    /// <see cref="BeginRender(DisplayList, Bitmap, in Matrix, CancellationToken, IProgress{double})"/>) position filled glyphs;
+    /// <see cref="BeginRender(DisplayList, Bitmap, in Matrix, IProgress{double}, CancellationToken)"/>) position filled glyphs;
     /// <see cref="Rendering.GlyphPositioning.Quantized"/> by default. Page renders take <see cref="RenderOptions.GlyphPositioning"/> instead.
     /// </summary>
     /// <remarks>See <see cref="Rendering.GlyphPositioning"/>. ISO 32000-2 §9.4.4 and §10.7.4.</remarks>
@@ -410,7 +410,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// Has the engine's platform image decoders decode the images that a render of <paramref name="list"/> into a
     /// <paramref name="width"/> × <paramref name="height"/> bitmap under <paramref name="deviceTransform"/> will draw, at the
     /// reductions this rasterizer will ask for (<see cref="ScaledImageDecode"/>, <see cref="ImageSamplesPerPixel"/>): the
-    /// asynchronous step to await before <see cref="BeginRender(DisplayList, Bitmap, in Matrix, CancellationToken, IProgress{double})"/>.
+    /// asynchronous step to await before <see cref="BeginRender(DisplayList, Bitmap, in Matrix, IProgress{double}, CancellationToken)"/>.
     /// </summary>
     /// <param name="list">The display list to be rendered.</param>
     /// <param name="deviceTransform">The transform the render will use.</param>
@@ -483,8 +483,8 @@ public sealed partial class SoftwareRasterizer : IDisposable
         PdfRectangle region = default;
         bool culled = cull && TryGetRegion(device, width, height, out region);
         DisplayListReplay replay = culled
-            ? list.BeginReplay(_backend, region, cancellationToken, progress)
-            : list.BeginReplay(_backend, cancellationToken, progress);
+            ? list.BeginReplay(_backend, region, progress, cancellationToken)
+            : list.BeginReplay(_backend, progress, cancellationToken);
         _backend.BeginPreparation(list, culled ? region : null);
         _progressive = replay;
         return new ProgressiveRender(this, replay, target);
@@ -516,11 +516,11 @@ public sealed partial class SoftwareRasterizer : IDisposable
             else if (culled)
             {
                 // A cancellable or reported replay of a region: one slice without a deadline.
-                ProgressiveReplay(list.BeginReplay(_backend, region, cancellationToken, progress));
+                ProgressiveReplay(list.BeginReplay(_backend, region, progress, cancellationToken));
             }
             else
             {
-                list.Replay(_backend, cancellationToken, progress);
+                list.Replay(_backend, progress, cancellationToken);
             }
 
             _backend.FinishPreview();

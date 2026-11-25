@@ -101,7 +101,7 @@ public sealed class ReplayAllocationTests
         Matrix device = options.GetDeviceTransform(page);
         using CGBitmapContext context = BitmapRendering.CreateContext(size.Width, size.Height, out byte[] pixels, out _);
         context.ConcatCTM(new CGAffineTransform(1, 0, 0, -1, 0, size.Height));
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
         Action render = () => renderer.Render(list, context, device, forceOutlines);
 
         long allocated = Allocations.Measure(render, warmUpCalls: 5);

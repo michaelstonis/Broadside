@@ -102,7 +102,7 @@ public sealed class PdfOutlinePanel : ContentView
         DocumentOutline outline;
         try
         {
-            outline = await DocumentOutline.LoadAsync(session).ConfigureAwait(true);
+            outline = await DocumentOutline.ReadAsync(session).ConfigureAwait(true);
         }
         catch (Exception exception) when (exception is OperationCanceledException or ObjectDisposedException)
         {

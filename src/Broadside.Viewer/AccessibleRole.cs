@@ -7,7 +7,7 @@ namespace Broadside.Viewer;
 /// <remarks>
 /// ISO 32000-2 §14.8.4 (standard structure types), Spec #33 viewer capability 8. Content roles come from the
 /// <see cref="Broadside.Layout.LayoutNodeKind"/> of the page's layout tree; control roles come from an
-/// <see cref="IAccessibleElementProvider"/>.
+/// <see cref="IAccessibleElementSource"/>.
 /// </remarks>
 public enum AccessibleRole
 {

@@ -253,9 +253,9 @@ public sealed class DocumentSessionTests
         var options = new ViewerOptions().WithThreading(ViewerThreading.Cooperative).UseEngine(new PdfEngine(new PdfOptions().WithSynchronousRangeFetch(false)));
         await using DocumentSession session = await DocumentSession.OpenAsync(client, new Uri("https://example.test/many.pdf"), options, Token);
 
-        await new AnnotationLayer(session).LoadPageAsync(pageIndex, Token);
-        SelectableText text = await new TextSelection(session).LoadPageAsync(pageIndex, Token);
-        AccessibleNode page = await new AccessibilityBridge(session).LoadPageAsync(pageIndex, Token);
+        await new AnnotationLayer(session).ReadPageAsync(pageIndex, Token);
+        SelectableText text = await new TextSelection(session).ReadPageAsync(pageIndex, Token);
+        AccessibleNode page = await new AccessibilityBridge(session).ReadPageAsync(pageIndex, Token);
 
         Assert.True(session.Document.IsLinearized);
         Assert.Equal(pageIndex, session.Document.Pages.IndexOf(text.Page));
@@ -281,14 +281,14 @@ public sealed class DocumentSessionTests
 
         foreach (int pageIndex in TaggedLinearizedFile.StructurePages)
         {
-            AccessibleNode page = await bridge.LoadPageAsync(pageIndex, Token);
-            SelectableText text = await new TextSelection(session).LoadPageAsync(pageIndex, Token);
+            AccessibleNode page = await bridge.ReadPageAsync(pageIndex, Token);
+            SelectableText text = await new TextSelection(session).ReadPageAsync(pageIndex, Token);
             Assert.Equal(pageIndex, page.PageIndex);
             Assert.Equal(pageIndex, session.Document.Pages.IndexOf(text.Page));
         }
 
         // The link on page 1 goes to page 25, which no load has handed out: its page comes from the hints.
-        await layer.LoadPageAsync(0, Token);
+        await layer.ReadPageAsync(0, Token);
         var link = (Annotations.PdfLinkAnnotation)session.Document.Pages[0].Annotations[0];
         Assert.Equal(TaggedLinearizedFile.LinkedPage, Assert.IsType<PdfExplicitDestination>(link.Destination).PageIndex);
         Assert.Empty(session.Document.Diagnostics);
@@ -309,7 +309,7 @@ public sealed class DocumentSessionTests
         var raised = new List<ViewerActionEventArgs>();
         layer.ActionRequested += (_, e) => raised.Add(e);
 
-        await layer.LoadPageAsync(0, Token);
+        await layer.ReadPageAsync(0, Token);
         layer.Activate(new AnnotationTarget(0, 1));
 
         ViewerActionEventArgs request = Assert.Single(raised);
@@ -329,7 +329,7 @@ public sealed class DocumentSessionTests
         var layer = new AnnotationLayer(session);
         var raised = new TaskCompletionSource<ViewerActionEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
         layer.ActionRequested += (_, e) => raised.TrySetResult(e);
-        await layer.LoadPageAsync(0, Token);
+        await layer.ReadPageAsync(0, Token);
         var target = new AnnotationTarget(0, 1);
 
         // The name object /ten (PDF 1.1) is looked up in the Dests tree by its bytes too (Annex J.3.4).

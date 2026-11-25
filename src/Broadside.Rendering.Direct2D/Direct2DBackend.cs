@@ -1,636 +1,410 @@
 using Broadside.Diagnostics;
 using Broadside.Graphics;
-using Windows.Win32.Graphics.Direct2D;
-using Windows.Win32.Graphics.Direct2D.Common;
+using Windows.Win32.Foundation;
 
 namespace Broadside.Rendering.Direct2D;
 
 /// <summary>
-/// The backend <see cref="Direct2DRenderer"/> replays display lists through: graphics state, path geometry, clips and
-/// colour on a Direct2D device context.
+/// Renders pages and display lists through Direct2D into a <see cref="Bitmap"/> of premultiplied BGRA pixels: a native backend for
+/// Windows that matches the <see cref="SoftwareRasterizer"/> within the golden-image thresholds.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Fills (ISO 32000-2 §8.5.3.3) build a path geometry in user space with the list's curves as Direct2D Bézier segments, every
-/// subpath closed for filling, a trailing lone moveto left out, and fill it with the winding or alternate fill mode under the
-/// current transform times the device transform. A degenerate subpath also paints the device pixel under its point
-/// (§8.5.3.3.1), as the software rasterizer does.
+/// It consumes display lists only, replaying them onto a Direct2D device context over a Direct3D 11 device (the graphics
+/// hardware or WARP, <see cref="Direct2DDeviceType"/>). Fills use the non-zero winding or even-odd rule with every subpath closed
+/// (ISO 32000-2 §8.5.3.3), strokes follow the line parameters with the elliptical pen of a non-uniform transform, dashes, the
+/// thinnest line and stroke adjustment (§8.5.3.2, §8.4.3, §10.7.5), and clips intersect anti-aliased, saved and restored with the
+/// graphics state (§8.5.4). Colours convert to RGB through
+/// <see cref="PdfDocument.GetColorConverter(PdfColorSpace, ColorConversion, PdfDefaultColorSpaces?)"/>, so the engine's colour
+/// management decides them (§8.6, §10). Pages map to pixels as <see cref="RenderOptions"/> says (§8.3.2.3, §7.7.3.3 Table 31,
+/// §14.11.2), the same mapping the software rasterizer uses.
 /// </para>
 /// <para>
-/// Clips (§8.5.4) are pushed on the device context: an axis-aligned anti-aliased clip for a rectangle that stays aligned with the
-/// pixel axes, a layer with an anti-aliased geometric mask for any other path. <see cref="RestoreState"/> pops the clips pushed since
-/// the matching <see cref="SaveState"/>.
+/// Text (ISO 32000-2 §9.4.3, §9.3.6): glyphs of TrueType and OpenType programs are filled by DirectWrite from a font face loaded from
+/// the program's bytes (§9.9), created once per program and renderer; glyphs of every other program, and every glyph when
+/// <see cref="RenderOptions.ForceOutlines"/> is set, are filled from the outlines the display list carries by the non-zero winding
+/// rule (§9.2.4). Stroked text is stroked from the outlines like a path. A TrueType or OpenType program DirectWrite cannot read as
+/// Broadside does draws from its outlines and is reported (<c>BackendNativeGlyphsUnavailable</c>, information).
 /// </para>
 /// <para>
-/// Hot path (CLAUDE.md): working arrays grow by doubling and are kept, the colour converter is cached, and diagnostics are shared
-/// instances, so a warm replay allocates nothing managed per operation. Direct2D's own objects (geometries, stroke styles) are native.
+/// Constant alpha (ISO 32000-2 §11.6.4.4) is the brush colour's alpha. Annotations and form fields (§12.5.5) are placed as the
+/// software rasterizer places them (NoZoom and NoRotate, §12.5.3), clipped to their rectangle and, when translucent, drawn in a layer
+/// with their opacity.
+/// </para>
+/// <para>
+/// Transparency (ISO 32000-2 §11.4, §11.5, §11.6): groups whose content does not blend are Direct2D layers with the group's opacity,
+/// and soft masks are a layer's opacity brush holding the mask values the software rasterizer computes
+/// (<c>BackendSoftMaskRasterized</c>, information). Direct2D's primitive blend is source-over only: knockout groups (§11.4.6) and
+/// isolated groups whose content blends (§11.3.5) are drawn by
+/// <see cref="SoftwareRasterizer.Render(in DisplayGroup, PdfDocument, Bitmap, in Matrix, in Matrix, double, double, BlendMode)"/>
+/// into a bitmap drawn in their place, reported once per kind (<c>BackendKnockoutGroupRasterized</c>,
+/// <c>BackendBlendingGroupRasterized</c>, <c>BackendGroupColorSpaceRasterized</c>, information); a page that blends with its backdrop
+/// in a mode other than Normal (a paint, annotation or group in another blend mode, or a non-isolated group whose content blends) is
+/// drawn whole by the software rasterizer (<c>BackendPageRasterized</c>, information).
+/// </para>
+/// <para>
+/// Images (ISO 32000-2 §8.9): a viewer's renders (<see cref="ScaledImageDecode"/>, <see cref="RenderOptions.ScaledImageDecode"/>)
+/// convert a large image drawn small at a power-of-two reduction of its samples instead of all of them (issue #362), each mask at
+/// its own; other renders convert every sample. An engine with <see cref="WicImageDecoderExtensions.UseWicImageDecoder"/> decodes JPEG
+/// images through Windows Imaging Component when the render's images are prefetched first (<see cref="PrefetchImagesAsync"/>, issue
+/// #377).
+/// </para>
+/// <para>
+/// Color filters (<see cref="RenderOptions.ColorFilter"/>, smart dark mode): a page render with a filter falls back to the software
+/// path: <see cref="SoftwareRasterizer"/> draws the page and the filter into the bitmap, and <see cref="Diagnostics"/> is empty. A
+/// display list drawn into a bitmap is never filtered; a viewer's tile backend draws filtered tiles through the software rasterizer.
+/// </para>
+/// <para>
+/// Reuse one instance for many renders: its device, device context and target bitmaps are created once (the targets again when the
+/// size changes) and released on <see cref="Dispose"/>, and a warm render allocates nothing managed per operation. An instance renders
+/// one page at a time; use one per thread to render in parallel (a document is safe for concurrent renders while nobody changes it).
 /// </para>
 /// </remarks>
-internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
+public sealed class Direct2DBackend : IDisposable
 {
-    private readonly List<Diagnostic> _diagnostics = [];
-    private SkippedOperations _skipped;
+    private static readonly RenderOptions DefaultOptions = new();
+    private static readonly Content.ContentOptions DefaultContentOptions = new();
 
-    private ID2D1Factory1* _factory;
-    private ID2D1DeviceContext* _context;
-    private ID2D1SolidColorBrush* _brush;
-    private Direct2DSurface? _surface;
+    private readonly Direct2DDeviceType _requested;
+    private readonly Direct2DReplayer _backend = new();
+    private readonly DirectWriteFonts _fonts = new();
+    private Direct2DSurface _surface;
+    private SoftwareRasterizer? _rasterizer;
+    private double _imageSamplesPerPixel = RenderOptions.DefaultImageSamplesPerPixel;
+    private bool _disposed;
 
-    // The brush fills and strokes paint with: the solid colour brush, or a gradient or bitmap brush whose own space maps to the device
-    // through _paintToDevice (shadings and tiling patterns).
-    private ID2D1Brush* _paint;
-    private Matrix _paintToDevice;
-
-    // The device pixels drawn into.
-    private D2D_RECT_F _area;
-    private PdfDocument? _document;
-    private Matrix _device;
-    private Matrix _ctm;
-    private Matrix _toDevice;
-
-    private Matrix[] _transforms = new Matrix[16];
-    private int[] _clipMarks = new int[16];
-    private int _depth;
-
-    // The clips pushed on the device context, innermost last: a geometric mask's layer (kept alive until it is popped) or, with no
-    // mask, an axis-aligned clip.
-    private Clip[] _clips = new Clip[16];
-    private int _clipCount;
-
-    // Degenerate subpaths of the fill being built, in user space (§8.5.3.3.1).
-    private PathPoint[] _pixels = new PathPoint[8];
-    private int _pixelCount;
-
-    private PdfColorSpace? _space;
-    private ColorConversion _conversion;
-    private PdfDefaultColorSpaces? _defaults;
-    private PdfColorConverter? _converter;
-
-    [Flags]
-    private enum SkippedOperations
+    /// <summary>Initializes a new instance of the <see cref="Direct2DBackend"/> class on the graphics hardware, or WARP when there is none.</summary>
+    /// <exception cref="System.Runtime.InteropServices.COMException">Direct2D or Direct3D 11 is not available.</exception>
+    public Direct2DBackend()
+        : this(Direct2DDeviceType.Hardware)
     {
-        None = 0,
-        ImageTooLarge = 1,
-        ShadingUnsupported = 2,
-        MeshRasterized = 4,
-        RadialRasterized = 8,
-        TilingApproximated = 16,
-        Groups = 64,
-        SoftMaskRasterized = 128,
-        NativeGlyphs = 256,
-        KnockoutRasterized = 512,
-        ColorSpaceRasterized = 1024,
-        BlendingGroupRasterized = 2048,
     }
 
-    /// <summary>Gets the diagnostics of the last replay: one for each kind of operation the backend skipped or drew another way.</summary>
-    public IReadOnlyList<Diagnostic> Diagnostics { get; }
-
-    /// <summary>Starts a replay onto the surface's device context, which is between <c>BeginDraw</c> and <c>EndDraw</c>.</summary>
-    public void Begin(Direct2DSurface surface, DirectWriteFonts? fonts, PdfDocument document, in Matrix device) =>
-        Begin(surface, surface.Context, surface.Width, surface.Height, fonts, document, device);
-
-    /// <summary>Starts a replay onto <paramref name="context"/>, whose target is <paramref name="width"/> × <paramref name="height"/> pixels.</summary>
-    public void Begin(Direct2DSurface surface, ID2D1DeviceContext* context, int width, int height, DirectWriteFonts? fonts, PdfDocument document, in Matrix device)
+    /// <summary>Initializes a new instance of the <see cref="Direct2DBackend"/> class on the given Direct3D device type.</summary>
+    /// <param name="deviceType">The Direct3D device to draw with; <see cref="Direct2DDeviceType.Hardware"/> falls back to WARP when there is no hardware device.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="deviceType"/> is not a defined value.</exception>
+    /// <exception cref="System.Runtime.InteropServices.COMException">Direct2D or Direct3D 11 is not available.</exception>
+    public Direct2DBackend(Direct2DDeviceType deviceType)
     {
-        _surface = surface;
-        _factory = surface.Factory;
-        _context = context;
-        _brush = surface.Brush;
-        _paint = (ID2D1Brush*)_brush;
-        _area = new D2D_RECT_F { left = 0, top = 0, right = width, bottom = height };
-        _document = document;
-        _device = device;
-        _ctm = Matrix.Identity;
-        _toDevice = device;
-        _depth = 0;
-        _clipCount = 0;
-        _diagnostics.Clear();
-        _skipped = SkippedOperations.None;
-        BeginCompositing();
-        BeginText(fonts);
-        BeginImages(document);
-    }
-
-    /// <summary>Pops every clip still pushed and lets go of the document and the surface.</summary>
-    public void End()
-    {
-        PopClips(0);
-        _document = null;
-        _space = null;
-        _defaults = null;
-        _converter = null;
-        _factory = null;
-        _context = null;
-        _brush = null;
-        _paint = null;
-        _surface = null;
-        _fonts = null;
-        EndStrokes();
-    }
-
-    public void SaveState()
-    {
-        if (_depth == _transforms.Length)
+        if (deviceType is not (Direct2DDeviceType.Hardware or Direct2DDeviceType.Warp))
         {
-            Array.Resize(ref _transforms, _depth * 2);
-            Array.Resize(ref _clipMarks, _depth * 2);
-            Array.Resize(ref _savedCompositing, _depth * 2);
-            Array.Resize(ref _savedMasks, _depth * 2);
+            throw new ArgumentOutOfRangeException(nameof(deviceType), deviceType, "Not a Direct2D device type.");
         }
 
-        _transforms[_depth] = _ctm;
-        _savedCompositing[_depth] = _compositing;
-        _savedMasks[_depth] = _softMask;
-        _clipMarks[_depth] = _clipCount;
-        _depth++;
+        _requested = deviceType;
+        _surface = new Direct2DSurface(deviceType);
     }
 
-    public void RestoreState()
-    {
-        if (_depth == 0)
-        {
-            return;
-        }
-
-        _depth--;
-        PopClips(_clipMarks[_depth]);
-        _compositing = _savedCompositing[_depth];
-        _softMask = _savedMasks[_depth];
-        _savedMasks[_depth] = null;
-        SetTransform(in _transforms[_depth]);
-    }
-
-    public void SetTransform(in Matrix transform)
-    {
-        _ctm = transform;
-        _toDevice = transform * _device;
-    }
-
-    /// <summary>Fills the path with the colour (ISO 32000-2 §8.5.3.3).</summary>
-    private void FillPathCore(PathView path, FillRule rule, in DisplayColor color)
-    {
-        PdfColorConverter converter = Converter(color);
-        if (converter.PaintsNothing || path.IsEmpty || _compositing.FillAlpha == 0)
-        {
-            return;
-        }
-
-        SetColor(converter, color.Components, _compositing.FillAlpha);
-        FillWith(path, rule);
-    }
-
-    /// <summary>Fills the path with the current paint (<see cref="_paint"/>), degenerate subpaths as the device pixel under them.</summary>
-    private void FillWith(PathView path, FillRule rule)
-    {
-        _pixelCount = 0;
-        ID2D1PathGeometry* geometry = CreateFillGeometry(path, rule, collectPixels: true, out bool hasFigures);
-        try
-        {
-            if (hasFigures)
-            {
-                SetWorldTransform(_toDevice);
-                _context->FillGeometry((ID2D1Geometry*)geometry, Paint(_toDevice), null);
-            }
-        }
-        finally
-        {
-            geometry->Release();
-        }
-
-        FillPixels();
-    }
+    /// <summary>Gets the Direct3D device type the backend draws with: <see cref="Direct2DDeviceType.Warp"/> when it asked for hardware and found none.</summary>
+    public Direct2DDeviceType DeviceType => _surface.Driver;
 
     /// <summary>
-    /// Intersects the clip with the inside of the path under the current transform (ISO 32000-2 §8.5.4): a rectangle that stays
-    /// aligned with the pixel axes becomes an axis-aligned clip, any other path a layer with the path as its geometric mask.
+    /// Gets the diagnostics of the last render: one warning, code <c>RenderingOperationSkipped</c>, for each kind of display-list
+    /// operation this backend does not draw yet and left out, and one information entry, code <c>BackendNativeGlyphsUnavailable</c>,
+    /// when glyphs of a TrueType or OpenType program were drawn from their outlines because DirectWrite could not read the program.
     /// </summary>
-    public void IntersectClip(PathView path, FillRule rule)
+    public IReadOnlyList<Diagnostic> Diagnostics => _backend.Diagnostics;
+
+    /// <summary>Renders <paramref name="page"/> at 72 DPI into a new pooled bitmap, on white.</summary>
+    /// <param name="page">The page.</param>
+    /// <returns>The bitmap; dispose it to return its buffer to the pool.</returns>
+    /// <exception cref="ArgumentException">The page needs more pixels than a bitmap or the device can hold.</exception>
+    /// <remarks>ISO 32000-2 §8.3.2.3, §7.7.3.3 Table 31 and §14.11.2 for the page mapping (see <see cref="RenderOptions"/>).</remarks>
+    public Bitmap Render(PdfPage page) => Render(page, DefaultOptions);
+
+    /// <summary>Renders <paramref name="page"/> into a new pooled bitmap of <see cref="RenderOptions.GetPixelSize"/> pixels, on white.</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="options">The scale and rotation.</param>
+    /// <returns>The bitmap; dispose it to return its buffer to the pool.</returns>
+    /// <exception cref="ArgumentException">The page needs more pixels than a bitmap or the device can hold.</exception>
+    /// <remarks>ISO 32000-2 §8.3.2.3, §7.7.3.3 Table 31 and §14.11.2 for the page mapping (see <see cref="RenderOptions"/>).</remarks>
+    public Bitmap Render(PdfPage page, RenderOptions options)
     {
-        if (TryMapRectangle(path, out D2D_RECT_F rectangle))
+        ArgumentNullException.ThrowIfNull(page);
+        ArgumentNullException.ThrowIfNull(options);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (IsFiltered(options))
         {
-            PushRectangle(rectangle);
-            return;
+            _backend.ClearDiagnostics();
+            return Rasterizer.Render(page, options);
         }
 
-        ID2D1PathGeometry* geometry = CreateFillGeometry(path, rule, collectPixels: false, out bool hasFigures);
-        if (!hasFigures)
-        {
-            // A path with no area: nothing is inside the clip any more.
-            geometry->Release();
-            PushRectangle(default);
-            return;
-        }
-
-        var parameters = new D2D1_LAYER_PARAMETERS1
-        {
-            contentBounds = Interop.InfiniteRect,
-            geometricMask = (ID2D1Geometry*)geometry,
-            maskAntialiasMode = D2D1_ANTIALIAS_MODE.D2D1_ANTIALIAS_MODE_PER_PRIMITIVE,
-            maskTransform = Interop.Matrix(_toDevice),
-            opacity = 1,
-            opacityBrush = null,
-            layerOptions = D2D1_LAYER_OPTIONS1.D2D1_LAYER_OPTIONS1_NONE,
-        };
-
-        // The mask carries the whole user-to-device transform, so the world transform is the identity: the mask lands in the same
-        // place whether Direct2D applies the world transform to it or not.
-        SetWorldTransform(Matrix.Identity);
+        PixelSize size = options.GetPixelSize(page);
+        Matrix device = options.GetDeviceTransform(page);
+        DisplayList list = page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions);
+        var bitmap = new Bitmap(size.Width, size.Height);
         try
         {
-            _context->PushLayer(&parameters, null);
+            Draw(list, bitmap, device, size.Width, size.Height, white: true, options.ForceOutlines, PageImageSamples(options));
         }
         catch
         {
-            geometry->Release();
+            bitmap.Dispose();
             throw;
         }
 
-        AddClip(new Clip((ID2D1Geometry*)geometry), GeometryBounds((ID2D1Geometry*)geometry, _toDevice));
-    }
-
-    private static byte Channel(float value) => (byte)((Math.Clamp(value, 0f, 1f) * 255f) + 0.5f);
-
-    private void Skip(SkippedOperations kind, Diagnostic diagnostic)
-    {
-        if ((_skipped & kind) == 0)
-        {
-            _skipped |= kind;
-            Add(diagnostic);
-        }
-    }
-
-    /// <summary>Records <paramref name="diagnostic"/> unless a diagnostic with its code is recorded already (a cell's, merged).</summary>
-    private void Add(Diagnostic diagnostic)
-    {
-        foreach (Diagnostic existing in _diagnostics)
-        {
-            if (existing.Code == diagnostic.Code)
-            {
-                return;
-            }
-        }
-
-        _diagnostics.Add(diagnostic);
+        return bitmap;
     }
 
     /// <summary>
-    /// Returns the current paint for a draw under the world transform <paramref name="world"/>: a pattern brush's transform is set so
-    /// that its space lands on the device through <see cref="_paintToDevice"/>.
+    /// Renders <paramref name="page"/> into the top-left <see cref="RenderOptions.GetPixelSize"/> pixels of <paramref name="target"/>,
+    /// on white; pixels outside that area are left as they are.
     /// </summary>
-    private ID2D1Brush* Paint(in Matrix world)
+    /// <param name="page">The page.</param>
+    /// <param name="target">The bitmap, for example one over caller memory; at least the page's pixel size.</param>
+    /// <param name="options">The scale and rotation.</param>
+    /// <exception cref="ArgumentException"><paramref name="target"/> is smaller than the page's pixel size, or the device cannot hold it.</exception>
+    public void Render(PdfPage page, Bitmap target, RenderOptions options)
     {
-        if (_paint != (ID2D1Brush*)_brush && world.TryInvert(out Matrix inverse))
+        ArgumentNullException.ThrowIfNull(page);
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(options);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        PixelSize size = options.GetPixelSize(page);
+        if (target.Width < size.Width || target.Height < size.Height)
         {
-            D2D_MATRIX_3X2_F transform = Interop.Matrix(_paintToDevice * inverse);
-            _paint->SetTransform(&transform);
+            throw new ArgumentException($"The page needs {size.Width} x {size.Height} pixels; the bitmap has {target.Width} x {target.Height}.", nameof(target));
         }
 
-        return _paint;
-    }
-
-    /// <summary>Gets the device bounds of the current clip within the area drawn.</summary>
-    private D2D_RECT_F ClipBounds => _clipCount == 0 ? _area : _clips[_clipCount - 1].Bounds;
-
-    /// <summary>Returns the device bounds of <paramref name="geometry"/> under <paramref name="transform"/>.</summary>
-    private static D2D_RECT_F GeometryBounds(ID2D1Geometry* geometry, in Matrix transform)
-    {
-        D2D_MATRIX_3X2_F matrix = Interop.Matrix(transform);
-        D2D_RECT_F bounds;
-        geometry->GetBounds(&matrix, &bounds);
-        return bounds;
-    }
-
-    private static D2D_RECT_F Intersect(in D2D_RECT_F a, in D2D_RECT_F b)
-    {
-        var result = new D2D_RECT_F
+        if (IsFiltered(options))
         {
-            left = Math.Max(a.left, b.left),
-            top = Math.Max(a.top, b.top),
-            right = Math.Min(a.right, b.right),
-            bottom = Math.Min(a.bottom, b.bottom),
-        };
-        return result.right > result.left && result.bottom > result.top ? result : default;
-    }
-
-    private void SetWorldTransform(in Matrix transform)
-    {
-        D2D_MATRIX_3X2_F matrix = Interop.Matrix(transform);
-        _context->SetTransform(&matrix);
-    }
-
-    private PdfColorConverter Converter(in DisplayColor color)
-    {
-        if (_converter is null || !ReferenceEquals(_space, color.ColorSpace) || !ReferenceEquals(_defaults, color.DefaultColorSpaces) || _conversion != color.Conversion)
-        {
-            _space = color.ColorSpace;
-            _defaults = color.DefaultColorSpaces;
-            _conversion = color.Conversion;
-            _converter = _document!.GetColorConverter(color.ColorSpace, color.Conversion with { Target = DeviceColorModel.Rgb }, color.DefaultColorSpaces);
+            _backend.ClearDiagnostics();
+            Rasterizer.Render(page, target, options);
+            return;
         }
 
-        return _converter;
+        Draw(page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions), target, options.GetDeviceTransform(page), size.Width, size.Height, white: true, options.ForceOutlines, PageImageSamples(options));
+    }
+
+    /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, without a background.</summary>
+    /// <param name="list">The display list.</param>
+    /// <param name="target">The bitmap; drawing is clipped to it.</param>
+    /// <param name="deviceTransform">
+    /// The transform from the list's default user space to the bitmap's pixels (origin top-left, y down), such as
+    /// <see cref="RenderOptions.GetDeviceTransform"/>; a tile renderer adds its own offset.
+    /// </param>
+    /// <exception cref="ArgumentException">The device cannot hold a bitmap of <paramref name="target"/>'s size.</exception>
+    /// <remarks>ISO 32000-2 §8.3.2.2 (device space).</remarks>
+    public void Render(DisplayList list, Bitmap target, in Matrix deviceTransform)
+    {
+        Render(list, target, deviceTransform, forceOutlines: false);
     }
 
     /// <summary>
-    /// Sets the brush to the colour, rounded to eight bits a channel like the software rasterizer's (§8.6), with
-    /// <paramref name="alpha"/> (the constant alpha, 0 to 255, §11.6.4.4) as its alpha.
+    /// Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, without a background, drawing every glyph
+    /// from its outline when <paramref name="forceOutlines"/> is set.
     /// </summary>
-    private void SetColor(PdfColorConverter converter, ReadOnlySpan<float> components, byte alpha)
+    /// <param name="list">The display list.</param>
+    /// <param name="target">The bitmap; drawing is clipped to it.</param>
+    /// <param name="deviceTransform">The transform from the list's default user space to the bitmap's pixels (origin top-left, y down).</param>
+    /// <param name="forceOutlines">Whether to draw every glyph from its outline, never through DirectWrite (<see cref="RenderOptions.ForceOutlines"/>).</param>
+    /// <exception cref="ArgumentException">The device cannot hold a bitmap of <paramref name="target"/>'s size.</exception>
+    /// <remarks>ISO 32000-2 §8.3.2.2 (device space), §9.2.4 (glyph outlines).</remarks>
+    public void Render(DisplayList list, Bitmap target, in Matrix deviceTransform, bool forceOutlines)
     {
-        Span<float> rgb = stackalloc float[4];
-        converter.Convert(components, rgb);
-        var color = new D2D1_COLOR_F
-        {
-            r = Channel(rgb[0]) / 255f,
-            g = Channel(rgb[1]) / 255f,
-            b = Channel(rgb[2]) / 255f,
-            a = alpha / 255f,
-        };
-        _brush->SetColor(&color);
+        ArgumentNullException.ThrowIfNull(list);
+        ArgumentNullException.ThrowIfNull(target);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        Draw(list, target, deviceTransform, target.Width, target.Height, white: false, forceOutlines, ScaledImageDecode ? _imageSamplesPerPixel : 0);
     }
 
     /// <summary>
-    /// Builds a path geometry of <paramref name="path"/> in user space for filling or clipping (§8.5.3.3.1): every subpath closed,
-    /// a lone moveto left out; with <paramref name="collectPixels"/>, the points of degenerate subpaths go to <see cref="_pixels"/>.
+    /// Has the engine's platform image decoders (<see cref="WicImageDecoder"/>, registered with
+    /// <see cref="WicImageDecoderExtensions.UseWicImageDecoder"/>) decode the images that a render of <paramref name="list"/> into a
+    /// <paramref name="width"/> × <paramref name="height"/> bitmap under <paramref name="deviceTransform"/> will draw, at the
+    /// reductions this renderer will ask for (<see cref="ScaledImageDecode"/>, <see cref="ImageSamplesPerPixel"/>): the asynchronous
+    /// step to await before <see cref="Render(DisplayList, Bitmap, in Matrix)"/>.
     /// </summary>
-    private ID2D1PathGeometry* CreateFillGeometry(PathView path, FillRule rule, bool collectPixels, out bool hasFigures)
+    /// <param name="list">The display list to be rendered.</param>
+    /// <param name="deviceTransform">The transform the render will use.</param>
+    /// <param name="width">The bitmap's width in pixels.</param>
+    /// <param name="height">The bitmap's height in pixels.</param>
+    /// <param name="cancellationToken">Cancels the decodes only this call waits for.</param>
+    /// <returns>A task that completes when the images are decoded or left to the managed codec; at once when there is nothing to do.</returns>
+    /// <remarks>ISO 32000-2 §7.4.8 and §8.9.4. See <see cref="DisplayList.PrefetchImagesAsync"/>; the render works the same without it.</remarks>
+    public ValueTask PrefetchImagesAsync(DisplayList list, in Matrix deviceTransform, int width, int height, CancellationToken cancellationToken)
     {
-        ID2D1PathGeometry* geometry;
-        ((ID2D1Factory*)_factory)->CreatePathGeometry(&geometry);
-        try
+        ArgumentNullException.ThrowIfNull(list);
+        return list.PrefetchImagesAsync(deviceTransform, TryGetRegion(deviceTransform, width, height, out PdfRectangle region) ? region : null, ScaledImageDecode ? _imageSamplesPerPixel : 0, cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the renders of a display list given to this renderer decode images at the resolution
+    /// they are drawn at rather than their own; <see langword="false"/> by default. Page renders take
+    /// <see cref="RenderOptions.ScaledImageDecode"/> instead.
+    /// </summary>
+    /// <remarks>
+    /// For viewers only, never for printing or export (see <see cref="RenderOptions.ScaledImageDecode"/>): an image whose codec decodes
+    /// reduced resolutions, or a large one decoded when its list was built, is converted at the largest power-of-two reduction that
+    /// keeps <see cref="ImageSamplesPerPixel"/> samples per device pixel (<see cref="DisplayImage.GetReduction"/>, capped for a curved
+    /// colour conversion), and its masks at their own; the reduced samples are then resampled to the device as before. ISO 32000-2
+    /// §8.9.4 (the image unit square), §8.9.5.3 (Interpolate only affects enlargement).
+    /// </remarks>
+    public bool ScaledImageDecode { get; set; }
+
+    /// <summary>
+    /// Gets or sets the fewest decoded samples per device pixel a reduced image keeps when <see cref="ScaledImageDecode"/> is on:
+    /// <see cref="RenderOptions.DefaultImageSamplesPerPixel"/> (2) by default; 1 is faster and coarser.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a finite number of at least 1.</exception>
+    /// <remarks>See <see cref="RenderOptions.ImageSamplesPerPixel"/>; ISO 32000-2 §8.9.4.</remarks>
+    public double ImageSamplesPerPixel
+    {
+        get => _imageSamplesPerPixel;
+        set => _imageSamplesPerPixel = double.IsFinite(value) && value >= 1
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "The samples per pixel must be a finite number of at least 1.");
+    }
+
+    /// <summary>Gets the software rasterizer of the pages and groups this renderer falls back to.</summary>
+    private SoftwareRasterizer Rasterizer => _rasterizer ??= new SoftwareRasterizer();
+
+    /// <summary>Whether a page render takes the software path for its color filter (spec #33 viewer capability 9).</summary>
+    private static bool IsFiltered(RenderOptions options) => options.ColorFilter != ColorFilter.None && !options.OverprintPreview;
+
+    /// <summary>Releases the Direct2D device, its device context and bitmaps, and the DirectWrite font faces; the renderer renders no more after this.</summary>
+    public void Dispose()
+    {
+        if (!_disposed)
         {
-            ID2D1GeometrySink* sink;
-            geometry->Open(&sink);
+            _disposed = true;
+            _backend.Dispose();
+            _rasterizer?.Dispose();
+            _surface.Dispose();
+            _fonts.Dispose();
+        }
+    }
+
+    /// <summary>Gets how many DirectWrite font faces this renderer has created from font programs.</summary>
+    internal int FontFacesCreated => _fonts.FacesCreated;
+
+    /// <summary>Gets how many Direct2D bitmaps were made from display-list images and masks (each once per renderer while cached).</summary>
+    internal int ImagesCreated => _backend.ImagesCreated;
+
+    /// <summary>Gets how many pixels the Direct2D bitmaps made from display-list images and masks had in all (fewer for reduced images, issue #428).</summary>
+    internal long ImagePixelsConverted => _backend.ImagePixelsConverted;
+
+    /// <summary>Gets the bytes of converted image pixels the renderer keeps.</summary>
+    internal long CachedImageBytes => _backend.CachedImageBytes;
+
+    /// <summary>Gets how many tiling-pattern cells were drawn into tiles.</summary>
+    internal int CellsRecorded => _backend.CellsRecorded;
+
+    /// <summary>
+    /// Returns the part of the list's default user space a <paramref name="width"/> × <paramref name="height"/> bitmap under
+    /// <paramref name="device"/> shows, widened by 2 pixels; false when the transform cannot be inverted.
+    /// </summary>
+    private static bool TryGetRegion(in Matrix device, int width, int height, out PdfRectangle region)
+    {
+        region = default;
+        if (!device.TryInvert(out Matrix inverse))
+        {
+            return false;
+        }
+
+        PathPoint a = inverse.Transform(-2, -2);
+        PathPoint b = inverse.Transform(width + 2, -2);
+        PathPoint c = inverse.Transform(width + 2, height + 2);
+        PathPoint d = inverse.Transform(-2, height + 2);
+        double left = Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X));
+        double bottom = Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y));
+        double right = Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X));
+        double top = Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y));
+        if (!(double.IsFinite(left) && double.IsFinite(bottom) && double.IsFinite(right) && double.IsFinite(top)))
+        {
+            return false;
+        }
+
+        region = new PdfRectangle(left, bottom, right, top);
+        return true;
+    }
+
+    /// <summary>Gets the samples per pixel a page render reduces images to, or 0 for the images' own resolution.</summary>
+    private static double PageImageSamples(RenderOptions options) =>
+        options.ScaledImageDecode && !options.OverprintPreview ? options.ImageSamplesPerPixel : 0;
+
+    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white, bool forceOutlines, double imageSamplesPerPixel)
+    {
+        if (width > _surface.MaximumSize || height > _surface.MaximumSize)
+        {
+            throw new ArgumentException(
+                $"Direct2D draws at most {_surface.MaximumSize} x {_surface.MaximumSize} pixels on this device; the render needs {width} x {height}.",
+                nameof(target));
+        }
+
+        for (int attempt = 0; ; attempt++)
+        {
+            _surface.Begin(width, height, target, white);
+            HRESULT result;
             try
             {
-                sink->SetFillMode(rule == FillRule.EvenOdd ? D2D1_FILL_MODE.D2D1_FILL_MODE_ALTERNATE : D2D1_FILL_MODE.D2D1_FILL_MODE_WINDING);
-                hasFigures = WriteFillFigures(sink, path, collectPixels);
-                sink->Close();
+                _backend.ForceOutlines = forceOutlines;
+                _backend.ImageSamplesPerPixel = imageSamplesPerPixel;
+                _backend.Begin(_surface, _fonts, list.Document, device);
+                try
+                {
+                    list.Replay(_backend);
+                }
+                finally
+                {
+                    _backend.End();
+                }
             }
             finally
             {
-                sink->Release();
-            }
-        }
-        catch
-        {
-            geometry->Release();
-            throw;
-        }
-
-        return geometry;
-    }
-
-    private bool WriteFillFigures(ID2D1GeometrySink* sink, PathView path, bool collectPixels)
-    {
-        ReadOnlySpan<PathVerb> verbs = path.Verbs;
-        ReadOnlySpan<PathPoint> points = path.Points;
-        var figure = default(FillFigure);
-        bool hasFigures = false;
-        int p = 0;
-        foreach (PathVerb verb in verbs)
-        {
-            switch (verb)
-            {
-                case PathVerb.MoveTo:
-                    Finish(sink, ref figure, collectPixels);
-                    figure = new FillFigure(points[p++]);
-                    break;
-                case PathVerb.LineTo when !figure.IsOpen:
-                    p++;
-                    break;
-                case PathVerb.QuadTo when !figure.IsOpen:
-                    p += 2;
-                    break;
-                case PathVerb.CubicTo when !figure.IsOpen:
-                    p += 3;
-                    break;
-                case PathVerb.LineTo:
-                    hasFigures |= Start(sink, ref figure);
-                    figure.Touch(points[p]);
-                    sink->AddLine(Interop.Point(points[p]));
-                    p++;
-                    break;
-                case PathVerb.QuadTo:
-                    {
-                        hasFigures |= Start(sink, ref figure);
-                        figure.Touch(points[p]);
-                        figure.Touch(points[p + 1]);
-                        var segment = new D2D1_QUADRATIC_BEZIER_SEGMENT { point1 = Interop.Point(points[p]), point2 = Interop.Point(points[p + 1]) };
-                        sink->AddQuadraticBezier(&segment);
-                        p += 2;
-                        break;
-                    }
-
-                case PathVerb.CubicTo:
-                    {
-                        hasFigures |= Start(sink, ref figure);
-                        figure.Touch(points[p]);
-                        figure.Touch(points[p + 1]);
-                        figure.Touch(points[p + 2]);
-                        var segment = new D2D1_BEZIER_SEGMENT
-                        {
-                            point1 = Interop.Point(points[p]),
-                            point2 = Interop.Point(points[p + 1]),
-                            point3 = Interop.Point(points[p + 2]),
-                        };
-                        sink->AddBezier(&segment);
-                        p += 3;
-                        break;
-                    }
-
-                case PathVerb.Close when figure.IsOpen:
-                    // A closed single point (m h) is a degenerate subpath too.
-                    figure.HasSegments = true;
-                    Finish(sink, ref figure, collectPixels);
-                    break;
-            }
-        }
-
-        Finish(sink, ref figure, collectPixels);
-        return hasFigures;
-    }
-
-    private static bool Start(ID2D1GeometrySink* sink, ref FillFigure figure)
-    {
-        figure.HasSegments = true;
-        if (figure.Begun)
-        {
-            return false;
-        }
-
-        sink->BeginFigure(Interop.Point(figure.First), D2D1_FIGURE_BEGIN.D2D1_FIGURE_BEGIN_FILLED);
-        figure.Begun = true;
-        return true;
-    }
-
-    private void Finish(ID2D1GeometrySink* sink, ref FillFigure figure, bool collectPixels)
-    {
-        if (!figure.IsOpen)
-        {
-            return;
-        }
-
-        if (figure.Begun)
-        {
-            sink->EndFigure(D2D1_FIGURE_END.D2D1_FIGURE_END_CLOSED);
-        }
-
-        if (collectPixels && figure.HasSegments && figure.IsDegenerate)
-        {
-            if (_pixelCount == _pixels.Length)
-            {
-                Array.Resize(ref _pixels, _pixelCount * 2);
+                result = _surface.End();
             }
 
-            _pixels[_pixelCount++] = figure.First;
-        }
-
-        figure.IsOpen = false;
-    }
-
-    /// <summary>Paints the device pixel under each degenerate subpath of the fill just drawn (§8.5.3.3.1).</summary>
-    private void FillPixels()
-    {
-        if (_pixelCount == 0)
-        {
-            return;
-        }
-
-        SetWorldTransform(Matrix.Identity);
-        for (int i = 0; i < _pixelCount; i++)
-        {
-            PathPoint device = _toDevice.Transform(_pixels[i]);
-            if (!(double.IsFinite(device.X) && double.IsFinite(device.Y)) || Math.Abs(device.X) > int.MaxValue || Math.Abs(device.Y) > int.MaxValue)
+            if (result == HRESULT.D2DERR_RECREATE_TARGET && attempt == 0)
             {
+                // The device was lost (a driver update, a removed adapter): recreate everything once and draw again.
+                _backend.ReleaseDeviceResources();
+                _surface.Dispose();
+                _surface = new Direct2DSurface(_requested);
                 continue;
             }
 
-            float left = (float)Math.Floor(device.X);
-            float top = (float)Math.Floor(device.Y);
-            var pixel = new D2D_RECT_F { left = left, top = top, right = left + 1, bottom = top + 1 };
-            _context->FillRectangle(&pixel, Paint(Matrix.Identity));
-        }
-
-        _pixelCount = 0;
-    }
-
-    private void PushRectangle(D2D_RECT_F rectangle)
-    {
-        SetWorldTransform(Matrix.Identity);
-        _context->PushAxisAlignedClip(&rectangle, D2D1_ANTIALIAS_MODE.D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
-        AddClip(new Clip(null), rectangle);
-    }
-
-    /// <summary>Records a pushed clip whose visible area lies within the device rectangle <paramref name="bounds"/>.</summary>
-    private void AddClip(Clip clip, in D2D_RECT_F bounds)
-    {
-        if (_clipCount == _clips.Length)
-        {
-            Array.Resize(ref _clips, _clipCount * 2);
-        }
-
-        clip.Bounds = Intersect(ClipBounds, bounds);
-        _clips[_clipCount++] = clip;
-    }
-
-    private void PopClips(int count)
-    {
-        while (_clipCount > count)
-        {
-            Clip clip = _clips[--_clipCount];
-            if (!clip.IsLayer)
+            result.ThrowOnFailure();
+            if (_backend.RasterizesPage)
             {
-                _context->PopAxisAlignedClip();
-            }
-            else
-            {
-                _context->PopLayer();
-                if (clip.Mask is not null)
-                {
-                    clip.Mask->Release();
-                }
+                RasterizePage(list, target, device, width, height, white, imageSamplesPerPixel);
+                return;
             }
 
-            _clips[_clipCount] = default;
+            _surface.CopyTo(target, width, height);
+            return;
         }
     }
 
     /// <summary>
-    /// Whether <paramref name="path"/> is one rectangle (four points, as <c>re</c> makes it, optionally back to its start and closed)
-    /// whose sides map to device lines along the pixel axes, and its device rectangle if so; the software rasterizer's test.
+    /// Draws the list with the software rasterizer into the top-left <paramref name="width"/> × <paramref name="height"/> pixels of
+    /// <paramref name="target"/>, on white or over its pixels: the page blends with its backdrop in a mode Direct2D cannot composite.
     /// </summary>
-    private bool TryMapRectangle(PathView path, out D2D_RECT_F rectangle)
+    private void RasterizePage(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white, double imageSamplesPerPixel)
     {
-        rectangle = default;
-        ReadOnlySpan<PathVerb> verbs = path.Verbs;
-        ReadOnlySpan<PathPoint> points = path.Points;
-        int segments = verbs.Length > 0 && verbs[^1] == PathVerb.Close ? verbs.Length - 1 : verbs.Length;
-        if (segments is not (4 or 5) || verbs[0] != PathVerb.MoveTo || points.Length != segments)
+        int rowBytes = width * 4;
+        using var bitmap = new Bitmap(width, height);
+        for (int y = 0; y < height; y++)
         {
-            return false;
-        }
-
-        for (int index = 1; index < segments; index++)
-        {
-            if (verbs[index] != PathVerb.LineTo)
+            Span<byte> row = bitmap.GetRow(y)[..rowBytes];
+            if (white)
             {
-                return false;
+                row.Fill(0xFF);
+            }
+            else
+            {
+                target.GetRow(y)[..rowBytes].CopyTo(row);
             }
         }
 
-        if (segments == 5 && points[4] != points[0])
+        SoftwareRasterizer rasterizer = _rasterizer ??= new SoftwareRasterizer();
+        Direct2DReplayer.ConfigureScaledImageDecode(rasterizer, imageSamplesPerPixel);
+        rasterizer.Render(list, bitmap, device);
+        for (int y = 0; y < height; y++)
         {
-            return false;
+            bitmap.GetRow(y)[..rowBytes].CopyTo(target.GetRow(y));
         }
 
-        PathPoint a = _toDevice.Transform(points[0]);
-        PathPoint b = _toDevice.Transform(points[1]);
-        PathPoint c = _toDevice.Transform(points[2]);
-        PathPoint d = _toDevice.Transform(points[3]);
-        bool horizontalFirst = a.Y == b.Y && b.X == c.X && c.Y == d.Y && d.X == a.X;
-        bool verticalFirst = a.X == b.X && b.Y == c.Y && c.X == d.X && d.Y == a.Y;
-        if (!(horizontalFirst || verticalFirst) || !double.IsFinite(a.X + a.Y + c.X + c.Y) || (a == b && b == c))
-        {
-            return false;
-        }
-
-        rectangle = new D2D_RECT_F
-        {
-            left = Interop.Point(Math.Min(a.X, c.X), 0).x,
-            right = Interop.Point(Math.Max(a.X, c.X), 0).x,
-            top = Interop.Point(0, Math.Min(a.Y, c.Y)).y,
-            bottom = Interop.Point(0, Math.Max(a.Y, c.Y)).y,
-        };
-        return true;
-    }
-
-    /// <summary>A clip pushed on the device context: the geometric mask of its layer, or none for an axis-aligned clip.</summary>
-    private struct Clip(ID2D1Geometry* mask, bool isLayer = false)
-    {
-        public ID2D1Geometry* Mask { get; } = mask;
-
-        /// <summary>Gets a value indicating whether the clip is a layer (with a geometric mask, or an annotation's opacity layer).</summary>
-        public bool IsLayer { get; } = isLayer || mask is not null;
-
-        /// <summary>Gets or sets the device bounds of what is visible inside this clip and those under it.</summary>
-        public D2D_RECT_F Bounds { get; set; }
-    }
-
-    /// <summary>The subpath being written for a fill: its first point, whether a figure has begun, and whether it is degenerate.</summary>
-    private struct FillFigure(PathPoint first)
-    {
-        public PathPoint First { get; } = first;
-
-        public bool IsOpen { get; set; } = true;
-
-        public bool Begun { get; set; }
-
-        public bool HasSegments { get; set; }
-
-        public bool IsDegenerate { get; private set; } = true;
-
-        public void Touch(PathPoint point) => IsDegenerate &= point == First;
+        _backend.ReportPageRasterized();
     }
 }

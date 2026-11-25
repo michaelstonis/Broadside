@@ -25,7 +25,7 @@ namespace Broadside.Rendering.Direct2D;
 /// past that the rest of it is solid.
 /// </para>
 /// </remarks>
-internal sealed unsafe partial class Direct2DBackend
+internal sealed unsafe partial class Direct2DReplayer
 {
     /// <summary>The largest flattening error, in device pixels.</summary>
     private const double Tolerance = 0.1;

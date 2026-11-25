@@ -127,7 +127,7 @@ public sealed class CoreGraphicsScaledImageDecodeTests
 
         Page(document, new RenderOptions().WithScale(0.25).WithScaledImageDecode(true), out long viewerPixels);
         Page(document, options, out long defaultPixels);
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
 
         Assert.False(options.ScaledImageDecode);
         Assert.False(renderer.ScaledImageDecode);
@@ -146,7 +146,7 @@ public sealed class CoreGraphicsScaledImageDecodeTests
 
         Assert.Equal(1275L * 1575, two);
         Assert.Equal(638L * 788, one);
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
         Assert.Throws<ArgumentOutOfRangeException>(() => renderer.ImageSamplesPerPixel = 0.5);
         Assert.Throws<ArgumentOutOfRangeException>(() => renderer.ImageSamplesPerPixel = double.NaN);
     }
@@ -169,7 +169,7 @@ public sealed class CoreGraphicsScaledImageDecodeTests
         using PdfDocument document = PdfDocument.Open(CatalogueSamples.Cover(), new PdfOptions().WithDisplayListCacheBudget(0));
         PdfPage page = document.Pages[0];
         DisplayList list = page.CreateDisplayList();
-        using var renderer = new CoreGraphicsRenderer { ScaledImageDecode = true };
+        using var renderer = new CoreGraphicsBackend { ScaledImageDecode = true };
         using CGBitmapContext tile = Flipped(64, 64);
 
         // Zoom in (1/8 to 1/2), then out again: the half conversion serves the eighth, as the document's samples do.
@@ -196,7 +196,7 @@ public sealed class CoreGraphicsScaledImageDecodeTests
         PixelSize size = options.GetPixelSize(page);
         Matrix device = options.GetDeviceTransform(page);
         using CGBitmapContext context = Flipped(size.Width, size.Height);
-        using var renderer = new CoreGraphicsRenderer { ScaledImageDecode = true };
+        using var renderer = new CoreGraphicsBackend { ScaledImageDecode = true };
         Action render = () => renderer.Render(list, context, device);
 
         Assert.Equal(0, Allocations.Measure(render, warmUpCalls: 3));
@@ -218,7 +218,7 @@ public sealed class CoreGraphicsScaledImageDecodeTests
 
         context.FillRect(new CGRect(0, 0, size.Width, size.Height));
         context.ConcatCTM(new CGAffineTransform(1, 0, 0, -1, 0, size.Height));
-        using var renderer = new CoreGraphicsRenderer { ScaledImageDecode = scaled, ImageSamplesPerPixel = samplesPerPixel };
+        using var renderer = new CoreGraphicsBackend { ScaledImageDecode = scaled, ImageSamplesPerPixel = samplesPerPixel };
         renderer.Render(page.CreateDisplayList(), context, options.GetDeviceTransform(page));
         context.Flush();
         return (Rows(pixels, size, stride), renderer.ImagePixelsConverted, renderer.CachedImageBytes);
@@ -230,7 +230,7 @@ public sealed class CoreGraphicsScaledImageDecodeTests
         PdfPage page = document.Pages[0];
         PixelSize size = options.GetPixelSize(page);
         using CGBitmapContext context = BitmapRendering.CreateContext(size.Width, size.Height, out byte[] pixels, out int stride);
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
         renderer.Render(page, context, options);
         context.Flush();
         converted = renderer.ImagePixelsConverted;

@@ -148,7 +148,7 @@ internal static class AnnotationEditing
     public static async Task<IReadOnlyList<AnnotationItem>> ListAsync(AnnotationLayer layer, int pageIndex, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(layer);
-        int count = await layer.LoadPageAsync(pageIndex, cancellationToken).ConfigureAwait(true);
+        int count = await layer.ReadPageAsync(pageIndex, cancellationToken).ConfigureAwait(true);
         var items = new List<AnnotationItem>(count);
         for (int i = 0; i < count; i++)
         {
@@ -291,7 +291,7 @@ internal static class FormFields
         var fields = new List<FormFieldItem>();
         for (int page = 0; page < Math.Min(pageCount, maxPages); page++)
         {
-            int count = await layer.LoadPageAsync(page, cancellationToken).ConfigureAwait(true);
+            int count = await layer.ReadPageAsync(page, cancellationToken).ConfigureAwait(true);
             for (int i = 0; i < count; i++)
             {
                 var target = new AnnotationTarget(page, i);

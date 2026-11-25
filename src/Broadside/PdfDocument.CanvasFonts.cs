@@ -30,6 +30,13 @@ public sealed partial class PdfDocument
     }
 
     /// <summary>Embeds a TrueType program a <see cref="PdfCanvas"/> of this document can show any text its glyphs cover with, subset to the glyphs shown.</summary>
+    /// <param name="program">The TrueType (<c>glyf</c>) program: a <c>.ttf</c> file, or the first face of a TrueType collection (<c>.ttc</c>).</param>
+    /// <returns>The font, as for <see cref="EmbedTrueTypeFont(ReadOnlyMemory{byte}, int)"/>.</returns>
+    /// <exception cref="ArgumentException">The program cannot be embedded, as for <see cref="EmbedTrueTypeFont(ReadOnlyMemory{byte}, int)"/>.</exception>
+    /// <remarks>ISO 32000-2 §9.7.6, §9.7.4, §9.8, §9.9 and §9.10.3. As <see cref="EmbedTrueTypeFont(ReadOnlyMemory{byte}, int)"/> with face 0.</remarks>
+    public PdfCanvasFont EmbedTrueTypeFont(ReadOnlyMemory<byte> program) => EmbedTrueTypeFont(program, 0);
+
+    /// <summary>Embeds a TrueType program a <see cref="PdfCanvas"/> of this document can show any text its glyphs cover with, subset to the glyphs shown.</summary>
     /// <param name="program">The TrueType (<c>glyf</c>) program: a <c>.ttf</c> file, or a TrueType collection (<c>.ttc</c>) with <paramref name="faceIndex"/>.</param>
     /// <param name="faceIndex">The face of a collection; 0 for a single font.</param>
     /// <returns>
@@ -57,7 +64,7 @@ public sealed partial class PdfDocument
     /// the font's objects are added on the first call for a program.
     /// </para>
     /// </remarks>
-    public PdfCanvasFont EmbedTrueTypeFont(ReadOnlyMemory<byte> program, int faceIndex = 0)
+    public PdfCanvasFont EmbedTrueTypeFont(ReadOnlyMemory<byte> program, int faceIndex)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(faceIndex);
         var resolution = new FontResolution(program, "embedded", FontMatchKind.Exact) { FaceIndex = faceIndex };
@@ -96,6 +103,20 @@ public sealed partial class PdfDocument
     /// subset to the glyphs shown.
     /// </summary>
     /// <param name="program">
+    /// The program: a TrueType or OpenType file (<c>.ttf</c>, <c>.otf</c>, with <c>glyf</c> or <c>CFF </c> outlines), the first face
+    /// of a collection (<c>.ttc</c>, <c>.otc</c>), a bare CFF program with Type 2 charstrings, or a Type 1 program (<c>.pfa</c>,
+    /// <c>.pfb</c>).
+    /// </param>
+    /// <returns>The font, as for <see cref="EmbedFont(ReadOnlyMemory{byte}, int)"/>.</returns>
+    /// <exception cref="ArgumentException">The program cannot be embedded, as for <see cref="EmbedFont(ReadOnlyMemory{byte}, int)"/>.</exception>
+    /// <remarks>ISO 32000-2 §9.7.6, §9.7.4, §9.9 and §9.10.3. As <see cref="EmbedFont(ReadOnlyMemory{byte}, int)"/> with face 0.</remarks>
+    public PdfCanvasFont EmbedFont(ReadOnlyMemory<byte> program) => EmbedFont(program, 0);
+
+    /// <summary>
+    /// Embeds a TrueType, OpenType, CFF or Type 1 program a <see cref="PdfCanvas"/> of this document can show any text its glyphs cover with,
+    /// subset to the glyphs shown.
+    /// </summary>
+    /// <param name="program">
     /// The program: a TrueType or OpenType file (<c>.ttf</c>, <c>.otf</c>, with <c>glyf</c> or <c>CFF </c> outlines), a collection
     /// (<c>.ttc</c>, <c>.otc</c>) with <paramref name="faceIndex"/>, a bare CFF program with Type 2 charstrings, or a Type 1 program
     /// (<c>.pfa</c>, <c>.pfb</c>).
@@ -125,7 +146,7 @@ public sealed partial class PdfDocument
     /// ITC Zapf Dingbats list for names such as <c>a1</c>).
     /// </para>
     /// </remarks>
-    public PdfCanvasFont EmbedFont(ReadOnlyMemory<byte> program, int faceIndex = 0)
+    public PdfCanvasFont EmbedFont(ReadOnlyMemory<byte> program, int faceIndex)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(faceIndex);
         var resolution = new FontResolution(program, "embedded", FontMatchKind.Exact) { FaceIndex = faceIndex };

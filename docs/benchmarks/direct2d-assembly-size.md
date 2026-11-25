@@ -26,7 +26,7 @@ The backend's own code is 71 KB of IL; the other 470 KB of IL and 1 MB of metada
 
 ## Trimmed, published app
 
-A `PublishTrimmed` (`TrimMode=full`), self-contained `win-x64` console app that opens a document and renders page 1 through `Direct2DRenderer`, publishing the before and after assemblies the same way:
+A `PublishTrimmed` (`TrimMode=full`), self-contained `win-x64` console app that opens a document and renders page 1 through `Direct2DBackend`, publishing the before and after assemblies the same way:
 
 | `Broadside.Rendering.Direct2D.dll` after trimming | Size |
 |---|---:|

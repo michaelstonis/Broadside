@@ -4,7 +4,7 @@ using Broadside.Images;
 namespace Broadside.Rendering.WebGL;
 
 /// <summary>"Mode B" (#373): JPEG images decoded by the browser into an <c>ImageBitmap</c> and uploaded straight to a texture.</summary>
-public sealed partial class WebGLRenderer
+public sealed partial class WebGLBackend
 {
     private static int _nextBitmap;
 

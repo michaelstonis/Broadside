@@ -20,7 +20,7 @@ public class Direct2DBackendBenchmarks
     private PdfDocument? _document;
     private DisplayList? _list;
     private Bitmap? _bitmap;
-    private Direct2DRenderer? _renderer;
+    private Direct2DBackend? _renderer;
     private Matrix _device;
     private RenderOptions? _options;
 
@@ -58,7 +58,7 @@ public class Direct2DBackendBenchmarks
         PixelSize size = options.GetPixelSize(page);
         _device = options.GetDeviceTransform(page);
         _bitmap = new Bitmap(size.Width, size.Height);
-        _renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        _renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
     }
 
     [GlobalCleanup]

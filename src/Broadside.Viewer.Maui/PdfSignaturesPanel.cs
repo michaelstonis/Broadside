@@ -48,8 +48,9 @@ public sealed class PdfSignaturesPanel : ContentView
     }
 
     /// <summary>Validates the signatures again (an edit after signing shows as a signature that no longer covers the whole file once saved).</summary>
+    /// <param name="cancellationToken">Cancels the validation; the panel shows no results then.</param>
     /// <returns>A task that completes when the panel shows the results.</returns>
-    public async Task RefreshAsync()
+    public async Task RefreshAsync(CancellationToken cancellationToken = default)
     {
         int generation = ++_generation;
         _list.Children.Clear();
@@ -63,7 +64,7 @@ public sealed class PdfSignaturesPanel : ContentView
         IReadOnlyList<SignatureRow> rows;
         try
         {
-            rows = await SignatureStatus.ValidateAsync(document, CancellationToken.None).ConfigureAwait(true);
+            rows = await SignatureStatus.ValidateAsync(document, cancellationToken).ConfigureAwait(true);
         }
         catch (PdfRangeNotLoadedException)
         {
@@ -75,7 +76,7 @@ public sealed class PdfSignaturesPanel : ContentView
             return;
         }
 #pragma warning disable CA1031 // shown in the panel
-        catch (Exception exception)
+        catch (Exception exception) when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
 #pragma warning restore CA1031
         {
             if (generation == _generation)

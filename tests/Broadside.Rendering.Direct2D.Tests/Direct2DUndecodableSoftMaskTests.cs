@@ -59,7 +59,7 @@ public sealed class Direct2DUndecodableSoftMaskTests
         PixelSize size = options.GetPixelSize(page);
         using var bitmap = new Bitmap(size.Width, size.Height);
         bitmap.Pixels.Fill(0xFF);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp) { ScaledImageDecode = scaled };
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp) { ScaledImageDecode = scaled };
         renderer.Render(page.CreateDisplayList(), bitmap, options.GetDeviceTransform(page));
         int rowBytes = bitmap.Width * 4;
         byte[] pixels = new byte[rowBytes * bitmap.Height];

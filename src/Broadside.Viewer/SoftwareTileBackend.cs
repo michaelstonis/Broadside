@@ -45,7 +45,7 @@ public sealed class SoftwareTileBackend : ITileBackend
     public ITileRender Begin(DisplayList list, Bitmap target, in Matrix deviceTransform, ColorFilter colorFilter, CancellationToken cancellationToken)
     {
         _rasterizer.ColorFilter = colorFilter;
-        return new Rendering(_rasterizer.BeginRender(list, target, deviceTransform, cancellationToken, null));
+        return new Rendering(_rasterizer.BeginRender(list, target, deviceTransform, null, cancellationToken));
     }
 
     /// <summary>
@@ -57,7 +57,7 @@ public sealed class SoftwareTileBackend : ITileBackend
         SoftwareRasterizer? rasterizer = new() { ScaledImageDecode = true, ColorFilter = colorFilter };
         try
         {
-            var rendering = new Rendering(rasterizer.BeginRender(list, target, deviceTransform, cancellationToken, null), rasterizer);
+            var rendering = new Rendering(rasterizer.BeginRender(list, target, deviceTransform, null, cancellationToken), rasterizer);
             rasterizer = null; // the render owns it now
             return rendering;
         }

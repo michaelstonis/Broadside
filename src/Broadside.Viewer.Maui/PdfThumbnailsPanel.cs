@@ -149,7 +149,7 @@ public sealed class PdfThumbnailsPanel : ContentView
         List<ThumbnailItem> items = _items;
         try
         {
-            PageLabelTable labels = await PageLabelTable.LoadAsync(session).ConfigureAwait(true);
+            PageLabelTable labels = await PageLabelTable.ReadAsync(session).ConfigureAwait(true);
             if (ReferenceEquals(items, _items) && labels.HasLabels)
             {
                 foreach (ThumbnailItem item in items)

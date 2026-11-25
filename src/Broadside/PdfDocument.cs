@@ -1350,6 +1350,14 @@ public sealed partial class PdfDocument : IDisposable
         return Configuration?.PlatformImages?.Uses(name) == true;
     }
 
+    /// <summary>Returns the converter from <paramref name="source"/> under <paramref name="conversion"/>, with no default spaces.</summary>
+    /// <param name="source">The colour space.</param>
+    /// <param name="conversion">The target model, rendering intent and device controls.</param>
+    /// <returns>The converter, shared by every caller asking for the same source and conversion.</returns>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found building it.</exception>
+    /// <remarks>ISO 32000-2 §8.6, §10.3 and §10.4; see <see cref="PdfColorConverter"/>.</remarks>
+    public PdfColorConverter GetColorConverter(PdfColorSpace source, ColorConversion conversion) => GetColorConverter(source, conversion, null);
+
     /// <summary>Returns the converter from <paramref name="source"/> under <paramref name="conversion"/>.</summary>
     /// <param name="source">The colour space.</param>
     /// <param name="conversion">The target model, rendering intent and device controls.</param>
@@ -1357,7 +1365,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <returns>The converter, shared by every caller asking for the same source, conversion and defaults.</returns>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found building it.</exception>
     /// <remarks>ISO 32000-2 §8.6, §10.3 and §10.4; see <see cref="PdfColorConverter"/>.</remarks>
-    public PdfColorConverter GetColorConverter(PdfColorSpace source, ColorConversion conversion, PdfDefaultColorSpaces? defaults = null)
+    public PdfColorConverter GetColorConverter(PdfColorSpace source, ColorConversion conversion, PdfDefaultColorSpaces? defaults)
     {
         ArgumentNullException.ThrowIfNull(source);
         return ColorSpaces.GetConverter(source, conversion, defaults ?? PdfDefaultColorSpaces.None);

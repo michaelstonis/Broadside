@@ -68,7 +68,7 @@ public sealed class DisplayListProgressTests
         list.Replay(expected);
         var recorder = new RecordingBackend();
 
-        list.Replay(recorder, CancellationToken.None, progress);
+        list.Replay(recorder, progress, CancellationToken.None);
 
         Assert.Equal(expected.Operations, recorder.Operations);
         Assert.True(progress.Values.Count > 2, $"Only {progress.Values.Count} reports for {list.OperationCount} operations.");
@@ -86,7 +86,7 @@ public sealed class DisplayListProgressTests
         var expected = new RecordingBackend();
         list.Replay(expected);
         var recorder = new RecordingBackend();
-        DisplayListReplay replay = list.BeginReplay(recorder, CancellationToken.None, progress: null);
+        DisplayListReplay replay = list.BeginReplay(recorder, progress: null, CancellationToken.None);
 
         int slices = 0;
         int position = 0;
@@ -116,7 +116,7 @@ public sealed class DisplayListProgressTests
         list.Replay(expected, region);
         var recorder = new RecordingBackend();
         var progress = new RecordingProgress();
-        DisplayListReplay replay = list.BeginReplay(recorder, region, CancellationToken.None, progress);
+        DisplayListReplay replay = list.BeginReplay(recorder, region, progress, CancellationToken.None);
 
         while (!replay.Continue(TimeSpan.Zero))
         {
@@ -136,7 +136,7 @@ public sealed class DisplayListProgressTests
         list.Replay(expected);
         var recorder = new RecordingBackend();
         var progress = new RecordingProgress();
-        DisplayListReplay replay = list.BeginReplay(recorder, CancellationToken.None, progress);
+        DisplayListReplay replay = list.BeginReplay(recorder, progress, CancellationToken.None);
 
         int slices = 1;
         while (!replay.Continue(TimeSpan.FromMilliseconds(1)))
@@ -159,14 +159,14 @@ public sealed class DisplayListProgressTests
         DisplayList list = document.Pages[0].CreateDisplayList();
         using var cancellation = new CancellationTokenSource();
         var recorder = new RecordingBackend();
-        DisplayListReplay replay = list.BeginReplay(recorder, cancellation.Token, progress: null);
+        DisplayListReplay replay = list.BeginReplay(recorder, progress: null, cancellation.Token);
         Assert.False(replay.Continue(TimeSpan.Zero));
         Assert.False(replay.Continue(TimeSpan.Zero));
 
         cancellation.Cancel();
 
         Assert.Throws<OperationCanceledException>(() => replay.Continue(TimeSpan.Zero));
-        Assert.Throws<OperationCanceledException>(() => list.Replay(new RecordingBackend(), cancellation.Token, progress: null));
+        Assert.Throws<OperationCanceledException>(() => list.Replay(new RecordingBackend(), progress: null, cancellation.Token));
         Assert.Equal(2, replay.Position);
         Assert.Equal(2, recorder.Operations.Count);
     }
@@ -178,7 +178,7 @@ public sealed class DisplayListProgressTests
         DisplayList list = document.Pages[0].CreateDisplayList();
         var progress = new RecordingProgress();
 
-        DisplayListReplay replay = list.BeginReplay(new RecordingBackend(), CancellationToken.None, progress);
+        DisplayListReplay replay = list.BeginReplay(new RecordingBackend(), progress, CancellationToken.None);
 
         Assert.Equal(0, list.OperationCount);
         Assert.True(replay.Continue(TimeSpan.Zero));

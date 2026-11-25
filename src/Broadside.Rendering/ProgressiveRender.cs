@@ -6,7 +6,7 @@ namespace Broadside.Rendering;
 /// A render of the <see cref="SoftwareRasterizer"/> that draws in time slices: <see cref="Continue"/> draws until its budget is used,
 /// leaving a valid partial image in <see cref="Target"/>, and the next call resumes where it stopped. Start one with
 /// <see cref="SoftwareRasterizer.BeginRender(PdfPage, Bitmap, RenderOptions)"/> or
-/// <see cref="SoftwareRasterizer.BeginRender(DisplayList, Bitmap, in Graphics.Matrix, CancellationToken, IProgress{double})"/>.
+/// <see cref="SoftwareRasterizer.BeginRender(DisplayList, Bitmap, in Graphics.Matrix, IProgress{double}, CancellationToken)"/>.
 /// </summary>
 /// <remarks>
 /// <para>

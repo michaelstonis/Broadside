@@ -24,7 +24,7 @@ public sealed class NativeGlyphTests
     public void A_font_face_is_created_once_per_sfnt_program_per_renderer(string fileName, int faces)
     {
         using PdfDocument document = GoldenCorpus.Open(fileName);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         using (renderer.Render(document.Pages[0], GoldenCorpus.CreateRenderOptions()))
         {
@@ -42,7 +42,7 @@ public sealed class NativeGlyphTests
     public void Native_glyphs_are_drawn_by_DirectWrite_not_from_the_outlines()
     {
         using PdfDocument document = GoldenCorpus.Open("text-truetype-embedded.pdf");
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         using Bitmap native = renderer.Render(document.Pages[0], GoldenCorpus.CreateRenderOptions());
         using Bitmap outlines = renderer.Render(document.Pages[0], GoldenCorpus.CreateRenderOptions().WithForceOutlines(true));
@@ -56,7 +56,7 @@ public sealed class NativeGlyphTests
     public void Glyphs_of_other_programs_are_drawn_from_their_outlines(string fileName)
     {
         using PdfDocument document = GoldenCorpus.Open(fileName);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         using Bitmap native = renderer.Render(document.Pages[0], GoldenCorpus.CreateRenderOptions());
         using Bitmap outlines = renderer.Render(document.Pages[0], GoldenCorpus.CreateRenderOptions().WithForceOutlines(true));
@@ -69,7 +69,7 @@ public sealed class NativeGlyphTests
     public void Forcing_outlines_creates_no_font_face()
     {
         using PdfDocument document = GoldenCorpus.Open("text-truetype-embedded.pdf");
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         using (renderer.Render(document.Pages[0], GoldenCorpus.CreateRenderOptions().WithForceOutlines(true)))
         {
@@ -87,7 +87,7 @@ public sealed class NativeGlyphTests
         using PdfDocument corpus = GoldenCorpus.Open("text-truetype-embedded.pdf");
         byte[] program = corpus.DecodeStream(corpus.Pages[0].GetFont("F1")!.Descriptor!.FontFile2!).ToArray();
         using PdfDocument document = PdfDocument.Open(DamagedTrueTypePage(program));
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         using Bitmap native = renderer.Render(document.Pages[0], GoldenCorpus.CreateRenderOptions());
         Diagnostic diagnostic = Assert.Single(renderer.Diagnostics);

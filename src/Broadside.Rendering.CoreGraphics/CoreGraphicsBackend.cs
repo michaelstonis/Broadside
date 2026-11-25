@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Broadside.Diagnostics;
 using Broadside.Graphics;
 using CoreGraphics;
@@ -6,365 +5,295 @@ using CoreGraphics;
 namespace Broadside.Rendering.CoreGraphics;
 
 /// <summary>
-/// The backend <see cref="CoreGraphicsRenderer"/> replays display lists through: the PDF graphics state kept beside the context's,
-/// paths handed to CoreGraphics, colours converted by the document's colour management.
+/// The CoreGraphics backend: renders a page or a <see cref="DisplayList"/> onto a Quartz 2D graphics context (<see cref="CGContext"/>)
+/// on macOS, iOS and Mac Catalyst, natively anti-aliased.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Transforms: <see cref="SetTransform"/> replaces the CTM, which CoreGraphics cannot do (its transform only concatenates), so the
-/// CTM is kept here. Fills and clips are built from points mapped to the context's user space here, under the context's own
-/// transform; strokes concatenate the CTM for the one stroke inside a saved state, because the pen is in the stroke's user space.
+/// It consumes display lists only, replaying them through its own <see cref="IRenderingBackend"/>. Fills, strokes and clips
+/// become CoreGraphics paths: fills and clips by the non-zero winding or even-odd rule (ISO 32000-2 §8.5.3.3, §8.5.4), open
+/// subpaths closed, a trailing lone moveto ignored and a degenerate subpath given the device pixel under it (§8.5.3.3.1); strokes in
+/// the stroke's user space with its line width, caps, joins, miter limit and dash pattern (§8.4.3, §8.5.3.2), so a non-uniform
+/// transform gives an elliptical pen; a zero width (and, with stroke adjustment, a width under half a pixel) strokes one device unit
+/// wide (§8.4.3.2, §10.7.5). Colours convert to RGB through
+/// <see cref="PdfDocument.GetColorConverter(PdfColorSpace, ColorConversion, PdfDefaultColorSpaces?)"/>, so the engine's colour
+/// management (<see cref="IColorManagement"/>) decides them (§8.6, §10), and are painted as sRGB.
 /// </para>
 /// <para>
-/// Nothing is allocated per operation: points go to the context one call at a time, colours through a buffer kept for the
-/// backend's lifetime, strokes through <see cref="CoreGraphicsStroker"/>'s kept arrays.
+/// The page mapping is the software rasterizer's (<see cref="RenderOptions.GetDeviceTransform"/>, <see cref="RenderOptions.GetPixelSize"/>),
+/// so both backends put every page on the same pixels.
+/// </para>
+/// <para>
+/// Images and masks (§8.9): each display-list image is converted once per renderer to a CoreGraphics image (colour through the
+/// colour management, Decode, colour key, Matte, masks of the image's size folded in), kept within the document's image cache budget
+/// (<see cref="PdfOptions.ImageCacheBudget"/>), and resampled to the device pixels as the software rasterizer resamples it (box filter
+/// when reduced, square samples or Interpolate's tent when enlarged) for the first transforms it is drawn at; stencil masks (§8.9.6.2)
+/// and soft or explicit masks of another size (§11.6.5.2, §8.9.6.3) clip as 8-bit alpha. Shadings (§8.7.4): axial and radial ones
+/// are CoreGraphics shadings with the file's Extend, function-based ones a texture drawn through their Matrix, and mesh shadings
+/// (types 4 to 7), which CoreGraphics cannot shade, are rasterized by the backend at the device's pixels (reported as Information);
+/// Background and BBox are honoured, the AntiAlias hint is not. Tiling patterns (§8.7.3): the cell is rendered once per scale into a
+/// tile, repeated over a lattice laid on the device pixels as the rasterizer lays it (TilingType).
+/// </para>
+/// <para>
+/// Text (§9.2.4, §9.3.6, §9.4.3): glyphs of TrueType and OpenType programs (§9.9, embedded or substituted) are filled by CoreGraphics'
+/// font engine from the program's bytes (<see cref="Fonts.FontProgram.TryGetSfntData"/>), loaded once per program per renderer; glyphs of every
+/// other program (Type 1, CFF), of a program CoreGraphics cannot load as the engine reads it, and every glyph when
+/// <see cref="RenderOptions.ForceOutlines"/> is set are filled from the outlines the display list carries. Stroked text (modes 1, 2, 5
+/// and 6) is always stroked from the outlines, with the stroke rules of paths; text clips (modes 4 to 7) arrive as clip paths.
+/// </para>
+/// <para>
+/// Constant alpha (§11.6.4.4) is the paint colour's alpha and the blend mode (§11.3.5) the context's; CoreGraphics has all sixteen
+/// standard modes, but its ColorDodge, ColorBurn and SoftLight are other functions, reported in <see cref="Diagnostics"/>.
+/// Annotations and form fields (§12.5.5) are placed as the software rasterizer places them (NoZoom and NoRotate, §12.5.3), clipped
+/// to their rectangle and, when translucent or blending, drawn in a transparency layer composited with their opacity and blend
+/// mode. Transparency groups and soft masks are not drawn yet (#128).
+/// </para>
+/// <para>
+/// Color filters (<see cref="RenderOptions.ColorFilter"/>, smart dark mode): a page render with a filter falls back to the software
+/// path. <see cref="SoftwareRasterizer"/> renders the page, filter included, and the result is drawn into the bitmap context as an
+/// image, so <see cref="Diagnostics"/> is empty. A display list drawn onto a context is never filtered; a viewer's tile backend draws
+/// filtered tiles through the software rasterizer.
+/// </para>
+/// <para>
+/// Reuse one instance for many renders: its working buffers are kept, so a warm replay allocates nothing per path, segment or
+/// dash. An instance renders one page at a time; use one per thread to render in parallel (a document is safe for concurrent
+/// renders while nobody changes it), each onto its own context.
 /// </para>
 /// </remarks>
-internal sealed partial class CoreGraphicsBackend : IRenderingBackend, IDisposable
+public sealed class CoreGraphicsBackend : IDisposable
 {
-    /// <summary>Mapped coordinates are kept within ±2^40 units, as the software rasterizer keeps its device coordinates.</summary>
-    internal const double CoordinateLimit = 1099511627776.0;
+    private readonly CoreGraphicsReplayer _backend = new();
+    private double _imageSamplesPerPixel = RenderOptions.DefaultImageSamplesPerPixel;
+    private SoftwareRasterizer? _filtered;
+    private bool _disposed;
 
-    private static readonly CGColorSpace Srgb = CGColorSpace.CreateSrgb() ?? throw new PlatformNotSupportedException("CoreGraphics has no sRGB colour space.");
-
-    private readonly nfloat[] _color = new nfloat[4];
-    private readonly CoreGraphicsStroker _stroker = new();
-    private SavedState[] _stack = new SavedState[16];
-    private int _depth;
-    private Matrix _device;
-    private Matrix _ctm;
-    private Matrix _toDevice;
-    private CGContext? _context;
-    private PdfDocument? _document;
-
-    private PdfColorSpace? _space;
-    private ColorConversion _conversion;
-    private PdfDefaultColorSpaces? _defaults;
-    private PdfColorConverter? _converter;
-    private ReportedKinds _reported;
-
-    /// <summary>Initializes a backend with its own image and shading caches.</summary>
+    /// <summary>Initializes a renderer; reuse it for many renders.</summary>
     public CoreGraphicsBackend()
     {
-        _images = new ImageCache();
-        _shadings = new ShadingCache();
     }
 
-    /// <summary>The kinds of diagnostic a replay reports once each.</summary>
-    [Flags]
-    private enum ReportedKinds
+    /// <summary>
+    /// Renders <paramref name="page"/> into the top-left <see cref="RenderOptions.GetPixelSize"/> pixels of a bitmap context, on white;
+    /// pixels outside that area are left as they are.
+    /// </summary>
+    /// <param name="page">The page.</param>
+    /// <param name="target">
+    /// The bitmap context, at least the page's pixel size, whose user space is still its pixels with the origin at the bottom left (as
+    /// a new <see cref="CGBitmapContext"/> has it). Its graphics state is as it was when the call returns.
+    /// </param>
+    /// <param name="options">The scale and rotation.</param>
+    /// <exception cref="ArgumentException"><paramref name="target"/> is smaller than the page's pixel size.</exception>
+    /// <remarks>ISO 32000-2 §8.3.2.3, §7.7.3.3 Table 31 and §14.11.2 for the page mapping (see <see cref="RenderOptions"/>).</remarks>
+    public void Render(PdfPage page, CGBitmapContext target, RenderOptions options)
     {
-        None = 0,
-        ImageTooLarge = 1,
-        ShadingUnsupported = 2,
-        MeshRasterized = 4,
-        TilingApproximated = 8,
-        KnockoutRasterized = 16,
-        ColorSpaceRasterized = 32,
-        NonIsolatedRasterized = 64,
-        NonIsolatedApproximated = 128,
-        SoftMaskRasterized = 256,
-        GroupApproximated = 512,
-    }
+        ArgumentNullException.ThrowIfNull(page);
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(options);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        PixelSize size = options.GetPixelSize(page);
+        long width = (long)target.Width;
+        long height = (long)target.Height;
+        if (width < size.Width || height < size.Height)
+        {
+            throw new ArgumentException($"The page needs {size.Width} x {size.Height} pixels; the bitmap context has {width} x {height}.", nameof(target));
+        }
 
-    /// <summary>Replays <paramref name="list"/> onto <paramref name="context"/>, leaving its graphics state as it was.</summary>
-    public void Replay(DisplayList list, CGContext context, in Matrix device)
-    {
-        _context = context;
-        _document = list.Document;
-        _device = device;
-        _ctm = Matrix.Identity;
-        _toDevice = device;
-        _depth = 0;
-        BeginCompositing();
-        BeginImages(context, list.Document);
-        BeginShadings(context);
+        if (options.ColorFilter != ColorFilter.None && !options.OverprintPreview)
+        {
+            DrawFiltered(page, target, options, size, height);
+            return;
+        }
 
-        // The text matrix is the context's but not part of its graphics state: kept here and put back, as glyphs replace it.
-        CGAffineTransform textMatrix = context.TextMatrix;
-        context.SaveState();
+        Matrix device = options.GetDeviceTransform(page);
+        DisplayList list = page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions);
+        target.SaveState();
         try
         {
-            context.SetFillColorSpace(Srgb);
-            context.SetStrokeColorSpace(Srgb);
-            context.SetShouldAntialias(true);
-
-            // Glyphs drawn natively are anti-aliased like paths: grey-scale coverage (no LCD smoothing, which also thickens stems) at
-            // their exact position (no quantization of the origin to a fraction of a pixel).
-            context.SetShouldSmoothFonts(false);
-            context.SetShouldSubpixelPositionFonts(true);
-            SetShouldSubpixelQuantizeFonts(context.Handle, false);
-            list.Replay(this);
+            // The rasterizer's device space has its origin at the top left with y down; a bitmap context's has it at the bottom left.
+            target.ConcatCTM(new CGAffineTransform(1, 0, 0, -1, 0, height));
+            var area = new CGRect(0, 0, size.Width, size.Height);
+            target.ClipToRect(area);
+            target.SetFillColor(White);
+            target.FillRect(area);
+            _backend.ForceOutlines = options.ForceOutlines;
+            _backend.ImageSamplesPerPixel = options.ScaledImageDecode && !options.OverprintPreview ? options.ImageSamplesPerPixel : 0;
+            _backend.Replay(list, target, device);
         }
         finally
         {
-            EndMaskedPaint();
-            for (; _depth > 0; _depth--)
-            {
-                EndLayerAt(_depth);
-                context.RestoreState();
-            }
-
-            context.RestoreState();
-            context.TextMatrix = textMatrix;
-            _context = null;
-            _document = null;
-            _space = null;
-            _defaults = null;
-            _converter = null;
+            target.RestoreState();
         }
     }
 
-    public void SaveState()
+    /// <summary>Draws <paramref name="list"/> over what <paramref name="context"/> already holds, without a background.</summary>
+    /// <param name="list">The display list.</param>
+    /// <param name="context">The context; drawing is clipped to its current clip. Its graphics state is as it was when the call returns.</param>
+    /// <param name="deviceTransform">
+    /// The transform from the list's default user space to the context's current user space, such as
+    /// <see cref="RenderOptions.GetDeviceTransform"/> for a context whose user space is pixels with the origin at the top left and y
+    /// down (a flipped view's); a tile renderer adds its own offset.
+    /// </param>
+    /// <remarks>ISO 32000-2 §8.3.2.2 (device space).</remarks>
+    public void Render(DisplayList list, CGContext context, in Matrix deviceTransform)
     {
-        if (_depth == _stack.Length)
-        {
-            Array.Resize(ref _stack, _stack.Length * 2);
-        }
-
-        _stack[_depth++] = new SavedState(_ctm, _toDevice, _compositing, _softMask);
-        _context!.SaveState();
+        ArgumentNullException.ThrowIfNull(list);
+        ArgumentNullException.ThrowIfNull(context);
+        Render(list, context, deviceTransform, forceOutlines: false);
     }
-
-    public void RestoreState()
-    {
-        if (_depth > 0)
-        {
-            SavedState saved = _stack[--_depth];
-            _ctm = saved.Ctm;
-            _toDevice = saved.ToDevice;
-            _compositing = saved.Compositing;
-            _softMask = saved.Mask;
-            _context!.RestoreState();
-        }
-    }
-
-    public void SetTransform(in Matrix transform)
-    {
-        _ctm = transform;
-        _toDevice = transform * _device;
-    }
-
-    private void FillPathCore(PathView path, FillRule rule, in DisplayColor color)
-    {
-        if (path.IsEmpty || _compositing.FillAlpha == 0 || !TryLoadColor(color, _compositing.FillAlpha))
-        {
-            return;
-        }
-
-        CGContext context = _context!;
-        context.SetFillColor(_color);
-        context.BeginPath();
-        AddMappedPath(context, path);
-        if (rule == FillRule.EvenOdd)
-        {
-            context.EOFillPath();
-        }
-        else
-        {
-            context.FillPath();
-        }
-    }
-
-    private void StrokePathCore(PathView path, in StrokeStyle style, in DisplayColor color)
-    {
-        if (path.IsEmpty || _compositing.StrokeAlpha == 0 || !TryLoadColor(color, _compositing.StrokeAlpha))
-        {
-            return;
-        }
-
-        _context!.SetStrokeColor(_color);
-        _stroker.Stroke(_context, path, style, _toDevice);
-    }
-
-    public void IntersectClip(PathView path, FillRule rule)
-    {
-        CGContext context = _context!;
-        context.BeginPath();
-        if (!AddMappedPath(context, path))
-        {
-            // §8.5.4: a path that encloses nothing leaves nothing inside the clip.
-            context.ClipToRect(CGRect.Empty);
-            return;
-        }
-
-        if (rule == FillRule.EvenOdd)
-        {
-            context.EOClip();
-        }
-        else
-        {
-            context.Clip();
-        }
-    }
-
-    /// <summary>Releases the fonts, kept images, shadings and pattern tiles; the backend can render again afterwards.</summary>
-    public void Dispose()
-    {
-        ClearFonts();
-        ClearTiles();
-        _cellBackend?.Dispose();
-        if (_owner is null)
-        {
-            DisposeTransparency();
-            _images.Dispose();
-            _shadings.Dispose();
-        }
-    }
-
-    /// <summary>Adds <paramref name="diagnostic"/> the first time a replay meets its kind (never silently).</summary>
-    private void Report(ReportedKinds kind, Diagnostic diagnostic)
-    {
-        if ((_reported & kind) == 0)
-        {
-            _reported |= kind;
-            Diagnostics.Add(diagnostic);
-        }
-    }
-
-    private static nfloat Quantize(float value) => (nfloat)(MathF.Round(Math.Clamp(value, 0f, 1f) * 255f) / 255f);
 
     /// <summary>
-    /// Converts <paramref name="color"/> to sRGB into the colour buffer, with <paramref name="alpha"/> (the constant alpha, 0 to 255) as
-    /// its alpha (§11.6.4.4); false when it paints nothing (Separation None).
+    /// Draws <paramref name="list"/> over what <paramref name="context"/> already holds, without a background, drawing every glyph from
+    /// its outline when <paramref name="forceOutlines"/> is set.
     /// </summary>
-    private bool TryLoadColor(in DisplayColor color, byte alpha)
+    /// <param name="list">The display list.</param>
+    /// <param name="context">The context; drawing is clipped to its current clip. Its graphics state is as it was when the call returns.</param>
+    /// <param name="deviceTransform">
+    /// The transform from the list's default user space to the context's current user space, such as
+    /// <see cref="RenderOptions.GetDeviceTransform"/>; a tile renderer adds its own offset.
+    /// </param>
+    /// <param name="forceOutlines">Whether every glyph is filled from its outline (<see cref="RenderOptions.ForceOutlines"/>).</param>
+    /// <remarks>ISO 32000-2 §8.3.2.2 (device space), §9.2.4 (glyph outlines).</remarks>
+    public void Render(DisplayList list, CGContext context, in Matrix deviceTransform, bool forceOutlines)
     {
-        if (_converter is null || !ReferenceEquals(_space, color.ColorSpace) || !ReferenceEquals(_defaults, color.DefaultColorSpaces) || _conversion != color.Conversion)
+        ArgumentNullException.ThrowIfNull(list);
+        ArgumentNullException.ThrowIfNull(context);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _backend.ForceOutlines = forceOutlines;
+        _backend.ImageSamplesPerPixel = ScaledImageDecode ? _imageSamplesPerPixel : 0;
+        _backend.Replay(list, context, deviceTransform);
+    }
+
+    /// <summary>
+    /// Has the engine's platform image decoders (such as <see cref="ImageIODecoder"/>, registered with
+    /// <see cref="PdfOptions.UsePlatformImageDecoder"/>) decode the images that a render of <paramref name="list"/> onto a
+    /// <paramref name="width"/> × <paramref name="height"/> pixel context under <paramref name="deviceTransform"/> will draw, at the
+    /// reductions this renderer will ask for (<see cref="ScaledImageDecode"/>, <see cref="ImageSamplesPerPixel"/>): the step to await
+    /// before <see cref="Render(DisplayList, CGContext, in Matrix)"/>.
+    /// </summary>
+    /// <param name="list">The display list to be rendered.</param>
+    /// <param name="deviceTransform">The transform the render will use.</param>
+    /// <param name="width">The width in pixels of the area the render draws.</param>
+    /// <param name="height">The height in pixels of the area the render draws.</param>
+    /// <param name="cancellationToken">Cancels the decodes only this call waits for.</param>
+    /// <returns>A task that completes when the images are decoded or left to the managed codec; at once when there is nothing to do.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.4.8 and §8.9.4. See <see cref="DisplayList.PrefetchImagesAsync"/>; the render draws the same images without it,
+    /// decoded by the managed codec. Page renders (<see cref="Render(PdfPage, CGBitmapContext, RenderOptions)"/>) never use a
+    /// platform decoder.
+    /// </remarks>
+    public ValueTask PrefetchImagesAsync(DisplayList list, in Matrix deviceTransform, int width, int height, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(list);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return list.PrefetchImagesAsync(deviceTransform, TryGetRegion(deviceTransform, width, height, out PdfRectangle region) ? region : null, ScaledImageDecode ? _imageSamplesPerPixel : 0, cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the renders of a display list given to this renderer decode images at the resolution
+    /// they are drawn at rather than their own; <see langword="false"/> by default. Page renders take
+    /// <see cref="RenderOptions.ScaledImageDecode"/> instead.
+    /// </summary>
+    /// <remarks>
+    /// For viewers only, never for printing or export (see <see cref="RenderOptions.ScaledImageDecode"/>): an image whose codec decodes
+    /// reduced resolutions, or a large one decoded when its list was built, is converted at the largest power-of-two reduction that
+    /// keeps <see cref="ImageSamplesPerPixel"/> samples per device pixel (<see cref="DisplayImage.GetReduction"/>, capped for a curved
+    /// colour conversion), and its masks at their own; the reduced samples are then resampled to the device as before. ISO 32000-2
+    /// §8.9.4 (the image unit square), §8.9.5.3 (Interpolate only affects enlargement).
+    /// </remarks>
+    public bool ScaledImageDecode { get; set; }
+
+    /// <summary>
+    /// Gets or sets the fewest decoded samples per device pixel a reduced image keeps when <see cref="ScaledImageDecode"/> is on:
+    /// <see cref="RenderOptions.DefaultImageSamplesPerPixel"/> (2) by default; 1 is faster and coarser.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a finite number of at least 1.</exception>
+    /// <remarks>See <see cref="RenderOptions.ImageSamplesPerPixel"/>; ISO 32000-2 §8.9.4.</remarks>
+    public double ImageSamplesPerPixel
+    {
+        get => _imageSamplesPerPixel;
+        set => _imageSamplesPerPixel = double.IsFinite(value) && value >= 1
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "The samples per pixel must be a finite number of at least 1.");
+    }
+
+    /// <summary>Gets what the last render could not draw exactly as the file asks: one diagnostic per kind.</summary>
+    /// <remarks>Nothing is skipped or approximated silently. CoreGraphics' ColorDodge, ColorBurn and SoftLight are not ISO 32000-2 §11.3.5's; mesh shadings (§8.7.4.5.5 to §8.7.4.5.8) are rasterized by the backend.</remarks>
+    public IReadOnlyList<Diagnostic> Diagnostics => _backend.Diagnostics;
+
+    /// <summary>Gets how many CoreGraphics images the renderer made from display-list images and masks.</summary>
+    internal int ImagesCreated => _backend.ImagesCreated;
+
+    /// <summary>Gets how many pixels the CoreGraphics images the renderer made had in all (fewer for reduced images, issue #428).</summary>
+    internal long ImagePixelsConverted => _backend.ImagePixelsConverted;
+
+    /// <summary>Gets the bytes of converted pixels the renderer keeps.</summary>
+    internal long CachedImageBytes => _backend.CachedImageBytes;
+
+    /// <summary>Gets how many tiling pattern cells the renderer rendered into tiles.</summary>
+    internal int CellsRecorded => _backend.CellsRecorded;
+
+    /// <summary>Ends the renderer's use; it renders no more after this.</summary>
+    public void Dispose()
+    {
+        _disposed = true;
+        _backend.Dispose();
+        _filtered?.Dispose();
+    }
+
+    /// <summary>
+    /// The software path of a page render with a color filter (spec #33 viewer capability 9): the rasterizer renders the page with the
+    /// options, filter included, and the pixels are drawn into the top-left page area of the bitmap context, one image pixel per pixel.
+    /// </summary>
+    private void DrawFiltered(PdfPage page, CGBitmapContext target, RenderOptions options, PixelSize size, long height)
+    {
+        _backend.Diagnostics.Clear();
+        byte[] pixels = new byte[size.Width * size.Height * 4];
+        using (var bitmap = new Bitmap(pixels, size.Width, size.Height, size.Width * 4))
         {
-            _space = color.ColorSpace;
-            _defaults = color.DefaultColorSpaces;
-            _conversion = color.Conversion;
-            _converter = _document!.GetColorConverter(color.ColorSpace, color.Conversion with { Target = DeviceColorModel.Rgb }, color.DefaultColorSpaces);
+            (_filtered ??= new SoftwareRasterizer()).Render(page, bitmap, options);
         }
 
-        if (_converter.PaintsNothing)
+        using PixelImage image = PixelImage.Own(pixels, size.Width, size.Height, 4);
+        target.SaveState();
+        try
+        {
+            // The context's user space is its pixels with the origin at the bottom left: the page's area is its top rows.
+            target.InterpolationQuality = CGInterpolationQuality.None;
+            target.SetBlendMode(CGBlendMode.Normal);
+            target.DrawImage(new CGRect(0, height - size.Height, size.Width, size.Height), image.Image);
+        }
+        finally
+        {
+            target.RestoreState();
+        }
+    }
+
+    /// <summary>The part of default user space a <paramref name="width"/> × <paramref name="height"/> area shows, two pixels wider; false without an inverse.</summary>
+    private static bool TryGetRegion(in Matrix device, int width, int height, out PdfRectangle region)
+    {
+        region = default;
+        if (!device.TryInvert(out Matrix inverse))
         {
             return false;
         }
 
-        Span<float> rgb = stackalloc float[4];
-        _converter.Convert(color.Components, rgb);
+        PathPoint a = inverse.Transform(-2, -2);
+        PathPoint b = inverse.Transform(width + 2, -2);
+        PathPoint c = inverse.Transform(width + 2, height + 2);
+        PathPoint d = inverse.Transform(-2, height + 2);
+        double left = Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X));
+        double bottom = Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y));
+        double right = Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X));
+        double top = Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y));
+        if (!(double.IsFinite(left) && double.IsFinite(bottom) && double.IsFinite(right) && double.IsFinite(top)))
+        {
+            return false;
+        }
 
-        // The golden images hold 8-bit colours; giving CoreGraphics the same 8-bit values keeps its rounding out of the comparison.
-        _color[0] = Quantize(rgb[0]);
-        _color[1] = Quantize(rgb[1]);
-        _color[2] = Quantize(rgb[2]);
-        _color[3] = (nfloat)(alpha / 255.0);
+        region = new PdfRectangle(left, bottom, right, top);
         return true;
     }
 
-    /// <summary>
-    /// Adds <paramref name="path"/> to the context's current path for a fill or clip, mapped by the current transform to the context's
-    /// user space. A lone moveto adds nothing; a degenerate subpath (one point, with at least one segment or a close) adds the device
-    /// pixel under that point instead (§8.5.3.3.1).
-    /// </summary>
-    /// <returns>Whether anything was added.</returns>
-    private bool AddMappedPath(CGContext context, PathView path) => AddMappedPath(context, path, _toDevice, degenerateDots: true);
-
-    /// <summary>
-    /// Adds <paramref name="path"/> mapped by <paramref name="m"/>; a degenerate subpath adds its device pixel only when
-    /// <paramref name="degenerateDots"/> (path objects, §8.5.3.3.1), and nothing for a glyph outline, whose single-point contours
-    /// (TrueType anchors) paint nothing.
-    /// </summary>
-    /// <returns>Whether anything was added.</returns>
-    private static bool AddMappedPath(CGContext context, PathView path, in Matrix m, bool degenerateDots)
-    {
-        ReadOnlySpan<PathVerb> verbs = path.Verbs;
-        ReadOnlySpan<PathPoint> points = path.Points;
-        bool added = false;
-        int verb = 0;
-        int p = 0;
-        while (verb < verbs.Length)
-        {
-            if (verbs[verb] != PathVerb.MoveTo)
-            {
-                // A path begins with a moveto; anything before one is skipped.
-                p += PointCount(verbs[verb++]);
-                continue;
-            }
-
-            int start = p;
-            int end = verb + 1;
-            int q = p + 1;
-            bool degenerate = true;
-            while (end < verbs.Length && verbs[end] != PathVerb.MoveTo)
-            {
-                int count = PointCount(verbs[end]);
-                for (int k = 0; k < count; k++)
-                {
-                    degenerate &= points[q + k] == points[start];
-                }
-
-                q += count;
-                end++;
-            }
-
-            bool segments = end > verb + 1;
-            if (!degenerate)
-            {
-                PathPoint first = Map(m, points[start]);
-                context.MoveTo((nfloat)first.X, (nfloat)first.Y);
-                for (int index = verb + 1, r = p + 1; index < end; r += PointCount(verbs[index]), index++)
-                {
-                    Emit(context, verbs[index], points, r, m);
-                }
-
-                added = true;
-            }
-            else if (segments && degenerateDots)
-            {
-                PathPoint point = Map(m, points[start]);
-                context.AddRect(new CGRect(Math.Floor(point.X), Math.Floor(point.Y), 1, 1));
-                added = true;
-            }
-
-            verb = end;
-            p = q;
-        }
-
-        return added;
-    }
-
-    /// <summary>Maps a point to the context's space, clamped to <see cref="CoordinateLimit"/> (NaN, from infinite input, to 0).</summary>
-    internal static PathPoint Map(in Matrix m, PathPoint point)
-    {
-        PathPoint mapped = m.Transform(point);
-        return new PathPoint(Clamp(mapped.X), Clamp(mapped.Y));
-    }
-
-    private static double Clamp(double value) => double.IsNaN(value) ? 0 : Math.Clamp(value, -CoordinateLimit, CoordinateLimit);
-
-    private static int PointCount(PathVerb verb) => verb switch
-    {
-        PathVerb.MoveTo or PathVerb.LineTo => 1,
-        PathVerb.QuadTo => 2,
-        PathVerb.CubicTo => 3,
-        _ => 0,
-    };
-
-    private static void Emit(CGContext context, PathVerb verb, ReadOnlySpan<PathPoint> points, int p, in Matrix m)
-    {
-        switch (verb)
-        {
-            case PathVerb.LineTo:
-                PathPoint point = Map(m, points[p]);
-                context.AddLineToPoint((nfloat)point.X, (nfloat)point.Y);
-                break;
-            case PathVerb.QuadTo:
-                PathPoint control = Map(m, points[p]);
-                PathPoint end = Map(m, points[p + 1]);
-                context.AddQuadCurveToPoint((nfloat)control.X, (nfloat)control.Y, (nfloat)end.X, (nfloat)end.Y);
-                break;
-            case PathVerb.CubicTo:
-                PathPoint c1 = Map(m, points[p]);
-                PathPoint c2 = Map(m, points[p + 1]);
-                PathPoint to = Map(m, points[p + 2]);
-                context.AddCurveToPoint((nfloat)c1.X, (nfloat)c1.Y, (nfloat)c2.X, (nfloat)c2.Y, (nfloat)to.X, (nfloat)to.Y);
-                break;
-            case PathVerb.Close:
-                context.ClosePath();
-                break;
-        }
-    }
+    private static readonly CGColor White = new(1, 1, 1, 1);
+    private static readonly Content.ContentOptions DefaultContentOptions = new();
 }

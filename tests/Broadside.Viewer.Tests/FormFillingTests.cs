@@ -206,7 +206,7 @@ public sealed class FormFillingTests
             await using DocumentSession session = Open("acroform-fields.pdf");
             session.Document.Pages[0].Dictionary[new CosName("Tabs")] = new CosName(tabs);
             var layer = new AnnotationLayer(session);
-            int count = await layer.LoadPageAsync(0, Token);
+            int count = await layer.ReadPageAsync(0, Token);
             var filling = new FormFilling(layer);
 
             AnnotationTarget[] all = [.. Enumerable.Range(0, count).Select(i => new AnnotationTarget(0, i))];
@@ -235,8 +235,8 @@ public sealed class FormFillingTests
         var layer = new AnnotationLayer(session);
         var notices = new List<XfaFormEventArgs>();
         layer.XfaFormDetected += (_, e) => notices.Add(e);
-        await layer.LoadPageAsync(0, Token);
-        await layer.LoadPageAsync(0, Token);
+        await layer.ReadPageAsync(0, Token);
+        await layer.ReadPageAsync(0, Token);
 
         XfaFormEventArgs notice = Assert.Single(notices);
         Assert.Same(notice, layer.XfaForm);
@@ -254,7 +254,7 @@ public sealed class FormFillingTests
         await using DocumentSession plain = Open("acroform-fields.pdf");
         var other = new AnnotationLayer(plain);
         other.XfaFormDetected += (_, e) => notices.Add(e);
-        await other.LoadPageAsync(0, Token);
+        await other.ReadPageAsync(0, Token);
         Assert.Single(notices);
         Assert.Null(other.XfaForm);
     }
@@ -277,7 +277,7 @@ public sealed class FormFillingTests
         }
 
         var layer = new AnnotationLayer(session, scheduler);
-        await layer.LoadPageAsync(0, Token);
+        await layer.ReadPageAsync(0, Token);
         var filling = new FormFilling(layer);
         Click(layer, Widget(layer, "name"));
         events.Clear();
@@ -411,7 +411,7 @@ public sealed class FormFillingTests
     {
         for (int page = 0; page < layer.Session.PageCount; page++)
         {
-            await layer.LoadPageAsync(page, Token);
+            await layer.ReadPageAsync(page, Token);
         }
     }
 

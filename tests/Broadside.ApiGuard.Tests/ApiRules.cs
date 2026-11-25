@@ -40,9 +40,15 @@ internal static partial class ApiRules
         where !IsAllowedNamespace(ns)
         select new Violation(ApiSurface.FullName(type), $"namespace '{ns}' is not the root or one of the spec's areas");
 
-    /// <summary>Whether a namespace is the root, one of the spec's areas (or under one), or the dependency-injection one.</summary>
+    /// <summary>
+    /// The namespace of the viewer packages: the spec's areas divide the library, and the viewer core and each UI shell built on it
+    /// (<c>Broadside.Viewer.Avalonia</c>, <c>Broadside.Viewer.Wpf</c>, ...) live under this one, one namespace per package.
+    /// </summary>
+    public const string ViewerNamespace = "Broadside.Viewer";
+
+    /// <summary>Whether a namespace is the root, one of the spec's areas (or under one), the viewers', or the dependency-injection one.</summary>
     public static bool IsAllowedNamespace(string ns) =>
-        ns is "Broadside" or DependencyInjectionNamespace || Areas.Any(area => IsInNamespace(ns, "Broadside." + area));
+        ns is "Broadside" or DependencyInjectionNamespace || IsInNamespace(ns, ViewerNamespace) || Areas.Any(area => IsInNamespace(ns, "Broadside." + area));
 
     /// <summary>Whether a namespace is <paramref name="parent"/> or under it.</summary>
     public static bool IsInNamespace(string ns, string parent) => ns == parent || ns.StartsWith(parent + ".", StringComparison.Ordinal);

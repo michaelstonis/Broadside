@@ -83,15 +83,16 @@ public static partial class RenderWorker
     /// <c>Main</c> has called <see cref="Serve"/>.
     /// </summary>
     /// <param name="timeout">How long to wait for the worker, or <see langword="null"/> for 60 seconds.</param>
+    /// <param name="cancellationToken">Stops waiting for the worker, which still starts for later calls.</param>
     /// <returns><see langword="true"/> when tiles can be rendered in the worker; otherwise the viewer draws them itself.</returns>
-    public static Task<bool> StartAsync(TimeSpan? timeout = null)
+    public static Task<bool> StartAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         if (IsWorker)
         {
             return Task.FromResult(false);
         }
 
-        return _start ??= StartCoreAsync(timeout ?? TimeSpan.FromSeconds(60));
+        return (_start ??= StartCoreAsync(timeout ?? TimeSpan.FromSeconds(60))).WaitAsync(cancellationToken);
     }
 
     /// <summary>

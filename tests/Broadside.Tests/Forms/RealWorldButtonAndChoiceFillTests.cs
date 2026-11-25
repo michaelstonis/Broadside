@@ -55,7 +55,7 @@ public sealed class RealWorldButtonAndChoiceFillTests(ITestOutputHelper output)
         int refused = 0;
         foreach (PdfToggleButtonField field in form.TerminalFields.OfType<PdfToggleButtonField>())
         {
-            field.GenerateAppearances();
+            field.WriteAppearances();
             IReadOnlyList<PdfWidgetAnnotation> widgets = field.Widgets;
             if (widgets.Count == 0)
             {

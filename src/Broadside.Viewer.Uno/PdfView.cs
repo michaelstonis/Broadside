@@ -248,10 +248,11 @@ public sealed partial class PdfView : UserControl, IViewerHost
     public void ClearFind() => _controller.ClearFind();
 
     /// <summary>Copies the selected text to the clipboard.</summary>
+    /// <param name="cancellationToken">Stops waiting for the selection's pages to load; nothing is copied then.</param>
     /// <returns>The copied text, or null when nothing is selected or the document closed before the selection's pages loaded.</returns>
-    public async Task<string?> CopySelectionAsync()
+    public async Task<string?> CopySelectionAsync(CancellationToken cancellationToken = default)
     {
-        string? text = await _controller.GetSelectedTextAsync().ConfigureAwait(true);
+        string? text = await _controller.GetSelectedTextAsync().WaitAsync(cancellationToken).ConfigureAwait(true);
         if (!string.IsNullOrEmpty(text))
         {
             ((IViewerHost)this).CopyText(text);

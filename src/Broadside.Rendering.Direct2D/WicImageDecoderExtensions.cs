@@ -7,7 +7,7 @@ public static class WicImageDecoderExtensions
     /// <param name="options">The engine's options.</param>
     /// <returns><paramref name="options"/>.</returns>
     /// <remarks>
-    /// ISO 32000-2 §7.4.8. Images decode through WIC when a render's images are prefetched (<see cref="Direct2DRenderer.PrefetchImagesAsync"/>,
+    /// ISO 32000-2 §7.4.8. Images decode through WIC when a render's images are prefetched (<see cref="Direct2DBackend.PrefetchImagesAsync"/>,
     /// <see cref="DisplayList.PrefetchImagesAsync"/>); a render without a prefetch decodes with the managed codec. The samples are the
     /// same either way (<see cref="WicImageDecoder.Fidelity"/> is exact). Off Windows nothing is offered to it.
     /// </remarks>

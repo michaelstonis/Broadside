@@ -119,7 +119,7 @@ public sealed class ColorFilterRenderingTests
 
         rasterizer.ColorFilter = ColorFilter.DarkMode;
         rasterizer.Render(list, whole, options.GetDeviceTransform(page));
-        using (ProgressiveRender render = rasterizer.BeginRender(list, sliced, options.GetDeviceTransform(page), CancellationToken.None, null))
+        using (ProgressiveRender render = rasterizer.BeginRender(list, sliced, options.GetDeviceTransform(page), null, CancellationToken.None))
         {
             while (!render.Continue(TimeSpan.Zero))
             {

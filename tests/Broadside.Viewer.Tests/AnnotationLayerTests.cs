@@ -48,7 +48,7 @@ public sealed class AnnotationLayerTests
         using TileScheduler scheduler = await SchedulerAsync(session, surface, events);
         RunToIdle(scheduler);
         var layer = new AnnotationLayer(session, scheduler);
-        await layer.LoadPageAsync(0, Token);
+        await layer.ReadPageAsync(0, Token);
         var invalidations = new List<PageInvalidatedEventArgs>();
         layer.Invalidated += (_, e) => invalidations.Add(e);
         events.Clear();
@@ -94,7 +94,7 @@ public sealed class AnnotationLayerTests
         int tiles = surface.Tiles.Count;
 
         var layer = new AnnotationLayer(session, scheduler);
-        int count = await layer.LoadPageAsync(0, Token);
+        int count = await layer.ReadPageAsync(0, Token);
         AnnotationTarget box = Enumerable.Range(0, count).Select(i => new AnnotationTarget(0, i))
             .First(t => layer.GetRole(t) == AnnotationRole.Field && ((PdfWidgetAnnotation)layer.GetAnnotation(t)).Field is PdfCheckBoxField { IsReadOnly: false });
         events.Clear();
@@ -118,7 +118,7 @@ public sealed class AnnotationLayerTests
     {
         await using DocumentSession session = Open("annotations-link.pdf");
         var layer = new AnnotationLayer(session);
-        Assert.Equal(1, await layer.LoadPageAsync(0, Token));
+        Assert.Equal(1, await layer.ReadPageAsync(0, Token));
         var requested = new List<ViewerActionEventArgs>();
         layer.ActionRequested += (_, e) => requested.Add(e);
         int changes = 0;
@@ -152,7 +152,7 @@ public sealed class AnnotationLayerTests
     {
         await using DocumentSession session = Open("actions-all.pdf");
         var layer = new AnnotationLayer(session);
-        int count = await layer.LoadPageAsync(0, Token);
+        int count = await layer.ReadPageAsync(0, Token);
         var requested = new List<ViewerActionEventArgs>();
         layer.ActionRequested += (_, e) => requested.Add(e);
 
@@ -214,7 +214,7 @@ public sealed class AnnotationLayerTests
     {
         await using DocumentSession session = Open(ManyPagesDocument.Create(3));
         var layer = new AnnotationLayer(session);
-        await layer.LoadPageAsync(0, Token);
+        await layer.ReadPageAsync(0, Token);
         AnnotationTarget link = Assert.NotNull(layer.Add(0, page => page.AddLinkAnnotation(new PdfRectangle(100, 100, 200, 150), session.Document.Pages[2])));
         var requested = new List<ViewerActionEventArgs>();
         layer.ActionRequested += (_, e) => requested.Add(e);
@@ -233,7 +233,7 @@ public sealed class AnnotationLayerTests
     {
         await using DocumentSession session = Open(ManyPagesDocument.Create(1));
         var layer = new AnnotationLayer(session);
-        await layer.LoadPageAsync(0, Token);
+        await layer.ReadPageAsync(0, Token);
         var invalidations = new List<PageInvalidatedEventArgs>();
         layer.Invalidated += (_, e) => invalidations.Add(e);
 
@@ -260,7 +260,7 @@ public sealed class AnnotationLayerTests
     {
         await using DocumentSession session = Open("annotations-subtypes.pdf");
         var layer = new AnnotationLayer(session);
-        int count = await layer.LoadPageAsync(0, Token);
+        int count = await layer.ReadPageAsync(0, Token);
         AnnotationTarget[] targets = [.. Enumerable.Range(0, count).Select(i => new AnnotationTarget(0, i))];
         Assert.DoesNotContain(targets, t => layer.GetAnnotation(t).Kind == PdfAnnotationKind.Popup);
 
@@ -278,7 +278,7 @@ public sealed class AnnotationLayerTests
         var widgets = new List<AnnotationTarget>();
         for (int page = 0; page < session.PageCount; page++)
         {
-            int count = await layer.LoadPageAsync(page, Token);
+            int count = await layer.ReadPageAsync(page, Token);
             widgets.AddRange(Enumerable.Range(0, count).Select(i => new AnnotationTarget(page, i)).Where(t => layer.GetRole(t) == AnnotationRole.Field));
         }
 
@@ -326,7 +326,7 @@ public sealed class AnnotationLayerTests
         await using DocumentSession session = Open(file);
         session.Document.Pages[0].Dictionary[new CosName("Tabs")] = new CosName("C");
         var layer = new AnnotationLayer(session);
-        int count = await layer.LoadPageAsync(0, Token);
+        int count = await layer.ReadPageAsync(0, Token);
         var order = new AnnotationTarget[count];
         Assert.Equal(count, layer.GetFocusOrder(0, order));
 
@@ -354,7 +354,7 @@ public sealed class AnnotationLayerTests
     {
         await using DocumentSession session = Open(AnnotationSamples.Grid());
         var layer = new AnnotationLayer(session);
-        await layer.LoadPageAsync(0, Token);
+        await layer.ReadPageAsync(0, Token);
         PageLayout layout = await PageLayout.CreateAsync(session, cancellationToken: Token);
         var viewport = new Viewport(0, 0, 612, 792, 1);
         int changes = 0;
@@ -394,12 +394,12 @@ public sealed class AnnotationLayerTests
     {
         await using DocumentSession session = Open("acroform-fields.pdf");
         var layer = new AnnotationLayer(session);
-        await layer.LoadPageAsync(0, Token);
+        await layer.ReadPageAsync(0, Token);
         AnnotationTarget link = Assert.NotNull(layer.Add(0, page => page.AddLinkAnnotation(new PdfRectangle(10, 10, 60, 30), new Uri("https://example.com/a"))));
         var bridge = new AccessibilityBridge(session, layer);
         layer.Accessibility = bridge;
 
-        AccessibleNode pageNode = await bridge.LoadPageAsync(0, Token);
+        AccessibleNode pageNode = await bridge.ReadPageAsync(0, Token);
         AccessibleNode[] elements = [.. pageNode.Children.Where(n => n.Source is CosDictionary)];
         var order = new AnnotationTarget[layer.GetCount(0)];
         int count = layer.GetFocusOrder(0, order);
@@ -431,7 +431,7 @@ public sealed class AnnotationLayerTests
         await using DocumentSession session = Open(ManyPagesDocument.Create(1));
         Assert.Throws<ArgumentNullException>(() => new AnnotationLayer(null!));
         var layer = new AnnotationLayer(session);
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await layer.LoadPageAsync(1, Token));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await layer.ReadPageAsync(1, Token));
         Assert.Throws<ArgumentOutOfRangeException>(() => layer.GetAnnotation(new AnnotationTarget(0, 0)));
         Assert.Throws<ArgumentOutOfRangeException>(() => layer.Add(0, page => page.AddSquareAnnotation(new PdfRectangle(0, 0, 1, 1))));
         Assert.Null(layer.HitTest(new PagePoint(0, 1, 1)));
