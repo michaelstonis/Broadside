@@ -113,11 +113,12 @@ public sealed class DocumentSearchTests
     [Fact]
     public async Task Searching_a_500_page_file_returns_first_results_before_indexing_finishes()
     {
-        // Cooperative mode with a yield the test releases: the index grows one page per slice, so the state between slices is exact.
+        // Cooperative mode with a yield the test releases and a slice too short for more than one page: the index grows one page per
+        // slice, so the state between slices is exact.
         var gate = new SliceGate();
         await using DocumentSession session = DocumentSession.Open(
             Pages(500, page => [string.Create(CultureInfo.InvariantCulture, $"page {page + 1} needle")]),
-            Options(ViewerThreading.Cooperative).UseYield(gate.YieldAsync));
+            Options(ViewerThreading.Cooperative).WithSliceBudget(OnePagePerSlice).UseYield(gate.YieldAsync));
         using var search = new DocumentSearch(session);
         int changes = 0;
         search.Changed += (_, _) => changes++;
@@ -138,6 +139,32 @@ public sealed class DocumentSearchTests
         Assert.True(search.IsIndexComplete);
         Assert.True(search.IsSearchComplete);
         Assert.Equal(Enumerable.Range(0, 500), search.Matches.Select(m => m.PageIndex));
+    }
+
+    [Fact]
+    public async Task A_cooperative_search_yields_when_its_slice_budget_is_spent_not_before_every_page()
+    {
+        // #600: the first search yielded before every page not yet indexed, whatever the budget, so a viewer drew a frame per page.
+        // With a budget no page fills, a 40-page search yields once (the caller's slice reads nothing); with a budget every page
+        // fills, it yields before each page.
+        Assert.Equal(1, await CountYieldsAsync(Timeout.InfiniteTimeSpan));
+        Assert.Equal(40, await CountYieldsAsync(OnePagePerSlice));
+
+        static async Task<int> CountYieldsAsync(TimeSpan budget)
+        {
+            int yields = 0;
+            await using DocumentSession session = DocumentSession.Open(
+                Pages(40, page => [string.Create(CultureInfo.InvariantCulture, $"page {page + 1} needle")]),
+                Options(ViewerThreading.Cooperative).WithSliceBudget(budget).UseYield(async _ =>
+                {
+                    Interlocked.Increment(ref yields);
+                    await Task.Yield();
+                }));
+            using var search = new DocumentSearch(session);
+            await SearchAsync(search, "needle");
+            Assert.Equal(40, search.MatchCount);
+            return Volatile.Read(ref yields);
+        }
     }
 
     [Fact]
@@ -162,7 +189,7 @@ public sealed class DocumentSearchTests
     {
         var gate = new SliceGate();
         DocumentSession session = DocumentSession.Open(
-            Pages(500, page => ["needle"]), Options(ViewerThreading.Cooperative).UseYield(gate.YieldAsync));
+            Pages(500, page => ["needle"]), Options(ViewerThreading.Cooperative).WithSliceBudget(OnePagePerSlice).UseYield(gate.YieldAsync));
         using var search = new DocumentSearch(session);
         search.Search("needle");
         await gate.ReleaseAsync(2);
@@ -240,6 +267,9 @@ public sealed class DocumentSearchTests
             await Task.Delay(5, Token);
         }
     }
+
+    /// <summary>A slice budget every page's extraction spends (one 100 ns tick), so a cooperative search yields before each page.</summary>
+    private static TimeSpan OnePagePerSlice => TimeSpan.FromTicks(1);
 
     private static ViewerOptions Options(ViewerThreading threading) =>
         new ViewerOptions().WithDocumentOptions(new PdfOptions().UseStandard14Fonts()).WithThreading(threading);
