@@ -13,7 +13,7 @@ public sealed class GuideSampleTests
     [Fact]
     public void The_rendering_guide_sample_matches_the_golden_image()
     {
-        using Bitmap bitmap = Direct2DSample.Render(Corpus.Path("paths-fill-rules.pdf"), Direct2DDriver.Warp);
+        using Bitmap bitmap = Direct2DSample.Render(Corpus.Path("paths-fill-rules.pdf"), Direct2DDeviceType.Warp);
 
         GoldenCorpus.AssertMatchesReference("direct2d", "paths-fill-rules.pdf", 0, GoldenImage.FromBitmap(bitmap));
     }

@@ -12,13 +12,13 @@ public static class Direct2DSample
 {
     /// <summary>Renders the first page of a file at 72 DPI with the given Direct3D device.</summary>
     /// <param name="path">The PDF file.</param>
-    /// <param name="driver">The device: the graphics hardware (falling back to WARP when there is none), or WARP itself.</param>
+    /// <param name="deviceType">The device: the graphics hardware (falling back to WARP when there is none), or WARP itself.</param>
     /// <returns>The render; the caller disposes it.</returns>
-    public static Bitmap Render(string path, Direct2DDriver driver)
+    public static Bitmap Render(string path, Direct2DDeviceType deviceType)
     {
         #region direct2d
         using PdfDocument document = PdfDocument.Open(path);
-        using var renderer = new Direct2DRenderer(driver); // Direct2DDriver.Hardware, or Warp for the same pixels on every machine
+        using var renderer = new Direct2DBackend(deviceType); // Direct2DDeviceType.Hardware, or Warp for the same pixels on every machine
         Bitmap bitmap = renderer.Render(document.Pages[0], new RenderOptions()); // premultiplied BGRA, on white
         #endregion
 
