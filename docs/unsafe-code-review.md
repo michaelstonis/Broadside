@@ -1,9 +1,10 @@
 # Unsafe code and pooled buffer review
 
 The security review pass of issue #274, for v1.0. It covers every construct that bypasses .NET bounds or type safety and every
-pooled buffer in the shipping packages: `Broadside`, `Broadside.Rendering`, `Broadside.Layout` and the rendering backends (Skia,
-CoreGraphics, Direct2D, Android Canvas, WebGL). The viewer packages (`Broadside.Viewer*`) ship as previews on their own track and
-are not part of v1.0, so they are out of scope. `Broadside.Fonts.Cmaps` and `Broadside.Fonts.Standard14` have neither.
+pooled buffer in the shipping packages: `Broadside`, `Broadside.Rendering`, `Broadside.Layout`, the rendering backends (Skia,
+CoreGraphics, Direct2D, Android Canvas, WebGL) and the viewers (`Broadside.Viewer` and its Avalonia, Blazor, MAUI, Uno, WinUI and
+WPF packages, with the Blazor viewer's JavaScript that receives buffers from .NET). `Broadside.Fonts.Cmaps` and
+`Broadside.Fonts.Standard14` have neither.
 
 It sits next to the [threat model](threat-model.md) ("Managed parsing") and the [fuzzing coverage report](fuzz-coverage.md): fuzzing
 finds what a hostile input does; this review argues, line by line, what it cannot do.
@@ -38,9 +39,14 @@ finds what a hostile input does; this review argues, line by line, what it canno
 | R1 | Direct2D and CoreGraphics `ImageReducer.Upright` | The horizontal pass rents `outWidth × (channels + 1) × source height` doubles with no limit (about 10 GB for a 4096 × 65536 RGB image drawn into a 4096 × 1 strip); a larger product overflows `int` and throws. Skia and Android already band this pass (issue #432) | hostile file rendered on those backends | **Listed** (advisory, follow-up): port the banded pass; managed and bounds-checked, so denial of service only |
 | R2 | Direct2D, CoreGraphics, Android mesh and radial shading textures | When one side of the texture is under a pixel, the other side is not limited: a shading `BBox [0 0 5e8 1e-6]` asks for a texture of about 2 GB | hostile file, after the raster cache declines the shading | **Listed** (advisory, follow-up): clamp each side to the device's largest bitmap and the area to `MeshRasterizer.MaxPixels`; denial of service only |
 | R3 | `ColorantPlanes` (software rasterizer, overprint preview) | Each distinct Separation or DeviceN colorant adds one page-sized plane for the rest of the render, with no limit | hostile file, only with `RenderOptions.OverprintPreview` | **Listed** (advisory, follow-up): cap the spot planes and paint further spots through their process equivalent with a diagnostic |
+| V1 | WPF viewer `FrameRenderer.CreateImage` | `BitmapSource.Create` was told the buffer holds `Stride × Height` bytes; a tile over caller memory (a third-party `IRemoteTileRenderer`) with a padded stride only holds `(Height − 1) × Stride + Width × 4`, so WIC could read past the pinned buffer | an application's remote renderer, not a document | **Fixed**: such a buffer is packed to `Width × 4` rows first |
 | R4 | `ImageSource`, `MaskSource` (software rasterizer) | A conversion that throws partway leaves the previous cache key valid over a partly overwritten buffer | a converter or ICC evaluation that throws | **Listed** (low): invalidate the key before converting |
 
-Hardening notes without a current bug: the Direct2D, CoreGraphics and Android `PixelImage` constructors trust that the pixel buffer
+Hardening notes without a current bug: in the Blazor viewer, a throw between a browser decode and its release leaves the decoded
+samples in the JavaScript decode map until the page goes, and a short decode result would leave stale pool bytes at the end of the
+image's samples (the sizes are checked first, so neither happens today); the MAUI frame presenter does not dispose its paint objects
+when disposed during a paint (a native leak); `HeadlessSurface.PresentedTile.Pixels` is a pooled bitmap the surface recycles, so a
+span held across `Evict` or the next present reads recycled memory (managed, documented as surface-owned); the Direct2D, CoreGraphics and Android `PixelImage` constructors trust that the pixel buffer
 holds width × height × channels bytes (every caller passes exactly that); `IccClut` relies on its parser for the table size its
 unchecked reads assume; the Skia and Android `PackRgb` kernels rely on their one caller's span lengths; CoreGraphics' ImageIO decoder
 hands ImageIO a no-copy `CFData` that must not outlive the pinned buffer (it does not today); `PooledBufferWriter.GetSpan` hands out
@@ -156,9 +162,30 @@ command list, the Unicode line breaker) and every variable `stackalloc` of color
 | WebGL `Recorder.cs`, `WebGLRenderer.cs` | read-back pixels | `finally` | the viewport and target | ok |
 | Layout `Paragraph.cs`, `UnicodeBidi.cs`, `UnicodeLineBreaker.cs`, `Seams.cs` | levels, classes, breaks | `finally` | application text | ok (P6 in `Paragraph`) |
 
+## Viewers
+
+No viewer package parses untrusted bytes itself: document bytes, files and addresses go to the core, and JPEG data the Blazor
+viewer decodes goes to the browser's decoder (`BrowserImageDecoder`, the only viewer type named like a decoder; the core decides
+which images it may take, fuzz target `platform-image-eligibility`). Form edits from the page are parsed with `int.TryParse` and
+clamped by the core's form filling. So the viewers add no fuzz target. Every tile bitmap is a pooled `Bitmap` whose `Pixels` is
+exactly `Stride × Height` and whose size the tile scheduler's memory budget (`TileScheduler.Reserve`) has accepted.
+
+| Site | Construct | Why | Bounds | Verdict |
+|---|---|---|---|---|
+| Avalonia `BitmapTileSurface.cs` | `unsafe`, `ILockedFramebuffer.Address`, a span per row | tile to a `WriteableBitmap` | the bitmap has the tile's size; each row writes `Width × 4` bytes at `y × RowBytes` (computed in `long`); source rows range-checked | ok |
+| MAUI `TileImageSurface.cs`, `SkiaTileBackend.cs` | `fixed` + `SKImage.FromPixelCopy`, `SKSurface.Create` over the tile | tile upload; Skia renders into the tile | Skia touches at most `(Height − 1) × Stride + Width × 4` bytes; everything inside `fixed`; the render runs under the scheduler's gate, so the bitmap cannot be released meanwhile | ok |
+| MAUI `PdfView.cs` | `SKBitmap.GetPixels` + `ReadPixels` | frame capture | the same image info and row bytes as the allocation; size from the canvas, not the document | ok |
+| WPF `FrameRenderer.cs` | `fixed` + `BitmapSource.Create` | tile to a frozen bitmap | `Stride × Height` bytes, packed first when the buffer is shorter (V1) | ok after fix |
+| Blazor `RenderWorker.cs`, `BrowserImageDecoder.cs`, `ViewerInterop.cs` and the JavaScript | `MemoryMarshal.CreateSpan` (read-only to writable for a `MemoryView`), `MemoryView` copies both ways | documents to the worker, JPEG data to the browser decoder and samples back, tiles and frame commands to the canvas | lengths are exact; JavaScript copies synchronously (`slice`, `copyTo`); a `TypedArray.set` past the destination throws `RangeError`; decoded sizes are checked against the request | ok |
+| WinUI `WriteableTileImage.cs`, Uno `FrameView.cs` | `PixelBuffer.AsStream().Write` | tile upload | writes exactly `Width × 4 × Height`, the buffer's capacity | ok |
+| Blazor `WebGLTileBackend.cs` | GPU read-back into a held tile | WebGL presentation | the hold is dropped before the tile is released; a released tile throws | ok |
+| Uno `TileSurface.cs`, WinUI `TileStore.cs` | `ArrayPool` copies of tiles | handing tiles to the UI thread | returned once (`Interlocked.Exchange`, or swapped out before a `finally`); reads sliced to the copied length | ok |
+| `TileScheduler.cs`, `DocumentSession.cs`, Blazor `RenderWorker.cs`, `HeadlessSurface.cs` | pooled `Bitmap` tiles | rendering | released on every path (presentation, failure, cancellation) under the scheduler's gate, or by `using` | ok |
+
 ## Totals
 
 Unsafe constructs: 44 rows in the core (about 450 call sites, identical patterns grouped) and 37 in rendering, layout and the
-backends (the 218 Direct2D vtable calls as one row). Pooled buffers: 54 rows in the core (about 115 rentals and 8 wrapper types) and
-33 in rendering, layout and the backends. Findings: 3 unsafe (U1 to U3, fixed), 6 pooled (P1 to P5 fixed, P6 listed) and 4 in the
-renderers (R1 to R4, listed as advisories for after v1.0: all denial of service or robustness, none memory corruption).
+backends (the 218 Direct2D vtable calls as one row), and 15 sites in the viewers. Pooled buffers: 54 rows in the core (about 115
+rentals and 8 wrapper types), 33 in rendering, layout and the backends, and 8 in the viewers. Findings: 3 unsafe (U1 to U3, fixed),
+6 pooled (P1 to P5 fixed, P6 listed), 1 in the viewers (V1, fixed) and 4 in the renderers (R1 to R4, listed as advisories for after
+v1.0: all denial of service or robustness, none memory corruption).
