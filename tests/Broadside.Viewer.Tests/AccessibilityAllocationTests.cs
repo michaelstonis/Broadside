@@ -14,8 +14,8 @@ public sealed class AccessibilityAllocationTests
     {
         await using AccessibilityBridgeTests.Viewer viewer = await AccessibilityBridgeTests.Viewer.OpenAsync("text-tagged-spanning.pdf");
         var bridge = new AccessibilityBridge(viewer.Session);
-        await bridge.LoadPageAsync(0, TestContext.Current.CancellationToken);
-        await bridge.LoadPageAsync(1, TestContext.Current.CancellationToken);
+        await bridge.ReadPageAsync(0, TestContext.Current.CancellationToken);
+        await bridge.ReadPageAsync(1, TestContext.Current.CancellationToken);
         int changes = 0;
         bridge.Observer = _ => changes++;
         PageLayout layout = viewer.Zoom.Layout;

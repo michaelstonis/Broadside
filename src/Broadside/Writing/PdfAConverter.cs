@@ -235,13 +235,13 @@ internal sealed class PdfAConverter
                 switch (terminal)
                 {
                     case PdfTextField text:
-                        text.GenerateAppearances();
+                        text.WriteAppearances();
                         break;
                     case PdfChoiceField choice:
-                        choice.GenerateAppearances();
+                        choice.WriteAppearances();
                         break;
                     case PdfToggleButtonField button:
-                        button.GenerateAppearances();
+                        button.WriteAppearances();
                         break;
                     default:
                         continue;

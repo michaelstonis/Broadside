@@ -125,7 +125,7 @@ public sealed class NameTreeTests
     {
         using var logs = new CapturingLoggerProvider();
         using ILoggerFactory loggerFactory = LazyLoadingTests.TraceLogging(logs);
-        using PdfDocument document = PdfDocument.Open(Corpus.Path("name-tree-deep.pdf"), new PdfOptions().WithLoggerFactory(loggerFactory));
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("name-tree-deep.pdf"), new PdfOptions().UseLoggerFactory(loggerFactory));
         PdfNameTree tree = document.Names!.Dests!;
         int afterRoot = LazyLoadingTests.ParsedObjects(logs).Length;
 

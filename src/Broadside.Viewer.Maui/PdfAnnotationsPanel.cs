@@ -81,8 +81,9 @@ public sealed class PdfAnnotationsPanel : ContentView
     }
 
     /// <summary>Reads the annotations of the page in view again (after edits made elsewhere).</summary>
+    /// <param name="cancellationToken">Stops waiting for the list; the panel still shows it when it is read.</param>
     /// <returns>A task that completes when the list shows them.</returns>
-    public Task RefreshAsync() => ReloadAsync();
+    public Task RefreshAsync(CancellationToken cancellationToken = default) => ReloadAsync().WaitAsync(cancellationToken);
 
     private void OnDocumentChanged()
     {

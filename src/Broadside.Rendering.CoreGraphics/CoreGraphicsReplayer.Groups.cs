@@ -11,7 +11,7 @@ namespace Broadside.Rendering.CoreGraphics;
 /// their place; soft-mask values are computed by the software rasterizer and clip each masked paint, or a group's layer, as an
 /// 8-bit mask (<c>CGContextClipToMask</c>).
 /// </summary>
-internal sealed partial class CoreGraphicsBackend
+internal sealed partial class CoreGraphicsReplayer
 {
     /// <summary>The most pixels a group or soft mask is rasterized over (8192 × 8192).</summary>
     private const long MaxRasterPixels = 1L << 26;
@@ -75,7 +75,7 @@ internal sealed partial class CoreGraphicsBackend
     private bool _knockout;
     private bool _maskedPaint;
 
-    private CoreGraphicsBackend Root => _owner ?? this;
+    private CoreGraphicsReplayer Root => _owner ?? this;
 
     /// <summary>
     /// Sets the soft mask of the paints that follow (§11.6.5.1): its values are rendered once per mask, placement and clip by the
@@ -460,7 +460,7 @@ internal sealed partial class CoreGraphicsBackend
             return;
         }
 
-        CoreGraphicsBackend root = Root;
+        CoreGraphicsReplayer root = Root;
         SoftwareRasterizer rasterizer = root.FallbackRasterizer();
         byte[] pixels = new byte[area.Width * area.Height * 4];
         using (var bitmap = new Bitmap(pixels, area.Width, area.Height, area.Width * 4))
@@ -504,7 +504,7 @@ internal sealed partial class CoreGraphicsBackend
             return null;
         }
 
-        CoreGraphicsBackend root = Root;
+        CoreGraphicsReplayer root = Root;
         Matrix toPixels = mask.Matrix * _device * _pixels;
         PixelRect clip = GetArea(false, default, toPixels);
         MaskImage?[] masks = root._masks ??= new MaskImage?[MaskCacheSize];
@@ -578,7 +578,7 @@ internal sealed partial class CoreGraphicsBackend
     }
 
     /// <summary>Keeps a mask image, evicting the least recently used one that no state, saved state or open group goes through.</summary>
-    private void AddMask(MaskImage created, CoreGraphicsBackend requester)
+    private void AddMask(MaskImage created, CoreGraphicsReplayer requester)
     {
         MaskImage?[] masks = _masks!;
         int victim = -1;

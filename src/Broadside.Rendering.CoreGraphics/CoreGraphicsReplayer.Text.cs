@@ -11,7 +11,7 @@ namespace Broadside.Rendering.CoreGraphics;
 /// Text (ISO 32000-2 §9.2.4, §9.3.6, §9.4.3): glyph runs filled by CoreGraphics' own font engine from the program's bytes where it can
 /// load them, from the display list's outlines otherwise, and stroked from the outlines.
 /// </summary>
-internal sealed partial class CoreGraphicsBackend
+internal sealed partial class CoreGraphicsReplayer
 {
     /// <summary>Glyph positions mapped beyond ±2^24 units of the context, or scaled beyond it, are filled from their outlines.</summary>
     private const double NativeGlyphLimit = 16777216.0;

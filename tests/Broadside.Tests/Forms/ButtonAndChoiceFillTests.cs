@@ -122,7 +122,7 @@ public sealed class ButtonAndChoiceFillTests
         byte[] saved = Fill<PdfCheckBoxField>("agree", field =>
         {
             ((CosDictionary)field.Widgets[0].Dictionary[MK])[CA] = new CosString("8"u8);
-            field.GenerateAppearances();
+            field.WriteAppearances();
         });
 
         using PdfDocument reopened = PdfDocument.Open(saved);
@@ -154,7 +154,7 @@ public sealed class ButtonAndChoiceFillTests
     [Fact]
     public void Generated_radio_button_appearances_keep_their_on_states_and_show_a_dot_on_the_selected_button_in_poppler()
     {
-        byte[] saved = Fill<PdfRadioButtonField>("color", field => field.GenerateAppearances());
+        byte[] saved = Fill<PdfRadioButtonField>("color", field => field.WriteAppearances());
 
         using PdfDocument reopened = PdfDocument.Open(saved);
         var field = (PdfRadioButtonField)reopened.AcroForm!.FindField("color")!;
@@ -182,7 +182,7 @@ public sealed class ButtonAndChoiceFillTests
 
             field.Dictionary[V] = Off;
             Assert.Throws<InvalidOperationException>(() => field.SetChecked(true));
-            field.GenerateAppearances();
+            field.WriteAppearances();
             field.SetChecked(true);
         });
 

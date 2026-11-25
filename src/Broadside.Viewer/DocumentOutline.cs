@@ -41,7 +41,7 @@ public sealed class DocumentOutline
     /// <param name="cancellationToken">Stops the read.</param>
     /// <returns>The outline; <see cref="IsEmpty"/> when the document has none.</returns>
     /// <remarks>ISO 32000-2 §12.3.3.</remarks>
-    public static async ValueTask<DocumentOutline> LoadAsync(DocumentSession session, CancellationToken cancellationToken = default)
+    public static async ValueTask<DocumentOutline> ReadAsync(DocumentSession session, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(session);
         return await session.ReadAsync(token => Create(session.Document, token), cancellationToken).ConfigureAwait(true);

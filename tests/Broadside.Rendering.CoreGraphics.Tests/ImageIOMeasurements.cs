@@ -175,7 +175,7 @@ public sealed class ImageIOMeasurements(ITestOutputHelper output)
 #pragma warning restore CA2000
                 PdfPage page = document.Pages[0];
                 using global::CoreGraphics.CGBitmapContext context = BitmapRendering.CreateContext(612, 792, out _, out _);
-                using var renderer = new CoreGraphicsRenderer();
+                using var renderer = new CoreGraphicsBackend();
                 long start = Stopwatch.GetTimestamp();
                 Rendering.DisplayList list = page.CreateDisplayList();
                 Graphics.Matrix device = new RenderOptions().GetDeviceTransform(page);

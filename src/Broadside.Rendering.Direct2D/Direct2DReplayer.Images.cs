@@ -10,7 +10,7 @@ namespace Broadside.Rendering.Direct2D;
 /// backend, drawn into the unit square under the current transform; masks become 8-bit alpha bitmaps that clip as the opacity brush of
 /// a layer.
 /// </summary>
-internal sealed unsafe partial class Direct2DBackend : IDisposable
+internal sealed unsafe partial class Direct2DReplayer : IDisposable
 {
     private static readonly Diagnostic ImageTooLarge = new(
         "BackendImageTooLarge",

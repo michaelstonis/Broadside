@@ -8,7 +8,7 @@ namespace Broadside.Rendering.CoreGraphics;
 /// Images and stencil masks (ISO 32000-2 §8.9, spec D15, D16): each interned display-list image becomes one CoreGraphics image per
 /// backend, drawn into the unit square under the current transform; masks become 8-bit DeviceGray images that clip as alpha.
 /// </summary>
-internal sealed partial class CoreGraphicsBackend
+internal sealed partial class CoreGraphicsReplayer
 {
     private static readonly Diagnostic ImageTooLarge = new(
         "BackendImageTooLarge",

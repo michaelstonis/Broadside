@@ -107,8 +107,8 @@ internal sealed class SidePanel : TabControl, IDisposable
 
         try
         {
-            DocumentOutline outline = await DocumentOutline.LoadAsync(session, token);
-            PageLabelTable labels = await PageLabelTable.LoadAsync(session, token);
+            DocumentOutline outline = await DocumentOutline.ReadAsync(session, token);
+            PageLabelTable labels = await PageLabelTable.ReadAsync(session, token);
             _outline.ItemsSource = outline.Roots;
             _thumbnails = [.. Enumerable.Range(0, session.PageCount).Select(page => new Thumbnail(labels.GetLabel(page)))];
             _pages.ItemsSource = _thumbnails;

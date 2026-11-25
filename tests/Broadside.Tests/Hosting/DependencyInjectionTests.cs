@@ -156,7 +156,7 @@ public sealed class DependencyInjectionTests
         using var logs = new CapturingLoggerProvider();
         using var loggerFactory = LoggerFactory.Create(logging => logging.AddProvider(logs));
 
-        using PdfDocument document = PdfDocument.Open(TestPdf.OnePage(string.Empty), new PdfOptions().WithLoggerFactory(loggerFactory));
+        using PdfDocument document = PdfDocument.Open(TestPdf.OnePage(string.Empty), new PdfOptions().UseLoggerFactory(loggerFactory));
         _ = document.Pages.Count;
 
         LogEntry entry = Assert.Single(logs.Entries);
@@ -172,7 +172,7 @@ public sealed class DependencyInjectionTests
         using var optionsLoggerFactory = LoggerFactory.Create(logging => logging.AddProvider(optionsLogs));
         using ServiceProvider services = new ServiceCollection()
             .AddLogging(logging => logging.AddProvider(containerLogs))
-            .AddBroadside(options => options.WithLoggerFactory(optionsLoggerFactory))
+            .AddBroadside(options => options.UseLoggerFactory(optionsLoggerFactory))
             .BuildServiceProvider();
 
         using PdfDocument document = services.GetRequiredService<PdfEngine>().Open(TestPdf.OnePage(string.Empty));

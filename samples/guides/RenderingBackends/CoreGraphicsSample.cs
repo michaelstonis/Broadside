@@ -29,7 +29,7 @@ public static class CoreGraphicsSample
         using var context = new CGBitmapContext(
             pixels, size.Width, size.Height, 8, stride, srgb, CGBitmapFlags.PremultipliedFirst | CGBitmapFlags.ByteOrder32Little);
 
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
         renderer.Render(page, context, options); // on white, like every page render
         context.Flush();
         #endregion

@@ -79,7 +79,7 @@ public sealed class PaintGoldenImageTests
     {
         PixelSize size = options.GetPixelSize(page);
         using CGBitmapContext context = BitmapRendering.CreateContext(size.Width, size.Height, out byte[] pixels, out int stride);
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
         renderer.Render(page, context, options);
         context.Flush();
         diagnostics = [.. renderer.Diagnostics];

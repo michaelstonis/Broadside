@@ -202,7 +202,7 @@ public sealed class SlicedPreparationTests
             return bitmap.Pixels.ToArray();
         }
 
-        using ProgressiveRender render = rasterizer.BeginRender(list, bitmap, device, Token, progress: null);
+        using ProgressiveRender render = rasterizer.BeginRender(list, bitmap, device, progress: null, Token);
         while (!render.Continue(TimeSpan.Zero))
         {
             slices++;

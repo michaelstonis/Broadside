@@ -14,7 +14,7 @@ public sealed class CompositingTests
     {
         using PdfDocument document = PdfDocument.Open(BlendSamples.SolidGrid("Normal"));
         PdfPage page = document.Pages[0];
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         using Bitmap render = renderer.Render(page);
 
@@ -28,7 +28,7 @@ public sealed class CompositingTests
         // Issue #132: Direct2D's primitive blend is source-over only, so the software rasterizer draws the page (§11.3.5).
         using PdfDocument document = PdfDocument.Open(BlendSamples.SolidGrid("Multiply", "Screen", "Hue"));
         PdfPage page = document.Pages[0];
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
         using var rasterizer = new SoftwareRasterizer();
 
         using Bitmap render = renderer.Render(page);
@@ -46,7 +46,7 @@ public sealed class CompositingTests
         using PdfDocument document = PdfDocument.Open(AnnotationSamples.Grid());
         PdfPage page = document.Pages[0];
         RenderOptions options = new RenderOptions().WithScale(scale);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         using Bitmap render = renderer.Render(page, options);
 

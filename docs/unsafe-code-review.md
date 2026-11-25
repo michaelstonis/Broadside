@@ -159,7 +159,7 @@ command list, the Unicode line breaker) and every variable `stackalloc` of color
 | Skia and Android `ImageReducer.cs` horizontal pass | banded | `finally` | `stride × span` | ok |
 | Skia `SkiaImageDecoder.cs` band, `SkiaBackend.Transparency.cs` values | band, mask values | `finally` | `4 × 65,535 × 16`; `MaxRasterPixels` | ok |
 | Direct2D `WicCodec.cs` | planes, pixels | `finally` | JPEG ≤ 65,535 a side; `checked` | ok (P6 on an overflow) |
-| WebGL `Recorder.cs`, `WebGLRenderer.cs` | read-back pixels | `finally` | the viewport and target | ok |
+| WebGL `Recorder.cs`, `WebGLBackend.cs` | read-back pixels | `finally` | the viewport and target | ok |
 | Layout `Paragraph.cs`, `UnicodeBidi.cs`, `UnicodeLineBreaker.cs`, `Seams.cs` | levels, classes, breaks | `finally` | application text | ok (P6 in `Paragraph`) |
 
 ## Viewers

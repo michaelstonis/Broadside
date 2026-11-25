@@ -163,7 +163,7 @@ public sealed class RangeRequestSourceTests
         using var logs = new Hosting.CapturingLoggerProvider();
         using var loggerFactory = LoggerFactory.Create(logging => logging.AddProvider(logs));
 
-        using PdfDocument document = await PdfDocument.OpenAsync(client, FileUri, new PdfOptions().WithLoggerFactory(loggerFactory), TestContext.Current.CancellationToken);
+        using PdfDocument document = await PdfDocument.OpenAsync(client, FileUri, new PdfOptions().UseLoggerFactory(loggerFactory), TestContext.Current.CancellationToken);
 
         Broadside.Diagnostics.Diagnostic warning = Assert.Single(document.Diagnostics);
         Assert.Equal("StartxrefInvalid", warning.Code);

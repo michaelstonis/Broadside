@@ -24,7 +24,7 @@ namespace Broadside.Rendering.Direct2D;
 /// clips (<see cref="IntersectClip"/>), and Type 3 glyphs as the ordinary paints of their descriptions.
 /// </para>
 /// </remarks>
-internal sealed unsafe partial class Direct2DBackend
+internal sealed unsafe partial class Direct2DReplayer
 {
     private static readonly Diagnostic NativeGlyphsUnavailable = new(
         "BackendNativeGlyphsUnavailable",

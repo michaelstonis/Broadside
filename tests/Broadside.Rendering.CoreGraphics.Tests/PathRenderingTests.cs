@@ -37,7 +37,7 @@ public sealed class PathRenderingTests
         context.SetFillColor(white);
         context.FillRect(new CGRect(0, 0, size.Width, size.Height));
         context.ConcatCTM(new CGAffineTransform(1, 0, 0, -1, 0, size.Height));
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
 
         renderer.Render(page.CreateDisplayList(), context, options.GetDeviceTransform(page));
 
@@ -57,7 +57,7 @@ public sealed class PathRenderingTests
         RenderOptions options = GoldenCorpus.CreateRenderOptions();
         PixelSize size = options.GetPixelSize(page);
         using CGBitmapContext context = BitmapRendering.CreateContext(size.Width + 30, size.Height + 20, out byte[] pixels, out int stride);
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
 
         renderer.Render(page, context, options);
 
@@ -80,7 +80,7 @@ public sealed class PathRenderingTests
         using PdfDocument document = GoldenCorpus.Open("paths-fill-rules.pdf");
         PdfPage page = document.Pages[0];
         using CGBitmapContext context = BitmapRendering.CreateContext(399, 300, out _, out _);
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
 
         Assert.Throws<ArgumentException>("target", () => renderer.Render(page, context, GoldenCorpus.CreateRenderOptions()));
     }
@@ -94,7 +94,7 @@ public sealed class PathRenderingTests
         context.ConcatCTM(new CGAffineTransform(1, 0, 0, 1, 3, 4));
         CGAffineTransform before = context.GetCTM();
         CGRect clipBefore = context.GetClipBoundingBox();
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
 
         renderer.Render(page.CreateDisplayList(), context, Matrix.Identity);
         renderer.Render(page, context, GoldenCorpus.CreateRenderOptions().WithScale(0.5));

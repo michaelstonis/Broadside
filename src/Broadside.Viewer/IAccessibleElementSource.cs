@@ -10,7 +10,7 @@ namespace Broadside.Viewer;
 /// value or state changes, call <see cref="AccessibilityBridge.InvalidatePage"/>; when the layer moves its keyboard focus,
 /// call <see cref="AccessibilityBridge.SetFocus"/> with <see cref="AccessibilityBridge.FindNode"/>.
 /// </remarks>
-public interface IAccessibleElementProvider
+public interface IAccessibleElementSource
 {
     /// <summary>Adds a page's elements, in focus order.</summary>
     /// <param name="page">The page.</param>
@@ -21,7 +21,7 @@ public interface IAccessibleElementProvider
 
 /// <summary>
 /// An accessible element that is not page content, such as a form field, a link or a comment, supplied by an
-/// <see cref="IAccessibleElementProvider"/>.
+/// <see cref="IAccessibleElementSource"/>.
 /// </summary>
 /// <param name="Role">The element's role.</param>
 /// <param name="Bounds">The element's rectangle on its page, in default user space.</param>

@@ -276,12 +276,18 @@ public readonly ref struct TableElement
         return this;
     }
 
+    /// <summary>Sets a black border on every cell.</summary>
+    /// <param name="width">The line width; 0 draws none.</param>
+    /// <returns>This builder.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="width"/> is negative.</exception>
+    public TableElement Border(Length width) => Border(width, null);
+
     /// <summary>Sets the border of every cell.</summary>
     /// <param name="width">The line width; 0 draws none.</param>
     /// <param name="color">The color, or null for black.</param>
     /// <returns>This builder.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="width"/> is negative.</exception>
-    public TableElement Border(Length width, PdfColor? color = null) => Border(new TableBorder(width.ToPoints(), color));
+    public TableElement Border(Length width, PdfColor? color) => Border(new TableBorder(width.ToPoints(), color));
 
     /// <summary>Sets the border of every cell, such as <see cref="TableBorder.None"/>.</summary>
     /// <param name="border">The border.</param>

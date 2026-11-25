@@ -28,9 +28,9 @@ public sealed class DisplayListGroupTests
 
         var cancellable = new RecordingBackend();
         using var source = new CancellationTokenSource();
-        list.Replay(cancellable, source.Token, progress: null);
+        list.Replay(cancellable, progress: null, source.Token);
         var sliced = new RecordingBackend();
-        DisplayListReplay replay = list.BeginReplay(sliced, source.Token, progress: null);
+        DisplayListReplay replay = list.BeginReplay(sliced, progress: null, source.Token);
         while (!replay.Continue(TimeSpan.Zero))
         {
         }

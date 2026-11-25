@@ -12,7 +12,7 @@ public sealed class AccessibilityBridgeTests
     {
         await using DocumentSession session = Open("tagged-structure.pdf");
         var bridge = new AccessibilityBridge(session);
-        await bridge.LoadPageAsync(0, Token);
+        await bridge.ReadPageAsync(0, Token);
 
         var read = new List<string>();
         while (bridge.MoveFocus(AccessibleNavigation.Element))
@@ -200,7 +200,7 @@ public sealed class AccessibilityBridgeTests
 
         Assert.Throws<ArgumentNullException>(() => new AccessibilityBridge(null!));
         Assert.Throws<ArgumentOutOfRangeException>(() => bridge.GetPage(1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => bridge.LoadPage(-1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => bridge.ReadPage(-1));
         Assert.Throws<ArgumentException>(() => bridge.SetFocus(foreign));
         Assert.Throws<ArgumentException>(() => bridge.FindNext(foreign, AccessibleNavigation.Element));
         Assert.Throws<ArgumentOutOfRangeException>(() => bridge.FindNext(null, AccessibleNavigation.Heading, level: -1));
@@ -236,7 +236,7 @@ public sealed class AccessibilityBridgeTests
         return node.Name is { } name ? $"{text}: {name.Replace('\n', ' ')}" : text;
     }
 
-    private sealed class FieldProvider(object field) : IAccessibleElementProvider
+    private sealed class FieldProvider(object field) : IAccessibleElementSource
     {
         public string Value { get; set; } = "Yes";
 

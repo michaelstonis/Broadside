@@ -8,7 +8,7 @@ using Windows.Win32.Graphics.DirectWrite;
 namespace Broadside.Rendering.Direct2D;
 
 /// <summary>
-/// The DirectWrite side of one <see cref="Direct2DRenderer"/>: an isolated DirectWrite factory, an in-memory font file loader, the
+/// The DirectWrite side of one <see cref="Direct2DBackend"/>: an isolated DirectWrite factory, an in-memory font file loader, the
 /// rendering parameters glyphs are drawn with, and one font face per TrueType or OpenType program, loaded from the program's bytes
 /// the first time a glyph run of it is drawn.
 /// </summary>

@@ -13,7 +13,7 @@ namespace Broadside.Rendering.Direct2D;
 /// page that blends with its backdrop in any other blend mode is drawn by the software rasterizer whole. Soft-mask values are
 /// computed by the software rasterizer and are the opacity brush of a layer around each masked paint or group.
 /// </summary>
-internal sealed unsafe partial class Direct2DBackend
+internal sealed unsafe partial class Direct2DReplayer
 {
     /// <summary>The most pixels a group or soft mask is rasterized over (8192 × 8192).</summary>
     private const long MaxRasterPixels = 1L << 26;
@@ -68,7 +68,7 @@ internal sealed unsafe partial class Direct2DBackend
     /// </summary>
     public bool RasterizesPage => _rasterizePage;
 
-    private Direct2DBackend Root => _owner ?? this;
+    private Direct2DReplayer Root => _owner ?? this;
 
     /// <summary>Returns the software rasterizer groups and soft masks fall back to, decoding images as this backend does (issue #362).</summary>
     private SoftwareRasterizer FallbackRasterizer()
@@ -293,7 +293,7 @@ internal sealed unsafe partial class Direct2DBackend
     private bool BeginMasked(out int mark)
     {
         mark = -1;
-        Direct2DBackend root = Root;
+        Direct2DReplayer root = Root;
         if (root._rasterizePage)
         {
             return false;
@@ -480,7 +480,7 @@ internal sealed unsafe partial class Direct2DBackend
     private MaskImage? GetMask(in DisplaySoftMask mask)
     {
         Skip(SkippedOperations.SoftMaskRasterized, SoftMaskRasterized);
-        Direct2DBackend root = Root;
+        Direct2DReplayer root = Root;
         Matrix toPixels = mask.Matrix * _device;
         PixelRect clip = GetArea(false, default, toPixels);
         MaskImage?[] masks = root._masks ??= new MaskImage?[MaskCacheSize];
@@ -550,7 +550,7 @@ internal sealed unsafe partial class Direct2DBackend
     }
 
     /// <summary>Keeps a mask image, evicting the least recently used one that no state, saved state or open group goes through.</summary>
-    private void AddMask(MaskImage created, Direct2DBackend requester)
+    private void AddMask(MaskImage created, Direct2DReplayer requester)
     {
         MaskImage?[] masks = _masks!;
         int victim = -1;

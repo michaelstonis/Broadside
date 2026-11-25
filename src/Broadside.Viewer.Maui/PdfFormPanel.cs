@@ -65,8 +65,9 @@ public sealed class PdfFormPanel : ContentView
     public int FieldCount => _fields.Count;
 
     /// <summary>Reads the form again and shows every field's current value.</summary>
+    /// <param name="cancellationToken">Cancels reading the form; the panel keeps what it showed.</param>
     /// <returns>A task that completes when the list shows them.</returns>
-    public async Task RefreshAsync()
+    public async Task RefreshAsync(CancellationToken cancellationToken = default)
     {
         int generation = ++_generation;
         if (_follower.View is not { Annotations: { } layer, CurrentSession: { } session })
@@ -85,7 +86,7 @@ public sealed class PdfFormPanel : ContentView
         IReadOnlyList<FormFieldItem> fields;
         try
         {
-            fields = await FormFields.ListAsync(layer, session.PageCount, MaxPages, CancellationToken.None).ConfigureAwait(true);
+            fields = await FormFields.ListAsync(layer, session.PageCount, MaxPages, cancellationToken).ConfigureAwait(true);
         }
         catch (Exception exception) when (exception is OperationCanceledException or ObjectDisposedException)
         {

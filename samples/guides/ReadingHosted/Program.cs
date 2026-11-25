@@ -65,7 +65,7 @@ static void LogWithoutAContainer()
 {
     #region logger-factory
     using ILoggerFactory loggerFactory = LoggerFactory.Create(logging => logging.AddConsole());
-    PdfOptions options = new PdfOptions().WithLoggerFactory(loggerFactory);
+    PdfOptions options = new PdfOptions().UseLoggerFactory(loggerFactory);
     using PdfDocument document = PdfDocument.Open("startxref-wrong.pdf", options);
     #endregion
 }

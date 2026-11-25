@@ -151,19 +151,19 @@ public sealed partial class DisplayList
     /// before each and reporting progress.
     /// </summary>
     /// <param name="backend">The backend that draws.</param>
-    /// <param name="cancellationToken">Cancels the replay before its next operation.</param>
     /// <param name="progress">
     /// Receives the share of the operations handed over so far, from 0 to 1, synchronously on this thread every 1,024 operations and
     /// once with exactly 1 at the end; <see langword="null"/> for none.
     /// </param>
+    /// <param name="cancellationToken">Cancels the replay before its next operation.</param>
     /// <exception cref="OperationCanceledException">
     /// <paramref name="cancellationToken"/> was cancelled; the backend holds whatever the operations before it drew.
     /// </exception>
     /// <remarks>
     /// Viewer capability 2 (issue #97). Allocates nothing. To stop after a time budget and resume later, use
-    /// <see cref="BeginReplay(IRenderingBackend, CancellationToken, IProgress{double})"/>.
+    /// <see cref="BeginReplay(IRenderingBackend, IProgress{double}, CancellationToken)"/>.
     /// </remarks>
-    public void Replay(IRenderingBackend backend, CancellationToken cancellationToken, IProgress<double>? progress)
+    public void Replay(IRenderingBackend backend, IProgress<double>? progress, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(backend);
         ReplayRange(backend, 0, long.MaxValue, cancellationToken, progress);
@@ -175,37 +175,37 @@ public sealed partial class DisplayList
     /// operations until its time budget is used, and the next resumes where it stopped.
     /// </summary>
     /// <param name="backend">The backend that draws; it keeps its state (graphics state stack, clip, output so far) between slices.</param>
-    /// <param name="cancellationToken">Cancels the replay before its next operation.</param>
     /// <param name="progress">
     /// Receives the share of the operations handed over so far, from 0 to 1, synchronously on the replaying thread every 1,024
     /// operations and at the end of every slice, then once with exactly 1 at the end; <see langword="null"/> for none.
     /// </param>
+    /// <param name="cancellationToken">Cancels the replay before its next operation.</param>
     /// <returns>The replay, at the first operation; nothing has been handed over yet.</returns>
     /// <remarks>
     /// Viewer capability 2 (issue #97), like PDFium's progressive rendering: a host that must not block, such as a Blazor
     /// WebAssembly page on its only thread, replays a slice, yields to its event loop, and continues. Slicing never changes what
     /// the backend receives: the calls are those of <see cref="Replay(IRenderingBackend)"/>, in the same order.
     /// </remarks>
-    public DisplayListReplay BeginReplay(IRenderingBackend backend, CancellationToken cancellationToken, IProgress<double>? progress)
+    public DisplayListReplay BeginReplay(IRenderingBackend backend, IProgress<double>? progress, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(backend);
         return new DisplayListReplay(this, backend, cancellationToken, progress);
     }
 
     /// <summary>
-    /// As <see cref="BeginReplay(IRenderingBackend, CancellationToken, IProgress{double})"/>, handing over only what
+    /// As <see cref="BeginReplay(IRenderingBackend, IProgress{double}, CancellationToken)"/>, handing over only what
     /// <see cref="Replay(IRenderingBackend, PdfRectangle)"/> hands over for <paramref name="region"/>.
     /// </summary>
     /// <param name="backend">The backend that draws; it keeps its state between slices.</param>
     /// <param name="region">The region in the list's default user space, as for <see cref="Replay(IRenderingBackend, PdfRectangle)"/>.</param>
-    /// <param name="cancellationToken">Cancels the replay before its next operation.</param>
     /// <param name="progress">Receives the share of the operations handed over or skipped so far, as for the overload without a region.</param>
+    /// <param name="cancellationToken">Cancels the replay before its next operation.</param>
     /// <returns>The replay, at the first operation.</returns>
     /// <remarks>
     /// Viewer capabilities 1 and 2 (issues #96, #97): a tile of a cached list, drawn in time slices. Skipped operations
     /// count towards <see cref="DisplayListReplay.Position"/> and progress but take no time from a slice's budget.
     /// </remarks>
-    public DisplayListReplay BeginReplay(IRenderingBackend backend, PdfRectangle region, CancellationToken cancellationToken, IProgress<double>? progress)
+    public DisplayListReplay BeginReplay(IRenderingBackend backend, PdfRectangle region, IProgress<double>? progress, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(backend);
         return new DisplayListReplay(this, backend, region, cancellationToken, progress);

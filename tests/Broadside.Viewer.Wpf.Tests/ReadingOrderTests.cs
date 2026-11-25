@@ -11,7 +11,7 @@ public sealed class ReadingOrderTests
     {
         await using DocumentSession session = DocumentSession.Open(Shell.CorpusFile("tagged-structure.pdf"), Shell.Options());
         var bridge = new AccessibilityBridge(session);
-        AccessibleNode page = await bridge.LoadPageAsync(0, TestContext.Current.CancellationToken);
+        AccessibleNode page = await bridge.ReadPageAsync(0, TestContext.Current.CancellationToken);
 
         Assert.Equal(TaggedStructureText, ReadingOrder.TextOf(page));
         Assert.Equal("Page 1", ReadingOrder.NameOf(page));

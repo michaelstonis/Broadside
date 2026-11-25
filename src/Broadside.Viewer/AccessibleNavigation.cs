@@ -25,7 +25,7 @@ public enum AccessibleNavigation
     /// <summary>The next link.</summary>
     Link,
 
-    /// <summary>The next element of an <see cref="IAccessibleElementProvider"/>, in its focus order.</summary>
+    /// <summary>The next element of an <see cref="IAccessibleElementSource"/>, in its focus order.</summary>
     Control,
 
     /// <summary>The first node of the next page (of the previous page, backwards).</summary>

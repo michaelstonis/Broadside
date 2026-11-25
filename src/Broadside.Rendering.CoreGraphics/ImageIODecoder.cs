@@ -13,7 +13,7 @@ namespace Broadside.Rendering.CoreGraphics;
 /// unmeasured; in the iOS simulator it is slower than the managed decoder). Not registered by default
 /// (its samples are close to the managed decoder's, not identical): register it with
 /// <c>new PdfOptions().UsePlatformImageDecoder(ImageIODecoder.Shared)</c> and await
-/// <see cref="CoreGraphicsRenderer.PrefetchImagesAsync"/> before a list render.
+/// <see cref="CoreGraphicsBackend.PrefetchImagesAsync"/> before a list render.
 /// </summary>
 /// <remarks>
 /// <para>

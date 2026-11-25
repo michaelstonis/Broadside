@@ -16,8 +16,8 @@ Every backend draws the same thing: a page's display list, the drawing operation
 |---|---|---|---|
 | Software rasterizer (`SoftwareRasterizer`) | `Broadside.Rendering` | Everywhere .NET runs, including the browser | `Bitmap`: premultiplied BGRA in managed or your own memory |
 | SkiaSharp (`SkiaBackend`) | `Broadside.Rendering.Skia` | Wherever SkiaSharp has a native library: Windows, macOS, Linux, iOS, Android | `SKBitmap` or any `SKCanvas` |
-| CoreGraphics (`CoreGraphicsRenderer`) | `Broadside.Rendering.CoreGraphics` | macOS, iOS, Mac Catalyst | `CGBitmapContext` or any `CGContext` |
-| Direct2D (`Direct2DRenderer`) | `Broadside.Rendering.Direct2D` | Windows | `Bitmap`, through a Direct3D 11 device or WARP |
+| CoreGraphics (`CoreGraphicsBackend`) | `Broadside.Rendering.CoreGraphics` | macOS, iOS, Mac Catalyst | `CGBitmapContext` or any `CGContext` |
+| Direct2D (`Direct2DBackend`) | `Broadside.Rendering.Direct2D` | Windows | `Bitmap`, through a Direct3D 11 device or WARP |
 | Android Canvas (`AndroidCanvasBackend`) | `Broadside.Rendering.Android` | Android | `Android.Graphics.Bitmap` or any `Canvas` |
 
 The software rasterizer is fully managed and has no native dependency. It is the reference: its renders are the golden images the other backends are tested against, and it gives the same bytes on every platform (see [Determinism](#determinism)). The platform backends draw with the operating system's graphics library, which is faster on that platform and draws straight into the surfaces its UI toolkit uses. What a platform library cannot draw (some blend modes, soft masks and shadings, depending on the backend) is drawn by the software rasterizer and composited in, and the backend's `Diagnostics` list says so. `Broadside.Rendering.WebGL` draws on the GPU in the browser for the Blazor viewer and is not covered here.
@@ -373,7 +373,7 @@ foreach (Broadside.Diagnostics.Diagnostic diagnostic in backend.Diagnostics)
 
 ## CoreGraphics
 
-`CoreGraphicsRenderer` draws into a `CGBitmapContext` (or any `CGContext`, through its display-list overload) on macOS, iOS and Mac Catalyst:
+`CoreGraphicsBackend` draws into a `CGBitmapContext` (or any `CGContext`, through its display-list overload) on macOS, iOS and Mac Catalyst:
 
 <!-- snippet: samples/guides/RenderingBackends/CoreGraphicsSample.cs#coregraphics -->
 ```csharp
@@ -389,7 +389,7 @@ using CGColorSpace srgb = CGColorSpace.CreateSrgb()!;
 using var context = new CGBitmapContext(
     pixels, size.Width, size.Height, 8, stride, srgb, CGBitmapFlags.PremultipliedFirst | CGBitmapFlags.ByteOrder32Little);
 
-using var renderer = new CoreGraphicsRenderer();
+using var renderer = new CoreGraphicsBackend();
 renderer.Render(page, context, options); // on white, like every page render
 context.Flush();
 ```
@@ -397,12 +397,12 @@ context.Flush();
 
 ## Direct2D
 
-`Direct2DRenderer` draws through Direct2D on a Direct3D 11 device into a `Bitmap`. `Direct2DDriver.Hardware`, the default, uses the graphics card and falls back to WARP, Windows' software Direct3D, on a machine without one. `Warp` always uses WARP, which draws the same pixels on every machine:
+`Direct2DBackend` draws through Direct2D on a Direct3D 11 device into a `Bitmap`. `Direct2DDeviceType.Hardware`, the default, uses the graphics card and falls back to WARP, Windows' software Direct3D, on a machine without one. `Warp` always uses WARP, which draws the same pixels on every machine:
 
 <!-- snippet: samples/guides/RenderingBackends/Direct2DSample.cs#direct2d -->
 ```csharp
 using PdfDocument document = PdfDocument.Open(path);
-using var renderer = new Direct2DRenderer(driver); // Direct2DDriver.Hardware, or Warp for the same pixels on every machine
+using var renderer = new Direct2DBackend(deviceType); // Direct2DDeviceType.Hardware, or Warp for the same pixels on every machine
 Bitmap bitmap = renderer.Render(document.Pages[0], new RenderOptions()); // premultiplied BGRA, on white
 ```
 <!-- endsnippet -->

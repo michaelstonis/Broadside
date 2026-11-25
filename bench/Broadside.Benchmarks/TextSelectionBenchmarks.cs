@@ -28,7 +28,7 @@ public class TextSelectionBenchmarks
     {
         _session = DocumentSession.Open(TextSamples.Page(ContentSamples.TextHeavy(10_000)));
         _selection = new TextSelection(_session, ContentReadingOrder.Instance);
-        SelectableText text = _selection.LoadPageAsync(0).AsTask().GetAwaiter().GetResult();
+        SelectableText text = _selection.ReadPageAsync(0).AsTask().GetAwaiter().GetResult();
         _onText = Centre(text, text.Length / 2);
         _onTextOther = Centre(text, (text.Length / 2) + 40);
         _offText = new PagePoint(0, -50, _onText.Y);

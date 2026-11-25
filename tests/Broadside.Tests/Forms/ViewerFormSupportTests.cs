@@ -58,7 +58,7 @@ public sealed class ViewerFormSupportTests
         Assert.Equal(before.ToArray(), after.ToArray());
 
         // The appearance drawn is the one filling generates from the value.
-        name.GenerateAppearances();
+        name.WriteAppearances();
         DisplayList generated = page.CreateDisplayList(DisplayLayers.FormFields, DisplayIntent.View, new ContentOptions());
         Assert.Equal(generated.OperationCount, transient.OperationCount);
     }

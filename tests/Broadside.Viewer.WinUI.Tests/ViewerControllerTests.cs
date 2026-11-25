@@ -436,7 +436,7 @@ public sealed class ViewerControllerTests
         // What the automation peers expose: the page's nodes depth first, named by AccessibleText, in the bridge's reading order.
         string[] names = [.. AccessibleText.ReadingOrder(bridge.GetPage(0)).Select(AccessibleText.GetName).Where(name => name.Length > 0)];
         var reference = new AccessibilityBridge(shell.Controller.Session!);
-        string[] expected = [.. Flatten(await reference.LoadPageAsync(0)).Select(n => (n.Name ?? n.Text).Trim()).Where(name => name.Length > 0)];
+        string[] expected = [.. Flatten(await reference.ReadPageAsync(0)).Select(n => (n.Name ?? n.Text).Trim()).Where(name => name.Length > 0)];
         Assert.Equal(expected, names);
         Assert.Equal("Page 1", AccessibleText.GetName(bridge.GetPage(0)));
 

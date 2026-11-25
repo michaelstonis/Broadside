@@ -84,7 +84,7 @@
     var items = new List<Item>();
     try
     {
-      int count = await layer.LoadPageAsync(page, Demo.WorkToken);
+      int count = await layer.ReadPageAsync(page, Demo.WorkToken);
       for (int i = 0; i < count; i++)
       {
         var target = new AnnotationTarget(page, i);

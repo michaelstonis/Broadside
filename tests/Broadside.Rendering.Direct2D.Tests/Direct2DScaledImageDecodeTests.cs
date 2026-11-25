@@ -124,7 +124,7 @@ public sealed class Direct2DScaledImageDecodeTests
 
         using Bitmap viewer = Page(document, new RenderOptions().WithScale(0.25).WithScaledImageDecode(true), out long viewerPixels);
         using Bitmap byDefault = Page(document, options, out long defaultPixels);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         Assert.False(options.ScaledImageDecode);
         Assert.False(renderer.ScaledImageDecode);
@@ -143,7 +143,7 @@ public sealed class Direct2DScaledImageDecodeTests
 
         Assert.Equal(1275L * 1575, two);
         Assert.Equal(638L * 788, one);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
         Assert.Throws<ArgumentOutOfRangeException>(() => renderer.ImageSamplesPerPixel = 0.5);
     }
 
@@ -153,7 +153,7 @@ public sealed class Direct2DScaledImageDecodeTests
         using PdfDocument document = PdfDocument.Open(CatalogueSamples.Cover(), new PdfOptions().WithDisplayListCacheBudget(0));
         PdfPage page = document.Pages[0];
         DisplayList list = page.CreateDisplayList();
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp) { ScaledImageDecode = true };
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp) { ScaledImageDecode = true };
         using var tile = new Bitmap(64, 64);
 
         // Zoom in (1/8 to 1/2), then out again: the half conversion serves the eighth, as the document's samples do.
@@ -180,7 +180,7 @@ public sealed class Direct2DScaledImageDecodeTests
         PixelSize size = options.GetPixelSize(page);
         Matrix device = options.GetDeviceTransform(page);
         using var bitmap = new Bitmap(size.Width, size.Height);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp) { ScaledImageDecode = true };
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp) { ScaledImageDecode = true };
         Action render = () => renderer.Render(list, bitmap, device);
 
         Assert.Equal(0, Allocations.Measure(render, warmUpCalls: 3));
@@ -196,14 +196,14 @@ public sealed class Direct2DScaledImageDecodeTests
         PixelSize size = options.GetPixelSize(page);
         using var bitmap = new Bitmap(size.Width, size.Height);
         bitmap.Pixels.Fill(0xFF);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp) { ScaledImageDecode = scaled, ImageSamplesPerPixel = samplesPerPixel };
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp) { ScaledImageDecode = scaled, ImageSamplesPerPixel = samplesPerPixel };
         renderer.Render(page.CreateDisplayList(), bitmap, options.GetDeviceTransform(page));
         return new Rendered(Pixels(bitmap), renderer.ImagePixelsConverted, renderer.CachedImageBytes);
     }
 
     private static Bitmap Page(PdfDocument document, RenderOptions options, out long converted)
     {
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
         Bitmap bitmap = renderer.Render(document.Pages[0], options);
         converted = renderer.ImagePixelsConverted;
         return bitmap;

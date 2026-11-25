@@ -23,10 +23,10 @@ namespace Broadside.Viewer;
 /// </para>
 /// <para>
 /// Like the document, the layer is single-threaded: call it from the shell's UI thread. A page takes part once
-/// <see cref="LoadPageAsync"/> has loaded it. Pointer moves allocate nothing.
+/// <see cref="ReadPageAsync"/> has loaded it. Pointer moves allocate nothing.
 /// </para>
 /// </remarks>
-public sealed class AnnotationLayer : IAccessibleElementProvider
+public sealed class AnnotationLayer : IAccessibleElementSource
 {
     /// <summary>How far, in default user space units, a press must travel on a selected annotation before it drags it.</summary>
     public const double DragThreshold = 2;
@@ -158,7 +158,7 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
     /// <param name="pageIndex">The zero-based page.</param>
     /// <param name="cancellationToken">Cancels the load (a remote page's fetch).</param>
     /// <returns>How many annotations of the page take part (see <see cref="AnnotationTarget.Index"/>).</returns>
-    public async ValueTask<int> LoadPageAsync(int pageIndex, CancellationToken cancellationToken = default)
+    public async ValueTask<int> ReadPageAsync(int pageIndex, CancellationToken cancellationToken = default)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, _pages.Length);
@@ -172,7 +172,7 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
             pageIndex,
             async () =>
             {
-                PdfPage page = await Session.LoadPageAsync(pageIndex, CancellationToken.None).ConfigureAwait(false);
+                PdfPage page = await Session.ReadPageAsync(pageIndex, CancellationToken.None).ConfigureAwait(false);
                 return await Session.ReadAsync(
                     _ =>
                     {
@@ -216,7 +216,7 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
         return (uint)pageIndex < (uint)_pages.Length && _pages[pageIndex] is not null ? Find(pageIndex, dictionary) : null;
     }
 
-    /// <summary>Gets how many annotations of a page take part: 0 until <see cref="LoadPageAsync"/> loaded it.</summary>
+    /// <summary>Gets how many annotations of a page take part: 0 until <see cref="ReadPageAsync"/> loaded it.</summary>
     /// <param name="pageIndex">The zero-based page.</param>
     /// <returns>The count.</returns>
     public int GetCount(int pageIndex) => (uint)pageIndex < (uint)_pages.Length && _pages[pageIndex] is { } page ? page.Count : 0;
@@ -1126,7 +1126,7 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, _pages.Length);
         if (_pages[pageIndex] is null)
         {
-            throw new ArgumentOutOfRangeException(nameof(pageIndex), pageIndex, "The page is not loaded (LoadPageAsync).");
+            throw new ArgumentOutOfRangeException(nameof(pageIndex), pageIndex, "The page is not loaded (ReadPageAsync).");
         }
 
         return Session.Document.Pages[pageIndex];

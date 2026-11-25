@@ -17,7 +17,7 @@ namespace Broadside.Rendering.WebGL;
 /// renders on one page are sequential (WebAssembly is single-threaded).
 /// </remarks>
 [SupportedOSPlatform("browser")]
-public sealed partial class WebGLRenderer : IDisposable
+public sealed partial class WebGLBackend : IDisposable
 {
     private static readonly Diagnostic Unavailable = new(
         "BackendWebGLUnavailable",
@@ -33,8 +33,8 @@ public sealed partial class WebGLRenderer : IDisposable
     private byte[] _readBack = [];
     private double _imageSamplesPerPixel = RenderOptions.DefaultImageSamplesPerPixel;
 
-    /// <summary>Initializes a new instance of the <see cref="WebGLRenderer"/> class.</summary>
-    public WebGLRenderer() => _recorder = new Recorder(_commands, _diagnostics);
+    /// <summary>Initializes a new instance of the <see cref="WebGLBackend"/> class.</summary>
+    public WebGLBackend() => _recorder = new Recorder(_commands, _diagnostics);
 
     /// <summary>Gets a value indicating whether WebGL 2 is available (after <see cref="InitializeAsync"/>).</summary>
     public static bool IsAvailable { get; private set; }
@@ -59,8 +59,10 @@ public sealed partial class WebGLRenderer : IDisposable
     public IReadOnlyList<Diagnostic> Diagnostics => _diagnostics;
 
     /// <summary>Loads the backend's JavaScript module and creates the WebGL 2 context; completes with false when WebGL 2 is unavailable.</summary>
+    /// <param name="cancellationToken">Stops waiting for the initialization; the shared initialization itself runs to completion, so a later call can still await it.</param>
     /// <returns>Whether WebGL 2 is available.</returns>
-    public static Task<bool> InitializeAsync() => _initializing ??= InitializeCoreAsync();
+    public static Task<bool> InitializeAsync(CancellationToken cancellationToken = default) =>
+        (_initializing ??= InitializeCoreAsync()).WaitAsync(cancellationToken);
 
     /// <summary>Renders a page at <paramref name="options"/> onto white, like <see cref="SoftwareRasterizer.Render(PdfPage, RenderOptions)"/>.</summary>
     /// <param name="page">The page.</param>

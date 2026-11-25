@@ -137,7 +137,7 @@ public sealed class TextRenderingTests
         context.SetFillColor(white);
         context.FillRect(new CGRect(0, 0, size.Width, size.Height));
         context.ConcatCTM(new CGAffineTransform(1, 0, 0, -1, 0, size.Height));
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
 
         renderer.Render(page.CreateDisplayList(), context, options.GetDeviceTransform(page), forceOutlines: true);
 
@@ -155,7 +155,7 @@ public sealed class TextRenderingTests
         var textMatrix = new CGAffineTransform(2, 0, 0, 3, 5, 7);
         context.TextMatrix = textMatrix;
         CGAffineTransform before = context.GetCTM();
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
 
         renderer.Render(page, context, GoldenCorpus.CreateRenderOptions());
 
@@ -173,7 +173,7 @@ public sealed class TextRenderingTests
         PdfPage page = document.Pages[0];
         RenderOptions options = GoldenCorpus.CreateRenderOptions();
         PixelSize size = options.GetPixelSize(page);
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
 
         for (int render = 0; render < 2; render++)
         {

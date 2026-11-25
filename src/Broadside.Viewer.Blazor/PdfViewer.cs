@@ -130,7 +130,7 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
 
     /// <summary>
     /// Gets the text selection of the open document, or null while nothing is open: select a found match with
-    /// <see cref="TextSelection.Select"/> (after <see cref="TextSelection.LoadPageAsync"/>) and the viewer draws it.
+    /// <see cref="TextSelection.Select"/> (after <see cref="TextSelection.ReadPageAsync"/>) and the viewer draws it.
     /// </summary>
     public TextSelection? Selection => _controller?.Selection;
 

@@ -23,7 +23,7 @@ public sealed class ProgressiveRenderingTests
         using var rasterizer = new SoftwareRasterizer();
         using var bitmap = new Bitmap(width, height);
 
-        using ProgressiveRender render = rasterizer.BeginRender(list, bitmap, device, CancellationToken.None, progress: null);
+        using ProgressiveRender render = rasterizer.BeginRender(list, bitmap, device, progress: null, CancellationToken.None);
         int slices = 1;
         while (!render.Continue(TimeSpan.FromMilliseconds(5)))
         {
@@ -45,7 +45,7 @@ public sealed class ProgressiveRenderingTests
         using var rasterizer = new SoftwareRasterizer();
         using var bitmap = new Bitmap(width, height);
 
-        using ProgressiveRender render = rasterizer.BeginRender(list, bitmap, device, CancellationToken.None, progress: null);
+        using ProgressiveRender render = rasterizer.BeginRender(list, bitmap, device, progress: null, CancellationToken.None);
         int slices = 1;
         while (!render.Continue(TimeSpan.Zero))
         {
@@ -73,7 +73,7 @@ public sealed class ProgressiveRenderingTests
         rasterizer.Render(list, whole, device);
         using var sliced = new Bitmap(160, 120);
 
-        using ProgressiveRender render = rasterizer.BeginRender(list, sliced, device, CancellationToken.None, progress: null);
+        using ProgressiveRender render = rasterizer.BeginRender(list, sliced, device, progress: null, CancellationToken.None);
         // Slices that hand operations over (others decode images or finish an image paint, issue #365).
         int slices = 1;
         double last = 0;
@@ -125,7 +125,7 @@ public sealed class ProgressiveRenderingTests
         using var rasterizer = new SoftwareRasterizer();
         using var partial = new Bitmap(width, height);
         using var cancellation = new CancellationTokenSource();
-        ProgressiveRender render = rasterizer.BeginRender(list, partial, device, cancellation.Token, progress: null);
+        ProgressiveRender render = rasterizer.BeginRender(list, partial, device, progress: null, cancellation.Token);
         for (int slice = 0; slice < slicesBeforeCancel; slice++)
         {
             Assert.False(render.Continue(TimeSpan.Zero));
@@ -141,7 +141,7 @@ public sealed class ProgressiveRenderingTests
         rasterizer.Render(list, next, device);
         Assert.True(expected.AsSpan().SequenceEqual(next.Pixels));
         using var resumed = new Bitmap(width, height);
-        using ProgressiveRender again = rasterizer.BeginRender(list, resumed, device, CancellationToken.None, progress: null);
+        using ProgressiveRender again = rasterizer.BeginRender(list, resumed, device, progress: null, CancellationToken.None);
         Assert.True(again.Continue(Timeout.InfiniteTimeSpan));
         Assert.True(expected.AsSpan().SequenceEqual(resumed.Pixels));
     }
@@ -153,7 +153,7 @@ public sealed class ProgressiveRenderingTests
         (DisplayList list, Matrix device, byte[] expected, int width, int height) = RenderWhole(document, scale: 1);
         using var rasterizer = new SoftwareRasterizer();
         using var partial = new Bitmap(width, height);
-        ProgressiveRender render = rasterizer.BeginRender(list, partial, device, CancellationToken.None, progress: null);
+        ProgressiveRender render = rasterizer.BeginRender(list, partial, device, progress: null, CancellationToken.None);
         Assert.False(render.Continue(TimeSpan.Zero));
         Assert.False(render.Continue(TimeSpan.Zero));
 

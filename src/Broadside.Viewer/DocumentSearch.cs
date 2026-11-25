@@ -478,7 +478,7 @@ public sealed class DocumentSearch : IDisposable
         try
         {
             CancellationToken read = operation.Token;
-            await Session.LoadPageAsync(pageIndex, read).ConfigureAwait(false);
+            await Session.ReadPageAsync(pageIndex, read).ConfigureAwait(false);
             try
             {
                 return await Session.ReadAsync(

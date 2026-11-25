@@ -25,7 +25,7 @@ public readonly record struct ViewTarget(int PageIndex, PdfDestinationView View,
     /// <returns>The target, or <see langword="null"/> when the destination is null, remote, not found, not valid, or its page is not in the page tree.</returns>
     /// <remarks>
     /// ISO 32000-2 §12.3.2. Reads the document (the live views of the destination), so call it where the document may be read:
-    /// <see cref="DocumentOutline.LoadAsync"/> and <see cref="FindNamedAsync"/> do. Diagnostics of repairs are recorded on the document.
+    /// <see cref="DocumentOutline.ReadAsync"/> and <see cref="FindNamedAsync"/> do. Diagnostics of repairs are recorded on the document.
     /// </remarks>
     public static ViewTarget? Resolve(PdfDestination? destination)
     {

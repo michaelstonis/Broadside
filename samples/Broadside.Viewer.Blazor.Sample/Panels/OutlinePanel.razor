@@ -49,7 +49,7 @@ else
     _loading = true;
     try
     {
-      DocumentOutline outline = await DocumentOutline.LoadAsync(session, Demo.WorkToken);
+      DocumentOutline outline = await DocumentOutline.ReadAsync(session, Demo.WorkToken);
       if (version == _version)
       {
         _outline = outline;

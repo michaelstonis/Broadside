@@ -494,7 +494,16 @@ public sealed partial class PdfPage
     /// <returns>The index, from a display list built for it under the document's default optional-content states.</returns>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
     /// <remarks>Viewer capability 4. As <see cref="CreateHitTestIndex(DisplayList, PdfOptionalContentState?)"/>.</remarks>
-    public HitTestIndex CreateHitTestIndex() => CreateHitTestIndex(CreateDisplayList());
+    public HitTestIndex CreateHitTestIndex() => CreateHitTestIndex(CreateDisplayList(), null);
+
+    /// <summary>
+    /// Builds the page's hit-test index from a display list the caller already has, adding the page's link annotations visible under
+    /// the document's default optional-content configuration.
+    /// </summary>
+    /// <param name="displayList">The page's display list, such as the one a viewer caches to render tiles.</param>
+    /// <returns>The index.</returns>
+    /// <remarks>Viewer capability 4. As <see cref="CreateHitTestIndex(DisplayList, PdfOptionalContentState?)"/>.</remarks>
+    public HitTestIndex CreateHitTestIndex(DisplayList displayList) => CreateHitTestIndex(displayList, null);
 
     /// <summary>Builds the page's hit-test index from a display list the caller already has, adding the page's link annotations.</summary>
     /// <param name="displayList">The page's display list, such as the one a viewer caches to render tiles.</param>
@@ -508,7 +517,7 @@ public sealed partial class PdfPage
     /// (<c>Hidden</c> and <c>NoView</c> links are left out) and §8.11.3.3 (a link whose optional content is off is left out). The
     /// links are read from <see cref="Annotations"/> now; the list's content is indexed as by <see cref="DisplayList.CreateHitTestIndex"/>.
     /// </remarks>
-    public HitTestIndex CreateHitTestIndex(DisplayList displayList, PdfOptionalContentState? optionalContentState = null)
+    public HitTestIndex CreateHitTestIndex(DisplayList displayList, PdfOptionalContentState? optionalContentState)
     {
         ArgumentNullException.ThrowIfNull(displayList);
         return HitTestIndex.Create(displayList, HitTestIndex.CollectLinks(this, _document, optionalContentState));

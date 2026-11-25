@@ -10,7 +10,7 @@ namespace Broadside.Rendering.Direct2D;
 /// axial and nested radial shadings as Direct2D gradient brushes in shading space, the Extend flags as clips; other radials and the
 /// meshes rasterized per device pixel and function-based shadings as a texture, all three through a bitmap brush.
 /// </summary>
-internal sealed unsafe partial class Direct2DBackend
+internal sealed unsafe partial class Direct2DReplayer
 {
     /// <summary>How far, in device pixels, a circle's chords may stray from it: an extend clip decides whole pixels by their centres.</summary>
     private const double CircleTolerance = 0.002;

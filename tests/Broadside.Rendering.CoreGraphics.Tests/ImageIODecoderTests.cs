@@ -290,7 +290,7 @@ public sealed class ImageIODecoderTests
     public void Without_a_platform_decoder_a_renderer_prefetch_completes_at_once()
     {
         using PdfDocument document = PdfDocument.Open(CatalogueSamples.Cover());
-        using var renderer = new CoreGraphicsRenderer { ScaledImageDecode = true };
+        using var renderer = new CoreGraphicsBackend { ScaledImageDecode = true };
 
         ValueTask prefetch = renderer.PrefetchImagesAsync(document.Pages[0].CreateDisplayList(), Device, 612, 792, TestContext.Current.CancellationToken);
 
@@ -345,7 +345,7 @@ public sealed class ImageIODecoderTests
         PixelSize size = options.GetPixelSize(page);
         Matrix device = options.GetDeviceTransform(page);
         DisplayList list = page.CreateDisplayList();
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
         if (prefetch)
         {
             await renderer.PrefetchImagesAsync(list, device, size.Width, size.Height, TestContext.Current.CancellationToken);
