@@ -2,7 +2,7 @@
 
 Usage: python3 -I report.py <repository root> <artifacts/fuzz/coverage>
 
-For each target: line coverage over the types tests/Broadside.Fuzz/parsers.txt maps to it (the parser scope, judged against
+For each target: line coverage over the types tests/Broadside.Fuzz/parsers.txt maps to it first (the parser scope, judged against
 THRESHOLD), and line coverage of Broadside.dll plus Broadside.Rendering.dll as a whole. A target with no mapped type has no
 parser scope; its row shows the assembly coverage only.
 """
@@ -22,8 +22,8 @@ def read_map(root):
             fields = line.split()
             if len(fields) < 2 or fields[0].startswith("#"):
                 continue
-            for target in fields[1:]:
-                by_target.setdefault(target, []).append(fields[0])
+            # The first target owns the type: its coverage is judged over it. Later targets also reach it, but are not judged on it.
+            by_target.setdefault(fields[1], []).append(fields[0])
     return by_target
 
 
@@ -90,7 +90,7 @@ def main():
             short = ", ".join(sorted({t.rsplit(".", 1)[-1] for t in types}))
             print(f"| `{target}` | {seeds} | {short} | {total} | {value:.1f}% | {verdict} | {percent(all_covered, all_total):.1f}% |")
         else:
-            print(f"| `{target}` | {seeds} | (no parser mapped) | | | n/a | {percent(all_covered, all_total):.1f}% |")
+            print(f"| `{target}` | {seeds} | (owns no parser) | | | n/a | {percent(all_covered, all_total):.1f}% |")
     print()
     print(f"Threshold: {THRESHOLD:.0f}% line coverage of the parser scope. Below it: {', '.join(below) if below else 'none'}.")
 

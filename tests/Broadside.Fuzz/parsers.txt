@@ -11,9 +11,9 @@
 # File structure
 Broadside.Objects.CosLexer                              lexer content-lexer
 Broadside.Objects.CosParser                             object-parser document
-Broadside.Objects.TextStringDecoder                     pdf-date document
-Broadside.Parsing.CrossReferenceReader                  repair document windowed-document
-Broadside.Parsing.XrefTableReader                       repair document
+Broadside.Objects.TextStringDecoder                     document pdf-date
+Broadside.Parsing.CrossReferenceReader                  windowed-document document repair
+Broadside.Parsing.XrefTableReader                       document repair
 Broadside.Parsing.XrefStreamReader                      xref-stream document
 Broadside.Parsing.RevisionReader                        document save
 Broadside.Parsing.LinearizationReader                   first-page-first hint-tables

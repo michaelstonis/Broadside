@@ -93,6 +93,39 @@ internal static class SeedWriter
             }
         }
 
+        // The target's regression and hand-made seeds (tests/Broadside.Fuzz/Seeds/<target>): inputs the corpus files cannot give,
+        // such as signed data, CRLs and OCSP responses, so the scheduled run starts from them too (issue #274).
+        // The image readers also start from the test suites' own files: JPEG files of every process and color model, and the PNG
+        // suite of every color type, depth and interlacing.
+        List<string> files = [];
+        string committed = Path.Combine(CorpusLocator.RepositoryRoot, "tests", "Broadside.Fuzz", "Seeds", target);
+        if (Directory.Exists(committed))
+        {
+            files.AddRange(Directory.GetFiles(committed).Order(StringComparer.Ordinal));
+        }
+
+        string? images = target switch
+        {
+            "jpeg-reader" or "filter-dct" => Path.Combine(CorpusLocator.RepositoryRoot, "tests", "Broadside.Tests", "Filters", "Dct"),
+            "png-reader" => Path.Combine(CorpusLocator.RepositoryRoot, "tests", "Broadside.Tests", "Graphics", "Png"),
+            _ => null,
+        };
+        if (images is not null && Directory.Exists(images))
+        {
+            string pattern = target == "png-reader" ? "*.png" : "*.jpg";
+            files.AddRange(Directory.EnumerateFiles(images, pattern, SearchOption.AllDirectories).Order(StringComparer.Ordinal));
+        }
+
+        foreach (string path in files)
+        {
+            byte[] seed = File.ReadAllBytes(path);
+            string name = Convert.ToHexStringLower(SHA256.HashData(seed));
+            if (seed.Length is > 0 and <= MaxSeedLength && written.Add(name))
+            {
+                File.WriteAllBytes(Path.Combine(output, name), seed);
+            }
+        }
+
         return written.Count;
     }
 
