@@ -69,7 +69,8 @@ internal static class CffSubsetter
     /// <summary>Writes the subset of a bare CFF program that draws <paramref name="glyphs"/>, glyph 0 and their accent components.</summary>
     /// <param name="program">The CFF program (Type 2 charstrings).</param>
     /// <param name="glyphs">The original glyph ids; ids past the glyph count are ignored.</param>
-    /// <returns>The subset, or <see langword="null"/> when the program is not a usable CFF font with Type 2 charstrings.</returns>
+    /// <returns>The subset, or <see langword="null"/> when the program is not a usable CFF font with Type 2 charstrings, or an INDEX
+    /// it copies from has overlapping objects.</returns>
     public static SubsetProgram? Subset(ReadOnlyMemory<byte> program, IEnumerable<int> glyphs)
     {
         if (CffFont.Read(program, new FontProgramContext()) is not { OutlinesUnsupported: null } font || font.GlyphCount == 0)
@@ -78,6 +79,11 @@ internal static class CffSubsetter
         }
 
         ReadOnlySpan<byte> data = font.Data.Span;
+        if (Overlaps(font.Strings, data) || Overlaps(font.GlobalSubrs, data) || Overlaps(font.CharStrings, data))
+        {
+            return null;
+        }
+
         CffIndex names = CffIndex.Read(data, data[2], out _);
         CffIndex tops = CffIndex.Read(data, names.End, out _);
         if (tops.Count == 0)
@@ -111,6 +117,14 @@ internal static class CffSubsetter
                 {
                     pending.Push(component);
                 }
+            }
+        }
+
+        foreach ((CffPrivate values, _) in reach.Local.Values)
+        {
+            if (Overlaps(values.Subrs, data))
+            {
+                return null;
             }
         }
 
@@ -331,6 +345,25 @@ internal static class CffSubsetter
         output.Write(privateDict);
         output.Write(subrs);
         return new SubsetProgram(output.ToArray(), [.. Enumerable.Range(0, font.GlyphCount)]);
+    }
+
+    /// <summary>
+    /// Whether the objects of an INDEX add up to more bytes than the program holds: their offsets overlap (5176 §5 has them
+    /// increase), so copying each object would turn a small damaged program into a subset many times its size (issue #620).
+    /// </summary>
+    private static bool Overlaps(CffIndex index, ReadOnlySpan<byte> data)
+    {
+        long total = 0;
+        for (int item = 0; item < index.Count; item++)
+        {
+            total += index.Get(data, item).Length;
+            if (total > data.Length)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>A format 2 charset (5176 §13): each new glyph's CID, its original glyph id, as ranges of consecutive ids.</summary>

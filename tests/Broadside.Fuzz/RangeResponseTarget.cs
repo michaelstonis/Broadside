@@ -18,7 +18,7 @@ namespace Broadside.Fuzz;
 /// <see cref="DocumentWalker"/>, which fetches what each read misses. A <see cref="DiagnosticException"/>, an
 /// <see cref="IOException"/>, an <see cref="HttpRequestException"/> and the password and encryption exceptions are the documented
 /// outcomes; anything else is a finding. With an honest server nothing may fail after the open, and a document that is not linearized
-/// must open remotely exactly when it opens from memory, with the same pages.
+/// must open remotely exactly when it opens from memory, with the same pages unless either read repaired a missing page tree.
 /// </summary>
 /// <remarks>Spec #33, viewer capability 5; RFC 9110 §14 (range requests), §15.3.7 (206), §15.5.17 (416); ISO 32000-2 §7.5, Annex F.</remarks>
 internal static class RangeResponseTarget
@@ -47,7 +47,8 @@ internal static class RangeResponseTarget
         }
 
         bool honest = control[2] == 0;
-        var options = new PdfOptions().WithRangeBlockSize(512 * (1 + (control[1] % 16)));
+        // The limits of the local read (FuzzTargets.OpenOrNull), so both reads decode alike.
+        var options = new PdfOptions().WithRangeBlockSize(512 * (1 + (control[1] % 16))).WithMaxImagePixels(1 << 16).WithMaxDecodedLength(1 << 20);
         using var server = new FaultyServer(file, firstAnswer: 64 * (1 + control[0]), faults: control[2], kinds: control[3]);
         using var client = new HttpClient(server, disposeHandler: false);
         PdfDocument document;
@@ -79,8 +80,11 @@ internal static class RangeResponseTarget
             {
                 using PdfDocument? local = FuzzTargets.OpenOrNull(file);
                 // A linearized file is read remotely through its first-page section and hint tables, which may disagree with a
-                // damaged page tree read whole; only a file without them must read the same both ways.
-                if (!(local?.IsLinearized ?? document.IsLinearized) && local?.Pages.Count != document.Pages.Count)
+                // damaged page tree read whole; only a file without them must read the same both ways. A missing page tree is
+                // rebuilt by scanning the whole file only when read locally (issue #620, a known limitation), so a file either
+                // read repairs that way is not compared either.
+                if (!(local?.IsLinearized ?? document.IsLinearized) && !RepairedPageTree(document) && !(local is not null && RepairedPageTree(local))
+                    && local?.Pages.Count != document.Pages.Count)
                 {
                     throw new InvalidOperationException($"An honest server's file has {document.Pages.Count} pages remotely and {local?.Pages.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "no document"} from memory.");
                 }
@@ -101,6 +105,13 @@ internal static class RangeResponseTarget
     }
 
     /// <summary>A server in the process: serves one file with single byte ranges and answers the planned requests wrongly.</summary>
+    /// <summary>Whether reading the document reported a missing or unlisted page tree (<c>PagesMissing</c>).</summary>
+    private static bool RepairedPageTree(PdfDocument document)
+    {
+        _ = document.Pages.Count;
+        return document.Diagnostics.Any(static diagnostic => diagnostic.Code == DocumentDiagnostics.PagesMissing.Name);
+    }
+
     private sealed class FaultyServer(byte[] file, int firstAnswer, byte faults, byte kinds) : HttpMessageHandler
     {
         private int _requests;

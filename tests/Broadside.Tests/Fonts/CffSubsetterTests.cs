@@ -141,6 +141,42 @@ public sealed class CffSubsetterTests
         Assert.Null(CffSubsetter.Subset(builder.Build(), [0]));
     }
 
+    [Fact]
+    public void A_program_whose_index_objects_overlap_is_not_subset_rather_than_copied_many_times_over()
+    {
+        // Fuzz finding (#620, type1-to-cff): offsets that go back make every other object span the whole INDEX, so a subset that
+        // copied each one grew a 172 KB program to gigabytes. Here 100 global subroutines of 7 bytes each read as 50 of 700.
+        var builder = new CffBuilder { Name = "Overlapping" };
+        builder.GlobalSubrs.AddRange(Enumerable.Range(0, 100).Select(_ => CffBuilder.T2(100, 100, "rlineto", 100, -100, "rlineto", "return")));
+        builder.Glyphs.Add((".notdef", CffBuilder.T2("endchar")));
+        builder.Glyphs.Add(("A", CffBuilder.T2(0, 0, "rmoveto", 300, 700, "rlineto", "endchar")));
+        byte[] program = builder.Build();
+        Assert.NotNull(CffSubsetter.Subset(program, [1]));
+
+        CffIndex names = CffIndex.Read(program, program[2], out _);
+        CffIndex strings = CffIndex.Read(program, CffIndex.Read(program, names.End, out _).End, out _);
+        int globals = strings.End;
+        int offSize = program[globals + 2];
+        Assert.Equal(100, (program[globals] << 8) | program[globals + 1]);
+        int last = 0;
+        for (int at = globals + 3 + (100 * offSize), end = at + offSize; at < end; at++)
+        {
+            last = (last << 8) | program[at];
+        }
+
+        for (int item = 0; item < 100; item++)
+        {
+            int value = item % 2 == 0 ? 1 : last;
+            for (int index = 0; index < offSize; index++)
+            {
+                program[globals + 3 + (item * offSize) + index] = (byte)(value >> ((offSize - 1 - index) * 8));
+            }
+        }
+
+        Assert.True(CffFont.Read(program, new FontProgramContext())!.GlobalSubrs.Get(program, 0).Length >= 700);
+        Assert.Null(CffSubsetter.Subset(program, [1]));
+    }
+
     /// <summary>
     /// A random program: subroutine i (local or global) is at level (i / 2) % 3 and calls only lower levels of the same parity;
     /// even subroutines serve glyphs with at most 8 stems (one mask byte), odd ones glyphs with 9 to 16 (two).
