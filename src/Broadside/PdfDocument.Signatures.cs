@@ -57,7 +57,8 @@ public sealed partial class PdfDocument
     /// <exception cref="ArgumentException"><see cref="PdfSignatureOptions.FieldName"/> is empty or, for a new field, holds a period.</exception>
     /// <exception cref="NotSupportedException">
     /// The signer's key is neither an RSA key nor an ECDSA key on P-256, P-384 or P-521, the digest algorithm is not one ISO/TS 32002
-    /// Table 3 pairs with the key's curve, or the document cannot be updated incrementally (it is encrypted).
+    /// Table 3 pairs with the key's curve, or the document cannot be updated incrementally (it is encrypted, or its cross-reference
+    /// information is damaged and had to be rebuilt).
     /// </exception>
     /// <exception cref="Diagnostics.DiagnosticException">
     /// In strict mode, when the signature needs a later PDF version than the document's (ECDSA, SHA-3 or a PAdES signature need 2.0).
@@ -165,7 +166,7 @@ public sealed partial class PdfDocument
     /// <exception cref="ArgumentException"><see cref="PdfSignatureOptions.FieldName"/> is empty or, for a new field, holds a period.</exception>
     /// <exception cref="NotSupportedException">
     /// The signer's key or the digest algorithm is not supported (see <see cref="Sign"/>), or the document cannot be updated
-    /// incrementally (it is encrypted).
+    /// incrementally (it is encrypted, or its cross-reference information is damaged and had to be rebuilt).
     /// </exception>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, when the signature needs a later PDF version than the document's.</exception>
     /// <exception cref="PdfTimestampException">

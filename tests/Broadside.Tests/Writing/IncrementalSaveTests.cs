@@ -218,10 +218,45 @@ public sealed class IncrementalSaveTests
         Assert.True(exitCode == 0, output);
     }
 
-    [Fact]
-    public void An_update_to_a_file_whose_cross_reference_information_was_rebuilt_lists_every_object()
+    /// <summary>
+    /// Files whose cross-reference information had to be rebuilt (issue #620): by scanning the whole file (no <c>startxref</c>, a
+    /// damaged last <c>startxref</c>), or through an <c>XRefStm</c> or <c>Prev</c> offset that names no section and is replaced by
+    /// the nearest one.
+    /// </summary>
+    public static TheoryData<string> RebuiltCrossReferences => new() { "no-xref.pdf", "startxref-last-damaged.pdf", "xrefstm-offset-wrong.pdf", "prev-offset-wrong" };
+
+    /// <summary>Files read with local repairs that leave the cross-reference chain as the file states it.</summary>
+    public static TheoryData<string> LocallyRepairedCrossReferences => new() { "startxref-wrong.pdf", "xref-line-malformed.pdf", "xref-comment.pdf", "broken-xref-offsets.pdf" };
+
+    [Theory]
+    [MemberData(nameof(RebuiltCrossReferences))]
+    public void An_incremental_update_of_a_file_whose_cross_reference_information_was_rebuilt_is_refused_and_a_complete_file_reopens(string fileName)
     {
-        byte[] file = Corpus.Bytes("no-xref.pdf");
+        // Issue #620 (found by the save fuzz target): the update's Prev leads back through the damaged sections, which a reader of
+        // the updated file may repair differently from the original read, reaching stale entries such as an Encrypt the original
+        // never saw. The update is refused before a byte is written; a complete file is written from what the document read.
+        using PdfDocument document = PdfDocument.Open(RebuiltFile(fileName));
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning);
+        int pages = document.Pages.Count;
+        document.Pages[0].Dictionary[Rotate] = new CosInteger(90);
+        using var output = new MemoryStream();
+
+        var exception = Assert.Throws<NotSupportedException>(() => document.Save(output, new PdfSaveOptions().WithIncrementalUpdate(true)));
+
+        Assert.Contains("complete file", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, output.Length);
+        document.Save(output);
+        using PdfDocument reopened = PdfDocument.Open(output.ToArray());
+        Assert.Empty(reopened.Diagnostics);
+        Assert.Equal(pages, reopened.Pages.Count);
+        Assert.Equal(90, reopened.Pages[0].Rotation);
+    }
+
+    [Theory]
+    [MemberData(nameof(LocallyRepairedCrossReferences))]
+    public void An_incremental_update_of_a_file_with_a_local_cross_reference_repair_is_written(string fileName)
+    {
+        byte[] file = Corpus.Bytes(fileName);
         using PdfDocument document = PdfDocument.Open(file);
         Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning);
         document.Pages[0].Dictionary[Rotate] = new CosInteger(90);
@@ -230,12 +265,8 @@ public sealed class IncrementalSaveTests
 
         Assert.True(saved.AsSpan(0, file.Length).SequenceEqual(file));
         using PdfDocument reopened = PdfDocument.Open(saved);
-        Assert.Empty(reopened.Diagnostics);
         Assert.Equal(90, reopened.Pages[0].Rotation);
-        Assert.Single(reopened.Revisions);
-        Assert.Single(document.Revisions);
-        (int exitCode, string output) = ExternalTool.Run("qpdf", saved, "--check");
-        Assert.True(exitCode == 0, output);
+        Assert.Equal(document.Pages.Count, reopened.Pages.Count);
     }
 
     [Fact]
@@ -353,6 +384,24 @@ public sealed class IncrementalSaveTests
     private static List<(int Number, int Generation)> ObjectsDefinedIn(ReadOnlySpan<byte> bytes) =>
         [.. System.Text.RegularExpressions.Regex.Matches(System.Text.Encoding.Latin1.GetString(bytes), @"(?m)^(\d+) (\d+) obj\b")
             .Select(match => (int.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture), int.Parse(match.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture)))];
+
+    /// <summary>
+    /// A corpus file, or for <c>prev-offset-wrong</c> an update of <c>incremental-update.pdf</c> whose trailer's <c>Prev</c> points
+    /// into the header, where no section is: the reader reads the nearest section instead.
+    /// </summary>
+    private static byte[] RebuiltFile(string fileName)
+    {
+        if (fileName != "prev-offset-wrong")
+        {
+            return Corpus.Bytes(fileName);
+        }
+
+        byte[] updated = Document.TestPdf.AppendUpdate(Corpus.Bytes("incremental-update.pdf"), "/Size 5 /Root 1 0 R", (4, 0, "<< /Marker 1 >>"));
+        string text = System.Text.Encoding.Latin1.GetString(updated);
+        int prev = text.LastIndexOf("/Prev ", StringComparison.Ordinal) + "/Prev ".Length;
+        int end = text.IndexOf(' ', prev);
+        return System.Text.Encoding.Latin1.GetBytes(text[..prev] + "3".PadLeft(end - prev) + text[end..]);
+    }
 
     private static byte[] SaveIncrementally(PdfDocument document, PdfSaveOptions? options = null)
     {
