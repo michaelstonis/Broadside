@@ -2,7 +2,7 @@
 
 Every release of the Broadside packages, newest first. Each section is written by `tools/ReleaseNotes` from the Conventional Commit titles merged since the previous tag (see the [versioning policy](https://michaelstonis.github.io/Broadside/articles/versioning/)). The GitHub release of each tag carries the same notes and the packages.
 
-## 1.0.0-rc.1 (2026-11-24)
+## 1.0.0-rc.1 (2026-11-25)
 
 Changes since [`v0.1.0-preview.10`](https://github.com/michaelstonis/Broadside/releases/tag/v0.1.0-preview.10). Full diff: [`v0.1.0-preview.10...v1.0.0-rc.1`](https://github.com/michaelstonis/Broadside/compare/v0.1.0-preview.10...v1.0.0-rc.1).
 
@@ -20,10 +20,12 @@ Changes since [`v0.1.0-preview.10`](https://github.com/michaelstonis/Broadside/r
 ### Fixes
 
 - **diagnostics:** make the core assembly build reproducibly ([#265](https://github.com/michaelstonis/Broadside/issues/265))
+- **fuzz:** fix the release-candidate fuzz findings that are library or harness bugs ([#620](https://github.com/michaelstonis/Broadside/issues/620))
 - **release:** list a change landed on two branches once; exempt CHANGELOG.md from the ADR check ([#264](https://github.com/michaelstonis/Broadside/issues/264))
 - **security:** close the unsafe and pooled buffer review findings ([#274](https://github.com/michaelstonis/Broadside/issues/274))
 - **viewer:** pack a padded caller-memory tile before WPF reads it ([#274](https://github.com/michaelstonis/Broadside/issues/274))
 - **viewer:** release the window's scaling event and yield search on the slice budget ([#599](https://github.com/michaelstonis/Broadside/issues/599), [#600](https://github.com/michaelstonis/Broadside/issues/600))
+- **writing:** refuse an incremental update of a file with a damaged Encrypt entry ([#620](https://github.com/michaelstonis/Broadside/issues/620))
 
 ### Performance
 
@@ -33,12 +35,21 @@ Changes since [`v0.1.0-preview.10`](https://github.com/michaelstonis/Broadside/r
 - **rendering:** faster patch meshes and CMYK group conversion ([#611](https://github.com/michaelstonis/Broadside/issues/611))
 - **rendering:** blend a run of equal pixel pairs once ([#602](https://github.com/michaelstonis/Broadside/issues/602)) ([#613](https://github.com/michaelstonis/Broadside/issues/613))
 
+### Refactoring
+
+- **layout:** ship the document builder as stable API
+
 ### Documentation
 
+- **conformance:** record the refused incremental update of a damaged Encrypt entry ([#620](https://github.com/michaelstonis/Broadside/issues/620))
 - **diagnostics:** publish the diagnostic-code catalog with its stability policy ([#263](https://github.com/michaelstonis/Broadside/issues/263))
 - **guides:** writing, editing, extraction, accessibility, signatures and viewers guides ([#269](https://github.com/michaelstonis/Broadside/issues/269), [#270](https://github.com/michaelstonis/Broadside/issues/270))
 - **packaging:** note what the reproducible-build check caught ([#265](https://github.com/michaelstonis/Broadside/issues/265))
 - **packaging:** the viewer packages ship in v1.0 ([#265](https://github.com/michaelstonis/Broadside/issues/265))
+- **release:** 1.0 release-candidate notes, gate checklist and GA criteria ([#276](https://github.com/michaelstonis/Broadside/issues/276))
+- **release:** gate checklist wording passes check-adr-refs
+- **release:** link the RC gate runs in the v1.0.0-rc.1 checklist
+- **release:** best-effort support, no soak period or support windows
 - **rendering:** use the renamed native backends in the rendering guide ([#262](https://github.com/michaelstonis/Broadside/issues/262))
 - **security:** threat model, resource limit inventory and 1.x security policy ([#273](https://github.com/michaelstonis/Broadside/issues/273))
 - **security:** drop committed fix windows from the security policy ([#273](https://github.com/michaelstonis/Broadside/issues/273))
@@ -54,11 +65,13 @@ Changes since [`v0.1.0-preview.10`](https://github.com/michaelstonis/Broadside/r
 - **api:** keep the guard's rule key clear of the diagnostic-name pattern ([#261](https://github.com/michaelstonis/Broadside/issues/261))
 - **fuzz:** map every parser to a target, add coverage report tooling ([#274](https://github.com/michaelstonis/Broadside/issues/274))
 - **fuzz:** seed the image readers from the test suites and judge each target on the parsers it owns ([#274](https://github.com/michaelstonis/Broadside/issues/274))
+- **fuzz:** small limits for whole-file targets and two looser oracles ([#620](https://github.com/michaelstonis/Broadside/issues/620))
 - **security:** name the page tree depth constant by the local naming rule ([#273](https://github.com/michaelstonis/Broadside/issues/273))
 
 ### Benchmarks
 
 - compare Broadside with PDFium and pdf.js for v1 ([#275](https://github.com/michaelstonis/Broadside/issues/275))
+- **gate:** record the size probes after the v1 merges
 
 ### Build and CI
 
@@ -67,6 +80,8 @@ Changes since [`v0.1.0-preview.10`](https://github.com/michaelstonis/Broadside/r
 - **packaging:** mask asset checkout times and except the WinUI viewer in the reproducibility check ([#265](https://github.com/michaelstonis/Broadside/issues/265))
 - **packaging:** record the v1 API breaks against the preview baseline ([#262](https://github.com/michaelstonis/Broadside/issues/262))
 - **pr-checks:** drop the DCO check; viewers ship in v1
+- **viewer-maui:** drop the cross-target package validation suppressions the pack does not need
+- **viewer-maui:** allow unused package validation suppressions
 
 ### Public API
 
