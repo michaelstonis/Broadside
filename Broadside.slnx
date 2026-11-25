@@ -20,6 +20,9 @@
     <Project Path="samples/Broadside.Viewer.Blazor.Sample/Broadside.Viewer.Blazor.Sample.csproj" />
     <Project Path="samples/Broadside.Viewer.Wpf.Sample/Broadside.Viewer.Wpf.Sample.csproj" />
     <Project Path="samples/documents/generator/Broadside.SampleDocuments.csproj" />
+    <Project Path="samples/guides/AccessibilityConformance/AccessibilityConformance.csproj" />
+    <Project Path="samples/guides/Editing/Editing.csproj" />
+    <Project Path="samples/guides/ExtractingText/ExtractingText.csproj" />
     <Project Path="samples/guides/GettingStarted/GettingStarted.csproj" />
     <Project Path="samples/guides/ReadingConcurrency/ReadingConcurrency.csproj" />
     <Project Path="samples/guides/ReadingCos/ReadingCos.csproj" />
@@ -27,6 +30,8 @@
     <Project Path="samples/guides/ReadingEncrypted/ReadingEncrypted.csproj" />
     <Project Path="samples/guides/ReadingHosted/ReadingHosted.csproj" />
     <Project Path="samples/guides/ReadingSources/ReadingSources.csproj" />
+    <Project Path="samples/guides/Signatures/Signatures.csproj" />
+    <Project Path="samples/guides/Writing/Writing.csproj" />
   </Folder>
   <Folder Name="/solution-items/">
     <File Path="Directory.Build.props" />

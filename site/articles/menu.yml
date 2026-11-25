@@ -10,6 +10,7 @@ articles:
   - {path: extracting-text.md, title: "Extracting text"}
   - {path: signatures.md, title: "Signatures"}
   - {path: accessibility-and-conformance.md, title: "Accessibility and conformance"}
+  - {path: viewers.md, title: "Viewers"}
   - {path: migration.md, title: "Migration"}
   - {path: architecture.md, title: "Architecture"}
   - {path: roadmap.md, title: "Roadmap"}

@@ -2,13 +2,18 @@
   "solution": {
     "path": "../../Broadside.slnx",
     "projects": [
+      "samples/guides/AccessibilityConformance/AccessibilityConformance.csproj",
+      "samples/guides/Editing/Editing.csproj",
+      "samples/guides/ExtractingText/ExtractingText.csproj",
       "samples/guides/GettingStarted/GettingStarted.csproj",
       "samples/guides/ReadingConcurrency/ReadingConcurrency.csproj",
       "samples/guides/ReadingCos/ReadingCos.csproj",
       "samples/guides/ReadingDiagnostics/ReadingDiagnostics.csproj",
       "samples/guides/ReadingEncrypted/ReadingEncrypted.csproj",
       "samples/guides/ReadingHosted/ReadingHosted.csproj",
-      "samples/guides/ReadingSources/ReadingSources.csproj"
+      "samples/guides/ReadingSources/ReadingSources.csproj",
+      "samples/guides/Signatures/Signatures.csproj",
+      "samples/guides/Writing/Writing.csproj"
     ]
   }
 }

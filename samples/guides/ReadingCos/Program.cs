@@ -34,4 +34,4 @@ Console.WriteLine($"Rotation through the model: {page.Rotation}");
 #endregion
 Sample.Expect(page.Rotation == 90, "the model sees the COS change");
 
-Console.WriteLine("OK");
+Sample.Finish();

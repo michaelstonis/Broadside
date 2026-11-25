@@ -1,0 +1,122 @@
+using Broadside;
+using Broadside.Diagnostics;
+using Broadside.Fonts;
+using Broadside.Graphics;
+using Broadside.Layout;
+using Broadside.Layout.Flow;
+using Broadside.Samples;
+
+Sample.Start("Accessibility and conformance");
+
+WriteAccessibleReport();
+TagAnExistingFile();
+WriteArchivalFile();
+ConvertToPdfA();
+Sample.Finish();
+
+static void WriteAccessibleReport()
+{
+    #region pdfua-flow
+    using PdfDocument document = PdfDocument.Create();
+    document.Pages.RemoveAt(0);
+    PdfCanvasFont regular = document.EmbedFont(File.ReadAllBytes("LiberationSans-Regular.ttf"));
+    PdfCanvasFont bold = document.EmbedFont(File.ReadAllBytes("LiberationSans-Bold.ttf"));
+    var body = new ParagraphStyle(regular, 11);
+
+    // Flow layout tags what it lays out: headings, paragraphs, lists, tables and figures, with the page furniture as artifacts.
+    // PDF/UA-1 is a PDF 1.7 profile, so the structure uses the PDF 1.7 namespace; PDF/UA-2 uses the default, PDF 2.0.
+    FlowTagging tagging = FlowTagging.Default
+        .WithLanguage("en-US")
+        .WithTitle("Annual results")
+        .WithNamespace(FlowStructureNamespace.Pdf17);
+    var flow = new FlowDocument(PageSetup.A4) { Tagging = tagging };
+    flow.Add(new Paragraph("Annual results", new ParagraphStyle(bold, 18)) { StructureType = "H1" });
+    flow.Add(new Paragraph("Revenue grew in every region.", body));
+    flow.Add(new ImageBlock(Chart(document), 120, 60) { AlternateText = "Revenue by region, rising in all four." });
+    flow.Render(document);
+
+    document.Save("annual-results-pdfua1.pdf", new PdfSaveOptions().WithPdfUAConformance(PdfUAConformance.PdfUA1));
+    #endregion
+
+    Sample.Expect(!Problems(document).Any(), $"PDF/UA-1 by the library's check: {string.Join("; ", Problems(document))}");
+}
+
+static void TagAnExistingFile()
+{
+    #region auto-tag
+    // An untagged file: the layout tree finds its columns, paragraphs, headings, lists, tables and figures, and tags them.
+    PdfOptions options = new PdfOptions().UseStandard14Fonts(); // metrics and programs for fonts the file does not embed
+    using PdfDocument document = PdfDocument.Open("layout-two-column-untagged.pdf", options);
+    AutoTaggingResult result = document.AutoTag(new AutoTaggingOptions().WithLanguage("en-US"));
+    document.Properties.Title = "Two columns";
+    Console.WriteLine($"Tagged: {result.IsTagged}, figures needing alternate text: {result.Figures.Count}");
+
+    // PDF/UA needs every font embedded, which the PDF/A conversion does; the file then claims both.
+    PdfAConversion conversion = document.ConvertToPdfA(PdfAConformance.PdfA2u);
+    document.Save("two-columns-pdfua1-pdfa2u.pdf", conversion.CreateSaveOptions().WithPdfUAConformance(PdfUAConformance.PdfUA1));
+    #endregion
+
+    Sample.Expect(result.IsTagged && conversion.IsConformant, "tagged and converted");
+    Sample.Expect(!Problems(document).Any(), $"PDF/UA-1 and PDF/A-2u by the library's check: {string.Join("; ", Problems(document))}");
+}
+
+static void WriteArchivalFile()
+{
+    #region pdfa-save
+    using PdfDocument document = PdfDocument.Create();
+    PdfCanvasFont sans = document.EmbedFont(File.ReadAllBytes("LiberationSans-Regular.ttf")); // PDF/A embeds every font
+    using (PdfCanvas canvas = document.Pages[0].CreateCanvas())
+    {
+        canvas.BeginText();
+        canvas.SetFont(sans, 14);
+        canvas.MoveText(72, 720);
+        canvas.ShowText("Kept for the long term.");
+        canvas.EndText();
+    }
+
+    document.Properties.Title = "Archive copy";
+    document.Save("archive-pdfa2b.pdf", new PdfSaveOptions().WithPdfAConformance(PdfAConformance.PdfA2b));
+
+    foreach (Diagnostic diagnostic in document.Diagnostics.Where(d => d.Code == "PdfANonConformant"))
+    {
+        Console.WriteLine($"Not PDF/A: {diagnostic.Message}"); // the save checks the rules it can and says what fails
+    }
+    #endregion
+
+    Sample.Expect(!Problems(document).Any(), $"PDF/A-2b by the library's check: {string.Join("; ", Problems(document))}");
+}
+
+static void ConvertToPdfA()
+{
+    #region pdfa-convert
+    using PdfDocument document = PdfDocument.Open("text-standard14.pdf", new PdfOptions().UseStandard14Fonts());
+    PdfAConversion conversion = document.ConvertToPdfA(PdfAConformance.PdfA2b);
+    foreach (string change in conversion.Changes)
+    {
+        Console.WriteLine($"Changed: {change}");
+    }
+
+    foreach (string problem in conversion.NotConverted)
+    {
+        Console.WriteLine($"Could not convert: {problem}");
+    }
+
+    if (conversion.IsConformant)
+    {
+        document.Save("text-standard14-pdfa2b.pdf", conversion.CreateSaveOptions());
+    }
+    #endregion
+
+    Sample.Expect(conversion.IsConformant, "the conversion succeeds");
+    Sample.Expect(!Problems(document).Any(), $"PDF/A-2b by the library's check: {string.Join("; ", Problems(document))}");
+}
+
+// What a PDF/A or PDF/UA save reports when the file does not conform.
+static IEnumerable<string> Problems(PdfDocument document) =>
+    document.Diagnostics.Where(d => d.Code is "PdfANonConformant" or "PdfUANonConformant" or "PdfUANotIdentified").Select(d => d.Message);
+
+// A small chart image for the report.
+static Broadside.Images.PdfImage Chart(PdfDocument document) => document.CreateImage(
+    [40, 80, 120, 160, 200, 240, 200, 160],
+    new Broadside.Images.PdfImageLayout(4, 2, PdfDeviceGrayColorSpace.Instance),
+    Broadside.Images.PdfImageCompression.Flate);

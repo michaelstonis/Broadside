@@ -50,7 +50,24 @@ using PdfDocument document = await PdfDocument.OpenAsync(stream);
 ```
 <!-- endsnippet -->
 
-`PdfDocument.OpenAsync(HttpClient, Uri)` opens a file on a web server through HTTP range requests, fetching only the parts of the file it reads.
+### Files on a web server
+
+`PdfDocument.OpenAsync(HttpClient, Uri)` opens a file on a web server through HTTP range requests, fetching only the parts of the file it reads, in blocks it caches (`WithRangeBlockSize`, `WithRangeCacheLimit`). The requests go through the `HttpClient` you pass, and only through it, so your application controls authentication, proxies, timeouts and retries. Here the client goes to a server inside the sample's process ([`InProcessFileServer.cs`](https://github.com/michaelstonis/Broadside/blob/main/samples/guides/ReadingSources/InProcessFileServer.cs)), so the sample never touches the network:
+
+<!-- snippet: samples/guides/ReadingSources/Program.cs#range-requests -->
+```csharp
+using var http = new HttpClient(server, disposeHandler: false); // in an application: the HttpClient you configure and own
+var uri = new Uri("https://files.example.test/report.pdf");
+
+// On the browser, where a synchronous read cannot wait for the network, prefetch each page before reading it.
+PdfOptions options = new PdfOptions().WithSynchronousRangeFetch(false);
+using PdfDocument document = await PdfDocument.OpenAsync(http, uri, options);
+PdfPage page = await document.Pages.PrefetchAsync(1); // fetches the ranges page 2 needs
+Console.WriteLine(page.ExtractText().Text);
+```
+<!-- endsnippet -->
+
+Reading a page whose bytes have not been fetched yet fetches them, blocking the calling thread. Where that is not possible, as in the browser, `WithSynchronousRangeFetch(false)` makes such a read throw `PdfRangeNotLoadedException` instead, and `PrefetchAsync` loads a page's ranges first. A server that ignores ranges sends the whole file, which still works.
 
 Opening reads the file's header, cross-reference information, trailer and catalog. Pages, fonts, images and every other object load when they are first used, are parsed once, and are kept for the life of the document.
 

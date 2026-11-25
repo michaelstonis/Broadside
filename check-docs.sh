@@ -111,6 +111,7 @@ for route in \
     articles/extracting-text/index.html \
     articles/signatures/index.html \
     articles/accessibility-and-conformance/index.html \
+    articles/viewers/index.html \
     articles/migration/index.html \
     articles/building-documents/index.html \
     articles/architecture/index.html \

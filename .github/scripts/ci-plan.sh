@@ -76,7 +76,7 @@ job_projects() {
   case "$1" in
     aot) echo '^tests/Broadside\.Rendering\.AotSmoke/' ;;
     size_probes) echo '^(bench/SizeProbes/|tools/BenchGate/)' ;;
-    verapdf) echo '^(tests/Broadside\.Tests|tests/Broadside\.Fonts\.Standard14\.Tests|tests/Broadside\.Layout\.Tests|tools/CorpusFetcher)/' ;;
+    verapdf) echo '^(tests/Broadside\.Tests|tests/Broadside\.Fonts\.Standard14\.Tests|tests/Broadside\.Layout\.Tests|tools/CorpusFetcher|samples/guides)/' ;;
     conformance) echo '^(src/(Broadside|Broadside\.Fonts\.Cmaps|Broadside\.Fonts\.Standard14|Broadside\.Layout|Broadside\.Rendering)|tools/ConformanceCheck)/' ;;
     fuzz) echo '^tests/Broadside\.Fuzz/' ;;
     bench) echo '^bench/(Broadside\.Benchmarks|Broadside\.Benchmarks\.Realistic)/' ;;
@@ -92,6 +92,7 @@ job_projects() {
 job_paths() {
   case "$1" in
     size_probes) echo '^bench/(size-probes\.sh|baselines/gate/sizes\.json)$' ;;
+    verapdf) echo '^samples/guides/run-samples\.sh$' ;;
     conformance) echo '^(docs/conformance/|site/articles/conformance\.md$)' ;;
     avalonia) echo '^tests/Broadside\.Rendering\.Tests/CorpusGate/pinned-pages\.txt$' ;;
     *) echo '' ;;
