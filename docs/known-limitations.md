@@ -22,6 +22,7 @@ What v1 leaves out on purpose is not listed as a limitation: JavaScript executio
 - **Color management.** ICC version 4 profiles convert through their AToB/BToA or matrix/TRC tags; DToB/BToD (floating-point) tags are not read. [#522](https://github.com/michaelstonis/Broadside/issues/522)
 - **Transparency.** CIE-based RGB and gray group color spaces blend as the device space; alpha is shape is not carried; a page without a transparency group is not composited as an isolated group; text knockout is not applied; overprint preview does not cover groups and soft masks in colorant space; transfer functions apply per paint, before compositing. [#523](https://github.com/michaelstonis/Broadside/issues/523)
 - **Other rendering cases.** A stencil mask painted with a pattern color is not drawn; reference XObjects draw their proxy, not the referenced page; with anti-aliasing off a zero-area shape paints nothing. [#524](https://github.com/michaelstonis/Broadside/issues/524)
+- **Slow hostile inputs.** A crafted file can keep rendering or opening busy for several seconds without breaking any resource limit. Stroking very large glyphs is the main case, because no rendering limit covers it. Use a deadline (a `CancellationToken`) when rendering untrusted files. [#620](https://github.com/michaelstonis/Broadside/issues/620)
 
 ## Text extraction and tagged PDF
 
