@@ -2,33 +2,33 @@
   "Probes": {
     "linux-x64": {
       "empty": 1147424,
-      "extract-text": 7089376,
-      "fill-form": 8293024,
-      "open-metadata": 5173168,
-      "open-metadata-no-image-codecs": 4291952,
-      "render": 8380816,
-      "save": 7744120,
-      "sign": 8440872
+      "extract-text": 7290800,
+      "fill-form": 8428192,
+      "open-metadata": 5255088,
+      "open-metadata-no-image-codecs": 4345216,
+      "render": 8619376,
+      "save": 7879288,
+      "sign": 8576056
     },
     "osx-arm64": {
       "empty": 1102768,
-      "extract-text": 6457080,
-      "fill-form": 7617648,
-      "open-metadata": 4568264,
-      "open-metadata-no-image-codecs": 3738880,
-      "render": 7650992,
-      "save": 7086832,
-      "sign": 7869040
+      "extract-text": 6622200,
+      "fill-form": 7749744,
+      "open-metadata": 4650824,
+      "open-metadata-no-image-codecs": 3788416,
+      "render": 7799600,
+      "save": 7218928,
+      "sign": 8001136
     },
     "win-x64": {
       "empty": 933376,
-      "extract-text": 6699520,
-      "fill-form": 8251904,
-      "open-metadata": 4582400,
-      "open-metadata-no-image-codecs": 3748864,
-      "render": 8092160,
-      "save": 7640576,
-      "sign": 8562688
+      "extract-text": 6885888,
+      "fill-form": 8395776,
+      "open-metadata": 4669440,
+      "open-metadata-no-image-codecs": 3806720,
+      "render": 8269824,
+      "save": 7785472,
+      "sign": 8706560
     }
   }
 }
