@@ -1,9 +1,6 @@
-# Pull request hygiene (issue #264): the title follows Conventional Commits, and every commit the pull request adds is signed off
-# under the Developer Certificate of Origin. Both run on pull requests only, and neither runs for pull requests opened by a bot
-# (Dependabot and other GitHub Apps). Commits that are already on a branch are never checked again: the DCO check reads only
-# base..head, and it skips pull requests from release/* branches, whose commits were checked when their own pull requests merged
-# into the integration branch. To make the checks required, the owner adds `conventional title` and `DCO sign-off` to the
-# branch protection of main (and of the integration branch). See .github/workflows/README.md.
+# Pull request hygiene (issue #264): the title follows Conventional Commits, because titles become the release notes. Runs on
+# pull requests only, and not for pull requests opened by a bot (Dependabot and other GitHub Apps). To make the check required,
+# the owner adds `conventional title` to the branch protection of main. See .github/workflows/README.md.
 name: PR checks
 
 on:
@@ -35,20 +32,3 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: .github/scripts/check-pr-title.sh "${TITLE}"
 
-  dco:
-    name: DCO sign-off
-    if: github.event.pull_request.user.type != 'Bot' && !startsWith(github.head_ref, 'release/')
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Check out
-        uses: actions/checkout@v7
-        with:
-          # The merge commit's history holds both the base and the head commit.
-          fetch-depth: 0
-
-      - name: Check the sign-offs
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: .github/scripts/check-dco.sh "${BASE_SHA}" "${HEAD_SHA}"

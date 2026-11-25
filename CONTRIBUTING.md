@@ -19,26 +19,6 @@ Before starting, read [CLAUDE.md](CLAUDE.md) (the rules), [CONTEXT.md](CONTEXT.m
 3. Create a branch (a git worktree is recommended so parallel work does not collide) named `<issue-number>-<slug>`, for example `42-cff-charstrings`, from `main`.
 4. Read the spec clauses the issue lists before writing code. Cite them from `Specs/`, never from memory, when the two disagree.
 
-## Developer Certificate of Origin
-
-Every commit must be signed off. Signing off certifies that you wrote the change or otherwise have the right to submit it under the project's MIT license, as described by the [Developer Certificate of Origin](https://developercertificate.org). It is a one-line statement in the commit message, not a legal document you sign separately, and it is what lets the project keep the freedom to adjust licensing later.
-
-Sign off with the `-s` flag:
-
-```sh
-git commit -s -m "feat(fonts): parse CFF charstrings"
-```
-
-This appends a trailer to the commit message:
-
-```
-Signed-off-by: Your Name <your.email@example.com>
-```
-
-Use a real name and an email address you control: the sign-off must name the commit's author email. To sign off every commit in a clone without remembering the flag, add `-s` through an alias (`git config alias.cs 'commit -s'`) or a `prepare-commit-msg` hook.
-
-The **DCO sign-off** check (`.github/workflows/pr-checks.yml`) fails a pull request when any commit it adds (merge commits aside) has no `Signed-off-by:` line for its author. It checks only the pull request's own commits, never history that is already merged; pull requests opened by bots such as Dependabot, and release pull requests (from `release/*`, whose commits were checked when they were merged), are exempt. Fix unsigned commits with `git rebase --signoff <base>` (or `git commit --amend -s` for the last commit) and force-push your branch.
-
 ## Commits
 
 Commits and pull request titles follow [Conventional Commits](https://www.conventionalcommits.org): `type(scope): summary`, where `type` is one of `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `bench`, `build`, `ci`, `chore`, `style`, `revert` or `release` (release pull requests only), and `scope` is the area in lower case (`cos`, `filters`, `fonts`, `rendering`, and so on). A breaking change puts `!` before the colon (`refactor(api)!: rename PdfDocument.Load to Open`) or adds a `BREAKING CHANGE: <what breaks>` footer to the commit body. Examples:
@@ -71,7 +51,7 @@ Open a PR from your branch against `main` using the [pull request template](.git
 - **Phase 0 and Phase 1:** the author self-merges once CI is green and the checklist in the PR template is complete.
 - **Phase 2 onward:** every PR needs a review from the repository owner before it is merged. Request it when CI is green.
 
-Squash merges are the default; the squashed commit message follows Conventional Commits and keeps the sign-off.
+Squash merges are the default; the squashed commit message follows Conventional Commits.
 
 ## Coding conventions
 
@@ -81,7 +61,7 @@ If you think a convention or decision is wrong, say so in the PR or open an issu
 
 ## Humans and agents
 
-AI agents working in this repository follow exactly the process above: the same issues, the same branch naming, the same sign-off, the same PR checklist, the same review policy. A PR is judged on its content, not on who or what produced it. Agent-specific guidance lives in [CLAUDE.md](CLAUDE.md) and `.claude/skills/`.
+AI agents working in this repository follow exactly the process above: the same issues, the same branch naming, the same PR checklist, the same review policy. A PR is judged on its content, not on who or what produced it. Agent-specific guidance lives in [CLAUDE.md](CLAUDE.md) and `.claude/skills/`.
 
 ## Questions
 

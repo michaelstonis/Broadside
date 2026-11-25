@@ -4,7 +4,7 @@ Phase parent [#231](https://github.com/michaelstonis/Broadside/issues/231), unde
 
 Owner decisions that shape this phase:
 
-- v1.0 is the library and the rendering backends. The viewer packages (phase parent [#89](https://github.com/michaelstonis/Broadside/issues/89)) ship as previews on their own track, and the v1.0 gate does not wait on them.
+- v1.0 is the library and the rendering backends. The viewer packages (phase parent [#89](https://github.com/michaelstonis/Broadside/issues/89)) were first planned as previews on their own track; on 2026-11-24 the owner moved them into v1.0, so they ship as 1.0.0 with everything else and the v1.0 gate includes them.
 - The first public NuGet preview ships once Phase 3 renders real-world pages (gated on [#138](https://github.com/michaelstonis/Broadside/issues/138)).
 - 1.x support: fixes land in the latest minor; security fixes are backported to the previous minor for 6 months; Semantic Versioning, no breaking changes within 1.x.
 

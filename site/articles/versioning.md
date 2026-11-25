@@ -40,9 +40,6 @@ compiling or running as documented: removing or changing a public type or member
 `PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt`, and the build fails on an undeclared change), or changing documented
 behavior. Reading untrusted files stays lenient as documented; a repair that records a new diagnostic is not a breaking change.
 
-The viewer packages (`Broadside.Viewer` and its `Broadside.Viewer.*` shells) are not part of 1.0: they remain previews on their
-own track until they reach their own 1.0, and the compatibility and support promises on this page do not cover them yet.
-
 ## 1.x support policy
 
 - **Fixes land in the latest 1.x minor.** A bug fixed in 1.x ships in a patch of the newest minor release (or in the next minor).
@@ -81,7 +78,7 @@ dotnet run --project tools/ReleaseNotes
 1. Create the release branch `release/<version>` from the integration branch and merge `main` into it.
 2. Add the release's section to the changelog and commit it:
    `dotnet run --project tools/ReleaseNotes -- --version <version> --changelog CHANGELOG.md --output /dev/null`, then
-   `git commit -s -am "chore(release): changelog for <version>"`.
+   `git commit -am "chore(release): changelog for <version>"`.
 3. Open a pull request into `main` titled `release: v<version>` with a short summary of the highlights. The release notes list
    the pull requests it brings in, not the release pull request itself.
 4. After it is merged, the owner tags the merge commit (`git tag -a v<version> -m v<version>`) and pushes the tag. The release
