@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Checks packed .nupkg/.snupkg files against package-policy.json, and compares two pack outputs for reproducibility. See README.md. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Broadside.Tools.PackageCheck</RootNamespace>
+    <AssemblyName>PackageCheck</AssemblyName>
+    <!-- URLs here are strings compared by prefix, never requested as Uri objects except in SourceLinkResolver; console output is synchronous. -->
+    <NoWarn>$(NoWarn);CA1054;CA1056;CA1849</NoWarn>
+    <Description>Checks packed Broadside packages: dependency allowlists, symbols, SourceLink, licence, README and icon; compares two builds for reproducibility.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="package-policy.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

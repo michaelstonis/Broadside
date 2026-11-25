@@ -147,8 +147,6 @@ not need a font program and works either way.
 
 ## Viewers
 
-The viewer packages (`Broadside.Viewer` and its shells) are previews on their own track: they are not part of v1, and their API may change after it.
-
 - **Blazor WebAssembly** (`Broadside.Viewer.Blazor`): the `PdfViewer` component. The software rasterizer draws the tiles by default. WebGL 2 is opt-in, and so is a render worker that draws content tiles in a JS Web Worker. The app has to start the worker explicitly; it uses no .NET WebAssembly threads.
 - **.NET MAUI** (`Broadside.Viewer.Maui`): the `PdfView` control, drawn with SkiaSharp, for iOS, Android, Mac Catalyst and Windows. Tiles render off the UI thread and are composed on the GPU (Metal on iOS and Mac Catalyst). Register it with `builder.UseBroadsideViewer()`. JPEG images decode with SkiaSharp's own decoder (libjpeg-turbo, scaled to the size they are drawn at, bit-identical to the managed decoder); `PdfOptions.WithPlatformImageDecoder("skia", false)` in the view's `Options.DocumentOptions` turns it off, and `PdfOptions.UseSkiaImageDecoder()` turns it on for a session the app opens itself.
 - **Avalonia, Uno Platform, WPF and WinUI 3** (`Broadside.Viewer.Avalonia`, `Broadside.Viewer.Uno`, `Broadside.Viewer.Wpf`, `Broadside.Viewer.WinUI`): the same viewer for those frameworks; each package's API is in the [API reference](../api/readme.md).

@@ -11,6 +11,7 @@ Broadside's packages are on NuGet.org as previews (`0.1.0-preview.N`), and the p
 - [Architecture](architecture.md): the terms used throughout the code and the architecture decision records.
 - [Roadmap](roadmap.md): the phases and their status, how releases are made, and the known issues.
 - [Performance](performance.md): how fast Broadside opens, renders and extracts text next to PDFium and pdf.js.
+- [Versioning and support](versioning.md): how packages are numbered, the 1.x support policy, and where release notes come from.
 - [Conformance](conformance.md): the per-clause record of what is implemented.
 - [Diagnostic codes](diagnostics.md): every code a repair can record, what it means and how it is repaired, and the stability policy that says how codes may change between releases.
 - [Contributing](contributing.md): the issue, branch and pull request flow.
