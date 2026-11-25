@@ -10,7 +10,7 @@ Decisions that apply to every package:
 
 - All 17 packages ship as 1.0.0, the viewer packages included. The viewer namespaces (`Broadside.Viewer` and one per shell) are allowed next to the spec's areas.
 - Every breach of a naming or shape rule was fixed, except the accepted exceptions listed per package (also in `KnownViolations` and in the checklist's "Accepted exceptions").
-- Nothing new is marked `[Experimental]`. The document builder in `Broadside.Layout` was already marked `[Experimental("BROADSIDE0001")]` before this review and still is; see that package and the open question at the end.
+- Nothing is marked `[Experimental]`. The document builder in `Broadside.Layout` carried `[Experimental("BROADSIDE0001")]` from its own design (#397); the owner decided to remove it, so the builder ships as stable 1.x API (see that package and the owner decision at the end).
 - Overloads replace defaulted parameters: wherever a method had a defaulted parameter beside another overload of the same name, it is now two overloads without defaults. The only defaulted parameter left on an overloaded method is a trailing `CancellationToken cancellationToken = default`.
 
 ## Broadside
@@ -102,10 +102,9 @@ Decisions that apply to every package:
 ## Broadside.Layout
 
 - **Surface:** 928 entries, 82 public types.
-- **Findings:** `TableElement.Border(Length, PdfColor? = null)` had a defaulted parameter beside `Border(TableBorder)`. The document builder (`Broadside.Layout.Flow` builder types and `Broadside.Layout.Flow.Units`) is marked `[Experimental("BROADSIDE0001")]` from its own design (#397).
-- **Fixed:** `Border(Length)` beside `Border(Length, PdfColor?)`.
+- **Findings:** `TableElement.Border(Length, PdfColor? = null)` had a defaulted parameter beside `Border(TableBorder)`. The document builder (`Broadside.Layout.Flow` builder types and `Broadside.Layout.Flow.Units`) was marked `[Experimental("BROADSIDE0001")]` from its own design (#397).
+- **Fixed:** `Border(Length)` beside `Border(Length, PdfColor?)`. The `[Experimental("BROADSIDE0001")]` attribute is removed from the document builder (owner decision, below); the builder is stable 1.x API.
 - **Accepted exceptions:** none by the guards.
-- **Experimental surface:** the document builder, diagnostic ID `BROADSIDE0001` (URL https://github.com/michaelstonis/Broadside/issues/397). Left as it was; see the open question.
 - **Owner sign-off:** pending
 
 ## Broadside.Viewer
@@ -170,6 +169,6 @@ Decisions that apply to every package:
 - **Accepted exceptions:** none.
 - **Owner sign-off:** pending
 
-## Open question for the owner
+## Owner decision: the document builder is stable
 
-The owner decided that nothing is marked `[Experimental]` in v1, but the document builder in `Broadside.Layout` already carries `[Experimental("BROADSIDE0001")]` from its own design (#397), and the README and the building-documents guide tell users to suppress that warning. This review left it as it was. Either remove the attribute (the builder ships as stable 1.0 API under the freeze, and the README, guide and `NoWarn` entries are cleaned up), or keep it as the one experimental surface, listed here with its ID.
+The review asked whether the document builder in `Broadside.Layout` should keep the `[Experimental("BROADSIDE0001")]` attribute it carried from its own design (#397), or ship as stable API. The owner decided to remove it: the builder ships as stable 1.x API under the freeze, like every other package. The attribute and the internal `Experiments` class that defined the ID are gone, and every `NoWarn` of `BROADSIDE0001` in the projects, samples and tests is removed, as is the opt-in step in the README and the building-documents guide. Removing the attribute does not change any `PublicAPI.Shipped.txt` entry, because the analyzer does not record it.

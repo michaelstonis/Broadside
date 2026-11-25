@@ -1,11 +1,9 @@
-using System.Diagnostics.CodeAnalysis;
 using Broadside.Forms;
 
 namespace Broadside.Layout.Flow;
 
 /// <summary>A table of contents' modifiers in the document builder: its title, its depth and its leader.</summary>
 /// <remarks>ISO 32000-2 §14.8.4.4 (<c>TOC</c>, <c>TOCI</c>).</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct TableOfContentsElement
 {
     private readonly BuildContext? _context;
@@ -91,7 +89,6 @@ public readonly ref struct TableOfContentsElement
 /// ISO 32000-2 §12.7 (interactive forms) and §14.8.4.7.3 (<c>Form</c>): the field is tagged <c>Form</c> with its label and its widget's
 /// object reference; pages with fields get <c>/Tabs /S</c>.
 /// </remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct FieldElement
 {
     private readonly BuildContext? _context;

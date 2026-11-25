@@ -112,7 +112,7 @@ using PdfDocument pdf = PdfDocument.Create(doc => doc
 pdf.Save("hello.pdf");
 ```
 
-Tables, images, columns, links, form fields and page numbers work the same way. The builder is still experimental, so turn off its warning with `<NoWarn>$(NoWarn);BROADSIDE0001</NoWarn>`. The [building documents guide](https://michaelstonis.github.io/Broadside/articles/building-documents/) walks through more examples, and [`samples/Broadside.BuilderSamples`](samples/Broadside.BuilderSamples) has an invoice, a report and a form you can run.
+Tables, images, columns, links, form fields and page numbers work the same way. The [building documents guide](https://michaelstonis.github.io/Broadside/articles/building-documents/) walks through more examples, and [`samples/Broadside.BuilderSamples`](samples/Broadside.BuilderSamples) has an invoice, a report and a form you can run.
 
 ## Viewer controls
 

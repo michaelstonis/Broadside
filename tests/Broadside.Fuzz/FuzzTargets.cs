@@ -1076,6 +1076,8 @@ internal static class FuzzTargets
             }
             catch (NotSupportedException)
             {
+                // An expected refusal: among others, a damaged input whose trailer (or an earlier one) has an Encrypt entry that is
+                // not an encryption dictionary reads as not encrypted, and an update of it is refused (issue #620).
                 return;
             }
 
