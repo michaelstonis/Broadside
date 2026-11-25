@@ -27,6 +27,8 @@
     <Project Path="samples/guides/ReadingEncrypted/ReadingEncrypted.csproj" />
     <Project Path="samples/guides/ReadingHosted/ReadingHosted.csproj" />
     <Project Path="samples/guides/ReadingSources/ReadingSources.csproj" />
+    <Project Path="samples/guides/Rendering/Rendering.csproj" />
+    <Project Path="samples/guides/RenderingSkia/RenderingSkia.csproj" />
   </Folder>
   <Folder Name="/solution-items/">
     <File Path="Directory.Build.props" />

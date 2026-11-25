@@ -18,4 +18,9 @@
     <PackageReference Include="Verify.XunitV3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The rendering guide's Direct2D sample (issue #268): it needs Windows, so it runs here (GuideSampleTests) rather than as a console app. -->
+    <Compile Include="../../samples/guides/RenderingBackends/Direct2DSample.cs" Link="Samples/Direct2DSample.cs" />
+  </ItemGroup>
+
 </Project>

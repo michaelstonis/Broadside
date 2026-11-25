@@ -8,7 +8,9 @@
       "samples/guides/ReadingDiagnostics/ReadingDiagnostics.csproj",
       "samples/guides/ReadingEncrypted/ReadingEncrypted.csproj",
       "samples/guides/ReadingHosted/ReadingHosted.csproj",
-      "samples/guides/ReadingSources/ReadingSources.csproj"
+      "samples/guides/ReadingSources/ReadingSources.csproj",
+      "samples/guides/Rendering/Rendering.csproj",
+      "samples/guides/RenderingSkia/RenderingSkia.csproj"
     ]
   }
 }
