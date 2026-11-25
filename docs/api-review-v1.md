@@ -2,6 +2,8 @@
 
 The package-by-package review of the public API before the v1 freeze (issue #262), against the [API review checklist](../site/articles/api-review.md). Every shipping package was run through the automated guards in `tests/Broadside.ApiGuard.Tests` and reviewed by hand for the rules the guards cannot check. After the review, every package's `PublicAPI.Unshipped.txt` entries moved into `PublicAPI.Shipped.txt`. From here on a removed or changed member fails the build (RS0017), and the guard `No_shipped_member_is_removed_or_changed` fails CI when someone silences that error with a `*REMOVED*` line. `./check-api-freeze.sh` proves it: it renames a shipped method of `Broadside.Fonts.Cmaps`, builds, and expects RS0017 and RS0016.
 
+The renames and signature changes below are deliberate breaks against the last preview (0.1.0-preview.10, the package validation baseline), recorded in each affected package's `CompatibilitySuppressions.xml` as baseline suppressions; when 1.0.0 ships and becomes the baseline, those files can be deleted.
+
 Surface size is the number of `PublicAPI` entries (types, members, enum values and constants) and of public types, after the fixes below.
 
 Decisions that apply to every package:
