@@ -19,27 +19,9 @@ Before starting, read [CLAUDE.md](CLAUDE.md) (the rules), [CONTEXT.md](CONTEXT.m
 3. Create a branch (a git worktree is recommended so parallel work does not collide) named `<issue-number>-<slug>`, for example `42-cff-charstrings`, from `main`.
 4. Read the spec clauses the issue lists before writing code. Cite them from `Specs/`, never from memory, when the two disagree.
 
-## Developer Certificate of Origin
-
-Every commit must be signed off. Signing off certifies that you wrote the change or otherwise have the right to submit it under the project's MIT license, as described by the [Developer Certificate of Origin](https://developercertificate.org). It is a one-line statement in the commit message, not a legal document you sign separately, and it is what lets the project keep the freedom to adjust licensing later.
-
-Sign off with the `-s` flag:
-
-```sh
-git commit -s -m "feat(fonts): parse CFF charstrings"
-```
-
-This appends a trailer to the commit message:
-
-```
-Signed-off-by: Your Name <your.email@example.com>
-```
-
-Use a real name and an email address you control. Pull requests with unsigned commits cannot be merged; fix them with `git rebase --signoff` (or `git commit --amend -s` for a single commit) and force-push your branch.
-
 ## Commits
 
-Commits follow [Conventional Commits](https://www.conventionalcommits.org): `type(scope): summary`, where `type` is one of `feat`, `fix`, `docs`, `test`, `build`, `ci`, `perf`, `refactor` or `chore`, and `scope` is the area (`cos`, `filters`, `fonts`, `rendering`, and so on). Examples:
+Commits and pull request titles follow [Conventional Commits](https://www.conventionalcommits.org): `type(scope): summary`, where `type` is one of `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `bench`, `build`, `ci`, `chore`, `style`, `revert` or `release` (release pull requests only), and `scope` is the area in lower case (`cos`, `filters`, `fonts`, `rendering`, and so on). A breaking change puts `!` before the colon (`refactor(api)!: rename PdfDocument.Load to Open`) or adds a `BREAKING CHANGE: <what breaks>` footer to the commit body. Examples:
 
 ```
 feat(fonts): parse CFF charstrings
@@ -48,6 +30,8 @@ docs: repository hygiene files (#9)
 ```
 
 Keep commits focused. One PR per issue.
+
+The **pull request title** is what lands on the target branch (the squash commit's title, or the body of GitHub's merge commit), and it is what the release notes list, so the **conventional title** check (`.github/workflows/pr-checks.yml`) fails a pull request whose title does not follow the format above; edit the title and the check runs again. Bot pull requests are exempt. Release notes are generated from these titles by `tools/ReleaseNotes`, grouped by type and scope, with breaking changes first; see the [versioning policy](https://michaelstonis.github.io/Broadside/articles/versioning/).
 
 ## Pull requests
 
@@ -58,7 +42,7 @@ Open a PR from your branch against `main` using the [pull request template](.git
 - updates `PublicAPI.Unshipped.txt` in every package whose public surface changed, says why in the description, and follows the [API review checklist](site/articles/api-review.md) (the tests in `tests/Broadside.ApiGuard.Tests` enforce its mechanical rules over every shipping package);
 - adds tests: unit tests next to the feature, corpus tests driven by `tests/Corpus/`, rendering snapshots through Verify, fuzz targets for every parser and codec;
 - carries `<remarks>ISO 32000-2 §x.y.z</remarks>` (or the relevant TS or reference) in the XML docs of every public type and member that implements a spec concept;
-- adds any new diagnostic code to the public catalog in `src/Broadside/Diagnostics/`, in the class of its area (`FileStructureDiagnostics`, `FontDiagnostics`, `ImageDiagnostics`, ...; `DiagnosticCatalog` lists them all), with its default severity and clause, and accepts the catalog snapshot of `DiagnosticCatalogTests`; a code is declared nowhere else, and `DiagnosticCatalogArchitectureTests` fails if one is;
+- adds any new diagnostic code to the public catalog in `src/Broadside/Diagnostics/`, in the class of its area (`FileStructureDiagnostics`, `FontDiagnostics`, `ImageDiagnostics`, ...; `DiagnosticCatalog` lists them all), with its default severity, clause and description, accepts the catalog snapshot of `DiagnosticCatalogTests` and regenerates the [diagnostic codes page](site/articles/diagnostics.md) (`dotnet run --project tools/DiagnosticCatalogPage -- site/articles/diagnostics.md --write`); a code is declared nowhere else, and `DiagnosticCatalogArchitectureTests` fails if one is. The page's stability policy applies from 1.0: a code is never renamed or reused, and a default severity change is a documented behavior change;
 - includes a BenchmarkDotNet benchmark with a `MemoryDiagnoser` assertion when it touches a hot path (lexer, content interpreter, rasterizer, codecs);
 - must have green CI before it can be merged.
 
@@ -67,7 +51,7 @@ Open a PR from your branch against `main` using the [pull request template](.git
 - **Phase 0 and Phase 1:** the author self-merges once CI is green and the checklist in the PR template is complete.
 - **Phase 2 onward:** every PR needs a review from the repository owner before it is merged. Request it when CI is green.
 
-Squash merges are the default; the squashed commit message follows Conventional Commits and keeps the sign-off.
+Squash merges are the default; the squashed commit message follows Conventional Commits.
 
 ## Coding conventions
 
@@ -77,7 +61,7 @@ If you think a convention or decision is wrong, say so in the PR or open an issu
 
 ## Humans and agents
 
-AI agents working in this repository follow exactly the process above: the same issues, the same branch naming, the same sign-off, the same PR checklist, the same review policy. A PR is judged on its content, not on who or what produced it. Agent-specific guidance lives in [CLAUDE.md](CLAUDE.md) and `.claude/skills/`.
+AI agents working in this repository follow exactly the process above: the same issues, the same branch naming, the same PR checklist, the same review policy. A PR is judged on its content, not on who or what produced it. Agent-specific guidance lives in [CLAUDE.md](CLAUDE.md) and `.claude/skills/`.
 
 ## Questions
 

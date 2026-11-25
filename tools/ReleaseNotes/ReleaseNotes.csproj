@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Release notes from Conventional Commit titles since the last v* tag, grouped by type and scope, with breaking changes and the public API diff (issue #264). See README.md. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Broadside.Tools.ReleaseNotes</RootNamespace>
+    <AssemblyName>ReleaseNotes</AssemblyName>
+    <Description>Writes the release notes and the CHANGELOG.md section for the commits between two refs.</Description>
+  </PropertyGroup>
+
+</Project>

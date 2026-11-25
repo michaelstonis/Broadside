@@ -2,8 +2,8 @@
 
 This is the threat model for Broadside reading untrusted PDF files, and the inventory of every resource limit that protects it:
 its default, the option that changes it (or "fixed"), and the test that proves it holds. It covers the packages that ship as 1.x:
-the core (`Broadside`), `Broadside.Rendering`, the native rendering backends, `Broadside.Layout` and the font data packages. The
-viewer packages (`Broadside.Viewer*`) ship as previews on their own track and are not covered here.
+the core (`Broadside`), `Broadside.Rendering`, the native rendering backends, `Broadside.Layout`, the font data packages and the
+viewer packages (`Broadside.Viewer*`).
 
 How to report a vulnerability, which versions get fixes and how fast: [SECURITY.md](../SECURITY.md). Guidance for applications:
 [Processing untrusted files](../site/articles/untrusted-files.md).
