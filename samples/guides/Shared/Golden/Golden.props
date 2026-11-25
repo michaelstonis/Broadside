@@ -1,0 +1,19 @@
+<Project>
+
+  <!--
+    Imported by the rendering samples: GoldenCheck and the golden-image harness's comparison (tests/Broadside.GoldenImages, linked
+    rather than referenced, because that project brings the test frameworks). A sample copies each golden image it compares with
+    into golden/ of its output: <None Include="$(GoldenDirectory)x.page0.verified.png" Link="golden/x.page0.verified.png" ... />.
+  -->
+  <PropertyGroup>
+    <GoldenDirectory>$(MSBuildThisFileDirectory)../../../../tests/Golden/</GoldenDirectory>
+    <GoldenHarness>$(MSBuildThisFileDirectory)../../../../tests/Broadside.GoldenImages/</GoldenHarness>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)GoldenCheck.cs" Link="Shared/GoldenCheck.cs" />
+    <Compile Include="$(GoldenHarness)GoldenImage.cs;$(GoldenHarness)GoldenComparison.cs;$(GoldenHarness)GoldenThreshold.cs;$(GoldenHarness)GoldenThresholds.cs;$(GoldenHarness)GoldenPixelFormat.cs" LinkBase="Shared/GoldenImages" />
+    <PackageReference Include="StbImageSharp" />
+  </ItemGroup>
+
+</Project>

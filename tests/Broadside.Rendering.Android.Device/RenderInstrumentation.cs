@@ -20,7 +20,8 @@ namespace Broadside.Rendering.Android.Device;
 /// <see cref="AndroidPathReference"/> where it can draw the page; writes each render's pixels to the app's external files directory,
 /// reports the backend's diagnostics, and measures what a warm replay of each page's display list onto a canvas allocates and how long
 /// it takes, in both glyph modes. With <see cref="DeviceProtocol.ScaledArgument"/> it first runs the scaled image decode cases
-/// (<see cref="ScaledImageDecodeRun"/>).
+/// (<see cref="ScaledImageDecodeRun"/>). For <see cref="DeviceProtocol.GuideFile"/> it also runs the rendering guide's sample and writes
+/// its render as the <see cref="DeviceProtocol.Guide"/> variant.
 /// </summary>
 [Instrumentation(Name = DeviceProtocol.Instrumentation, TargetPackage = DeviceProtocol.Package, Label = "Broadside rendering")]
 public sealed class RenderInstrumentation : Instrumentation
@@ -99,6 +100,12 @@ public sealed class RenderInstrumentation : Instrumentation
             if (_uncached.Contains(fileName))
             {
                 RenderUncached(results, output, bytes, fileName, options);
+            }
+
+            if (fileName == DeviceProtocol.GuideFile)
+            {
+                using AndroidBitmap guide = Broadside.Samples.AndroidSample.Render(bytes);
+                Write(output, guide, fileName, 0, DeviceProtocol.Guide);
             }
 
             for (int index = 0; index < document.Pages.Count; index++)

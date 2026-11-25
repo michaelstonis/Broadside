@@ -28,6 +28,11 @@
     <PackageReference Include="Verify.XunitV3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The rendering guide's CoreGraphics sample (issue #268): it needs macOS, so it runs here (GuideSampleTests) rather than as a console app. -->
+    <Compile Include="../../samples/guides/RenderingBackends/CoreGraphicsSample.cs" Link="Samples/CoreGraphicsSample.cs" />
+  </ItemGroup>
+
   <!-- No-op targets for a host that cannot build this project. The SDK, when imported below, replaces every one of them. -->
   <Target Name="Restore" />
   <Target Name="Build" />

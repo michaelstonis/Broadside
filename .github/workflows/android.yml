@@ -15,6 +15,7 @@ on:
       - 'src/Broadside/Graphics/**'
       - 'tests/Broadside.Rendering.Android.Device/**'
       - 'tests/Broadside.Rendering.Android.Tests/**'
+      - 'samples/guides/RenderingBackends/AndroidSample.cs'
       - 'tests/Broadside.GoldenImages/**'
       - 'tests/Golden/**'
       - 'tests/Corpus/**'

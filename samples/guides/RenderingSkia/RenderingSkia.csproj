@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The rendering guide's SkiaSharp backend (site/articles/rendering.md): a page rendered to an SKBitmap and onto an SKCanvas, compared
+    with the page's golden image (tests/Golden) within the threshold the golden-image harness gives the skia backend. It runs with the
+    other guide samples on CI's Linux leg, where the backend's tests run (Broadside.Rendering.Skia.Tests in Broadside.Core.slnf).
+  -->
+  <Import Project="../Shared/Golden/Golden.props" />
+
+  <PropertyGroup>
+    <AssemblyName>Broadside.Samples.RenderingSkia</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Broadside/Broadside.csproj" />
+    <ProjectReference Include="../../../src/Broadside.Rendering.Skia/Broadside.Rendering.Skia.csproj" />
+    <!-- SkiaSharp carries the Windows and Apple native libraries; an application on Linux adds this package. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(CorpusDirectory)paths-fill-rules.pdf" Link="paths-fill-rules.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(GoldenDirectory)paths-fill-rules.page0.verified.png" Link="golden/paths-fill-rules.page0.verified.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
