@@ -119,11 +119,12 @@ internal static class FuzzTargets
         public static readonly CosName Marker = new("Marker");
 
         /// <summary>
-        /// The <c>colorspace</c> target's engine (issue #620): an ICC profile stream is decoded whole to read its header, and one at
-        /// the default 1 GiB decoded-length limit (a JPEG of 2^28 pixels) peaks above 2 GiB, which the 3 GiB heap cap of a fuzzing
-        /// worker cannot hold beside what it already has.
+        /// The engine whole-file targets open with when they bring none (issue #620), with display-list's limits: at the defaults one
+        /// stream may decode to 1 GiB (a JPEG ICC profile stream peaked above 2 GiB, more than a 3 GiB fuzzing worker holds beside
+        /// what it has) and one JBIG2 pattern dictionary may hold 2^28 pixels, which takes longer than libFuzzer's 10 s timeout
+        /// when instrumented.
         /// </summary>
-        public static readonly PdfEngine ColorSpaceEngine = new(new PdfOptions().WithMaxDecodedLength(1 << 24).WithMaxImagePixels(1 << 22));
+        public static readonly PdfEngine WholeFileEngine = new(new PdfOptions().WithMaxImagePixels(1 << 16).WithMaxDecodedLength(1 << 20));
     }
 
     /// <summary>
@@ -886,7 +887,8 @@ internal static class FuzzTargets
     /// <summary>
     /// Opens the input twice, from memory (the whole file in one view) and through a seekable stream (read in place, in windows that
     /// grow while an object does not end inside them), and requires the two to read the same: the same outcome when the file cannot
-    /// be opened, else the same pages, the same object for every number below the trailer's Size (capped), and the same diagnostics.
+    /// be opened, else the same pages, the same object for every number below the trailer's Size (capped), and the same diagnostics
+    /// in any order (issue #620: a window that grows from 16 bytes loads some objects earlier while the catalog is searched for).
     /// </summary>
     /// <remarks>ISO 32000-2 §7.5.4: random access to indirect objects through the cross-reference table (issue #45).</remarks>
     private static void WindowedDocument(ReadOnlySpan<byte> data)
@@ -960,7 +962,7 @@ internal static class FuzzTargets
                 text.Append(document.Resolve(new CosReference(number, 0))).Append('\n');
             }
 
-            foreach (Diagnostic diagnostic in document.Diagnostics)
+            foreach (string diagnostic in document.Diagnostics.Select(static diagnostic => diagnostic.ToString()).Order(StringComparer.Ordinal))
             {
                 text.Append(diagnostic).Append('\n');
             }
@@ -1501,13 +1503,13 @@ internal static class FuzzTargets
 
     /// <summary>Opens fuzz input, or returns <see langword="null"/> for the documented outcomes (unreadable, password, certificate, unsupported encryption).</summary>
     /// <param name="data">The input.</param>
-    /// <param name="engine">The engine to open with (a target's own limits), or <see langword="null"/> for the default one.</param>
+    /// <param name="engine">The engine to open with (a target's own limits), or <see langword="null"/> for the small limits of <see cref="Names.WholeFileEngine"/>.</param>
     /// <returns>The document, or <see langword="null"/>.</returns>
     internal static PdfDocument? OpenOrNull(ReadOnlySpan<byte> data, PdfEngine? engine = null)
     {
         try
         {
-            return engine is null ? PdfDocument.Open(data.ToArray()) : engine.Open(data.ToArray());
+            return (engine ?? Names.WholeFileEngine).Open(data.ToArray());
         }
         catch (DiagnosticException)
         {
@@ -1636,7 +1638,7 @@ internal static class FuzzTargets
         _ = IccProfileHeader.Parse(data);
         if (data.StartsWith("%PDF-"u8))
         {
-            using PdfDocument? file = OpenOrNull(data, Names.ColorSpaceEngine);
+            using PdfDocument? file = OpenOrNull(data);
             if (file is null || file.Pages.Count == 0
                 || file.Pages[0].Resources is not { } resources
                 || file.Resolve(resources.GetValueOrDefault(new CosName("ColorSpace"))) is not CosDictionary spaces)
