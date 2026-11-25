@@ -64,6 +64,7 @@ public sealed class PdfView : Control, IDisposable
     private bool _frameRequested;
     private int _openGeneration;
     private bool _disposed;
+    private TopLevel? _scalingSource;
     private Cursor? _handCursor;
     private Cursor? _textCursor;
 
@@ -270,6 +271,7 @@ public sealed class PdfView : Control, IDisposable
         if (!_disposed)
         {
             _disposed = true;
+            UnsubscribeScaling();
             Controller.Dispose();
             _handCursor?.Dispose();
             _textCursor?.Dispose();
@@ -313,8 +315,12 @@ public sealed class PdfView : Control, IDisposable
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        UnsubscribeScaling();
         if (TopLevel.GetTopLevel(this) is { } top)
         {
+            // Keep the TopLevel subscribed to: by the time OnDetachedFromVisualTree runs,
+            // TopLevel.GetTopLevel(this) is already null and could not unsubscribe (#599).
+            _scalingSource = top;
             top.ScalingChanged += OnScalingChanged;
         }
 
@@ -329,12 +335,17 @@ public sealed class PdfView : Control, IDisposable
     /// <inheritdoc/>
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        if (TopLevel.GetTopLevel(this) is { } top)
+        UnsubscribeScaling();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void UnsubscribeScaling()
+    {
+        if (_scalingSource is { } top)
         {
+            _scalingSource = null;
             top.ScalingChanged -= OnScalingChanged;
         }
-
-        base.OnDetachedFromVisualTree(e);
     }
 
     /// <inheritdoc/>
