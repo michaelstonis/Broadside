@@ -117,6 +117,35 @@ internal static class RevocationChecker
         CancellationToken cancellationToken)
     {
         var results = new List<PdfCertificateRevocation>();
+        try
+        {
+            await CheckPathAsync(path, anchorIndex, time, now, tokenTime, sources, problems, results, asynchronous, cancellationToken).ConfigureAwait(false);
+        }
+        catch (CryptographicException exception)
+        {
+            // A certificate the platform loaded but cannot read a field of (its validity on Linux): path building has reported it
+            // already, or this does; its revocation cannot be checked (issue #620).
+            if (!problems.Exists(static problem => problem.Kind == PdfSignatureProblemKind.SignatureEncodingInvalid))
+            {
+                problems.Add(new(PdfSignatureProblemKind.SignatureEncodingInvalid, $"A certificate of the path cannot be decoded: {exception.Message}"));
+            }
+        }
+
+        return results;
+    }
+
+    private static async ValueTask CheckPathAsync(
+        IReadOnlyList<X509Certificate2> path,
+        int anchorIndex,
+        DateTimeOffset time,
+        DateTimeOffset now,
+        DateTimeOffset? tokenTime,
+        RevocationSources sources,
+        List<PdfSignatureProblem> problems,
+        List<PdfCertificateRevocation> results,
+        bool asynchronous,
+        CancellationToken cancellationToken)
+    {
         DateTimeOffset expiry = new(path[0].NotAfter.ToUniversalTime(), TimeSpan.Zero);
         for (int index = 0; index < path.Count; index++)
         {
@@ -170,8 +199,6 @@ internal static class RevocationChecker
             results.Add(new(certificate, outcome.Status, outcome.Statement?.Source ?? PdfRevocationSource.None, outcome.Statement?.RevocationTime, outcome.Statement?.Reason, outcome.Statement?.Fetched ?? false, outcome.Statement?.Evidence ?? default));
             Report(certificate, outcome, time, tokenTime, sources.Required, problems);
         }
-
-        return results;
     }
 
     private static void Report(X509Certificate2 certificate, Outcome outcome, DateTimeOffset time, DateTimeOffset? tokenTime, bool required, List<PdfSignatureProblem> problems)

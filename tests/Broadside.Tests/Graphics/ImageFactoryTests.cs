@@ -91,6 +91,21 @@ public sealed class ImageFactoryTests
     }
 
     [Fact]
+    public void A_jpeg_with_a_repeated_SOI_marker_is_placed_with_the_frame_the_decoder_reads()
+    {
+        // Issue #620: SOI stands alone (ITU-T T.81 B.1.1.4); the frame reader took the bytes after a repeated one for a segment
+        // length, while the decoder skips it, so the two could read different frame headers.
+        byte[] rgb = DctVectors.Jpeg("rgb");
+        byte[] jpeg = [.. rgb.AsSpan(0, 2), 0xFF, 0xD8, .. rgb.AsSpan(2)];
+        using PdfDocument document = PdfDocument.Create();
+
+        PdfImage image = document.CreateImageFromJpeg(jpeg);
+
+        using DecodedImage decoded = image.Decode()!;
+        Assert.Equal((image.Width, image.Height), (decoded.Geometry.Width, decoded.DecodedRows));
+    }
+
+    [Fact]
     public void A_png_that_does_not_decode_is_refused()
     {
         using PdfDocument document = PdfDocument.Create();
