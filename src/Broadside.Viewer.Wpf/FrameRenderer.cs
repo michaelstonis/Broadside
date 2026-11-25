@@ -30,10 +30,27 @@ internal static class FrameRenderer
         ArgumentNullException.ThrowIfNull(pixels);
         BitmapSource image;
         Span<byte> span = pixels.Pixels;
+        int stride = pixels.Stride;
+
+        // WIC reads Stride x Height bytes. A bitmap over caller memory (a remote renderer) only promises the last row's own width
+        // after its stride, so such a buffer is packed first rather than read past its end (issue #274).
+        if ((long)stride * pixels.Height > span.Length)
+        {
+            int rowBytes = pixels.Width * 4;
+            byte[] packed = new byte[checked(rowBytes * pixels.Height)];
+            for (int y = 0; y < pixels.Height; y++)
+            {
+                span.Slice(y * stride, rowBytes).CopyTo(packed.AsSpan(y * rowBytes));
+            }
+
+            span = packed;
+            stride = rowBytes;
+        }
+
         fixed (byte* source = span)
         {
             image = BitmapSource.Create(
-                pixels.Width, pixels.Height, 96, 96, PixelFormats.Pbgra32, null, (IntPtr)source, pixels.Stride * pixels.Height, pixels.Stride);
+                pixels.Width, pixels.Height, 96, 96, PixelFormats.Pbgra32, null, (IntPtr)source, stride * pixels.Height, stride);
         }
 
         image.Freeze();

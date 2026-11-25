@@ -127,9 +127,9 @@ public sealed class StandardSecurityHandler : ISecurityHandler
         Span<byte> k = stackalloc byte[64];
         int kLength = SHA256.HashData(input, k);
         int maxSequence = password.Length + 64 + userKey.Length;
+        using AesCipher aes = AesCipher.Create(k[..16]);
         byte[] k1 = ArrayPool<byte>.Shared.Rent(maxSequence * 64);
         byte[] e = ArrayPool<byte>.Shared.Rent(maxSequence * 64);
-        using AesCipher aes = AesCipher.Create(k[..16]);
         try
         {
             for (int round = 1; ; round++)
@@ -177,8 +177,10 @@ public sealed class StandardSecurityHandler : ISecurityHandler
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(k1);
-            ArrayPool<byte>.Shared.Return(e);
+            // K1 holds the password and E what is derived from it: neither goes back to the shared pool readable (issue #274).
+            ArrayPool<byte>.Shared.Return(k1, clearArray: true);
+            ArrayPool<byte>.Shared.Return(e, clearArray: true);
+            CryptographicOperations.ZeroMemory(k);
         }
     }
 
@@ -489,7 +491,8 @@ public sealed class StandardSecurityHandler : ISecurityHandler
             }
 
             // Algorithm 5: compare the first 16 bytes.
-            Span<byte> buffer = stackalloc byte[32 + documentId.Length];
+            // The ID comes from the file's trailer with no length limit: only a short one goes on the stack (issue #274).
+            Span<byte> buffer = documentId.Length <= 224 ? stackalloc byte[32 + documentId.Length] : new byte[32 + documentId.Length];
             PasswordPadding.CopyTo(buffer);
             documentId.CopyTo(buffer[32..]);
             Md5.HashData(buffer, check);
