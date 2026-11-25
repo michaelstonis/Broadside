@@ -496,6 +496,26 @@ public sealed class PageEditingTests
 
     [Theory]
     [MemberData(nameof(Saves))]
+    public void A_file_whose_catalog_lost_its_pages_entry_and_holds_no_page_saves_an_empty_page_tree(bool incremental)
+    {
+        // Fuzz findings (#620, flatten and form-fill): the saved catalog had no Pages entry either, so reading the saved file
+        // rebuilt its cross-reference information by scanning and took another dictionary with a page tree for the catalog.
+        using PdfDocument source = PdfDocument.Open(new TestPdf().Build(
+            "<< /Type /Catalog /Pages 9 0 R /Lang (en) >>",
+            "<< /Type /Annot /Subtype /Text /Rect [0 0 10 10] >>"));
+        Assert.Empty(source.Pages);
+
+        byte[] file = Save(source, incremental);
+
+        using PdfDocument saved = PdfDocument.Open(file);
+        Assert.Empty(saved.Pages);
+        Assert.Equal("en", saved.Language);
+        Assert.IsType<CosDictionary>(saved.Resolve(saved.Catalog[new CosName("Pages")]));
+        Assert.DoesNotContain(saved.Diagnostics, static diagnostic => diagnostic.Code is "PagesMissing" or "RootMissing");
+    }
+
+    [Theory]
+    [MemberData(nameof(Saves))]
     public void An_encrypted_file_whose_catalog_lost_its_pages_entry_saves_the_page_it_reads(bool incremental)
     {
         // The catalog of encrypted-rc4-length-missing.pdf with its Pages entry blanked, offsets unchanged: the fuzz finding's shape.

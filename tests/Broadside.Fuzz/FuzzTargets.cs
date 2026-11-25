@@ -117,6 +117,13 @@ internal static class FuzzTargets
         public static readonly CosName DecodeParms = new("DecodeParms");
         public static readonly CosName Lang = new("Lang");
         public static readonly CosName Marker = new("Marker");
+
+        /// <summary>
+        /// The <c>colorspace</c> target's engine (issue #620): an ICC profile stream is decoded whole to read its header, and one at
+        /// the default 1 GiB decoded-length limit (a JPEG of 2^28 pixels) peaks above 2 GiB, which the 3 GiB heap cap of a fuzzing
+        /// worker cannot hold beside what it already has.
+        /// </summary>
+        public static readonly PdfEngine ColorSpaceEngine = new(new PdfOptions().WithMaxDecodedLength(1 << 24).WithMaxImagePixels(1 << 22));
     }
 
     /// <summary>
@@ -1629,7 +1636,7 @@ internal static class FuzzTargets
         _ = IccProfileHeader.Parse(data);
         if (data.StartsWith("%PDF-"u8))
         {
-            using PdfDocument? file = OpenOrNull(data);
+            using PdfDocument? file = OpenOrNull(data, Names.ColorSpaceEngine);
             if (file is null || file.Pages.Count == 0
                 || file.Pages[0].Resources is not { } resources
                 || file.Resolve(resources.GetValueOrDefault(new CosName("ColorSpace"))) is not CosDictionary spaces)
