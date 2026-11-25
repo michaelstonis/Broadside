@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The signatures guide (site/articles/signatures.md): PAdES signatures, timestamps, long-term validation data, external signers and
+    validation. The certification authority, its CRL and the time-stamping authority run inside the process (InProcessServices.cs)
+    behind the HttpClient every network option is given, so the sample never touches the network. run-samples.sh checks the signed
+    files with poppler's pdfsig.
+  -->
+  <PropertyGroup>
+    <AssemblyName>Broadside.Samples.Signatures</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Broadside/Broadside.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(CorpusDirectory)text-standard14.pdf" Link="text-standard14.pdf" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

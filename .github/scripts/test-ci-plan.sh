@@ -113,5 +113,10 @@ check "fuzz harness only" pull_request spec/33-broadside-v1 x "tests/Broadside.F
 
 check "size probe script" pull_request spec/33-broadside-v1 x "bench/size-probes.sh" "" full=false size_probes=true linux=
 
+# The guide samples write PDF/A and PDF/UA files that the verapdf job validates (#270).
+check "guide sample" pull_request spec/33-broadside-v1 x "samples/guides/Writing/Program.cs" "samples/guides/Writing/Writing.csproj" \
+  full=false linux=samples/guides/Writing/Writing.csproj verapdf=true aot=false fuzz=false
+check "guide samples script" pull_request spec/33-broadside-v1 x "samples/guides/run-samples.sh" "" full=false linux= verapdf=true
+
 echo "${cases} case(s), ${failures} failure(s)"
 [ "${failures}" -eq 0 ]

@@ -1,0 +1,246 @@
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+using Broadside;
+using Broadside.Annotations;
+using Broadside.Fonts;
+using Broadside.Forms;
+using Broadside.Graphics;
+using Broadside.Samples;
+using Broadside.Signatures;
+
+Sample.Start("Editing");
+
+using X509Certificate2 certificate = SelfSigned("CN=Contract signer");
+WriteInputs(certificate);
+
+SaveIncrementally(certificate);
+SaveInFull();
+EditPages();
+MergeAndSplit();
+FillAForm();
+Annotate();
+EditMetadata();
+AttachAFile();
+Encrypt();
+Sample.Finish();
+
+static void SaveIncrementally(X509Certificate2 certificate)
+{
+    #region incremental
+    byte[] original = File.ReadAllBytes("contract-signed.pdf");
+    using (PdfDocument document = PdfDocument.Open(original))
+    {
+        document.Pages[0].AddTextAnnotation(new PdfRectangle(500, 720, 520, 740), "Reviewed, no changes needed.");
+        document.Save("contract-reviewed.pdf", new PdfSaveOptions().WithIncrementalUpdate(true));
+    }
+
+    // The update is appended: every byte of the signed file is still there, unchanged, and the signature still verifies.
+    byte[] updated = File.ReadAllBytes("contract-reviewed.pdf");
+    bool untouched = updated.AsSpan(0, original.Length).SequenceEqual(original);
+    using PdfDocument reviewed = PdfDocument.Open(updated);
+    PdfSignatureValidation signature = reviewed.ValidateSignatures(new PdfSignatureValidationOptions().WithTrustAnchors(certificate))[0];
+    Console.WriteLine($"Original bytes untouched: {untouched}; signature: {signature.Status}; covers the whole file: {signature.CoversWholeFile}");
+    foreach (PdfModification modification in signature.Modifications)
+    {
+        Console.WriteLine($"  changed after signing: {modification.Description} (permitted: {modification.IsPermitted})");
+    }
+    #endregion
+
+    Sample.Expect(untouched, "the signed bytes are a prefix of the updated file");
+    Sample.Expect(signature.Status == PdfSignatureStatus.Valid, "the signature survives the incremental save");
+    Sample.Expect(!signature.CoversWholeFile && reviewed.Revisions.Count == 3, "the annotation is a third revision");
+}
+
+static void SaveInFull()
+{
+    #region full-save
+    using PdfDocument document = PdfDocument.Open("contract.pdf");
+    document.Properties.Title = "Contract";
+    PdfSaveOptions options = new PdfSaveOptions()
+        .WithCrossReferenceLayout(PdfCrossReferenceLayout.StreamWithObjectStreams) // smaller files; needs PDF 1.5
+        .WithRemoveUnreachableObjects(true);                                         // drop objects nothing refers to
+    document.Save("contract-compact.pdf", options);
+    #endregion
+
+    using PdfDocument saved = PdfDocument.Open("contract-compact.pdf");
+    Sample.Expect(saved.Revisions.Count == 1 && saved.Properties.Title == "Contract", "a full save writes one revision");
+}
+
+static void EditPages()
+{
+    #region pages
+    using PdfDocument document = PdfDocument.Open("chapter1.pdf");
+    document.Pages.Insert(0, new PdfRectangle(0, 0, 612, 792));                 // a new, empty first page
+    document.Pages.Move(2, 1);                                                  // swap the two chapter pages
+    document.Pages[2].Rotation = 90;                                            // turn the last page a quarter clockwise
+    document.Pages.RemoveAt(0);                                                 // and remove the cover again
+    document.Save("chapter1-edited.pdf");
+    #endregion
+
+    using PdfDocument saved = PdfDocument.Open("chapter1-edited.pdf");
+    Sample.Expect(saved.Pages.Count == 2 && saved.Pages[1].Rotation == 90, "two pages, the last rotated");
+    Sample.Expect(saved.Pages[0].ExtractText().Text.Contains("Chapter 1, page 2", StringComparison.Ordinal), "the pages were swapped");
+}
+
+static void MergeAndSplit()
+{
+    #region merge-split
+    using PdfDocument first = PdfDocument.Open("chapter1.pdf");
+    using PdfDocument second = PdfDocument.Open("chapter2.pdf");
+    using (PdfDocument book = PdfDocument.Merge(first, second)) // pages, fonts, links, outlines and form fields are copied
+    {
+        book.Save("book.pdf");
+    }
+
+    using PdfDocument whole = PdfDocument.Open("book.pdf");
+    IReadOnlyList<PdfDocument> parts = whole.Split(0..1, 1..4); // one new document per range
+    for (int i = 0; i < parts.Count; i++)
+    {
+        using PdfDocument part = parts[i];
+        part.Save($"book-part{i + 1}.pdf");
+    }
+
+    using PdfDocument lastPage = whole.ExtractPages(^1..);    // a single range
+    lastPage.Save("book-last-page.pdf");
+    #endregion
+
+    Sample.Expect(whole.Pages.Count == 4, "four pages merged");
+    using PdfDocument part2 = PdfDocument.Open("book-part2.pdf");
+    Sample.Expect(part2.Pages.Count == 3, "the second part has three pages");
+}
+
+static void FillAForm()
+{
+    #region forms
+    using PdfDocument document = PdfDocument.Open("application.pdf");
+    PdfAcroForm form = document.AcroForm!;
+    ((PdfTextField)form.FindField("name")!).SetValue("Ada Lovelace"); // regenerates the field's appearance
+    ((PdfCheckBoxField)form.FindField("agree")!).SetChecked(true);
+    document.Save("application-filled.pdf");
+
+    document.Flatten(); // draws every field's appearance into its page and removes the form
+    document.Save("application-flattened.pdf");
+    #endregion
+
+    using PdfDocument filled = PdfDocument.Open("application-filled.pdf");
+    Sample.Expect(((PdfTextField)filled.AcroForm!.FindField("name")!).Value == "Ada Lovelace", "the filled value");
+    using PdfDocument flat = PdfDocument.Open("application-flattened.pdf");
+    Sample.Expect(flat.AcroForm is null || flat.AcroForm.Fields.Count == 0, "no fields after flattening");
+    Sample.Expect(flat.Pages[0].ExtractText().Text.Contains("Ada Lovelace", StringComparison.Ordinal), "the value is page content");
+}
+
+static void Annotate()
+{
+    #region annotations
+    using PdfDocument document = PdfDocument.Open("contract.pdf");
+    PdfPage page = document.Pages[0];
+    var yellow = new PdfDeviceColor(1, 1, 0);
+
+    page.AddHighlightAnnotation(
+        [new PdfQuadrilateral(new PathPoint(72, 718), new PathPoint(300, 718), new PathPoint(72, 734), new PathPoint(300, 734))],
+        new PdfAnnotationOptions().WithColor(yellow).WithTitle("Reviewer").WithContents("Check this clause."));
+    page.AddFreeTextAnnotation(new PdfRectangle(72, 600, 300, 640), "Approved by legal", new PdfAnnotationOptions().WithFontSize(12));
+    page.AddLinkAnnotation(new PdfRectangle(72, 560, 200, 580), new Uri("https://example.com/terms"));
+    document.Save("contract-annotated.pdf");
+    #endregion
+
+    using PdfDocument saved = PdfDocument.Open("contract-annotated.pdf");
+    Sample.Expect(saved.Pages[0].Annotations.Count == 3, "three annotations");
+}
+
+static void EditMetadata()
+{
+    #region metadata
+    using PdfDocument document = PdfDocument.Open("contract.pdf");
+    document.Properties.Title = "Service contract";
+    document.Properties.Author = "Acme Legal";
+    document.Properties.Keywords = "contract, services";
+    document.Save("contract-metadata.pdf"); // writes the document information dictionary and the XMP metadata stream together
+
+    using PdfDocument saved = PdfDocument.Open("contract-metadata.pdf");
+    Console.WriteLine($"{saved.Properties.Title} by {saved.Properties.Author}");
+    Console.WriteLine($"XMP dc:title: {saved.Metadata?.Packet?.GetLanguageAlternative(XmpNamespaces.DublinCore, "title")}");
+    #endregion
+
+    Sample.Expect(saved.Properties.Title == "Service contract", "the title");
+}
+
+static void AttachAFile()
+{
+    #region attachments
+    using PdfDocument document = PdfDocument.Open("contract.pdf");
+    byte[] csv = "item,amount\nconsulting,1200\n"u8.ToArray();
+    document.AddEmbeddedFile("rates.csv", csv, new PdfEmbeddedFileOptions()
+        .WithDescription("The rate card")
+        .WithMediaType("text/csv"));
+    document.Save("contract-attachment.pdf");
+
+    using PdfDocument saved = PdfDocument.Open("contract-attachment.pdf");
+    foreach (PdfEmbeddedFileEntry attachment in saved.EmbeddedFiles)
+    {
+        Console.WriteLine($"Attached: {attachment.FileName}");
+    }
+    #endregion
+
+    Sample.Expect(saved.EmbeddedFiles.Count == 1 && saved.EmbeddedFiles[0].FileName == "rates.csv", "one attachment");
+}
+
+static void Encrypt()
+{
+    #region encryption
+    using PdfDocument document = PdfDocument.Open("contract.pdf");
+    PdfEncryptionOptions encryption = new PdfEncryptionOptions(userPassword: null, ownerPassword: "owner-secret")
+        .WithAlgorithm(PdfEncryptionAlgorithm.Aes256)          // the default; AES-128 and RC4 exist for old readers
+        .WithPermissions(PdfPermissions.Print | PdfPermissions.PrintHighQuality);
+    document.Save("contract-encrypted.pdf", new PdfSaveOptions().WithEncryption(encryption));
+    #endregion
+
+    using PdfDocument saved = PdfDocument.Open("contract-encrypted.pdf"); // no user password: it opens, with restricted permissions
+    Sample.Expect(saved.IsEncrypted && !saved.Permissions.HasFlag(PdfPermissions.Modify), "encrypted, printing only");
+}
+
+// The input files: a one-page contract and a signed copy of it, two two-page chapters and a form.
+static void WriteInputs(X509Certificate2 certificate)
+{
+    WriteText("contract.pdf", "Service contract: the parties agree to the terms below.");
+    using (PdfDocument contract = PdfDocument.Open(File.ReadAllBytes("contract.pdf")))
+    using (FileStream output = File.Create("contract-signed.pdf"))
+    {
+        contract.Sign(output, new PdfCertificateSigner(certificate), new PdfSignatureOptions().WithReason("Agreed"));
+    }
+
+    WriteText("chapter1.pdf", "Chapter 1, page 1", "Chapter 1, page 2");
+    WriteText("chapter2.pdf", "Chapter 2, page 1", "Chapter 2, page 2");
+
+    using PdfDocument application = PdfDocument.Create();
+    PdfAcroForm form = application.CreateAcroForm();
+    form.AddTextField("name", application.Pages[0], new PdfRectangle(72, 700, 372, 724));
+    form.AddCheckBox("agree", application.Pages[0], new PdfRectangle(72, 660, 90, 678));
+    application.Save("application.pdf");
+}
+
+static void WriteText(string path, params string[] pages)
+{
+    using PdfDocument document = PdfDocument.Create();
+    PdfCanvasFont font = document.GetStandard14Font(Standard14Font.Helvetica);
+    for (int i = 0; i < pages.Length; i++)
+    {
+        PdfPage page = i == 0 ? document.Pages[0] : document.Pages.Add(new PdfRectangle(0, 0, 612, 792));
+        using PdfCanvas canvas = page.CreateCanvas();
+        canvas.BeginText();
+        canvas.SetFont(font, 14);
+        canvas.MoveText(72, 720);
+        canvas.ShowText(pages[i]);
+        canvas.EndText();
+    }
+
+    document.Save(path);
+}
+
+static X509Certificate2 SelfSigned(string subject)
+{
+    using var key = RSA.Create(2048);
+    var request = new CertificateRequest(subject, key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+    request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.NonRepudiation, critical: true));
+    return request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(1));
+}

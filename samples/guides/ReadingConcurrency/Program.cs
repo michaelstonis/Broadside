@@ -29,4 +29,4 @@ document.Properties.Title = "Read in parallel";
 document.Save("page-tree-inherited-titled.pdf");
 #endregion
 
-Console.WriteLine("OK");
+Sample.Finish();

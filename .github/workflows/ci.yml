@@ -547,6 +547,12 @@ jobs:
           BROADSIDE_REQUIRE_VERAPDF: '1'
         run: dotnet test --project tests/Broadside.Layout.Tests -c Release --no-build -- --filter-trait "Category=VeraPdf"
 
+      # The guide samples (#269, #270): the files the accessibility and conformance guide writes carry their profiles in their names
+      # (-pdfua1, -pdfa2b, ...) and must pass veraPDF's profile for each. The script builds and runs every guide sample; build-test
+      # runs the same samples with the qpdf and pdfsig checks.
+      - name: Validate the guide samples' PDF/A and PDF/UA output with veraPDF
+        run: samples/guides/run-samples.sh -c Release --verapdf
+
   # Shows the public API diff of the PR in the job summary for human review. It never fails: the
   # PublicApiAnalyzers (RS0016/RS0017) already fail the build when the API files and the code disagree.
   api-surface:

@@ -11,7 +11,7 @@ OpenWithAPassword();
 OpenWithAPasswordForEveryFile();
 HandleAMissingOrWrongPassword();
 OpenWithACertificate();
-Console.WriteLine("OK");
+Sample.Finish();
 
 static void OpenWithoutAPassword()
 {

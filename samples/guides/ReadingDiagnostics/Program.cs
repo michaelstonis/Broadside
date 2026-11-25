@@ -8,7 +8,7 @@ ReadLeniently();
 FindADiagnostic();
 DiagnosticsGrowAsObjectsLoad();
 ReadStrictly();
-Console.WriteLine("OK");
+Sample.Finish();
 
 static void ReadLeniently()
 {

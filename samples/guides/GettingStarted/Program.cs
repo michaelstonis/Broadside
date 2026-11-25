@@ -74,4 +74,4 @@ using (Bitmap bitmap = rasterizer.Render(hello.Pages[0], new RenderOptions().Wit
 
 Sample.Expect(new FileInfo("hello.png").Length > 0, "the rendered page");
 
-Console.WriteLine("OK");
+Sample.Finish();

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The writing guide (site/articles/writing.md): the page canvas (paths, text, fonts, images, transparency) and flow layout. -->
+  <PropertyGroup>
+    <AssemblyName>Broadside.Samples.Writing</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Broadside/Broadside.csproj" />
+    <ProjectReference Include="../../../src/Broadside.Layout/Broadside.Layout.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../../src/Broadside.Fonts.Standard14/Fonts/LiberationSans-Regular.ttf" Link="LiberationSans-Regular.ttf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../../src/Broadside.Fonts.Standard14/Fonts/LiberationSans-Bold.ttf" Link="LiberationSans-Bold.ttf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../Broadside.BuilderSamples/assets/logo.png" Link="logo.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

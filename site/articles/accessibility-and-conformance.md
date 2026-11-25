@@ -4,8 +4,124 @@ title: "Accessibility and conformance"
 
 # Accessibility and conformance
 
-This guide is being written for v1 ([#270](https://github.com/michaelstonis/Broadside/issues/270)). Like the [reading guide](reading.md), its code will come from compiled samples that CI runs.
+This guide writes accessible PDF/UA files, tags existing files automatically, and writes and converts PDF/A files for long-term archiving. The code comes from the [`AccessibilityConformance`](https://github.com/michaelstonis/Broadside/tree/main/samples/guides/AccessibilityConformance) sample; CI builds and runs it on every change, checks its files with `qpdf --check`, and validates each against its profile with [veraPDF](https://verapdf.org), the PDF Association's reference validator.
 
-It will show, with runnable samples whose output passes veraPDF: tagging an untagged document automatically, writing PDF/UA, and writing and converting to PDF/A.
+A save that claims a profile checks the rules it can before it claims anything. A rule the file breaks is recorded as a `PdfANonConformant` or `PdfUANonConformant` diagnostic, naming the rule, and the file is then saved without the claim, never with a false one. In strict mode the save throws instead.
 
-Until then, [Building documents](building-documents.md) writes tagged documents with a declared PDF/A or PDF/UA conformance, and the [conformance](conformance.md) page records what is implemented clause by clause.
+| Profile | Option | PDF version of the file |
+|---|---|---|
+| PDF/UA-1 | `WithPdfUAConformance(PdfUAConformance.PdfUA1)` | 1.5 to 1.7 (structure in the PDF 1.7 namespace) |
+| PDF/UA-2, Well-Tagged PDF | `WithPdfUAConformance(PdfUAConformance.PdfUA2)`, `WithWellTaggedConformance(...)` | 2.0 |
+| PDF/A-2b, 2u, 3b, 3u | `WithPdfAConformance(PdfAConformance.PdfA2b)` and the others | 1.4 to 1.7 |
+| PDF/A-4, 4f | `WithPdfAConformance(PdfAConformance.PdfA4)` | 2.0 |
+
+## Accessible output from flow layout
+
+Flow layout tags what it lays out (headings, paragraphs, lists, tables, figures with their alternate text, links) and marks headers, footers and decorations as artifacts. Give the document a language and a title, embed its fonts, and save with a PDF/UA profile:
+
+<!-- snippet: samples/guides/AccessibilityConformance/Program.cs#pdfua-flow -->
+```csharp
+using PdfDocument document = PdfDocument.Create();
+document.Pages.RemoveAt(0);
+PdfCanvasFont regular = document.EmbedFont(File.ReadAllBytes("LiberationSans-Regular.ttf"));
+PdfCanvasFont bold = document.EmbedFont(File.ReadAllBytes("LiberationSans-Bold.ttf"));
+var body = new ParagraphStyle(regular, 11);
+
+// Flow layout tags what it lays out: headings, paragraphs, lists, tables and figures, with the page furniture as artifacts.
+// PDF/UA-1 is a PDF 1.7 profile, so the structure uses the PDF 1.7 namespace; PDF/UA-2 uses the default, PDF 2.0.
+FlowTagging tagging = FlowTagging.Default
+    .WithLanguage("en-US")
+    .WithTitle("Annual results")
+    .WithNamespace(FlowStructureNamespace.Pdf17);
+var flow = new FlowDocument(PageSetup.A4) { Tagging = tagging };
+flow.Add(new Paragraph("Annual results", new ParagraphStyle(bold, 18)) { StructureType = "H1" });
+flow.Add(new Paragraph("Revenue grew in every region.", body));
+flow.Add(new ImageBlock(Chart(document), 120, 60) { AlternateText = "Revenue by region, rising in all four." });
+flow.Render(document);
+
+document.Save("annual-results-pdfua1.pdf", new PdfSaveOptions().WithPdfUAConformance(PdfUAConformance.PdfUA1));
+```
+<!-- endsnippet -->
+
+The [document builder](building-documents.md) does the same with less code, and checks the PDF/UA preconditions (language, title, heading levels) before it lays anything out.
+
+Conformance: [ISO 14289-1 (PDF/UA-1)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-14289-1.md), [ISO 14289-2 (PDF/UA-2)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-14289-2.md), [Well-Tagged PDF 1.0](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/wtpdf-1.0.md) and [ISO 32000-2 §14.7, §14.8](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
+
+## Tagging an existing file
+
+`AutoTag` gives an untagged document a structure tree built from its [layout tree](extracting-text.md#the-layout-tree): columns, paragraphs, headings, lists, tables and figures, in reading order, with running headers and footers as artifacts. It does not invent what it cannot know: a figure gets placeholder alternate text (`AutoTaggingOptions.WithFigureAlternateText`) and is listed in `AutoTaggingResult.Figures`, so you can write real descriptions before saving. A document that is already tagged is left alone unless `WithForce()` is set.
+
+<!-- snippet: samples/guides/AccessibilityConformance/Program.cs#auto-tag -->
+```csharp
+// An untagged file: the layout tree finds its columns, paragraphs, headings, lists, tables and figures, and tags them.
+PdfOptions options = new PdfOptions().UseStandard14Fonts(); // metrics and programs for fonts the file does not embed
+using PdfDocument document = PdfDocument.Open("layout-two-column-untagged.pdf", options);
+AutoTaggingResult result = document.AutoTag(new AutoTaggingOptions().WithLanguage("en-US"));
+document.Properties.Title = "Two columns";
+Console.WriteLine($"Tagged: {result.IsTagged}, figures needing alternate text: {result.Figures.Count}");
+
+// PDF/UA needs every font embedded, which the PDF/A conversion does; the file then claims both.
+PdfAConversion conversion = document.ConvertToPdfA(PdfAConformance.PdfA2u);
+document.Save("two-columns-pdfua1-pdfa2u.pdf", conversion.CreateSaveOptions().WithPdfUAConformance(PdfUAConformance.PdfUA1));
+```
+<!-- endsnippet -->
+
+Here the file uses fonts it does not embed, which PDF/UA does not allow; the PDF/A conversion embeds them, so the file is saved as both PDF/UA-1 and PDF/A-2u.
+
+## Writing PDF/A
+
+A PDF/A save adds what the profile needs (an output intent and XMP metadata with the PDF/A identification) and checks the rest, such as embedded fonts, and identifies the file only when it conforms:
+
+<!-- snippet: samples/guides/AccessibilityConformance/Program.cs#pdfa-save -->
+```csharp
+using PdfDocument document = PdfDocument.Create();
+PdfCanvasFont sans = document.EmbedFont(File.ReadAllBytes("LiberationSans-Regular.ttf")); // PDF/A embeds every font
+using (PdfCanvas canvas = document.Pages[0].CreateCanvas())
+{
+    canvas.BeginText();
+    canvas.SetFont(sans, 14);
+    canvas.MoveText(72, 720);
+    canvas.ShowText("Kept for the long term.");
+    canvas.EndText();
+}
+
+document.Properties.Title = "Archive copy";
+document.Save("archive-pdfa2b.pdf", new PdfSaveOptions().WithPdfAConformance(PdfAConformance.PdfA2b));
+
+foreach (Diagnostic diagnostic in document.Diagnostics.Where(d => d.Code == "PdfANonConformant"))
+{
+    Console.WriteLine($"Not PDF/A: {diagnostic.Message}"); // the save checks the rules it can and says what fails
+}
+```
+<!-- endsnippet -->
+
+Files of any kind may be attached at PDF/A-3 and PDF/A-4f only; PDF/A-2 and PDF/A-4 allow attached PDF/A files.
+
+## Converting to PDF/A
+
+`ConvertToPdfA` changes an existing document so it can conform: it embeds fonts the file only names (from the font resolvers you configure, here the bundled Standard 14 fonts), adds the output intent and metadata, and removes what the profile forbids. It reports each change, and what it could not convert, before anything is saved:
+
+<!-- snippet: samples/guides/AccessibilityConformance/Program.cs#pdfa-convert -->
+```csharp
+using PdfDocument document = PdfDocument.Open("text-standard14.pdf", new PdfOptions().UseStandard14Fonts());
+PdfAConversion conversion = document.ConvertToPdfA(PdfAConformance.PdfA2b);
+foreach (string change in conversion.Changes)
+{
+    Console.WriteLine($"Changed: {change}");
+}
+
+foreach (string problem in conversion.NotConverted)
+{
+    Console.WriteLine($"Could not convert: {problem}");
+}
+
+if (conversion.IsConformant)
+{
+    document.Save("text-standard14-pdfa2b.pdf", conversion.CreateSaveOptions());
+}
+```
+<!-- endsnippet -->
+
+`CreateSaveOptions` returns the save options for the profile the conversion targeted.
+
+Conformance: [ISO 19005-2 (PDF/A-2)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-19005-2.md), [ISO 19005-3 (PDF/A-3)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-19005-3.md) and [ISO 19005-4 (PDF/A-4)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-19005-4.md), by veraPDF rule.

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The editing guide (site/articles/editing.md): incremental and full saves, page operations, merging and splitting, forms,
+    annotations, metadata, attachments and encryption. It writes its own input files first, so it needs nothing from the corpus.
+  -->
+  <PropertyGroup>
+    <AssemblyName>Broadside.Samples.Editing</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Broadside/Broadside.csproj" />
+  </ItemGroup>
+
+</Project>

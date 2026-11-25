@@ -11,7 +11,7 @@ Sample.Start("Reading: dependency injection and logging");
 RegisterAndResolve();
 BindFromConfiguration();
 LogWithoutAContainer();
-Console.WriteLine("OK");
+Sample.Finish();
 
 static void RegisterAndResolve()
 {

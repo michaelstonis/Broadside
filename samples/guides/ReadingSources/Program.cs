@@ -9,7 +9,8 @@ OpenFromBytes();
 await OpenAsync();
 OpenWithOneEngine();
 ReadALargeFile();
-Console.WriteLine("OK");
+await OpenOverHttp();
+Sample.Finish();
 
 static void OpenFromPath()
 {
@@ -79,4 +80,24 @@ static void ReadALargeFile()
     Console.WriteLine($"The render caches hold {document.CachedBytes} bytes");
     #endregion
     Sample.Expect(document.CachedBytes <= 4L << 20, "caches trimmed");
+}
+
+static async Task OpenOverHttp()
+{
+    byte[] file = await File.ReadAllBytesAsync("linearized.pdf");
+    using var server = new InProcessFileServer(file); // stands in for a web server; nothing leaves the process
+
+    #region range-requests
+    using var http = new HttpClient(server, disposeHandler: false); // in an application: the HttpClient you configure and own
+    var uri = new Uri("https://files.example.test/report.pdf");
+
+    // On the browser, where a synchronous read cannot wait for the network, prefetch each page before reading it.
+    PdfOptions options = new PdfOptions().WithSynchronousRangeFetch(false);
+    using PdfDocument document = await PdfDocument.OpenAsync(http, uri, options);
+    PdfPage page = await document.Pages.PrefetchAsync(1); // fetches the ranges page 2 needs
+    Console.WriteLine(page.ExtractText().Text);
+    #endregion
+
+    Console.WriteLine($"Fetched {server.BytesServed} of {file.Length} bytes");
+    Sample.Expect(page.ExtractText().Text.Contains("Page 2", StringComparison.Ordinal), "page 2 over range requests");
 }
