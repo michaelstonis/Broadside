@@ -355,7 +355,7 @@ internal static class JpxDecoder
             _buffers = new int[count][];
             for (int c = 0; c < count; c++)
             {
-                _buffers[c] = ArrayPool<int>.Shared.Rent((int)Math.Max(1, area));
+                _buffers[c] = ArrayPool<int>.Shared.Rent(checked((int)Math.Max(1, area)));
             }
 
             _parameters = JpxTileParameters.Resolve(stream.Main, tile.Markers);
@@ -504,7 +504,8 @@ internal static class JpxDecoder
         {
             (long tx0, long ty0, long tx1, long ty1) = size.TileBounds(tile.Index);
             long samples = (tx1 - tx0) * (ty1 - ty0) * size.Components.Length;
-            if (samples > context.MaxPixels)
+            // Each component of a tile is decoded into one pooled int array, whatever MaxPixels allows (issue #274).
+            if (samples > context.MaxPixels || (tx1 - tx0) * (ty1 - ty0) > Array.MaxLength)
             {
                 reporter.Report(
                     JpxDiagnostics.JpxLimitExceeded,

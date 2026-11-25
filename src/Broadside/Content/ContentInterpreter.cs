@@ -38,6 +38,10 @@ internal sealed partial class ContentInterpreter
     private readonly ContentContext _context;
     private List<ContentPart> _parts = [];
     private GraphicsState[] _states = ArrayPool<GraphicsState>.Shared.Rent(16);
+
+    // Stacks outgrown during a run: State hands out references into the stack (ContentContext.State, held by processors across
+    // nested runs that push states), so an outgrown stack goes back to the pool only when the run ends (issue #274).
+    private readonly List<GraphicsState[]> _outgrownStates = [];
     private ContentProcessor _processor = null!;
     private ContentEvents _events;
     private DiagnosticSink? _diagnostics;
@@ -279,9 +283,24 @@ internal sealed partial class ContentInterpreter
         }
     }
 
+    /// <summary>Doubles the graphics state stack; the outgrown one stays valid, and leaves the pool, until <see cref="Release"/>.</summary>
+    private void GrowStates()
+    {
+        GraphicsState[] larger = ArrayPool<GraphicsState>.Shared.Rent(_states.Length * 2);
+        _states.AsSpan(0, _depth + 1).CopyTo(larger);
+        _outgrownStates.Add(_states);
+        _states = larger;
+    }
+
     private void Release()
     {
         EndNesting();
+        foreach (GraphicsState[] outgrown in _outgrownStates)
+        {
+            ArrayPool<GraphicsState>.Shared.Return(outgrown, clearArray: true);
+        }
+
+        _outgrownStates.Clear();
         _arena.Trim();
         _path.Trim();
         Clips.Reset();

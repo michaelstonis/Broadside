@@ -160,6 +160,8 @@ internal sealed class ObjectEncryptor
         }
         finally
         {
+            // The plaintext does not go back to the shared pool readable (issue #274).
+            padded.AsSpan(0, body).Clear();
             ArrayPool<byte>.Shared.Return(padded);
         }
 

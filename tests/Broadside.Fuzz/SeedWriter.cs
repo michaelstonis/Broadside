@@ -93,7 +93,67 @@ internal static class SeedWriter
             }
         }
 
+        // The target's regression and hand-made seeds (tests/Broadside.Fuzz/Seeds/<target>): inputs the corpus files cannot give,
+        // such as signed data, CRLs and OCSP responses, so the scheduled run starts from them too (issue #274).
+        // The image readers also start from the test suites' own files: JPEG files of every process and color model, and the PNG
+        // suite of every color type, depth and interlacing.
+        List<string> files = [];
+        string committed = Path.Combine(CorpusLocator.RepositoryRoot, "tests", "Broadside.Fuzz", "Seeds", target);
+        if (Directory.Exists(committed))
+        {
+            files.AddRange(Directory.GetFiles(committed).Order(StringComparer.Ordinal));
+        }
+
+        string? images = target switch
+        {
+            "jpeg-reader" or "filter-dct" => Path.Combine(CorpusLocator.RepositoryRoot, "tests", "Broadside.Tests", "Filters", "Dct"),
+            "png-reader" => Path.Combine(CorpusLocator.RepositoryRoot, "tests", "Broadside.Tests", "Graphics", "Png"),
+            _ => null,
+        };
+        if (images is not null && Directory.Exists(images))
+        {
+            string pattern = target == "png-reader" ? "*.png" : "*.jpg";
+            files.AddRange(Directory.EnumerateFiles(images, pattern, SearchOption.AllDirectories).Order(StringComparer.Ordinal));
+        }
+
+        // Inputs no corpus file holds: OpenType programs with layout tables (the corpus fonts carry none), and the predefined CMaps
+        // the core reads from Broadside.Fonts.Cmaps (raw deflate, inflated here).
+        List<byte[]> built = target switch
+        {
+            "gpos" => [PositioningTestFont.Build(), PositioningTestFont.Build(gpos: true, (1, 22, -80), (22, 1, -70), (20, 15, -50))],
+            "gsub" => [ShapingTestFont.Build(), PositioningTestFont.Build()],
+            "cmap" => [.. PredefinedCMaps()],
+            _ => [],
+        };
+
+        foreach (byte[] seed in built.Concat(files.Select(File.ReadAllBytes)))
+        {
+            string name = Convert.ToHexStringLower(SHA256.HashData(seed));
+            if (seed.Length is > 0 and <= MaxSeedLength && written.Add(name))
+            {
+                File.WriteAllBytes(Path.Combine(output, name), seed);
+            }
+        }
+
         return written.Count;
+    }
+
+    /// <summary>The predefined CMaps bundled in Broadside.Fonts.Cmaps, inflated.</summary>
+    private static IEnumerable<byte[]> PredefinedCMaps()
+    {
+        string directory = Path.Combine(CorpusLocator.RepositoryRoot, "src", "Broadside.Fonts.Cmaps", "CMaps");
+        if (!Directory.Exists(directory))
+        {
+            yield break;
+        }
+
+        foreach (string path in Directory.GetFiles(directory, "*.deflate").Order(StringComparer.Ordinal))
+        {
+            using var inflater = new System.IO.Compression.DeflateStream(File.OpenRead(path), System.IO.Compression.CompressionMode.Decompress);
+            using var text = new MemoryStream();
+            inflater.CopyTo(text);
+            yield return text.ToArray();
+        }
     }
 
     private static IEnumerable<byte[]> SeedsOf(string target, byte[] file) => target switch
@@ -113,6 +173,7 @@ internal static class SeedWriter
         "xmp" => Streams(file).Where(stream => Metadata.Equals(stream.Value.Dictionary.TryGetValue(Type, out CosObject? type) ? type : null))
             .Select(stream => stream.Document.DecodeStream(stream.Value).ToArray()),
         "decrypt" => EncryptedBodies(file),
+        "jpeg-reader" => Streams(file).Where(stream => FirstFilter(stream.Value) == "DCTDecode").Select(stream => stream.Value.EncodedData.ToArray()),
         "filter-jbig2" => Streams(file).Select(stream => Jbig2Seed(stream.Document, stream.Value)).OfType<byte[]>(),
         "icc-profile" => Streams(file).Select(stream => stream.Document.DecodeStream(stream.Value).ToArray())
             .Where(static data => data.Length >= 40 && data.AsSpan(36, 4).SequenceEqual("acsp"u8)),

@@ -58,6 +58,17 @@ public sealed class AndroidBackendTests
         GoldenCorpus.AssertMatchesReference("android", fileName, page, render);
     }
 
+    [Fact]
+    public void The_rendering_guide_sample_matches_the_golden_image()
+    {
+        // samples/guides/RenderingBackends/AndroidSample.cs (issue #268), run by the device app on the emulator.
+        AndroidDevice device = AndroidDevice.Run();
+
+        GoldenImage render = device.Render(DeviceProtocol.GuideFile, 0, DeviceProtocol.Guide);
+
+        GoldenCorpus.AssertMatchesReference("android", DeviceProtocol.GuideFile, 0, render);
+    }
+
     [Theory]
     [MemberData(nameof(TextPages))]
     public void Text_page_drawn_with_native_glyphs_matches_the_golden_image_within_the_text_threshold(string fileName, int page)

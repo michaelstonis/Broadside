@@ -263,7 +263,7 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
     {
         int width = _width;
         int height = _height;
-        if ((uint)pitch < (uint)width || output.Length < ((height - 1) * pitch) + width)
+        if ((uint)pitch < (uint)width || output.Length < ((long)(height - 1) * pitch) + width)
         {
             throw new ArgumentOutOfRangeException(nameof(output));
         }
