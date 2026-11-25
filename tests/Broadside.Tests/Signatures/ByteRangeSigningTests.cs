@@ -151,7 +151,7 @@ public sealed class ByteRangeSigningTests
     }
 
     /// <summary>Corpus files of each cross-reference form, and <c>Created</c> for a document made with <see cref="PdfDocument.Create()"/>.</summary>
-    public static TheoryData<string> FileLayouts => new() { "incremental-update.pdf", "hybrid-xref.pdf", "linearized.pdf", "object-stream.pdf", "no-xref.pdf", "Created" };
+    public static TheoryData<string> FileLayouts => new() { "incremental-update.pdf", "hybrid-xref.pdf", "linearized.pdf", "object-stream.pdf", "Created" };
 
     [Theory]
     [MemberData(nameof(FileLayouts))]
@@ -166,6 +166,27 @@ public sealed class ByteRangeSigningTests
         var cms = new SignedCms(new ContentInfo(signature.CoveredBytes()), detached: true);
         cms.Decode(signature.Cms);
         cms.CheckSignature(verifySignatureOnly: true);
+        (int exitCode, string output) = ExternalTool.Run("qpdf", signed, "--check");
+        Assert.True(exitCode == 0, output);
+        Assert.Equal(1, Pdfsig.ValidSignatures(Pdfsig.Run(signed)));
+    }
+
+    [Fact]
+    public void A_file_whose_cross_reference_information_was_rebuilt_is_signed_only_after_a_complete_save()
+    {
+        // A signature is an incremental update, which is refused for a file whose cross-reference information had to be rebuilt
+        // (issue #620); the document is left as it was, and the complete file it saves signs.
+        using X509Certificate2 certificate = TestCertificates.SelfSigned("CN=Broadside signer");
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("no-xref.pdf"));
+        int fields = document.AcroForm?.TerminalFields.Count ?? 0;
+
+        Assert.Throws<NotSupportedException>(() => Sign(document, new PdfCertificateSigner(certificate)));
+
+        Assert.Equal(fields, document.AcroForm?.TerminalFields.Count ?? 0);
+        using var complete = new MemoryStream();
+        document.Save(complete);
+        using PdfDocument saved = PdfDocument.Open(complete.ToArray());
+        byte[] signed = Sign(saved, new PdfCertificateSigner(certificate));
         (int exitCode, string output) = ExternalTool.Run("qpdf", signed, "--check");
         Assert.True(exitCode == 0, output);
         Assert.Equal(1, Pdfsig.ValidSignatures(Pdfsig.Run(signed)));

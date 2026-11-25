@@ -326,7 +326,8 @@ internal static class SavePlan
     /// <param name="diagnostics">The document's diagnostics, which record an update refused for its numbers (<see cref="CheckUpdateNumbers"/>).</param>
     /// <returns>The writer.</returns>
     /// <exception cref="NotSupportedException">
-    /// What <see cref="EncryptionPlan"/> refuses, or an update of a file that holds object 2147483647, whose <c>Size</c> or new
+    /// An update of a document whose cross-reference information had to be rebuilt (<see cref="RefuseRebuiltCrossReference"/>), what
+    /// <see cref="EncryptionPlan"/> refuses, or an update of a file that holds object 2147483647, whose <c>Size</c> or new
     /// cross-reference stream would need a number past it.
     /// </exception>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for an update refused for its numbers.</exception>
@@ -342,9 +343,8 @@ internal static class SavePlan
     /// <para>
     /// The section takes the form of the file's newest one, a stream after a stream and a table after a table or a hybrid file's
     /// table (§7.5.8.4), and its trailer repeats the newest trailer's entries except <c>Prev</c>, <c>XRefStm</c> and <c>Size</c>, with
-    /// <c>Prev</c> pointing at that section. A file whose cross-reference information had to be rebuilt (issue #41) has no section to
-    /// point at: its update lists every object instead, so readers no longer need to rebuild it, and it writes again every object
-    /// read with a repair, so appending bytes cannot change how it reads (an object cut off by the end of the file would run on).
+    /// <c>Prev</c> pointing at that section. A file whose cross-reference information had to be rebuilt is refused before anything
+    /// is written (issue #620, <see cref="RefuseRebuiltCrossReference"/>).
     /// </para>
     /// </remarks>
     public static FileWriter CreateIncremental(
@@ -358,6 +358,7 @@ internal static class SavePlan
     {
         CrossReference crossReference = loader.CrossReference;
         CosDictionary sourceTrailer = crossReference.Trailer;
+        RefuseRebuiltCrossReference(crossReference);
         EncryptionPlan encryption = EncryptionPlan.Create(loader, security, options, incremental: true);
 
         var objects = new List<WriterObject>();
@@ -462,6 +463,27 @@ internal static class SavePlan
             StreamNumbers = form == XrefSectionKind.Stream ? StreamNumbers(loader) : null,
             Integrity = encryption.Integrity,
         };
+    }
+
+    /// <summary>
+    /// Refuses, before anything is written, an update of a document whose cross-reference information had to be rebuilt (issue #620):
+    /// rebuilt by scanning the whole file (issue #41), or read through a <c>Prev</c> chain that could not be followed as the file
+    /// states it (<see cref="CrossReference.IsChainRepaired"/>). The earlier sections stay in the file (§7.5.6), so a reader of the
+    /// updated file goes back through them from the update's <c>Prev</c> and may repair them differently, reaching stale or damaged
+    /// entries (an <c>Encrypt</c> the original read never saw, for one) or not reading at all. A complete file is written from what
+    /// the document read and is unaffected. Local repairs that leave the chain as the file states it do not count: a wrong
+    /// <c>startxref</c> (the update's <c>Prev</c> names the section read for it), an offset that points at white-space before its
+    /// section, a malformed table line, or an entry whose object is found a few bytes away.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.5.5 and §7.5.6.</remarks>
+    /// <exception cref="NotSupportedException">The cross-reference information was rebuilt.</exception>
+    private static void RefuseRebuiltCrossReference(CrossReference crossReference)
+    {
+        if (crossReference.Sections[0].IsReconstructed || crossReference.IsChainRepaired)
+        {
+            throw new NotSupportedException(
+                "The document's cross-reference information is damaged and had to be rebuilt; an incremental update would keep the damaged sections, which a reader of the updated file goes back through and may repair differently. Save a complete file instead.");
+        }
     }
 
     /// <summary>

@@ -137,6 +137,7 @@ internal sealed class CrossReference
     private readonly XrefSection? _firstPage;
     private readonly Func<CrossReference>? _readComplete;
     private readonly OnceCache<bool, CrossReference>? _complete;
+    private readonly bool _chainRepaired;
     private IObjectLocator? _locator;
 
     /// <summary>Initializes a new instance of the <see cref="CrossReference"/> class.</summary>
@@ -228,6 +229,19 @@ internal sealed class CrossReference
 
     /// <summary>Gets the sections, newest first.</summary>
     public IReadOnlyList<XrefSection> Sections => _sections ?? Complete.Sections;
+
+    /// <summary>
+    /// Gets a value indicating whether the <c>Prev</c> chain (or a hybrid table's <c>XRefStm</c>) could not be followed as the file
+    /// states it (issue #620): an offset that named no section and was replaced by the nearest section a scan found, or by none, or
+    /// a chain that looped back to a section already read. Such a repair depends on what else was read and on everything the file
+    /// holds, so the same sections read from an incremental update's <c>Prev</c> may be repaired differently.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.5.5 and §7.5.6.</remarks>
+    public bool IsChainRepaired
+    {
+        get => _firstPage is null ? _chainRepaired : Complete.IsChainRepaired;
+        init => _chainRepaired = value;
+    }
 
     /// <summary>Gets the revisions the sections form, oldest first (§7.5.6).</summary>
     /// <remarks>

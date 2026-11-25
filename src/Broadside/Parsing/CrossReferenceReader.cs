@@ -84,7 +84,8 @@ internal static class CrossReferenceReader
         var scratch = new DiagnosticSink(strict: false);
         try
         {
-            XrefSection? section = ReadSection(source, offset + first.Start, isFirst: true, streams, scratch, scan: null, [], XrefEntryBudget.For(source));
+            bool repaired = false;
+            XrefSection? section = ReadSection(source, offset + first.Start, isFirst: true, streams, scratch, scan: null, [], XrefEntryBudget.For(source), ref repaired);
             return scratch.Snapshot().Length == 0 ? section : null;
         }
         catch (DiagnosticException)
@@ -121,10 +122,13 @@ internal static class CrossReferenceReader
         Lazy<FileScan> scan,
         XrefEntryBudget budget)
     {
+        // Issue #620: set when the chain is not followed as the file states it (CrossReference.IsChainRepaired).
+        bool repaired = false;
         while (next is { } offset)
         {
             if (!visited.Add(offset))
             {
+                repaired = true;
                 diagnostics.Report(
                     FileStructureDiagnostics.XrefPrevLoop,
                     DiagnosticSeverity.Error,
@@ -133,14 +137,14 @@ internal static class CrossReferenceReader
                 break;
             }
 
-            XrefSection? section = ReadSection(source, offset, isFirst: sections.Count == 0, streams, diagnostics, scan, visited, budget);
+            XrefSection? section = ReadSection(source, offset, isFirst: sections.Count == 0, streams, diagnostics, scan, visited, budget, ref repaired);
             if (section is null)
             {
                 break;
             }
 
             XrefSection? hybridStream = section.Kind == XrefSectionKind.Table
-                ? ReadHybridStream(source, header, section, visited, streams, diagnostics, scan, budget)
+                ? ReadHybridStream(source, header, section, visited, streams, diagnostics, scan, budget, ref repaired)
                 : null;
             if (hybridStream is not null)
             {
@@ -160,7 +164,7 @@ internal static class CrossReferenceReader
             return null;
         }
 
-        var crossReference = new CrossReference(sections);
+        var crossReference = new CrossReference(sections) { IsChainRepaired = repaired };
         ReportInheritedTrailerEntries(crossReference, diagnostics);
         return crossReference;
     }
@@ -283,7 +287,8 @@ internal static class CrossReferenceReader
         DiagnosticSink diagnostics,
         Lazy<FileScan>? scan,
         HashSet<long> visited,
-        XrefEntryBudget budget)
+        XrefEntryBudget budget,
+        ref bool repaired)
     {
         ReadOnlySpan<byte> window = source.GetWindow(offset).Span;
         var lexer = new CosLexer(window);
@@ -311,6 +316,10 @@ internal static class CrossReferenceReader
         }
 
         string stated = isFirst ? "startxref" : "Prev";
+
+        // A Prev that names no section is repaired from the scan and from what was read so far, which an incremental update's
+        // Prev does not reproduce (issue #620); a startxref is not, since an update's Prev names the section read for it.
+        repaired |= !isFirst;
         if (scan is not null && FindNearestSection(scan.Value, offset, visited) is { } nearest)
         {
             diagnostics.Report(
@@ -319,7 +328,7 @@ internal static class CrossReferenceReader
                 string.Create(CultureInfo.InvariantCulture, $"The {stated} offset does not point at a cross-reference section; the section nearest to it, at offset {nearest}, is read instead."),
                 offset);
             visited.Add(nearest);
-            return ReadSection(source, nearest, isFirst, streams, diagnostics, scan: null, visited, budget);
+            return ReadSection(source, nearest, isFirst, streams, diagnostics, scan: null, visited, budget, ref repaired);
         }
 
         diagnostics.Report(
@@ -419,7 +428,8 @@ internal static class CrossReferenceReader
         StreamDecoder streams,
         DiagnosticSink diagnostics,
         Lazy<FileScan>? scan,
-        XrefEntryBudget budget)
+        XrefEntryBudget budget,
+        ref bool repaired)
     {
         if (!table.Trailer.TryGetValue(KnownNames.XRefStm, out CosObject? entry))
         {
@@ -439,6 +449,7 @@ internal static class CrossReferenceReader
         long offset = header.Offset + stated.Value;
         if (!visited.Add(offset))
         {
+            repaired = true;
             diagnostics.Report(
                 FileStructureDiagnostics.XrefPrevLoop,
                 DiagnosticSeverity.Error,
@@ -452,6 +463,7 @@ internal static class CrossReferenceReader
         CosToken first = lexer.Next();
         if (first.Kind != CosTokenKind.Integer || !StructureTokens.TryReadUnsigned(ref lexer, out _) || !StructureTokens.TryReadKeyword(ref lexer, "obj"u8))
         {
+            repaired = true;
             if (scan is not null && FindNearestSection(scan.Value, offset, visited, streamsOnly: true) is { } nearest)
             {
                 // As for startxref and Prev (issue #41): read the cross-reference stream nearest to the stated offset.
@@ -461,8 +473,8 @@ internal static class CrossReferenceReader
                     string.Create(CultureInfo.InvariantCulture, $"The trailer's XRefStm offset does not point at a cross-reference stream; the stream nearest to it, at offset {nearest}, is read instead."),
                     offset);
                 visited.Add(nearest);
-                return XrefStreamReader.Read(source, nearest, streams, diagnostics, budget) is { } repaired
-                    ? repaired with { Trailer = new CosDictionary() }
+                return XrefStreamReader.Read(source, nearest, streams, diagnostics, budget) is { } nearestStream
+                    ? nearestStream with { Trailer = new CosDictionary() }
                     : null;
             }
 

@@ -1077,7 +1077,9 @@ internal static class FuzzTargets
             catch (NotSupportedException)
             {
                 // An expected refusal: among others, a damaged input whose trailer (or an earlier one) has an Encrypt entry that is
-                // not an encryption dictionary reads as not encrypted, and an update of it is refused (issue #620).
+                // not an encryption dictionary reads as not encrypted, and an update of it is refused, as is an update of an input
+                // whose cross-reference information had to be rebuilt, whose damaged sections the update's Prev would lead back
+                // through (issue #620).
                 return;
             }
 
@@ -1088,34 +1090,14 @@ internal static class FuzzTargets
             }
 
             // A damaged input's old sections stay in the file, and a reader repairs them from where the new chain reaches them,
-            // which may read differently from the original's own repair; only a clean input must reopen with the same pages. Such a
-            // repair may also reach an Encrypt entry the original's did not (a broken table the original rebuilt by scanning, now
-            // read through the new section's Prev), so a damaged input's update may reopen as encrypted (issue #620).
-            using PdfDocument? saved = OpenUpdate(written, clean);
-            if (saved is null)
-            {
-                return;
-            }
-
+            // which may read differently from the original's own repair; only a clean input must reopen with the same pages.
+            using PdfDocument saved = PdfDocument.Open(written);
             if ((clean && saved.Pages.Count != pages) || document.Pages.Count != pages)
             {
                 throw new InvalidOperationException($"The updated file has {saved.Pages.Count} pages; the input had {pages}.");
             }
 
             previous = written;
-        }
-    }
-
-    /// <summary>Opens an incremental update; <see langword="null"/> when a damaged input's update reopens as encrypted.</summary>
-    private static PdfDocument? OpenUpdate(byte[] written, bool clean)
-    {
-        try
-        {
-            return PdfDocument.Open(written);
-        }
-        catch (Exception exception) when (!clean && exception is PdfEncryptionNotSupportedException or PdfPasswordException)
-        {
-            return null;
         }
     }
 
