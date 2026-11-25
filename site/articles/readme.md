@@ -4,7 +4,7 @@ title: "Documentation"
 
 # Documentation
 
-Broadside's packages are on NuGet.org as the 1.0 release candidate (`1.0.0-rc.N`); 1.0.0 follows the soak period, and the public API is frozen for 1.0. These pages say how to start using it, how it is designed, what is implemented, and how to follow or join the work.
+Broadside's packages are on NuGet.org as the 1.0 release candidate (`1.0.0-rc.N`); 1.0.0 follows once the owner is satisfied it is ready, and the public API is frozen for 1.0. These pages say how to start using it, how it is designed, what is implemented, and how to follow or join the work.
 
 - [Getting started](getting-started.md): installation, opening, inspecting and saving a file, the viewers and the samples.
 - [Guides](guides.md): each part of the library with code from compiled, tested samples: [reading](reading.md), [rendering](rendering.md), [writing](writing.md), [building documents](building-documents.md), [editing](editing.md), [extracting text](extracting-text.md), [signatures](signatures.md), [accessibility and conformance](accessibility-and-conformance.md), [viewers](viewers.md) and [migration](migration.md).
