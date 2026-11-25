@@ -99,9 +99,9 @@ internal sealed class EncryptionPlan
     /// <exception cref="PdfEncryptionNotSupportedException">Public-key encryption in a browser, which has no CMS.</exception>
     /// <exception cref="NotSupportedException">
     /// The save would change an incremental update's encryption, or keep an integrity MAC it cannot compute again (a document opened
-    /// without its file encryption key, or whose encryption dictionary has no 32-byte <c>KDFSalt</c> or a <c>V</c> below 5). Never for
-    /// a document read as not encrypted (<paramref name="security"/> <see langword="null"/>) unless new encryption is asked of an
-    /// incremental update.
+    /// without its file encryption key, or whose encryption dictionary has no 32-byte <c>KDFSalt</c> or a <c>V</c> below 5), or an
+    /// incremental update of a document read as not encrypted whose trailer still has a damaged <c>Encrypt</c> entry. Never for a
+    /// complete file of a document read as not encrypted (<paramref name="security"/> <see langword="null"/>).
     /// </exception>
     public static EncryptionPlan Create(ObjectLoader loader, PdfSecurity? security, PdfSaveOptions options, bool incremental)
     {
@@ -176,12 +176,21 @@ internal sealed class EncryptionPlan
                 keepsSourceEncryption: false);
         }
 
+        if (security is null && hasEncrypt && incremental)
+        {
+            // Issue #620: an Encrypt entry, in the newest trailer or one an earlier revision's supplies, that is not an encryption
+            // dictionary (EncryptDictionaryInvalid: the document was read as not encrypted). An update leaves the earlier trailers
+            // as written, so the damaged entry stays in the file, and the updated file may read through a different repair or not
+            // at all. Only a complete file can drop it.
+            throw new NotSupportedException(
+                "The document's trailer has an Encrypt entry that is not an encryption dictionary (a damaged file, read as not encrypted), which an incremental update would keep; save a complete file instead, which drops the damaged entry.");
+        }
+
         if (security is null || decryptor is null)
         {
             // Not encrypted, or an Encrypt entry that is not an encryption dictionary (EncryptDictionaryInvalid: the document was
             // read, and IsEncrypted reports it, as not encrypted): nothing to decrypt or encrypt, so the save is the one an
-            // unencrypted document gets. The damaged entry is dropped from a complete file, and from an incremental update asked to
-            // remove encryption; any other update repeats it, so the file reads back the way it was read.
+            // unencrypted document gets. A complete file drops the damaged entry; an incremental update of it was refused above.
             return new EncryptionPlan(null, replacesDictionary: hasEncrypt && (!incremental || options.RemoveEncryption), null, null, [], null, null, keepsSourceEncryption: false);
         }
 

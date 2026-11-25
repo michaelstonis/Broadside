@@ -341,8 +341,7 @@ internal static class SavePlan
     /// </para>
     /// <para>
     /// The section takes the form of the file's newest one, a stream after a stream and a table after a table or a hybrid file's
-    /// table (§7.5.8.4), and its trailer repeats the newest trailer's entries except <c>Prev</c>, <c>XRefStm</c> and <c>Size</c> (and a
-    /// damaged <c>Encrypt</c> entry the document was read without, when the save removes encryption: issue #283), with
+    /// table (§7.5.8.4), and its trailer repeats the newest trailer's entries except <c>Prev</c>, <c>XRefStm</c> and <c>Size</c>, with
     /// <c>Prev</c> pointing at that section. A file whose cross-reference information had to be rebuilt (issue #41) has no section to
     /// point at: its update lists every object instead, so readers no longer need to rebuild it, and it writes again every object
     /// read with a repair, so appending bytes cannot change how it reads (an object cut off by the end of the file would run on).

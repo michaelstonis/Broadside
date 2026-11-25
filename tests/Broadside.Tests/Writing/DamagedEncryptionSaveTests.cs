@@ -8,7 +8,8 @@ namespace Broadside.Tests.Writing;
 /// <summary>
 /// A file whose trailer has an <c>Encrypt</c> entry that does not reach an encryption dictionary (issue #283, found by the
 /// <c>flatten</c> fuzz target: a mutation that broke the encryption dictionary's object header). It reads as not encrypted with an
-/// <c>EncryptDictionaryInvalid</c> error, and saves the way an unencrypted document does. ISO 32000-2 §7.6.1, §7.6.2; ADR 0005.
+/// <c>EncryptDictionaryInvalid</c> error, and saves as a complete file the way an unencrypted document does; an incremental update of
+/// it is refused (issue #620). ISO 32000-2 §7.6.1, §7.6.2; ADR 0005.
 /// </summary>
 public sealed class DamagedEncryptionSaveTests
 {
@@ -63,41 +64,59 @@ public sealed class DamagedEncryptionSaveTests
 
     [Theory]
     [MemberData(nameof(DamagedEntries))]
-    public void A_document_read_as_not_encrypted_saves_incrementally_and_reads_back_the_same_way(string entry)
+    public void An_incremental_update_of_a_document_read_as_not_encrypted_is_refused_and_a_complete_file_still_saves(string entry)
     {
-        byte[] original = Damaged(entry);
-        using PdfDocument document = PdfDocument.Open(original);
+        // Found by the save fuzz target (issue #620): the update repeats the damaged entry, and the updated file can read through a
+        // different repair, or not at all. The update is refused before a byte is written; a complete file drops the entry.
+        using PdfDocument document = PdfDocument.Open(Damaged(entry));
         document.Catalog[new CosName("Lang")] = new CosString("en"u8);
 
-        byte[] saved = Save(document, new PdfSaveOptions().WithIncrementalUpdate(true));
+        using var output = new MemoryStream();
+        var exception = Assert.Throws<NotSupportedException>(() => document.Save(output, new PdfSaveOptions().WithIncrementalUpdate(true)));
 
-        Assert.True(saved.AsSpan(0, original.Length).SequenceEqual(original));
-        using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.Contains("complete file", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, output.Length);
+        using PdfDocument reopened = PdfDocument.Open(Save(document, new PdfSaveOptions()));
         Assert.False(reopened.IsEncrypted);
+        Assert.False(reopened.Trailer.ContainsKey(Encrypt));
         Assert.Equal("en", ((CosString)reopened.Catalog[new CosName("Lang")]).DecodeText());
-        Assert.Single(reopened.Pages);
-        Assert.Contains(reopened.Diagnostics, d => d.Code == "EncryptDictionaryInvalid");
+        Assert.Empty(reopened.Diagnostics);
     }
 
     [Theory]
     [MemberData(nameof(DamagedEntries))]
-    public void Removing_encryption_from_a_document_read_as_not_encrypted_drops_the_damaged_entry_in_either_layout(string entry)
+    public void An_incremental_update_is_refused_when_only_an_earlier_trailer_has_the_damaged_entry(string entry)
     {
-        byte[] original = Damaged(entry);
-        using PdfDocument document = PdfDocument.Open(original);
+        // The newest trailer has no Encrypt entry; the one its Prev chain reaches does, and is read with it.
+        byte[] file = TestPdf.AppendUpdate(Damaged(entry), $"/Size 5 /Root 1 0 R {Id}", (4, 0, "43"));
+        using PdfDocument document = PdfDocument.Open(file);
+        Assert.False(document.IsEncrypted);
+        Assert.Contains(document.Diagnostics, d => d.Code == "EncryptDictionaryInvalid");
+
+        Assert.Throws<NotSupportedException>(() => document.Save(new MemoryStream(), new PdfSaveOptions().WithIncrementalUpdate(true)));
+
+        using PdfDocument reopened = PdfDocument.Open(Save(document, new PdfSaveOptions()));
+        Assert.False(reopened.Trailer.ContainsKey(Encrypt));
+        Assert.Single(reopened.Pages);
+        Assert.Empty(reopened.Diagnostics);
+    }
+
+    [Theory]
+    [MemberData(nameof(DamagedEntries))]
+    public void Removing_encryption_from_a_document_read_as_not_encrypted_drops_the_damaged_entry_from_a_complete_file_only(string entry)
+    {
+        using PdfDocument document = PdfDocument.Open(Damaged(entry));
 
         byte[] complete = Save(document, new PdfSaveOptions().WithRemoveEncryption(true));
-        byte[] incremental = Save(document, new PdfSaveOptions().WithIncrementalUpdate(true).WithRemoveEncryption(true));
 
-        Assert.True(incremental.AsSpan(0, original.Length).SequenceEqual(original));
-        foreach (byte[] saved in new[] { complete, incremental })
-        {
-            using PdfDocument reopened = PdfDocument.Open(saved);
-            Assert.False(reopened.IsEncrypted);
-            Assert.False(reopened.Trailer.ContainsKey(Encrypt));
-            Assert.Single(reopened.Pages);
-            Assert.DoesNotContain(reopened.Diagnostics, d => d.Code == "EncryptDictionaryInvalid");
-        }
+        using PdfDocument reopened = PdfDocument.Open(complete);
+        Assert.False(reopened.IsEncrypted);
+        Assert.False(reopened.Trailer.ContainsKey(Encrypt));
+        Assert.Single(reopened.Pages);
+        Assert.DoesNotContain(reopened.Diagnostics, d => d.Code == "EncryptDictionaryInvalid");
+
+        // An earlier revision's trailer may still hold the entry, so an update cannot take it out (issue #620).
+        Assert.Throws<NotSupportedException>(() => document.Save(new MemoryStream(), new PdfSaveOptions().WithIncrementalUpdate(true).WithRemoveEncryption(true)));
     }
 
     /// <summary>Each save that replaces or drops the encryption dictionary, with and without garbage collection and renumbering.</summary>

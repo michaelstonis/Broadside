@@ -47,6 +47,8 @@ foreach (PdfModification modification in signature.Modifications)
 
 The sample checks both claims: the signed file is a byte-for-byte prefix of the updated one, and the signature validates as `Valid`, with the annotation listed as a permitted change made after signing. Saving a signed document in full would rewrite the signed bytes and break its signatures. After an incremental save the document reads from the file it wrote, so the next incremental save appends only what changes after it.
 
+An incremental save keeps the document's encryption, so it is refused with a `NotSupportedException` when that encryption cannot be kept as it is. One case comes from damaged files: when the trailer's `Encrypt` entry (or the one an earlier revision's trailer supplies) is not an encryption dictionary, the document opens as not encrypted with an `EncryptDictionaryInvalid` error, and an update appended to it would repeat the damaged entry and could leave a file that no longer opens. Save such a document as a complete file instead; a full save drops the damaged entry.
+
 A full save can also reorganize the file: a cross-reference stream with object streams for smaller files, dropping unreachable objects, or linearizing for fast first-page display on the web (`WithLinearize(true)`):
 
 <!-- snippet: samples/guides/Editing/Program.cs#full-save -->
