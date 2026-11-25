@@ -4,14 +4,15 @@ Broadside reads PDF files that nobody has checked: files uploaded by users, atta
 
 ## Supported versions
 
-Broadside follows Semantic Versioning: there are no breaking changes within 1.x. Every package ships under one shared version number.
+Broadside follows Semantic Versioning: there are no breaking changes within 1.x. Every package, the viewers included, ships under one shared version number. Broadside is at its 1.0 release candidate; 1.0.0 follows the soak period.
 
 | Version | Supported |
 |---|---|
 | Latest 1.x minor (for example 1.2.x when 1.2 is current) | Yes: every fix, security fixes included, ships as a patch release of this minor. |
 | Previous 1.x minor | Security fixes only, for 6 months after the next minor is released. |
 | Older 1.x minors | No. Upgrade to the latest minor; within 1.x that needs no code changes. |
-| `0.x` previews and `1.0.0-rc.N` release candidates | No. Previews are superseded by the next preview; upgrade to 1.0 or later. |
+| `1.0.0-rc.N` release candidates | The latest candidate, until 1.0.0 is released: security fixes ship in the next candidate or in 1.0.0. Earlier candidates are not; upgrade to the latest. |
+| `0.x` previews | No. Upgrade to the latest release candidate, or to 1.0 or later once it is out. |
 
 Every 1.x release targets .NET 10 (`net10.0`) for its whole life. Fixes are made on the `main` branch and, for a supported previous minor, backported to its release branch.
 

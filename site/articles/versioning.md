@@ -27,6 +27,10 @@ never published.
 Pre-release tags have a `-` suffix; their GitHub releases are marked as pre-releases and NuGet shows their packages as
 pre-release.
 
+Broadside is at its 1.0 release candidate; 1.0.0 follows the soak period. The
+[general-availability criteria](https://github.com/michaelstonis/Broadside/blob/main/docs/release/ga-criteria.md) say how long
+a candidate soaks, which issues block 1.0.0, and how the owner tags it.
+
 ## Semantic Versioning from 1.0
 
 From 1.0 on, the version says what an upgrade can break:

@@ -8,7 +8,7 @@ A PDF library for .NET, written entirely in C#. Read, create, edit, sign and ren
 **[Try the live demo](https://michaelstonis.github.io/Broadside/demo/)**. It runs in your browser, on a phone too. Open a PDF, search it, fill in its form, add notes, or create a new document.
 
 > [!NOTE]
-> Broadside is in preview. It's tested and on NuGet, but the API can still change between versions until 1.0.
+> Broadside is at its 1.0 release candidate; 1.0.0 follows the soak period. The API is frozen for 1.0: only fixes land between now and 1.0.0. Every package, the viewers included, ships as 1.0.0.
 
 ## Why Broadside
 
@@ -35,7 +35,7 @@ Broadside reads JavaScript, 3D content, video and XFA forms and keeps them when 
 
 ## Install
 
-Broadside needs .NET 10. All packages are previews, so add `--prerelease`:
+Broadside needs .NET 10. Until 1.0.0 is out the packages are release candidates, so add `--prerelease`:
 
 ```sh
 dotnet add package Broadside --prerelease                    # read, write and edit
@@ -179,14 +179,9 @@ The built-in renderer draws the same pixels on every platform, so a page looks i
 
 **Done.** Reading, writing, editing, rendering, text extraction, forms, signatures, PDF/A and PDF/UA output, the document builder, and all six viewer controls.
 
-**Next, for 1.0:**
+**1.0 release candidate:** the API is frozen, every part of the library has a guide, the security review is done, and the [performance comparison](https://michaelstonis.github.io/Broadside/articles/performance/) with PDFium and pdf.js is published. 1.0.0 follows the soak period ([general-availability criteria](docs/release/ga-criteria.md)).
 
-- Lock down the API so it stops changing between versions
-- Guides for every part of the library, and migration guides from PdfSharp, iText and PdfPig
-- A security review
-- A published performance comparison with PDFium and pdf.js
-
-**After 1.0:** text shaping for more scripts (Indic, Thai and others), more form features, more signature types, and the less common parts of the PDF standard.
+**After 1.0:** migration guides from PdfSharp, iText and PdfPig, text shaping for more scripts (Indic, Thai and others), more form features, more signature types, and the less common parts of the PDF standard.
 
 ## Documentation
 

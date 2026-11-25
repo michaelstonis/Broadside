@@ -4,7 +4,7 @@ title: "Getting started"
 
 # Getting started
 
-Broadside's packages are on [NuGet.org](https://www.nuget.org/packages/Broadside) as previews (`0.1.0-preview.N`) until v1. The public API may still change between previews. The packages target `net10.0` only.
+Broadside's packages are on [NuGet.org](https://www.nuget.org/packages/Broadside) as the 1.0 release candidate (`1.0.0-rc.N`); 1.0.0 follows the soak period. The public API is frozen for 1.0: only fixes land between candidates. Every package, the viewers included, ships as 1.0.0, and the packages target `net10.0` only.
 
 To see the library before installing anything, open the [live demo](/demo/): the Blazor WebAssembly viewer and the rest of the library running in your browser.
 
@@ -12,7 +12,7 @@ Every piece of code on this page comes from [`samples/guides/GettingStarted`](ht
 
 ## Install
 
-The packages are prereleases, so pass `--prerelease`:
+Until 1.0.0 is out the packages are release candidates, which NuGet treats as prereleases, so pass `--prerelease`:
 
 ```sh
 dotnet new console -o HelloBroadside && cd HelloBroadside
