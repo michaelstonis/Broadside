@@ -8,7 +8,7 @@ A PDF library for .NET, written entirely in C#. Read, create, edit, sign and ren
 **[Try the live demo](https://michaelstonis.github.io/Broadside/demo/)**. It runs in your browser, on a phone too. Open a PDF, search it, fill in its form, add notes, or create a new document.
 
 > [!NOTE]
-> Broadside is at its 1.0 release candidate; 1.0.0 follows the soak period. The API is frozen for 1.0: only fixes land between now and 1.0.0. Every package, the viewers included, ships as 1.0.0.
+> Broadside is at its 1.0 release candidate; 1.0.0 follows once the owner is satisfied it is ready. The API is frozen for 1.0: only fixes land between now and 1.0.0. Every package, the viewers included, ships as 1.0.0.
 
 ## Why Broadside
 
@@ -179,7 +179,7 @@ The built-in renderer draws the same pixels on every platform, so a page looks i
 
 **Done.** Reading, writing, editing, rendering, text extraction, forms, signatures, PDF/A and PDF/UA output, the document builder, and all six viewer controls.
 
-**1.0 release candidate:** the API is frozen, every part of the library has a guide, the security review is done, and the [performance comparison](https://michaelstonis.github.io/Broadside/articles/performance/) with PDFium and pdf.js is published. 1.0.0 follows the soak period ([general-availability criteria](docs/release/ga-criteria.md)).
+**1.0 release candidate:** the API is frozen, every part of the library has a guide, the security review is done, and the [performance comparison](https://michaelstonis.github.io/Broadside/articles/performance/) with PDFium and pdf.js is published. 1.0.0 follows once the owner is satisfied it is ready ([notes on getting to 1.0.0](docs/release/ga-criteria.md)).
 
 **After 1.0:** migration guides from PdfSharp, iText and PdfPig, text shaping for more scripts (Indic, Thai and others), more form features, more signature types, and the less common parts of the PDF standard.
 

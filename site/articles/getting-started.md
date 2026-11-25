@@ -4,7 +4,7 @@ title: "Getting started"
 
 # Getting started
 
-Broadside's packages are on [NuGet.org](https://www.nuget.org/packages/Broadside) as the 1.0 release candidate (`1.0.0-rc.N`); 1.0.0 follows the soak period. The public API is frozen for 1.0: only fixes land between candidates. Every package, the viewers included, ships as 1.0.0, and the packages target `net10.0` only.
+Broadside's packages are on [NuGet.org](https://www.nuget.org/packages/Broadside) as the 1.0 release candidate (`1.0.0-rc.N`); 1.0.0 follows once the owner is satisfied it is ready. The public API is frozen for 1.0: only fixes land between candidates. Every package, the viewers included, ships as 1.0.0, and the packages target `net10.0` only.
 
 To see the library before installing anything, open the [live demo](/demo/): the Blazor WebAssembly viewer and the rest of the library running in your browser.
 
