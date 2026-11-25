@@ -116,9 +116,18 @@ internal static class SeedWriter
             files.AddRange(Directory.EnumerateFiles(images, pattern, SearchOption.AllDirectories).Order(StringComparer.Ordinal));
         }
 
-        foreach (string path in files)
+        // Inputs no corpus file holds: OpenType programs with layout tables (the corpus fonts carry none), and the predefined CMaps
+        // the core reads from Broadside.Fonts.Cmaps (raw deflate, inflated here).
+        List<byte[]> built = target switch
         {
-            byte[] seed = File.ReadAllBytes(path);
+            "gpos" => [PositioningTestFont.Build(), PositioningTestFont.Build(gpos: true, (1, 22, -80), (22, 1, -70), (20, 15, -50))],
+            "gsub" => [ShapingTestFont.Build(), PositioningTestFont.Build()],
+            "cmap" => [.. PredefinedCMaps()],
+            _ => [],
+        };
+
+        foreach (byte[] seed in built.Concat(files.Select(File.ReadAllBytes)))
+        {
             string name = Convert.ToHexStringLower(SHA256.HashData(seed));
             if (seed.Length is > 0 and <= MaxSeedLength && written.Add(name))
             {
@@ -127,6 +136,24 @@ internal static class SeedWriter
         }
 
         return written.Count;
+    }
+
+    /// <summary>The predefined CMaps bundled in Broadside.Fonts.Cmaps, inflated.</summary>
+    private static IEnumerable<byte[]> PredefinedCMaps()
+    {
+        string directory = Path.Combine(CorpusLocator.RepositoryRoot, "src", "Broadside.Fonts.Cmaps", "CMaps");
+        if (!Directory.Exists(directory))
+        {
+            yield break;
+        }
+
+        foreach (string path in Directory.GetFiles(directory, "*.deflate").Order(StringComparer.Ordinal))
+        {
+            using var inflater = new System.IO.Compression.DeflateStream(File.OpenRead(path), System.IO.Compression.CompressionMode.Decompress);
+            using var text = new MemoryStream();
+            inflater.CopyTo(text);
+            yield return text.ToArray();
+        }
     }
 
     private static IEnumerable<byte[]> SeedsOf(string target, byte[] file) => target switch
