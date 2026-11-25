@@ -9,8 +9,6 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>Broadside.BuilderSamples</RootNamespace>
     <AssemblyName>Broadside.BuilderSamples</AssemblyName>
-    <!-- The document builder is experimental until 1.1. -->
-    <NoWarn>$(NoWarn);BROADSIDE0001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

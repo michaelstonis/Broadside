@@ -6,13 +6,7 @@ title: "Building documents"
 
 The document builder in `Broadside.Layout` describes a document as nested content in plain C#: lambdas for structure, short modifier chains for detail. It lays the content out through the flow engine and returns an ordinary `PdfDocument`, tagged and with its fonts embedded. It is a front over flow layout, not a second layout engine: every element becomes a flow block, and a test proves the bytes match the same blocks built by hand.
 
-The builder is experimental in 1.0 and stabilizes in 1.1. Code that uses it opts in once per project:
-
-```xml
-<PropertyGroup>
-  <NoWarn>$(NoWarn);BROADSIDE0001</NoWarn>
-</PropertyGroup>
-```
+The builder is stable 1.x API: it follows the same versioning promise as the rest of Broadside, and using it needs no opt-in.
 
 Every sample on this page is compiled and run in CI from [`samples/Broadside.BuilderSamples`](https://github.com/michaelstonis/Broadside/tree/main/samples/Broadside.BuilderSamples), and its output is checked with qpdf and veraPDF.
 

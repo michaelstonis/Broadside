@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Broadside.Graphics;
 
 namespace Broadside.Layout.Flow;
@@ -9,7 +8,6 @@ namespace Broadside.Layout.Flow;
 /// <see cref="Theme.BaseSize"/>: 2, 1.6, 1.3, 1.15, 1 and 0.9 times it for <c>H1</c> to <c>H6</c>.
 /// </summary>
 /// <remarks>ISO 32000-2 §14.8.4.3.6 (<c>H1</c> to <c>H6</c>). Immutable: derive variants with <c>with { }</c>.</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public sealed record HeadingStyles
 {
     private static readonly double[] Scales = [2, 1.6, 1.3, 1.15, 1, 0.9];
@@ -76,7 +74,6 @@ public sealed record HeadingStyles
 /// </para>
 /// <para>Colors are DeviceRGB (ISO 32000-2 §8.6.4.3); a text color equal to black writes no color operator.</para>
 /// </remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public sealed record Theme
 {
     /// <summary>

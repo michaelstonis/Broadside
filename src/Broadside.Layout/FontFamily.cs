@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Broadside.Fonts;
 using Broadside.Fonts.Standard14;
 
@@ -6,7 +5,6 @@ namespace Broadside.Layout.Flow;
 
 /// <summary>The Standard 14 families a <see cref="FontFamily"/> can stand on, each embedded as its metric-compatible Liberation program.</summary>
 /// <remarks>ISO 32000-2 §9.6.2.2.</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public enum Standard14Family
 {
     /// <summary>Helvetica, embedded as Liberation Sans.</summary>
@@ -32,7 +30,6 @@ public enum Standard14Family
 /// </para>
 /// <para>Minimum PDF version: 1.2 for a TrueType program, 1.6 for an OpenType one; the document raises its version as needed.</para>
 /// </remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public sealed class FontFamily
 {
     private static readonly FontFamily[] NoFallbacks = [];

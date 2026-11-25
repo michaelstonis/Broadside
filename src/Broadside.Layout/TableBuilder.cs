@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Broadside.Graphics;
 
 namespace Broadside.Layout.Flow;
@@ -8,7 +7,6 @@ namespace Broadside.Layout.Flow;
 /// <c>Column</c> scope; <see cref="RowBuilder.HeaderCell(string)"/> makes a row header (<c>TH</c> with <c>Row</c> scope).
 /// </summary>
 /// <remarks>ISO 32000-2 §14.8.4.8.3 (<c>Table</c>, <c>THead</c>, <c>TBody</c>, <c>TR</c>, <c>TH</c>, <c>TD</c>) and §14.8.5.7, Table 384.</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct TableBuilder
 {
     private readonly BuildContext? _context;
@@ -135,7 +133,6 @@ public readonly ref struct TableBuilder
 
 /// <summary>The cells of a table row in the document builder.</summary>
 /// <remarks>ISO 32000-2 §14.8.4.8.3 (<c>TH</c>, <c>TD</c>) and §14.8.5.7, Table 384 (<c>RowSpan</c>, <c>ColSpan</c>, <c>Scope</c>).</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct RowBuilder
 {
     private readonly BuildContext? _context;
@@ -212,7 +209,6 @@ public readonly ref struct RowBuilder
 
 /// <summary>A table's modifiers in the document builder: its caption, striping, borders, padding and the style its cells inherit.</summary>
 /// <remarks>The table's style starts from the theme's <see cref="Theme.Table"/>. ISO 32000-2 §14.8.4.8.3 and §14.8.4.4 (<c>Caption</c>).</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct TableElement
 {
     private readonly BuildContext? _context;
@@ -428,7 +424,6 @@ public readonly ref struct TableElement
 
 /// <summary>A row's modifiers in the document builder: its background, pagination and the style its cells inherit.</summary>
 /// <remarks>ISO 32000-2 §14.8.4: a row is tagged <c>TR</c>.</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct RowElement
 {
     private readonly BuildContext? _context;
@@ -509,7 +504,6 @@ public readonly ref struct RowElement
 
 /// <summary>A cell's modifiers in the document builder: spans, background, padding, alignment and the style its content inherits.</summary>
 /// <remarks>ISO 32000-2 §14.8.4.8 (<c>TD</c> and <c>TH</c>) and §14.8.5.7, Table 384 (<c>RowSpan</c>, <c>ColSpan</c>).</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct CellElement
 {
     private readonly BuildContext? _context;
