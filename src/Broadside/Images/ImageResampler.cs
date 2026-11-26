@@ -8,7 +8,7 @@ namespace Broadside.Images;
 /// </summary>
 /// <remarks>
 /// <para>
-/// ISO 32000-2 §8.9.3 (the sample layout), §8.9.4 (the image maps onto the unit square, so a smaller grid covers the same area) and
+/// ISO 32000-2 §8.9.5.1 (the image's <c>Width</c>, <c>Height</c> and <c>BitsPerComponent</c>), §8.9.3 (the sample layout), §8.9.4 (the image maps onto the unit square, so a smaller grid covers the same area) and
 /// §8.9.5.3 (a reduced image averages what each new sample covers). Source column x of a W-wide image covers [x·W′, (x + 1)·W′) of
 /// the W·W′ units the row spans, and target column i covers [i·W, (i + 1)·W); as W′ ≤ W, a source column falls in at most two
 /// target columns, and its weight in each is the integer length of the overlap. Rows are weighted the same way, so every target

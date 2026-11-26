@@ -3,7 +3,7 @@ using Broadside.Objects;
 namespace Broadside.Images;
 
 /// <summary>What the save-time image pass does, or would do, to one image (issue #625).</summary>
-/// <remarks>ISO 32000-2 §8.9.5.3 (reduction), §7.4.4 and §7.4.8.</remarks>
+/// <remarks>ISO 32000-2 §8.9.5.1 (image dictionaries), §8.9.5.3 (reduction), §7.4.4 and §7.4.8.</remarks>
 [Flags]
 public enum PdfImageOptimizationActions
 {

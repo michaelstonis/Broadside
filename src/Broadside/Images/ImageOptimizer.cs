@@ -100,6 +100,10 @@ internal static class ImageOptimizer
         return results;
     }
 
+    /// <summary>Runs the pass for a save and says whether an image changed; what <see cref="PdfDocument.ImagePass"/> holds.</summary>
+    public static bool ApplyForSave(PdfDocument document, PdfImageOptimization options, CompressionLevel level) =>
+        Apply(document, options, level).Exists(static result => result.Actions != PdfImageOptimizationActions.None);
+
     /// <summary>Every appearance stream of an annotation: each mode, and each state of a mode that has states.</summary>
     private static IEnumerable<PdfFormXObject> Appearances(PdfAnnotation annotation)
     {

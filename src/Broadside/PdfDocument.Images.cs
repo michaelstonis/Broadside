@@ -38,11 +38,16 @@ public sealed partial class PdfDocument
         return ImageOptimizer.Plan(this, options);
     }
 
+    /// <summary>
+    /// Gets or sets the save-time image pass, set by the first <see cref="PdfImageOptimization"/> created: a save reaches the pass
+    /// only through it, so a trimmed application that never asks for image optimization does not carry it.
+    /// </summary>
+    internal static Func<PdfDocument, PdfImageOptimization, System.IO.Compression.CompressionLevel, bool>? ImagePass { get; set; }
+
     /// <summary>Runs the save-time image pass when the options ask for it (issue #625).</summary>
     /// <returns>Whether an image changed.</returns>
     private bool OptimizeImagesForSave(PdfSaveOptions options) =>
-        options.ImageOptimization is { } optimization
-        && ImageOptimizer.Apply(this, optimization, options.CompressionLevel).Exists(static result => result.Actions != PdfImageOptimizationActions.None);
+        options.ImageOptimization is { } optimization && ImagePass is { } pass && pass(this, optimization, options.CompressionLevel);
 
     /// <summary>Refuses image optimization in an incremental update: the images of earlier, possibly signed, revisions stay as written (§7.5.6).</summary>
     private static void CheckImageOptimization(PdfSaveOptions options)

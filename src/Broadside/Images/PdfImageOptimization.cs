@@ -24,6 +24,13 @@ public sealed class PdfImageOptimization
     private int? _jpegQuality;
     private double? _maxBitonalResolution;
 
+    /// <summary>Initializes a new instance of the <see cref="PdfImageOptimization"/> class, which changes nothing until a cap or a quality is set.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §8.9.5.3. Creating options is what links the image pass into a save: an application that never creates them
+    /// keeps the resampler and encoders out of a trimmed build.
+    /// </remarks>
+    public PdfImageOptimization() => PdfDocument.ImagePass ??= ImageOptimizer.ApplyForSave;
+
     /// <summary>
     /// Gets or sets the most pixels per inch an image keeps at its largest placement; <see langword="null"/> (the default) resamples
     /// nothing. Applies to every image except 1-bit images and image masks, which <see cref="MaxBitonalResolution"/> caps.
