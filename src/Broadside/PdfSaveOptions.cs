@@ -510,7 +510,7 @@ public sealed class PdfSaveOptions
     /// <see cref="Images.PdfImageOptimization.MaxResolution"/> and re-encodes them as <see cref="Images.PdfImageOptimization"/> says,
     /// keeping each stream's object number, so every placement changes at once. A new encoding replaces the old one only when it is
     /// smaller. Colour spaces are kept, so a PDF/A save sees the same colour; the pass adds no feature later than the document's version
-    /// (ADR 0003). See <see cref="PdfDocument.PlanImageOptimization"/> for a dry run.
+    /// (Flate output needs PDF 1.2). See <see cref="PdfDocument.PlanImageOptimization"/> for a dry run.
     /// </para>
     /// <para>
     /// The pass changes the document, like the other changes a save makes, and runs on the saving thread. An image that cannot be

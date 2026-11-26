@@ -51,7 +51,7 @@ public enum PdfImageOptimizationReason
     /// <summary>The new encoding was not smaller than the old one, which is kept.</summary>
     WouldGrow,
 
-    /// <summary>The lossless encoding the pass writes (<c>FlateDecode</c>, PDF 1.2) is later than the document's version allows (ADR 0003).</summary>
+    /// <summary>The lossless encoding the pass writes (<c>FlateDecode</c>, PDF 1.2) is later than the document's version; the pass adds no feature the document does not already allow.</summary>
     VersionTooLow,
 }
 

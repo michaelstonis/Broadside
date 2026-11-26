@@ -31,7 +31,7 @@ namespace Broadside.Images;
 /// entry are kept, so every placement changes at once and a PDF/A checker sees the same colour. A soft or explicit mask is resampled
 /// by the same factor as its image (each maps onto the unit square on its own, §8.9.6.3 and §11.6.5.2, so a mask that cannot be
 /// resampled is kept as it is). A new encoding replaces the old one only when it is shorter. The document's caches follow the change
-/// through the streams' versions (ADR 0004).
+/// through the streams' versions: the views read the changed streams, never copies.
 /// </para>
 /// </remarks>
 internal static class ImageOptimizer
