@@ -11,6 +11,9 @@ namespace Broadside.Rendering.Tests;
 /// </summary>
 public sealed class StampRenderingTests
 {
+    // The bundled Standard 14 programs, not the platform's fonts, so the snapshots are the same on every operating system.
+    private static readonly PdfEngine Engine = new(new PdfOptions().UseStandard14Fonts().UseSystemFontResolver(null));
+
     [Theory]
     [InlineData("page-rotation.pdf", 0)]
     [InlineData("page-rotation.pdf", 1)]
@@ -40,7 +43,7 @@ public sealed class StampRenderingTests
 
         using var output = new MemoryStream();
         await document.SaveAsync(output, TestContext.Current.CancellationToken);
-        using PdfDocument reopened = await PdfDocument.OpenAsync(output.ToArray(), TestContext.Current.CancellationToken);
+        using PdfDocument reopened = await Engine.OpenAsync(output.ToArray(), TestContext.Current.CancellationToken);
         using var rasterizer = new SoftwareRasterizer();
         using Bitmap bitmap = rasterizer.Render(reopened.Pages[page]);
         Assert.Empty(reopened.Diagnostics);
