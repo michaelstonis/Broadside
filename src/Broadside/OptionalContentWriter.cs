@@ -24,13 +24,29 @@ internal static class OptionalContentWriter
     /// <summary>Adds a group named <paramref name="name"/>, listed in <c>OCGs</c> and the default configuration's <c>Order</c>, OFF when not <paramref name="visible"/>.</summary>
     public static CosReference AddGroup(PdfDocument document, string name, bool visible)
     {
-        CosDictionary properties = Properties(document, out bool created);
         CosReference reference = document.AddObject(new CosDictionary
         {
             [KnownNames.Type] = FileAndLayerNames.OCG,
             [FileAndLayerNames.Name] = Structure.StructureWriter.Text(name),
         });
-        Array(document, properties, FileAndLayerNames.OCGs).Add(reference);
+        RegisterGroup(document, reference, visible);
+        return reference;
+    }
+
+    /// <summary>
+    /// Lists the group <paramref name="reference"/> names, already an object of <paramref name="document"/> (a copy from another
+    /// document, issue #628), as <see cref="AddGroup"/> lists a new one; nothing when <c>OCGs</c> already lists it.
+    /// </summary>
+    public static void RegisterGroup(PdfDocument document, CosReference reference, bool visible)
+    {
+        CosDictionary properties = Properties(document, out bool created);
+        CosArray groups = Array(document, properties, FileAndLayerNames.OCGs);
+        if (groups.Contains(reference))
+        {
+            return;
+        }
+
+        groups.Add(reference);
         if (document.Resolve(properties.TryGetValue(FileAndLayerNames.D, out CosObject? d) ? d : null) is not CosDictionary configuration)
         {
             configuration = [];
@@ -50,7 +66,6 @@ internal static class OptionalContentWriter
         }
 
         document.RequireFeature(VersionedFeatures.OptionalContent);
-        return reference;
     }
 
     /// <summary>Adds a membership dictionary over <paramref name="groups"/> with <paramref name="policy"/>.</summary>

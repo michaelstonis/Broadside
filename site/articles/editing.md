@@ -111,6 +111,36 @@ lastPage.Save("book-last-page.pdf");
 
 `AppendPages` adds the pages of another document (or a range of them) to an existing one.
 
+## Drawing a page onto another page
+
+`CreateFormXObject(page)` makes a page, of the same document or another one, into a form XObject that a canvas draws with `DrawForm`, scaled and placed: a letterhead under every page, a 2-up handout, a cover template. The form shows the page's crop box as a viewer shows it (rotated, `UserUnit` applied) with its lower-left corner at the origin, so one `Transform` places it. Making the same page into a form again returns the same form, and pages of one source that share fonts copy them once.
+
+<!-- snippet: samples/guides/Editing/Program.cs#page-as-form -->
+```csharp
+using PdfDocument letterhead = PdfDocument.Open("chapter1.pdf");
+using PdfDocument handout = PdfDocument.Create();
+PdfPage sheet = handout.Pages[0];
+using (PdfCanvas canvas = sheet.CreateCanvas())
+{
+    for (int i = 0; i < 2; i++)
+    {
+        // The page as a form XObject: its crop box, rotated as a viewer shows it, lower-left corner at the origin.
+        PdfFormXObject form = handout.CreateFormXObject(letterhead.Pages[i]);
+        canvas.SaveState();
+        canvas.Transform(new Matrix(0.5, 0, 0, 0.5, 153, 396 - (i * 396)));  // half size, one above the other
+        canvas.DrawForm(form);
+        canvas.RestoreState();
+    }
+}
+
+handout.Save("chapter1-2-up.pdf");
+```
+<!-- endsnippet -->
+
+`PdfPageFormOptions` chooses another box (`WithBoundary`), leaves the rotation out (`WithRotation(false)`), draws the page's printable annotations into the form (`WithAnnotations()`), or keeps its ties to the structure tree (`WithStructure()`). A page of the same document shares its resources with the form; the form's content is a snapshot of the page when it was made.
+
+Conformance: [ISO 32000-2 §8.10.1 (form XObjects)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
+
 ## Forms
 
 Fields are found by their fully qualified names. Setting a value regenerates the field's appearance, so the value shows in every reader; `WriteAppearances` does it again for a field you changed through its dictionary. `Flatten` draws every field's appearance into its page and removes the form, for a file that can no longer be filled in; `new PdfFlattenOptions().WithAnnotations(true)` flattens the other annotations too:

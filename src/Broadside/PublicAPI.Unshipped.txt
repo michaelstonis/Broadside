@@ -1,1 +1,17 @@
 #nullable enable
+Broadside.PdfDocument.CreateFormXObject(Broadside.PdfPage! page) -> Broadside.Graphics.PdfFormXObject!
+Broadside.PdfDocument.CreateFormXObject(Broadside.PdfPage! page, Broadside.PdfPageFormOptions! options) -> Broadside.Graphics.PdfFormXObject!
+Broadside.PdfPageFormOptions
+Broadside.PdfPageFormOptions.PdfPageFormOptions() -> void
+Broadside.PdfPageFormOptions.ApplyRotation.get -> bool
+Broadside.PdfPageFormOptions.ApplyRotation.set -> void
+Broadside.PdfPageFormOptions.Boundary.get -> Broadside.PdfPageBoundary
+Broadside.PdfPageFormOptions.Boundary.set -> void
+Broadside.PdfPageFormOptions.IncludeAnnotations.get -> bool
+Broadside.PdfPageFormOptions.IncludeAnnotations.set -> void
+Broadside.PdfPageFormOptions.KeepStructure.get -> bool
+Broadside.PdfPageFormOptions.KeepStructure.set -> void
+Broadside.PdfPageFormOptions.WithAnnotations(bool include = true) -> Broadside.PdfPageFormOptions!
+Broadside.PdfPageFormOptions.WithBoundary(Broadside.PdfPageBoundary boundary) -> Broadside.PdfPageFormOptions!
+Broadside.PdfPageFormOptions.WithRotation(bool apply = true) -> Broadside.PdfPageFormOptions!
+Broadside.PdfPageFormOptions.WithStructure(bool keep = true) -> Broadside.PdfPageFormOptions!

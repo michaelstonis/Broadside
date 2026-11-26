@@ -501,6 +501,36 @@ internal sealed class StreamDecoder
         }
     }
 
+    /// <summary>
+    /// Whether every filter <paramref name="dictionary"/>'s <c>Filter</c> entry names is one this engine decodes (<c>Crypt</c>
+    /// included), without reporting anything (issue #628).
+    /// </summary>
+    public bool CanDecode(CosDictionary dictionary)
+    {
+        CosObject entry = Resolve(dictionary.TryGetValue(FilterNames.Filter, out CosObject? filter) ? filter : null);
+        IEnumerable<CosObject> names = entry switch
+        {
+            CosNull => [],
+            CosArray array => array,
+            _ => [entry],
+        };
+        foreach (CosObject item in names)
+        {
+            if (Resolve(item) is not CosName name)
+            {
+                return false;
+            }
+
+            CosName full = InlineImageAbbreviations.TryExpandFilter(name, out CosName? expanded) ? expanded : name;
+            if (!full.Equals(FilterNames.Crypt) && !_filters.TryGet(full, out _))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private CosName Expand(CosName name)
     {
         if (!InlineImageAbbreviations.TryExpandFilter(name, out CosName? fullName))

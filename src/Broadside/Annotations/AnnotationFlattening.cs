@@ -102,19 +102,56 @@ internal static class AnnotationFlattening
     {
         foreach (Placement placement in plans.SelectMany(plan => plan.Drawn))
         {
-            if (placement.OptionalContent is not null)
+            RequireFeatures(document, placement);
+        }
+    }
+
+    private static void RequireFeatures(PdfDocument document, Placement placement)
+    {
+        if (placement.OptionalContent is not null)
+        {
+            document.RequireFeature(Writing.VersionedFeatures.OptionalContent);
+        }
+
+        if (placement.IsTransparent)
+        {
+            document.RequireFeature(Writing.VersionedFeatures.TransparencyParameters);
+            if (placement.Appearance.Group is null)
             {
-                document.RequireFeature(Writing.VersionedFeatures.OptionalContent);
+                document.RequireFeature(Writing.VersionedFeatures.TransparencyGroups);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Draws the normal appearances of <paramref name="page"/>'s visible, printable annotations (Table 167: <c>Print</c> set,
+    /// <c>Hidden</c> clear; pop-ups never) into <paramref name="writer"/> as <see cref="PdfDocument.Flatten(PdfFlattenOptions)"/>
+    /// draws them, naming what they use in <paramref name="resources"/> of <paramref name="target"/>; the page is not changed (issue
+    /// #628). <paramref name="map"/> carries each appearance and <c>OC</c> entry of another document into the target.
+    /// </summary>
+    internal static void DrawPrinted(PdfDocument target, PdfPage page, ContentWriter writer, CosDictionary resources, Func<CosObject, CosObject>? map)
+    {
+        var categories = new Dictionary<CosName, CosDictionary>();
+        var forms = new Dictionary<CosReference, CosName>();
+        foreach (PdfAnnotation annotation in page.Annotations)
+        {
+            if (annotation.Kind == PdfAnnotationKind.Popup || !IsShown(annotation, PdfFlattenIntent.Print)
+                || annotation.GetAppearance() is not { } appearance || Place(annotation, appearance) is not { } placement)
+            {
+                continue;
             }
 
-            if (placement.IsTransparent)
+            if (map is not null)
             {
-                document.RequireFeature(Writing.VersionedFeatures.TransparencyParameters);
-                if (placement.Appearance.Group is null)
+                placement = placement with
                 {
-                    document.RequireFeature(Writing.VersionedFeatures.TransparencyGroups);
-                }
+                    Appearance = PdfFormXObject.Create(target, map((CosObject?)appearance.Reference ?? appearance.Stream))!,
+                    OptionalContent = placement.OptionalContent is { } optionalContent ? map(optionalContent) : null,
+                };
             }
+
+            Write(target, placement, writer, resources, categories, forms);
+            RequireFeatures(target, placement);
         }
     }
 

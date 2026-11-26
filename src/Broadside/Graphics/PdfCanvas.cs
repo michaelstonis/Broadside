@@ -474,7 +474,7 @@ public sealed partial class PdfCanvas : IDisposable
     public void EndPath() => Paint("n");
 
     /// <summary>Paints a form XObject of this document (<c>Do</c>), with the form's matrix and bounding box.</summary>
-    /// <param name="form">The form: <see cref="PdfDocument.CreateFormXObject"/>, or one read from the document.</param>
+    /// <param name="form">The form: <see cref="PdfDocument.CreateFormXObject(PdfRectangle)"/>, a page made into one (<see cref="PdfDocument.CreateFormXObject(PdfPage, PdfPageFormOptions)"/>), or one read from the document.</param>
     /// <exception cref="ArgumentException"><paramref name="form"/> belongs to another document, or has no indirect reference (a form XObject shall be an indirect stream).</exception>
     /// <exception cref="InvalidOperationException">A path is being built, a text object is open, the form is the one this canvas draws on, or the canvas is disposed.</exception>
     /// <remarks>ISO 32000-2 §8.8 (<c>Do</c>, Table 86) and §8.10.1. The form is named in the <c>XObject</c> resources.</remarks>

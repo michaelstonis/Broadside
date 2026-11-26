@@ -17,6 +17,14 @@ internal sealed class DrawingCache(PdfDocument document)
 {
     private static readonly CosName ExtGStateType = new("ExtGState");
     private readonly Dictionary<string, (CosReference Reference, CosObject Value)> _objects = new(StringComparer.Ordinal);
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<PdfDocument, PageFormImporter.Session> _pageForms = [];
+
+    /// <summary>
+    /// Returns what the document keeps for pages made into forms from <paramref name="source"/> (issue #628): one copy session per
+    /// source document, held no longer than the source is.
+    /// </summary>
+    public PageFormImporter.Session PageForms(PdfDocument source) =>
+        _pageForms.GetValue(source, s => new PageFormImporter.Session(ReferenceEquals(s, document) ? null : new PdfObjectCopier(s, document)));
 
     /// <summary>Returns the graphics state parameter dictionary <c>&lt;&lt; /Type /ExtGState /key value &gt;&gt;</c> (§8.4.5, Table 57).</summary>
     public CosReference GraphicsState(string key, CosObject value) =>
