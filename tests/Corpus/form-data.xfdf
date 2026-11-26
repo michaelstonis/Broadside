@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xfdf xmlns="http://ns.adobe.com/xfdf/" xml:space="preserve">
+  <f href="form.pdf"/>
+  <ids original="0123456789ABCDEF0123456789ABCDEF" modified="FEDCBA9876543210FEDCBA9876543210"/>
+  <fields>
+    <field name="person">
+      <field name="name">
+        <value>Ada Lovelace</value>
+      </field>
+      <field name="address">
+        <field name="city">
+          <value>London</value>
+        </field>
+      </field>
+    </field>
+    <field name="check">
+      <value>Yes</value>
+    </field>
+    <field name="radio">
+      <value>Blue</value>
+    </field>
+    <field name="combo">
+      <value>ca</value>
+    </field>
+    <field name="list">
+      <value>Olives</value>
+      <value>Peppers</value>
+    </field>
+    <field name="unknown">
+      <value>not in the form</value>
+    </field>
+  </fields>
+  <annots>
+    <text page="0" rect="300,700,320,720" name="note-1" title="Ada" subject="Comment" color="#FFFF00" date="D:20250101120000Z" creationdate="D:20250101115500Z" flags="print,nozoom,norotate" icon="Comment">
+      <contents>Check the totals.</contents>
+      <popup page="0" rect="320,600,500,700" open="no" flags="print,nozoom,norotate"/>
+    </text>
+    <text page="0" rect="300,700,320,720" name="reply-1" title="Bob" color="#FFFF00" flags="print,nozoom,norotate" icon="Comment" inreplyto="note-1">
+      <contents>Done.</contents>
+    </text>
+    <highlight page="0" rect="72,740,272,760" name="highlight-1" title="Bob" color="#FFFF00" flags="print" coords="72,760,272,760,72,740,272,740">
+      <contents-richtext><body xmlns="http://www.w3.org/1999/xhtml"><p>Agreed, <b>see</b> page 2.</p></body></contents-richtext>
+    </highlight>
+    <ink page="0" rect="98,98,142,132" name="ink-1" title="Ada" color="#FF0000" width="2" flags="print">
+      <inklist>
+        <gesture>100,100;120,130;140,100</gesture>
+      </inklist>
+    </ink>
+  </annots>
+</xfdf>

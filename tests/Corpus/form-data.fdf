@@ -1,0 +1,17 @@
+%FDF-1.2
+%‚„œ”
+1 0 obj
+<< /FDF << /F (form.pdf) /Fields [ << /T (person) /Kids [ << /T (name) /V (Ada Lovelace) >> << /T (address) /Kids [ << /T (city) /V (London) >> ] >> ] >> << /T (check) /V /Yes >> << /T (radio) /V /Blue >> << /T (combo) /V (ca) >> << /T (list) /V [ (Olives) (Peppers) ] >> << /T (unknown) /V (not in the form) >> ] /Annots [ 2 0 R 3 0 R 4 0 R ] >> >>
+endobj
+2 0 obj
+<< /Type /Annot /Subtype /Text /Rect [300 700 320 720] /Page 0 /NM (note-1) /T (Ada) /Contents (Check the totals.) /C [1 1 0] /F 28 /Name /Comment /M (D:20250101120000Z) /Popup 3 0 R >>
+endobj
+3 0 obj
+<< /Type /Annot /Subtype /Popup /Rect [320 600 500 700] /Page 0 /Parent 2 0 R /Open false /F 28 >>
+endobj
+4 0 obj
+<< /Type /Annot /Subtype /Highlight /Rect [72 740 272 760] /Page 0 /NM (highlight-1) /T (Bob) /Contents (Agreed.) /C [1 1 0] /F 4 /QuadPoints [72 760 272 760 72 740 272 740] /IRT 2 0 R >>
+endobj
+trailer
+<< /Root 1 0 R >>
+%%EOF

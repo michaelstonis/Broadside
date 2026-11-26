@@ -63,7 +63,7 @@ internal static class SeedWriter
     public static int Write(string target, string output, IEnumerable<string> extraDirectories)
     {
         Directory.CreateDirectory(output);
-        List<string> sources = [.. CorpusLocator.CorpusFiles()];
+        List<string> sources = [.. FuzzTargets.SeedFiles(target)];
         foreach (string directory in extraDirectories)
         {
             List<string> found = [.. Directory.EnumerateFiles(directory, "*.pdf", SearchOption.AllDirectories)];
