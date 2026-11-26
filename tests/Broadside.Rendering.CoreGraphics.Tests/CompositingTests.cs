@@ -19,7 +19,7 @@ public sealed class CompositingTests
     public void Blend_modes_coregraphics_computes_otherwise_are_reported_once_per_render()
     {
         using PdfDocument document = PdfDocument.Open(BlendSamples.SolidGrid("ColorDodge", "ColorBurn", "SoftLight"));
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
 
         Render(renderer, document.Pages[0]);
 
@@ -31,7 +31,7 @@ public sealed class CompositingTests
     {
         using PdfDocument approximated = PdfDocument.Open(BlendSamples.SolidGrid("SoftLight"));
         using PdfDocument exact = PdfDocument.Open(BlendSamples.SolidGrid(ExactModes));
-        using var renderer = new CoreGraphicsRenderer();
+        using var renderer = new CoreGraphicsBackend();
         Render(renderer, approximated.Pages[0]);
 
         Render(renderer, exact.Pages[0]);
@@ -39,7 +39,7 @@ public sealed class CompositingTests
         Assert.Empty(renderer.Diagnostics);
     }
 
-    private static void Render(CoreGraphicsRenderer renderer, PdfPage page)
+    private static void Render(CoreGraphicsBackend renderer, PdfPage page)
     {
         RenderOptions options = new();
         PixelSize size = options.GetPixelSize(page);

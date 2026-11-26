@@ -62,6 +62,40 @@ public sealed class CompositingRowsKernelTests
     }
 
     [Fact]
+    public void Source_over_matches_the_scalar_over_on_runs_of_opaque_and_clear_source_pixels()
+    {
+        // Items are whole (source, backdrop) pixels. Runs of opaque and of clear source pixels, of lengths that do and do not line up
+        // with the vector's four pixels, take its shortcuts at full coverage (issue #603); the rest stay random.
+        const int items = 4_099;
+        byte[] pixels = SimdKernelAssert.RandomBytes(8 * items, seed: 6031);
+        byte[] runs = SimdKernelAssert.RandomBytes(2 * items, seed: 6032);
+        for (int i = 0, r = 0; i < items; r++)
+        {
+            int run = 1 + (runs[2 * r] % 12);
+            int kind = runs[(2 * r) + 1] % 3;
+            for (int k = i; k < Math.Min(i + run, items); k++)
+            {
+                Span<byte> source = pixels.AsSpan(8 * k, 4);
+                if (kind == 0)
+                {
+                    source[3] = 255;
+                }
+                else if (kind == 1)
+                {
+                    source.Clear();
+                }
+            }
+
+            i += run;
+        }
+
+        foreach (int coverage in new[] { 255, 254, 128 })
+        {
+            SimdKernelAssert.Equal<byte, byte>(Over(CompositingRows.OverRowScalar, coverage), Over(CompositingRows.OverRowVector, coverage), pixels, inputsPerItem: 8, outputsPerItem: 4);
+        }
+    }
+
+    [Fact]
     public void Source_over_reads_only_as_many_source_pixels_as_the_target_has()
     {
         uint[] source = MemoryMarshal.Cast<byte, uint>(SimdKernelAssert.RandomBytes(4 * 100, seed: 1)).ToArray();

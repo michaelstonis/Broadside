@@ -130,7 +130,7 @@ internal static class FormFillTarget
     {
         foreach (PdfToggleButtonField field in form.TerminalFields.OfType<PdfToggleButtonField>().Take(32))
         {
-            field.GenerateAppearances();
+            field.WriteAppearances();
             if (field.Widgets.LastOrDefault(widget => field.GetOnState(widget) is not null) is not { } widget)
             {
                 // A field whose kids are no widget annotations has nothing to show; any widget it has gets an on state.
@@ -154,7 +154,7 @@ internal static class FormFillTarget
             int count = field.Options.Count;
             try
             {
-                field.GenerateAppearances();
+                field.WriteAppearances();
                 if (count > 0)
                 {
                     field.SetSelectedIndices([count - 1]);

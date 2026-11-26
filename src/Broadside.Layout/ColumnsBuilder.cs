@@ -1,10 +1,7 @@
-using System.Diagnostics.CodeAnalysis;
-
 namespace Broadside.Layout.Flow;
 
 /// <summary>The columns of a <see cref="ContainerBuilder.Columns"/> block in the document builder, left to right.</summary>
 /// <remarks>ISO 32000-2 §14.8.4.4: each column is tagged as one <c>Div</c> holding its content.</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct ColumnsBuilder
 {
     private readonly BuildContext? _context;
@@ -37,7 +34,6 @@ public readonly ref struct ColumnsBuilder
 
 /// <summary>A columns block's modifiers in the document builder: the gap, its spacing and the style its columns inherit.</summary>
 /// <remarks>ISO 32000-2 §14.8.4.4: each column is tagged <c>Div</c>.</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct ColumnsElement
 {
     private readonly BuildContext? _context;
@@ -119,7 +115,6 @@ public readonly ref struct ColumnsElement
 
 /// <summary>A drawing's modifiers in the document builder: its placement, spacing and caption.</summary>
 /// <remarks>ISO 32000-2 §14.8.4.8.5 (<c>Figure</c>) and §14.8.4.4 (<c>Caption</c>); a decorative drawing is an artifact (§14.8.2.2).</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct DrawingElement
 {
     private readonly BuildContext? _context;

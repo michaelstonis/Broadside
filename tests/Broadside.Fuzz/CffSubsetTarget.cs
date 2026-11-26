@@ -92,13 +92,26 @@ internal static class CffSubsetTarget
             }
 
             GlyphOutlineStatus subsetStatus = program.GetOutline(glyph, after);
+
+            // Relative, as for the points (issue #620): a matrix of 134174 makes an advance of 53,669,600, which the subset carries
+            // through its own matrix of 0.001 as 53,669,600,000 and gives back within a few units in the last place.
+            // A glyph whose Font DICT matrix skews or rotates against the program's has an advance with a vertical component in the
+            // program's space, which GlyphMetrics does not carry, so the program and its subset (with another program matrix) keep
+            // different parts of it; such advances are not compared (issue #620).
+            double advance = original.GetMetrics(originalGlyph).AdvanceWidth * original.FontMatrix.A;
+            double subsetAdvance = program.GetMetrics(glyph).AdvanceWidth * program.FontMatrix.A;
+            bool advanceComparable = !AdvanceTilts(original, originalGlyph) && !AdvanceTilts(program, glyph);
             if (subsetStatus != status || !Same(before, original.FontMatrix, after, program.FontMatrix)
-                || Math.Abs((original.GetMetrics(originalGlyph).AdvanceWidth * original.FontMatrix.A) - (program.GetMetrics(glyph).AdvanceWidth * program.FontMatrix.A)) > 1e-9)
+                || (advanceComparable && Math.Abs(advance - subsetAdvance) > 1e-9 * Math.Max(1, Math.Abs(advance))))
             {
                 throw new InvalidOperationException($"Glyph {originalGlyph} ({status}) draws differently in the subset ({subsetStatus}) as glyph {glyph}.");
             }
         }
     }
+
+    /// <summary>Whether the glyph's Font DICT matrix turns its advance out of the program's x axis.</summary>
+    private static bool AdvanceTilts(FontProgram program, int glyph) =>
+        program is CffFontProgram { Font: var font } && font.TryGetMatrixAdjustment(glyph, out Matrix adjustment) && adjustment.B != 0;
 
     /// <summary>Two outlines with the same verbs and the same points in text space (each through its program's whole matrix).</summary>
     private static bool Same(GlyphOutline left, Matrix leftMatrix, GlyphOutline right, Matrix rightMatrix)
@@ -119,7 +132,15 @@ internal static class CffSubsetTarget
             double ay = (p.X * leftMatrix.B) + (p.Y * leftMatrix.D) + leftMatrix.F;
             double bx = (q.X * rightMatrix.A) + (q.Y * rightMatrix.C) + rightMatrix.E;
             double by = (q.X * rightMatrix.B) + (q.Y * rightMatrix.D) + rightMatrix.F;
-            if (Math.Abs(ax - bx) > 1e-9 * Math.Max(1, Math.Abs(ax)) || Math.Abs(ay - by) > 1e-9 * Math.Max(1, Math.Abs(ay)))
+
+            // Relative to the size of the terms, not of their sum (issue #620): a Font DICT matrix that is singular against the
+            // program's makes terms of 10^8 cancel to 0 in the program, which leaves a few units in their last place, while the subset,
+            // which folds the two matrices into one, gives exactly 0.
+            double xScale = Math.Max(Math.Abs(p.X * leftMatrix.A) + Math.Abs(p.Y * leftMatrix.C) + Math.Abs(leftMatrix.E),
+                Math.Abs(q.X * rightMatrix.A) + Math.Abs(q.Y * rightMatrix.C) + Math.Abs(rightMatrix.E));
+            double yScale = Math.Max(Math.Abs(p.X * leftMatrix.B) + Math.Abs(p.Y * leftMatrix.D) + Math.Abs(leftMatrix.F),
+                Math.Abs(q.X * rightMatrix.B) + Math.Abs(q.Y * rightMatrix.D) + Math.Abs(rightMatrix.F));
+            if (Math.Abs(ax - bx) > 1e-9 * Math.Max(1, xScale) || Math.Abs(ay - by) > 1e-9 * Math.Max(1, yScale))
             {
                 return false;
             }

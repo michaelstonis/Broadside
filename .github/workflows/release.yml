@@ -1,9 +1,15 @@
-# Release: build and test on Linux and macOS (plus the MAUI viewer's Windows target on Windows), pack every package, publish to NuGet.org and create a GitHub release.
+# Release: build and test on Linux and macOS (plus the MAUI viewer's Windows target on Windows), pack and check every package, check that
+# the build is reproducible, write an SPDX SBOM, publish to NuGet.org and create a GitHub release.
 #
 # Triggers:
 #   - a tag v* (MinVer turns the tag into the package version; see Directory.Build.props)
 #   - the "Run workflow" button in the Actions tab, with dry_run (default true): build, test and pack,
 #     and upload the packages as a workflow artifact, but push nothing and create no release.
+#
+# Every run writes the release notes (tools/ReleaseNotes: the Conventional Commit titles since the previous v* tag, grouped by
+# type and scope, breaking changes first, then the public API diff) into the job summary and the release-notes artifact; a
+# release uses them as its body instead of GitHub's generated notes. CHANGELOG.md gets the same section on the release branch
+# before the tag (see the versioning policy, site/articles/versioning.md).
 #
 # Publishing uses NuGet trusted publishing (OIDC), so the repository holds no NuGet API key. Before the first
 # real release the owner must register this workflow as a trusted publisher on nuget.org:
@@ -43,6 +49,46 @@ env:
   DiffEngine_Disabled: true
 
 jobs:
+  # The release notes for the commits since the previous v* tag (issue #264): the job summary, and the body of the GitHub release.
+  notes:
+    name: release notes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          # Every commit and tag: the notes walk the history since the previous tag.
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Write the release notes
+        shell: bash
+        run: |
+          mkdir -p artifacts/release-notes
+          dotnet run --project tools/ReleaseNotes -c Release -- --to "${GITHUB_SHA}" --output artifacts/release-notes/notes.md
+          cat artifacts/release-notes/notes.md >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Check that CHANGELOG.md has this release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if ! grep -q "^## ${version//./\\.} " CHANGELOG.md; then
+            echo "::warning title=CHANGELOG.md::CHANGELOG.md has no section for ${version}; add it on main with tools/ReleaseNotes --changelog (site/articles/versioning.md)."
+          fi
+
+      - name: Upload the release notes
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-notes
+          path: artifacts/release-notes/notes.md
+          if-no-files-found: error
+
   # Core packages (net10.0 only, no workloads): Broadside, Rendering, Rendering.Skia, Rendering.Direct2D, Fonts.*.
   build-linux:
     name: build and pack core (Linux)
@@ -80,6 +126,11 @@ jobs:
 
       - name: Pack the core packages
         run: dotnet pack Broadside.Core.slnf -c Release --no-build
+
+      - name: Check the core packages
+        # Dependency allowlists, symbols, SourceLink (every URL fetched), licences, README and icon (issue #265;
+        # tools/PackageCheck/README.md). Package validation against the last release already ran inside dotnet pack.
+        run: dotnet run --project tools/PackageCheck -c Release --no-build -- verify artifacts/package/release --online
 
       - name: Upload core packages
         uses: actions/upload-artifact@v7
@@ -210,6 +261,15 @@ jobs:
           done
           exit "${missing}"
 
+      - name: Check the platform packages
+        # The same checks as build-linux, on the three packages this job uploads (issue #265).
+        shell: bash
+        run: |
+          mkdir -p artifacts/package/platform
+          cp artifacts/package/release/Broadside.Rendering.CoreGraphics.* artifacts/package/release/Broadside.Rendering.Android.* \
+             artifacts/package/release/Broadside.Viewer.Maui.* artifacts/package/platform/
+          dotnet run --project tools/PackageCheck -c Release --no-build -- verify artifacts/package/platform --online
+
       - name: Upload platform packages
         uses: actions/upload-artifact@v7
         with:
@@ -223,10 +283,37 @@ jobs:
             artifacts/package/release/Broadside.Viewer.Maui.*.snupkg
           if-no-files-found: error
 
-  # Merge the packages, then (tag and not a dry run) push them to NuGet.org and create the GitHub release.
+  # Reproducible build (issue #265): the core packages built twice from clean clones in two different folders must be byte-identical.
+  reproducible:
+    name: reproducible build (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          # The clones need the tags: MinVer gives both builds the same version.
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Build twice and compare
+        run: tools/PackageCheck/check-reproducible.sh "${RUNNER_TEMP}/reproducible"
+
+  # Merge the packages and write the SBOM, then (tag and not a dry run) push them to NuGet.org and create the GitHub release.
   publish:
     name: publish
-    needs: [build-linux, build-macos]
+    needs: [notes, build-linux, build-macos, reproducible]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -248,12 +335,31 @@ jobs:
             echo "Dry run (tag: ${IS_TAG}, dry_run: ${DRY_RUN:-n/a}): packages are built and uploaded as an artifact only."
           fi
 
+      - name: Check out
+        # For the SBOM: generate-sbom.sh and the projects whose NuGet dependencies it lists.
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
       - name: Download packages
         uses: actions/download-artifact@v8
         with:
           pattern: packages-*
           merge-multiple: true
           path: artifacts/package/release
+
+      - name: Generate the SBOM
+        # An SPDX 2.2 SBOM of every package (issue #265), from Microsoft's sbom-tool (a local dotnet tool, never a package
+        # dependency). It travels in the packages artifact, so a dry run carries it too, and is attached to the GitHub release.
+        shell: bash
+        run: |
+          nupkg="$(ls artifacts/package/release/Broadside.[0-9]*.nupkg)"
+          version="${nupkg##*/Broadside.}"
+          version="${version%.nupkg}"
+          tools/PackageCheck/generate-sbom.sh artifacts/package/release "${version}" "artifacts/package/release/broadside-${version}.spdx.json"
 
       - name: List packages
         shell: bash
@@ -276,13 +382,25 @@ jobs:
           path: artifacts/package/release
           if-no-files-found: error
 
-      - name: Set up .NET
-        if: steps.decide.outputs.publish == 'true'
-        uses: actions/setup-dotnet@v6
+      - name: Download the release notes
+        uses: actions/download-artifact@v8
         with:
-          # This job does not check out the repository (it only pushes the packages the build jobs made), so there is no
-          # global.json here; any .NET 10 SDK can push.
-          dotnet-version: 10.0.x
+          name: release-notes
+          path: artifacts/release-notes
+
+      - name: Compose the release body
+        # The known-limitations list (issue #241), pinned to the released tag, then the generated notes.
+        shell: bash
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          {
+            echo "**Known limitations:** [docs/known-limitations.md](https://github.com/${REPOSITORY}/blob/${GITHUB_REF_NAME}/docs/known-limitations.md) lists what this release does not do yet, each item with the issue that tracks it."
+            echo
+            echo "**Diagnostic codes:** [the catalog and its stability policy](https://michaelstonis.github.io/Broadside/articles/diagnostics/) say which codes this release can report and how codes may change between releases."
+            echo
+            cat artifacts/release-notes/notes.md
+          } > artifacts/release-notes/body.md
 
       - name: Log in to NuGet.org (trusted publishing)
         if: steps.decide.outputs.publish == 'true'
@@ -301,12 +419,12 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
-          # The generated notes follow this body; the known-limitations list (issue #241) is pinned to the released tag.
-          body: |
-            **Known limitations:** [docs/known-limitations.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/docs/known-limitations.md) lists what this release does not do yet, each item with the issue that tracks it.
-          generate_release_notes: true
+          # tools/ReleaseNotes' notes (the notes job) after the known-limitations line, instead of GitHub's generated notes.
+          body_path: artifacts/release-notes/body.md
+          generate_release_notes: false
           prerelease: ${{ contains(github.ref_name, '-') }}
           fail_on_unmatched_files: true
           files: |
             artifacts/package/release/*.nupkg
             artifacts/package/release/*.snupkg
+            artifacts/package/release/*.spdx.json

@@ -34,8 +34,6 @@
       method is interpreted. AotProfileTests (tests/Broadside.Viewer.Blazor.BrowserTests) records them; see README.md.
     -->
     <BroadsideAotProfile Condition="'$(BroadsideAotProfile)' == ''">$(MSBuildThisFileDirectory)hot-aot.aotprofile;$(MSBuildThisFileDirectory)hot-aot-worker.aotprofile</BroadsideAotProfile>
-    <!-- The document builder (#397) is experimental until 1.1. -->
-    <NoWarn>$(NoWarn);BROADSIDE0001</NoWarn>
   </PropertyGroup>
 
   <!-- The WebAssembly SDK publishes in a nested build that clears _IsPublishing and sets _WasmIsPublishing instead. -->
@@ -56,6 +54,9 @@
     <WasmBuildNative Condition="'$(BroadsideAot)' == 'profiler'">true</WasmBuildNative>
     <PublishTrimmed>true</PublishTrimmed>
     <TrimMode>full</TrimMode>
+    <!-- Every trim warning is reported against its own assembly and fails the publish (issue #272): a Broadside assembly must trim cleanly. -->
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <ILLinkTreatWarningsAsErrors>true</ILLinkTreatWarningsAsErrors>
   </PropertyGroup>
 
   <!--

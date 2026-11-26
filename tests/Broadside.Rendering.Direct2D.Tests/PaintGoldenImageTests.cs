@@ -23,7 +23,7 @@ public sealed class PaintGoldenImageTests
     public void Page_matches_the_golden_image(string fileName, int page)
     {
         using PdfDocument document = GoldenCorpus.Open(fileName);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         using Bitmap bitmap = renderer.Render(document.Pages[page], GoldenCorpus.CreateRenderOptions());
 
@@ -40,7 +40,7 @@ public sealed class PaintGoldenImageTests
         RenderOptions options = GoldenCorpus.CreateRenderOptions();
         using var rasterizer = new SoftwareRasterizer();
         using Bitmap expected = rasterizer.Render(document.Pages[0], options);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         using Bitmap actual = renderer.Render(document.Pages[0], options);
 

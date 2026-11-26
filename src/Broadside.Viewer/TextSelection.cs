@@ -15,7 +15,7 @@ namespace Broadside.Viewer;
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §9.4.4, §14.8.2.5 (reading order), §14.9.4 (replacement text). Spec #33 viewer capability 4. A page takes part once
-/// its selectable text is loaded (<see cref="LoadPageAsync"/>); gestures on a page not loaded yet do nothing. <see cref="Begin"/>,
+/// its selectable text is loaded (<see cref="ReadPageAsync"/>); gestures on a page not loaded yet do nothing. <see cref="Begin"/>,
 /// <see cref="Extend"/>, <see cref="Move"/> and <see cref="GetQuads"/> allocate nothing, so a shell calls them on every pointer
 /// move. Not thread-safe: drive it from the UI thread; loading may run anywhere.
 /// </remarks>
@@ -88,7 +88,7 @@ public sealed class TextSelection
     /// <param name="pageIndex">The zero-based page.</param>
     /// <param name="cancellationToken">Cancels the load.</param>
     /// <returns>The page's selectable text.</returns>
-    public async ValueTask<SelectableText> LoadPageAsync(int pageIndex, CancellationToken cancellationToken = default)
+    public async ValueTask<SelectableText> ReadPageAsync(int pageIndex, CancellationToken cancellationToken = default)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, _pages.Length);
@@ -301,7 +301,7 @@ public sealed class TextSelection
         var builder = new StringBuilder();
         for (int page = start.PageIndex; page <= end.PageIndex && page < _pages.Length; page++)
         {
-            SelectableText text = await LoadPageAsync(page, cancellationToken).ConfigureAwait(false);
+            SelectableText text = await ReadPageAsync(page, cancellationToken).ConfigureAwait(false);
             int from = page == start.PageIndex ? start.Offset : 0;
             int to = page == end.PageIndex ? end.Offset : int.MaxValue;
             int before = builder.Length;

@@ -46,7 +46,7 @@ internal sealed class CanvasSurface(int viewerId) : IRenderSurface
         if (GpuPresentation.TryClaim(pixels))
         {
             // Drawn by the WebGL backend and still in its canvas: copied GPU to GPU (#353).
-            ViewerInterop.PutTileFromCanvas(viewerId, key, width, height, WebGLRenderer.Canvas);
+            ViewerInterop.PutTileFromCanvas(viewerId, key, width, height, WebGLBackend.Canvas);
             Presented++;
             return;
         }

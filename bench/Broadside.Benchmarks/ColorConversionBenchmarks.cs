@@ -9,7 +9,10 @@ namespace Broadside.Benchmarks;
 /// Converts a 1-megapixel image's worth of colours (ISO 32000-2 §8.6, §10.4) through <see cref="PdfColorConverter"/>, as an image
 /// decoder converts rows: 8-bit DeviceCMYK through the SWOP characterisation, an 8-bit Separation through its 256-entry table,
 /// 8-bit Indexed through its palette, Lab from floats through XYZ to sRGB, and DeviceRGB under a transfer function of four Type 2
-/// functions (§10.5, <c>RgbTransfer</c>: 256-entry tables for bytes, the functions evaluated per component for floats). Conversion is a hot path: <c>Allocated</c> must
+/// functions (§10.5, <c>RgbTransfer</c>: 256-entry tables for bytes, the functions evaluated per component for floats).
+/// <c>SeparationTints</c> converts the Separation's floats as an image's decoded samples are, 256 distinct tints that the tint
+/// transform's per-thread memo answers after their first evaluation (issue #602); <c>Separation</c>'s floats almost never repeat, so
+/// it measures what the memo costs when it misses. Conversion is a hot path: <c>Allocated</c> must
 /// read <c>-</c>; <c>Broadside.Tests.Colors.ColorAllocationTests</c> fails the build if it does not.
 /// </summary>
 [MemoryDiagnoser]
@@ -21,6 +24,7 @@ public class ColorConversionBenchmarks
     {
         ["Cmyk"] = "/DeviceCMYK",
         ["Separation"] = "[/Separation /Spot /DeviceCMYK << /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [0 0.4 1 0] /N 1 >>]",
+        ["SeparationTints"] = "[/Separation /Spot /DeviceCMYK << /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [0 0.4 1 0] /N 1 >>]",
         ["Indexed"] = "[/Indexed /DeviceRGB 255 <" + string.Concat(Enumerable.Range(0, 256).Select(static i => $"{i:X2}{255 - i:X2}{(i * 7) & 255:X2}")) + ">]",
         ["Lab"] = "[/Lab << /WhitePoint [0.9642 1 0.8249] /Range [-128 127 -128 127] >>]",
         ["RgbTransfer"] = "/DeviceRGB",
@@ -39,7 +43,7 @@ public class ColorConversionBenchmarks
     private float[] _colors = [];
 
     /// <summary>The source colour space.</summary>
-    [Params("Cmyk", "Separation", "Indexed", "Lab", "RgbTransfer", "Rgb")]
+    [Params("Cmyk", "Separation", "SeparationTints", "Indexed", "Lab", "RgbTransfer", "Rgb")]
     public string Space { get; set; } = "";
 
     [GlobalSetup]
@@ -63,7 +67,7 @@ public class ColorConversionBenchmarks
         {
             uint hash = unchecked((uint)i * 2654435761u);
             _samples[i] = (byte)(hash >> 24);
-            _components[i] = (hash >> 8) / (float)(1 << 24) * 200 - 100;
+            _components[i] = Space == "SeparationTints" ? _samples[i] / 255f : (hash >> 8) / (float)(1 << 24) * 200 - 100;
         }
 
         _bytes = new byte[Pixels * 3];

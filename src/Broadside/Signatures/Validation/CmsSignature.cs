@@ -209,10 +209,13 @@ internal sealed class CmsSignature
                                 types.Add(values.ReadObjectIdentifier());
                                 break;
                             case SigningCertificateV2Attribute:
-                                signingCertificate ??= ReadEssCertificateId(values.ReadEncodedValue(), version2: true);
+                                // Read before the first one is kept: ??= would skip reading a second value and never advance.
+                                ReadOnlyMemory<byte> certificateV2 = values.ReadEncodedValue();
+                                signingCertificate ??= ReadEssCertificateId(certificateV2, version2: true);
                                 break;
                             case SigningCertificateAttribute:
-                                signingCertificateV1 ??= ReadEssCertificateId(values.ReadEncodedValue(), version2: false);
+                                ReadOnlyMemory<byte> certificateV1 = values.ReadEncodedValue();
+                                signingCertificateV1 ??= ReadEssCertificateId(certificateV1, version2: false);
                                 break;
                             case RevocationInfoArchivalAttribute:
                                 ReadRevocationInfoArchival(values.ReadEncodedValue(), crls, ocsps);

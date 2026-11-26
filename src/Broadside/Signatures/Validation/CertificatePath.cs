@@ -46,41 +46,51 @@ internal static class CertificatePath
         var path = new List<X509Certificate2> { signer };
         X509Certificate2 current = signer;
         anchorIndex = -1;
-        while (true)
+        try
         {
-            if (IsAnchor(current, anchors))
+            while (true)
             {
-                anchorIndex = path.Count - 1;
+                if (IsAnchor(current, anchors))
+                {
+                    anchorIndex = path.Count - 1;
+                    break;
+                }
+
+                if (path.Count >= MaxLength)
+                {
+                    problems.Add(new(PdfSignatureProblemKind.ChainIncomplete, $"No trust anchor within {MaxLength} certificates of the signer."));
+                    break;
+                }
+
+                if (FindIssuer(current, anchors, path, problems) is { } anchor)
+                {
+                    path.Add(anchor);
+                    anchorIndex = path.Count - 1;
+                    break;
+                }
+
+                if (FindIssuer(current, pool, path, problems) is { } issuer)
+                {
+                    path.Add(issuer);
+                    current = issuer;
+                    continue;
+                }
+
+                problems.Add(IsSelfSigned(current)
+                    ? new(PdfSignatureProblemKind.ChainUntrusted, $"The chain ends at the self-signed certificate '{current.Subject}', which is not a trust anchor.")
+                    : new(PdfSignatureProblemKind.ChainIncomplete, $"The issuer '{current.Issuer}' of '{current.Subject}' is not among the signature's, the extra or the trusted certificates."));
                 break;
             }
 
-            if (path.Count >= MaxLength)
-            {
-                problems.Add(new(PdfSignatureProblemKind.ChainIncomplete, $"No trust anchor within {MaxLength} certificates of the signer."));
-                break;
-            }
-
-            if (FindIssuer(current, anchors, path, problems) is { } anchor)
-            {
-                path.Add(anchor);
-                anchorIndex = path.Count - 1;
-                break;
-            }
-
-            if (FindIssuer(current, pool, path, problems) is { } issuer)
-            {
-                path.Add(issuer);
-                current = issuer;
-                continue;
-            }
-
-            problems.Add(IsSelfSigned(current)
-                ? new(PdfSignatureProblemKind.ChainUntrusted, $"The chain ends at the self-signed certificate '{current.Subject}', which is not a trust anchor.")
-                : new(PdfSignatureProblemKind.ChainIncomplete, $"The issuer '{current.Issuer}' of '{current.Subject}' is not among the signature's, the extra or the trusted certificates."));
-            break;
+            Check(path, anchorIndex, time, problems);
+        }
+        catch (CryptographicException exception)
+        {
+            // A certificate the platform loaded but cannot read a field or extension of (the validity, a constraint): its checks
+            // cannot run, so the path is not trusted (issue #620).
+            problems.Add(new(PdfSignatureProblemKind.SignatureEncodingInvalid, $"A certificate of the path cannot be decoded: {exception.Message}"));
         }
 
-        Check(path, anchorIndex, time, problems);
         return path;
     }
 

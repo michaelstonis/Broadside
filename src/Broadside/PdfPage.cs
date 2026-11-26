@@ -352,6 +352,38 @@ public sealed partial class PdfPage
         return ExtractText(options, null);
     }
 
+    /// <summary>Extracts the images the page's content paints: every image XObject and inline image, in content order, with its bounds and colour state.</summary>
+    /// <returns>The painted images in content order; empty when the page paints none.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §8.8 (XObjects), §8.9.1, §8.9.4 (image coordinate system), §8.9.5 (image XObjects), §8.9.6.2 (image masks) and §8.9.7
+    /// (inline images); see <see cref="ImageExtractor"/>. Images painted inside form XObjects are included where the form paints them;
+    /// images hidden by optional content and images inside <c>Artifact</c> marked-content sequences are left out by default.
+    /// Positions are in default user space. Annotation appearances are not part of the page's content and are not extracted.
+    /// </remarks>
+    public IReadOnlyList<ExtractedImage> ExtractImages() => ExtractImages(new ImageExtractionOptions());
+
+    /// <summary>Extracts the images the page's content paints, with options.</summary>
+    /// <param name="options">What to extract and the content run's options.</param>
+    /// <returns>The painted images in content order; empty when the page paints none.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
+    /// <exception cref="OperationCanceledException">The content options' cancellation token was canceled.</exception>
+    /// <remarks>ISO 32000-2 §8.8, §8.9.1, §8.9.4, §8.9.5, §8.9.6.2, §8.9.7, §8.11.3.1 and §14.8.2.2. As <see cref="ExtractImages()"/>.</remarks>
+    public IReadOnlyList<ExtractedImage> ExtractImages(ImageExtractionOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ImageExtractor extractor = ImageExtractor.Rent(options);
+        try
+        {
+            ProcessContent(extractor, options.ContentOptions ?? ContentInterpreter.DefaultOptions);
+            return extractor.Images.ToArray();
+        }
+        finally
+        {
+            ImageExtractor.Return(extractor);
+        }
+    }
+
     /// <summary>Builds the page's layout tree: the nodes of the document's layout tree that have content on this page.</summary>
     /// <returns>The tree, with this page alone in <see cref="Layout.LayoutTree.Pages"/>; a new one on every call.</returns>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content, its fonts or the structure tree.</exception>
@@ -462,7 +494,16 @@ public sealed partial class PdfPage
     /// <returns>The index, from a display list built for it under the document's default optional-content states.</returns>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
     /// <remarks>Viewer capability 4. As <see cref="CreateHitTestIndex(DisplayList, PdfOptionalContentState?)"/>.</remarks>
-    public HitTestIndex CreateHitTestIndex() => CreateHitTestIndex(CreateDisplayList());
+    public HitTestIndex CreateHitTestIndex() => CreateHitTestIndex(CreateDisplayList(), null);
+
+    /// <summary>
+    /// Builds the page's hit-test index from a display list the caller already has, adding the page's link annotations visible under
+    /// the document's default optional-content configuration.
+    /// </summary>
+    /// <param name="displayList">The page's display list, such as the one a viewer caches to render tiles.</param>
+    /// <returns>The index.</returns>
+    /// <remarks>Viewer capability 4. As <see cref="CreateHitTestIndex(DisplayList, PdfOptionalContentState?)"/>.</remarks>
+    public HitTestIndex CreateHitTestIndex(DisplayList displayList) => CreateHitTestIndex(displayList, null);
 
     /// <summary>Builds the page's hit-test index from a display list the caller already has, adding the page's link annotations.</summary>
     /// <param name="displayList">The page's display list, such as the one a viewer caches to render tiles.</param>
@@ -476,7 +517,7 @@ public sealed partial class PdfPage
     /// (<c>Hidden</c> and <c>NoView</c> links are left out) and §8.11.3.3 (a link whose optional content is off is left out). The
     /// links are read from <see cref="Annotations"/> now; the list's content is indexed as by <see cref="DisplayList.CreateHitTestIndex"/>.
     /// </remarks>
-    public HitTestIndex CreateHitTestIndex(DisplayList displayList, PdfOptionalContentState? optionalContentState = null)
+    public HitTestIndex CreateHitTestIndex(DisplayList displayList, PdfOptionalContentState? optionalContentState)
     {
         ArgumentNullException.ThrowIfNull(displayList);
         return HitTestIndex.Create(displayList, HitTestIndex.CollectLinks(this, _document, optionalContentState));

@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -6,7 +5,6 @@ namespace Broadside.Layout.Flow;
 
 /// <summary>A value filled in per page when a header or footer is drawn: <see cref="Number"/>, <see cref="Count"/> or <see cref="Label"/>.</summary>
 /// <remarks>Interpolate it into a <see cref="PageText"/>: <c>$"Page {PageField.Number} of {PageField.Count}"</c>. ISO 32000-2 §12.4.2 (page labels).</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly struct PageField : IEquatable<PageField>
 {
     private readonly byte _kind;
@@ -68,7 +66,6 @@ public readonly struct PageField : IEquatable<PageField>
 /// per page and formats every other hole as the string would.
 /// </summary>
 /// <remarks>ISO 32000-2 §14.8.2.2.2: headers and footers are drawn as pagination artifacts. <see cref="PageField"/> values read page numbers and the page labels of §12.4.2.</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 [InterpolatedStringHandler]
 public readonly struct PageText : IEquatable<PageText>
 {

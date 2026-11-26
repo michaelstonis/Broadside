@@ -1085,7 +1085,7 @@ public sealed class TileScheduler : IDisposable
         ValueTask<PdfPage> load;
         try
         {
-            load = _session.LoadPageAsync(job.Tile.PageIndex, operation.Token);
+            load = _session.ReadPageAsync(job.Tile.PageIndex, operation.Token);
         }
 #pragma warning disable CA1031 // a page that fails to load fails its tiles, not the viewer
         catch (Exception)

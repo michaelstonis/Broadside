@@ -357,15 +357,17 @@ public sealed class DocumentSearch : IDisposable
         try
         {
             bool cooperative = Session.IsCooperative;
+            TimeSpan budget = Session.SliceBudget;
             long slice = Stopwatch.GetTimestamp();
             for (int next = Interlocked.Increment(ref cursor[0]) - 1; next < count; next = Interlocked.Increment(ref cursor[0]) - 1)
             {
                 token.ThrowIfCancellationRequested();
                 ObjectDisposedException.ThrowIf(Session.IsClosed, Session);
                 int page = (start + next) % count;
-                if (cooperative && (next == 0 || Volatile.Read(ref _pages[page]) is null || Stopwatch.GetElapsedTime(slice) >= Session.SliceBudget))
+                if (cooperative && (next == 0 || (budget != Timeout.InfiniteTimeSpan && Stopwatch.GetElapsedTime(slice) >= budget)))
                 {
-                    // One page's extraction per slice; matching pages already indexed shares a slice (the browser's thread stays free).
+                    // Nothing is read on the caller's slice; after that, pages (extracted or already indexed) share a slice until its
+                    // budget is spent, so the host renders a frame per slice, not per page (#600).
                     await Session.PauseAsync(token).ConfigureAwait(false);
                     slice = Stopwatch.GetTimestamp();
                 }
@@ -476,7 +478,7 @@ public sealed class DocumentSearch : IDisposable
         try
         {
             CancellationToken read = operation.Token;
-            await Session.LoadPageAsync(pageIndex, read).ConfigureAwait(false);
+            await Session.ReadPageAsync(pageIndex, read).ConfigureAwait(false);
             try
             {
                 return await Session.ReadAsync(

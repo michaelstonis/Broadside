@@ -4,8 +4,8 @@ namespace Broadside.Rendering.Direct2D;
 
 /// <summary>
 /// Windows Imaging Component's JPEG decoder behind the platform image decoder seam, bit-identical to the managed decoder: the images a
-/// <see cref="Direct2DRenderer"/> (or any renderer of the engine) will draw decode through WIC when they are prefetched before the
-/// replay (<see cref="Direct2DRenderer.PrefetchImagesAsync"/>, <see cref="DisplayList.PrefetchImagesAsync"/>). Register it with
+/// <see cref="Direct2DBackend"/> (or any renderer of the engine) will draw decode through WIC when they are prefetched before the
+/// replay (<see cref="Direct2DBackend.PrefetchImagesAsync"/>, <see cref="DisplayList.PrefetchImagesAsync"/>). Register it with
 /// <see cref="WicImageDecoderExtensions.UseWicImageDecoder"/>; turn it off with
 /// <c>PdfOptions.WithPlatformImageDecoder(WicImageDecoder.DecoderName, false)</c>.
 /// </summary>

@@ -30,7 +30,7 @@ public sealed class DocumentOutlineTests
         (DocumentSession session, _) = await OpenAsync("outline-full.pdf", threading);
         await using DocumentSession owned = session;
 
-        DocumentOutline outline = await DocumentOutline.LoadAsync(session, Token);
+        DocumentOutline outline = await DocumentOutline.ReadAsync(session, Token);
 
         Assert.Equal(
             ["Part I", "Chapter 1", "Section 1.1", "Chapter 2", "Part II", "Chapter 3 – Übersicht", "Chapter 4"],
@@ -77,7 +77,7 @@ public sealed class DocumentOutlineTests
     {
         (DocumentSession session, PageLayout layout) = await OpenAsync("outline-full.pdf");
         await using DocumentSession owned = session;
-        DocumentOutline outline = await DocumentOutline.LoadAsync(session, Token);
+        DocumentOutline outline = await DocumentOutline.ReadAsync(session, Token);
         var start = new Viewport(0, 0, 400, 300, 1);
 
         // Fit (Part I) and FitB (Chapter 4): the whole page in the window.
@@ -193,7 +193,7 @@ public sealed class DocumentOutlineTests
         (DocumentSession session, PageLayout layout) = await OpenAsync("destinations-all.pdf");
         await using DocumentSession owned = session;
 
-        DocumentOutline outline = await DocumentOutline.LoadAsync(session, Token);
+        DocumentOutline outline = await DocumentOutline.ReadAsync(session, Token);
 
         Assert.Equal(["Chapter 6", "Alpha"], outline.Entries.Select(e => e.Title));
         Assert.Equal(new ViewTarget(0, PdfDestinationView.FitV, 72, null, null, null, null), outline.Entries[0].Target);
@@ -218,7 +218,7 @@ public sealed class DocumentOutlineTests
         (DocumentSession session, _) = await OpenAsync("outline-broken.pdf");
         await using DocumentSession owned = session;
 
-        DocumentOutline outline = await DocumentOutline.LoadAsync(session, Token);
+        DocumentOutline outline = await DocumentOutline.ReadAsync(session, Token);
 
         Assert.False(outline.IsEmpty);
         Assert.Contains("One", outline.Entries.Select(e => e.Title));
@@ -229,7 +229,7 @@ public sealed class DocumentOutlineTests
     {
         await using DocumentSession session = DocumentSession.Open(Corpus.Bytes("empty-page.pdf"));
 
-        DocumentOutline outline = await DocumentOutline.LoadAsync(session, Token);
+        DocumentOutline outline = await DocumentOutline.ReadAsync(session, Token);
 
         Assert.True(outline.IsEmpty);
         Assert.Empty(outline.Roots);
@@ -241,7 +241,7 @@ public sealed class DocumentOutlineTests
     public async Task Page_labels_follow_the_ranges_and_default_to_page_numbers_without_any()
     {
         await using DocumentSession labeled = DocumentSession.Open(Corpus.Bytes("page-labels.pdf"));
-        PageLabelTable table = await PageLabelTable.LoadAsync(labeled, Token);
+        PageLabelTable table = await PageLabelTable.ReadAsync(labeled, Token);
 
         Assert.True(table.HasLabels);
         Assert.Equal(12, table.Count);
@@ -255,7 +255,7 @@ public sealed class DocumentOutlineTests
         Assert.Throws<ArgumentOutOfRangeException>(() => table.GetLabel(12));
 
         await using DocumentSession plain = DocumentSession.Open(Corpus.Bytes("empty-page.pdf"));
-        PageLabelTable numbers = await PageLabelTable.LoadAsync(plain, Token);
+        PageLabelTable numbers = await PageLabelTable.ReadAsync(plain, Token);
         Assert.False(numbers.HasLabels);
         Assert.Equal("1", numbers.GetLabel(0));
     }

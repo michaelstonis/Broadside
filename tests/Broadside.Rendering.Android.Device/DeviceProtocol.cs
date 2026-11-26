@@ -38,6 +38,12 @@ internal static class DeviceProtocol
     /// <summary>The render variant drawn by the device app's independent path reference (glyph outlines filled as plain Android paths).</summary>
     public const string Paths = "paths";
 
+    /// <summary>The render variant drawn by the rendering guide's sample (<c>AndroidSample</c>, issue #268), of page 0 of <see cref="GuideFile"/> only.</summary>
+    public const string Guide = "guide";
+
+    /// <summary>The corpus file the rendering guide's sample renders.</summary>
+    public const string GuideFile = "paths-fill-rules.pdf";
+
     /// <summary>
     /// Returns the name of the file that holds a page's pixels in a render variant, gzip-compressed: 32-bit ARGB per pixel,
     /// little-endian (B, G, R, A bytes), rows top first, no padding.

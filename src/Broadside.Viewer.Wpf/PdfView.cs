@@ -231,10 +231,11 @@ public sealed class PdfView : FrameworkElement, IViewerHost, IDisposable
     public void Reveal(int pageIndex, PdfRectangle area) => Controller.Reveal(pageIndex, area);
 
     /// <summary>Copies the selected text to the clipboard.</summary>
+    /// <param name="cancellationToken">Stops waiting for the selection's pages to load; nothing is copied then.</param>
     /// <returns>The copied text, or null when nothing is selected or the document closed before the selection's pages loaded.</returns>
-    public async Task<string?> CopySelectionAsync()
+    public async Task<string?> CopySelectionAsync(CancellationToken cancellationToken = default)
     {
-        string? text = await Controller.GetSelectedTextAsync().ConfigureAwait(true);
+        string? text = await Controller.GetSelectedTextAsync().WaitAsync(cancellationToken).ConfigureAwait(true);
         if (!string.IsNullOrEmpty(text))
         {
             SetClipboard(text);

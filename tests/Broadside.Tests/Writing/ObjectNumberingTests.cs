@@ -41,9 +41,8 @@ public sealed class ObjectNumberingTests
         { PdfCrossReferenceLayout.Stream, PdfObjectNumbering.Automatic },
     };
 
-    [Theory]
-    [MemberData(nameof(Layouts))]
-    public void An_added_object_does_not_take_the_number_of_a_dangling_reference(bool incremental)
+    [Fact]
+    public void An_added_object_does_not_take_the_number_of_a_dangling_reference()
     {
         using PdfDocument document = PdfDocument.Open(RepairedWithDanglingKid);
         Assert.Single(document.Pages);
@@ -51,16 +50,19 @@ public sealed class ObjectNumberingTests
         CosReference added = document.AddObject(new CosDictionary { [new CosName("Type")] = new CosName("Page") });
 
         Assert.NotEqual(4, added.ObjectNumber);
-        using PdfDocument reopened = PdfDocument.Open(Save(document, incremental));
+        using PdfDocument reopened = PdfDocument.Open(Save(document, incremental: false));
         Assert.Single(reopened.Pages);
+
+        // The file's cross-reference information was rebuilt by scanning, so an incremental update of it is refused (issue #620).
+        Assert.Throws<NotSupportedException>(() => Save(document, incremental: true));
     }
 
     [Fact]
-    public void An_update_to_a_repaired_file_whose_scan_found_a_huge_object_number_lists_only_its_objects()
+    public void A_repaired_file_whose_scan_found_a_huge_object_number_saves_as_a_complete_file_and_refuses_an_update()
     {
         // Found by the save fuzz target: the scan of a damaged file read "1000000115 0 obj", and the update of a repaired file listed
-        // every number below it, a table of 20 GB that ran past the largest array. An update cannot renumber, so it lists the objects
-        // in subsections instead (§7.5.4, §7.5.6).
+        // every number below it, a table of 20 GB that ran past the largest array. An update of a file whose cross-reference
+        // information was rebuilt is now refused before anything is written (issue #620); a complete file renumbers.
         byte[] file = Encoding.ASCII.GetBytes(
             "%PDF-1.7\n"
             + "1 0 obj\n<< /Type /Catalog /Pages 2 0 R /Answer 1000000115 0 R >>\nendobj\n"
@@ -70,15 +72,16 @@ public sealed class ObjectNumberingTests
             + "%%EOF\n");
         using PdfDocument document = PdfDocument.Open(file);
         document.Catalog[new CosName("Lang")] = new CosString("en"u8);
-        CosReference added = document.AddObject(new CosInteger(7));
+        document.Catalog[new CosName("Added")] = document.AddObject(new CosInteger(7));
 
-        byte[] saved = Save(document, incremental: true);
+        Assert.Throws<NotSupportedException>(() => Save(document, incremental: true));
+        byte[] saved = Save(document, incremental: false);
 
-        Assert.True(saved.Length < file.Length + 4096, $"The update is {saved.Length - file.Length} bytes.");
+        Assert.True(saved.Length < file.Length + 4096, $"The file is {saved.Length} bytes.");
         using PdfDocument reopened = PdfDocument.Open(saved);
         Assert.Single(reopened.Pages);
         Assert.Equal(42L, ((CosInteger)reopened.Resolve(reopened.Catalog[new CosName("Answer")])).Value);
-        Assert.Equal(7L, ((CosInteger)reopened.Resolve(added)).Value);
+        Assert.Equal(7L, ((CosInteger)reopened.Resolve(reopened.Catalog[new CosName("Added")])).Value);
         Assert.DoesNotContain(reopened.Diagnostics, diagnostic => diagnostic.Severity >= Diagnostics.DiagnosticSeverity.Warning);
     }
 

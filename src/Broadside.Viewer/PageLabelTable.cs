@@ -32,7 +32,7 @@ public sealed class PageLabelTable
     /// <param name="cancellationToken">Stops the read.</param>
     /// <returns>The table.</returns>
     /// <remarks>ISO 32000-2 §12.4.2. The read runs under the session's read lease (off the UI thread in background mode).</remarks>
-    public static async ValueTask<PageLabelTable> LoadAsync(DocumentSession session, CancellationToken cancellationToken = default)
+    public static async ValueTask<PageLabelTable> ReadAsync(DocumentSession session, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(session);
         return await session.ReadAsync(_ => Create(session.Document), cancellationToken).ConfigureAwait(true);

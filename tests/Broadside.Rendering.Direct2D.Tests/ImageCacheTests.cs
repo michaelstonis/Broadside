@@ -18,7 +18,7 @@ public sealed class ImageCacheTests
         using PdfDocument document = PdfDocument.Open(RepeatedImage(paints: 5, size: 8));
         DisplayList list = document.Pages[0].CreateDisplayList(DisplayLayers.Content);
         using var bitmap = new Bitmap(612, 792);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
         Matrix device = new RenderOptions().GetDeviceTransform(document.Pages[0]);
         renderer.Render(list, bitmap, device);
         Assert.Equal(1, renderer.ImagesCreated);
@@ -67,7 +67,7 @@ public sealed class ImageCacheTests
         using PdfDocument document = GoldenCorpus.Open(fileName);
         DisplayList list = document.Pages[0].CreateDisplayList(DisplayLayers.Content);
         using var bitmap = new Bitmap(1300, 1700);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
         Matrix at72 = new RenderOptions().GetDeviceTransform(document.Pages[0]);
         Matrix at144 = new RenderOptions().WithDpi(144).GetDeviceTransform(document.Pages[0]);
         renderer.Render(list, bitmap, at72);
@@ -86,7 +86,7 @@ public sealed class ImageCacheTests
     public void A_disposed_renderer_releases_its_device_resources()
     {
         using PdfDocument document = PdfDocument.Open(RepeatedImage(paints: 2, size: 8));
-        var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
         using (renderer.Render(document.Pages[0]))
         {
         }
@@ -100,7 +100,7 @@ public sealed class ImageCacheTests
 
     private static GoldenImage Render(PdfPage page, RenderOptions options, out int created, out long kept)
     {
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
         using Bitmap bitmap = renderer.Render(page, options);
         created = renderer.ImagesCreated;
         kept = renderer.CachedImageBytes;

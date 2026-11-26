@@ -1,9 +1,24 @@
 articles:
   - {path: readme.md, title: "Documentation"}
   - {path: getting-started.md, title: "Getting started"}
+  - {path: guides.md, title: "Guides"}
+  - {path: reading.md, title: "Reading"}
+  - {path: rendering.md, title: "Rendering"}
+  - {path: writing.md, title: "Writing"}
   - {path: building-documents.md, title: "Building documents"}
+  - {path: editing.md, title: "Editing"}
+  - {path: extracting-text.md, title: "Extracting text"}
+  - {path: signatures.md, title: "Signatures"}
+  - {path: accessibility-and-conformance.md, title: "Accessibility and conformance"}
+  - {path: viewers.md, title: "Viewers"}
+  - {path: migration.md, title: "Migration"}
   - {path: architecture.md, title: "Architecture"}
   - {path: roadmap.md, title: "Roadmap"}
+  - {path: performance.md, title: "Performance"}
+  - {path: versioning.md, title: "Versioning and support"}
+  - {path: untrusted-files.md, title: "Processing untrusted files"}
   - {path: conformance.md, title: "Conformance"}
+  - {path: diagnostics.md, title: "Diagnostic codes"}
   - {path: api-coverage.md, title: "API coverage"}
   - {path: contributing.md, title: "Contributing"}
+  - {path: api-review.md, title: "API review checklist"}

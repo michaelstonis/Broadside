@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Drives tools/DocSnippets on in-memory guides and samples, and checks that the site's guides match the samples in this checkout. -->
+  <PropertyGroup>
+    <RootNamespace>Broadside.Tools.DocSnippets.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../tools/DocSnippets/DocSnippets.csproj" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+</Project>

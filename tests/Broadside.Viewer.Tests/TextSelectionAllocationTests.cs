@@ -12,7 +12,7 @@ public sealed class TextSelectionAllocationTests
     {
         await using DocumentSession session = DocumentSession.Open(TextSamples.Page(ContentSamples.TextHeavy(10_000)));
         var selection = new TextSelection(session, ContentReadingOrder.Instance);
-        SelectableText text = await selection.LoadPageAsync(0, TestContext.Current.CancellationToken);
+        SelectableText text = await selection.ReadPageAsync(0, TestContext.Current.CancellationToken);
         PagePoint start = Centre(text, 10), onText = Centre(text, text.Length / 2), offText = new(0, -50, onText.Y);
         var quads = new Quad[512];
         int found = 0;

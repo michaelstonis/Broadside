@@ -19,6 +19,12 @@ internal sealed class ClipArena
     private int _verbCount;
     private int _pointCount;
 
+    // Outgrown buffers, returned to the pool by Reset: a ClipView's spans stay valid until the run ends, nested runs included,
+    // while nested runs keep adding nodes (issue #274).
+    private readonly List<Node[]> _outgrownNodes = [];
+    private readonly List<PathVerb[]> _outgrownVerbs = [];
+    private readonly List<PathPoint[]> _outgrownPoints = [];
+
     /// <summary>Forgets every node, at the end of a top-level run, and gives oversized buffers back to the pool.</summary>
     public void Reset()
     {
@@ -27,6 +33,9 @@ internal sealed class ClipArena
         _pointCount = 0;
         _glyphs.AsSpan(0, _glyphCount).Clear();
         _glyphCount = 0;
+        ReturnOutgrown(_outgrownNodes);
+        ReturnOutgrown(_outgrownVerbs);
+        ReturnOutgrown(_outgrownPoints);
         if (_points.Length > 1 << 16)
         {
             ArrayPool<Node>.Shared.Return(_nodes);
@@ -43,17 +52,17 @@ internal sealed class ClipArena
     {
         if (_nodeCount == _nodes.Length)
         {
-            Grow(ref _nodes, _nodeCount, _nodeCount + 1);
+            Grow(ref _nodes, _nodeCount, _nodeCount + 1, _outgrownNodes);
         }
 
         if (_verbCount + path.Verbs.Length > _verbs.Length)
         {
-            Grow(ref _verbs, _verbCount, _verbCount + path.Verbs.Length);
+            Grow(ref _verbs, _verbCount, _verbCount + path.Verbs.Length, _outgrownVerbs);
         }
 
         if (_pointCount + path.Points.Length > _points.Length)
         {
-            Grow(ref _points, _pointCount, _pointCount + path.Points.Length);
+            Grow(ref _points, _pointCount, _pointCount + path.Points.Length, _outgrownPoints);
         }
 
         path.Verbs.CopyTo(_verbs.AsSpan(_verbCount));
@@ -69,7 +78,7 @@ internal sealed class ClipArena
     {
         if (_nodeCount == _nodes.Length)
         {
-            Grow(ref _nodes, _nodeCount, _nodeCount + 1);
+            Grow(ref _nodes, _nodeCount, _nodeCount + 1, _outgrownNodes);
         }
 
         if (_glyphCount + glyphs.Length > _glyphs.Length)
@@ -106,12 +115,22 @@ internal sealed class ClipArena
         };
     }
 
-    private static void Grow<T>(ref T[] array, int used, int minimum)
+    private static void Grow<T>(ref T[] array, int used, int minimum, List<T[]> outgrown)
     {
         T[] larger = ArrayPool<T>.Shared.Rent(Math.Max(minimum, array.Length * 2));
         array.AsSpan(0, used).CopyTo(larger);
-        ArrayPool<T>.Shared.Return(array);
+        outgrown.Add(array);
         array = larger;
+    }
+
+    private static void ReturnOutgrown<T>(List<T[]> outgrown)
+    {
+        foreach (T[] array in outgrown)
+        {
+            ArrayPool<T>.Shared.Return(array);
+        }
+
+        outgrown.Clear();
     }
 
     private readonly record struct Node(int Parent, ClipKind Kind, FillRule Rule, int VerbStart, int VerbCount, int PointStart, int PointCount, Matrix Ctm, int GlyphStart, int GlyphCount);

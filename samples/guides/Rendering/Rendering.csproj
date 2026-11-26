@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The rendering guide (site/articles/rendering.md) with the software rasterizer: render options, tiles from a cached display list,
+    cancellation and progress, layers and optional content, hit-testing, color management, the fonts and CMaps packages, determinism
+    and memory budgets. It compares its renders of corpus pages with their golden images (tests/Golden; ../Shared/Golden/Golden.props).
+  -->
+  <Import Project="../Shared/Golden/Golden.props" />
+
+  <PropertyGroup>
+    <AssemblyName>Broadside.Samples.Rendering</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Broadside/Broadside.csproj" />
+    <ProjectReference Include="../../../src/Broadside.Rendering/Broadside.Rendering.csproj" />
+    <ProjectReference Include="../../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <ProjectReference Include="../../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(CorpusDirectory)text-standard14.pdf" Link="text-standard14.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(CorpusDirectory)text-cidcff-predefined-cmap.pdf" Link="text-cidcff-predefined-cmap.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(CorpusDirectory)paths-fill-rules.pdf" Link="paths-fill-rules.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(CorpusDirectory)annotations-appearance.pdf" Link="annotations-appearance.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(CorpusDirectory)annotations-link.pdf" Link="annotations-link.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(CorpusDirectory)optional-content.pdf" Link="optional-content.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(CorpusDirectory)icc-rgb-matrix.pdf" Link="icc-rgb-matrix.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(CorpusDirectory)output-intent-cmyk.pdf" Link="output-intent-cmyk.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(GoldenDirectory)paths-fill-rules.page0.verified.png" Link="golden/paths-fill-rules.page0.verified.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(GoldenDirectory)text-standard14.page0.verified.png" Link="golden/text-standard14.page0.verified.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(GoldenDirectory)text-cidcff-predefined-cmap.page0.verified.png" Link="golden/text-cidcff-predefined-cmap.page0.verified.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

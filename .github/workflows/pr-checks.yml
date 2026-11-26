@@ -1,0 +1,34 @@
+# Pull request hygiene (issue #264): the title follows Conventional Commits, because titles become the release notes. Runs on
+# pull requests only, and not for pull requests opened by a bot (Dependabot and other GitHub Apps). To make the check required,
+# the owner adds `conventional title` to the branch protection of main. See .github/workflows/README.md.
+name: PR checks
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  title:
+    name: conventional title
+    if: github.event.pull_request.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Check the title
+        env:
+          # Passed through the environment, never interpolated into the script, so a title cannot inject shell.
+          TITLE: ${{ github.event.pull_request.title }}
+        run: .github/scripts/check-pr-title.sh "${TITLE}"
+

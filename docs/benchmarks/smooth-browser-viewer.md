@@ -67,7 +67,7 @@ The worker path stays opt-in (`ViewerOptions.UseRemoteRenderer`). On the phone p
 
 On the phone the remaining long frames are no longer tile work. With the worker, the page's thread renders no content, yet frames of
 about 300 ms remained. They came from the page-model loads that follow a page's first tiles. Text selection built its hit-test index
-and reading order in one step (`TextSelection.LoadPageAsync`), and the accessibility bridge extracted the page's layout in one step.
+and reading order in one step (`TextSelection.ReadPageAsync`), and the accessibility bridge extracted the page's layout in one step.
 #546 slices those (next section); what is left on the phone profile is the display list those loads build first.
 
 ## Page-model loads in slices (#546)

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Drives tools/ReleaseNotes over small git repositories built in a temporary folder, and over this checkout. -->
+  <PropertyGroup>
+    <RootNamespace>Broadside.Tools.ReleaseNotes.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../tools/ReleaseNotes/ReleaseNotes.csproj" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+</Project>

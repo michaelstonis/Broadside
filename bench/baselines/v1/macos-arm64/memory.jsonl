@@ -1,0 +1,63 @@
+{"peak_rss_bytes": 60456960, "engine": "broadside", "file": null}
+{"peak_rss_bytes": 28426240, "engine": "pdfium", "file": null}
+{"peak_rss_bytes": 172294144, "engine": "pdfjs", "file": null}
+{"peak_rss_bytes": 71139328, "engine": "broadside", "file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
+{"peak_rss_bytes": 36126720, "engine": "pdfium", "file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
+{"peak_rss_bytes": 214761472, "engine": "pdfjs", "file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf"}
+{"peak_rss_bytes": 173752320, "engine": "broadside", "file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
+{"peak_rss_bytes": 69468160, "engine": "pdfium", "file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
+{"peak_rss_bytes": 472825856, "engine": "pdfjs", "file": "gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf"}
+{"peak_rss_bytes": 71892992, "engine": "broadside", "file": "pdf20examples/PDF 2.0 image with BPC.pdf"}
+{"peak_rss_bytes": 36388864, "engine": "pdfium", "file": "pdf20examples/PDF 2.0 image with BPC.pdf"}
+{"peak_rss_bytes": 201867264, "engine": "pdfjs", "file": "pdf20examples/PDF 2.0 image with BPC.pdf"}
+{"peak_rss_bytes": 70696960, "engine": "broadside", "file": "pdf20examples/PDF 2.0 with page level output intent.pdf"}
+{"peak_rss_bytes": 36044800, "engine": "pdfium", "file": "pdf20examples/PDF 2.0 with page level output intent.pdf"}
+{"peak_rss_bytes": 203603968, "engine": "pdfjs", "file": "pdf20examples/PDF 2.0 with page level output intent.pdf"}
+{"peak_rss_bytes": 79364096, "engine": "broadside", "file": "pdfjs/alphatrans.pdf"}
+{"peak_rss_bytes": 41369600, "engine": "pdfium", "file": "pdfjs/alphatrans.pdf"}
+{"peak_rss_bytes": 208076800, "engine": "pdfjs", "file": "pdfjs/alphatrans.pdf"}
+{"peak_rss_bytes": 75251712, "engine": "broadside", "file": "pdfjs/annotation-highlight.pdf"}
+{"peak_rss_bytes": 40386560, "engine": "pdfium", "file": "pdfjs/annotation-highlight.pdf"}
+{"peak_rss_bytes": 205832192, "engine": "pdfjs", "file": "pdfjs/annotation-highlight.pdf"}
+{"peak_rss_bytes": 74940416, "engine": "broadside", "file": "pdfjs/bug_jpx.pdf"}
+{"peak_rss_bytes": 35979264, "engine": "pdfium", "file": "pdfjs/bug_jpx.pdf"}
+{"peak_rss_bytes": 205553664, "engine": "pdfjs", "file": "pdfjs/bug_jpx.pdf"}
+{"peak_rss_bytes": 83099648, "engine": "broadside", "file": "pdfjs/calgray.pdf"}
+{"peak_rss_bytes": 45170688, "engine": "pdfium", "file": "pdfjs/calgray.pdf"}
+{"peak_rss_bytes": 244252672, "engine": "pdfjs", "file": "pdfjs/calgray.pdf"}
+{"peak_rss_bytes": 72171520, "engine": "broadside", "file": "pdfjs/ccitt_EndOfBlock_false.pdf"}
+{"peak_rss_bytes": 35618816, "engine": "pdfium", "file": "pdfjs/ccitt_EndOfBlock_false.pdf"}
+{"peak_rss_bytes": 200294400, "engine": "pdfjs", "file": "pdfjs/ccitt_EndOfBlock_false.pdf"}
+{"peak_rss_bytes": 73564160, "engine": "broadside", "file": "pdfjs/cmykjpeg.pdf"}
+{"peak_rss_bytes": 37732352, "engine": "pdfium", "file": "pdfjs/cmykjpeg.pdf"}
+{"peak_rss_bytes": 205733888, "engine": "pdfjs", "file": "pdfjs/cmykjpeg.pdf"}
+{"peak_rss_bytes": 72417280, "engine": "broadside", "file": "pdfjs/devicen.pdf"}
+{"peak_rss_bytes": 35782656, "engine": "pdfium", "file": "pdfjs/devicen.pdf"}
+{"peak_rss_bytes": 199475200, "engine": "pdfjs", "file": "pdfjs/devicen.pdf"}
+{"peak_rss_bytes": 74547200, "engine": "broadside", "file": "pdfjs/function_based_shading.pdf"}
+{"peak_rss_bytes": 35864576, "engine": "pdfium", "file": "pdfjs/function_based_shading.pdf"}
+{"peak_rss_bytes": 251641856, "engine": "pdfjs", "file": "pdfjs/function_based_shading.pdf"}
+{"peak_rss_bytes": 82575360, "engine": "broadside", "file": "pdfjs/issue2948.pdf"}
+{"peak_rss_bytes": 43778048, "engine": "pdfium", "file": "pdfjs/issue2948.pdf"}
+{"peak_rss_bytes": 251789312, "engine": "pdfjs", "file": "pdfjs/issue2948.pdf"}
+{"peak_rss_bytes": 65159168, "engine": "broadside", "file": "pdfjs/issue3584.pdf"}
+{"peak_rss_bytes": 31490048, "engine": "pdfium", "file": "pdfjs/issue3584.pdf"}
+{"peak_rss_bytes": 193085440, "engine": "pdfjs", "file": "pdfjs/issue3584.pdf"}
+{"peak_rss_bytes": 63504384, "engine": "broadside", "file": "pdfjs/issue6296.pdf"}
+{"peak_rss_bytes": 29261824, "engine": "pdfium", "file": "pdfjs/issue6296.pdf"}
+{"peak_rss_bytes": 191037440, "engine": "pdfjs", "file": "pdfjs/issue6296.pdf"}
+{"peak_rss_bytes": 72122368, "engine": "broadside", "file": "pdfjs/jbig2_symbol_offset.pdf"}
+{"peak_rss_bytes": 35684352, "engine": "pdfium", "file": "pdfjs/jbig2_symbol_offset.pdf"}
+{"peak_rss_bytes": 199114752, "engine": "pdfjs", "file": "pdfjs/jbig2_symbol_offset.pdf"}
+{"peak_rss_bytes": 95354880, "engine": "broadside", "file": "pdfjs/personwithdog.pdf"}
+{"peak_rss_bytes": 39272448, "engine": "pdfium", "file": "pdfjs/personwithdog.pdf"}
+{"peak_rss_bytes": 229965824, "engine": "pdfjs", "file": "pdfjs/personwithdog.pdf"}
+{"peak_rss_bytes": 70221824, "engine": "broadside", "file": "pdfjs/smask_alpha_oob.pdf"}
+{"peak_rss_bytes": 43253760, "engine": "pdfium", "file": "pdfjs/smask_alpha_oob.pdf"}
+{"peak_rss_bytes": 211451904, "engine": "pdfjs", "file": "pdfjs/smask_alpha_oob.pdf"}
+{"peak_rss_bytes": 111869952, "engine": "broadside", "file": "pdfjs/tiling-pattern-large-steps.pdf"}
+{"peak_rss_bytes": 94945280, "engine": "pdfium", "file": "pdfjs/tiling-pattern-large-steps.pdf"}
+{"peak_rss_bytes": 218152960, "engine": "pdfjs", "file": "pdfjs/tiling-pattern-large-steps.pdf"}
+{"peak_rss_bytes": 135348224, "engine": "broadside", "file": "pdfjs/tracemonkey.pdf"}
+{"peak_rss_bytes": 53805056, "engine": "pdfium", "file": "pdfjs/tracemonkey.pdf"}
+{"peak_rss_bytes": 355860480, "engine": "pdfjs", "file": "pdfjs/tracemonkey.pdf"}

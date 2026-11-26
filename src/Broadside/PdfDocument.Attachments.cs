@@ -99,6 +99,17 @@ public sealed partial class PdfDocument
     }
 
     /// <summary>
+    /// Embeds <paramref name="contents"/> with the default options (see <see cref="CreateEmbeddedFile"/>) and lists the new file in the
+    /// document's <c>EmbeddedFiles</c> name tree under <paramref name="fileName"/>.
+    /// </summary>
+    /// <param name="fileName">The file's name and its key in the tree.</param>
+    /// <param name="contents">The file's bytes; copied.</param>
+    /// <returns>The new entry.</returns>
+    /// <exception cref="ArgumentException"><paramref name="fileName"/> is empty.</exception>
+    /// <remarks>ISO 32000-2 §7.7.4, Table 32 (PDF 1.4), and §7.11.4. As <see cref="AddEmbeddedFile(string, ReadOnlySpan{byte}, PdfEmbeddedFileOptions?)"/>.</remarks>
+    public PdfEmbeddedFileEntry AddEmbeddedFile(string fileName, ReadOnlySpan<byte> contents) => AddEmbeddedFile(fileName, contents, null);
+
+    /// <summary>
     /// Embeds <paramref name="contents"/> (see <see cref="CreateEmbeddedFile"/>) and lists the new file in the document's
     /// <c>EmbeddedFiles</c> name tree under <paramref name="fileName"/>.
     /// </summary>
@@ -108,7 +119,7 @@ public sealed partial class PdfDocument
     /// <returns>The new entry.</returns>
     /// <exception cref="ArgumentException"><paramref name="fileName"/> is empty.</exception>
     /// <remarks>ISO 32000-2 §7.7.4, Table 32 (PDF 1.4), and §7.11.4. As <see cref="AddEmbeddedFile(string, PdfFileSpecification)"/>.</remarks>
-    public PdfEmbeddedFileEntry AddEmbeddedFile(string fileName, ReadOnlySpan<byte> contents, PdfEmbeddedFileOptions? options = null) =>
+    public PdfEmbeddedFileEntry AddEmbeddedFile(string fileName, ReadOnlySpan<byte> contents, PdfEmbeddedFileOptions? options) =>
         AddEmbeddedFile(fileName, CreateEmbeddedFile(fileName, contents, options));
 
     /// <summary>Lists <paramref name="file"/> in the document's <c>EmbeddedFiles</c> name tree under <paramref name="name"/>.</summary>

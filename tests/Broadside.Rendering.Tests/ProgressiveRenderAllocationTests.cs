@@ -27,7 +27,7 @@ public sealed class ProgressiveRenderAllocationTests
         int slices = 0;
         Action render = () =>
         {
-            using ProgressiveRender sliced = rasterizer.BeginRender(list, bitmap, device, cancellation.Token, progress);
+            using ProgressiveRender sliced = rasterizer.BeginRender(list, bitmap, device, progress, cancellation.Token);
             while (!sliced.Continue(TimeSpan.Zero))
             {
                 slices++;

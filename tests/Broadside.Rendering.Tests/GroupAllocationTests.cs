@@ -37,4 +37,24 @@ public sealed class GroupAllocationTests
 
         Assert.Equal(0, allocated);
     }
+
+    [Theory]
+    [InlineData(72)]
+    [InlineData(300)]
+    public void Blending_groups_in_a_cmyk_page_allocates_nothing_once_warm(double dpi)
+    {
+        using PdfDocument document = PdfDocument.Open(GroupSamples.BlendModesInCmykPage());
+        PdfPage page = document.Pages[0];
+        DisplayList list = page.CreateDisplayList();
+        var options = new RenderOptions().WithDpi(dpi);
+        PixelSize size = options.GetPixelSize(page);
+        Matrix device = options.GetDeviceTransform(page);
+        using var bitmap = new Bitmap(size.Width, size.Height);
+        using var rasterizer = new SoftwareRasterizer();
+        Action render = () => rasterizer.Render(list, bitmap, device);
+
+        long allocated = Allocations.Measure(render, warmUpCalls: 3);
+
+        Assert.Equal(0, allocated);
+    }
 }

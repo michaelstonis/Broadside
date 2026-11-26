@@ -72,7 +72,7 @@ public sealed partial class PdfDocument
             range.AddObjectBoundaries(ObjectBoundaries(
                 crossReference.IsDeferred ? [crossReference.FirstPageSection!] : crossReference.Sections,
                 document._loader.Header.Offset));
-            if (await range.RunAsync(() => document.Pages.UsesHints && document.Pages[0] is not null && document.Pages.UsesHints, cancellationToken).ConfigureAwait(false))
+            if (await range.RunAsync(() => document.Pages.FirstPageReadsThroughHints() && document.Pages.UsesHints, cancellationToken).ConfigureAwait(false))
             {
                 range.AddObjectBoundaries(await range.RunAsync(document.HintBoundaries, cancellationToken).ConfigureAwait(false));
             }

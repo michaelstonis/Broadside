@@ -1,1 +1,28 @@
 #nullable enable
+Broadside.Rendering.WebGL.WebGLRender
+Broadside.Rendering.WebGL.WebGLRender.Continue(System.TimeSpan budget) -> bool
+Broadside.Rendering.WebGL.WebGLRender.Dispose() -> void
+Broadside.Rendering.WebGL.WebGLRender.GpuTime.get -> System.TimeSpan
+Broadside.Rendering.WebGL.WebGLRender.IsCompleted.get -> bool
+Broadside.Rendering.WebGL.WebGLRender.IsInCanvas.get -> bool
+Broadside.Rendering.WebGL.WebGLRender.UsedSoftwareRasterizer.get -> bool
+Broadside.Rendering.WebGL.WebGLBackend
+Broadside.Rendering.WebGL.WebGLBackend.BeginRender(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, bool readBack, System.Threading.CancellationToken cancellationToken) -> Broadside.Rendering.WebGL.WebGLRender!
+Broadside.Rendering.WebGL.WebGLBackend.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+Broadside.Rendering.WebGL.WebGLBackend.Dispose() -> void
+Broadside.Rendering.WebGL.WebGLBackend.Render(Broadside.PdfPage! page, Broadside.Rendering.RenderOptions! options) -> Broadside.Rendering.Bitmap!
+Broadside.Rendering.WebGL.WebGLBackend.Render(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform) -> void
+Broadside.Rendering.WebGL.WebGLBackend.WebGLBackend() -> void
+static Broadside.Rendering.WebGL.WebGLBackend.Canvas.get -> System.Runtime.InteropServices.JavaScript.JSObject!
+static Broadside.Rendering.WebGL.WebGLBackend.Description.get -> string?
+static Broadside.Rendering.WebGL.WebGLBackend.InitializeAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+static Broadside.Rendering.WebGL.WebGLBackend.IsAvailable.get -> bool
+static Broadside.Rendering.WebGL.WebGLBackend.TextureBudget.get -> long
+static Broadside.Rendering.WebGL.WebGLBackend.TextureBudget.set -> void
+static Broadside.Rendering.WebGL.WebGLBackend.TextureBytes.get -> long
+static Broadside.Rendering.WebGL.WebGLBackend.ReadCanvas(Broadside.Rendering.Bitmap! target) -> void
+static Broadside.Rendering.WebGL.WebGLBackend.PrefetchImageBitmapsAsync(Broadside.Rendering.DisplayList! list, Broadside.Graphics.Matrix deviceTransform, Broadside.PdfRectangle? region, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Broadside.Rendering.WebGL.WebGLBackend.ImageSamplesPerPixel.get -> double
+Broadside.Rendering.WebGL.WebGLBackend.ImageSamplesPerPixel.set -> void
+Broadside.Rendering.WebGL.WebGLBackend.ScaledImageDecode.get -> bool
+Broadside.Rendering.WebGL.WebGLBackend.ScaledImageDecode.set -> void

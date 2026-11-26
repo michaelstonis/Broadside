@@ -109,7 +109,7 @@ public sealed class ViewerFeatureTests
     public void Going_to_an_outline_entry_shows_its_destination_page() => UiThread.Run(async () =>
     {
         using Shell shell = await Shell.OpenAsync(Shell.SampleDocument("novel-large-print.pdf"));
-        DocumentOutline outline = await DocumentOutline.LoadAsync(shell.Controller.Session!, TestContext.Current.CancellationToken);
+        DocumentOutline outline = await DocumentOutline.ReadAsync(shell.Controller.Session!, TestContext.Current.CancellationToken);
         OutlineEntry[] entries = [.. outline.Entries.Where(e => e.Target is { PageIndex: > 0 })];
         Assert.NotEmpty(entries);
         foreach (OutlineEntry entry in entries.Reverse().Take(3))

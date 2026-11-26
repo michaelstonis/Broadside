@@ -88,6 +88,63 @@ public sealed class DiagnosticCatalogTests
     }
 
     [Fact]
+    public void Every_code_has_a_description_of_what_it_means_and_how_it_is_repaired()
+    {
+        Assert.All(DiagnosticCatalog.All, code =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(code.Description), code.Name);
+            Assert.EndsWith(".", code.Description, StringComparison.Ordinal);
+            Assert.DoesNotContain("|", code.Description, StringComparison.Ordinal);
+        });
+        Assert.Equal("The file has no startxref keyword. The cross-reference information is rebuilt by scanning the file.", FileStructureDiagnostics.StartxrefMissing.Description);
+    }
+
+    [Fact]
+    public void Codes_outside_the_catalog_have_no_description()
+    {
+        Assert.Null(DiagnosticCode.Create("Tests", "FeatureNoted", DiagnosticSeverity.Information).Description);
+        Assert.Null(new Diagnostic("Tests.Unknown", DiagnosticSeverity.Warning, "m").Kind.Description);
+    }
+
+    /// <summary>
+    /// The published catalog page (issue #263) is generated from the catalog: a code added, renamed, re-rated or re-described without
+    /// regenerating <c>site/articles/diagnostics.md</c> fails here as well as in the documentation build.
+    /// </summary>
+    [Fact]
+    public void The_published_catalog_page_is_current()
+    {
+        string page = Path.Combine(RepositoryRoot(), "site", "articles", "diagnostics.md");
+
+        Assert.True(
+            Broadside.Tools.DiagnosticCatalogPage.CatalogPage.IsCurrent(File.ReadAllText(page)),
+            "site/articles/diagnostics.md is stale; regenerate it with dotnet run --project tools/DiagnosticCatalogPage -- site/articles/diagnostics.md --write");
+    }
+
+    [Fact]
+    public void The_page_lists_every_code_with_its_severity_clause_and_description()
+    {
+        string block = Broadside.Tools.DiagnosticCatalogPage.CatalogPage.Render();
+
+        Assert.All(DiagnosticCatalog.All, code => Assert.Contains($"| `{code.Name}` | {code.DefaultSeverity} | {code.Clause} | {code.Description} |", block, StringComparison.Ordinal));
+        string page = string.Concat(Broadside.Tools.DiagnosticCatalogPage.CatalogPage.BeginMarker, "\n", block, Broadside.Tools.DiagnosticCatalogPage.CatalogPage.EndMarker, "\n");
+        Assert.True(Broadside.Tools.DiagnosticCatalogPage.CatalogPage.IsCurrent(page));
+        Assert.False(Broadside.Tools.DiagnosticCatalogPage.CatalogPage.IsCurrent(page.Replace("`StartxrefMissing`", "`StartxrefAbsent`", StringComparison.Ordinal)));
+    }
+
+    private static string RepositoryRoot()
+    {
+        for (DirectoryInfo? directory = new(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "Broadside.slnx")))
+            {
+                return directory.FullName;
+            }
+        }
+
+        throw new InvalidOperationException("The repository root (Broadside.slnx) is not above the test output.");
+    }
+
+    [Fact]
     public void Each_catalog_class_lists_its_own_codes_once_under_its_area()
     {
         Type[] catalogClasses = [.. typeof(DiagnosticCode).Assembly.GetExportedTypes()

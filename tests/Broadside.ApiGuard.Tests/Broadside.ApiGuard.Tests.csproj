@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The automated half of the API review checklist (site/articles/api-review.md, issue #261): each mechanical rule runs over
+    the public surface of every shipping package. The packages that build on every OS are referenced and checked by
+    reflection; the platform backends and viewer shells, which build only with their workloads or SDKs, are checked from their
+    PublicAPI files.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside/Broadside.csproj" />
+    <ProjectReference Include="../../src/Broadside.Rendering/Broadside.Rendering.csproj" />
+    <ProjectReference Include="../../src/Broadside.Rendering.Skia/Broadside.Rendering.Skia.csproj" />
+    <ProjectReference Include="../../src/Broadside.Rendering.WebGL/Broadside.Rendering.WebGL.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <ProjectReference Include="../../src/Broadside.Layout/Broadside.Layout.csproj" />
+    <ProjectReference Include="../../src/Broadside.Viewer/Broadside.Viewer.csproj" />
+    <ProjectReference Include="../../src/Broadside.Viewer.Avalonia/Broadside.Viewer.Avalonia.csproj" />
+    <ProjectReference Include="../../src/Broadside.Viewer.Blazor/Broadside.Viewer.Blazor.csproj" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+</Project>

@@ -21,7 +21,7 @@ public class CoreGraphicsBackendBenchmarks
     private PdfDocument? _document;
     private DisplayList? _list;
     private CGBitmapContext? _context;
-    private CoreGraphicsRenderer? _renderer;
+    private CoreGraphicsBackend? _renderer;
     private Matrix _device;
     private RenderOptions? _options;
 
@@ -62,7 +62,7 @@ public class CoreGraphicsBackendBenchmarks
         using CGColorSpace space = CGColorSpace.CreateSrgb()!;
         _context = new CGBitmapContext(null, size.Width, size.Height, 8, size.Width * 4, space, CGBitmapFlags.PremultipliedFirst | CGBitmapFlags.ByteOrder32Little);
         _context.ConcatCTM(new CGAffineTransform(1, 0, 0, -1, 0, size.Height));
-        _renderer = new CoreGraphicsRenderer();
+        _renderer = new CoreGraphicsBackend();
     }
 
     [GlobalCleanup]

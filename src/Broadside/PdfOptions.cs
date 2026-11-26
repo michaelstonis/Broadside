@@ -643,7 +643,7 @@ public sealed class PdfOptions
         return this;
     }
 
-    /// <summary>Gets the logger factory set by <see cref="WithLoggerFactory"/>, or <see langword="null"/>.</summary>
+    /// <summary>Gets the logger factory set by <see cref="UseLoggerFactory"/>, or <see langword="null"/>.</summary>
     /// <remarks>Not a property, so configuration binding never sees it.</remarks>
     internal ILoggerFactory? LoggerFactory { get; private set; }
 
@@ -659,7 +659,7 @@ public sealed class PdfOptions
     /// values <c>Code</c>, <c>Severity</c>, <c>Offset</c>, <c>ObjectReference</c> and <c>Message</c>. In strict mode the deviation is
     /// logged before it is thrown.
     /// </remarks>
-    public PdfOptions WithLoggerFactory(ILoggerFactory? loggerFactory)
+    public PdfOptions UseLoggerFactory(ILoggerFactory? loggerFactory)
     {
         LoggerFactory = loggerFactory;
         return this;

@@ -5,7 +5,7 @@ namespace Broadside.Rendering;
 /// <summary>
 /// A replay of a <see cref="DisplayList"/> into one backend that runs in time slices: <see cref="Continue"/> hands operations over
 /// until its budget is used, and the next call resumes at the operation where it stopped. Start one with
-/// <see cref="DisplayList.BeginReplay(IRenderingBackend, CancellationToken, IProgress{double})"/>.
+/// <see cref="DisplayList.BeginReplay(IRenderingBackend, IProgress{double}, CancellationToken)"/>.
 /// </summary>
 /// <remarks>
 /// <para>

@@ -73,7 +73,7 @@ public sealed partial class AccessibilityTests(BrowserHost host)
     {
         using DocumentSession session = DocumentSession.Open(file);
         var bridge = new AccessibilityBridge(session);
-        bridge.LoadPage(0);
+        bridge.ReadPage(0);
         var texts = new List<(string Text, bool Leaf)>();
         var seen = new HashSet<AccessibleNode>(ReferenceEqualityComparer.Instance);
         for (AccessibleNode? node = bridge.FindNext(null, AccessibleNavigation.Element); node is not null && node.PageIndex == 0 && seen.Add(node); node = bridge.FindNext(node, AccessibleNavigation.Element))

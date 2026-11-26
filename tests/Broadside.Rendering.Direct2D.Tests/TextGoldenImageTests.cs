@@ -19,7 +19,7 @@ public sealed class TextGoldenImageTests
     public void Page_matches_the_golden_image(string fileName, int page)
     {
         using PdfDocument document = GoldenCorpus.Open(fileName);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var renderer = new Direct2DBackend(Direct2DDeviceType.Warp);
 
         using Bitmap bitmap = renderer.Render(document.Pages[page], GoldenCorpus.CreateRenderOptions());
 

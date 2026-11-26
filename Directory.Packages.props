@@ -61,6 +61,8 @@
     <PackageVersion Include="Microsoft.Playwright" Version="1.58.0" />
     <!-- An independent, fully managed PNG decoder (public domain port of stb_image) that checks the rasterizer's PNG output (#95); never in a package. -->
     <PackageVersion Include="StbImageSharp" Version="2.30.15" />
+    <!-- Compiles tiny assemblies with portable PDBs and chosen SourceLink maps for tools/PackageCheck's tests (#265); never in a package. -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
     <!-- SkiaSharp's native library for Linux (SkiaSharp itself carries only the Windows and Apple ones), so the Skia backend's tests and
          benchmarks run on the Linux CI legs (#121); same version as SkiaSharp, never in a package: an application picks its own. -->
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
@@ -77,6 +79,8 @@
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.12" />
+    <!-- The console logger the hosted reading sample (samples/guides/ReadingHosted, #267) logs diagnostics to; never in a package. -->
+    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.12" />
   </ItemGroup>
 
 </Project>

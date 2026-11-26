@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Broadside.Images;
 
 namespace Broadside.Layout.Flow;
@@ -15,7 +14,6 @@ namespace Broadside.Layout.Flow;
 /// document.
 /// </para>
 /// </remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public sealed class ImageSource
 {
     private static ReadOnlySpan<byte> PngSignature => [0x89, (byte)'P', (byte)'N', (byte)'G', 0x0D, 0x0A, 0x1A, 0x0A];

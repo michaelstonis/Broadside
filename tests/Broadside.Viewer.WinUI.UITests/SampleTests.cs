@@ -353,7 +353,7 @@ public sealed class SampleTests
             .WithThreading(ViewerThreading.Cooperative);
         await using DocumentSession session = DocumentSession.Open(path, options);
         var bridge = new AccessibilityBridge(session);
-        AccessibleNode page = await bridge.LoadPageAsync(0);
+        AccessibleNode page = await bridge.ReadPageAsync(0);
         return [.. Flatten(page)
             .Where(n => n.Role is AccessibleRole.Heading or AccessibleRole.Paragraph or AccessibleRole.Text or AccessibleRole.Caption or AccessibleRole.ListMarker)
             .Select(n => (n.Name ?? n.Text).Trim())

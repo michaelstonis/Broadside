@@ -387,7 +387,7 @@ internal sealed class CoreGraphicsStroker
         Dash(closed);
     }
 
-    private PathPoint Pen(PathPoint user) => _thinnest ? CoreGraphicsBackend.Map(_userToDevice, user) : user;
+    private PathPoint Pen(PathPoint user) => _thinnest ? CoreGraphicsReplayer.Map(_userToDevice, user) : user;
 
     /// <summary>
     /// Moves the ends of horizontal and vertical device segments (not inside a curve) so that a line of the adjusted width has its

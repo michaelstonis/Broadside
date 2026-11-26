@@ -128,6 +128,16 @@ public abstract class PdfFunction
         Report(compiled, evaluator.Evaluate(inputs, outputs, count));
     }
 
+    /// <summary>Gets the compiled form for a run of evaluations: one staleness check for the run, as the batch overload makes.</summary>
+    internal CompiledFunction Compiled => Current();
+
+    /// <summary>Evaluates the function at one point with a compiled form from <see cref="Compiled"/>, without checking it again.</summary>
+    /// <param name="compiled">The compiled form.</param>
+    /// <param name="input">At least <see cref="FunctionEvaluator.InputCount"/> values of <paramref name="compiled"/>.</param>
+    /// <param name="output">At least <see cref="FunctionEvaluator.OutputCount"/> values of <paramref name="compiled"/>.</param>
+    internal void Evaluate(CompiledFunction compiled, ReadOnlySpan<float> input, Span<float> output) =>
+        Report(compiled, compiled.Evaluator.Evaluate(input, output));
+
     /// <summary>Reads an entry of numbers from the dictionary as it is now.</summary>
     /// <param name="key">The key.</param>
     /// <returns>The numbers, or <see langword="null"/> when absent or not an array of numbers.</returns>

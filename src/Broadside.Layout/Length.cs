@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 
 namespace Broadside.Layout.Flow;
@@ -13,7 +12,6 @@ namespace Broadside.Layout.Flow;
 /// a number and compare; <see cref="ToString()"/> prints the points with the unit, such as <c>56.6929pt</c>. Percentages are not lengths:
 /// relative widths are <see cref="ColumnWidth"/> values.
 /// </remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly record struct Length : IComparable<Length>
 {
     private const double PointsPerInch = 72;

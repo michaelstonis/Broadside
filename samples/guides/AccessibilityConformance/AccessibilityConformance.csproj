@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The accessibility and conformance guide (site/articles/accessibility-and-conformance.md): automatic tagging, PDF/UA and PDF/A.
+    The files it writes carry their profiles in their names (-pdfua1, -pdfa2b, ...), and run-samples.sh validates them with veraPDF.
+  -->
+  <PropertyGroup>
+    <AssemblyName>Broadside.Samples.AccessibilityConformance</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Broadside/Broadside.csproj" />
+    <ProjectReference Include="../../../src/Broadside.Layout/Broadside.Layout.csproj" />
+    <ProjectReference Include="../../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(CorpusDirectory)text-standard14.pdf" Link="text-standard14.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(CorpusDirectory)layout-two-column-untagged.pdf" Link="layout-two-column-untagged.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../../src/Broadside.Fonts.Standard14/Fonts/LiberationSans-Regular.ttf" Link="LiberationSans-Regular.ttf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../../src/Broadside.Fonts.Standard14/Fonts/LiberationSans-Bold.ttf" Link="LiberationSans-Bold.ttf" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

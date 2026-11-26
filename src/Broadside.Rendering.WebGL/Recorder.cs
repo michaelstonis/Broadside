@@ -173,7 +173,7 @@ internal sealed class Recorder : IRenderingBackend
         }
 
         // Mode B (#373): an image whose texture the browser decoded itself needs no samples, so it never decodes here.
-        bool native = WebGLRenderer.IsNativeImagePaint(image, conversion);
+        bool native = WebGLBackend.IsNativeImagePaint(image, conversion);
         bool bitmap = native && TextureCache.HasNativeImage(image);
         DisplayImageSamples? samples = null;
         DisplayImageSamples? softSamples = null;

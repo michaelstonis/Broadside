@@ -34,8 +34,14 @@ public sealed class RemoteFirstPageTests(BrowserHost host)
             "() => { const v = document.querySelector('.bs-viewer'); return v && Number(v.dataset.tilesPresented) > 0 && Number(v.dataset.pageCount) > 0; }",
             null,
             new PageWaitForFunctionOptions { Timeout = 120_000 });
-        int dark = await page.EvaluateAsync<int>(Viewer.CountDarkPixels);
         long served = Interlocked.Read(ref document.Served);
+
+        // WebKit can report a presented tile a frame before the canvas shows it, so wait for the ink rather than reading it once.
+        await page.WaitForFunctionAsync(
+            Viewer.CountDarkPixels.Replace("return n;", "return n > 0;", StringComparison.Ordinal),
+            null,
+            new PageWaitForFunctionOptions { Timeout = 30_000 });
+        int dark = await page.EvaluateAsync<int>(Viewer.CountDarkPixels);
         Viewer.Log(
             $"{browserName}: file {file.Length} B, first page ends at {firstPageEnd}, served {served} B before page 1 showed; {Volatile.Read(ref document.Held)} request(s) held");
 

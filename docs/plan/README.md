@@ -4,7 +4,7 @@ Broadside is a fully managed .NET implementation of ISO 32000-2 with a cross-pla
 
 ## Status
 
-From the GitHub milestones, October 2026. A phase is done when every task issue in its milestone is closed. Its parent issue (#86 to #89) stays open until spec #33 reaches `main`. Ticket branches merge into the integration branch `spec/33-broadside-v1`, which reaches `main` in batches (#83, #277, #379).
+From the GitHub milestones, November 2026. A phase is done when every task issue in its milestone is closed. Its parent issue (#86 to #89) stays open until spec #33 reaches `main`. Ticket branches merge into the integration branch `spec/33-broadside-v1`, which reaches `main` in batches (#83, #277, #379, #537).
 
 | Phase | Milestone | Status |
 |---|---|---|
@@ -14,11 +14,11 @@ From the GitHub milestones, October 2026. A phase is done when every task issue 
 | 3. Rendering | 58 closed; only the parent #86 open | done |
 | 4. Write and Edit | 63 closed; only the parent #87 open | done |
 | 5. Cross-cutting | 31 closed; only the parent #88 open | done |
-| 6. Viewer | 10 closed, 9 open | In progress. Done: the viewer core (#209 to #214, #217, #220) and the Blazor (#221) and MAUI (#226) shells. Open: #215 search, #216 outline and thumbnails, #218 form filling, #219 smart dark mode, #222 to #225 the WPF, WinUI, Avalonia and Uno shells (all provisional), and the parent #89. |
-| 7. Hardening and v1 release | 1 closed, 46 open | In progress. The first preview, `0.1.0-preview.1`, was published to NuGet.org on 2026-10-21 as 13 packages, but its ticket #266 is still open. The other 7A, 7B and 7C tickets are open. |
-| Post-v1 | 3 open | earmarked (#232): #230 complex-script shaping, #260 JBIG2 extended templates |
+| 6. Viewer | 18 closed; only the parent #89 open | done. The viewer core, search, outline and thumbnails, form filling, smart dark mode, and the Blazor, MAUI, Avalonia, Uno, WinUI and WPF shells. The viewer packages ship as 1.0.0 with the rest. |
+| 7. Hardening and v1 release | 78 closed; the parent #231 and the release-candidate gate #276 open | 1.0 release candidate; 1.0.0 follows once the owner is satisfied it is ready ([notes on getting to 1.0.0](../release/ga-criteria.md)). Every 7A, 7B and 7C ticket is closed except the gate #276. Previews `0.1.0-preview.1` to `0.1.0-preview.10` were published to NuGet.org from 2026-10-21 to 2026-11-19. |
+| Post-v1 | 19 open | everything deferred from v1 (#232): the earmarked #230 complex-script shaping and #260 JBIG2 extended templates, the migration guides #271, the conformance gaps of the [known limitations](../known-limitations.md), the security review's follow-ups (#615, #617) and the WinUI viewer's reproducible build (#618). |
 
-Work outside the phase tickets is tracked as open issues without a milestone: for example the image-decode performance work (#362, #365, #372 to #377) and the fuzz findings #387 and #390.
+Work outside the phase tickets was tracked as issues without a milestone, for example the image-decode performance work (#362, #365, #372 to #377) and the fuzz findings #387 and #390; all of it is closed.
 
 ## Packages
 
@@ -38,7 +38,9 @@ Work outside the phase tickets is tracked as open issues without a milestone: fo
 | `Broadside.Viewer.Blazor` | Blazor WebAssembly shell (`PdfViewer`) | `Microsoft.AspNetCore.Components.Web` |
 | `Broadside.Viewer.Maui` | .NET MAUI shell (`PdfView`) | `Microsoft.Maui.Controls`, `SkiaSharp.Views.Maui.Controls` |
 | `Broadside.Viewer.Wpf` | WPF shell (`PdfView`) | WPF (Windows Desktop SDK) |
-| `Broadside.Viewer.*` | Uno, Avalonia and WinUI shells (provisional, #223 to #225) | per framework |
+| `Broadside.Viewer.Avalonia` | Avalonia shell (`PdfView`) | `Avalonia` |
+| `Broadside.Viewer.Uno` | Uno Platform shell (`PdfView`) | Uno Platform (`Uno.Sdk`) |
+| `Broadside.Viewer.WinUI` | WinUI 3 shell (`PdfView`) | `Microsoft.WindowsAppSDK` |
 
 Target framework: `net10.0` only. License: MIT.
 
@@ -131,11 +133,11 @@ Viewer-driven requirements folded in here (from `docs/research/pdf-viewer-landsc
 
 Shared viewer core: document session, page layout modes (single, continuous, facing, with and without snapping), tile scheduler with render-ahead and viewport priority, zoom with low-res-first progressive paint, selection over the hit-test index, search with background indexing, outline and thumbnails, annotation and form layers, smart dark mode, memory budget. Then one shell per framework. Capability targets are the ranked list in `docs/research/pdf-viewer-landscape.md` §5.
 
-### Phase 7: Hardening and v1 release (after Phases 3–5; Phase 6 not required)
+### Phase 7: Hardening and v1 release (after Phases 3–6)
 
 - **7A Coverage gaps**: what the spec coverage audit found partial: bit-identical software rendering on every platform, unencrypted wrapper documents (read and write), order 3 sampled functions, bounded memory on multi-gigabyte files, the remaining silent repairs, hosted-engine option coverage, checked clause citations and conformance map closure.
 - **7B Deferred hardening**: what the Phase 1–2 review deferred: a public typed diagnostic-code catalogue (expand, migrate by area, contract), API tidy before the freeze (async overloads, images, annotation subtypes, associated files), DCT decoder split, performance (JPEG 2000 tier-1, CMap caching, graphics-state copies) and the remaining partial features (linearized file with a missing page tree, JPEG 2000 fragment tables). JBIG2 extended templates are earmarked post-v1.
-- **7C Release engineering**: API review guards and the v1 API freeze, the published diagnostic catalogue, versioning and the 1.x support policy, package validation and trusted publishing (first preview after Phase 3 renders real-world pages), the v1 documentation site and guides including migration from PdfSharp, iText and PdfPig, trimming/AOT/WASM verification, threat model and resource limits, a fuzzing and security review, a performance comparison with PDFium and pdf.js, and the v1.0 release-candidate gate. v1.0 is the library and backends; the viewer ships as previews on its own track.
+- **7C Release engineering**: API review guards and the v1 API freeze, the published diagnostic catalogue, versioning and the 1.x support policy, package validation and trusted publishing (first preview after Phase 3 renders real-world pages), the v1 documentation site and guides (the migration guides from PdfSharp, iText and PdfPig moved to Post-v1, #271), trimming/AOT/WASM verification, threat model and resource limits, a fuzzing and security review, a performance comparison with PDFium and pdf.js, and the v1.0 release-candidate gate. v1.0 is the library, the backends and the viewers: every package ships as 1.0.0.
 
 ## Dependency graph
 
@@ -148,14 +150,14 @@ Phase 0 → Phase 1 → {2A, 2B, 2C, 2D} → 3A → {3B, 3C, 3D, 3E, 3F, 3G, 3H,
                                         5C (needs Phase 1, 4B, 4A for appearances)
                                         5E (needs Phase 1)
                      Phase 6 (needs 3A–3D, 5A; 5B improves it)
-                     Phase 7 (needs 3–5; ships v1.0 without waiting on 6)
+                     Phase 7 (needs 3–6; v1.0 ships the viewers too)
 ```
 
 ## Ticket lists
 
 - [Phase 0](phase-0-issues.md) (scaffold, horizontal by nature)
 - [Phase 1](phase-1-issues.md) and [Phase 2](phase-2-issues.md): vertical slices of the [spec](spec-broadside-v1.md), published as sub-issues of #33
-- [Phase 3](phase-3-issues.md), [Phase 4](phase-4-issues.md), [Phase 5](phase-5-issues.md) and [Phase 6](phase-6-issues.md) (provisional): vertical slices published 2026-10-10 under phase parents #86–#89
+- [Phase 3](phase-3-issues.md), [Phase 4](phase-4-issues.md), [Phase 5](phase-5-issues.md) and [Phase 6](phase-6-issues.md): vertical slices published 2026-10-10 under phase parents #86–#89
 - [Phase 7](phase-7-issues.md): hardening and v1 release under #231; earmarked post-v1 work under #232
 
 ## Working agreement

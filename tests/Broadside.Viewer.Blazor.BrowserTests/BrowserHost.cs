@@ -42,6 +42,9 @@ public sealed class BrowserHost : IAsyncLifetime
     /// <summary>Gets the address of the non-AOT build (served by a host that refuses paths starting with an underscore).</summary>
     public Uri LiteAddress => new(BaseAddress, "lite/");
 
+    /// <summary>Gets the installed pdfjs-dist package served at <c>/pdfjs/</c> (BROADSIDE_PDFJS_DIST), or <see langword="null"/>.</summary>
+    public static string? PdfJsDirectory { get; } = Environment.GetEnvironmentVariable("BROADSIDE_PDFJS_DIST") is { Length: > 0 } dist && Directory.Exists(dist) ? Path.GetFullPath(dist) : null;
+
     /// <summary>Gets the server's base address, ending in a slash.</summary>
     public Uri BaseAddress { get; private set; } = new("http://127.0.0.1/");
 
@@ -186,6 +189,25 @@ public sealed class BrowserHost : IAsyncLifetime
             _server.UseStaticFiles(new StaticFileOptions { FileProvider = files, RequestPath = prefix, ContentTypeProvider = types });
         }
 
+        // pdf.js for the browser comparison (issue #275): BROADSIDE_PDFJS_DIST names an installed pdfjs-dist package
+        // (tools/RenderDiff/acquire-references.sh puts one under artifacts/reference-renderers/pdfjs/node_modules), served at /pdfjs/
+        // with its CMaps, fonts and WebAssembly decoders; /blank is an empty page of the same origin to run it in.
+        if (PdfJsDirectory is { } pdfjs)
+        {
+            var pdfjsTypes = new FileExtensionContentTypeProvider();
+            pdfjsTypes.Mappings[".mjs"] = "text/javascript";
+            pdfjsTypes.Mappings[".wasm"] = "application/wasm";
+            _server.UseStaticFiles(new StaticFileOptions
+            {
+                FileProvider = new PhysicalFileProvider(pdfjs),
+                RequestPath = "/pdfjs",
+                ContentTypeProvider = pdfjsTypes,
+                ServeUnknownFileTypes = true,
+                DefaultContentType = "application/octet-stream",
+            });
+        }
+
+        _server.MapGet("/blank", static () => Results.Content("<!doctype html><html><head><meta charset=\"utf-8\"><title>blank</title></head><body></body></html>", "text/html"));
         _server.MapGet("/files/{name}", ServeDocumentAsync);
         await _server.StartAsync().ConfigureAwait(false);
         string address = _server.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.First();

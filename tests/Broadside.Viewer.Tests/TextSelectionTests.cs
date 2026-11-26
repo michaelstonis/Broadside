@@ -13,7 +13,7 @@ public sealed class TextSelectionTests
     {
         await using DocumentSession session = Open("text-truetype-embedded.pdf");
         var selection = new TextSelection(session);
-        SelectableText text = await selection.LoadPageAsync(0, Token);
+        SelectableText text = await selection.ReadPageAsync(0, Token);
         Quad first = Glyph(text, 0), last = Glyph(text, text.Length - 1);
 
         Assert.True(selection.Begin(Before(0, first)));
@@ -30,7 +30,7 @@ public sealed class TextSelectionTests
         // Page 1 of text-render-modes.pdf: four lines of HI in the embedded TrueType font of text-truetype-embedded.pdf.
         await using DocumentSession session = Open("text-render-modes.pdf");
         var selection = new TextSelection(session);
-        SelectableText text = await selection.LoadPageAsync(0, Token);
+        SelectableText text = await selection.ReadPageAsync(0, Token);
 
         selection.Begin(Before(0, Glyph(text, 0)));
         selection.Extend(After(0, Glyph(text, 3)));
@@ -52,7 +52,7 @@ public sealed class TextSelectionTests
     {
         await using DocumentSession session = Open("text-rotated.pdf");
         var selection = new TextSelection(session);
-        await selection.LoadPageAsync(0, Token);
+        await selection.ReadPageAsync(0, Token);
 
         selection.SelectAll();
         var quads = new Quad[4];
@@ -78,7 +78,7 @@ public sealed class TextSelectionTests
         int i = 0;
         foreach (TextSelection selection in new[] { content, columns, layout })
         {
-            SelectableText text = await selection.LoadPageAsync(0, Token);
+            SelectableText text = await selection.ReadPageAsync(0, Token);
             Quad c = Glyph(text, text.GetPosition(0));
             selection.Begin(Before(0, c), SelectionGranularity.Line);
             Quad below = Glyph(text, text.GetNearestGlyph(new PathPoint(c.BottomLeft.X + 30, c.BottomLeft.Y - 10)));
@@ -97,7 +97,7 @@ public sealed class TextSelectionTests
     {
         await using DocumentSession session = Open("layout-two-column-untagged.pdf");
         var selection = new TextSelection(session);
-        SelectableText text = await selection.LoadPageAsync(0, Token);
+        SelectableText text = await selection.ReadPageAsync(0, Token);
         int found = FindWord(text, "found");
 
         selection.Begin(Centre(0, Glyph(text, found + 1)), SelectionGranularity.Word);
@@ -126,7 +126,7 @@ public sealed class TextSelectionTests
         // Painted out of logical order; a Span with ActualText (Drucker) covers "Druk-" and "ker" on two lines.
         await using DocumentSession session = Open("text-tagged-replacements.pdf");
         var selection = new TextSelection(session);
-        SelectableText text = await selection.LoadPageAsync(0, Token);
+        SelectableText text = await selection.ReadPageAsync(0, Token);
 
         selection.SelectAll();
         string all = await selection.GetTextAsync(Token);
@@ -145,8 +145,8 @@ public sealed class TextSelectionTests
     {
         await using DocumentSession session = Open("text-render-modes.pdf");
         var selection = new TextSelection(session);
-        SelectableText first = await selection.LoadPageAsync(0, Token);
-        SelectableText second = await selection.LoadPageAsync(1, Token);
+        SelectableText first = await selection.ReadPageAsync(0, Token);
+        SelectableText second = await selection.ReadPageAsync(1, Token);
 
         selection.Begin(Before(0, Glyph(first, first.Length - 1)));
         selection.Extend(After(1, Glyph(second, 0)));
@@ -169,7 +169,7 @@ public sealed class TextSelectionTests
         Assert.False(selection.Begin(new PagePoint(0, 10, 10)));
         Assert.Null(selection.FindLink(new PagePoint(0, 10, 10)));
 
-        SelectableText text = await selection.LoadPageAsync(0, Token);
+        SelectableText text = await selection.ReadPageAsync(0, Token);
         HitTestLink link = Assert.Single(text.Index.Links);
         PdfRectangle box = link.Region[0].Bounds;
         Assert.Same(link, selection.FindLink(new PagePoint(0, (box.Left + box.Right) / 2, (box.Bottom + box.Top) / 2)));
@@ -205,7 +205,7 @@ public sealed class TextSelectionTests
         using var tile = new CancellationTokenSource();
         ValueTask<DisplayList> list = session.GetDisplayListAsync(0, DisplayLayers.All, tile.Token);
         var selection = new TextSelection(session);
-        ValueTask<SelectableText> text = selection.LoadPageAsync(0, Token);
+        ValueTask<SelectableText> text = selection.ReadPageAsync(0, Token);
         Assert.Equal(1, yields);
 
         await tile.CancelAsync();

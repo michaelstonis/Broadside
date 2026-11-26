@@ -64,7 +64,7 @@ Neither reaches 55 dB. `kCGImageSourceSubsampleFactor` returns floor(W / s) x fl
 
 A quieter run of the measurement test gave ImageIO 28.5 ms against 65.1 ms for the cover at full size (0.44), and 57.8 ms against 140.4 ms for the photograph. A full ImageIO decode averaged down to 1/2, 1/4 or 1/8 took 49 to 54 ms for the cover, slower than the managed reduced decode (31 to 44 ms).
 
-First render of the cover through `CoreGraphicsRenderer` at 1 point per pixel (fresh document each time, so the render decodes the photograph; scaled decode off, so the full resolution is used), best of 5: managed 224 to 228 ms, ImageIO 202 to 213 ms. Converting and drawing 8 megapixels is most of the render; the decode is the part ImageIO shortens.
+First render of the cover through `CoreGraphicsBackend` at 1 point per pixel (fresh document each time, so the render decodes the photograph; scaled decode off, so the full resolution is used), best of 5: managed 224 to 228 ms, ImageIO 202 to 213 ms. Converting and drawing 8 megapixels is most of the render; the decode is the part ImageIO shortens.
 
 ### iOS simulator
 
@@ -75,7 +75,7 @@ The same full-size decode in an iOS app on the iOS 26.5 simulator (iPhone, on th
 - **Full size only.** Reduced requests are never offered to ImageIO: its own reduction is 45 to 53 dB (below the 55 dB bar), and a full decode averaged down is both below the bar and slower than the managed reduced decode. The managed decoder serves every reduced request, exactly.
 - **Gray and 4:4:4 only** (`CanDecode` refuses subsampled chroma, so those images are never offered and leave no diagnostic).
 - **Quantizer mean step at most 12**: checked on the data; a coarser image decodes with the managed codec and records `ImageDecodedManaged` (Information) once, naming the step.
-- **Opt-in.** `ImageIODecoder` is not registered by any package; register it with `PdfOptions.UsePlatformImageDecoder(ImageIODecoder.Shared)` and await `CoreGraphicsRenderer.PrefetchImagesAsync` before a list render.
+- **Opt-in.** `ImageIODecoder` is not registered by any package; register it with `PdfOptions.UsePlatformImageDecoder(ImageIODecoder.Shared)` and await `CoreGraphicsBackend.PrefetchImagesAsync` before a list render.
 - With these rules, verification mode over the real-world corpus records 87 `PlatformImageVerified` and no `PlatformImageMismatch`.
 
 ## JPEG 2000 (#482)

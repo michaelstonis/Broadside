@@ -38,8 +38,8 @@ public sealed class SlicedPageModelTests
         for (int page = 0; page < whole.PageCount; page++)
         {
             int before = yields;
-            SelectableText text = await actual.LoadPageAsync(page, Token);
-            Assert.Equal(Project(await expected.LoadPageAsync(page, Token)), Project(text));
+            SelectableText text = await actual.ReadPageAsync(page, Token);
+            Assert.Equal(Project(await expected.ReadPageAsync(page, Token)), Project(text));
 
             // The list, the index, the layout's text run, the order and the logical text's run each take a slice at least.
             Assert.True(yields - before >= 5, $"Page {page} of {fileName} loaded in {yields - before} yields.");
@@ -56,8 +56,8 @@ public sealed class SlicedPageModelTests
         const string fileName = "layout-two-column-untagged.pdf";
         await using DocumentSession whole = DocumentSession.Open(Corpus.Bytes(fileName), ViewerTestSupport.OptionsFor(fileName, ViewerThreading.Background));
         await using DocumentSession sliced = DocumentSession.Open(Corpus.Bytes(fileName), Sliced(fileName, static () => { }));
-        SelectableText expected = await new TextSelection(whole, ContentReadingOrder.Instance).LoadPageAsync(0, Token);
-        SelectableText actual = await new TextSelection(sliced, ContentReadingOrder.Instance).LoadPageAsync(0, Token);
+        SelectableText expected = await new TextSelection(whole, ContentReadingOrder.Instance).ReadPageAsync(0, Token);
+        SelectableText actual = await new TextSelection(sliced, ContentReadingOrder.Instance).ReadPageAsync(0, Token);
         Assert.Equal(Project(expected), Project(actual));
     }
 
@@ -73,8 +73,8 @@ public sealed class SlicedPageModelTests
         for (int page = 0; page < whole.PageCount; page++)
         {
             int before = yields;
-            AccessibleNode node = await actual.LoadPageAsync(page, Token);
-            Assert.Equal(Project(await expected.LoadPageAsync(page, Token)), Project(node));
+            AccessibleNode node = await actual.ReadPageAsync(page, Token);
+            Assert.Equal(Project(await expected.ReadPageAsync(page, Token)), Project(node));
             Assert.True(yields - before >= 3, $"Page {page} of {fileName} loaded in {yields - before} yields.");
         }
     }
@@ -106,7 +106,7 @@ public sealed class SlicedPageModelTests
         {
             var selection = new TextSelection(session);
             var bridge = new AccessibilityBridge(session);
-            SelectableText text = await selection.LoadPageAsync(0, Token);
+            SelectableText text = await selection.ReadPageAsync(0, Token);
             Assert.True(edited);
             selection.SelectAll();
             Assert.EndsWith("Added", await selection.GetTextAsync(Token), StringComparison.Ordinal);
@@ -114,7 +114,7 @@ public sealed class SlicedPageModelTests
 
             yields = 0;
             edited = false;
-            AccessibleNode page = await bridge.LoadPageAsync(0, Token);
+            AccessibleNode page = await bridge.ReadPageAsync(0, Token);
             Assert.True(edited);
             Assert.Contains("Added", Project(page), StringComparison.Ordinal);
         }
@@ -158,8 +158,8 @@ public sealed class SlicedPageModelTests
                 session = DocumentSession.Open(Corpus.Bytes(fileName), options);
                 var selection = new TextSelection(session);
                 var bridge = new AccessibilityBridge(session);
-                Task<SelectableText> text = selection.LoadPageAsync(0, Token).AsTask();
-                Task<AccessibleNode> node = bridge.LoadPageAsync(0, Token).AsTask();
+                Task<SelectableText> text = selection.ReadPageAsync(0, Token).AsTask();
+                Task<AccessibleNode> node = bridge.ReadPageAsync(0, Token).AsTask();
                 foreach (Task load in new Task[] { text, node })
                 {
                     try

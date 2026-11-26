@@ -208,10 +208,24 @@ internal static class SignatureValidator
         }
 
         DateTime time = info.Time.UtcDateTime;
-        if (time > unit.NotAfter.ToUniversalTime() || time < unit.NotBefore.ToUniversalTime())
+        DateTime notBefore;
+        DateTime notAfter;
+        try
+        {
+            notBefore = unit.NotBefore.ToUniversalTime();
+            notAfter = unit.NotAfter.ToUniversalTime();
+        }
+        catch (CryptographicException exception)
+        {
+            // A validity the platform cannot read (Linux), as path building reports it (issue #620).
+            problems.Add(new(PdfSignatureProblemKind.SignatureEncodingInvalid, $"The time-stamping unit's certificate cannot be decoded: {exception.Message}"));
+            return;
+        }
+
+        if (time > notAfter || time < notBefore)
         {
             problems.Add(new(
-                time > unit.NotAfter.ToUniversalTime() ? PdfSignatureProblemKind.CertificateExpired : PdfSignatureProblemKind.CertificateNotYetValid,
+                time > notAfter ? PdfSignatureProblemKind.CertificateExpired : PdfSignatureProblemKind.CertificateNotYetValid,
                 string.Create(CultureInfo.InvariantCulture, $"The token's time {info.Time:u} is outside the validity period of the unit's certificate '{unit.Subject}'.")));
         }
     }

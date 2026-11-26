@@ -11,7 +11,7 @@ using Windows.Win32.System.Com;
 namespace Broadside.Rendering.Direct2D;
 
 /// <summary>
-/// The device resources of one <see cref="Direct2DRenderer"/>: a Direct2D factory, a Direct3D 11 device (hardware or WARP) with the
+/// The device resources of one <see cref="Direct2DBackend"/>: a Direct2D factory, a Direct3D 11 device (hardware or WARP) with the
 /// Direct2D device and device context over it, one solid colour brush, and a target bitmap with a CPU-readable copy of the size last
 /// drawn. Created once and reused for every render; released on <see cref="Dispose"/>.
 /// </summary>
@@ -29,7 +29,7 @@ internal sealed unsafe class Direct2DSurface : IDisposable
     private int _width;
     private int _height;
 
-    public Direct2DSurface(Direct2DDriver driver)
+    public Direct2DSurface(Direct2DDeviceType driver)
     {
         try
         {
@@ -43,7 +43,7 @@ internal sealed unsafe class Direct2DSurface : IDisposable
     }
 
     /// <summary>Gets the driver the Direct3D device was created with.</summary>
-    public Direct2DDriver Driver { get; private set; }
+    public Direct2DDeviceType Driver { get; private set; }
 
     public ID2D1Factory1* Factory => _factory;
 
@@ -169,7 +169,7 @@ internal sealed unsafe class Direct2DSurface : IDisposable
     private static HRESULT CreateDevice(D3D_DRIVER_TYPE type, ID3D11Device** device) =>
         Direct3D11Native.CreateDevice(type, D3D11_CREATE_DEVICE_FLAG.D3D11_CREATE_DEVICE_BGRA_SUPPORT, device);
 
-    private void Create(Direct2DDriver driver)
+    private void Create(Direct2DDeviceType driver)
     {
         var options = default(D2D1_FACTORY_OPTIONS);
         Guid factoryId = ID2D1Factory1.IID_Guid;
@@ -178,14 +178,14 @@ internal sealed unsafe class Direct2DSurface : IDisposable
         _factory = (ID2D1Factory1*)factory;
 
         ID3D11Device* direct3D = null;
-        if (driver == Direct2DDriver.Hardware && CreateDevice(D3D_DRIVER_TYPE.D3D_DRIVER_TYPE_HARDWARE, &direct3D).Failed)
+        if (driver == Direct2DDeviceType.Hardware && CreateDevice(D3D_DRIVER_TYPE.D3D_DRIVER_TYPE_HARDWARE, &direct3D).Failed)
         {
             // No Direct3D 11 hardware device (a server, a virtual machine, a remote session): WARP draws the same in software.
             direct3D = null;
-            driver = Direct2DDriver.Warp;
+            driver = Direct2DDeviceType.Warp;
         }
 
-        if (driver == Direct2DDriver.Warp)
+        if (driver == Direct2DDeviceType.Warp)
         {
             CreateDevice(D3D_DRIVER_TYPE.D3D_DRIVER_TYPE_WARP, &direct3D).ThrowOnFailure();
         }

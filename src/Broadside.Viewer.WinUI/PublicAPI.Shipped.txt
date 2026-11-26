@@ -1,1 +1,58 @@
 #nullable enable
+Broadside.Viewer.WinUI.PdfView
+Broadside.Viewer.WinUI.PdfView.Accessibility.get -> Broadside.Viewer.AccessibilityBridge?
+Broadside.Viewer.WinUI.PdfView.ActionRequested -> System.EventHandler<Broadside.Viewer.ViewerActionEventArgs!>?
+Broadside.Viewer.WinUI.PdfView.AllowAnnotationEditing.get -> bool
+Broadside.Viewer.WinUI.PdfView.AllowAnnotationEditing.set -> void
+Broadside.Viewer.WinUI.PdfView.Annotations.get -> Broadside.Viewer.AnnotationLayer?
+Broadside.Viewer.WinUI.PdfView.ColorFilter.get -> Broadside.Rendering.ColorFilter?
+Broadside.Viewer.WinUI.PdfView.ColorFilter.set -> void
+Broadside.Viewer.WinUI.PdfView.CopySelectionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string?>!
+Broadside.Viewer.WinUI.PdfView.CurrentSession.get -> Broadside.Viewer.DocumentSession?
+Broadside.Viewer.WinUI.PdfView.Dispose() -> void
+Broadside.Viewer.WinUI.PdfView.Error -> System.EventHandler<Broadside.Viewer.WinUI.PdfViewErrorEventArgs!>?
+Broadside.Viewer.WinUI.PdfView.GoToPage(int pageIndex) -> void
+Broadside.Viewer.WinUI.PdfView.LayoutOptions.get -> Broadside.Viewer.PageLayoutOptions?
+Broadside.Viewer.WinUI.PdfView.LayoutOptions.set -> void
+Broadside.Viewer.WinUI.PdfView.NextPage() -> void
+Broadside.Viewer.WinUI.PdfView.Options.get -> Broadside.Viewer.ViewerOptions?
+Broadside.Viewer.WinUI.PdfView.Options.set -> void
+Broadside.Viewer.WinUI.PdfView.PdfView() -> void
+Broadside.Viewer.WinUI.PdfView.PreviousPage() -> void
+Broadside.Viewer.WinUI.PdfView.Reveal(int pageIndex, Broadside.PdfRectangle area) -> void
+Broadside.Viewer.WinUI.PdfView.ScrollBy(double deltaX, double deltaY) -> void
+Broadside.Viewer.WinUI.PdfView.Search.get -> Broadside.Viewer.DocumentSearch?
+Broadside.Viewer.WinUI.PdfView.Selection.get -> Broadside.Viewer.TextSelection?
+Broadside.Viewer.WinUI.PdfView.Session.get -> Broadside.Viewer.DocumentSession?
+Broadside.Viewer.WinUI.PdfView.Session.set -> void
+Broadside.Viewer.WinUI.PdfView.ShowAnnotations.get -> bool
+Broadside.Viewer.WinUI.PdfView.ShowAnnotations.set -> void
+Broadside.Viewer.WinUI.PdfView.Source.get -> string?
+Broadside.Viewer.WinUI.PdfView.Source.set -> void
+Broadside.Viewer.WinUI.PdfView.State.get -> Broadside.Viewer.WinUI.PdfViewState
+Broadside.Viewer.WinUI.PdfView.StateChanged -> System.EventHandler<Broadside.Viewer.WinUI.PdfViewStateChangedEventArgs!>?
+Broadside.Viewer.WinUI.PdfView.ZoomBy(double factor) -> void
+Broadside.Viewer.WinUI.PdfView.ZoomTo(Broadside.Viewer.ZoomMode mode) -> void
+Broadside.Viewer.WinUI.PdfViewErrorEventArgs
+Broadside.Viewer.WinUI.PdfViewErrorEventArgs.Exception.get -> System.Exception!
+Broadside.Viewer.WinUI.PdfViewErrorEventArgs.PdfViewErrorEventArgs(System.Exception! exception) -> void
+Broadside.Viewer.WinUI.PdfViewState
+Broadside.Viewer.WinUI.PdfViewState.IsLoading.get -> bool
+Broadside.Viewer.WinUI.PdfViewState.IsLoading.init -> void
+Broadside.Viewer.WinUI.PdfViewState.IsRendering.get -> bool
+Broadside.Viewer.WinUI.PdfViewState.IsRendering.init -> void
+Broadside.Viewer.WinUI.PdfViewState.PageCount.get -> int
+Broadside.Viewer.WinUI.PdfViewState.PageCount.init -> void
+Broadside.Viewer.WinUI.PdfViewState.PageIndex.get -> int
+Broadside.Viewer.WinUI.PdfViewState.PageIndex.init -> void
+Broadside.Viewer.WinUI.PdfViewState.PdfViewState() -> void
+Broadside.Viewer.WinUI.PdfViewState.PdfViewState(int PageIndex, int PageCount, double Zoom, bool IsLoading, bool IsRendering) -> void
+Broadside.Viewer.WinUI.PdfViewState.Zoom.get -> double
+Broadside.Viewer.WinUI.PdfViewState.Zoom.init -> void
+Broadside.Viewer.WinUI.PdfViewStateChangedEventArgs
+Broadside.Viewer.WinUI.PdfViewStateChangedEventArgs.PdfViewStateChangedEventArgs(Broadside.Viewer.WinUI.PdfViewState state) -> void
+Broadside.Viewer.WinUI.PdfViewStateChangedEventArgs.State.get -> Broadside.Viewer.WinUI.PdfViewState
+static readonly Broadside.Viewer.WinUI.PdfView.AllowAnnotationEditingProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly Broadside.Viewer.WinUI.PdfView.ShowAnnotationsProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly Broadside.Viewer.WinUI.PdfView.SourceProperty -> Microsoft.UI.Xaml.DependencyProperty!
+Broadside.Viewer.WinUI.PdfView.Forms.get -> Broadside.Viewer.FormFilling?

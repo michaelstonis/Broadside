@@ -116,6 +116,37 @@ public sealed class TilingRenderingTests
     }
 
     [Fact]
+    public void A_region_showing_one_tile_draws_it_as_the_whole_page_draws_it()
+    {
+        // Two 200-point tiles 300 points apart. The whole page lays both on the tile layer; a region inside the first tile meets only
+        // it, which paints the cell bitmap directly (issue #603). The cell has a stroke over a fill, edges at fractions of a pixel and
+        // a translucent part, so every compositing path shows; the region must match the page pixel for pixel.
+        string[] objects =
+        [
+            Cell(
+                "0.2 0.6 0.9 rg 10.3 10.7 180.2 180.6 re f 1 0 0 RG 7 w 30.5 30.5 140 140 re S /G0 gs 0 0.8 0 rg 60 60 100 100 re f",
+                "/PaintType 1 /TilingType 1 /BBox [0 0 200 200] /XStep 300 /YStep 1000 /Matrix [1 0 0 1 40.4 100.6]",
+                "/ExtGState << /G0 << /ca 0.5 >> >>"),
+        ];
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(Encoding.ASCII.GetBytes("/Pattern cs /P0 scn 20 80 560 300 re f"), "/Pattern << /P0 5 0 R >>", objects));
+        using var rasterizer = new SoftwareRasterizer();
+        using Bitmap page = rasterizer.Render(document.Pages[0], new RenderOptions { Dpi = 150 });
+        RenderOptions regionOptions = new RenderOptions { Dpi = 150 }.WithRegion(new PdfRectangle(60, 120, 220, 280));
+        using Bitmap part = rasterizer.Render(document.Pages[0], regionOptions);
+        PixelRectangle at = regionOptions.GetPixelRectangle(document.Pages[0]);
+
+        Assert.Equal((at.Width, at.Height), (part.Width, part.Height));
+        Assert.True(CountPixels(part, White) < part.Width * part.Height / 2);
+        for (int y = 0; y < part.Height; y++)
+        {
+            for (int x = 0; x < part.Width; x++)
+            {
+                Assert.Equal(page.At(x + at.X, y + at.Y), part.At(x, y));
+            }
+        }
+    }
+
+    [Fact]
     public void Constant_spacing_rounds_the_steps_to_whole_pixels_so_abutting_cells_leave_no_seams()
     {
         // TilingType 1, BBox and steps 7.3: each cell is distorted to 7 pixels and placed on the grid, so a cell that fills its

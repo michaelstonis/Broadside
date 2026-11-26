@@ -249,7 +249,7 @@ public abstract class PdfToggleButtonField : PdfButtonField
     /// widget's <c>AS</c> is set to its on state when it turns on, else to <c>Off</c>, so that both keys agree (the clauses' "shall
     /// also be"). Every check box widget with the on state turns on (duplicated boxes toggle together, §12.7.5.2.3 example 2). Of radio
     /// buttons the first widget with the on state turns on; with RadiosInUnison every widget with that on state, or with the same
-    /// <c>Opt</c> export value, turns on with it. The existing appearances are kept: <see cref="GenerateAppearances"/> makes new ones.
+    /// <c>Opt</c> export value, turns on with it. The existing appearances are kept: <see cref="WriteAppearances"/> makes new ones.
     /// </para>
     /// <para>
     /// Read-only fields are set too: the flag restricts the user, not the program. When the form also has an XFA resource (Annex K),
@@ -286,7 +286,7 @@ public abstract class PdfToggleButtonField : PdfButtonField
         }
 
         CosName on = GetOnState(widget)
-            ?? throw new ArgumentException($"The widget has no on state in its normal appearance (ISO 32000-2 §12.7.5.2.3); call {nameof(GenerateAppearances)} first.", nameof(widget));
+            ?? throw new ArgumentException($"The widget has no on state in its normal appearance (ISO 32000-2 §12.7.5.2.3); call {nameof(WriteAppearances)} first.", nameof(widget));
         Apply(on, widget);
     }
 
@@ -327,7 +327,7 @@ public abstract class PdfToggleButtonField : PdfButtonField
     /// Table 230). Nothing changes when building an appearance fails.
     /// </para>
     /// </remarks>
-    public void GenerateAppearances() => ToggleButtonAppearance.Build(this).Apply();
+    public void WriteAppearances() => ToggleButtonAppearance.Build(this).Apply();
 
     /// <summary>Gets the caption a generated appearance shows when the widget has none: a check mark or a dot in ZapfDingbats.</summary>
     internal abstract string DefaultCaption { get; }
@@ -475,7 +475,7 @@ public sealed class PdfCheckBoxField : PdfToggleButtonField
 
     /// <summary>Checks the box (in its current on state, else the first widget's) or clears it.</summary>
     /// <param name="isChecked">Whether the box is checked.</param>
-    /// <exception cref="InvalidOperationException">No widget has an on state to check; call <see cref="PdfToggleButtonField.GenerateAppearances"/> first.</exception>
+    /// <exception cref="InvalidOperationException">No widget has an on state to check; call <see cref="PdfToggleButtonField.WriteAppearances"/> first.</exception>
     /// <remarks>ISO 32000-2 §12.7.5.2.3, as <see cref="PdfToggleButtonField.SetValue(CosName)"/> describes.</remarks>
     public void SetChecked(bool isChecked)
     {
@@ -489,7 +489,7 @@ public sealed class PdfCheckBoxField : PdfToggleButtonField
         IReadOnlyList<CosName> states = OnStateNames;
         if (!states.Contains(value))
         {
-            value = states.Count > 0 ? states[0] : throw new InvalidOperationException($"No widget of the check box {FullyQualifiedName} has an on state in its normal appearance (ISO 32000-2 §12.7.5.2.3); call {nameof(GenerateAppearances)} first.");
+            value = states.Count > 0 ? states[0] : throw new InvalidOperationException($"No widget of the check box {FullyQualifiedName} has an on state in its normal appearance (ISO 32000-2 §12.7.5.2.3); call {nameof(WriteAppearances)} first.");
         }
 
         SetValue(value);

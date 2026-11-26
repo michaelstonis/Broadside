@@ -960,14 +960,14 @@ internal sealed class ViewerController : IDisposable
             }
 
             _requested.Add(page.PageIndex);
-            _ = LoadPageAsync(page.PageIndex, _generation);
+            _ = ReadPageAsync(page.PageIndex, _generation);
             start = false;
         }
 
         return false;
     }
 
-    private async Task LoadPageAsync(int pageIndex, int generation)
+    private async Task ReadPageAsync(int pageIndex, int generation)
     {
         // The open document's layers, held here: a document opened while this page loads replaces the fields, and the page index
         // belongs to this document, never to the next one (#358: a late page of a novel reached an 8-page textbook's layers).
@@ -978,20 +978,20 @@ internal sealed class ViewerController : IDisposable
         try
         {
             CancellationToken token = _closing.Token;
-            await annotations.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            await annotations.ReadPageAsync(pageIndex, token).ConfigureAwait(true);
             if (generation != _generation)
             {
                 return;
             }
 
             Wake();
-            await selection.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            await selection.ReadPageAsync(pageIndex, token).ConfigureAwait(true);
             if (generation != _generation)
             {
                 return;
             }
 
-            await bridge.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            await bridge.ReadPageAsync(pageIndex, token).ConfigureAwait(true);
             if (generation == _generation)
             {
                 RefreshAccessiblePages();

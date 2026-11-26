@@ -118,7 +118,7 @@ public sealed partial class SampleAutomationTests
         await using DocumentSession session = DocumentSession.Open(path, options);
         // Built the way the control builds its bridge (over an annotation layer), so form fields are nodes here as they are in the app.
         var bridge = new AccessibilityBridge(session, new AnnotationLayer(session));
-        AccessibleNode page = await bridge.LoadPageAsync(0, TestContext.Current.CancellationToken);
+        AccessibleNode page = await bridge.ReadPageAsync(0, TestContext.Current.CancellationToken);
         return (session.PageCount, ReadingOrder.TextOf(page));
     }
 

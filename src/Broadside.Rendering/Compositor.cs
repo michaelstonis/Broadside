@@ -97,9 +97,22 @@ internal readonly struct Compositor
             return;
         }
 
+        // A blend is a function of its two pixels alone: a run of equal pairs (a flat paint over a flat backdrop) blends once.
+        int scaled = Scale(coverage);
+        uint lastSource = 0;
+        uint lastBackdrop = 0;
+        uint last = 0;
+        bool known = false;
         for (int i = 0; i < target.Length; i++)
         {
-            target[i] = Composite(source[i], target[i], coverage);
+            uint pixel = source[i];
+            uint backdrop = target[i];
+            if (!known || pixel != lastSource || backdrop != lastBackdrop)
+            {
+                (lastSource, lastBackdrop, last, known) = (pixel, backdrop, Blend(pixel, backdrop, scaled, Mode), true);
+            }
+
+            target[i] = last;
         }
     }
 
@@ -120,9 +133,18 @@ internal readonly struct Compositor
         Span<uint> span = line.Slice(x, count);
         if (Mode != BlendMode.Normal)
         {
+            // The result depends on the backdrop pixel alone: a run of equal backdrop pixels blends once.
+            uint lastBackdrop = 0;
+            uint last = 0;
+            bool known = false;
             foreach (ref uint pixel in span)
             {
-                pixel = Blend(color, pixel, scaled, Mode);
+                if (!known || pixel != lastBackdrop)
+                {
+                    (lastBackdrop, last, known) = (pixel, Blend(color, pixel, scaled, Mode), true);
+                }
+
+                pixel = last;
             }
 
             return;

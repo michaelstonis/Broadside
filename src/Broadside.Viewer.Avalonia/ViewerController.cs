@@ -990,7 +990,7 @@ internal sealed class ViewerController : IDisposable
         PageLabelTable labels;
         try
         {
-            labels = await PageLabelTable.LoadAsync(session, _closing.Token).ConfigureAwait(true);
+            labels = await PageLabelTable.ReadAsync(session, _closing.Token).ConfigureAwait(true);
         }
         catch (Exception exception) when (exception is OperationCanceledException or ObjectDisposedException)
         {
@@ -1033,7 +1033,7 @@ internal sealed class ViewerController : IDisposable
             }
 
             _requested.Add(page.PageIndex);
-            _ = LoadPageAsync(page.PageIndex, _generation);
+            _ = ReadPageAsync(page.PageIndex, _generation);
             start = false;
         }
 
@@ -1045,7 +1045,7 @@ internal sealed class ViewerController : IDisposable
     {
         if (_bridge is not null && (uint)pageIndex < (uint)_metrics.Length && _requested.Add(pageIndex))
         {
-            _ = LoadPageAsync(pageIndex, _generation);
+            _ = ReadPageAsync(pageIndex, _generation);
         }
     }
 
@@ -1060,7 +1060,7 @@ internal sealed class ViewerController : IDisposable
         }
     }
 
-    private async Task LoadPageAsync(int pageIndex, int generation)
+    private async Task ReadPageAsync(int pageIndex, int generation)
     {
         // The open document's layers, held here: a document opened while this page loads replaces the fields, not these.
         AnnotationLayer annotations = _annotations!;
@@ -1070,20 +1070,20 @@ internal sealed class ViewerController : IDisposable
         try
         {
             CancellationToken token = _closing.Token;
-            await annotations.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            await annotations.ReadPageAsync(pageIndex, token).ConfigureAwait(true);
             if (generation != _generation)
             {
                 return;
             }
 
             Wake();
-            await selection.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            await selection.ReadPageAsync(pageIndex, token).ConfigureAwait(true);
             if (generation != _generation)
             {
                 return;
             }
 
-            await bridge.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            await bridge.ReadPageAsync(pageIndex, token).ConfigureAwait(true);
             if (generation == _generation)
             {
                 RefreshAccessiblePages(pageIndex);

@@ -57,7 +57,7 @@ public class ProgressiveRenderBenchmarks
     [Benchmark]
     public int Cancellable()
     {
-        using ProgressiveRender render = _rasterizer!.BeginRender(_list!, _bitmap!, _device, _cancellation.Token, _progress);
+        using ProgressiveRender render = _rasterizer!.BeginRender(_list!, _bitmap!, _device, _progress, _cancellation.Token);
         render.Continue(Timeout.InfiniteTimeSpan);
         return _bitmap!.Pixels[(_bitmap.Height / 2 * _bitmap.Stride) + 2];
     }
@@ -65,7 +65,7 @@ public class ProgressiveRenderBenchmarks
     [Benchmark]
     public int Sliced()
     {
-        using ProgressiveRender render = _rasterizer!.BeginRender(_list!, _bitmap!, _device, _cancellation.Token, _progress);
+        using ProgressiveRender render = _rasterizer!.BeginRender(_list!, _bitmap!, _device, _progress, _cancellation.Token);
         int slices = 1;
         while (!render.Continue(TimeSpan.FromMilliseconds(1)))
         {

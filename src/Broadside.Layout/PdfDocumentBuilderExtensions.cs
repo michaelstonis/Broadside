@@ -22,7 +22,6 @@ namespace Broadside.Layout.Flow;
 /// </para>
 /// <para>The documents are tagged PDF (ISO 32000-2 §14.8) by default.</para>
 /// </remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 [SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "C# 14 extension blocks, which the analyzer sees as nested types.")]
 [SuppressMessage("Naming", "CA1708:Identifiers should differ by more than case", Justification = "C# 14 extension blocks, which the analyzer sees as members named alike.")]
 public static class PdfDocumentBuilderExtensions

@@ -298,7 +298,7 @@ public sealed class TextFieldFillTests
     [Fact]
     public void Generating_appearances_shows_the_current_value()
     {
-        byte[] saved = Fill("person.last", field => field.GenerateAppearances());
+        byte[] saved = Fill("person.last", field => field.WriteAppearances());
 
         using PdfDocument reopened = PdfDocument.Open(saved);
         var field = (PdfTextField)reopened.AcroForm!.FindField("person.last")!;

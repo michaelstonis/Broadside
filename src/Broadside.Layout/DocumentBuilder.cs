@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Broadside.Graphics;
 
 namespace Broadside.Layout.Flow;
@@ -19,7 +18,6 @@ namespace Broadside.Layout.Flow;
 /// <see cref="InvalidOperationException"/>.
 /// </para>
 /// </remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct DocumentBuilder
 {
     private readonly BuildContext? _context;
@@ -267,7 +265,6 @@ public readonly ref struct DocumentBuilder
 /// first start on a new page; page numbers continue across sections.
 /// </summary>
 /// <remarks>ISO 32000-2 §14.11.2 (page boundaries) and §14.8.2.2.2 (headers and footers are pagination artifacts).</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct SectionBuilder
 {
     private readonly BuildContext? _context;
@@ -518,7 +515,6 @@ public readonly ref struct SectionBuilder
 /// <see cref="PageField"/> values filled in per page: <c>f.Center($"Page {PageField.Number} of {PageField.Count}")</c>.
 /// </summary>
 /// <remarks>ISO 32000-2 §14.8.2.2.2, Table 363: drawn as a pagination artifact (<c>Subtype</c> <c>Header</c> or <c>Footer</c>). Page fields read the page labels of §12.4.2.</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly ref struct HeaderFooterBuilder
 {
     private readonly BuildContext? _context;

@@ -213,6 +213,51 @@ public sealed class ColorConversionTests
     }
 
     [Fact]
+    public void Repeated_tints_convert_exactly_as_each_tint_alone_and_two_spaces_do_not_share_results()
+    {
+        // Tint transforms are remembered per thread (issue #602): a batch with repeated tints, and two spaces whose transforms
+        // differ converted in turn on one thread, must give bit for bit what each colour gives alone on a fresh thread.
+        const string warmCode = "{ 2 copy mul 3 1 roll 0.5 mul exch 0.25 mul 0 }";
+        const string coolCode = "{ exch 0.75 mul 0 3 -1 roll 0.5 mul }";
+        using PdfDocument document = PdfDocument.Open(
+            Page("<< >>", string.Empty, Function(warmCode), Function(coolCode)),
+            new PdfOptions().UseColorManagement(ManagedColorManagement.Classic));
+        PdfColorConverter warm = document.GetColorConverter(document.GetColorSpace(Cos("[/DeviceN [/A /B] /DeviceCMYK 5 0 R]")));
+        PdfColorConverter cool = document.GetColorConverter(document.GetColorSpace(Cos("[/DeviceN [/A /B] /DeviceCMYK 6 0 R]")));
+        float[] tints = [0.1f, 0.9f, 0.4f, 0.4f, 0.1f, 0.9f, 1, 0, 0.4f, 0.4f, 0.1f, 0.9f];
+        int count = tints.Length / 2;
+
+        float[] warmBatch = new float[count * 3];
+        float[] coolBatch = new float[count * 3];
+        float[] warmAgain = new float[count * 3];
+        warm.Convert(tints, warmBatch, count);
+        cool.Convert(tints, coolBatch, count);
+        warm.Convert(tints, warmAgain, count);
+
+        float[] warmAlone = new float[count * 3];
+        float[] coolAlone = new float[count * 3];
+        for (int i = 0; i < count; i++)
+        {
+            int at = i;
+            var thread = new Thread(() =>
+            {
+                warm.Convert(tints.AsSpan(at * 2, 2), warmAlone.AsSpan(at * 3, 3), 1);
+                cool.Convert(tints.AsSpan(at * 2, 2), coolAlone.AsSpan(at * 3, 3), 1);
+            });
+            thread.Start();
+            thread.Join();
+        }
+
+        Assert.Equal(warmAlone, warmBatch);
+        Assert.Equal(warmAlone, warmAgain);
+        Assert.Equal(coolAlone, coolBatch);
+        Assert.NotEqual(warmBatch, coolBatch);
+
+        static string Function(string code) =>
+            $"<< /FunctionType 4 /Domain [0 1 0 1] /Range [0 1 0 1 0 1 0 1] /Length {code.Length} >>\nstream\n{code}\nendstream";
+    }
+
+    [Fact]
     public void A_tint_transform_removed_as_an_object_is_seen_by_the_converter_built_before()
     {
         using PdfDocument document = PdfDocument.Open(

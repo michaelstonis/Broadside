@@ -13,7 +13,7 @@ namespace Broadside.Rendering.WebGL;
 [SupportedOSPlatform("browser")]
 public sealed class WebGLRender : IDisposable
 {
-    private readonly WebGLRenderer _owner;
+    private readonly WebGLBackend _owner;
     private readonly DisplayList _list;
     private readonly Bitmap _target;
     private readonly Matrix _device;
@@ -23,7 +23,7 @@ public sealed class WebGLRender : IDisposable
     private readonly DisplayListReplay? _replay;
     private ProgressiveRender? _software;
 
-    internal WebGLRender(WebGLRenderer owner, DisplayList list, Bitmap target, in Matrix device, bool readBack, CancellationToken token)
+    internal WebGLRender(WebGLBackend owner, DisplayList list, Bitmap target, in Matrix device, bool readBack, CancellationToken token)
     {
         _owner = owner;
         _list = list;
@@ -31,17 +31,17 @@ public sealed class WebGLRender : IDisposable
         _device = device;
         _token = token;
         _readBack = readBack;
-        if (!WebGLRenderer.IsAvailable)
+        if (!WebGLBackend.IsAvailable)
         {
-            owner.DiagnosticList.Add(WebGLRenderer.UnavailableDiagnostic);
-            _software = owner.Software.BeginRender(list, target, device, token, null);
+            owner.DiagnosticList.Add(WebGLBackend.UnavailableDiagnostic);
+            _software = owner.Software.BeginRender(list, target, device, null, token);
             return;
         }
 
         _stop = CancellationTokenSource.CreateLinkedTokenSource(token);
         TextureCache.BeginRender();
         owner.Recorder.Reset(list.Document, device, target.Width, target.Height, _stop);
-        _replay = list.BeginReplay(owner.Recorder, Region(device, target.Width, target.Height), _stop.Token, null);
+        _replay = list.BeginReplay(owner.Recorder, Region(device, target.Width, target.Height), null, _stop.Token);
     }
 
     /// <summary>Gets a value indicating whether the render is complete.</summary>
@@ -51,7 +51,7 @@ public sealed class WebGLRender : IDisposable
     public bool UsedSoftwareRasterizer => _software is not null;
 
     /// <summary>
-    /// Gets a value indicating whether the completed render's pixels are in <see cref="WebGLRenderer.Canvas"/> rather than the target
+    /// Gets a value indicating whether the completed render's pixels are in <see cref="WebGLBackend.Canvas"/> rather than the target
     /// (a render started without read-back that the GPU drew).
     /// </summary>
     public bool IsInCanvas => IsCompleted && !_readBack && _software is null;
@@ -114,7 +114,7 @@ public sealed class WebGLRender : IDisposable
     {
         ReleaseTemporary();
         _owner.DiagnosticList.Add(reason);
-        _software = _owner.Software.BeginRender(_list, _target, _device, _token, null);
+        _software = _owner.Software.BeginRender(_list, _target, _device, null, _token);
     }
 
     private void Submit()
@@ -132,7 +132,7 @@ public sealed class WebGLRender : IDisposable
         WebGLInterop.Render(width, height, red, green, blue, alpha, commands.VertexBytes, commands.Commands, pixels);
         if (_readBack)
         {
-            WebGLRenderer.CopyFlipped(pixels, _target);
+            WebGLBackend.CopyFlipped(pixels, _target);
         }
 
         ReleaseTemporary();

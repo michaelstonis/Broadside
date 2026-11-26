@@ -77,8 +77,8 @@ public sealed class Direct2DImageConversionTests
     public void A_reduction_that_does_not_divide_the_size_overhangs_the_unit_square_by_the_remainder()
     {
         // 613 x 377 at 1/8: 77 x 48 samples, of which the unit square covers 76.625 x 47.125.
-        var grid = new Direct2DBackend.SampleGrid(77, 48, 613, 377, 3);
-        var whole = new Direct2DBackend.SampleGrid(613, 377, 613, 377, 0);
+        var grid = new Direct2DReplayer.SampleGrid(77, 48, 613, 377, 3);
+        var whole = new Direct2DReplayer.SampleGrid(613, 377, 613, 377, 0);
 
         Assert.True(grid.Overhangs);
         Assert.Equal((76.625, 47.125), (grid.OutlineWidth, grid.OutlineHeight));
@@ -87,7 +87,7 @@ public sealed class Direct2DImageConversionTests
         Assert.Equal(0, corner.Y, 12);
         Assert.False(whole.Overhangs);
         Assert.Equal(new Matrix(1.0 / 613, 0, 0, -1.0 / 377, 0, 1), whole.ToUnitSquare);
-        Assert.False(new Direct2DBackend.SampleGrid(128, 128, 1024, 1024, 3).Overhangs);
+        Assert.False(new Direct2DReplayer.SampleGrid(128, 128, 1024, 1024, 3).Overhangs);
     }
 
     [Fact]

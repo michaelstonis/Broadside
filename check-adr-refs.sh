@@ -7,7 +7,8 @@
 #   ./check-adr-refs.sh        list every offending line and exit 1, or exit 0
 #
 # Scope: top-level *.md (except CLAUDE.md and CONTEXT.md, which are agent and maintainer
-# instructions), site/**, docs/** (except docs/adr/**), every README, the issue and pull request
+# instructions, and CHANGELOG.md, which tools/ReleaseNotes writes from commit titles that cannot
+# change), site/**, docs/** (except docs/adr/**), every README, the issue and pull request
 # templates, and /// lines in src/**/*.cs. .claude/** is out of scope.
 # Match: the case-sensitive token ADR or ADRs, or a path segment adr/ (docs/adr/, ../adr/).
 # Words that merely contain "adr" (quadratic, Adrian) do not match.
@@ -22,7 +23,7 @@ PATTERN='(^|[^A-Za-z0-9_])(ADRs?([^A-Za-z0-9_]|$)|adr/)'
 doc_files() {
     git ls-files -z \
         | tr '\0' '\n' \
-        | grep -v -E '^(\.claude/|docs/adr/|CLAUDE\.md$|CONTEXT\.md$)' \
+        | grep -v -E '^(\.claude/|docs/adr/|CLAUDE\.md$|CONTEXT\.md$|CHANGELOG\.md$)' \
         | grep -E '^[^/]+\.md$|^site/|^docs/|(^|/)README[^/]*$|^\.github/ISSUE_TEMPLATE/|^\.github/PULL_REQUEST_TEMPLATE' \
         || true
 }

@@ -81,6 +81,7 @@ public sealed partial class PdfView : UserControl, IViewerHost
     private PdfViewAutomationPeer? _peer;
     private int _openGeneration;
     private bool _disposed;
+    private XamlRoot? _xamlRoot;
 
     /// <summary>Creates an empty view; set <see cref="Source"/> or <see cref="Session"/> to show a document.</summary>
     public PdfView()
@@ -97,14 +98,21 @@ public sealed partial class PdfView : UserControl, IViewerHost
         PointerWheelChanged += OnWheel;
         Loaded += (_, _) =>
         {
-            if (XamlRoot is { } root)
+            // One subscription, to the root the view is in, removed on unload: the root outlives the view (#599).
+            if (XamlRoot is { } root && !ReferenceEquals(root, _xamlRoot))
             {
-                root.Changed += (_, _) => UpdateSize();
+                UnsubscribeXamlRoot();
+                _xamlRoot = root;
+                root.Changed += OnXamlRootChanged;
             }
 
             UpdateSize();
         };
-        Unloaded += (_, _) => _timer?.Stop();
+        Unloaded += (_, _) =>
+        {
+            _timer?.Stop();
+            UnsubscribeXamlRoot();
+        };
     }
 
     /// <summary>Raised when the page, page count, zoom or loading state changes.</summary>
@@ -248,10 +256,11 @@ public sealed partial class PdfView : UserControl, IViewerHost
     public void ClearFind() => _controller.ClearFind();
 
     /// <summary>Copies the selected text to the clipboard.</summary>
+    /// <param name="cancellationToken">Stops waiting for the selection's pages to load; nothing is copied then.</param>
     /// <returns>The copied text, or null when nothing is selected or the document closed before the selection's pages loaded.</returns>
-    public async Task<string?> CopySelectionAsync()
+    public async Task<string?> CopySelectionAsync(CancellationToken cancellationToken = default)
     {
-        string? text = await _controller.GetSelectedTextAsync().ConfigureAwait(true);
+        string? text = await _controller.GetSelectedTextAsync().WaitAsync(cancellationToken).ConfigureAwait(true);
         if (!string.IsNullOrEmpty(text))
         {
             ((IViewerHost)this).CopyText(text);
@@ -267,8 +276,20 @@ public sealed partial class PdfView : UserControl, IViewerHost
         {
             _disposed = true;
             _timer?.Stop();
+            UnsubscribeXamlRoot();
             _controller.Dispose();
             _frameView.Show(_controller.LatestFrame);
+        }
+    }
+
+    private void OnXamlRootChanged(XamlRoot sender, XamlRootChangedEventArgs args) => UpdateSize();
+
+    private void UnsubscribeXamlRoot()
+    {
+        if (_xamlRoot is { } root)
+        {
+            _xamlRoot = null;
+            root.Changed -= OnXamlRootChanged;
         }
     }
 

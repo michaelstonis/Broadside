@@ -15,8 +15,6 @@
     <PublishAot>true</PublishAot>
     <TrimmerSingleWarn>false</TrimmerSingleWarn>
     <IlcTreatWarningsAsErrors>true</IlcTreatWarningsAsErrors>
-    <!-- The document builder is experimental (issue #397); the host opts in. -->
-    <NoWarn>$(NoWarn);BROADSIDE0001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

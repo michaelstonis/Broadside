@@ -20,6 +20,15 @@
     <EnableWindowsTargeting Condition="'$(BroadsideBuildWindowsShell)' == 'true'">true</EnableWindowsTargeting>
   </PropertyGroup>
 
+  <PropertyGroup Label="Package validation">
+    <!--
+      The package is validated twice: once without the Windows target (the macOS pack, so the baseline's Windows assembly is
+      compared with net10.0) and once with it (the repack). Each pass needs suppressions the other does not, so unused
+      suppressions are allowed here. Remove this with CompatibilitySuppressions.xml when the baseline moves to 1.0.0.
+    -->
+    <ApiCompatPermitUnnecessarySuppressions>true</ApiCompatPermitUnnecessarySuppressions>
+  </PropertyGroup>
+
   <PropertyGroup>
     <Description>.NET MAUI viewer for Broadside: a PdfView control on the shared viewer core, drawn with SkiaSharp (GPU where available) on iOS, Android, Mac Catalyst and Windows. Depends on Microsoft.Maui.Controls and SkiaSharp.Views.Maui.Controls.</Description>
     <TargetFramework />

@@ -30,11 +30,16 @@ internal static class ValidationCertificates
     }
 
     /// <summary>A certificate authority <paramref name="issuer"/> issues, with an RSA key.</summary>
-    public static X509Certificate2 IssueAuthority(X509Certificate2 issuer, string subject, int? pathLength = null, bool certificateAuthority = true)
+    public static X509Certificate2 IssueAuthority(X509Certificate2 issuer, string subject, int? pathLength = null, bool certificateAuthority = true, bool malformedConstraints = false)
     {
         using var rsa = RSA.Create(2048);
         var request = new CertificateRequest(subject, rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-        if (certificateAuthority)
+        if (malformedConstraints)
+        {
+            // A basic constraints extension whose value is an application-class tag, not a SEQUENCE: it loads, and fails to decode when read.
+            request.CertificateExtensions.Add(new X509Extension("2.5.29.19", [0x70, 0x00], critical: true));
+        }
+        else if (certificateAuthority)
         {
             AddAuthorityExtensions(request, pathLength);
         }

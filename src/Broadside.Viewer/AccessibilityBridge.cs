@@ -12,8 +12,8 @@ namespace Broadside.Viewer;
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §14.8 (tagged PDF), §14.8.2.5 (reading order), §14.9.3 (alternate descriptions), Spec #33 viewer capability 8.
-/// The tree is virtualised by page: a page's children exist once it is loaded (<see cref="LoadPage"/>,
-/// <see cref="LoadPageAsync"/>), and navigation loads the pages it walks through. Each load raises
+/// The tree is virtualised by page: a page's children exist once it is loaded (<see cref="ReadPage"/>,
+/// <see cref="ReadPageAsync"/>), and navigation loads the pages it walks through. Each load raises
 /// <see cref="AccessibilityChangeKind.ChildrenChanged"/>.
 /// </para>
 /// <para>
@@ -44,7 +44,7 @@ public sealed class AccessibilityBridge
     /// <summary>Initializes a bridge over a session's document with the elements of the viewer's annotation, link and form layers.</summary>
     /// <param name="session">The document session.</param>
     /// <param name="elements">The provider of each page's non-content elements in focus order, or null for none.</param>
-    public AccessibilityBridge(DocumentSession session, IAccessibleElementProvider? elements)
+    public AccessibilityBridge(DocumentSession session, IAccessibleElementSource? elements)
     {
         ArgumentNullException.ThrowIfNull(session);
         Session = session;
@@ -78,7 +78,7 @@ public sealed class AccessibilityBridge
     public DocumentSession Session { get; }
 
     /// <summary>Gets the provider of non-content elements, or null.</summary>
-    public IAccessibleElementProvider? Elements { get; }
+    public IAccessibleElementSource? Elements { get; }
 
     /// <summary>Gets the document node, whose children are the page nodes.</summary>
     public AccessibleNode Root { get; }
@@ -105,8 +105,8 @@ public sealed class AccessibilityBridge
     /// <summary>Builds a page's children from its layout tree, on the calling thread, if they are not built yet.</summary>
     /// <param name="pageIndex">The zero-based page.</param>
     /// <returns>The page node.</returns>
-    /// <remarks>A remote document's page must be fetched first: use <see cref="LoadPageAsync"/>.</remarks>
-    public AccessibleNode LoadPage(int pageIndex)
+    /// <remarks>A remote document's page must be fetched first: use <see cref="ReadPageAsync"/>.</remarks>
+    public AccessibleNode ReadPage(int pageIndex)
     {
         LoadOrder(CheckPage(pageIndex));
         if (_followPending == pageIndex)
@@ -125,7 +125,7 @@ public sealed class AccessibilityBridge
     /// <param name="pageIndex">The zero-based page.</param>
     /// <param name="cancellationToken">Cancels the fetch.</param>
     /// <returns>The page node.</returns>
-    public async ValueTask<AccessibleNode> LoadPageAsync(int pageIndex, CancellationToken cancellationToken = default)
+    public async ValueTask<AccessibleNode> ReadPageAsync(int pageIndex, CancellationToken cancellationToken = default)
     {
         CheckPage(pageIndex);
         if (_orders[pageIndex] is null)
@@ -138,7 +138,7 @@ public sealed class AccessibilityBridge
                 pageIndex,
                 async () =>
                 {
-                    PdfPage page = await Session.LoadPageAsync(pageIndex, CancellationToken.None).ConfigureAwait(false);
+                    PdfPage page = await Session.ReadPageAsync(pageIndex, CancellationToken.None).ConfigureAwait(false);
                     if (Session.IsRemote)
                     {
                         await Session.PrefetchClosureAsync(page, CancellationToken.None).ConfigureAwait(false);
@@ -163,7 +163,7 @@ public sealed class AccessibilityBridge
             }
         }
 
-        return LoadPage(pageIndex);
+        return ReadPage(pageIndex);
     }
 
     /// <summary>
@@ -414,7 +414,7 @@ public sealed class AccessibilityBridge
             else if (Session.IsCooperative)
             {
                 // One thread: extracting the page's layout now would stall the scroll (#357). The focus follows once the shell loads
-                // the page (LoadPage or LoadPageAsync), which it does when the view settles.
+                // the page (ReadPage or ReadPageAsync), which it does when the view settles.
                 _followPending = current;
             }
             else
@@ -429,7 +429,7 @@ public sealed class AccessibilityBridge
     {
         try
         {
-            await LoadPageAsync(pageIndex).ConfigureAwait(true);
+            await ReadPageAsync(pageIndex).ConfigureAwait(true);
         }
 #pragma warning disable CA1031 // the focus simply stays where it is; the page's own load reports its failure
         catch (Exception)

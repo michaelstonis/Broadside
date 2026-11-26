@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Broadside.Fonts;
 using Broadside.Graphics;
 
@@ -22,7 +21,6 @@ namespace Broadside.Layout.Flow;
 /// state) and §14.9.2 (<see cref="Language"/>, written as <c>Lang</c> where it changes).
 /// </para>
 /// </remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public sealed record Style
 {
     /// <summary>Gets a style that sets nothing.</summary>

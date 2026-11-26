@@ -1,10 +1,7 @@
-using System.Diagnostics.CodeAnalysis;
-
 namespace Broadside.Layout.Flow;
 
 /// <summary>A page's width and height, portrait as given; <see cref="Landscape"/> swaps them so the long side runs across.</summary>
 /// <remarks>ISO 32000-2 §14.11.2: the page's media box, in points. ISO 216 sizes are the millimeter sizes in points.</remarks>
-[Experimental(Experiments.DocumentBuilder, UrlFormat = Experiments.DocumentBuilderUrl)]
 public readonly record struct PageSize
 {
     /// <summary>Creates a page size.</summary>
