@@ -63,7 +63,7 @@ public sealed partial class PdfDocument
     /// </para>
     /// <para>
     /// <b>Resources.</b> For a page of this document the page's own or inherited resource dictionary is referenced, not copied, so a
-    /// later change to those resources shows in the page and in the form alike (ADR 0004). For a page of another document the
+    /// later change to those resources shows in the page and in the form alike: the form is a live view of them, not a copy. For a page of another document the
     /// resources are copied through a <see cref="PdfObjectCopier"/> session that this document keeps per source document, so pages
     /// that share fonts or images copy them once; the optional content groups copied are listed in this document's
     /// <c>OCProperties</c> (§8.11.2), ON or OFF as the source's default configuration has them.
