@@ -1,0 +1,66 @@
+# Install check after a release (#276): on Linux, Windows and macOS, a fresh console app restores the published Broadside
+# package from nuget.org, builds with warnings as errors, and round-trips a document. Run it with "Run workflow" (version
+# input), or push a branch named install-check/<version> to check that version.
+name: Install check
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published package version to install (for example 1.0.0-rc.1)
+        required: true
+  push:
+    branches: ['install-check/**']
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: install (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Check the published package
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${INPUT_VERSION:-${REF_NAME#install-check/}}"
+          echo "Checking Broadside ${version}"
+          # nuget.org can take a while to index a new version: wait up to 30 minutes for it.
+          lower="$(echo "${version}" | tr '[:upper:]' '[:lower:]')"
+          for attempt in $(seq 1 30); do
+            if curl -fsS "https://api.nuget.org/v3-flatcontainer/broadside/index.json" | grep -q "\"${lower}\""; then break; fi
+            [ "${attempt}" -eq 30 ] && { echo "::error::Broadside ${version} is not on nuget.org after 30 minutes"; exit 1; }
+            sleep 60
+          done
+          mkdir check && cd check
+          dotnet new console -n BroadsideInstallCheck -o . --force
+          dotnet add package Broadside --version "${version}" --source https://api.nuget.org/v3/index.json
+          cat > Program.cs <<'CS'
+          using Broadside;
+
+          using (PdfDocument created = PdfDocument.Create())
+          {
+              created.Save("check.pdf");
+          }
+
+          using PdfDocument document = PdfDocument.Open("check.pdf");
+          Console.WriteLine($"{document.Pages.Count} page(s), {document.Diagnostics.Count} diagnostic(s)");
+          CS
+          output="$(dotnet run -c Release -p:TreatWarningsAsErrors=true)"
+          echo "${output}"
+          [ "$(echo "${output}" | tail -n 1 | tr -d '\r')" = "1 page(s), 0 diagnostic(s)" ] || { echo "::error::unexpected output"; exit 1; }
+          echo "### Broadside ${version} installs and runs on ${RUNNER_OS}" >> "${GITHUB_STEP_SUMMARY}"
