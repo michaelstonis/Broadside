@@ -87,7 +87,7 @@ internal static class XfdfReader
                     ReadFields(child, set.Fields, diagnostics);
                     break;
                 case "annots":
-                    var annotations = new AnnotationReader(graph, set.Annotations, diagnostics);
+                    var annotations = new AnnotationBuilder(graph, set.Annotations, diagnostics);
                     foreach (XmpXmlElement annotation in child.Children)
                     {
                         annotations.Read(annotation);
@@ -249,7 +249,7 @@ internal static class XfdfReader
         diagnostics.Report(FormDiagnostics.FormDataInvalid, DiagnosticSeverity.Warning, message);
 
     /// <summary>Turns annotation elements into annotation dictionaries in a graph of their own, numbered from 1.</summary>
-    private sealed class AnnotationReader(Dictionary<CosReference, CosObject> graph, List<FormDataAnnotation> annotations, DiagnosticSink diagnostics)
+    private sealed class AnnotationBuilder(Dictionary<CosReference, CosObject> graph, List<FormDataAnnotation> annotations, DiagnosticSink diagnostics)
     {
         public void Read(XmpXmlElement element)
         {

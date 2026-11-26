@@ -42,6 +42,9 @@ internal static class KnownViolations
             // The rule's avoided nouns are synonyms the glossary rejects elsewhere; these two names are glossary terms themselves.
             ["Broadside.Viewer.IReadingOrderProvider"] = "the glossary term \"Reading-order provider\" (CONTEXT.md, Viewer)",
             ["Broadside.Viewer.IRemoteTileRenderer"] = "the glossary term \"Remote tile renderer\" (CONTEXT.md, Viewer)",
+            ["Broadside.PdfDocument.ImportFormData(Stream, PdfFormDataOptions)"] =
+                "ISO 32000-2's own word for applying forms data to a document (§12.7.6.4 import-data action, §12.7.8 FDF \"imported\"); "
+                + "it reads a forms data file into an open document, which is not Open or Read of a PDF file (issue #626)",
         },
 
         [nameof(ApiRules.ExtensionPointsHaveManagedDefaults)] = new Dictionary<string, string>(StringComparer.Ordinal)

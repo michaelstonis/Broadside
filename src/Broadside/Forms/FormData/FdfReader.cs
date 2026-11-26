@@ -117,7 +117,7 @@ internal static class FdfReader
         var catalog = (CosDictionary)objects.Resolve(catalogEntry);
         var fdf = (CosDictionary)objects.Resolve(catalog[Fdf]);
         var set = new FormDataSet(objects.Resolve);
-        var reader = new Reader(objects, streams, diagnostics, ReadEncoding(objects, fdf, diagnostics));
+        var walker = new FieldWalker(objects, streams, diagnostics, ReadEncoding(objects, fdf, diagnostics));
         if (fdf.ContainsKey(Pages) || fdf.ContainsKey(JavaScript) || fdf.ContainsKey(EmbeddedFdfs))
         {
             diagnostics.Report(
@@ -130,7 +130,7 @@ internal static class FdfReader
         {
             if (objects.Resolve(fields) is CosArray roots)
             {
-                reader.ReadFields(roots, set.Fields);
+                walker.ReadFields(roots, set.Fields);
             }
             else
             {
@@ -220,7 +220,7 @@ internal static class FdfReader
     }
 
     /// <summary>Walks the field dictionaries and decodes their text.</summary>
-    private sealed class Reader(ObjectLoader loader, StreamDecoder streams, DiagnosticSink diagnostics, TextEncoding encoding)
+    private sealed class FieldWalker(ObjectLoader loader, StreamDecoder streams, DiagnosticSink diagnostics, TextEncoding encoding)
     {
         public void ReadFields(CosArray roots, List<FormDataField> fields)
         {
