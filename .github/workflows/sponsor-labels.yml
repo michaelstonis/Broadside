@@ -1,0 +1,84 @@
+# Sponsor labels: labels issues opened by an active monthly sponsor so triage order is visible (SPONSORS.md).
+# Company ($150+ a month) gets sponsor:company; any lower monthly amount gets sponsor:individual; one-time
+# sponsorships get no label. Needs the SPONSORS_TOKEN secret: a token of the maintainer account with read:user
+# (GITHUB_TOKEN cannot see private sponsorships or tiers). Without it the job does nothing.
+name: Sponsor labels
+
+on:
+  issues:
+    types: [opened, reopened]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Issue number to (re)label
+        required: true
+
+permissions:
+  issues: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label sponsor issues
+        env:
+          GH_REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number || inputs.issue }}
+          SPONSORS_TOKEN: ${{ secrets.SPONSORS_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COMPANY_MIN: '150'
+        run: |
+          set -euo pipefail
+          if [ -z "$SPONSORS_TOKEN" ]; then
+            echo "::notice::SPONSORS_TOKEN is not set; skipping sponsor labels."
+            exit 0
+          fi
+
+          author=$(GH_TOKEN="$GITHUB_TOKEN" gh issue view "$ISSUE" --json author --jq '.author.login')
+
+          # shellcheck disable=SC2016 # $endCursor is a GraphQL variable, not a shell one.
+          # Every active recurring sponsorship of the maintainer: "<login> <monthly dollars>".
+          sponsors=$(GH_TOKEN="$SPONSORS_TOKEN" gh api graphql --paginate -f query='
+            query($endCursor: String) {
+              viewer {
+                sponsorshipsAsMaintainer(first: 100, after: $endCursor, activeOnly: true, includePrivate: true) {
+                  pageInfo { hasNextPage endCursor }
+                  nodes {
+                    isOneTimePayment
+                    tier { monthlyPriceInDollars }
+                    sponsorEntity { ... on User { login } ... on Organization { login } }
+                  }
+                }
+              }
+            }' --jq '.data.viewer.sponsorshipsAsMaintainer.nodes[]
+                     | select(.isOneTimePayment | not)
+                     | "\(.sponsorEntity.login) \(.tier.monthlyPriceInDollars)"')
+
+          best=0
+          while read -r login amount; do
+            [ -z "$login" ] && continue
+            match=false
+            if [ "${login,,}" = "${author,,}" ]; then
+              match=true
+            elif GH_TOKEN="$SPONSORS_TOKEN" gh api "orgs/$login/members/$author" --silent 2>/dev/null; then
+              # The author is a member of a sponsoring organization (public membership, or visible to the token).
+              match=true
+            fi
+            if $match && [ "$amount" -gt "$best" ]; then best=$amount; fi
+          done <<< "$sponsors"
+
+          if [ "$best" -eq 0 ]; then
+            echo "$author is not an active monthly sponsor."
+            exit 0
+          fi
+
+          if [ "$best" -ge "$COMPANY_MIN" ]; then
+            label=sponsor:company; color=8250DF; description="Opened by a Company sponsor (SPONSORS.md)"
+          else
+            label=sponsor:individual; color=BF87F7; description="Opened by an Individual sponsor (SPONSORS.md)"
+          fi
+
+          export GH_TOKEN="$GITHUB_TOKEN"
+          gh label create "$label" --color "$color" --description "$description" --force
+          gh issue edit "$ISSUE" --add-label "$label"
+          echo "Labeled #$ISSUE $label."

@@ -217,3 +217,7 @@ The repository holds no NuGet API key. `NuGet/login` exchanges the job's GitHub 
 3. Push a tag: `git tag v0.1.0-preview.1 && git push origin v0.1.0-preview.1`.
 
 Until that registration exists, only dry runs succeed; the login step of a real release fails with an authorization error and nothing is pushed.
+
+## `sponsor-labels.yml`: issues opened and reopened, and the "Run workflow" button
+
+Labels an issue whose author is an active monthly sponsor of `michaelstonis`, directly or as a member of a sponsoring organization (membership must be public or visible to the token), so the triage order in [SPONSORS.md](../../SPONSORS.md) is visible. $150 a month or more gets `sponsor:company`; any lower monthly amount gets `sponsor:individual`; one-time sponsorships get nothing. The labels are created on first use. It reads sponsorships with the `SPONSORS_TOKEN` secret (a token of the maintainer account with `read:user`; `GITHUB_TOKEN` cannot see private sponsorships or tiers) and does nothing when the secret is missing. The button takes an issue number to relabel by hand.
