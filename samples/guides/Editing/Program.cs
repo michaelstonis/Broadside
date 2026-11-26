@@ -7,6 +7,7 @@ using Broadside.Forms;
 using Broadside.Graphics;
 using Broadside.Samples;
 using Broadside.Signatures;
+using Broadside.Text;
 
 Sample.Start("Editing");
 
@@ -18,6 +19,7 @@ SaveInFull();
 EditPages();
 MergeAndSplit();
 DrawAPageOnAnotherPage();
+StampPages();
 FillAForm();
 Annotate();
 EditMetadata();
@@ -135,6 +137,34 @@ static void DrawAPageOnAnotherPage()
     using PdfDocument saved = PdfDocument.Open("chapter1-2-up.pdf");
     string text = saved.Pages[0].ExtractText().Text;
     Sample.Expect(text.Contains("page 1", StringComparison.Ordinal) && text.Contains("page 2", StringComparison.Ordinal), "both pages drawn on one sheet");
+}
+
+static void StampPages()
+{
+    #region stamps
+    using PdfDocument document = PdfDocument.Open("book.pdf");
+    PdfCanvasFont bold = document.GetStandard14Font(Standard14Font.HelveticaBold);
+    document.Stamp(PdfStamp.FromText("CONFIDENTIAL", bold, 60)       // centered as the page is viewed
+        .WithRotation(45)
+        .WithOpacity(0.25)
+        .WithTextColor(PdfColor.FromRgb(0.8f, 0, 0)));
+    document.Stamp(PdfStamp.FromPage(document.Pages[0])               // the cover, small, in the corner of the others
+        .WithScale(0.2)
+        .WithHorizontalAlignment(PdfStampAlignment.End)
+        .WithVerticalAlignment(PdfStampAlignment.Start), 1..);
+    document.AddHeaderFooter(new PdfHeaderFooter(document.GetStandard14Font(Standard14Font.Helvetica), 9)
+    {
+        HeaderLeft = "Acme Corporation",
+        FooterCenter = "Page {page} of {pages}",
+    });
+    document.Save("book-stamped.pdf");
+    #endregion
+
+    using PdfDocument saved = PdfDocument.Open("book-stamped.pdf");
+    string body = saved.Pages[1].ExtractText().Text;
+    string all = saved.Pages[1].ExtractText(new TextExtractionOptions().WithArtifacts()).Text;
+    Sample.Expect(!body.Contains("CONFIDENTIAL", StringComparison.Ordinal), "stamps are artifacts, left out of extracted text");
+    Sample.Expect(all.Contains("Page 2 of 4", StringComparison.Ordinal), "page numbers drawn on every page");
 }
 
 static void FillAForm()

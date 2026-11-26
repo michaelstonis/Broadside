@@ -49,6 +49,7 @@ public sealed partial class PdfCanvas : IDisposable
     private ColorState _colors;
     private PathState _path;
     private bool _disposed;
+    private readonly bool _before;
 
     internal PdfCanvas(PdfDocument document, PdfPage page)
     {
@@ -61,6 +62,16 @@ public sealed partial class PdfCanvas : IDisposable
         }
 
         _resources = new CanvasResources(document, resources);
+    }
+
+    /// <summary>
+    /// Initializes a canvas that, when <paramref name="before"/>, stores what it draws as a content stream put before the page's
+    /// existing content instead of after it (issue #627: background stamps).
+    /// </summary>
+    internal PdfCanvas(PdfDocument document, PdfPage page, bool before)
+        : this(document, page)
+    {
+        _before = before;
     }
 
     internal PdfCanvas(PdfDocument document, PdfFormXObject form)
@@ -680,6 +691,28 @@ public sealed partial class PdfCanvas : IDisposable
         if (existing is not (CosStream or CosArray { Count: > 0 }))
         {
             dictionary[KnownNames.Contents] = _document.AddObject(new CosStream([], _writer.ToArray()));
+            return;
+        }
+
+        if (_before)
+        {
+            // §7.8.2: the new stream paints first; its own state is balanced, and the existing content is wrapped so it starts from
+            // the initial graphics state and leaves none behind for content added after it.
+            var first = new CosArray { _document.AddObject(new CosStream([], _writer.ToArray())), _document.AddObject(new CosStream([], "q\n"u8.ToArray())) };
+            if (existing is CosArray old)
+            {
+                foreach (CosObject part in old)
+                {
+                    first.Add(part);
+                }
+            }
+            else
+            {
+                first.Add(entry!);
+            }
+
+            first.Add(_document.AddObject(new CosStream([], "\nQ\n"u8.ToArray())));
+            dictionary[KnownNames.Contents] = first;
             return;
         }
 
