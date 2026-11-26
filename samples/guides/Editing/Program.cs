@@ -5,6 +5,7 @@ using Broadside.Annotations;
 using Broadside.Fonts;
 using Broadside.Forms;
 using Broadside.Graphics;
+using Broadside.Images;
 using Broadside.Samples;
 using Broadside.Signatures;
 using Broadside.Text;
@@ -16,6 +17,7 @@ WriteInputs(certificate);
 
 SaveIncrementally(certificate);
 SaveInFull();
+ReduceFileSize();
 EditPages();
 MergeAndSplit();
 DrawAPageOnAnotherPage();
@@ -70,6 +72,31 @@ static void SaveInFull()
 
     using PdfDocument saved = PdfDocument.Open("contract-compact.pdf");
     Sample.Expect(saved.Revisions.Count == 1 && saved.Properties.Title == "Contract", "a full save writes one revision");
+}
+
+static void ReduceFileSize()
+{
+    #region reduce-size
+    using PdfDocument document = PdfDocument.Open("brochure.pdf");
+
+    // A dry run first: where each image is painted largest, and what the save would do to it.
+    var optimization = new PdfImageOptimization()
+        .WithMaxResolution(150)        // at most 150 pixels per inch where the image is painted largest
+        .WithJpegQuality(80)           // re-encode photographs as JPEG at quality 80
+        .WithRecompressLossless();     // also images stored losslessly (Flate)
+    foreach (PdfImageOptimizationResult image in document.PlanImageOptimization(optimization))
+    {
+        Console.WriteLine($"{image.Image.Width} x {image.Image.Height} at {image.EffectiveResolution:F0} dpi: {image.Actions} to {image.TargetWidth} x {image.TargetHeight}");
+    }
+
+    document.Save("brochure-small.pdf", new PdfSaveOptions().WithImageOptimization(optimization));
+    #endregion
+
+    long before = new FileInfo("brochure.pdf").Length;
+    long after = new FileInfo("brochure-small.pdf").Length;
+    Console.WriteLine($"{before} bytes before, {after} after");
+    using PdfDocument saved = PdfDocument.Open("brochure-small.pdf");
+    Sample.Expect(after < before && saved.Pages[0].ExtractImages()[0].Image.Width == 300, "the photo is resampled to 150 dpi and the file is smaller");
 }
 
 static void EditPages()
@@ -343,6 +370,22 @@ static void WriteInputs(X509Certificate2 certificate)
     form.AddTextField("name", application.Pages[0], new PdfRectangle(72, 700, 372, 724));
     form.AddCheckBox("agree", application.Pages[0], new PdfRectangle(72, 660, 90, 678));
     application.Save("application.pdf");
+
+    // A brochure with a 1200 x 1200 photo painted 2 inches wide: 600 dpi, far more than a screen or an email needs.
+    using PdfDocument brochure = PdfDocument.Create();
+    byte[] photo = new byte[1200 * 1200 * 3];
+    for (int i = 0; i < photo.Length; i++)
+    {
+        photo[i] = (byte)((i / 3 % 1200) * 255 / 1199 ^ (i * 7919 % 23));
+    }
+
+    PdfImage image = brochure.CreateImage(photo, new PdfImageLayout(1200, 1200, PdfDeviceRgbColorSpace.Instance), PdfImageCompression.Flate);
+    using (PdfCanvas canvas = brochure.Pages[0].CreateCanvas())
+    {
+        canvas.DrawImage(image, 72, 500, 144, 144);
+    }
+
+    brochure.Save("brochure.pdf");
 }
 
 static void WriteText(string path, params string[] pages)

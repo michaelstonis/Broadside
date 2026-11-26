@@ -1501,6 +1501,7 @@ public sealed partial class PdfDocument : IDisposable
     private FileWriter PlanSave(PdfSaveOptions options, CosChangeLog? changes = null)
     {
         ArgumentNullException.ThrowIfNull(options);
+        CheckImageOptimization(options);
         CheckLinearization(options);
         ReportBeforeSave();
         CheckDuplicateMerge(options);
@@ -1545,6 +1546,10 @@ public sealed partial class PdfDocument : IDisposable
         // Issue #258: pages recovered from the page objects of a file without a usable page tree are written under a page tree,
         // so the saved file has the pages the document reads.
         bool changed = Pages.WriteRecoveredPageTree();
+
+        // Issue #625: images are resampled and re-encoded first, so that what the save adds after it (subsets, PDF/A output) sees
+        // the images as written; the pass keeps colour spaces and adds no versioned feature.
+        changed |= OptimizeImagesForSave(options);
         changed |= CompleteFontSubsets();
         changed |= DateModification(options);
 

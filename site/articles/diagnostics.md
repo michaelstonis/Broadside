@@ -435,6 +435,7 @@ Codes of `ImageDiagnostics`, reported under `DiagnosticArea.Image`.
 | `PlatformImageVerified` | Warning | ISO 32000-2 §7.4.8 | A platform image decoder's output was compared with the managed codec and matched within tolerance. This is informational and records the measured difference. |
 | `PlatformImageMismatch` | Warning | ISO 32000-2 §7.4.8 | A platform image decoder's output differs from the managed codec beyond tolerance, or could not be compared with it. The platform output is still used and the difference is recorded. |
 | `InlineImageFilterNotAllowed` | Warning | ISO 32000-2 §8.9.7 | An inline image uses a filter that is not allowed in inline images. The filter is applied anyway. |
+| `ImageOptimizationSkipped` | Information | ISO 32000-2 §8.9.5.3 | The save-time image pass could not decode an image or its mask, or the decoded samples did not match the image dictionary. The image is saved unchanged. |
 
 ### Font
 

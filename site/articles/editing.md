@@ -68,6 +68,40 @@ Merged and generated documents often carry the same logo, font program or form X
 
 Conformance: [ISO 32000-2 §7.5 (file structure, incremental updates §7.5.6, cross-reference streams §7.5.8)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
 
+## Reducing file size
+
+Scanned and photo-heavy files are often many times larger than a screen or an email needs, because their images are stored at 300 to 600 dpi, or as losslessly compressed photographs. `PdfSaveOptions.WithImageOptimization` caps image resolution and re-encodes photographs as JPEG during a full save, without touching anything else. `PlanImageOptimization` is the dry run: it reports what the save would do and changes nothing.
+
+<!-- snippet: samples/guides/Editing/Program.cs#reduce-size -->
+```csharp
+using PdfDocument document = PdfDocument.Open("brochure.pdf");
+
+// A dry run first: where each image is painted largest, and what the save would do to it.
+var optimization = new PdfImageOptimization()
+    .WithMaxResolution(150)        // at most 150 pixels per inch where the image is painted largest
+    .WithJpegQuality(80)           // re-encode photographs as JPEG at quality 80
+    .WithRecompressLossless();     // also images stored losslessly (Flate)
+foreach (PdfImageOptimizationResult image in document.PlanImageOptimization(optimization))
+{
+    Console.WriteLine($"{image.Image.Width} x {image.Image.Height} at {image.EffectiveResolution:F0} dpi: {image.Actions} to {image.TargetWidth} x {image.TargetHeight}");
+}
+
+document.Save("brochure-small.pdf", new PdfSaveOptions().WithImageOptimization(optimization));
+```
+<!-- endsnippet -->
+
+How it decides:
+
+- **Effective resolution.** The pass walks every page's content (hidden content, image masks, artifacts, forms and tiling pattern cells included) and every annotation appearance, and takes each image's largest placement. Its pixels divided by the inches of that placement give its effective resolution. An image that is painted nowhere is left alone.
+- **Resampling.** An image above `MaxResolution` times `ResampleThreshold` (1.5 by default, so a 200 dpi image under a 150 dpi cap is kept) is box-filtered down to `MaxResolution`, keeping its aspect ratio. Its soft or explicit mask is resampled by the same factor. 1-bit images and image masks use `MaxBitonalResolution` instead and stay 1-bit.
+- **Re-encoding.** With `JpegQuality`, 8-bit Gray, RGB and CMYK images that are already JPEG are re-encoded at that quality; images stored losslessly become JPEG only with `RecompressLossless`. Everything else that is resampled is written with Flate and PNG predictors.
+- **Never larger.** A new encoding replaces the old one only when it is smaller.
+- **In place.** The image keeps its object number and its colour space, so every page that shows it gets the smaller version, and a PDF/A save stays conformant.
+
+Indexed images, images with a colour key mask or a `Matte`, JPEG 2000 images and inline images are kept as they are; the plan says why for each one. An image that cannot be decoded is kept, with an `ImageOptimizationSkipped` information diagnostic. The option needs a full save: with `IncrementalUpdate`, `Save` throws an `InvalidOperationException`, because the images of earlier, possibly signed, revisions must stay as they were.
+
+Conformance: [ISO 32000-2 §8.9.5.3 (reduction), §7.4.4 (Flate with predictors), §7.4.8 (DCTDecode)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
+
 ## Pages
 
 `Pages` inserts, moves and removes pages, and a page's `Rotation` turns it in quarter turns:
