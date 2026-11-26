@@ -11,14 +11,15 @@ namespace Broadside.Benchmarks;
 /// The document builder against the same documents built by hand with the flow engine (issue #397, spec section 8 "Benchmarks"): the
 /// builder is a front, so builder plus layout should stay within +5 % of the time and +10 % of the bytes of its <c>*Flow</c> twin. Each
 /// case builds and lays out a whole document (saving is left out): <c>Hello</c> one page; <c>Report100</c> about 100 pages of headings
-/// and paragraphs with a table of contents, an outline, a header and a page-numbered footer; <c>LongTable</c> a 10,000-row table over
+/// and paragraphs with a table of contents, an outline, a header and a page-numbered footer; <c>Table10k</c> a 10,000-row table over
 /// about 300 pages through closures and through the <c>Row(params ReadOnlySpan&lt;string&gt;)</c> fast path; <c>Invoice</c> 1,000
 /// invoices from one shared theme, serially and in parallel (the mean is per invoice).
 /// </summary>
 /// <remarks>
 /// The report opens with a table of contents and builds its outline, so it exercises the forward references (layout runs until the
 /// page numbers settle). The table has the spec's 10,000 rows: laying it out is linear in its rows (issue #541; it was quadratic,
-/// through each tagged cell's header lookup and each MCID allocation walking the whole structure tree).
+/// through each tagged cell's header lookup and each MCID allocation walking the whole structure tree), and
+/// <c>TableAllocationTests</c> in the layout tests fails the build if it turns quadratic again.
 /// <para>
 /// Every case except <c>Hello</c> and <c>HelloFlow</c> is in the <see cref="GateAllocations.NoAllocationGate"/> category (the
 /// regression gate compares their time but not their allocated bytes exactly): they allocate 5 MB to 300 MB per call, so garbage
@@ -144,7 +145,7 @@ public class DocumentBuilderBenchmarks
     /// <summary>A 10,000-row table with a repeated header row, each row described through a closure.</summary>
     [Benchmark]
     [BenchmarkCategory(GateAllocations.NoAllocationGate)]
-    public int LongTable()
+    public int Table10k()
     {
         string[][] rows = _rows;
         using PdfDocument document = PdfDocument.Create(doc => doc.WithTitle("Table").WithLanguage("en").Content(c => c.Table(t =>
@@ -172,7 +173,7 @@ public class DocumentBuilderBenchmarks
     /// <summary>The same table through the <c>Row(params ReadOnlySpan&lt;string&gt;)</c> fast path, which allocates no closure per row.</summary>
     [Benchmark]
     [BenchmarkCategory(GateAllocations.NoAllocationGate)]
-    public int LongTableFastPath()
+    public int Table10kFastPath()
     {
         string[][] rows = _rows;
         using PdfDocument document = PdfDocument.Create(doc => doc.WithTitle("Table").WithLanguage("en").Content(c => c.Table(t =>
@@ -195,7 +196,7 @@ public class DocumentBuilderBenchmarks
     /// <summary>The same table built by hand.</summary>
     [Benchmark]
     [BenchmarkCategory(GateAllocations.NoAllocationGate)]
-    public int LongTableFlow()
+    public int Table10kFlow()
     {
         using PdfDocument document = NewDocument();
         (PdfCanvasFont regular, PdfCanvasFont bold) = Fonts(document);
