@@ -137,8 +137,10 @@ override Broadside.Text.TextQuery.ToString() -> string!
 Broadside.Diagnostics.DiagnosticArea.Redaction = 32 -> Broadside.Diagnostics.DiagnosticArea
 Broadside.Diagnostics.RedactionDiagnostics
 Broadside.PdfDocument.Redact(Broadside.PdfRedactionOptions? options = null) -> Broadside.PdfRedactionResult!
-Broadside.PdfPage.AddRedactAnnotation(Broadside.PdfRectangle rect, Broadside.PdfRedactionOptions? options = null) -> Broadside.Annotations.PdfRedactAnnotation!
-Broadside.PdfPage.AddRedactAnnotation(System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>! quadrilaterals, Broadside.PdfRedactionOptions? options = null) -> Broadside.Annotations.PdfRedactAnnotation!
+Broadside.PdfPage.AddRedactAnnotation(Broadside.PdfRectangle rect) -> Broadside.Annotations.PdfRedactAnnotation!
+Broadside.PdfPage.AddRedactAnnotation(Broadside.PdfRectangle rect, Broadside.PdfRedactionOptions! options) -> Broadside.Annotations.PdfRedactAnnotation!
+Broadside.PdfPage.AddRedactAnnotation(System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>! quadrilaterals) -> Broadside.Annotations.PdfRedactAnnotation!
+Broadside.PdfPage.AddRedactAnnotation(System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>! quadrilaterals, Broadside.PdfRedactionOptions! options) -> Broadside.Annotations.PdfRedactAnnotation!
 Broadside.PdfPage.Redact(System.Collections.Generic.IReadOnlyList<Broadside.Graphics.Quad>! areas, Broadside.PdfRedactionOptions? options = null) -> Broadside.PdfRedactionResult!
 Broadside.PdfRedactionImageMode
 Broadside.PdfRedactionImageMode.BlankPixels = 0 -> Broadside.PdfRedactionImageMode

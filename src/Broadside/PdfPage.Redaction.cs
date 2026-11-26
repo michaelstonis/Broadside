@@ -1,6 +1,3 @@
-// RS0026: the two AddRedactAnnotation overloads differ in their first parameter (quadrilaterals or a rectangle) and both take the
-// optional options the other Add*Annotation methods take, so no call is ambiguous.
-#pragma warning disable RS0026
 using Broadside.Annotations;
 using Broadside.Graphics;
 using Broadside.Redaction;
@@ -14,8 +11,7 @@ public sealed partial class PdfPage
     /// Marks areas for redaction with a Redact annotation that a reviewer can see and change; <see cref="PdfDocument.Redact"/> applies
     /// it later.
     /// </summary>
-    /// <param name="quadrilaterals">The areas, in default user space; at least one.</param>
-    /// <param name="options">The overlay drawn once the redaction is applied (<c>IC</c>, <c>OverlayText</c>, <c>Repeat</c>), or <see langword="null"/> for a black fill.</param>
+    /// <param name="quadrilaterals">The areas, in default user space; at least one. The overlay is a black fill.</param>
     /// <returns>The new annotation.</returns>
     /// <exception cref="ArgumentException"><paramref name="quadrilaterals"/> is empty.</exception>
     /// <exception cref="InvalidOperationException">The page is not an indirect object.</exception>
@@ -23,9 +19,19 @@ public sealed partial class PdfPage
     /// ISO 32000-2 §12.5.6.23 (Table 195). The annotation is drawn as the outline of its areas in its color (red by default) until it
     /// is applied. Records PDF 1.7. A mutation.
     /// </remarks>
-    public PdfRedactAnnotation AddRedactAnnotation(IReadOnlyList<PdfQuadrilateral> quadrilaterals, PdfRedactionOptions? options = null)
+    public PdfRedactAnnotation AddRedactAnnotation(IReadOnlyList<PdfQuadrilateral> quadrilaterals) => AddRedactAnnotation(quadrilaterals, new PdfRedactionOptions());
+
+    /// <summary>Marks areas for redaction with a Redact annotation whose overlay <paramref name="options"/> describe.</summary>
+    /// <param name="quadrilaterals">The areas, in default user space; at least one.</param>
+    /// <param name="options">The overlay drawn once the redaction is applied (<c>IC</c>, <c>OverlayText</c>, <c>Repeat</c>).</param>
+    /// <returns>The new annotation.</returns>
+    /// <exception cref="ArgumentException"><paramref name="quadrilaterals"/> is empty.</exception>
+    /// <exception cref="InvalidOperationException">The page is not an indirect object.</exception>
+    /// <remarks>ISO 32000-2 §12.5.6.23 (Table 195). Records PDF 1.7. A mutation.</remarks>
+    public PdfRedactAnnotation AddRedactAnnotation(IReadOnlyList<PdfQuadrilateral> quadrilaterals, PdfRedactionOptions options)
     {
         ArgumentNullException.ThrowIfNull(quadrilaterals);
+        ArgumentNullException.ThrowIfNull(options);
         if (quadrilaterals.Count == 0)
         {
             throw new ArgumentException("A Redact annotation marks at least one quadrilateral (ISO 32000-2 §12.5.6.23, Table 195).", nameof(quadrilaterals));
@@ -41,15 +47,24 @@ public sealed partial class PdfPage
         return annotation;
     }
 
-    /// <summary>Marks a rectangle for redaction with a Redact annotation; <see cref="PdfDocument.Redact"/> applies it later.</summary>
+    /// <summary>Marks a rectangle for redaction with a Redact annotation, filled black once applied; <see cref="PdfDocument.Redact"/> applies it later.</summary>
     /// <param name="rect">The area, in default user space.</param>
-    /// <param name="options">The overlay drawn once the redaction is applied, or <see langword="null"/> for a black fill.</param>
     /// <returns>The new annotation.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="rect"/> has a coordinate that is not finite.</exception>
     /// <exception cref="InvalidOperationException">The page is not an indirect object, or the rectangle has no area.</exception>
     /// <remarks>ISO 32000-2 §12.5.6.23 (Table 195): with no <c>QuadPoints</c> the rectangle is the area. Records PDF 1.7. A mutation.</remarks>
-    public PdfRedactAnnotation AddRedactAnnotation(PdfRectangle rect, PdfRedactionOptions? options = null)
+    public PdfRedactAnnotation AddRedactAnnotation(PdfRectangle rect) => AddRedactAnnotation(rect, new PdfRedactionOptions());
+
+    /// <summary>Marks a rectangle for redaction with a Redact annotation whose overlay <paramref name="options"/> describe.</summary>
+    /// <param name="rect">The area, in default user space.</param>
+    /// <param name="options">The overlay drawn once the redaction is applied.</param>
+    /// <returns>The new annotation.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="rect"/> has a coordinate that is not finite.</exception>
+    /// <exception cref="InvalidOperationException">The page is not an indirect object, or the rectangle has no area.</exception>
+    /// <remarks>ISO 32000-2 §12.5.6.23 (Table 195): with no <c>QuadPoints</c> the rectangle is the area. Records PDF 1.7. A mutation.</remarks>
+    public PdfRedactAnnotation AddRedactAnnotation(PdfRectangle rect, PdfRedactionOptions options)
     {
+        ArgumentNullException.ThrowIfNull(options);
         PdfRedactAnnotation annotation = AnnotationEditing.Add<PdfRedactAnnotation>(this, PdfAnnotationKind.Redact, Checked(rect), null, d => FillRedaction(d, options));
         _document.RequireFeature(Writing.VersionedFeatures.RedactAnnotation);
         return annotation;
@@ -93,9 +108,8 @@ public sealed partial class PdfPage
         return AnnotationEditing.Checked(new PdfRectangle(left, bottom, right, top), "quadrilaterals");
     }
 
-    private static void FillRedaction(Objects.CosDictionary dictionary, PdfRedactionOptions? options)
+    private static void FillRedaction(Objects.CosDictionary dictionary, PdfRedactionOptions options)
     {
-        options ??= new PdfRedactionOptions();
         AnnotationEditing.SetColor(dictionary, AnnotationNames.IC, options.FillColor);
         if (options.OverlayText is { } text)
         {

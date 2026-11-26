@@ -10,7 +10,7 @@ namespace Broadside.Redaction;
 /// segments' parts outside them; any other is removed whole.
 /// </summary>
 /// <remarks>
-/// ISO 32000-2 §8.5.2 (Table 58: <c>m</c>, <c>l</c>, <c>c</c>, <c>h</c>, <c>re</c>), §8.5.3 (Table 59: painting; a fill closes open
+/// ISO 32000-2 §12.5.6.23 (what applying a redaction removes), §8.5.2 (Table 58: <c>m</c>, <c>l</c>, <c>c</c>, <c>h</c>, <c>re</c>), §8.5.3 (Table 59: painting; a fill closes open
 /// subpaths, a stroke reaches half the line width past its outline). Bézier curves are not cut exactly: a subpath with a curve that a
 /// box meets is removed whole, the conservative default.
 /// </remarks>
