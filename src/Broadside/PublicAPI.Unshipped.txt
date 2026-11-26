@@ -134,6 +134,48 @@ Broadside.Text.TextQuery.WithMatchDiacritics(bool matchDiacritics = true) -> Bro
 Broadside.Text.TextQuery.WithRegexTimeout(System.TimeSpan timeout) -> Broadside.Text.TextQuery!
 Broadside.Text.TextQuery.WithWholeWord(bool wholeWord = true) -> Broadside.Text.TextQuery!
 override Broadside.Text.TextQuery.ToString() -> string!
+Broadside.Diagnostics.DiagnosticArea.Redaction = 32 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.RedactionDiagnostics
+Broadside.PdfDocument.Redact(Broadside.PdfRedactionOptions? options = null) -> Broadside.PdfRedactionResult!
+Broadside.PdfPage.AddRedactAnnotation(Broadside.PdfRectangle rect, Broadside.PdfRedactionOptions? options = null) -> Broadside.Annotations.PdfRedactAnnotation!
+Broadside.PdfPage.AddRedactAnnotation(System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>! quadrilaterals, Broadside.PdfRedactionOptions? options = null) -> Broadside.Annotations.PdfRedactAnnotation!
+Broadside.PdfPage.Redact(System.Collections.Generic.IReadOnlyList<Broadside.Graphics.Quad>! areas, Broadside.PdfRedactionOptions? options = null) -> Broadside.PdfRedactionResult!
+Broadside.PdfRedactionImageMode
+Broadside.PdfRedactionImageMode.BlankPixels = 0 -> Broadside.PdfRedactionImageMode
+Broadside.PdfRedactionImageMode.RemoveImage = 1 -> Broadside.PdfRedactionImageMode
+Broadside.PdfRedactionOptions
+Broadside.PdfRedactionOptions.ClearIntersectingFields.get -> bool
+Broadside.PdfRedactionOptions.ClearIntersectingFields.set -> void
+Broadside.PdfRedactionOptions.FillColor.get -> Broadside.Annotations.PdfDeviceColor?
+Broadside.PdfRedactionOptions.FillColor.set -> void
+Broadside.PdfRedactionOptions.ImageMode.get -> Broadside.PdfRedactionImageMode
+Broadside.PdfRedactionOptions.ImageMode.set -> void
+Broadside.PdfRedactionOptions.OverlayText.get -> string?
+Broadside.PdfRedactionOptions.OverlayText.set -> void
+Broadside.PdfRedactionOptions.PdfRedactionOptions() -> void
+Broadside.PdfRedactionOptions.RemoveIntersectingAnnotations.get -> bool
+Broadside.PdfRedactionOptions.RemoveIntersectingAnnotations.set -> void
+Broadside.PdfRedactionOptions.RepeatOverlayText.get -> bool
+Broadside.PdfRedactionOptions.RepeatOverlayText.set -> void
+Broadside.PdfRedactionOptions.WithClearIntersectingFields(bool clear) -> Broadside.PdfRedactionOptions!
+Broadside.PdfRedactionOptions.WithFillColor(Broadside.Annotations.PdfDeviceColor? color) -> Broadside.PdfRedactionOptions!
+Broadside.PdfRedactionOptions.WithImageMode(Broadside.PdfRedactionImageMode mode) -> Broadside.PdfRedactionOptions!
+Broadside.PdfRedactionOptions.WithOverlayText(string? text) -> Broadside.PdfRedactionOptions!
+Broadside.PdfRedactionOptions.WithRemoveIntersectingAnnotations(bool remove) -> Broadside.PdfRedactionOptions!
+Broadside.PdfRedactionOptions.WithRepeatOverlayText(bool repeat) -> Broadside.PdfRedactionOptions!
+Broadside.PdfRedactionResult
+Broadside.PdfRedactionResult.AnnotationsRemoved.get -> int
+Broadside.PdfRedactionResult.CreateSaveOptions() -> Broadside.PdfSaveOptions!
+Broadside.PdfRedactionResult.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+Broadside.PdfRedactionResult.FieldsCleared.get -> int
+Broadside.PdfRedactionResult.GlyphsRemoved.get -> int
+Broadside.PdfRedactionResult.ImagesChanged.get -> int
+Broadside.PdfRedactionResult.PathsRemoved.get -> int
+static Broadside.Diagnostics.RedactionDiagnostics.RedactionFormCopied.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.RedactionDiagnostics.RedactionFormRemovedWhole.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.RedactionDiagnostics.RedactionImageRemovedWhole.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.RedactionDiagnostics.RedactionInvalidatesSignatures.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.RedactionDiagnostics.RedactionTextRemovedWhole.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.PdfStamp.FromForm(Broadside.Graphics.PdfFormXObject! form) -> Broadside.PdfStamp!
 static Broadside.PdfStamp.FromImage(Broadside.Images.PdfImage! image) -> Broadside.PdfStamp!
 static Broadside.PdfStamp.FromPage(Broadside.PdfPage! page) -> Broadside.PdfStamp!

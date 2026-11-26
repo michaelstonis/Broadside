@@ -22,6 +22,7 @@ DrawAPageOnAnotherPage();
 StampPages();
 FillAForm();
 Annotate();
+Redact();
 EditMetadata();
 AttachAFile();
 Encrypt();
@@ -204,6 +205,25 @@ static void Annotate()
 
     using PdfDocument saved = PdfDocument.Open("contract-annotated.pdf");
     Sample.Expect(saved.Pages[0].Annotations.Count == 3, "three annotations");
+}
+
+static void Redact()
+{
+    #region redaction
+    using PdfDocument document = PdfDocument.Open("contract.pdf");
+    PdfPage page = document.Pages[0];
+
+    // Mark the area for review, then apply every mark: the glyphs under it leave the content and a black box takes their place.
+    page.AddRedactAnnotation(new PdfRectangle(70, 712, 190, 736), new PdfRedactionOptions().WithOverlayText("WITHHELD"));
+    PdfRedactionResult result = document.Redact();
+
+    // A full save with the result's options: an incremental update would keep the original content in the file.
+    document.Save("contract-redacted.pdf", result.CreateSaveOptions());
+    #endregion
+
+    using PdfDocument saved = PdfDocument.Open("contract-redacted.pdf");
+    Sample.Expect(result.GlyphsRemoved > 0, "glyphs removed");
+    Sample.Expect(!saved.Pages[0].ExtractText().Text.Contains("Service", StringComparison.Ordinal), "the redacted words are gone");
 }
 
 static void EditMetadata()

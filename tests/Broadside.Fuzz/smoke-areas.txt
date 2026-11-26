@@ -58,6 +58,7 @@ form-fill                   ^src/Broadside/(Forms|Annotations|Writing)/
 flatten                     ^src/Broadside/(Forms|Annotations|Content|Writing)/
 display-list                ^src/Broadside/(Rendering|Graphics|Content)/
 content-rewrite             ^src/Broadside/(Content|Writing)/
+redact                      ^src/Broadside/(Redaction|Content|Annotations)/|^src/Broadside/PdfRedaction
 icc-profile                 ^src/Broadside/Graphics/|^src/Broadside\.Rendering/Icc/
 rasterize                   ^src/Broadside\.Rendering/|^src/Broadside/(Rendering|Graphics)/
 rasterize-page              ^src/Broadside\.Rendering/|^src/Broadside/(Rendering|Graphics|Content|Fonts|Images)/

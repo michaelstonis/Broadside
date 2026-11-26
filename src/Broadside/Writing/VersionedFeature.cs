@@ -102,6 +102,7 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <item><term><see cref="AnnotationTypes13"/></term><description>1.3 (§12.5.6.1, Table 171: FreeText, Line, Square, Circle, Highlight, Underline, StrikeOut, Stamp, Ink, Popup)</description></item>
 /// <item><term><see cref="AnnotationTypes14"/></term><description>1.4 (Table 171, Squiggly; Table 166, <c>NM</c>; Tables 178, 180 and 181, <c>IC</c>)</description></item>
 /// <item><term><see cref="AnnotationTypes15"/></term><description>1.5 (Table 171, Polygon and PolyLine; Table 172, <c>Subj</c> and <c>CreationDate</c>)</description></item>
+/// <item><term><see cref="RedactAnnotation"/></term><description>1.7 (§12.5.6.23, Table 195)</description></item>
 /// <item><term><see cref="PageBoundaries"/></term><description>1.3 (§7.7.3.3, Table 31, <c>BleedBox</c>, <c>TrimBox</c>, <c>ArtBox</c>)</description></item>
 /// <item><term><see cref="RenderingIntentOperator"/></term><description>1.1 (§8.4.4, Table 56, <c>ri</c>)</description></item>
 /// <item><term><see cref="GraphicsStateParameters"/></term><description>1.2 (§8.4.4, Table 56, <c>gs</c>)</description></item>
@@ -316,6 +317,9 @@ internal static class VersionedFeatures
         "a Polygon or PolyLine annotation, or a markup annotation's subject or creation date (Subj, CreationDate)",
         "ISO 32000-2 §12.5.6.1, Table 171; §12.5.6.2, Table 172",
         Pdf15);
+
+    /// <summary>Gets the Redact annotation type: PDF 1.7.</summary>
+    public static VersionedFeature RedactAnnotation { get; } = new("a Redact annotation", "ISO 32000-2 §12.5.6.23, Table 195", new PdfVersion(1, 7));
 
     /// <summary>Gets the <c>BleedBox</c>, <c>TrimBox</c> and <c>ArtBox</c> page boundaries: PDF 1.3.</summary>
     public static VersionedFeature PageBoundaries { get; } = new("a page's BleedBox, TrimBox or ArtBox", "ISO 32000-2 §7.7.3.3, Table 31", new PdfVersion(1, 3));
