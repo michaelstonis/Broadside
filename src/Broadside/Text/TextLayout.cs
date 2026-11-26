@@ -192,7 +192,7 @@ internal sealed class TextLayout
         return replaced && geometric == Break.Word ? Break.None : geometric;
     }
 
-    private static Break Measure(in TextGlyph previous, in TextGlyph next, in TextGlyph anchor)
+    internal static Break Measure(in TextGlyph previous, in TextGlyph next, in TextGlyph anchor)
     {
         if (previous.IsVertical != next.IsVertical || anchor.IsVertical != next.IsVertical)
         {

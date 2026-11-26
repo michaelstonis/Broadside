@@ -33,10 +33,11 @@ namespace Broadside.Viewer;
 public sealed class DocumentSearch : IDisposable
 {
     private const int MaxWorkers = 2;
+    private const int ContextLength = 32;
 
     private readonly Lock _lock = new();
     private readonly CancellationTokenSource _disposed = new();
-    private readonly SearchablePage?[] _pages;
+    private readonly SearchableText?[] _pages;
     private readonly List<SearchMatch>?[] _pageMatches;
     private readonly List<SearchMatch> _matches = [];
     private SearchMatch[]? _snapshot;
@@ -49,7 +50,7 @@ public sealed class DocumentSearch : IDisposable
     private int _indexed;
     private int _failed;
     private int _running;
-    private string _needle = string.Empty;
+    private TextQuery? _textQuery;
     private TextSearchOptions _options = new();
 
     /// <summary>Creates a search over a session's pages; nothing is read until <see cref="Search"/> or <see cref="StartIndexing"/>.</summary>
@@ -58,7 +59,7 @@ public sealed class DocumentSearch : IDisposable
     {
         ArgumentNullException.ThrowIfNull(session);
         Session = session;
-        _pages = new SearchablePage?[session.PageCount];
+        _pages = new SearchableText?[session.PageCount];
         _pageMatches = new List<SearchMatch>?[session.PageCount];
     }
 
@@ -157,18 +158,20 @@ public sealed class DocumentSearch : IDisposable
         options = options is null
             ? new TextSearchOptions()
             : new TextSearchOptions().WithMatchCase(options.MatchCase).WithWholeWord(options.WholeWord).WithMatchDiacritics(options.MatchDiacritics);
-        string needle = SearchablePage.FoldQuery(query, options);
+        TextQuery? textQuery = string.IsNullOrWhiteSpace(query)
+            ? null
+            : new TextQuery(query).WithMatchCase(options.MatchCase).WithWholeWord(options.WholeWord).WithMatchDiacritics(options.MatchDiacritics);
         int generation;
         lock (_lock)
         {
             generation = Reset();
-            Query = needle.Length == 0 ? string.Empty : query;
-            _needle = needle;
+            Query = textQuery is null ? string.Empty : query;
+            _textQuery = textQuery;
             _options = options;
             _startPage = _pages.Length == 0 ? 0 : Math.Clamp(startPage, 0, _pages.Length - 1);
         }
 
-        if (needle.Length > 0 || !IsIndexComplete)
+        if (textQuery is not null || !IsIndexComplete)
         {
             StartPass(generation);
         }
@@ -202,7 +205,7 @@ public sealed class DocumentSearch : IDisposable
         {
             Reset();
             Query = string.Empty;
-            _needle = string.Empty;
+            _textQuery = null;
         }
 
         Changed?.Invoke(this, EventArgs.Empty);
@@ -388,7 +391,7 @@ public sealed class DocumentSearch : IDisposable
 
     private async Task SearchPageAsync(int generation, int pageIndex, CancellationToken token)
     {
-        SearchablePage? page = Volatile.Read(ref _pages[pageIndex]);
+        SearchableText? page = Volatile.Read(ref _pages[pageIndex]);
         if (page is null)
         {
             page = await IndexPageAsync(pageIndex, token).ConfigureAwait(false);
@@ -402,8 +405,7 @@ public sealed class DocumentSearch : IDisposable
             }
         }
 
-        string needle;
-        TextSearchOptions options;
+        TextQuery? query;
         lock (_lock)
         {
             if (generation != _generation)
@@ -411,12 +413,18 @@ public sealed class DocumentSearch : IDisposable
                 return;
             }
 
-            needle = _needle;
-            options = _options;
+            query = _textQuery;
         }
 
         List<SearchMatch> found = [];
-        page.Find(pageIndex, needle, options, found, token);
+        if (query is not null)
+        {
+            foreach (TextMatch match in page.Find(query, pageIndex, token))
+            {
+                found.Add(new SearchMatch(pageIndex, [.. match.Quads], match.Text, GetContext(page.Text, match.TextStart, match.TextStart + match.Text.Length)));
+            }
+        }
+
         lock (_lock)
         {
             if (generation != _generation)
@@ -468,11 +476,29 @@ public sealed class DocumentSearch : IDisposable
         }
     }
 
+    /// <summary>The match from <paramref name="start"/> to <paramref name="end"/> with a few whole words of the page's text around it.</summary>
+    private static string GetContext(string text, int start, int end)
+    {
+        int from = Math.Max(0, start - ContextLength);
+        int to = Math.Min(text.Length, end + ContextLength);
+        if (from > 0 && text.LastIndexOf(' ', start - 1, start - from) is int space and >= 0)
+        {
+            from = space + 1;
+        }
+
+        if (to < text.Length && text.IndexOf(' ', end, to - end) is int after and >= 0)
+        {
+            to = after;
+        }
+
+        return string.Concat(from > 0 ? "…" : string.Empty, text.AsSpan(from, to - from), to < text.Length ? "…" : string.Empty);
+    }
+
     /// <summary>How far after the start page a page comes in search order (wrapping around).</summary>
     private int Distance(int pageIndex) => (pageIndex - _startPage + _pages.Length) % _pages.Length;
 
     /// <summary>Reads a page's words: on a worker under the session's read lease, or on this thread after a yield (cooperative).</summary>
-    private async Task<SearchablePage> IndexPageAsync(int pageIndex, CancellationToken token)
+    private async Task<SearchableText> IndexPageAsync(int pageIndex, CancellationToken token)
     {
         CancellationTokenSource operation = Session.Enter(token);
         try
@@ -482,7 +508,7 @@ public sealed class DocumentSearch : IDisposable
             try
             {
                 return await Session.ReadAsync(
-                    readToken => SearchablePage.Create(Session.Document.Pages[pageIndex].ExtractText(new TextExtractionOptions()
+                    readToken => SearchableText.Create(Session.Document.Pages[pageIndex].ExtractText(new TextExtractionOptions()
                         .WithArtifacts()
                         .WithContentOptions(new ContentOptions().WithCancellation(readToken)))),
                     read).ConfigureAwait(false);
@@ -491,7 +517,7 @@ public sealed class DocumentSearch : IDisposable
             {
                 // A page whose content cannot be read still draws what it can; the search counts it and goes on.
                 Interlocked.Increment(ref _failed);
-                return SearchablePage.Empty;
+                return SearchableText.Empty;
             }
         }
         finally

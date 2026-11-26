@@ -111,3 +111,35 @@ static IEnumerable<LayoutNode> Descendants(LayoutNode node) => node.Children.Sel
 <!-- endsnippet -->
 
 The same tree drives [automatic tagging](accessibility-and-conformance.md#tagging-an-existing-file), which writes it into the document as its structure.
+
+## Searching text
+
+`PdfDocument.FindText`, `PdfPage.FindText` and `TextPage.Find` find a `TextQuery` in the same text `ExtractText` returns. A page is searched as its words in reading order joined by single spaces, the breaks between lines included, so a phrase matches across a line break, and any run of white space in the query matches one such break. Each `TextMatch` has the text it covers, its page, the range of `TextPage.Glyphs` that shows it (`GlyphStart`, `GlyphCount`), one quad per line it covers and their `Bounds`. `PdfDocument.FindText` is lazy: it extracts one page at a time as you enumerate, keeps nothing between pages, and takes an optional page range and cancellation token.
+
+<!-- snippet: samples/guides/ExtractingText/Program.cs#search -->
+```csharp
+using PdfDocument document = PdfDocument.Open("text-lines-rotated.pdf");
+foreach (TextMatch match in document.FindText(new TextQuery("degrees second")))
+{
+    // A phrase matches across a line break: one quad per line, each along its own baseline.
+    Console.WriteLine($"Page {match.PageIndex + 1}: \"{match.Text}\" on {match.Quads.Count} lines, glyphs {match.GlyphStart} to {match.GlyphStart + match.GlyphCount - 1}");
+}
+```
+<!-- endsnippet -->
+
+By default case and diacritics are ignored (`WithMatchCase`, `WithMatchDiacritics`), and compatibility characters fold to what they stand for, so "ﬁ" matches "fi" and a full-width "Ａ" matches "A", from a table the library ships rather than the host's globalization data. `WithWholeWord` keeps only matches with no letter or digit just before or after them. A match inside an `ActualText` replacement covers every glyph the replacement stands for. Artifacts and hidden content follow `TextExtractionOptions`, as in extraction: pass options to `PdfPage.FindText` to search them too.
+
+`TextQuery.FromRegex` takes a .NET regular expression. It runs on the page's text unfolded, so diacritics count; case is ignored unless `MatchCase` is set. A match of zero length is skipped, and an expression that runs longer than `RegexTimeout` (2 seconds per page by default) throws `RegexMatchTimeoutException` for that page.
+
+<!-- snippet: samples/guides/ExtractingText/Program.cs#search-regex -->
+```csharp
+using PdfDocument document = PdfDocument.Open("text-lines-rotated.pdf");
+TextQuery query = TextQuery.FromRegex(@"\w+ty").WithWholeWord();
+foreach (TextMatch match in document.Pages[0].FindText(query))
+{
+    Console.WriteLine($"{match.Text} at {match.Bounds}");
+}
+```
+<!-- endsnippet -->
+
+To search the same pages many times, keep `SearchableText.Create(page)` for each page instead of the `TextPage`: it holds only what search needs.
