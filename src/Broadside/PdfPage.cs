@@ -405,6 +405,13 @@ public sealed partial class PdfPage
         return Layout.StructureLayout.Build(_document, [this], options);
     }
 
+    /// <summary>Extracts the page's content as Markdown: its layout tree (<see cref="ExtractLayout()"/>) written by <see cref="Layout.LayoutTree.SaveMarkdown"/>.</summary>
+    /// <param name="options">What to write; <see langword="null"/> for the defaults.</param>
+    /// <returns>The Markdown; empty when the page shows no content.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content, its fonts or the structure tree.</exception>
+    /// <remarks>ISO 32000-2 §14.8.4, §14.9.3 and §14.8.2.2 (artifacts are left out); see <see cref="Layout.LayoutTree.SaveMarkdown"/>.</remarks>
+    public string ExtractMarkdown(Layout.MarkdownSaveOptions? options = null) => ExtractLayout().ToMarkdown(options);
+
     /// <summary>Extracts the page's text with <paramref name="companion"/>, when given, run in the same pass over the content (issue #186).</summary>
     internal Text.TextPage ExtractText(Text.TextExtractionOptions options, ContentProcessor? companion)
     {

@@ -97,3 +97,27 @@ static Broadside.PdfStamp.FromForm(Broadside.Graphics.PdfFormXObject! form) -> B
 static Broadside.PdfStamp.FromImage(Broadside.Images.PdfImage! image) -> Broadside.PdfStamp!
 static Broadside.PdfStamp.FromPage(Broadside.PdfPage! page) -> Broadside.PdfStamp!
 static Broadside.PdfStamp.FromText(string! text, Broadside.Fonts.PdfCanvasFont! font, double fontSize) -> Broadside.PdfStamp!
+Broadside.Layout.LayoutJsonOptions
+Broadside.Layout.LayoutJsonOptions.IncludeBounds.get -> bool
+Broadside.Layout.LayoutJsonOptions.Indented.get -> bool
+Broadside.Layout.LayoutJsonOptions.LayoutJsonOptions() -> void
+Broadside.Layout.LayoutJsonOptions.WithBounds(bool include) -> Broadside.Layout.LayoutJsonOptions!
+Broadside.Layout.LayoutJsonOptions.WithIndented(bool indented) -> Broadside.Layout.LayoutJsonOptions!
+Broadside.Layout.LayoutTree.SaveJson(System.IO.Stream! stream, Broadside.Layout.LayoutJsonOptions? options = null) -> void
+Broadside.Layout.LayoutTree.SaveMarkdown(System.IO.TextWriter! writer, Broadside.Layout.MarkdownSaveOptions? options = null) -> void
+Broadside.Layout.LayoutTree.ToMarkdown(Broadside.Layout.MarkdownSaveOptions? options = null) -> string!
+Broadside.Layout.MarkdownSaveOptions
+Broadside.Layout.MarkdownSaveOptions.IncludeImages.get -> bool
+Broadside.Layout.MarkdownSaveOptions.IncludePageBreaks.get -> bool
+Broadside.Layout.MarkdownSaveOptions.InlineEmphasis.get -> bool
+Broadside.Layout.MarkdownSaveOptions.MarkdownSaveOptions() -> void
+Broadside.Layout.MarkdownSaveOptions.Tables.get -> Broadside.Layout.MarkdownTableStyle
+Broadside.Layout.MarkdownSaveOptions.WithImages(bool include) -> Broadside.Layout.MarkdownSaveOptions!
+Broadside.Layout.MarkdownSaveOptions.WithInlineEmphasis(bool include) -> Broadside.Layout.MarkdownSaveOptions!
+Broadside.Layout.MarkdownSaveOptions.WithPageBreaks(bool include) -> Broadside.Layout.MarkdownSaveOptions!
+Broadside.Layout.MarkdownSaveOptions.WithTables(Broadside.Layout.MarkdownTableStyle style) -> Broadside.Layout.MarkdownSaveOptions!
+Broadside.Layout.MarkdownTableStyle
+Broadside.Layout.MarkdownTableStyle.Html = 1 -> Broadside.Layout.MarkdownTableStyle
+Broadside.Layout.MarkdownTableStyle.Pipe = 0 -> Broadside.Layout.MarkdownTableStyle
+Broadside.PdfDocument.ExtractMarkdown(Broadside.Layout.MarkdownSaveOptions? options = null) -> string!
+Broadside.PdfPage.ExtractMarkdown(Broadside.Layout.MarkdownSaveOptions? options = null) -> string!
