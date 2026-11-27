@@ -273,6 +273,13 @@ internal sealed class EncryptionPlan
     }
 
     /// <summary>
+    /// Whether <paramref name="value"/> is a stream whose data the document's credentials did not decrypt (a crypt filter they do not
+    /// unlock, §7.6.6): its data is ciphertext tied to its own number, so it is never merged with another (issue #634).
+    /// </summary>
+    public bool HoldsLockedData(CosObject value) =>
+        _sourceDecryptor is not null && value is CosStream stream && _sourceDecryptor.IsLocked(stream.Dictionary);
+
+    /// <summary>
     /// Refuses, before anything is written, a save that would have to write data the document's credentials could not decrypt
     /// (a crypt filter they do not unlock, §7.6.6) under anything but the key it was read with, at the number it was read under.
     /// </summary>

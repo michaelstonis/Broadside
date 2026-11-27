@@ -7344,6 +7344,23 @@ def gen_clip_before_path() -> bytes:
     ])
 
 
+def gen_duplicate_images() -> bytes:
+    """7.3.10, 7.5.3 (issue #634): one page painting three image XObjects that are the same baseline JPEG (``dct_gray_jpeg``,
+    37 x 21 DeviceGray, 7.4.8) stored as three identical indirect objects, as a merge of documents that share a logo leaves them.
+    A save that merges duplicates writes the image once."""
+    gray = dct_gray_jpeg()
+    image = b"/Type /XObject /Subtype /Image /Width 37 /Height 21 /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /DCTDecode"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /XObject << /Im0 5 0 R /Im1 6 0 R /Im2 7 0 R >> >>")),
+        (4, stream(b"", b"q 148 0 0 84 72 600 cm /Im0 Do Q q 148 0 0 84 240 600 cm /Im1 Do Q q 148 0 0 84 408 600 cm /Im2 Do Q")),
+        (5, stream(image, gray)),
+        (6, stream(image, gray)),
+        (7, stream(image, gray)),
+    ], binary=True)
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -7537,6 +7554,7 @@ FILES = {
     "paths-strokes.pdf": gen_paths_strokes,
     "clipping-paths.pdf": gen_clipping_paths,
     "clip-before-path.pdf": gen_clip_before_path,
+    "duplicate-images.pdf": gen_duplicate_images,
 }
 
 

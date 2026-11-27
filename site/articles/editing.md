@@ -64,6 +64,8 @@ document.Save("contract-compact.pdf", options);
 ```
 <!-- endsnippet -->
 
+Merged and generated documents often carry the same logo, font program or form XObject once per source page. `WithMergeDuplicateObjects(true)` writes each such object once: streams that are byte for byte identical (same filters, same `DecodeParms`, same data; `Length` aside), and identical arrays, fonts, font descriptors, encodings, graphics states, shadings and functions, with every reference to a duplicate written as a reference to the copy with the lowest object number. Merging repeats until nothing more merges, so two font dictionaries merge once their font programs have. Pages, annotations, the catalog and other objects whose identity matters are never merged, and the document itself does not change, only what is written. The save records one `DuplicateObjectsMerged` information diagnostic with the counts. It needs a full save: with `IncrementalUpdate`, `Save` throws an `InvalidOperationException`.
+
 Conformance: [ISO 32000-2 §7.5 (file structure, incremental updates §7.5.6, cross-reference streams §7.5.8)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
 
 ## Pages

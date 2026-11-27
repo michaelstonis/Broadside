@@ -1503,6 +1503,7 @@ public sealed partial class PdfDocument : IDisposable
         ArgumentNullException.ThrowIfNull(options);
         CheckLinearization(options);
         ReportBeforeSave();
+        CheckDuplicateMerge(options);
         bool archival = CheckArchivalSave(options);
         AccessibleSave accessible = CheckAccessibleSave(options);
         VersionedSave planned = CheckVersionedSave(options, archival, accessible);
@@ -1524,7 +1525,9 @@ public sealed partial class PdfDocument : IDisposable
         try
         {
             using CosChangeLog.Recording recording = log.Record();
-            return ApplySaveChanges(options, planned, archival, accessible);
+            FileWriter writer = ApplySaveChanges(options, planned, archival, accessible);
+            ReportDuplicateMerge(writer);
+            return writer;
         }
         catch when (changes is null)
         {
@@ -1597,6 +1600,31 @@ public sealed partial class PdfDocument : IDisposable
     /// recorded once however often the document is saved. Add later save-time checks here.
     /// </summary>
     private void ReportBeforeSave() => RemovedPageReport.Report(this, _diagnostics);
+
+    /// <summary>Refuses <see cref="PdfSaveOptions.MergeDuplicateObjects"/> on an incremental update (§7.5.6), which cannot change earlier revisions.</summary>
+    /// <exception cref="InvalidOperationException">The options ask for both.</exception>
+    private static void CheckDuplicateMerge(PdfSaveOptions options)
+    {
+        if (options.IncrementalUpdate && options.MergeDuplicateObjects)
+        {
+            throw new InvalidOperationException(
+                "An incremental update cannot merge duplicate objects: the objects earlier revisions hold stay as written (ISO 32000-2 §7.5.6). Save without IncrementalUpdate to merge them.");
+        }
+    }
+
+    /// <summary>Records what the planned save merged (issue #634): one <c>DuplicateObjectsMerged</c> diagnostic, when anything merged.</summary>
+    private void ReportDuplicateMerge(FileWriter writer)
+    {
+        if (writer.Merged is not { Aliases.Count: > 0 } merged)
+        {
+            return;
+        }
+
+        _diagnostics.Report(
+            SavingDiagnostics.DuplicateObjectsMerged,
+            DiagnosticSeverity.Information,
+            string.Create(CultureInfo.InvariantCulture, $"The save wrote {merged.Aliases.Count} duplicate object(s) once each, as references to identical objects it keeps, in {merged.Rounds} round(s), leaving out {merged.StreamBytes} bytes of stream data (ISO 32000-2 §7.3.10)."));
+    }
 
     /// <summary>
     /// Refuses a linearized incremental update, and records that an incremental update of a linearized file leaves it unlinearized:

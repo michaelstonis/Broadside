@@ -214,6 +214,10 @@ static Broadside.PdfStamp.FromForm(Broadside.Graphics.PdfFormXObject! form) -> B
 static Broadside.PdfStamp.FromImage(Broadside.Images.PdfImage! image) -> Broadside.PdfStamp!
 static Broadside.PdfStamp.FromPage(Broadside.PdfPage! page) -> Broadside.PdfStamp!
 static Broadside.PdfStamp.FromText(string! text, Broadside.Fonts.PdfCanvasFont! font, double fontSize) -> Broadside.PdfStamp!
+Broadside.PdfSaveOptions.MergeDuplicateObjects.get -> bool
+Broadside.PdfSaveOptions.MergeDuplicateObjects.set -> void
+Broadside.PdfSaveOptions.WithMergeDuplicateObjects(bool merge) -> Broadside.PdfSaveOptions!
+static Broadside.Diagnostics.SavingDiagnostics.DuplicateObjectsMerged.get -> Broadside.Diagnostics.DiagnosticCode!
 Broadside.Layout.LayoutJsonOptions
 Broadside.Layout.LayoutJsonOptions.IncludeBounds.get -> bool
 Broadside.Layout.LayoutJsonOptions.Indented.get -> bool
