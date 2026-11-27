@@ -25,6 +25,7 @@ ExchangeFormData();
 Annotate();
 Redact();
 ExchangeAnnotations();
+SearchAndRedact();
 EditMetadata();
 AttachAFile();
 Encrypt();
@@ -272,6 +273,27 @@ static void ExchangeAnnotations()
 
     using PdfDocument withComments = PdfDocument.Open("contract-with-comments.pdf");
     Sample.Expect(withComments.Pages[0].Annotations.Count == 2, "the two markup annotations; the link is not markup");
+}
+
+static void SearchAndRedact()
+{
+    #region search-redaction
+    // Review first: one Redact annotation per match, a quadrilateral per line; nothing is removed until document.Redact().
+    using PdfDocument review = PdfDocument.Open("contract.pdf");
+    IReadOnlyList<PdfRedactAnnotation> marks = review.AddRedactAnnotations(new TextQuery("parties"));
+
+    // Or apply at once: the presets and the literal share one extraction per page, and exactly the matched glyphs go.
+    using PdfDocument document = PdfDocument.Open("contract.pdf");
+    PdfRedactionResult result = document.Redact(
+        [TextPatterns.EmailAddress, TextPatterns.CreditCardNumber, new TextQuery("parties")],
+        new PdfRedactionOptions().WithOverlayText("WITHHELD"));
+    document.Save("contract-search-redacted.pdf", result.CreateSaveOptions());
+    #endregion
+
+    using PdfDocument saved = PdfDocument.Open("contract-search-redacted.pdf");
+    Sample.Expect(marks.Count == 1, "one mark to review");
+    Sample.Expect(result.GlyphsRemoved == "parties".Length, "only the matched glyphs removed");
+    Sample.Expect(!saved.Pages[0].ExtractText().Text.Contains("parties", StringComparison.Ordinal), "the matched word is gone");
 }
 
 static void EditMetadata()

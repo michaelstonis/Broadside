@@ -8,6 +8,7 @@ using Broadside.Forms;
 using Broadside.Graphics;
 using Broadside.Objects;
 using Broadside.Structure;
+using Broadside.Text;
 
 namespace Broadside.Redaction;
 
@@ -75,6 +76,90 @@ internal sealed class RedactionSession
 
     /// <summary>Gets the depth of form copies being rewritten, bounded by <see cref="ContentOptions.MaxNestingDepth"/>.</summary>
     public int FormDepth { get; private set; }
+
+    /// <summary>Gets the glyphs the current run removes by identity, or <see langword="null"/> when glyphs are removed by area.</summary>
+    public RedactionGlyphTargets? GlyphTargets { get; private set; }
+
+    /// <summary>Gets a value indicating whether the current run removes glyphs only (search matches with <see cref="PdfRedactionOptions.GlyphsOnly"/>).</summary>
+    public bool GlyphsOnly { get; private set; }
+
+    /// <summary>The extraction redaction searches by default: every glyph, hidden content and artifacts included.</summary>
+    public static TextExtractionOptions DefaultExtraction() => new TextExtractionOptions().WithHiddenContent().WithArtifacts();
+
+    /// <summary>
+    /// Applies search matches: each page's matched glyphs are removed by identity, the content under the match quads by area unless
+    /// <see cref="PdfRedactionOptions.GlyphsOnly"/>, and the overlay drawn over each quad. Nothing is changed when there is no match.
+    /// </summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pages">Per page, the text the matches were found in and the matches, overlaps merged.</param>
+    /// <param name="options">The options.</param>
+    public static PdfRedactionResult ApplyMatches(PdfDocument document, IReadOnlyList<RedactionPageMatches> pages, PdfRedactionOptions options)
+    {
+        var session = new RedactionSession(document, options);
+        if (!pages.Any(static page => page.Matches.Count > 0 || page.Unlocated is { Count: > 0 }))
+        {
+            return session.Result();
+        }
+
+        return session.Run(() =>
+        {
+            foreach (RedactionPageMatches page in pages)
+            {
+                if (page.Matches.Count > 0 || page.Unlocated is { Count: > 0 })
+                {
+                    session.RedactMatches(page);
+                }
+            }
+        });
+    }
+
+    /// <summary>
+    /// Merges matches whose glyph ranges overlap (several queries over one extraction), in glyph order; matches that only touch stay
+    /// apart.
+    /// </summary>
+    public static List<TextMatch> Merge(IEnumerable<TextMatch> matches)
+    {
+        List<TextMatch> sorted = [.. matches];
+        sorted.Sort(static (a, b) => a.GlyphStart != b.GlyphStart ? a.GlyphStart.CompareTo(b.GlyphStart) : b.GlyphCount.CompareTo(a.GlyphCount));
+        List<TextMatch> merged = [];
+        foreach (TextMatch match in sorted)
+        {
+            if (merged.Count > 0 && merged[^1] is var last && match.GlyphStart < last.GlyphStart + last.GlyphCount)
+            {
+                merged[^1] = Union(last, match);
+            }
+            else
+            {
+                merged.Add(match);
+            }
+        }
+
+        return merged;
+    }
+
+    private static TextMatch Union(TextMatch first, TextMatch second)
+    {
+        int glyphEnd = Math.Max(first.GlyphStart + first.GlyphCount, second.GlyphStart + second.GlyphCount);
+        int textEnd = first.TextStart + first.Text.Length;
+        string text = first.Text;
+        if (second.TextStart >= first.TextStart && second.TextStart <= textEnd && second.TextStart + second.Text.Length > textEnd)
+        {
+            text += second.Text[(textEnd - second.TextStart)..];
+        }
+
+        List<Quad> quads = [.. first.Quads];
+        foreach (Quad quad in second.Quads)
+        {
+            if (!quads.Contains(quad))
+            {
+                quads.Add(quad);
+            }
+        }
+
+        PdfRectangle a = first.Bounds, b = second.Bounds;
+        var bounds = new PdfRectangle(Math.Min(a.Left, b.Left), Math.Min(a.Bottom, b.Bottom), Math.Max(a.Right, b.Right), Math.Max(a.Top, b.Top));
+        return new TextMatch(first.PageIndex, text, first.TextStart, first.GlyphStart, glyphEnd - first.GlyphStart, quads, bounds);
+    }
 
     /// <summary>Applies the Redact annotations of every page, then removes them.</summary>
     public static PdfRedactionResult ApplyAnnotations(PdfDocument document, PdfRedactionOptions? options)
@@ -168,7 +253,7 @@ internal sealed class RedactionSession
     /// Copies a form XObject painted over an area and rewrites the copy with the areas in its run's space; returns the copy's new
     /// reference, or <see langword="null"/> when nothing of it was under an area (the copy is then dropped).
     /// </summary>
-    public CosReference? RewriteFormCopy(PdfFormXObject form, ReadOnlySpan<Quad> areas)
+    public CosReference? RewriteFormCopy(PdfFormXObject form, ReadOnlySpan<Quad> areas, Matrix toPage)
     {
         CosStream original = form.Stream;
         var dictionary = new CosDictionary();
@@ -183,7 +268,7 @@ internal sealed class RedactionSession
         var copy = new CosStream(dictionary, Document.DecodeStream(original).ToArray());
         var view = new PdfFormXObject(Document, copy, reference: null);
         var editor = new RedactionEditor(this);
-        editor.Configure(areas, dictionary, view.Resources);
+        editor.Configure(areas, dictionary, view.Resources, toPage);
         bool changed;
         FormDepth++;
         try
@@ -290,6 +375,109 @@ internal sealed class RedactionSession
         RemoveAnnotations(page, areas);
         page.Dictionary.Remove(FileAndLayerNames.Thumb);
         DrawOverlays(page, crop, overlays);
+    }
+
+    /// <summary>
+    /// Removes one page's matched glyphs by identity, then, for each match some of whose glyphs were not found, everything under its
+    /// quads by area (recorded as <c>RedactionMatchNotLocated</c>); removes the annotations under the quads unless only glyphs go; and
+    /// draws the overlays.
+    /// </summary>
+    private void RedactMatches(RedactionPageMatches entry)
+    {
+        PdfPage page = entry.Page;
+        IReadOnlyList<TextGlyph> glyphs = entry.Text.Glyphs;
+        List<TextMatch> matches = [.. entry.Matches, .. entry.Unlocated ?? []];
+        var targets = new RedactionGlyphTargets();
+        var keys = new List<GlyphMatching.GlyphKey>[matches.Count];
+        bool[] unlocated = new bool[matches.Count];
+        List<Quad> areas = [];
+        foreach ((TextMatch match, int index) in matches.Select(static (match, index) => (match, index)))
+        {
+            keys[index] = [];
+            areas.AddRange(match.Quads.Select(RedactionGeometry.Hull));
+            if (index >= entry.Matches.Count)
+            {
+                unlocated[index] = true;
+                continue;
+            }
+
+            for (int glyph = match.GlyphStart; glyph < match.GlyphStart + match.GlyphCount && glyph < glyphs.Count; glyph++)
+            {
+                TextGlyph value = glyphs[glyph];
+                GlyphMatching.GlyphKey key = GlyphMatching.Key(value.CharacterCode, value.Quad.BottomLeft);
+                targets.Add(key);
+                keys[index].Add(key);
+            }
+        }
+
+        if (areas.Count == 0)
+        {
+            return;
+        }
+
+        RedactionEditor editor = _pageEditor ??= new RedactionEditor(this);
+        GlyphsOnly = Options.GlyphsOnly;
+        try
+        {
+            GlyphTargets = targets;
+            Rewrite(page, editor, [.. areas]);
+            GlyphTargets = null;
+
+            List<Quad> fallback = [];
+            for (int index = 0; index < keys.Length; index++)
+            {
+                if (unlocated[index] || keys[index].Any(targets.IsPending))
+                {
+                    // ADR 0005: the match is removed by area rather than left; the text is the sensitive value, so it is not in the message.
+                    Report(
+                        RedactionDiagnostics.RedactionMatchNotLocated,
+                        $"A search match on page {Document.Pages.IndexOf(page) + 1} could not be found again glyph by glyph; everything under its quads is removed instead.",
+                        page.Reference);
+                    fallback.AddRange(matches[index].Quads.Select(RedactionGeometry.Hull));
+                }
+            }
+
+            if (fallback.Count > 0)
+            {
+                Rewrite(page, editor, [.. fallback]);
+            }
+        }
+        finally
+        {
+            GlyphTargets = null;
+            GlyphsOnly = false;
+        }
+
+        if (!Options.GlyphsOnly)
+        {
+            RemoveAnnotations(page, areas);
+        }
+
+        page.Dictionary.Remove(FileAndLayerNames.Thumb);
+        string? appearance = Options.OverlayText is null ? null : DefaultAppearanceFor(Options.FillColor);
+        List<RedactionOverlay> overlays =
+        [
+            .. matches.SelectMany(static match => match.Quads).Select(quad =>
+                new RedactionOverlay([quad], quad.Bounds, null, Options.FillColor, Options.OverlayText, appearance, PdfTextJustification.Centered, Options.RepeatOverlayText)),
+        ];
+        DrawOverlays(page, page.CropBox, overlays);
+    }
+
+    private void Rewrite(PdfPage page, RedactionEditor editor, Quad[] areas)
+    {
+        editor.Configure(areas, page.Dictionary, page.Resources);
+        if (page.RewriteContent(editor, ContentOptions))
+        {
+            editor.PruneXObjects(editor.Output);
+        }
+
+        if (ReadInteger(page.Dictionary, StructureNames.StructParents) is int key)
+        {
+            foreach (int mcid in editor.RemovedMcids)
+            {
+                _mcids.Add((key, mcid));
+            }
+        }
     }
 
     private int? ReadInteger(CosDictionary dictionary, CosName key) =>
@@ -495,4 +683,38 @@ internal sealed class RedactionSession
         canvas.EndText();
         canvas.RestoreState();
     }
+}
+
+/// <summary>One page's search matches to redact, with the text they were found in (whose glyphs their glyph ranges index).</summary>
+/// <param name="Page">The page.</param>
+/// <param name="Text">The extracted text the matches index.</param>
+/// <param name="Matches">The matches, overlaps merged.</param>
+/// <param name="Unlocated">Matches whose glyphs could not be identified in <paramref name="Text"/>; they are removed by area.</param>
+internal sealed record RedactionPageMatches(PdfPage Page, TextPage Text, IReadOnlyList<TextMatch> Matches, IReadOnlyList<TextMatch>? Unlocated = null);
+
+/// <summary>
+/// The glyphs a run removes by identity (<see cref="GlyphMatching.Key"/>), each key counted as often as matched glyphs carry it, so
+/// content drawn twice at one spot loses only as many glyphs as were matched.
+/// </summary>
+internal sealed class RedactionGlyphTargets
+{
+    private readonly Dictionary<GlyphMatching.GlyphKey, int> _remaining = [];
+
+    /// <summary>Adds one glyph to remove.</summary>
+    public void Add(GlyphMatching.GlyphKey key) => _remaining[key] = _remaining.GetValueOrDefault(key) + 1;
+
+    /// <summary>Whether a glyph shown in the content is one to remove; if so, it is counted off.</summary>
+    public bool TryConsume(GlyphMatching.GlyphKey key)
+    {
+        if (!_remaining.TryGetValue(key, out int count) || count == 0)
+        {
+            return false;
+        }
+
+        _remaining[key] = count - 1;
+        return true;
+    }
+
+    /// <summary>Whether a glyph to remove has not been seen in the content.</summary>
+    public bool IsPending(GlyphMatching.GlyphKey key) => _remaining.GetValueOrDefault(key) > 0;
 }

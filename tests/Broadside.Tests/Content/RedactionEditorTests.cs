@@ -155,7 +155,7 @@ public sealed class RedactionEditorTests
         using PdfDocument document = RedactionSamples.Open("BT /F1 12 Tf 72 700 Td (Secret) Tj ET");
         PdfPage page = document.Pages[0];
 
-        PdfRedactionResult result = page.Redact([]);
+        PdfRedactionResult result = page.Redact(Array.Empty<Quad>());
 
         Assert.Equal(0, result.GlyphsRemoved);
         Assert.False(page.Dictionary.IsDirty);

@@ -288,6 +288,41 @@ The overlay (the fill, the `RO` form or the overlay text) is then drawn as a pag
 such as a curve or an image that an area covers only in part, is removed whole, and a `RedactionDiagnostics` code says so; in
 strict mode that throws and the document is left as it was.
 
+### Search and redact
+
+Most redaction starts from content, not coordinates. `PdfDocument.Redact(TextQuery)` finds every match of a literal or regular
+expression query (see [Extracting text](extracting-text.md)) and removes it at once; `AddRedactAnnotations` marks each match with a
+Redact annotation for review instead, one quadrilateral per line, and `PdfDocument.Redact()` applies them later. `TextPatterns`
+holds presets for email addresses, phone numbers, US Social Security numbers, card numbers (Luhn-checked), IBANs (mod 97
+checked), IPv4 addresses and URLs; several queries share one extraction per page, and overlapping matches merge:
+
+<!-- snippet: samples/guides/Editing/Program.cs#search-redaction -->
+```csharp
+// Review first: one Redact annotation per match, a quadrilateral per line; nothing is removed until document.Redact().
+using PdfDocument review = PdfDocument.Open("contract.pdf");
+IReadOnlyList<PdfRedactAnnotation> marks = review.AddRedactAnnotations(new TextQuery("parties"));
+
+// Or apply at once: the presets and the literal share one extraction per page, and exactly the matched glyphs go.
+using PdfDocument document = PdfDocument.Open("contract.pdf");
+PdfRedactionResult result = document.Redact(
+    [TextPatterns.EmailAddress, TextPatterns.CreditCardNumber, new TextQuery("parties")],
+    new PdfRedactionOptions().WithOverlayText("WITHHELD"));
+document.Save("contract-search-redacted.pdf", result.CreateSaveOptions());
+```
+<!-- endsnippet -->
+
+Applying a match removes exactly the glyphs it names, found again by character code and position, not everything under its box: a
+neighbor that overlaps it through tight kerning or italics stays. A match inside `ActualText` takes every glyph of the replaced
+sequence. The search includes hidden content and artifacts, so an invisible OCR layer (rendering mode 3) is removed with the image
+it lies over; `PdfRedactionOptions.WithTextExtractionOptions` narrows it. Unless `WithGlyphsOnly()` is set, the images, paths and
+annotations under the match quads go too, so text drawn into an image under a match is removed as well. A match whose glyphs cannot
+be found again is removed by area instead and recorded as `RedactionMatchNotLocated`. `PdfPage.Redact(IReadOnlyList<TextMatch>)`
+applies matches you found yourself with `FindText`.
+
+The presets are starting points: they find the common written forms and will miss some values and match a few that are not
+personal data. Review their matches on documents you do not know. `AddRedactAnnotations` writes the matched text into the
+annotation's `Contents` only when overlay text is set, so the value being redacted is not copied into the file by default.
+
 > **Never save a redacted document as an incremental update.** An incremental update appends to the original bytes, which still
 > hold everything the redaction removed. Save with `PdfRedactionResult.CreateSaveOptions()`: a full rewrite that drops the objects
 > the redaction left unreachable.

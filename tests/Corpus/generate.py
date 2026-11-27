@@ -7361,6 +7361,22 @@ def gen_duplicate_images() -> bytes:
     ], binary=True)
 
 
+def gen_redact_pii() -> bytes:
+    """Personal data for search and redact (issue #633): an email address, a US Social Security number and a card number split
+    across kerned TJ elements (9.4.3 Table 107), a card number broken across two lines, and an email address and a number in an
+    invisible OCR-style layer (9.3.6 Table 104, mode 3). Every value is a reserved or test value: example.com, the SSN 123-45-6789
+    and 078-05-1120, and the published test card numbers 4111 1111 1111 1111 and 5555 5555 5555 4444."""
+    content = (
+        b"BT /F1 14 Tf 72 720 Td (Customer record) Tj ET\n"
+        b"BT /F1 11 Tf 72 690 Td [(Email: jane.d) -15 (oe@exam) 10 (ple.com) -30 ( \\(primary\\))] TJ ET\n"
+        b"BT /F1 11 Tf 72 670 Td [(SSN: 123-4) -20 (5-6789)] TJ ET\n"
+        b"BT /F1 11 Tf 72 650 Td [(Card: 4111 11) -10 (11 1111 1111)] TJ ET\n"
+        b"BT /F1 11 Tf 72 630 Td (Backup card: 5555 5555) Tj 0 -14 Td (5555 4444 on file) Tj ET\n"
+        b"BT 3 Tr /F1 11 Tf 72 560 Td (Scanned: ocr.copy@example.com 078-05-1120) Tj ET"
+    )
+    return text_file(stream(b"", content))
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -7555,6 +7571,7 @@ FILES = {
     "clipping-paths.pdf": gen_clipping_paths,
     "clip-before-path.pdf": gen_clip_before_path,
     "duplicate-images.pdf": gen_duplicate_images,
+    "redact-pii.pdf": gen_redact_pii,
 }
 
 
