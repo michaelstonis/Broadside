@@ -1,0 +1,22 @@
+﻿<!-- page 1 -->
+
+# Results
+
+See the [report](https://example.com/report).
+
+[^1]: 1 Fetched in 2026.
+
+![A grey square](page-1-figure-1)
+
+Figure 1. A grey square
+
+![E = mc2](page-1-figure-2)
+
+<!-- merged cells: a spanned cell's text is repeated in each cell it covers -->
+| Name | First half | First half |
+| --- | --- | --- |
+| Name | Q1 | Q2 |
+| Alpha | 1 | 2 |
+| Beta |  | 4 |
+
+Grouped without structure.

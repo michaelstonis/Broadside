@@ -286,8 +286,18 @@ internal sealed class LayoutInlines
         try
         {
             layout.Build(glyphs, text.Text);
-            foreach (TextWord word in layout.Words)
+            ReadOnlySpan<TextWord> words = layout.Words;
+            ReadOnlySpan<TextLine> lines = layout.Lines;
+            int line = 0;
+            bool joined = false;
+            for (int index = 0; index < words.Length; index++)
             {
+                TextWord word = words[index];
+                while (line < lines.Length && lines[line].WordStart + lines[line].WordCount <= index)
+                {
+                    line++;
+                }
+
                 ref readonly TextGlyph first = ref glyphs[word.GlyphStart];
                 if ((first.Flags & TextGlyphFlags.Artifact) != 0)
                 {
@@ -295,15 +305,23 @@ internal sealed class LayoutInlines
                 }
 
                 int glyph = start + word.GlyphStart;
-                bool space = _lastPage is not null && (!ReferenceEquals(_lastPage, page) || glyph != _lastGlyph + 1
+                bool space = !joined && _lastPage is not null && (!ReferenceEquals(_lastPage, page) || glyph != _lastGlyph + 1
                     || TextLayout.Separate(text.GlyphSpan[_lastGlyph], first, text.GlyphSpan[_lastGlyph]) != TextLayout.Break.None);
-                InlineEmphasis emphasis = Emphasis(glyphs.Slice(word.GlyphStart, word.GlyphCount)) | (bold ? InlineEmphasis.Bold : InlineEmphasis.None);
-                if (!_emphasis)
+                ReadOnlySpan<char> shown = text.Text.AsSpan(word.TextStart, word.TextLength);
+
+                // A word hyphenated at the end of its line is joined to the rest of it on the next line when that goes on in lower case.
+                joined = line < lines.Length && index == lines[line].WordStart + lines[line].WordCount - 1 && index + 1 < words.Length
+                    && shown.Length >= 3 && shown[^1] == '-' && char.IsLetter(shown[^2])
+                    && text.Text.AsSpan(words[index + 1].TextStart, words[index + 1].TextLength) is { Length: > 0 } next && char.IsLower(next[0]);
+                if (joined)
                 {
-                    emphasis = InlineEmphasis.None;
+                    shown = shown[..^1];
                 }
 
-                sink.Text(text.Text.AsSpan(word.TextStart, word.TextLength), emphasis, link, uri, space, page);
+                // A heading in a table cell is bold whether or not font emphasis is read: bold is how it stays a heading there.
+                InlineEmphasis emphasis = Emphasis(glyphs.Slice(word.GlyphStart, word.GlyphCount)) | (bold ? InlineEmphasis.Bold : InlineEmphasis.None);
+
+                sink.Text(shown, emphasis, link, uri, space, page);
                 _lastPage = page;
                 _lastGlyph = glyph + word.GlyphCount - 1;
             }

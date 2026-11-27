@@ -12,7 +12,7 @@ public sealed class MarkdownWriterTests
     private static readonly MarkdownSaveOptions Plain = new MarkdownSaveOptions().WithInlineEmphasis(false);
 
     [Fact]
-    public void Headings_take_their_level_clamped_to_six_and_a_title_is_level_one()
+    public void Headings_take_their_level_clamped_to_six_and_an_unnested_heading_is_level_one()
     {
         Element deep = new("H", new Run("Seventh level"));
         for (int level = 0; level < 7; level++)
@@ -20,7 +20,7 @@ public sealed class MarkdownWriterTests
             deep = new Element("Sect", deep);
         }
 
-        string markdown = Markdown(new Element("Document", new Element("Title", new Run("The title")), new Element("H1", new Run("One")), new Element("H3", new Run("Three")), deep));
+        string markdown = Markdown(new Element("Document", new Element("H", new Run("The title")), new Element("H1", new Run("One")), new Element("H3", new Run("Three")), deep));
 
         Assert.Equal("# The title\n\n# One\n\n### Three\n\n###### Seventh level\n", markdown);
     }
@@ -130,7 +130,7 @@ public sealed class MarkdownWriterTests
         Assert.True(header >= 0, markdown);
         Assert.Equal("| --- | --- | --- |", lines[header + 1]);
         string[] rows = [.. lines.Skip(header + 2).TakeWhile(static line => line.StartsWith('|'))];
-        Assert.Equal("| Part 1 | 3 | 1.25 |", rows[0]);
+        Assert.Equal("| Part 01 | 3 | 1.25 |", rows[0]);
         Assert.Contains("| Part 11 | 33 | 13.75 |", rows);
         Assert.Contains("| Part 12 | 36 | 15.00 |", rows);
         Assert.Equal(1, lines.Count(static line => line == "| Item | Qty | Price |"));
@@ -188,6 +188,14 @@ public sealed class MarkdownWriterTests
     }
 
     [Fact]
+    public void Lines_of_a_block_are_joined_by_a_space_and_a_word_hyphenated_at_a_line_end_is_rejoined()
+    {
+        string markdown = Markdown(new Element("Document", new Element("P", new Run("It is more difficult to com-\npile, and a well-\nKnown term."))));
+
+        Assert.Equal("It is more difficult to compile, and a well- Known term.\n", markdown);
+    }
+
+    [Fact]
     public void Characters_markdown_reads_as_markup_are_escaped()
     {
         string markdown = Markdown(new Element(
@@ -214,7 +222,7 @@ public sealed class MarkdownWriterTests
                 new Element("P", new Run("forced", "F5"), new Run(" "), new Run("weighted", "F6"), new Run(" "), new Run("angled", "F7"), new Run(" "), new Run("flagged", "F8"))),
             new MarkdownSaveOptions());
 
-        Assert.Equal("Plain **bold words** then *italic* and ***both***.\n\n**forced weighted** *angled flagged*\n", markdown);
+        Assert.Equal("Plain **bold words** then *italic* and ***both.***\n\n**forced weighted** *angled flagged*\n", markdown);
     }
 
     [Fact]
@@ -244,7 +252,7 @@ public sealed class MarkdownWriterTests
         LayoutTree tree = document.ExtractLayout(new LayoutOptions().WithDetection(LayoutDetection.None));
 
         Assert.Equal(string.Empty, tree.ToMarkdown());
-        var writer = new StringWriter();
+        using var writer = new StringWriter();
         tree.SaveMarkdown(writer);
         Assert.Equal(string.Empty, writer.ToString());
     }

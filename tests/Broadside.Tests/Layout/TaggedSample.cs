@@ -5,7 +5,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Layout;
 
 /// <summary>A text run of a <see cref="TaggedSample"/>: shown in one font resource, as one marked-content sequence of its element.</summary>
-/// <param name="Text">The text, in WinAnsi characters.</param>
+/// <param name="Text">The text, in WinAnsi characters; a line feed moves to the next line.</param>
 /// <param name="Font">The font resource: <c>F1</c> to <c>F8</c> (see <see cref="TaggedSample"/>).</param>
 internal sealed record Run(string Text, string Font = "F1");
 
@@ -120,7 +120,9 @@ internal static class TaggedSample
 
                         int mcid = parents[page].Count;
                         parents[page].Add(number);
-                        streams[page].Append(CultureInfo.InvariantCulture, $"/{element.Type} <</MCID {mcid}>> BDC /{run.Font} 10 Tf ({Escape(run.Text)}) Tj EMC ");
+                        string shown = Escape(run.Text).Replace("\n", ") Tj 0 -16 Td (", StringComparison.Ordinal);
+                        streams[page].Append(CultureInfo.InvariantCulture, $"/{element.Type} <</MCID {mcid}>> BDC /{run.Font} 10 Tf ({shown}) Tj EMC ");
+                        y -= 16 * run.Text.Count(static unit => unit == '\n');
                         kids.Add(string.Create(CultureInfo.InvariantCulture, $"<< /Type /MCR /Pg {pages[page]} 0 R /MCID {mcid} >>"));
                         break;
                     case Element child:

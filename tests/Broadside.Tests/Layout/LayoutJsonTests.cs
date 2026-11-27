@@ -43,6 +43,8 @@ public sealed class LayoutJsonTests
         ["children"] = [JsonValueKind.Array],
     };
 
+    private static readonly JsonSerializerOptions Relaxed = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
     public static TheoryData<string> Files => ["tagged-structure.pdf", "layout-tagged.pdf", "layout-headings-lists.pdf", "layout-tables.pdf", "layout-figures.pdf"];
 
     [Theory]
@@ -92,7 +94,8 @@ public sealed class LayoutJsonTests
         using JsonDocument split = Json(tables.ExtractLayout(), null);
 
         Assert.Equal("https://example.com/", Find(link.RootElement, "link").GetProperty("uri").GetString());
-        JsonElement[] parts = [.. All(split.RootElement).Where(static node => node.GetProperty("kind").GetString() == "table")];
+        JsonElement[] parts = [.. All(split.RootElement).Where(static node => node.TryGetProperty("nextPart", out _) || node.TryGetProperty("previousPart", out _))];
+        Assert.Equal(2, parts.Length);
         Assert.True(parts[0].GetProperty("nextPart").GetBoolean());
         Assert.False(parts[0].TryGetProperty("previousPart", out _));
         Assert.True(parts[1].GetProperty("previousPart").GetBoolean());
@@ -110,7 +113,8 @@ public sealed class LayoutJsonTests
 
         Assert.DoesNotContain('\n', compact);
         Assert.Contains('\n', indented);
-        Assert.Equal(compact, JsonSerializer.Serialize(JsonDocument.Parse(indented).RootElement, new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
+        using JsonDocument reparsed = JsonDocument.Parse(indented);
+        Assert.Equal(compact, JsonSerializer.Serialize(reparsed.RootElement, Relaxed));
         Assert.Contains("Café <b> & \\\"quoted\\\"", compact, StringComparison.Ordinal);
     }
 

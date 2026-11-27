@@ -1,0 +1,11 @@
+﻿<!-- page 1 -->
+
+Before
+
+Drucker
+
+![Two stars](page-1-figure-1)
+
+<!-- page 2 -->
+
+After

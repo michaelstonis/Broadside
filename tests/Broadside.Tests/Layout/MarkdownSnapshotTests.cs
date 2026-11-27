@@ -40,7 +40,7 @@ public sealed class MarkdownSnapshotTests
         foreach ((string path, int page) in pages)
         {
             byte[] bytes = await File.ReadAllBytesAsync(RealWorldCorpus.PathOf(path), TestContext.Current.CancellationToken);
-            using PdfDocument document = PdfDocument.Open(bytes);
+            using PdfDocument document = await PdfDocument.OpenAsync(bytes, TestContext.Current.CancellationToken);
             output.Append("==== ").Append(path).Append(" page ").Append(page).Append('\n');
             output.Append(document.Pages[page - 1].ExtractMarkdown(Options)).Append('\n');
         }
