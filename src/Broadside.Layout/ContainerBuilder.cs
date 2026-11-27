@@ -163,6 +163,41 @@ public readonly ref struct ContainerBuilder
     public DrawingElement DecorativeDrawing(Length width, Length height, Action<PdfCanvas, PdfRectangle> draw) => AddDrawing(width, height, null, draw);
 
     /// <summary>
+    /// Adds a barcode or two-dimensional symbol (<c>Figure</c>) in a box of <paramref name="width"/> by <paramref name="height"/>, painted
+    /// as vector rectangles by <see cref="BarcodeCanvasExtensions.DrawBarcode"/>; a linear symbol's human-readable text is set in the
+    /// style's font and size unless <paramref name="options"/> names a font or hides it.
+    /// </summary>
+    /// <param name="barcode">The barcode.</param>
+    /// <param name="width">The width of the box, quiet zone included.</param>
+    /// <param name="height">The height of the box.</param>
+    /// <param name="alternateText">What the symbol holds, for readers that cannot see it; null for "QR code: {data}" (or the symbology's name).</param>
+    /// <param name="options">The colors, the text and the quiet zone; null for the defaults.</param>
+    /// <returns>The drawing's builder.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="barcode"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="width"/> or <paramref name="height"/> is not positive.</exception>
+    /// <exception cref="ArgumentException"><paramref name="alternateText"/> is empty or white space.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §14.8.4.8.5 (<c>Figure</c>), §14.9.3 (<c>Alt</c>), §8.5.2 and §8.5.3. A symbol that carries no meaning for a reader is
+    /// drawn with <see cref="BarcodeCanvasExtensions.DrawBarcode"/> inside <see cref="DecorativeDrawing"/>.
+    /// </remarks>
+    public DrawingElement Barcode(Barcode barcode, Length width, Length height, string? alternateText = null, BarcodeOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(barcode);
+        if (alternateText is not null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(alternateText);
+        }
+
+        string alternate = alternateText ?? $"{barcode.KindName}: {barcode.Data}";
+        BarcodeOptions drawn = options ?? new BarcodeOptions();
+        DrawingElement element = AddDrawing(width, height, alternate, (canvas, box) => canvas.DrawBarcode(barcode, box, drawn));
+        DrawingNode node = (DrawingNode)_container!.Blocks[^1];
+        node.Barcode = barcode;
+        node.BarcodeOptions = drawn;
+        return element;
+    }
+
+    /// <summary>
     /// Adds columns side by side, such as an address beside an invoice number: each column flows its own content from the same top, and
     /// what follows starts below the longest. Each column is tagged as one <c>Div</c>, read in column order, never as a table.
     /// </summary>
