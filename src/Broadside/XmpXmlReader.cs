@@ -160,6 +160,33 @@ internal sealed class XmpXmlReader
         }
     }
 
+    /// <summary>
+    /// Checks that <paramref name="text"/> is one well-formed XML document, by the same rules as <see cref="ReadRdf(ReadOnlySpan{char}, int, out string?)"/>, and returns
+    /// the expanded name of its root element (issue #630: an embedded e-invoice is checked without <c>System.Xml</c>).
+    /// </summary>
+    /// <param name="text">The document, its byte order mark already removed.</param>
+    /// <param name="error">Why the text is not a well-formed document, or <see langword="null"/>.</param>
+    /// <returns>The root element's namespace name and local name; <see langword="null"/> when the text is not well-formed.</returns>
+    /// <remarks>
+    /// XML 1.0 §2.1: a document is a prolog (the XML declaration, comments, processing instructions and white-space), exactly one root
+    /// element, and then only comments, processing instructions and white-space. Elements are checked, not kept, so a large document
+    /// costs no tree. A document type declaration is refused as in <see cref="ReadRdf(ReadOnlySpan{char}, int, out string?)"/>.
+    /// </remarks>
+    public static (string NamespaceName, string LocalName)? ReadRootName(ReadOnlySpan<char> text, out string? error)
+    {
+        var reader = new XmpXmlReader(NormalizeLineEnds(text), truncated: false);
+        try
+        {
+            error = null;
+            return reader.ReadDocument();
+        }
+        catch (MalformedException exception)
+        {
+            error = exception.Message;
+            return null;
+        }
+    }
+
     /// <summary>Replaces each carriage return and line feed pair, and each other carriage return, by a line feed (XML 1.0 §2.11).</summary>
     private static string NormalizeLineEnds(ReadOnlySpan<char> text)
     {
@@ -189,11 +216,84 @@ internal sealed class XmpXmlReader
         return builder.ToString();
     }
 
-    private XmpXmlElement? ReadRoot(string? namespaceName, string localName)
+    private void BindPredefinedPrefixes()
     {
         _bindings.Add(("xml", XmlNamespace));
         _bindings.Add(("xmlns", XmlnsNamespace));
         _bindings.Add((string.Empty, string.Empty));
+    }
+
+    private (string NamespaceName, string LocalName) ReadDocument()
+    {
+        BindPredefinedPrefixes();
+        XmpXmlElement? root = null;
+        while (true)
+        {
+            if (AtEnd)
+            {
+                if (_open.Count > 0)
+                {
+                    throw Fail($"the input ends inside the element {_open[^1].QualifiedName}");
+                }
+
+                return root is null ? throw Fail("the document has no root element") : (root.NamespaceName, root.LocalName);
+            }
+
+            if (Current != '<')
+            {
+                if (_open.Count == 0)
+                {
+                    if (!IsWhiteSpace(Current))
+                    {
+                        throw Fail("character data outside the root element");
+                    }
+
+                    _position++;
+                    continue;
+                }
+
+                ReadCharacterData(target: null);
+                continue;
+            }
+
+            switch (Peek(1))
+            {
+                case '/':
+                    ReadEndTag();
+                    break;
+                case '?':
+                    ReadProcessingInstruction();
+                    break;
+                case '!':
+                    if (_open.Count == 0 && StartsWith("<![CDATA["))
+                    {
+                        throw Fail("a CDATA section outside the root element");
+                    }
+
+                    ReadMarkupDeclaration(target: null);
+                    break;
+                default:
+                    bool second = _open.Count == 0 && root is not null;
+                    if (second)
+                    {
+                        throw Fail("a second root element");
+                    }
+
+                    (XmpXmlElement element, bool empty) = ReadStartTag();
+                    root ??= element;
+                    if (empty)
+                    {
+                        CloseElement();
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    private XmpXmlElement? ReadRoot(string? namespaceName, string localName)
+    {
+        BindPredefinedPrefixes();
 
         // The top level, and the elements around rdf:RDF: checked, not kept.
         while (true)

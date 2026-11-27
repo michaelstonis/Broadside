@@ -171,6 +171,11 @@ public static class DocumentDiagnostics
     public static DiagnosticCode PagesMissing { get; } = new(nameof(PagesMissing), DiagnosticArea.Document, DiagnosticSeverity.Error, "ISO 32000-2 §7.7.2",
         "The catalog has no usable Pages entry or the page tree holds no page objects. The file is searched for pages, and if none are found the document has no pages.");
 
+    /// <summary>Gets the <c>InvoiceMetadataInvalid</c> code.</summary>
+    /// <remarks>ISO 19005-3 §6.6; Factur-X 1.0 and ZUGFeRD 2.x</remarks>
+    public static DiagnosticCode InvoiceMetadataInvalid { get; } = new(nameof(InvoiceMetadataInvalid), DiagnosticArea.Document, DiagnosticSeverity.Information, "ISO 19005-3 §6.6; Factur-X 1.0 and ZUGFeRD 2.x",
+        "The XMP properties that describe an embedded e-invoice (the fx schema) are missing, incomplete or not described by an extension schema. The invoice file is still returned; what the properties do not say is reported as unknown.");
+
     /// <summary>Gets every code of this area, in declaration order.</summary>
     internal static DiagnosticCode[] Codes { get; } =
     [
@@ -207,5 +212,6 @@ public static class DocumentDiagnostics
         CatalogVersionNotName,
         CatalogVersionInvalid,
         PagesMissing,
+        InvoiceMetadataInvalid,
     ];
 }

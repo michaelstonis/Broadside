@@ -1,5 +1,7 @@
+using Broadside.Annotations;
 using Broadside.Diagnostics;
 using Broadside.Forms;
+using Broadside.Objects;
 using Broadside.TestSupport;
 
 namespace Broadside.Tests.Forms;
@@ -181,6 +183,24 @@ public sealed class FdfImportTests
         Assert.Equal("Grace", ((PdfTextField)Assert.Single(import.FieldsSet)).Value);
         Assert.Equal("XfaFormPresent", Assert.Single(import.Diagnostics).Code);
         Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "XfaDataNotUpdated");
+    }
+
+    [Fact]
+    public void An_annotation_entry_naming_an_object_whose_body_is_a_reference_is_skipped_with_a_diagnostic()
+    {
+        // Found by the fdf-import fuzz target: object 2's body is the reference 3 0 R, which no indirect object can be (§7.3.10).
+        using PdfDocument document = FormDataFixture.Create();
+        string file = Header
+            + "1 0 obj\n<< /FDF << /Annots [ << /Type /Annot /Subtype /Text /Rect [0 0 10 10] /Page 0 /Contents (Note) /Popup 2 0 R /IRT 2 0 R >> ] >> >>\nendobj\n"
+            + "2 0 obj\n3 0 R\nendobj\n3 0 obj\n<< /Type /Annot /Subtype /Popup /Rect [0 0 10 10] >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n";
+
+        PdfFormDataImport import = FormDataFixture.Import(document, file, new PdfFormDataOptions().WithFormat(PdfFormDataFormat.Fdf).WithFields(false).WithAnnotations());
+
+        PdfAnnotation added = Assert.Single(import.AnnotationsAdded);
+        Assert.Equal("Note", added.Contents);
+        Assert.False(added.Dictionary.ContainsKey(new CosName("Popup")));
+        Assert.False(added.Dictionary.ContainsKey(new CosName("IRT")));
+        Assert.Equal(["FormDataInvalid"], import.Diagnostics.Select(diagnostic => diagnostic.Code).Distinct());
     }
 
     internal static string Fdf(string catalog) => Header + "1 0 obj\n" + catalog + "\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n";

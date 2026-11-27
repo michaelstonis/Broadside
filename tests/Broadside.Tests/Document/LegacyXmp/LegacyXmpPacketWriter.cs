@@ -43,6 +43,7 @@ internal static class LegacyXmpPacketWriter
         ["http://www.aiim.org/pdfa/ns/extension/"] = "pdfaExtension",
         ["http://www.aiim.org/pdfa/ns/schema#"] = "pdfaSchema",
         ["http://www.aiim.org/pdfa/ns/property#"] = "pdfaProperty",
+        ["urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#"] = "fx",
     };
 
     /// <summary>Writes the packet.</summary>

@@ -6,14 +6,16 @@ namespace Broadside.Forms.FormData;
 /// <summary>
 /// Copies object graphs between a document and a forms data file, in either direction: each indirect object of the source becomes
 /// one new indirect object of the target (made by <c>add</c>) the first time it is reached, and every later reference names that
-/// copy. Pages are never followed: a reference to a page or page tree node copies as null.
+/// copy. Pages are never followed: a reference to a page or page tree node copies as null. A reference to an object whose body is
+/// itself a reference, which no indirect object can be (§7.3.10), copies as null too, and <c>invalid</c> is told which reference
+/// named it, so the caller records the repair as a diagnostic rather than throwing.
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §7.3.10 and §12.7.8.3.4 (an FDF annotation names its page by number, not by reference). The walk keeps a stack, so a
 /// cyclic or deeply nested graph exhausts neither the stack nor memory. <see cref="PdfObjectCopier"/> does the same between two
 /// documents; a forms data file is not a document, so it has its own.
 /// </remarks>
-internal sealed class CosGraphCopier(Func<CosObject?, CosObject> resolve, Func<CosObject, CosReference> add)
+internal sealed class CosGraphCopier(Func<CosObject?, CosObject> resolve, Func<CosObject, CosReference> add, Action<CosReference>? invalid = null)
 {
     private static readonly CosName Page = new("Page");
     private static readonly CosName Pages = new("Pages");
@@ -60,6 +62,12 @@ internal sealed class CosGraphCopier(Func<CosObject?, CosObject> resolve, Func<C
                 }
 
                 CosObject resolved = resolve(reference);
+                if (resolved is CosReference)
+                {
+                    invalid?.Invoke(reference);
+                    return CosNull.Instance;
+                }
+
                 if (resolved is CosNull || IsPage(resolved))
                 {
                     return CosNull.Instance;

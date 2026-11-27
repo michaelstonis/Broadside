@@ -97,6 +97,37 @@ foreach (Diagnostic diagnostic in document.Diagnostics.Where(d => d.Code == "Pdf
 
 Files of any kind may be attached at PDF/A-3 and PDF/A-4f only; PDF/A-2 and PDF/A-4 allow attached PDF/A files.
 
+### E-invoices (Factur-X and ZUGFeRD)
+
+A Factur-X or ZUGFeRD 2.x invoice is a PDF/A-3 file with the CII XML invoice attached to the document and described in its XMP metadata. `AttachInvoice` embeds the XML (`text/xml`, with the relationship the profile calls for: `Data` for Minimum and Basic WL, `Alternative` for the others), lists it under `factur-x.xml` (`xrechnung.xml` for XRechnung), associates it with the document, and writes the `fx` properties with the extension schema PDF/A-3 needs. Save as PDF/A-3b or PDF/A-3u; any other save writes the invoice but records an `InvoiceNotPdfA3` warning. `ExtractInvoice` reads an invoice back:
+
+<!-- snippet: samples/guides/AccessibilityConformance/Program.cs#einvoice -->
+```csharp
+using PdfDocument document = PdfDocument.Create();
+PdfCanvasFont sans = document.EmbedFont(File.ReadAllBytes("LiberationSans-Regular.ttf"));
+using (PdfCanvas canvas = document.Pages[0].CreateCanvas())
+{
+    canvas.BeginText();
+    canvas.SetFont(sans, 14);
+    canvas.MoveText(72, 720);
+    canvas.ShowText("Invoice INV-42"); // the human-readable invoice
+    canvas.EndText();
+}
+
+// The CII XML your invoicing system produced: embedded, associated with the document and described in the XMP packet.
+byte[] xml = File.ReadAllBytes("factur-x.xml");
+document.AttachInvoice(xml, new PdfInvoiceOptions().WithProfile(PdfInvoiceProfile.EN16931));
+document.Properties.Title = "Invoice INV-42";
+document.Save("invoice-pdfa3b.pdf", new PdfSaveOptions().WithPdfAConformance(PdfAConformance.PdfA3b));
+
+using PdfDocument received = PdfDocument.Open("invoice-pdfa3b.pdf");
+PdfInvoiceAttachment? invoice = received.ExtractInvoice();
+Console.WriteLine($"{invoice?.File.Name}: profile {invoice?.Profile}, {invoice?.GetXml().Length} bytes");
+```
+<!-- endsnippet -->
+
+The XML is checked only to be well-formed, with a `rsm:CrossIndustryInvoice` root. Generating it and validating it against the CII schema or the EN 16931 rules is up to your invoicing system. Attaching again replaces the invoice. ZUGFeRD 1.0 and UBL invoices are not supported.
+
 ## Converting to PDF/A
 
 `ConvertToPdfA` changes an existing document so it can conform: it embeds fonts the file only names (from the font resolvers you configure, here the bundled Standard 14 fonts), adds the output intent and metadata, and removes what the profile forbids. It reports each change, and what it could not convert, before anything is saved:
