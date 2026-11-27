@@ -214,6 +214,40 @@ document.Save("contract-annotated.pdf");
 
 Conformance: [ISO 32000-2 §12.5 (annotations)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
 
+## Redacting content
+
+Redaction removes content so that it can no longer be recovered; a box drawn over text is not enough. It takes two steps, as
+ISO 32000-2 §12.5.6.23 describes: `AddRedactAnnotation` marks areas with Redact annotations a reviewer can see and change, and
+`PdfDocument.Redact` applies every mark and removes it. `PdfPage.Redact` applies areas directly, without annotations:
+
+<!-- snippet: samples/guides/Editing/Program.cs#redaction -->
+```csharp
+using PdfDocument document = PdfDocument.Open("contract.pdf");
+PdfPage page = document.Pages[0];
+
+// Mark the area for review, then apply every mark: the glyphs under it leave the content and a black box takes their place.
+page.AddRedactAnnotation(new PdfRectangle(70, 712, 190, 736), new PdfRedactionOptions().WithOverlayText("WITHHELD"));
+PdfRedactionResult result = document.Redact();
+
+// A full save with the result's options: an incremental update would keep the original content in the file.
+document.Save("contract-redacted.pdf", result.CreateSaveOptions());
+```
+<!-- endsnippet -->
+
+Applying a redaction removes the glyphs under each area from their text-showing operators (the glyphs around them keep their
+positions), the images and the subpaths under it (a filled or stroked rectangle is cut exactly), and the replacement text
+(`ActualText`, `Alt`) of what was removed. A form XObject painted over an area is copied and the copy rewritten, so other pages
+that show it keep it. Annotations under an area are removed, form fields under it lose their value, and the page's thumbnail goes.
+The overlay (the fill, the `RO` form or the overlay text) is then drawn as a pagination artifact. Whatever cannot be cut exactly,
+such as a curve or an image that an area covers only in part, is removed whole, and a `RedactionDiagnostics` code says so; in
+strict mode that throws and the document is left as it was.
+
+> **Never save a redacted document as an incremental update.** An incremental update appends to the original bytes, which still
+> hold everything the redaction removed. Save with `PdfRedactionResult.CreateSaveOptions()`: a full rewrite that drops the objects
+> the redaction left unreachable.
+
+Conformance: [ISO 32000-2 §12.5.6.23 (redaction annotations)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
+
 ## Metadata
 
 `Properties` holds the title, author, subject, keywords, creator, producer and dates. A save writes them to the document information dictionary and to the XMP metadata stream together, so the two agree:

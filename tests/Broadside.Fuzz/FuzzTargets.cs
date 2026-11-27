@@ -95,6 +95,7 @@ internal static class FuzzTargets
         ["flatten"] = FlattenTarget.Target,
         ["display-list"] = DisplayListTarget.Target,
         ["content-rewrite"] = ContentRewriteTarget.Target,
+        ["redact"] = RedactTarget.Target,
         ["icc-profile"] = IccProfileTarget.Target,
         ["rasterize"] = RasterizeTarget.Target,
         ["rasterize-page"] = RasterizePageTarget.Target,

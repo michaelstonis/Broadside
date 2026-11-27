@@ -66,6 +66,7 @@ public static class DiagnosticCatalog
             .. FormDiagnostics.Codes,
             .. StructureDiagnostics.Codes,
             .. LayoutDiagnostics.Codes,
+            .. RedactionDiagnostics.Codes,
         ];
 
         public static readonly FrozenDictionary<string, DiagnosticCode> ByName = All.ToFrozenDictionary(code => code.Name, StringComparer.Ordinal);

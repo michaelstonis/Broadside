@@ -561,6 +561,8 @@
     "Broadside.Benchmarks.RealWorldTextBenchmarks.OpenAndExtract(File: \"text-lines-rotated.pdf\")": 57632,
     "Broadside.Benchmarks.ReconstructionBenchmarks.OpenAndRebuild": 5919360,
     "Broadside.Benchmarks.ReconstructionBenchmarks.Scan": 525032,
+    "Broadside.Benchmarks.RedactionBenchmarks.Interpret": 408,
+    "Broadside.Benchmarks.RedactionBenchmarks.Redact": 408,
     "Broadside.Benchmarks.RepairBenchmarks.OpenBrokenFile(File: \"broken-xref-offsets.pdf\")": 16440,
     "Broadside.Benchmarks.RepairBenchmarks.OpenBrokenFile(File: \"missing-endobj.pdf\")": 13392,
     "Broadside.Benchmarks.RepairBenchmarks.OpenBrokenFile(File: \"no-xref.pdf\")": 18680,

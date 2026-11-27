@@ -169,7 +169,7 @@ internal static class SeedWriter
         "ocsp-response" => SignatureContents(file).SelectMany(static contents => Revocation(contents, ocsp: true)),
         "crl" => SignatureContents(file).SelectMany(static contents => Revocation(contents, ocsp: false)),
         "default-appearance" => DefaultAppearances(file),
-        "content-lexer" or "content-interpreter" or "content-objects" or "display-list" or "filter-encode" or "text-extraction" or "rasterize" or "content-rewrite" => ContentStreams(file),
+        "content-lexer" or "content-interpreter" or "content-objects" or "display-list" or "filter-encode" or "text-extraction" or "rasterize" or "content-rewrite" or "redact" => ContentStreams(file),
         "xmp" => Streams(file).Where(stream => Metadata.Equals(stream.Value.Dictionary.TryGetValue(Type, out CosObject? type) ? type : null))
             .Select(stream => stream.Document.DecodeStream(stream.Value).ToArray()),
         "decrypt" => EncryptedBodies(file),
