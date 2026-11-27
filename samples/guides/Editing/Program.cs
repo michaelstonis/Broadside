@@ -22,6 +22,7 @@ EditPages();
 MergeAndSplit();
 DrawAPageOnAnotherPage();
 StampPages();
+BatesNumber();
 FillAForm();
 ExchangeFormData();
 Annotate();
@@ -196,6 +197,52 @@ static void StampPages()
     string all = saved.Pages[1].ExtractText(new TextExtractionOptions().WithArtifacts()).Text;
     Sample.Expect(!body.Contains("CONFIDENTIAL", StringComparison.Ordinal), "stamps are artifacts, left out of extracted text");
     Sample.Expect(all.Contains("Page 2 of 4", StringComparison.Ordinal), "page numbers drawn on every page");
+}
+
+static void BatesNumber()
+{
+    #region bates
+    var log = new List<string>();
+    PdfBatesNumbering? bates = null;
+    foreach (string path in (string[])["chapter1.pdf", "chapter2.pdf", "contract.pdf"])
+    {
+        using PdfDocument document = PdfDocument.Open(path);
+        // A Standard 14 font serves every document; set Font per document for an embedded one.
+        bates ??= new PdfBatesNumbering(document.GetStandard14Font(Standard14Font.Courier), 9).WithPrefix("ACME").WithDigits(6);
+        PdfBatesRange range = document.AddBatesNumbers(bates);        // bates.NextNumber advances past these pages
+        document.Save(Path.ChangeExtension(path, ".bates.pdf"));
+        log.Add($"{path}: {range.First} to {range.Last}");
+    }
+    #endregion
+
+    Sample.Expect(log[^1] == "contract.pdf: ACME000005 to ACME000005", "the counter carries across documents");
+
+    #region bates-parallel
+    // In parallel, each document gets its own numbering, starting where the page counts before it end.
+    string[] files = ["chapter1.pdf", "chapter2.pdf", "contract.pdf"];
+    long[] starts = new long[files.Length];
+    long next = 1;
+    for (int i = 0; i < files.Length; i++)
+    {
+        starts[i] = next;
+        using PdfDocument counted = PdfDocument.Open(files[i]);
+        next += counted.Pages.Count;
+    }
+
+    Parallel.For(0, files.Length, i =>
+    {
+        using PdfDocument document = PdfDocument.Open(files[i]);
+        var numbering = new PdfBatesNumbering(document.GetStandard14Font(Standard14Font.Courier), 9)
+            .WithPrefix("ACME")
+            .WithNextNumber(starts[i]);
+        document.AddBatesNumbers(numbering);
+        document.Save(Path.ChangeExtension(files[i], ".bates-parallel.pdf"));
+    });
+    #endregion
+
+    using PdfDocument saved = PdfDocument.Open("chapter2.bates-parallel.pdf");
+    string text = saved.Pages[1].ExtractText(new TextExtractionOptions().WithArtifacts()).Text;
+    Sample.Expect(text.Contains("ACME000004", StringComparison.Ordinal), "parallel numbering matches the sequential run");
 }
 
 static void FillAForm()
