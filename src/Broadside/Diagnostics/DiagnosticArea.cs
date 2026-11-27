@@ -102,4 +102,7 @@ public enum DiagnosticArea
 
     /// <summary>Applying redaction (<see cref="RedactionDiagnostics"/>; ISO 32000-2 §12.5.6.23).</summary>
     Redaction,
+
+    /// <summary>Importing SVG as a form XObject (<see cref="SvgDiagnostics"/>; ISO 32000-2 §8.10, SVG 1.1).</summary>
+    Svg,
 }

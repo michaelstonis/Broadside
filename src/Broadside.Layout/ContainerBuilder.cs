@@ -163,6 +163,51 @@ public readonly ref struct ContainerBuilder
     public DrawingElement DecorativeDrawing(Length width, Length height, Action<PdfCanvas, PdfRectangle> draw) => AddDrawing(width, height, null, draw);
 
     /// <summary>
+    /// Adds an SVG image (<c>Figure</c>) with its alternate text, imported as a form XObject so it stays vector: by default at the SVG's
+    /// own size (0.75 point per CSS pixel); give a width or a height to scale it keeping its aspect ratio, or both to fit it into that box.
+    /// </summary>
+    /// <param name="source">The SVG: <see cref="ImageSource.FromFile"/> or <see cref="ImageSource.FromBytes"/> over SVG or SVGZ.</param>
+    /// <param name="alternateText">What the image shows, for readers that cannot see it.</param>
+    /// <param name="width">The width, or null for the SVG's own.</param>
+    /// <param name="height">The height, or null for the SVG's own.</param>
+    /// <returns>The drawing's builder.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="source"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="alternateText"/> is null, empty or white space.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="width"/> or <paramref name="height"/> is not positive.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §8.10 (form XObjects, through <see cref="PdfDocument.CreateFormXObjectFromSvg(ReadOnlySpan{byte}, SvgImportOptions?)"/>),
+    /// §14.8.4.8.5 (<c>Figure</c>) and §14.9.3 (<c>Alt</c>). The SVG is imported once per document however often it is drawn; what the
+    /// importer repairs or skips is recorded on the document as <c>SvgDiagnostics</c> codes. A source that is not SVG fails when the
+    /// document is built. Lay it out like <see cref="Drawing"/>: it is scaled down to fit the space it is in.
+    /// </remarks>
+    public DrawingElement Svg(ImageSource source, string alternateText, Length? width = null, Length? height = null)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentException.ThrowIfNullOrWhiteSpace(alternateText);
+        foreach ((Length? length, string name) in (ReadOnlySpan<(Length?, string)>)[(width, nameof(width)), (height, nameof(height))])
+        {
+            if (length is { } given && !(given.ToPoints() > 0 && double.IsFinite(given.ToPoints())))
+            {
+                throw new ArgumentOutOfRangeException(name, given, $"The {name} shall be positive and finite.");
+            }
+        }
+
+        BuildContext context = Context;
+        var drawing = new DrawingNode
+        {
+            Width = width ?? Length.Points(1),
+            Height = height ?? Length.Points(1),
+            Draw = static (_, _) => { },
+            AlternateText = alternateText,
+            Svg = source,
+            SvgWidth = width,
+            SvgHeight = height,
+        };
+        _container!.Blocks.Add(drawing);
+        return new DrawingElement(context, drawing);
+    }
+
+    /// <summary>
     /// Adds a barcode or two-dimensional symbol (<c>Figure</c>) in a box of <paramref name="width"/> by <paramref name="height"/>, painted
     /// as vector rectangles by <see cref="BarcodeCanvasExtensions.DrawBarcode"/>; a linear symbol's human-readable text is set in the
     /// style's font and size unless <paramref name="options"/> names a font or hides it.

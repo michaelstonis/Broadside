@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="60">
+  <style type="text/css"><![CDATA[
+    /* type, class, id, attribute, descendant and child selectors */
+    rect { fill: #cccccc; stroke: black }
+    .warn { fill: orange !important }
+    #main { stroke-width: 3 }
+    g.row > rect[data-state="on"] { fill: lime }
+    g text { font: italic bold 12px serif; fill: #333 }
+    rect:first-child { stroke: blue }
+    @media print { rect { fill: white } }
+  ]]></style>
+  <g class="row">
+    <rect x="5" y="5" width="20" height="20"/>
+    <rect x="30" y="5" width="20" height="20" data-state="on"/>
+    <rect id="main" class="warn" x="55" y="5" width="20" height="20" style="fill: red"/>
+    <text x="5" y="50">Styled</text>
+  </g>
+</svg>

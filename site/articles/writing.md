@@ -172,6 +172,36 @@ document.Save("transparency.pdf");
 
 Conformance: [ISO 32000-2 §8.7 (patterns and shadings), §11.6 (transparency)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
 
+## SVG
+
+`CreateFormXObjectFromSvg` imports an SVG image as a form XObject, so logos, icons and charts stay vector: paths, shapes, gradients, patterns, clipping paths, masks, group opacity, blend modes, style sheets, text (real text, so it extracts) and embedded PNG, JPEG or SVG images. The form is the SVG's size at 0.75 point per CSS pixel (`SvgImportOptions.WithSize` picks another); scale it with `Transform` and paint it with `DrawForm`:
+
+<!-- snippet: samples/guides/Writing/Program.cs#svg -->
+```csharp
+using PdfDocument document = PdfDocument.Create();
+PdfFormXObject badge = document.CreateFormXObjectFromSvg(File.ReadAllBytes("badge.svg")); // 160 x 80 px is 120 x 60 points
+
+using (PdfCanvas canvas = document.Pages[0].CreateCanvas())
+{
+    canvas.SaveState();
+    canvas.Transform(new Matrix(2, 0, 0, 2, 72, 600)); // twice its size, lower-left corner at (72, 600)
+    canvas.DrawForm(badge);
+    canvas.RestoreState();
+}
+
+foreach (Broadside.Diagnostics.Diagnostic diagnostic in document.Diagnostics)
+{
+    Console.WriteLine(diagnostic); // what the importer skipped or repaired, if anything
+}
+
+document.Save("svg.pdf");
+```
+<!-- endsnippet -->
+
+The importer never reads anything outside the bytes it is given: a document type declaration is refused (so no entity is expanded), `data:` URLs are decoded in place, and any other image `href` goes to the resolver you pass with `SvgImportOptions.WithResourceResolver`, or is not drawn. Text uses the first `font-family` the document's font resolvers find, then `WithDefaultFont`, then Helvetica. Filters, `foreignObject`, animation, scripts and markers are outside the supported subset: each is skipped and recorded as an `SvgDiagnostics` code, and a document in strict mode throws instead.
+
+Conformance: [ISO 32000-2 §8.10 (form XObjects), §11.6.5 (soft masks)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
+
 ## Flow layout
 
 The `Broadside.Layout` package lays out blocks (paragraphs, lists, tables, images, drawings) across as many pages as they need. A `PageTemplate` gives the page size, the margins, and the headers and footers, where `{page}` and `{pages}` are filled in on each page. Header rows of a table repeat on every page the table reaches. With `Tagging` set, the output is tagged: headings, paragraphs, lists and tables get their structure, and headers and footers are artifacts.

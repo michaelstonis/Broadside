@@ -67,11 +67,34 @@ internal sealed class XmpXmlElement(string namespaceName, string localName, List
         return null;
     }
 
+    /// <summary>
+    /// Gets the character data in order with the child elements (issue #643: SVG text is mixed content): each run with the number of
+    /// child elements read before it. Kept only when the reader was asked to keep text runs; otherwise empty.
+    /// </summary>
+    internal IReadOnlyList<(int Before, string Text)> TextRuns => (IReadOnlyList<(int Before, string Text)>?)_runs ?? [];
+
+    /// <summary>Gets or sets a value indicating whether <see cref="TextRuns"/> is kept.</summary>
+    internal bool KeepsTextRuns { get; set; }
+
+    private List<(int Before, string Text)>? _runs;
+
     internal void AppendText(ReadOnlySpan<char> text)
     {
         if (!text.IsEmpty)
         {
             _ = (_text ??= new StringBuilder()).Append(text);
+            if (KeepsTextRuns)
+            {
+                _runs ??= [];
+                if (_runs.Count > 0 && _runs[^1].Before == Children.Count)
+                {
+                    _runs[^1] = (Children.Count, _runs[^1].Text + text.ToString());
+                }
+                else
+                {
+                    _runs.Add((Children.Count, text.ToString()));
+                }
+            }
         }
     }
 }
@@ -112,12 +135,14 @@ internal sealed class XmpXmlReader
     private readonly List<(string Prefix, string NamespaceName)> _bindings = [];
     private readonly List<(string QualifiedName, int Bindings)> _open = [];
     private readonly StringBuilder _value = new();
+    private readonly bool _keepTextRuns;
     private int _position;
 
-    private XmpXmlReader(string text, bool truncated)
+    private XmpXmlReader(string text, bool truncated, bool keepTextRuns = false)
     {
         _text = text;
         _truncated = truncated;
+        _keepTextRuns = keepTextRuns;
     }
 
     /// <summary>Reads the first <c>rdf:RDF</c> element of <paramref name="text"/>.</summary>
@@ -139,7 +164,22 @@ internal sealed class XmpXmlReader
     /// <param name="localName">The element's local name.</param>
     /// <param name="error">Why the markup is not well-formed, or <see langword="null"/>.</param>
     /// <returns>The element, with every element inside it; <see langword="null"/> when there is none or the markup before its end is malformed.</returns>
-    public static XmpXmlElement? ReadElement(ReadOnlySpan<char> text, int maxCharacters, string? namespaceName, string localName, out string? error)
+    public static XmpXmlElement? ReadElement(ReadOnlySpan<char> text, int maxCharacters, string? namespaceName, string localName, out string? error) =>
+        ReadElement(text, maxCharacters, namespaceName, localName, keepTextRuns: false, out error);
+
+    /// <summary>
+    /// Reads the first element named <paramref name="localName"/> as <see cref="ReadElement(ReadOnlySpan{char}, int, string?, string, out string?)"/>
+    /// does; when <paramref name="keepTextRuns"/>, each element also keeps its character data in order with its children
+    /// (<see cref="XmpXmlElement.TextRuns"/>), for mixed content such as SVG text (issue #643).
+    /// </summary>
+    /// <param name="text">The markup.</param>
+    /// <param name="maxCharacters">How many characters may be read; reading past them is an error.</param>
+    /// <param name="namespaceName">The element's namespace name, or <see langword="null"/> for any.</param>
+    /// <param name="localName">The element's local name.</param>
+    /// <param name="keepTextRuns">Whether to keep the text runs of every element.</param>
+    /// <param name="error">Why the markup is not well-formed, or <see langword="null"/>.</param>
+    /// <returns>The element, or <see langword="null"/>.</returns>
+    public static XmpXmlElement? ReadElement(ReadOnlySpan<char> text, int maxCharacters, string? namespaceName, string localName, bool keepTextRuns, out string? error)
     {
         bool truncated = text.Length > maxCharacters;
         if (truncated)
@@ -147,7 +187,7 @@ internal sealed class XmpXmlReader
             text = text[..maxCharacters];
         }
 
-        var reader = new XmpXmlReader(NormalizeLineEnds(text), truncated);
+        var reader = new XmpXmlReader(NormalizeLineEnds(text), truncated, keepTextRuns);
         try
         {
             error = null;
@@ -327,6 +367,7 @@ internal sealed class XmpXmlReader
                     break;
                 default:
                     (XmpXmlElement element, bool empty) = ReadStartTag();
+                    element.KeepsTextRuns = _keepTextRuns;
                     if (element.LocalName == localName && (namespaceName is null || element.NamespaceName == namespaceName))
                     {
                         if (!empty)
@@ -389,6 +430,7 @@ internal sealed class XmpXmlReader
                     break;
                 default:
                     (XmpXmlElement element, bool empty) = ReadStartTag();
+                    element.KeepsTextRuns = _keepTextRuns;
                     current.Children.Add(element);
                     if (empty)
                     {

@@ -65,3 +65,5 @@ redact                      ^src/Broadside/(Redaction|Content|Annotations)/|^src
 icc-profile                 ^src/Broadside/Graphics/|^src/Broadside\.Rendering/Icc/
 rasterize                   ^src/Broadside\.Rendering/|^src/Broadside/(Rendering|Graphics)/
 rasterize-page              ^src/Broadside\.Rendering/|^src/Broadside/(Rendering|Graphics|Content|Fonts|Images)/
+svg                         ^src/Broadside/(Graphics/Svg|Css)/|^src/Broadside/PdfDocument\.SvgImport\.cs$|^src/Broadside/[^/]*Xmp[^/]*\.cs$
+svg-css                     ^src/Broadside/(Css|Graphics/Svg)/
