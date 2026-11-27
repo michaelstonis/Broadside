@@ -35,9 +35,18 @@ internal static class FuzzTargets
         ["xfdf-import"] = "*.xfdf",
     };
 
+    /// <summary>The targets whose committed seeds (<c>Seeds/&lt;target&gt;/</c>) are also mutated, as no corpus file is of their format (Markdown, issue #645).</summary>
+    public static IReadOnlySet<string> MutatedCommittedSeeds { get; } = new HashSet<string>(StringComparer.Ordinal) { "markdown" };
+
     /// <summary>The corpus files that seed <paramref name="target"/>: every PDF file, then the files of its own format.</summary>
-    public static string[] SeedFiles(string target) =>
-        ExtraSeedPatterns.TryGetValue(target, out string? pattern) ? [.. CorpusLocator.CorpusFiles(), .. CorpusLocator.CorpusFiles(pattern)] : CorpusLocator.CorpusFiles();
+    public static string[] SeedFiles(string target)
+    {
+        string[] files = ExtraSeedPatterns.TryGetValue(target, out string? pattern) ? [.. CorpusLocator.CorpusFiles(), .. CorpusLocator.CorpusFiles(pattern)] : CorpusLocator.CorpusFiles();
+        string committed = Path.Combine(CorpusLocator.RepositoryRoot, "tests", "Broadside.Fuzz", "Seeds", target);
+        return MutatedCommittedSeeds.Contains(target) && Directory.Exists(committed)
+            ? [.. files, .. Directory.GetFiles(committed).Order(StringComparer.Ordinal)]
+            : files;
+    }
 
     /// <summary>Every registered target. Names are the stable identifiers used on the command line and in CI.</summary>
     public static IReadOnlyDictionary<string, ReadOnlySpanAction> All { get; } = new Dictionary<string, ReadOnlySpanAction>(StringComparer.Ordinal)
@@ -120,6 +129,7 @@ internal static class FuzzTargets
         ["cms"] = SignatureValidationTarget.Cms,
         ["ocsp-response"] = SignatureValidationTarget.OcspResponse,
         ["crl"] = SignatureValidationTarget.Crl,
+        ["markdown"] = MarkdownTarget.Target,
     };
 
     /// <summary>
