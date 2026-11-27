@@ -47,8 +47,10 @@ public sealed class MarkdownWriterTests
                 new Element("LI", new Element("Lbl", new Run("2.")), new Element("LBody", new Run("Second"), new Element(
                     "L",
                     Item("-", "Nested a"),
-                    Item("-", "Nested b")) { Entries = "/A << /O /List /ListNumbering /Disc >>" })),
-                Item("3.", "Third")) { Entries = "/A << /O /List /ListNumbering /Decimal >>" },
+                    Item("-", "Nested b"))
+                { Entries = "/A << /O /List /ListNumbering /Disc >>" })),
+                Item("3.", "Third"))
+            { Entries = "/A << /O /List /ListNumbering /Decimal >>" },
             new Element("L", Item("*", "Bullet")) { Entries = "/A << /O /List /ListNumbering /Unordered >>" }));
 
         Assert.Equal("1. First\n2. Second\n   - Nested a\n   - Nested b\n3. Third\n\n- Bullet\n", markdown);
