@@ -1,6 +1,7 @@
 // RS0026: the open entry points follow the core's rule (every asynchronous overload ends in a defaulted cancellation token), so
 // several overloads of OpenAsync carry an optional parameter. Options are overloads, never optional.
 #pragma warning disable RS0026
+using System.Diagnostics.CodeAnalysis;
 using Broadside.Content;
 using Broadside.Graphics;
 using Broadside.Rendering;
@@ -36,6 +37,9 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     /// <summary>The most paused list builds a cooperative session keeps (issue #365).</summary>
     private const int MaxSlicedBuilds = 4;
 
+    /// <summary>The most display lists built under a non-default optional-content state the session keeps.</summary>
+    private const int MaxStateLists = 16;
+
     private readonly bool _remote;
     private readonly bool _cooperative;
     private readonly TimeSpan _sliceBudget;
@@ -65,6 +69,9 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     private long _edits;
     private int _liveBackends;
     private volatile ColorFilter _colorFilter;
+    private volatile PdfOptionalContentState? _optionalContentState;
+    private readonly Dictionary<(int Page, DisplayLayers Layers), (DisplayList List, long Edits, PdfOptionalContentState State)> _stateLists = [];
+    private readonly Queue<(int Page, DisplayLayers Layers)> _stateListOrder = new();
 
     private DocumentSession(PdfDocument document, ViewerOptions options, bool remote)
     {
@@ -144,6 +151,48 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         get => _colorFilter;
         set => _colorFilter = value;
     }
+
+    /// <summary>
+    /// Gets or sets the optional-content state display lists are built with from now on: which layers (optional content groups) show.
+    /// <see langword="null"/>, the default, uses the default configuration's states (<see cref="PdfOptionalContentProperties.GetDefaultStates"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §8.11.2 (groups) and §8.11.4 (configurations). Layer toggles change only the content options of the display-list
+    /// build (ADR 0006): a change drops the lists built under the old state, paused builds included, and every
+    /// <see cref="TileScheduler"/> of the session invalidates all its tiles, so they draw again under the new state; every
+    /// <see cref="AnnotationLayer"/> reads its loaded pages again, so an annotation whose <c>OC</c> is now hidden stops taking part
+    /// (<see cref="Broadside.Annotations.PdfAnnotation.IsVisible(PdfOptionalContentState)"/>). The document's own list cache keeps no
+    /// list built with a state (<see cref="PdfPage.CreateDisplayList(Content.ContentOptions)"/>); the session keeps a few of them until
+    /// the state or the document changes.
+    /// </para>
+    /// <para>The state must come from this session's document (<see cref="PdfDocument.OptionalContent"/>). Set it on the UI thread.</para>
+    /// </remarks>
+    public PdfOptionalContentState? OptionalContentState
+    {
+        get => _optionalContentState;
+        set
+        {
+            if (ReferenceEquals(value, _optionalContentState))
+            {
+                return;
+            }
+
+            _optionalContentState = value;
+            DropSlicedBuilds(-1);
+            lock (_gate)
+            {
+                _stateLists.Clear();
+                _stateListOrder.Clear();
+                _builds.Clear(); // a build under way keeps its waiters; new requests build under the new state
+            }
+
+            OptionalContentChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>Raised on the setter's thread after <see cref="OptionalContentState"/> changed: the schedulers and layers of the session follow it.</summary>
+    internal event EventHandler? OptionalContentChanged;
 
     /// <summary>Gets a value indicating whether the session has been closed.</summary>
     public bool IsClosed
@@ -776,13 +825,15 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     private static Task<Matrix> ReadTileTransformAsync(DocumentGate reads, PdfPage page, Tile tile, CancellationToken token) =>
         reads.ReadAsync(_ => GetTileTransform(page, tile), token);
 
-    private Task<DisplayList> BuildOnWorkerAsync(PdfPage page, DisplayLayers layers, CancellationToken token) =>
-        _reads!.ReadAsync(read => page.CreateDisplayList(layers, _intent, ListOptions(read)), token);
+    private Task<DisplayList> BuildOnWorkerAsync(PdfPage page, DisplayLayers layers, PdfOptionalContentState? state, CancellationToken token) =>
+        _reads!.ReadAsync(read => page.CreateDisplayList(layers, _intent, ListOptions(state, read)), token);
 
     /// <summary>Builds (or takes from the document's cache) a page's list on the calling thread: the tile scheduler's cooperative path.</summary>
     // Form-field widgets without an appearance draw a transient one (#218): display only, the document is left as it is.
-    private ContentOptions ListOptions(CancellationToken token) =>
-        new ContentOptions().WithCancellation(token).WithTransientFieldAppearances(_transientFieldAppearances);
+    private ContentOptions ListOptions(CancellationToken token) => ListOptions(_optionalContentState, token);
+
+    private ContentOptions ListOptions(PdfOptionalContentState? state, CancellationToken token) =>
+        new ContentOptions().WithCancellation(token).WithTransientFieldAppearances(_transientFieldAppearances).WithOptionalContentState(state);
 
     internal DisplayList CreateDisplayList(PdfPage page, DisplayLayers layers, CancellationToken token) =>
         page.CreateDisplayList(layers, _intent, ListOptions(token));
@@ -796,13 +847,18 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     {
         token.ThrowIfCancellationRequested();
         (int, DisplayLayers) key = (pageIndex, layers);
+        if (TryGetStateList(key, out DisplayList? kept))
+        {
+            return kept;
+        }
+
         DisplayListBuild? build;
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_closed, this);
             if (!_slicedBuilds.TryGetValue(key, out build))
             {
-                build = page.BeginDisplayList(layers, _intent, new ContentOptions().WithCancellation(_closing.Token));
+                build = page.BeginDisplayList(layers, _intent, new ContentOptions().WithCancellation(_closing.Token).WithOptionalContentState(_optionalContentState));
                 if (!build.IsCompleted)
                 {
                     while (_slicedBuilds.Count >= MaxSlicedBuilds && _slicedOrder.Count > 0)
@@ -838,7 +894,62 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         }
 
         ForgetSlicedBuild(key, build);
+        KeepStateList(key, build.Result, EditCount, _optionalContentState);
         return build.Result;
+    }
+
+    /// <summary>
+    /// A list built under <see cref="OptionalContentState"/> that the session kept (the document's cache keeps none), or none when the
+    /// state is the default, changed or the document was edited since.
+    /// </summary>
+    private bool TryGetStateList((int, DisplayLayers) key, [NotNullWhen(true)] out DisplayList? list)
+    {
+        list = null;
+        PdfOptionalContentState? state = _optionalContentState;
+        if (state is null)
+        {
+            return false;
+        }
+
+        lock (_gate)
+        {
+            if (_stateLists.TryGetValue(key, out var kept) && ReferenceEquals(kept.State, state) && kept.Edits == EditCount)
+            {
+                list = kept.List;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Keeps a list built under a non-default state, the last few of them, while the state and the document stay as they were.</summary>
+    private void KeepStateList((int, DisplayLayers) key, DisplayList list, long edits, PdfOptionalContentState? state)
+    {
+        if (state is null)
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            if (!ReferenceEquals(state, _optionalContentState) || edits != EditCount)
+            {
+                return;
+            }
+
+            if (!_stateLists.ContainsKey(key))
+            {
+                while (_stateLists.Count >= MaxStateLists && _stateListOrder.TryDequeue(out (int, DisplayLayers) oldest))
+                {
+                    _stateLists.Remove(oldest);
+                }
+
+                _stateListOrder.Enqueue(key);
+            }
+
+            _stateLists[key] = (list, edits, state);
+        }
     }
 
     /// <summary>Drops the paused list builds of a page (all pages when <paramref name="pageIndex"/> is negative): after an edit.</summary>
@@ -893,6 +1004,11 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         // Requests for the same list while it is being built share one build (the tiles of a page arrive together). The build stops
         // when every requester has stopped waiting, or when the session closes.
         (int, DisplayLayers) key = (pageIndex, layers);
+        if (TryGetStateList(key, out DisplayList? kept))
+        {
+            return kept;
+        }
+
         PendingBuild? build;
         bool start = false;
         lock (_gate)
@@ -946,7 +1062,11 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     {
         try
         {
-            build.Completion.TrySetResult(await BuildCoreAsync(page, layers, build.Cancellation.Token).ConfigureAwait(false));
+            long edits = EditCount;
+            PdfOptionalContentState? state = _optionalContentState;
+            DisplayList list = await BuildCoreAsync(page, layers, state, build.Cancellation.Token).ConfigureAwait(false);
+            KeepStateList(key, list, edits, state);
+            build.Completion.TrySetResult(list);
         }
         catch (OperationCanceledException exception)
         {
@@ -972,9 +1092,9 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         }
     }
 
-    private async ValueTask<DisplayList> BuildCoreAsync(PdfPage page, DisplayLayers layers, CancellationToken token)
+    private async ValueTask<DisplayList> BuildCoreAsync(PdfPage page, DisplayLayers layers, PdfOptionalContentState? state, CancellationToken token)
     {
-        ContentOptions options = ListOptions(token);
+        ContentOptions options = ListOptions(state, token);
         for (int attempt = 0; ; attempt++)
         {
             try
@@ -995,7 +1115,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
                 }
 
                 // A read: an edit stops the build and it starts again after the edit.
-                return await BuildOnWorkerAsync(page, layers, token).ConfigureAwait(false);
+                return await BuildOnWorkerAsync(page, layers, state, token).ConfigureAwait(false);
             }
             catch (PdfRangeNotLoadedException) when (_remote && attempt == 0)
             {

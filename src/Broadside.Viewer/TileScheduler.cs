@@ -110,6 +110,7 @@ public sealed class TileScheduler : IDisposable
         _maxConcurrency = options.MaxConcurrency;
         _observer = options.Observer;
         _separateOverlays = options.SeparateOverlays;
+        session.OptionalContentChanged += OnOptionalContentChanged;
     }
 
     /// <summary>
@@ -195,6 +196,20 @@ public sealed class TileScheduler : IDisposable
     /// <remarks>Spec #33 viewer capability 6.</remarks>
     public int Invalidate(int pageIndex, DisplayLayers layers) => Invalidate(pageIndex, default, layers, wholePage: true);
 
+    // The session's optional-content state changed (ISO 32000-2 §8.11.4): every tile of every page draws again under it.
+    private void OnOptionalContentChanged(object? sender, EventArgs e)
+    {
+        lock (_gate)
+        {
+            if (_stopped)
+            {
+                return;
+            }
+        }
+
+        _ = Invalidate(-1, default, DisplayLayers.All, wholePage: true);
+    }
+
     private int Invalidate(int pageIndex, PdfRectangle area, DisplayLayers layers, bool wholePage)
     {
         _session.DropSlicedBuilds(pageIndex); // a list built in part before the change is not finished (issue #365)
@@ -207,7 +222,7 @@ public sealed class TileScheduler : IDisposable
             foreach (TileJob job in _jobs.Values)
             {
                 Tile tile = job.Tile;
-                if (tile.PageIndex != pageIndex || (tile.Layers & layers) == 0 || job.State is not (TileState.Resident or TileState.Drawing))
+                if ((pageIndex >= 0 && tile.PageIndex != pageIndex) || (tile.Layers & layers) == 0 || job.State is not (TileState.Resident or TileState.Drawing))
                 {
                     continue;
                 }
@@ -572,6 +587,7 @@ public sealed class TileScheduler : IDisposable
     /// <summary>Cancels every render; tiles already on the surface stay there.</summary>
     public void Dispose()
     {
+        _session.OptionalContentChanged -= OnOptionalContentChanged;
         List<CancellationTokenSource>? cancel = null;
         lock (_gate)
         {

@@ -438,7 +438,7 @@ public sealed class DocumentSearch : IDisposable
         {
             foreach (TextMatch match in page.Find(query, pageIndex, token))
             {
-                found.Add(new SearchMatch(pageIndex, [.. match.Quads], match.Text, GetContext(page.Text, match.TextStart, match.TextStart + match.Text.Length)));
+                found.Add(new SearchMatch(pageIndex, [.. match.Quads], match.Text, GetContext(page.Text, match.TextStart, match.TextStart + match.Text.Length), match.TextStart));
             }
         }
 
@@ -493,6 +493,25 @@ public sealed class DocumentSearch : IDisposable
         }
     }
 
+    /// <summary>
+    /// The page text before and after a match, about <paramref name="characters"/> of each cut at whole words (for a list of results);
+    /// empty when the page's text is no longer held.
+    /// </summary>
+    internal (string Before, string After) GetSurroundings(SearchMatch match, int characters)
+    {
+        if (match.TextStart < 0 || Volatile.Read(ref _pages[match.PageIndex]) is not { } page || match.TextStart + match.Text.Length > page.Text.Length)
+        {
+            return (string.Empty, string.Empty);
+        }
+
+        string text = page.Text;
+        int start = match.TextStart, end = start + match.Text.Length;
+        (int from, int to) = Around(text, start, end, characters);
+        return (
+            string.Concat(from > 0 ? "…" : string.Empty, text.AsSpan(from, start - from)),
+            string.Concat(text.AsSpan(end, to - end), to < text.Length ? "…" : string.Empty));
+    }
+
     /// <summary>The match from <paramref name="start"/> to <paramref name="end"/> with a few whole words of the page's text around it.</summary>
     private static string GetContext(string text, int start, int end)
     {
@@ -509,6 +528,24 @@ public sealed class DocumentSearch : IDisposable
         }
 
         return string.Concat(from > 0 ? "…" : string.Empty, text.AsSpan(from, to - from), to < text.Length ? "…" : string.Empty);
+    }
+
+    // Up to `characters` on each side of the match, cut back to whole words.
+    private static (int From, int To) Around(string text, int start, int end, int characters)
+    {
+        int from = Math.Max(0, start - characters);
+        int to = Math.Min(text.Length, end + characters);
+        if (from > 0 && text[from - 1] != ' ' && text.IndexOf(' ', from, start - from) is int space and >= 0)
+        {
+            from = space + 1;
+        }
+
+        if (to < text.Length && to > end && text[to] != ' ' && text.LastIndexOf(' ', to - 1, to - end) is int after && after >= end)
+        {
+            to = after;
+        }
+
+        return (from, to);
     }
 
     /// <summary>How far after the start page a page comes in search order (wrapping around).</summary>
