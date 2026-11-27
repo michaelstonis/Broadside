@@ -174,6 +174,7 @@ public static class Corpus
         "paths-strokes.pdf",
         "clipping-paths.pdf",
         "duplicate-images.pdf",
+        "redact-pii.pdf",
     ];
 
     private static readonly string[] Malformed =

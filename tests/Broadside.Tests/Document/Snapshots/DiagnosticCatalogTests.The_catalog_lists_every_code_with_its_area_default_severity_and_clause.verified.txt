@@ -620,3 +620,4 @@ Redaction	RedactionTextRemovedWhole	Warning	ISO 32000-2 §9.4.3
 Redaction	RedactionFormRemovedWhole	Warning	ISO 32000-2 §8.10.1
 Redaction	RedactionFormCopied	Information	ISO 32000-2 §8.10.1
 Redaction	RedactionInvalidatesSignatures	Information	ISO 32000-2 §12.8
+Redaction	RedactionMatchNotLocated	Warning	ISO 32000-2 §9.4.3
