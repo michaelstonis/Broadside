@@ -1,0 +1,9 @@
+﻿<!-- page 1 -->
+
+Columns are found from the white space that runs down the page between blocks of text, and the reader goes down one column first.
+
+A paragraph starts where a line is indented from the left edge of its column.
+
+The second column is read after the first one, even when the content stream draws the lines across both columns in turn.
+
+Extra space between lines also starts a new paragraph here.
