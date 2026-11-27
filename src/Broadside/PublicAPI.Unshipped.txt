@@ -15,3 +15,85 @@ Broadside.PdfPageFormOptions.WithAnnotations(bool include = true) -> Broadside.P
 Broadside.PdfPageFormOptions.WithBoundary(Broadside.PdfPageBoundary boundary) -> Broadside.PdfPageFormOptions!
 Broadside.PdfPageFormOptions.WithRotation(bool apply = true) -> Broadside.PdfPageFormOptions!
 Broadside.PdfPageFormOptions.WithStructure(bool keep = true) -> Broadside.PdfPageFormOptions!
+Broadside.PdfDocument.AddHeaderFooter(Broadside.PdfHeaderFooter! headerFooter, System.Range? pages = null) -> void
+Broadside.PdfDocument.Stamp(Broadside.PdfStamp! stamp, System.Range? pages = null) -> void
+Broadside.PdfHeaderFooter
+Broadside.PdfHeaderFooter.PdfHeaderFooter(Broadside.Fonts.PdfCanvasFont! font, double fontSize) -> void
+Broadside.PdfHeaderFooter.Font.get -> Broadside.Fonts.PdfCanvasFont!
+Broadside.PdfHeaderFooter.FontSize.get -> double
+Broadside.PdfHeaderFooter.FirstPageNumber.get -> int
+Broadside.PdfHeaderFooter.FirstPageNumber.init -> void
+Broadside.PdfHeaderFooter.FooterCenter.get -> string?
+Broadside.PdfHeaderFooter.FooterCenter.init -> void
+Broadside.PdfHeaderFooter.FooterLeft.get -> string?
+Broadside.PdfHeaderFooter.FooterLeft.init -> void
+Broadside.PdfHeaderFooter.FooterRight.get -> string?
+Broadside.PdfHeaderFooter.FooterRight.init -> void
+Broadside.PdfHeaderFooter.HeaderCenter.get -> string?
+Broadside.PdfHeaderFooter.HeaderCenter.init -> void
+Broadside.PdfHeaderFooter.HeaderLeft.get -> string?
+Broadside.PdfHeaderFooter.HeaderLeft.init -> void
+Broadside.PdfHeaderFooter.HeaderRight.get -> string?
+Broadside.PdfHeaderFooter.HeaderRight.init -> void
+Broadside.PdfHeaderFooter.Margin.get -> double
+Broadside.PdfHeaderFooter.Margin.init -> void
+Broadside.PdfStamp
+Broadside.PdfStamp.ArtifactSubtype.get -> string?
+Broadside.PdfStamp.ArtifactSubtype.set -> void
+Broadside.PdfStamp.ArtifactType.get -> Broadside.Structure.PdfArtifactType
+Broadside.PdfStamp.ArtifactType.set -> void
+Broadside.PdfStamp.Boundary.get -> Broadside.PdfPageBoundary
+Broadside.PdfStamp.Boundary.set -> void
+Broadside.PdfStamp.FirstPageNumber.get -> int
+Broadside.PdfStamp.FirstPageNumber.set -> void
+Broadside.PdfStamp.FitToPage.get -> bool
+Broadside.PdfStamp.FitToPage.set -> void
+Broadside.PdfStamp.FollowPageRotation.get -> bool
+Broadside.PdfStamp.FollowPageRotation.set -> void
+Broadside.PdfStamp.HorizontalAlignment.get -> Broadside.PdfStampAlignment
+Broadside.PdfStamp.HorizontalAlignment.set -> void
+Broadside.PdfStamp.Layer.get -> Broadside.PdfStampLayer
+Broadside.PdfStamp.Layer.set -> void
+Broadside.PdfStamp.OffsetX.get -> double
+Broadside.PdfStamp.OffsetX.set -> void
+Broadside.PdfStamp.OffsetY.get -> double
+Broadside.PdfStamp.OffsetY.set -> void
+Broadside.PdfStamp.Opacity.get -> double
+Broadside.PdfStamp.Opacity.set -> void
+Broadside.PdfStamp.OptionalContentGroup.get -> Broadside.PdfOptionalContentGroup?
+Broadside.PdfStamp.OptionalContentGroup.set -> void
+Broadside.PdfStamp.Rotation.get -> double
+Broadside.PdfStamp.Rotation.set -> void
+Broadside.PdfStamp.Scale.get -> double
+Broadside.PdfStamp.Scale.set -> void
+Broadside.PdfStamp.TextColor.get -> Broadside.Graphics.PdfColor
+Broadside.PdfStamp.TextColor.set -> void
+Broadside.PdfStamp.VerticalAlignment.get -> Broadside.PdfStampAlignment
+Broadside.PdfStamp.VerticalAlignment.set -> void
+Broadside.PdfStamp.WithArtifactSubtype(string? subtype) -> Broadside.PdfStamp!
+Broadside.PdfStamp.WithArtifactType(Broadside.Structure.PdfArtifactType type) -> Broadside.PdfStamp!
+Broadside.PdfStamp.WithBoundary(Broadside.PdfPageBoundary boundary) -> Broadside.PdfStamp!
+Broadside.PdfStamp.WithFirstPageNumber(int number) -> Broadside.PdfStamp!
+Broadside.PdfStamp.WithFitToPage(bool fit = true) -> Broadside.PdfStamp!
+Broadside.PdfStamp.WithFollowPageRotation(bool follow = true) -> Broadside.PdfStamp!
+Broadside.PdfStamp.WithHorizontalAlignment(Broadside.PdfStampAlignment alignment) -> Broadside.PdfStamp!
+Broadside.PdfStamp.WithLayer(Broadside.PdfStampLayer layer) -> Broadside.PdfStamp!
+Broadside.PdfStamp.WithOffsetX(double offset) -> Broadside.PdfStamp!
+Broadside.PdfStamp.WithOffsetY(double offset) -> Broadside.PdfStamp!
+Broadside.PdfStamp.WithOpacity(double opacity) -> Broadside.PdfStamp!
+Broadside.PdfStamp.WithOptionalContentGroup(Broadside.PdfOptionalContentGroup? group) -> Broadside.PdfStamp!
+Broadside.PdfStamp.WithRotation(double degrees) -> Broadside.PdfStamp!
+Broadside.PdfStamp.WithScale(double scale) -> Broadside.PdfStamp!
+Broadside.PdfStamp.WithTextColor(Broadside.Graphics.PdfColor color) -> Broadside.PdfStamp!
+Broadside.PdfStamp.WithVerticalAlignment(Broadside.PdfStampAlignment alignment) -> Broadside.PdfStamp!
+Broadside.PdfStampAlignment
+Broadside.PdfStampAlignment.Center = 1 -> Broadside.PdfStampAlignment
+Broadside.PdfStampAlignment.End = 2 -> Broadside.PdfStampAlignment
+Broadside.PdfStampAlignment.Start = 0 -> Broadside.PdfStampAlignment
+Broadside.PdfStampLayer
+Broadside.PdfStampLayer.Background = 1 -> Broadside.PdfStampLayer
+Broadside.PdfStampLayer.Foreground = 0 -> Broadside.PdfStampLayer
+static Broadside.PdfStamp.FromForm(Broadside.Graphics.PdfFormXObject! form) -> Broadside.PdfStamp!
+static Broadside.PdfStamp.FromImage(Broadside.Images.PdfImage! image) -> Broadside.PdfStamp!
+static Broadside.PdfStamp.FromPage(Broadside.PdfPage! page) -> Broadside.PdfStamp!
+static Broadside.PdfStamp.FromText(string! text, Broadside.Fonts.PdfCanvasFont! font, double fontSize) -> Broadside.PdfStamp!

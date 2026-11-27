@@ -141,6 +141,35 @@ handout.Save("chapter1-2-up.pdf");
 
 Conformance: [ISO 32000-2 §8.10.1 (form XObjects)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
 
+## Stamps, watermarks and page numbers
+
+`Stamp` draws text, an image, a form or another page on existing pages: a watermark, a logo, a letterhead. `AddHeaderFooter` adds up to three texts at the top and three at the bottom. Texts may hold `{page}`, `{pages}` and `{label}` (the page label, or the number when the document has none). Each stamp is marked as an artifact, so text extraction and screen readers skip it, and it is placed in the page's box as the page is viewed, so a rotated page gets an upright stamp.
+
+<!-- snippet: samples/guides/Editing/Program.cs#stamps -->
+```csharp
+using PdfDocument document = PdfDocument.Open("book.pdf");
+PdfCanvasFont bold = document.GetStandard14Font(Standard14Font.HelveticaBold);
+document.Stamp(PdfStamp.FromText("CONFIDENTIAL", bold, 60)       // centered as the page is viewed
+    .WithRotation(45)
+    .WithOpacity(0.25)
+    .WithTextColor(PdfColor.FromRgb(0.8f, 0, 0)));
+document.Stamp(PdfStamp.FromPage(document.Pages[0])               // the cover, small, in the corner of the others
+    .WithScale(0.2)
+    .WithHorizontalAlignment(PdfStampAlignment.End)
+    .WithVerticalAlignment(PdfStampAlignment.Start), 1..);
+document.AddHeaderFooter(new PdfHeaderFooter(document.GetStandard14Font(Standard14Font.Helvetica), 9)
+{
+    HeaderLeft = "Acme Corporation",
+    FooterCenter = "Page {page} of {pages}",
+});
+document.Save("book-stamped.pdf");
+```
+<!-- endsnippet -->
+
+A stamp draws over the page's content by default. `WithLayer(PdfStampLayer.Background)` puts it under the content instead, but a page that paints an opaque white background hides it; use the foreground with an opacity below 1 for such pages. `WithFitToPage()` scales the stamp to the box, `WithOptionalContentGroup` lets a viewer hide it, and one image, form or font serves every page it is drawn on. In a PDF 2.0 document, a header or footer that shows the page number is marked with the `PageNum` artifact subtype.
+
+Conformance: [ISO 32000-2 §14.8.2.2 (artifacts)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
+
 ## Forms
 
 Fields are found by their fully qualified names. Setting a value regenerates the field's appearance, so the value shows in every reader; `WriteAppearances` does it again for a field you changed through its dictionary. `Flatten` draws every field's appearance into its page and removes the form, for a file that can no longer be filled in; `new PdfFlattenOptions().WithAnnotations(true)` flattens the other annotations too:
