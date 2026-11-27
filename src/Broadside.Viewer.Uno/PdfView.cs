@@ -37,7 +37,7 @@ namespace Broadside.Viewer.Uno;
 /// </remarks>
 #pragma warning disable CA1001 // the controller is disposed by Close; Uno elements are not disposed by their owners
 #pragma warning disable CA1010 // Uno's UIElement enumerates its children; the view adds no collection of its own
-public sealed partial class PdfView : UserControl, IViewerHost
+public sealed partial class PdfView : UserControl, IViewerHost, IDocumentViewer
 #pragma warning restore CA1010
 #pragma warning restore CA1001
 {
@@ -51,7 +51,7 @@ public sealed partial class PdfView : UserControl, IViewerHost
 
     /// <summary>The <see cref="LayoutOptions"/> property.</summary>
     public static readonly DependencyProperty LayoutOptionsProperty =
-        DependencyProperty.Register(nameof(LayoutOptions), typeof(PageLayoutOptions), typeof(PdfView), new PropertyMetadata(null, (d, e) => ((PdfView)d)._controller.SetLayoutOptions((PageLayoutOptions?)e.NewValue)));
+        DependencyProperty.Register(nameof(LayoutOptions), typeof(PageLayoutOptions), typeof(PdfView), new PropertyMetadata(null, (d, e) => ((PdfView)d).OnLayoutOptionsChanged((PageLayoutOptions?)e.NewValue)));
 
     /// <summary>The <see cref="ShowAnnotations"/> property.</summary>
     public static readonly DependencyProperty ShowAnnotationsProperty =
@@ -63,7 +63,7 @@ public sealed partial class PdfView : UserControl, IViewerHost
 
     /// <summary>The <see cref="ColorFilter"/> property.</summary>
     public static readonly DependencyProperty ColorFilterProperty =
-        DependencyProperty.Register(nameof(ColorFilter), typeof(object), typeof(PdfView), new PropertyMetadata(null, (d, e) => ((PdfView)d)._controller.SetColorFilter((Broadside.Rendering.ColorFilter?)e.NewValue)));
+        DependencyProperty.Register(nameof(ColorFilter), typeof(object), typeof(PdfView), new PropertyMetadata(null, (d, e) => ((PdfView)d).OnColorFilterChanged((Broadside.Rendering.ColorFilter?)e.NewValue)));
 
     private static readonly Lazy<HttpClient> SharedHttp = new(() => new HttpClient());
     private static readonly TimeSpan FrameInterval = TimeSpan.FromMilliseconds(15);
@@ -81,6 +81,7 @@ public sealed partial class PdfView : UserControl, IViewerHost
     private PdfViewAutomationPeer? _peer;
     private int _openGeneration;
     private bool _disposed;
+    private EventHandler? _viewChanged;
     private XamlRoot? _xamlRoot;
 
     /// <summary>Creates an empty view; set <see cref="Source"/> or <see cref="Session"/> to show a document.</summary>
@@ -268,6 +269,33 @@ public sealed partial class PdfView : UserControl, IViewerHost
 
         return text;
     }
+
+    // ---- IDocumentViewer (#632): what a PdfToolbar drives ----
+
+    /// <inheritdoc/>
+    event EventHandler? IDocumentViewer.ViewChanged
+    {
+        add => _viewChanged += value;
+        remove => _viewChanged -= value;
+    }
+
+    /// <inheritdoc/>
+    DocumentSession? IDocumentViewer.Session => CurrentSession;
+
+    /// <inheritdoc/>
+    int IDocumentViewer.PageIndex => State.PageIndex;
+
+    /// <inheritdoc/>
+    int IDocumentViewer.PageCount => State.PageCount;
+
+    /// <inheritdoc/>
+    double IDocumentViewer.Zoom => State.Zoom;
+
+    /// <inheritdoc/>
+    void IDocumentViewer.GoTo(ViewTarget target) => _controller.GoTo(target);
+
+    /// <inheritdoc/>
+    void IDocumentViewer.SetLayout(PageLayoutOptions options) => LayoutOptions = options;
 
     /// <summary>Closes the document for good and releases the tiles; the view shows nothing afterwards.</summary>
     public void Close()
@@ -511,7 +539,11 @@ public sealed partial class PdfView : UserControl, IViewerHost
         _frameView.Show(frame);
     }
 
-    void IViewerHost.StateChanged(PdfViewState state) => StateChanged?.Invoke(this, new PdfViewStateChangedEventArgs(state));
+    void IViewerHost.StateChanged(PdfViewState state)
+    {
+        StateChanged?.Invoke(this, new PdfViewStateChangedEventArgs(state));
+        _viewChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     void IViewerHost.ActionRequested(ViewerActionEventArgs e) => ActionRequested?.Invoke(this, e);
 
@@ -600,6 +632,18 @@ public sealed partial class PdfView : UserControl, IViewerHost
     }
 
     // ---- Documents ----
+
+    private void OnLayoutOptionsChanged(PageLayoutOptions? options)
+    {
+        _controller.SetLayoutOptions(options);
+        _viewChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnColorFilterChanged(Broadside.Rendering.ColorFilter? filter)
+    {
+        _controller.SetColorFilter(filter);
+        _viewChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     private async void Reopen()
     {

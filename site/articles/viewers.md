@@ -106,4 +106,37 @@ _view.Options = new ViewerOptions().WithDocumentOptions(new PdfOptions().UseStan
 _view.Source = file;
 ```
 
+## Toolbar
+
+A view shows pages and nothing else. Every shell also ships a `PdfToolbar` control (a `PdfToolbar` component in Blazor) that you bind to the view: previous and next page, a page box that takes a number or a page label, zoom out and in, a zoom picker (fit width, fit page, actual size and presets), the page layout, rotation, find and dark mode. A view without a toolbar pays nothing for it.
+
+The commands live once in `Broadside.Viewer`, in the `ViewerToolbar` model, and drive the view through `IDocumentViewer`, which every view implements. Each shell only lays the commands out with its own controls: a WPF `ToolBar`, a WinUI or Uno `CommandBar`, Avalonia and MAUI buttons and pickers, HTML in Blazor. A document whose viewer preferences ask to hide the tool bars (`HideToolbar`) starts with the toolbar hidden, unless the options say otherwise.
+
+```xml
+<!-- WPF; the other XAML shells look the same -->
+<viewer:PdfView x:Name="View" />
+<viewer:PdfToolbar Viewer="{Binding ElementName=View}" />
+```
+
+```razor
+<PdfViewer @ref="_viewer" Session="Demo.Session" />
+<PdfToolbar Viewer="_viewer" Options="_toolbarOptions" />
+```
+
+`ViewerToolbarOptions` picks the built-in commands and their order (`ViewerCommandIds`), the zoom presets, and a compact layout for phones that keeps the page commands and find in the bar and moves the rest to an overflow menu. The model is the control's `Toolbar` property, where an app adds its own commands, removes or hides built-in ones, or moves them to the overflow menu:
+
+```csharp
+toolbar.Options = new ViewerToolbarOptions()
+    .WithItems(ViewerCommandIds.PagePrevious, ViewerCommandIds.PageNumber, ViewerCommandIds.PageNext, ViewerCommandIds.ZoomMode, ViewerCommandIds.Search)
+    .WithZoomPresets(0.5, 1, 2)
+    .WithCompact(isPhone);
+toolbar.Viewer = view;
+
+ViewerToolbar model = toolbar.Toolbar!;
+model.Insert(model.Items.Count, new ViewerButtonCommand("app.share", "Share", Share, () => view.CurrentSession is not null) { Glyph = "⇪" });
+model.Find(ViewerCommandIds.Search)!.Placement = ViewerCommandPlacement.Overflow;
+```
+
+To restyle items without forking the control, give it a template: `ItemTemplate` in Avalonia, MAUI and Blazor, `ItemTemplateSelector` in WPF, WinUI and Uno. The template's data is the command; commands raise `PropertyChanged`, and a button command is an `ICommand`, so XAML bindings work. In Blazor, a template falls back to the default markup with `<PdfToolbarItem Command="context" />`. Typed input that names no page leaves the view where it is and sets the page command's `Error`; nothing throws.
+
 Each control's full API (state and error events, layout options, selection, search and the rest) is in the [API reference](../api/readme.md).

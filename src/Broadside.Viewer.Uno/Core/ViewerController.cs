@@ -353,6 +353,17 @@ internal sealed class ViewerController : IDisposable
     /// <summary>Scrolls by a distance in device-independent units, as a wheel or trackpad scroll does.</summary>
     public void ScrollBy(double deltaX, double deltaY) => Wheel(deltaX, deltaY, WheelDeltaMode.Pixel, InputModifiers.None, _width / 2, _height / 2);
 
+    /// <summary>Shows a resolved destination (an outline entry's target, a named destination): its page, zoom and position (#632).</summary>
+    public void GoTo(ViewTarget target)
+    {
+        if (_zoom is not null && _input is not null)
+        {
+            _interacted = true;
+            _zoom.SetViewport(target.GetViewport(_zoom.Layout, _input.Viewport, _input.ActualSize, _zoom.MinZoom, _zoom.MaxZoom));
+            Wake();
+        }
+    }
+
     /// <summary>Scrolls the least distance that shows an area of a page (a search match), turning to its spread in paged layouts.</summary>
     /// <remarks>ISO 32000-2 §14.11.2 (the page's crop box is what is shown).</remarks>
     public void Reveal(int pageIndex, PdfRectangle area)

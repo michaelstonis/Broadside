@@ -1,1 +1,14 @@
 #nullable enable
+Broadside.Viewer.Maui.PdfToolbar
+Broadside.Viewer.Maui.PdfToolbar.Dispose() -> void
+Broadside.Viewer.Maui.PdfToolbar.ItemTemplate.get -> Microsoft.Maui.Controls.DataTemplate?
+Broadside.Viewer.Maui.PdfToolbar.ItemTemplate.set -> void
+Broadside.Viewer.Maui.PdfToolbar.Options.get -> Broadside.Viewer.ViewerToolbarOptions?
+Broadside.Viewer.Maui.PdfToolbar.Options.set -> void
+Broadside.Viewer.Maui.PdfToolbar.PdfToolbar() -> void
+Broadside.Viewer.Maui.PdfToolbar.Toolbar.get -> Broadside.Viewer.ViewerToolbar?
+Broadside.Viewer.Maui.PdfToolbar.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Maui.PdfToolbar.Viewer.set -> void
+static readonly Broadside.Viewer.Maui.PdfToolbar.ItemTemplateProperty -> Microsoft.Maui.Controls.BindableProperty!
+static readonly Broadside.Viewer.Maui.PdfToolbar.OptionsProperty -> Microsoft.Maui.Controls.BindableProperty!
+static readonly Broadside.Viewer.Maui.PdfToolbar.ViewerProperty -> Microsoft.Maui.Controls.BindableProperty!

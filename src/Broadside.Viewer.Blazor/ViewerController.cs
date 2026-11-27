@@ -300,6 +300,9 @@ internal sealed class ViewerController : IAsyncDisposable
         }
     }
 
+    /// <summary>Gets the open document's session, or null.</summary>
+    public DocumentSession? Session => _session;
+
     /// <summary>Gets the text selection of the open document.</summary>
     public TextSelection? Selection => _selection;
 
