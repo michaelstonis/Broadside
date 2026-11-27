@@ -135,8 +135,16 @@ public sealed class SearchableText
         List<TextMatch>? matches = query.IsRegex
             ? FindRegex(query, pageIndex, cancellationToken)
             : FindLiteral(query, pageIndex, cancellationToken);
-        return matches is null ? Array.Empty<TextMatch>() : matches;
+        if (matches is not null && query.MatchFilter is not null)
+        {
+            Filter(matches, query.MatchFilter);
+        }
+
+        return matches is null or { Count: 0 } ? Array.Empty<TextMatch>() : matches;
     }
+
+    /// <summary>Drops the matches <paramref name="filter"/> rejects (<see cref="TextQuery.MatchFilter"/>); apart, so a search without one allocates no closure.</summary>
+    private static void Filter(List<TextMatch> matches, Func<TextMatch, bool> filter) => matches.RemoveAll(match => !filter(match));
 
     /// <summary>Whether a character is part of a word, for <see cref="TextQuery.WholeWord"/>.</summary>
     internal static bool IsWordCharacter(char c) =>

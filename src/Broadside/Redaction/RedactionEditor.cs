@@ -22,6 +22,12 @@ namespace Broadside.Redaction;
 /// concatenated with the CTM at its <c>Do</c>) for a form. A page with no content under an area makes no edit and, with the editor
 /// reused, allocates nothing per glyph or operator.
 /// </para>
+/// <para>
+/// When the session names glyph targets (redacting search matches, issue #633), a glyph is removed when it is one of the targets, by
+/// its code and the bottom-left corner of its box in page space (<see cref="Text.GlyphMatching"/>), not when its box meets an area:
+/// a neighbor whose box overlaps a match through kerning or italics is kept. The areas then still bound which forms are rewritten,
+/// and, unless the session removes glyphs only, which images, paths and shadings are removed.
+/// </para>
 /// </remarks>
 internal sealed class RedactionEditor : ContentEditor
 {
@@ -37,6 +43,7 @@ internal sealed class RedactionEditor : ContentEditor
     private readonly List<int> _mcids = [];
     private readonly List<CosName> _dropped = [];
     private Quad[] _areas = [];
+    private Matrix _toPage = Matrix.Identity;
     private int _areaCount;
     private PdfRectangle _union;
     private CosDictionary _owner = null!;
@@ -74,8 +81,10 @@ internal sealed class RedactionEditor : ContentEditor
     /// <param name="areas">The areas in the run's space, each a convex quadrilateral ordered counter-clockwise.</param>
     /// <param name="owner">The dictionary whose <c>Resources</c> the run's names resolve in: the page's, or the form stream's.</param>
     /// <param name="resources">The resources the run uses (a page's may be inherited).</param>
-    public void Configure(ReadOnlySpan<Quad> areas, CosDictionary owner, CosDictionary? resources)
+    /// <param name="toPage">The matrix from the run's space to page space: the identity for a page, the CTMs of the <c>Do</c>s that lead to a form.</param>
+    public void Configure(ReadOnlySpan<Quad> areas, CosDictionary owner, CosDictionary? resources, Matrix? toPage = null)
     {
+        _toPage = toPage ?? Matrix.Identity;
         if (_areas.Length < areas.Length)
         {
             _areas = new Quad[areas.Length];
@@ -186,7 +195,7 @@ internal sealed class RedactionEditor : ContentEditor
         }
 
         bool hit = false;
-        if (_areaCount > 0 && glyph.Font is { } font)
+        if (glyph.Font is { } font && (_areaCount > 0 || _session.GlyphTargets is not null))
         {
             if (!_extents.TryGetValue(font, out (double Descent, double Ascent) extent))
             {
@@ -194,9 +203,18 @@ internal sealed class RedactionEditor : ContentEditor
                 _extents[font] = extent;
             }
 
-            double width = glyph.HorizontalDisplacement;
-            Quad quad = Quad.FromRectangle(glyph.TextMatrix * glyph.Ctm, Math.Min(0, width), extent.Descent, Math.Max(0, width), extent.Ascent);
-            hit = HitsArea(quad);
+            Matrix toRun = glyph.TextMatrix * glyph.Ctm;
+            if (_session.GlyphTargets is { } targets)
+            {
+                // The corner the extractor keys the glyph by: its origin at the font's descent, in page space (§9.4.4).
+                hit = targets.TryConsume(Text.GlyphMatching.Key(glyph.CharacterCode, (toRun * _toPage).Transform(0, extent.Descent)));
+            }
+            else
+            {
+                double width = glyph.HorizontalDisplacement;
+                Quad quad = Quad.FromRectangle(toRun, Math.Min(0, width), extent.Descent, Math.Max(0, width), extent.Ascent);
+                hit = HitsArea(quad);
+            }
         }
 
         _textVertical = glyph.IsVertical;
@@ -229,7 +247,7 @@ internal sealed class RedactionEditor : ContentEditor
 
     public override void PaintPath(in PathEvent path, ContentContext context)
     {
-        if (context.Depth != 0 || path.Paint == PathPaint.None || _areaCount == 0 || path.Path.IsEmpty)
+        if (context.Depth != 0 || path.Paint == PathPaint.None || _areaCount == 0 || path.Path.IsEmpty || _session.GlyphsOnly)
         {
             return;
         }
@@ -283,7 +301,7 @@ internal sealed class RedactionEditor : ContentEditor
 
     public override void PaintImage(in ImageEvent image, ContentContext context)
     {
-        if (context.Depth != 0 || _areaCount == 0)
+        if (context.Depth != 0 || _areaCount == 0 || _session.GlyphsOnly)
         {
             return;
         }
@@ -310,7 +328,7 @@ internal sealed class RedactionEditor : ContentEditor
 
     public override void PaintShading(in ShadingEvent shading, ContentContext context)
     {
-        if (context.Depth != 0 || _areaCount == 0 || !shading.Ctm.TryInvert(out Matrix inverse))
+        if (context.Depth != 0 || _areaCount == 0 || _session.GlyphsOnly || !shading.Ctm.TryInvert(out Matrix inverse))
         {
             return;
         }
@@ -348,7 +366,8 @@ internal sealed class RedactionEditor : ContentEditor
                 return ContentVisit.Skip;
             }
 
-            if (InsideArea(quad))
+            // A form wholly inside an area goes whole, unless glyphs are removed by identity: its other glyphs are neighbors to keep.
+            if (_session.GlyphTargets is null && !_session.GlyphsOnly && InsideArea(quad))
             {
                 Remove(CurrentOperator);
                 Drop(form.ResourceName);
@@ -380,7 +399,7 @@ internal sealed class RedactionEditor : ContentEditor
             areas[index] = RedactionGeometry.Hull(RedactionGeometry.Transform(_areas[index], inverse));
         }
 
-        if (_session.RewriteFormCopy(view, areas) is { } copy)
+        if (_session.RewriteFormCopy(view, areas, outer * _toPage) is { } copy)
         {
             CosName name = AddPrivateXObject(copy);
             _writer.Clear();
