@@ -157,6 +157,10 @@ public sealed class PdfType0Font : PdfFont
     internal override int MapUnicode(CharacterCode code, Span<char> destination, out UnicodeSource source) =>
         GetUnicodeState(State).Map(this, code, destination, out source);
 
+    /// <summary>Gets the font's ToUnicode CMap, or <see langword="null"/>: read without recording anything, for reverse lookups (issue #641).</summary>
+    /// <remarks>ISO 32000-2 §9.10.3.</remarks>
+    internal ToUnicodeMap? ToUnicodeMap => GetUnicodeState(State).ToUnicode;
+
     /// <summary>The font's Unicode state for its current CMap and descendant, rebuilt when they or the ToUnicode stream change.</summary>
     private Type0FontUnicode GetUnicodeState(Type0FontState state)
     {

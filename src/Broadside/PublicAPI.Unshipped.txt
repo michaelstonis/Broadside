@@ -405,3 +405,33 @@ Broadside.PdfBatesRange.Last.init -> void
 Broadside.PdfBatesRange.LastNumber.get -> long
 Broadside.PdfBatesRange.LastNumber.init -> void
 Broadside.PdfDocument.AddBatesNumbers(Broadside.PdfBatesNumbering! numbering, System.Range? pages = null) -> Broadside.PdfBatesRange
+Broadside.Diagnostics.DiagnosticArea.TextEdit = 33 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.TextEditDiagnostics
+static Broadside.Diagnostics.TextEditDiagnostics.TextEditFallbackFont.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.TextEditDiagnostics.TextEditMatchNotLocated.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.TextEditDiagnostics.TextEditNotEncodable.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.TextEditDiagnostics.TextEditReplacementTextRemoved.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.TextEditDiagnostics.TextEditToUnicodeExtended.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.PdfDocument.DeleteText(Broadside.Text.TextQuery! query, Broadside.PdfTextReplaceOptions? options = null, System.Range? pages = null) -> Broadside.PdfTextEditResult!
+Broadside.PdfDocument.ReplaceText(Broadside.Text.TextQuery! query, string! replacement, Broadside.PdfTextReplaceOptions? options = null, System.Range? pages = null) -> Broadside.PdfTextEditResult!
+Broadside.PdfPage.DeleteText(Broadside.Text.TextMatch match, Broadside.PdfTextReplaceOptions? options = null) -> Broadside.PdfTextEditResult!
+Broadside.PdfPage.ReplaceText(Broadside.Text.TextMatch match, string! replacement, Broadside.PdfTextReplaceOptions? options = null) -> Broadside.PdfTextEditResult!
+Broadside.PdfTextEditResult
+Broadside.PdfTextEditResult.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+Broadside.PdfTextEditResult.Replaced.get -> int
+Broadside.PdfTextEditResult.UsedFallbackFont.get -> int
+Broadside.PdfTextFit
+Broadside.PdfTextFit.Compress = 1 -> Broadside.PdfTextFit
+Broadside.PdfTextFit.KeepPosition = 0 -> Broadside.PdfTextFit
+Broadside.PdfTextFit.ShiftLine = 2 -> Broadside.PdfTextFit
+Broadside.PdfTextReplaceOptions
+Broadside.PdfTextReplaceOptions.FallbackFont.get -> Broadside.Fonts.PdfCanvasFont?
+Broadside.PdfTextReplaceOptions.FallbackFont.set -> void
+Broadside.PdfTextReplaceOptions.Fit.get -> Broadside.PdfTextFit
+Broadside.PdfTextReplaceOptions.Fit.set -> void
+Broadside.PdfTextReplaceOptions.PdfTextReplaceOptions() -> void
+Broadside.PdfTextReplaceOptions.UpdateReplacementText.get -> bool
+Broadside.PdfTextReplaceOptions.UpdateReplacementText.set -> void
+Broadside.PdfTextReplaceOptions.WithFallbackFont(Broadside.Fonts.PdfCanvasFont? font) -> Broadside.PdfTextReplaceOptions!
+Broadside.PdfTextReplaceOptions.WithFit(Broadside.PdfTextFit fit) -> Broadside.PdfTextReplaceOptions!
+Broadside.PdfTextReplaceOptions.WithUpdateReplacementText(bool update = true) -> Broadside.PdfTextReplaceOptions!

@@ -142,6 +142,18 @@ public abstract class PdfSimpleFont : PdfFont
             return FontUnicode.WriteReplacement(destination);
         }
 
+        SimpleFontUnicode unicode = GetUnicodeState();
+
+        return unicode.Map(this, (byte)code.Value, destination, out source);
+    }
+
+    /// <summary>Gets the font's ToUnicode CMap, or <see langword="null"/>: read without recording anything, for reverse lookups (issue #641).</summary>
+    /// <remarks>ISO 32000-2 §9.10.3.</remarks>
+    internal ToUnicodeMap? ToUnicodeMap => GetUnicodeState().ToUnicode;
+
+    /// <summary>The font's Unicode state for its current metrics and ToUnicode stream.</summary>
+    private SimpleFontUnicode GetUnicodeState()
+    {
         SimpleFontMetrics metrics = Metrics;
         SimpleFontUnicode? unicode = _unicode;
         if (unicode is null || !unicode.IsCurrent(metrics))
@@ -150,7 +162,7 @@ public abstract class PdfSimpleFont : PdfFont
             _unicode = unicode;
         }
 
-        return unicode.Map(this, (byte)code.Value, destination, out source);
+        return unicode;
     }
 
     /// <summary>Gets the names and widths of all 256 codes, rebuilt when an object they come from has changed.</summary>
