@@ -93,6 +93,47 @@ Broadside.PdfStampAlignment.Start = 0 -> Broadside.PdfStampAlignment
 Broadside.PdfStampLayer
 Broadside.PdfStampLayer.Background = 1 -> Broadside.PdfStampLayer
 Broadside.PdfStampLayer.Foreground = 0 -> Broadside.PdfStampLayer
+Broadside.PdfDocument.FindText(Broadside.Text.TextQuery! query, System.Range? pages = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IEnumerable<Broadside.Text.TextMatch>!
+Broadside.PdfPage.FindText(Broadside.Text.TextQuery! query) -> System.Collections.Generic.IReadOnlyList<Broadside.Text.TextMatch>!
+Broadside.PdfPage.FindText(Broadside.Text.TextQuery! query, Broadside.Text.TextExtractionOptions! options) -> System.Collections.Generic.IReadOnlyList<Broadside.Text.TextMatch>!
+Broadside.Text.SearchableText
+Broadside.Text.SearchableText.Find(Broadside.Text.TextQuery! query, int pageIndex = -1, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IReadOnlyList<Broadside.Text.TextMatch>!
+Broadside.Text.SearchableText.Text.get -> string!
+Broadside.Text.TextMatch
+Broadside.Text.TextMatch.Bounds.get -> Broadside.PdfRectangle
+Broadside.Text.TextMatch.Bounds.init -> void
+Broadside.Text.TextMatch.GlyphCount.get -> int
+Broadside.Text.TextMatch.GlyphCount.init -> void
+Broadside.Text.TextMatch.GlyphStart.get -> int
+Broadside.Text.TextMatch.GlyphStart.init -> void
+Broadside.Text.TextMatch.PageIndex.get -> int
+Broadside.Text.TextMatch.PageIndex.init -> void
+Broadside.Text.TextMatch.Quads.get -> System.Collections.Generic.IReadOnlyList<Broadside.Graphics.Quad>!
+Broadside.Text.TextMatch.Quads.init -> void
+Broadside.Text.TextMatch.Text.get -> string!
+Broadside.Text.TextMatch.Text.init -> void
+Broadside.Text.TextMatch.TextMatch() -> void
+Broadside.Text.TextMatch.TextMatch(int PageIndex, string! Text, int TextStart, int GlyphStart, int GlyphCount, System.Collections.Generic.IReadOnlyList<Broadside.Graphics.Quad>! Quads, Broadside.PdfRectangle Bounds) -> void
+Broadside.Text.TextMatch.TextStart.get -> int
+Broadside.Text.TextMatch.TextStart.init -> void
+Broadside.Text.TextPage.Find(Broadside.Text.TextQuery! query) -> System.Collections.Generic.IReadOnlyList<Broadside.Text.TextMatch>!
+Broadside.Text.TextQuery
+Broadside.Text.TextQuery.IsRegex.get -> bool
+Broadside.Text.TextQuery.MatchCase.get -> bool
+Broadside.Text.TextQuery.MatchCase.set -> void
+Broadside.Text.TextQuery.MatchDiacritics.get -> bool
+Broadside.Text.TextQuery.MatchDiacritics.set -> void
+Broadside.Text.TextQuery.Pattern.get -> string!
+Broadside.Text.TextQuery.RegexTimeout.get -> System.TimeSpan
+Broadside.Text.TextQuery.RegexTimeout.set -> void
+Broadside.Text.TextQuery.TextQuery(string! text) -> void
+Broadside.Text.TextQuery.WholeWord.get -> bool
+Broadside.Text.TextQuery.WholeWord.set -> void
+Broadside.Text.TextQuery.WithMatchCase(bool matchCase = true) -> Broadside.Text.TextQuery!
+Broadside.Text.TextQuery.WithMatchDiacritics(bool matchDiacritics = true) -> Broadside.Text.TextQuery!
+Broadside.Text.TextQuery.WithRegexTimeout(System.TimeSpan timeout) -> Broadside.Text.TextQuery!
+Broadside.Text.TextQuery.WithWholeWord(bool wholeWord = true) -> Broadside.Text.TextQuery!
+override Broadside.Text.TextQuery.ToString() -> string!
 static Broadside.PdfStamp.FromForm(Broadside.Graphics.PdfFormXObject! form) -> Broadside.PdfStamp!
 static Broadside.PdfStamp.FromImage(Broadside.Images.PdfImage! image) -> Broadside.PdfStamp!
 static Broadside.PdfStamp.FromPage(Broadside.PdfPage! page) -> Broadside.PdfStamp!
@@ -121,3 +162,7 @@ Broadside.Layout.MarkdownTableStyle.Html = 1 -> Broadside.Layout.MarkdownTableSt
 Broadside.Layout.MarkdownTableStyle.Pipe = 0 -> Broadside.Layout.MarkdownTableStyle
 Broadside.PdfDocument.ExtractMarkdown(Broadside.Layout.MarkdownSaveOptions? options = null) -> string!
 Broadside.PdfPage.ExtractMarkdown(Broadside.Layout.MarkdownSaveOptions? options = null) -> string!
+static Broadside.Text.SearchableText.Create(Broadside.Text.TextPage! page) -> Broadside.Text.SearchableText!
+static Broadside.Text.SearchableText.Empty.get -> Broadside.Text.SearchableText!
+static Broadside.Text.TextQuery.FromRegex(string! pattern) -> Broadside.Text.TextQuery!
+static Broadside.Text.TextQuery.FromRegex(System.Text.RegularExpressions.Regex! regex) -> Broadside.Text.TextQuery!

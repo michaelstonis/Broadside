@@ -11,6 +11,8 @@ ChooseTheReadingOrder();
 WalkTheLayoutTree();
 FindTables();
 WriteMarkdownAndJson();
+SearchText();
+SearchWithARegularExpression();
 Sample.Finish();
 
 static void ExtractPlainText()
@@ -120,4 +122,34 @@ static void WriteMarkdownAndJson()
     #endregion
 
     Sample.Expect(markdown.Contains("| --- |", StringComparison.Ordinal), "a pipe table written");
+}
+
+static void SearchText()
+{
+    #region search
+    using PdfDocument document = PdfDocument.Open("text-lines-rotated.pdf");
+    foreach (TextMatch match in document.FindText(new TextQuery("degrees second")))
+    {
+        // A phrase matches across a line break: one quad per line, each along its own baseline.
+        Console.WriteLine($"Page {match.PageIndex + 1}: \"{match.Text}\" on {match.Quads.Count} lines, glyphs {match.GlyphStart} to {match.GlyphStart + match.GlyphCount - 1}");
+    }
+    #endregion
+
+    int found = document.FindText(new TextQuery("degrees second")).Count();
+    Sample.Expect(found == 3, $"three matches across line breaks (found {found})");
+}
+
+static void SearchWithARegularExpression()
+{
+    #region search-regex
+    using PdfDocument document = PdfDocument.Open("text-lines-rotated.pdf");
+    TextQuery query = TextQuery.FromRegex(@"\w+ty").WithWholeWord();
+    foreach (TextMatch match in document.Pages[0].FindText(query))
+    {
+        Console.WriteLine($"{match.Text} at {match.Bounds}");
+    }
+    #endregion
+
+    string[] words = [.. document.Pages[0].FindText(query).Select(match => match.Text)];
+    Sample.Expect(words.SequenceEqual(["Ninety", "Thirty"]), $"the words ending in \"ty\" (found {string.Join(", ", words)})");
 }

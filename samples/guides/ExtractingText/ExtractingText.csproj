@@ -14,6 +14,7 @@
     <None Include="$(CorpusDirectory)layout-two-column-tagged.pdf" Link="layout-two-column-tagged.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="$(CorpusDirectory)layout-two-column-untagged.pdf" Link="layout-two-column-untagged.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="$(CorpusDirectory)layout-tables.pdf" Link="layout-tables.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(CorpusDirectory)text-lines-rotated.pdf" Link="text-lines-rotated.pdf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
