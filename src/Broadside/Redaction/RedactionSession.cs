@@ -428,7 +428,7 @@ internal sealed class RedactionSession
             {
                 if (unlocated[index] || keys[index].Any(targets.IsPending))
                 {
-                    // ADR 0005: the match is removed by area rather than left; the text is the sensitive value, so it is not in the message.
+                    // Lenient: the match is removed by area rather than left; the text is the sensitive value, so it is not in the message.
                     Report(
                         RedactionDiagnostics.RedactionMatchNotLocated,
                         $"A search match on page {Document.Pages.IndexOf(page) + 1} could not be found again glyph by glyph; everything under its quads is removed instead.",

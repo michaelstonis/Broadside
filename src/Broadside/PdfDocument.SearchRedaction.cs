@@ -144,7 +144,7 @@ public sealed partial class PdfDocument
     /// what it lies over.
     /// </para>
     /// <para>
-    /// ADR 0005: when a match's glyphs cannot all be found again in the content, everything under its quads is removed instead and
+    /// Lenient reading: when a match's glyphs cannot all be found again in the content, everything under its quads is removed instead and
     /// <c>RedactionMatchNotLocated</c> is recorded; in strict mode it throws and nothing is changed. Diagnostics never hold the matched
     /// text.
     /// </para>

@@ -36,7 +36,7 @@ public sealed partial class PdfPage
     /// matches are merged.
     /// </para>
     /// <para>
-    /// ADR 0005: a match found in neither extraction, or whose glyphs are not all in the content, is removed by area over its quads and
+    /// Lenient reading: a match found in neither extraction, or whose glyphs are not all in the content, is removed by area over its quads and
     /// recorded as <c>RedactionMatchNotLocated</c>; in strict mode that throws and the page is unchanged. A mutation.
     /// </para>
     /// </remarks>
