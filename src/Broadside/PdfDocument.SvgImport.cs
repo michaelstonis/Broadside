@@ -30,7 +30,7 @@ public sealed partial class PdfDocument
     /// An <c>href</c> that is not a <c>data:</c> URI is resolved only by <see cref="SvgImportOptions.ResourceResolver"/>.
     /// </para>
     /// <para>
-    /// Leniency (ADR 0005): a value that cannot be read skips its element or property and records an <see cref="Diagnostics.SvgDiagnostics"/>
+    /// Leniency: as when reading, a value that cannot be read skips its element or property and records an <see cref="Diagnostics.SvgDiagnostics"/>
     /// code on this document. Transparency raises the document to PDF 1.4, gradients to 1.3 and patterns to 1.2. A mutation.
     /// </para>
     /// </remarks>
