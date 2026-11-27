@@ -13,8 +13,10 @@ namespace Broadside.Viewer.Maui.Tests;
 [Collection(HeavyTestCollection.Name)] // installs a process-wide dispatcher for its view: nothing runs beside it
 public sealed class PdfToolbarTests
 {
+    // The view's members and its controller's continuations run on one UI thread, as on a device: without that context, a page load's
+    // continuation rebuilt the semantic layer on a pool thread while a frame repositioned it (#632's flaky NullReferenceException).
     [Fact]
-    public async Task The_page_and_zoom_commands_move_and_zoom_a_real_view()
+    public void The_page_and_zoom_commands_move_and_zoom_a_real_view() => UiThread.Run(async () =>
     {
         await using DocumentSession session = DocumentSession.Open(ManyPagesDocument.Create(6), Shell.Options());
         using PdfView view = await ShowAsync(session);
@@ -47,7 +49,7 @@ public sealed class PdfToolbarTests
         await SettleAsync(view);
         Assert.Equal(2, view.State.Zoom, 3);
         Assert.Equal(4, ((Picker)bar.BarItems.Single(item => ((Element)item).AutomationId == ViewerCommandIds.ZoomMode)).SelectedIndex);
-    }
+    });
 
     [Fact]
     public void Without_a_document_the_built_in_controls_are_disabled_and_compact_options_fill_the_overflow_row()
