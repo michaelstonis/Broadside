@@ -1,1 +1,13 @@
 #nullable enable
+Broadside.Viewer.Uno.PdfToolbar
+Broadside.Viewer.Uno.PdfToolbar.ItemTemplateSelector.get -> Microsoft.UI.Xaml.Controls.DataTemplateSelector?
+Broadside.Viewer.Uno.PdfToolbar.ItemTemplateSelector.set -> void
+Broadside.Viewer.Uno.PdfToolbar.Options.get -> Broadside.Viewer.ViewerToolbarOptions?
+Broadside.Viewer.Uno.PdfToolbar.Options.set -> void
+Broadside.Viewer.Uno.PdfToolbar.PdfToolbar() -> void
+Broadside.Viewer.Uno.PdfToolbar.Toolbar.get -> Broadside.Viewer.ViewerToolbar?
+Broadside.Viewer.Uno.PdfToolbar.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Uno.PdfToolbar.Viewer.set -> void
+static readonly Broadside.Viewer.Uno.PdfToolbar.ItemTemplateSelectorProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly Broadside.Viewer.Uno.PdfToolbar.OptionsProperty -> Microsoft.UI.Xaml.DependencyProperty!
+static readonly Broadside.Viewer.Uno.PdfToolbar.ViewerProperty -> Microsoft.UI.Xaml.DependencyProperty!

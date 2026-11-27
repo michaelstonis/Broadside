@@ -1,1 +1,14 @@
 #nullable enable
+Broadside.Viewer.Avalonia.PdfToolbar
+Broadside.Viewer.Avalonia.PdfToolbar.Dispose() -> void
+Broadside.Viewer.Avalonia.PdfToolbar.ItemTemplate.get -> Avalonia.Controls.Templates.IDataTemplate?
+Broadside.Viewer.Avalonia.PdfToolbar.ItemTemplate.set -> void
+Broadside.Viewer.Avalonia.PdfToolbar.Options.get -> Broadside.Viewer.ViewerToolbarOptions?
+Broadside.Viewer.Avalonia.PdfToolbar.Options.set -> void
+Broadside.Viewer.Avalonia.PdfToolbar.PdfToolbar() -> void
+Broadside.Viewer.Avalonia.PdfToolbar.Toolbar.get -> Broadside.Viewer.ViewerToolbar?
+Broadside.Viewer.Avalonia.PdfToolbar.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Avalonia.PdfToolbar.Viewer.set -> void
+static readonly Broadside.Viewer.Avalonia.PdfToolbar.ItemTemplateProperty -> Avalonia.StyledProperty<Avalonia.Controls.Templates.IDataTemplate?>!
+static readonly Broadside.Viewer.Avalonia.PdfToolbar.OptionsProperty -> Avalonia.StyledProperty<Broadside.Viewer.ViewerToolbarOptions?>!
+static readonly Broadside.Viewer.Avalonia.PdfToolbar.ViewerProperty -> Avalonia.StyledProperty<Broadside.Viewer.IDocumentViewer?>!

@@ -1,1 +1,20 @@
 #nullable enable
+Broadside.Viewer.Blazor.PdfToolbar
+Broadside.Viewer.Blazor.PdfToolbar.Class.get -> string?
+Broadside.Viewer.Blazor.PdfToolbar.Class.set -> void
+Broadside.Viewer.Blazor.PdfToolbar.Dispose() -> void
+Broadside.Viewer.Blazor.PdfToolbar.ItemTemplate.get -> Microsoft.AspNetCore.Components.RenderFragment<Broadside.Viewer.ViewerCommand!>?
+Broadside.Viewer.Blazor.PdfToolbar.ItemTemplate.set -> void
+Broadside.Viewer.Blazor.PdfToolbar.Label.get -> string?
+Broadside.Viewer.Blazor.PdfToolbar.Label.set -> void
+Broadside.Viewer.Blazor.PdfToolbar.Options.get -> Broadside.Viewer.ViewerToolbarOptions?
+Broadside.Viewer.Blazor.PdfToolbar.Options.set -> void
+Broadside.Viewer.Blazor.PdfToolbar.PdfToolbar() -> void
+Broadside.Viewer.Blazor.PdfToolbar.Toolbar.get -> Broadside.Viewer.ViewerToolbar?
+Broadside.Viewer.Blazor.PdfToolbar.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Blazor.PdfToolbar.Viewer.set -> void
+Broadside.Viewer.Blazor.PdfToolbarItem
+Broadside.Viewer.Blazor.PdfToolbarItem.Command.get -> Broadside.Viewer.ViewerCommand?
+Broadside.Viewer.Blazor.PdfToolbarItem.Command.set -> void
+Broadside.Viewer.Blazor.PdfToolbarItem.Dispose() -> void
+Broadside.Viewer.Blazor.PdfToolbarItem.PdfToolbarItem() -> void

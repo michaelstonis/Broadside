@@ -30,6 +30,9 @@ internal sealed class SearchablePage
 
     public static SearchablePage Empty { get; } = new(string.Empty, [], [], []);
 
+    /// <summary>Gets whether the page has no text at all.</summary>
+    public bool IsEmpty => _text.Length == 0;
+
     /// <summary>Builds a page's index entry from its extracted text (§14.8.2.6.2 words, §9.10 text).</summary>
     public static SearchablePage Create(TextPage page)
     {

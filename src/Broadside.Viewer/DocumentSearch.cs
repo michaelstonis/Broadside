@@ -140,6 +140,23 @@ public sealed class DocumentSearch : IDisposable
     /// <summary>Gets whether pages are being read or matched right now.</summary>
     public bool IsIndexing => Volatile.Read(ref _running) > 0;
 
+    /// <summary>Gets whether a page indexed so far has any text (a scanned document's pages have none).</summary>
+    internal bool HasText
+    {
+        get
+        {
+            for (int i = 0; i < _pages.Length; i++)
+            {
+                if (Volatile.Read(ref _pages[i]) is { IsEmpty: false })
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
     /// <summary>
     /// Searches for <paramref name="query"/>: matches on pages already indexed arrive at once, the others as their pages are indexed,
     /// starting with <paramref name="startPage"/> and wrapping around. The first match found becomes current, preferring one at or after

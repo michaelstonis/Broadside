@@ -1,1 +1,102 @@
 #nullable enable
+Broadside.Viewer.IDocumentViewer
+Broadside.Viewer.IDocumentViewer.Annotations.get -> Broadside.Viewer.AnnotationLayer?
+Broadside.Viewer.IDocumentViewer.ColorFilter.get -> Broadside.Rendering.ColorFilter?
+Broadside.Viewer.IDocumentViewer.ColorFilter.set -> void
+Broadside.Viewer.IDocumentViewer.GoTo(Broadside.Viewer.ViewTarget target) -> void
+Broadside.Viewer.IDocumentViewer.GoToPage(int pageIndex) -> void
+Broadside.Viewer.IDocumentViewer.LayoutOptions.get -> Broadside.Viewer.PageLayoutOptions?
+Broadside.Viewer.IDocumentViewer.NextPage() -> void
+Broadside.Viewer.IDocumentViewer.PageCount.get -> int
+Broadside.Viewer.IDocumentViewer.PageIndex.get -> int
+Broadside.Viewer.IDocumentViewer.PageLabels.get -> Broadside.Viewer.PageLabelTable?
+Broadside.Viewer.IDocumentViewer.PreviousPage() -> void
+Broadside.Viewer.IDocumentViewer.Reveal(int pageIndex, Broadside.PdfRectangle area) -> void
+Broadside.Viewer.IDocumentViewer.Search.get -> Broadside.Viewer.DocumentSearch?
+Broadside.Viewer.IDocumentViewer.Selection.get -> Broadside.Viewer.TextSelection?
+Broadside.Viewer.IDocumentViewer.Session.get -> Broadside.Viewer.DocumentSession?
+Broadside.Viewer.IDocumentViewer.SetLayout(Broadside.Viewer.PageLayoutOptions! options) -> void
+Broadside.Viewer.IDocumentViewer.ViewChanged -> System.EventHandler?
+Broadside.Viewer.IDocumentViewer.Zoom.get -> double
+Broadside.Viewer.IDocumentViewer.ZoomBy(double factor) -> void
+Broadside.Viewer.IDocumentViewer.ZoomTo(Broadside.Viewer.ZoomMode mode) -> void
+Broadside.Viewer.ViewerButtonCommand
+Broadside.Viewer.ViewerButtonCommand.CanExecuteChanged -> System.EventHandler?
+Broadside.Viewer.ViewerButtonCommand.Execute() -> void
+Broadside.Viewer.ViewerButtonCommand.ViewerButtonCommand(string! id, string! label, System.Action! execute, System.Func<bool>? canExecute = null) -> void
+Broadside.Viewer.ViewerChoiceCommand
+Broadside.Viewer.ViewerChoiceCommand.Choices.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.Viewer.ViewerChoiceCommand.Selected.get -> int
+Broadside.Viewer.ViewerChoiceCommand.Selected.set -> void
+Broadside.Viewer.ViewerChoiceCommand.Text.get -> string!
+Broadside.Viewer.ViewerChoiceCommand.ViewerChoiceCommand(string! id, string! label, System.Collections.Generic.IReadOnlyList<string!>! choices, System.Func<int>! selected, System.Action<int>! select, System.Func<bool>? canExecute = null) -> void
+Broadside.Viewer.ViewerCommand
+Broadside.Viewer.ViewerCommand.Changed -> System.EventHandler?
+Broadside.Viewer.ViewerCommand.Error.get -> string?
+Broadside.Viewer.ViewerCommand.Glyph.get -> string?
+Broadside.Viewer.ViewerCommand.Glyph.init -> void
+Broadside.Viewer.ViewerCommand.Id.get -> string!
+Broadside.Viewer.ViewerCommand.IsEnabled.get -> bool
+Broadside.Viewer.ViewerCommand.Label.get -> string!
+Broadside.Viewer.ViewerCommand.Placement.get -> Broadside.Viewer.ViewerCommandPlacement
+Broadside.Viewer.ViewerCommand.Placement.set -> void
+Broadside.Viewer.ViewerCommand.PropertyChanged -> System.ComponentModel.PropertyChangedEventHandler?
+Broadside.Viewer.ViewerCommand.Shortcut.get -> string?
+Broadside.Viewer.ViewerCommand.Shortcut.init -> void
+Broadside.Viewer.ViewerCommand.ToolTip.get -> string?
+Broadside.Viewer.ViewerCommand.ToolTip.init -> void
+Broadside.Viewer.ViewerCommandIds
+Broadside.Viewer.ViewerCommandPlacement
+Broadside.Viewer.ViewerCommandPlacement.Hidden = 2 -> Broadside.Viewer.ViewerCommandPlacement
+Broadside.Viewer.ViewerCommandPlacement.Overflow = 1 -> Broadside.Viewer.ViewerCommandPlacement
+Broadside.Viewer.ViewerCommandPlacement.Primary = 0 -> Broadside.Viewer.ViewerCommandPlacement
+Broadside.Viewer.ViewerPageCommand
+Broadside.Viewer.ViewerPageCommand.PageCount.get -> int
+Broadside.Viewer.ViewerPageCommand.Text.get -> string!
+Broadside.Viewer.ViewerPageCommand.TrySubmit(string! text) -> bool
+Broadside.Viewer.ViewerSearchCommand
+Broadside.Viewer.ViewerSearchCommand.Next() -> void
+Broadside.Viewer.ViewerSearchCommand.Previous() -> void
+Broadside.Viewer.ViewerSearchCommand.Query.get -> string!
+Broadside.Viewer.ViewerSearchCommand.Status.get -> string!
+Broadside.Viewer.ViewerSearchCommand.Submit(string! query, Broadside.Viewer.TextSearchOptions? options = null) -> void
+Broadside.Viewer.ViewerToggleCommand
+Broadside.Viewer.ViewerToggleCommand.IsChecked.get -> bool
+Broadside.Viewer.ViewerToggleCommand.IsChecked.set -> void
+Broadside.Viewer.ViewerToggleCommand.ViewerToggleCommand(string! id, string! label, System.Func<bool>! isChecked, System.Action<bool>! setChecked, System.Func<bool>? canExecute = null) -> void
+Broadside.Viewer.ViewerToolbar
+Broadside.Viewer.ViewerToolbar.Changed -> System.EventHandler?
+Broadside.Viewer.ViewerToolbar.CreateBuiltIn(string! id) -> Broadside.Viewer.ViewerCommand!
+Broadside.Viewer.ViewerToolbar.Dispose() -> void
+Broadside.Viewer.ViewerToolbar.Find(string! id) -> Broadside.Viewer.ViewerCommand?
+Broadside.Viewer.ViewerToolbar.Insert(int index, Broadside.Viewer.ViewerCommand! command) -> void
+Broadside.Viewer.ViewerToolbar.IsVisible.get -> bool
+Broadside.Viewer.ViewerToolbar.Items.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.ViewerCommand!>!
+Broadside.Viewer.ViewerToolbar.Refresh() -> void
+Broadside.Viewer.ViewerToolbar.Remove(string! id) -> bool
+Broadside.Viewer.ViewerToolbar.Viewer.get -> Broadside.Viewer.IDocumentViewer!
+Broadside.Viewer.ViewerToolbar.ViewerToolbar(Broadside.Viewer.IDocumentViewer! viewer, Broadside.Viewer.ViewerToolbarOptions? options = null) -> void
+Broadside.Viewer.ViewerToolbarOptions
+Broadside.Viewer.ViewerToolbarOptions.Compact.get -> bool
+Broadside.Viewer.ViewerToolbarOptions.Compact.set -> void
+Broadside.Viewer.ViewerToolbarOptions.HonorHideToolbar.get -> bool
+Broadside.Viewer.ViewerToolbarOptions.HonorHideToolbar.set -> void
+Broadside.Viewer.ViewerToolbarOptions.Items.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.Viewer.ViewerToolbarOptions.ViewerToolbarOptions() -> void
+Broadside.Viewer.ViewerToolbarOptions.WithCompact(bool compact) -> Broadside.Viewer.ViewerToolbarOptions!
+Broadside.Viewer.ViewerToolbarOptions.WithHonorHideToolbar(bool honor) -> Broadside.Viewer.ViewerToolbarOptions!
+Broadside.Viewer.ViewerToolbarOptions.WithItems(params string![]! ids) -> Broadside.Viewer.ViewerToolbarOptions!
+Broadside.Viewer.ViewerToolbarOptions.WithZoomPresets(params double[]! zooms) -> Broadside.Viewer.ViewerToolbarOptions!
+Broadside.Viewer.ViewerToolbarOptions.ZoomPresets.get -> System.Collections.Generic.IReadOnlyList<double>!
+const Broadside.Viewer.ViewerCommandIds.DarkMode = "darkMode" -> string!
+const Broadside.Viewer.ViewerCommandIds.LayoutMode = "layout.mode" -> string!
+const Broadside.Viewer.ViewerCommandIds.PageNext = "page.next" -> string!
+const Broadside.Viewer.ViewerCommandIds.PageNumber = "page.number" -> string!
+const Broadside.Viewer.ViewerCommandIds.PagePrevious = "page.previous" -> string!
+const Broadside.Viewer.ViewerCommandIds.Rotate = "rotate" -> string!
+const Broadside.Viewer.ViewerCommandIds.Search = "search" -> string!
+const Broadside.Viewer.ViewerCommandIds.ZoomIn = "zoom.in" -> string!
+const Broadside.Viewer.ViewerCommandIds.ZoomMode = "zoom.mode" -> string!
+const Broadside.Viewer.ViewerCommandIds.ZoomOut = "zoom.out" -> string!
+static Broadside.Viewer.ViewerCommandIds.All.get -> System.Collections.Generic.IReadOnlyList<string!>!
+static Broadside.Viewer.ViewerToolbarOptions.DefaultZoomPresets.get -> System.Collections.Generic.IReadOnlyList<double>!
