@@ -35,7 +35,7 @@ namespace Broadside.Viewer.WinUI;
 /// </para>
 /// <para>ISO 32000-2 §12.3.2 (destinations), §12.5.6.5 (link annotations), §12.7 (interactive forms), §14.8, §14.9.3 and §14.11.2.</para>
 /// </remarks>
-public sealed partial class PdfView : UserControl, IDisposable
+public sealed partial class PdfView : UserControl, IDocumentViewer, IDisposable
 {
     /// <summary>The <see cref="Source"/> dependency property: a file path or an http(s) address of the document to show.</summary>
     public static readonly DependencyProperty SourceProperty =
@@ -69,6 +69,7 @@ public sealed partial class PdfView : UserControl, IDisposable
     private bool _loaded;
     private int _openGeneration;
     private bool _disposed;
+    private EventHandler? _viewChanged;
 
     /// <summary>Creates an empty view; set <see cref="Source"/> or <see cref="Session"/> to show a document.</summary>
     public PdfView()
@@ -139,6 +140,7 @@ public sealed partial class PdfView : UserControl, IDisposable
         {
             _layoutOptions = value;
             _controller.SetLayoutOptions(value);
+            _viewChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -155,6 +157,7 @@ public sealed partial class PdfView : UserControl, IDisposable
         {
             _colorFilter = value;
             _controller.SetColorFilter(value);
+            _viewChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -254,6 +257,36 @@ public sealed partial class PdfView : UserControl, IDisposable
 
         return text;
     }
+
+    // ---- IDocumentViewer (#632): what a PdfToolbar drives ----
+
+    /// <inheritdoc/>
+    event EventHandler? IDocumentViewer.ViewChanged
+    {
+        add => _viewChanged += value;
+        remove => _viewChanged -= value;
+    }
+
+    /// <inheritdoc/>
+    DocumentSession? IDocumentViewer.Session => CurrentSession;
+
+    /// <inheritdoc/>
+    int IDocumentViewer.PageIndex => State.PageIndex;
+
+    /// <inheritdoc/>
+    int IDocumentViewer.PageCount => State.PageCount;
+
+    /// <inheritdoc/>
+    double IDocumentViewer.Zoom => State.Zoom;
+
+    /// <inheritdoc/>
+    PageLabelTable? IDocumentViewer.PageLabels => null;
+
+    /// <inheritdoc/>
+    void IDocumentViewer.GoTo(ViewTarget target) => _controller.GoTo(target);
+
+    /// <inheritdoc/>
+    void IDocumentViewer.SetLayout(PageLayoutOptions options) => LayoutOptions = options;
 
     /// <summary>Closes the document and releases the tiles.</summary>
     public void Dispose()
@@ -721,7 +754,11 @@ public sealed partial class PdfView : UserControl, IDisposable
 
         public void Present(ViewerFrame frame) => view.Present(frame);
 
-        public void StateChanged(PdfViewState state) => view.StateChanged?.Invoke(view, new PdfViewStateChangedEventArgs(state));
+        public void StateChanged(PdfViewState state)
+        {
+            view.StateChanged?.Invoke(view, new PdfViewStateChangedEventArgs(state));
+            view._viewChanged?.Invoke(view, EventArgs.Empty);
+        }
 
         public void ActionRequested(ViewerActionEventArgs e) => view.ActionRequested?.Invoke(view, e);
 

@@ -15,7 +15,7 @@ namespace Broadside.Layout;
 /// edit.
 /// </para>
 /// </remarks>
-public sealed class LayoutTree
+public sealed partial class LayoutTree
 {
     internal LayoutTree(LayoutNode root, LayoutPage[] pages)
     {

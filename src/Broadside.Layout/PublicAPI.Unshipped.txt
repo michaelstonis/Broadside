@@ -1,1 +1,50 @@
 #nullable enable
+Broadside.Layout.Flow.Barcode
+Broadside.Layout.Flow.Barcode.Columns.get -> int
+Broadside.Layout.Flow.Barcode.Data.get -> string!
+Broadside.Layout.Flow.Barcode.HumanReadableText.get -> string?
+Broadside.Layout.Flow.Barcode.IsDark(int column, int row) -> bool
+Broadside.Layout.Flow.Barcode.IsLinear.get -> bool
+Broadside.Layout.Flow.Barcode.Kind.get -> Broadside.Layout.Flow.BarcodeKind
+Broadside.Layout.Flow.Barcode.QuietZone.get -> int
+Broadside.Layout.Flow.Barcode.Rows.get -> int
+Broadside.Layout.Flow.BarcodeCanvasExtensions
+Broadside.Layout.Flow.BarcodeCanvasExtensions.extension(Broadside.Graphics.PdfCanvas!)
+Broadside.Layout.Flow.BarcodeCanvasExtensions.extension(Broadside.Graphics.PdfCanvas!).DrawBarcode(Broadside.Layout.Flow.Barcode! barcode, Broadside.PdfRectangle box, Broadside.Layout.Flow.BarcodeOptions? options = null) -> void
+Broadside.Layout.Flow.BarcodeKind
+Broadside.Layout.Flow.BarcodeKind.Code128 = 0 -> Broadside.Layout.Flow.BarcodeKind
+Broadside.Layout.Flow.BarcodeKind.Code39 = 2 -> Broadside.Layout.Flow.BarcodeKind
+Broadside.Layout.Flow.BarcodeKind.DataMatrix = 6 -> Broadside.Layout.Flow.BarcodeKind
+Broadside.Layout.Flow.BarcodeKind.Ean13 = 3 -> Broadside.Layout.Flow.BarcodeKind
+Broadside.Layout.Flow.BarcodeKind.Gs1128 = 1 -> Broadside.Layout.Flow.BarcodeKind
+Broadside.Layout.Flow.BarcodeKind.QrCode = 5 -> Broadside.Layout.Flow.BarcodeKind
+Broadside.Layout.Flow.BarcodeKind.UpcA = 4 -> Broadside.Layout.Flow.BarcodeKind
+Broadside.Layout.Flow.BarcodeOptions
+Broadside.Layout.Flow.BarcodeOptions.Background.get -> Broadside.Graphics.PdfColor?
+Broadside.Layout.Flow.BarcodeOptions.BarcodeOptions() -> void
+Broadside.Layout.Flow.BarcodeOptions.Font.get -> Broadside.Fonts.PdfCanvasFont?
+Broadside.Layout.Flow.BarcodeOptions.FontSize.get -> double
+Broadside.Layout.Flow.BarcodeOptions.Foreground.get -> Broadside.Graphics.PdfColor
+Broadside.Layout.Flow.BarcodeOptions.IncludeQuietZone.get -> bool
+Broadside.Layout.Flow.BarcodeOptions.ShowText.get -> bool
+Broadside.Layout.Flow.BarcodeOptions.WithBackground(Broadside.Graphics.PdfColor? color) -> Broadside.Layout.Flow.BarcodeOptions!
+Broadside.Layout.Flow.BarcodeOptions.WithFont(Broadside.Fonts.PdfCanvasFont! font, double size) -> Broadside.Layout.Flow.BarcodeOptions!
+Broadside.Layout.Flow.BarcodeOptions.WithForeground(Broadside.Graphics.PdfColor color) -> Broadside.Layout.Flow.BarcodeOptions!
+Broadside.Layout.Flow.BarcodeOptions.WithQuietZone(bool include) -> Broadside.Layout.Flow.BarcodeOptions!
+Broadside.Layout.Flow.BarcodeOptions.WithText(bool show) -> Broadside.Layout.Flow.BarcodeOptions!
+Broadside.Layout.Flow.ContainerBuilder.Barcode(Broadside.Layout.Flow.Barcode! barcode, Broadside.Layout.Flow.Length width, Broadside.Layout.Flow.Length height, string? alternateText = null, Broadside.Layout.Flow.BarcodeOptions? options = null) -> Broadside.Layout.Flow.DrawingElement
+Broadside.Layout.Flow.QrErrorCorrection
+Broadside.Layout.Flow.QrErrorCorrection.High = 3 -> Broadside.Layout.Flow.QrErrorCorrection
+Broadside.Layout.Flow.QrErrorCorrection.Low = 0 -> Broadside.Layout.Flow.QrErrorCorrection
+Broadside.Layout.Flow.QrErrorCorrection.Medium = 1 -> Broadside.Layout.Flow.QrErrorCorrection
+Broadside.Layout.Flow.QrErrorCorrection.Quartile = 2 -> Broadside.Layout.Flow.QrErrorCorrection
+static Broadside.Layout.Flow.Barcode.Code128(string! data) -> Broadside.Layout.Flow.Barcode!
+static Broadside.Layout.Flow.Barcode.Code39(string! data, bool checkDigit = false) -> Broadside.Layout.Flow.Barcode!
+static Broadside.Layout.Flow.Barcode.DataMatrix(string! data) -> Broadside.Layout.Flow.Barcode!
+static Broadside.Layout.Flow.Barcode.Ean13(string! digits) -> Broadside.Layout.Flow.Barcode!
+static Broadside.Layout.Flow.Barcode.Gs1128(string! data) -> Broadside.Layout.Flow.Barcode!
+static Broadside.Layout.Flow.Barcode.QrCode(string! data) -> Broadside.Layout.Flow.Barcode!
+static Broadside.Layout.Flow.Barcode.QrCode(string! data, Broadside.Layout.Flow.QrErrorCorrection level) -> Broadside.Layout.Flow.Barcode!
+static Broadside.Layout.Flow.Barcode.QrCode(System.ReadOnlySpan<byte> data) -> Broadside.Layout.Flow.Barcode!
+static Broadside.Layout.Flow.Barcode.QrCode(System.ReadOnlySpan<byte> data, Broadside.Layout.Flow.QrErrorCorrection level) -> Broadside.Layout.Flow.Barcode!
+static Broadside.Layout.Flow.Barcode.UpcA(string! digits) -> Broadside.Layout.Flow.Barcode!

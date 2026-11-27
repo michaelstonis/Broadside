@@ -10,6 +10,7 @@ ExtractWordsWithPositions();
 ChooseTheReadingOrder();
 WalkTheLayoutTree();
 FindTables();
+WriteMarkdownAndJson();
 SearchText();
 SearchWithARegularExpression();
 Sample.Finish();
@@ -104,6 +105,23 @@ static void FindTables()
     #endregion
 
     Sample.Expect(Descendants(layout.Root).OfType<LayoutTable>().Any(), "a table detected");
+}
+
+static void WriteMarkdownAndJson()
+{
+    #region markdown-json
+    // Markdown keeps the headings, lists and tables a language model reads better with; JSON keeps the whole tree for a pipeline.
+    using PdfDocument document = PdfDocument.Open("layout-tables.pdf");
+    string markdown = document.ExtractMarkdown(new MarkdownSaveOptions().WithPageBreaks(true));
+    Console.WriteLine(markdown);
+
+    LayoutTree layout = document.ExtractLayout();
+    using var json = new MemoryStream();
+    layout.SaveJson(json, new LayoutJsonOptions().WithBounds(true));
+    Console.WriteLine($"{json.Length} bytes of layout JSON");
+    #endregion
+
+    Sample.Expect(markdown.Contains("| --- |", StringComparison.Ordinal), "a pipe table written");
 }
 
 static void SearchText()

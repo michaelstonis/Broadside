@@ -342,6 +342,17 @@ internal sealed class ViewerController : IDisposable
         }
     }
 
+    /// <summary>Shows a resolved destination (an outline entry's target, a named destination): its page, zoom and position (#632).</summary>
+    public void GoTo(ViewTarget target)
+    {
+        if (_zoom is not null && _input is not null)
+        {
+            _interacted = true;
+            _zoom.SetViewport(target.GetViewport(_zoom.Layout, _input.Viewport, _input.ActualSize, _zoom.MinZoom, _zoom.MaxZoom));
+            Wake();
+        }
+    }
+
     /// <summary>Scrolls the least distance that shows an area of a page (a search match), with a margin; a page off screen is centred.</summary>
     public void Reveal(int pageIndex, PdfRectangle area)
     {
