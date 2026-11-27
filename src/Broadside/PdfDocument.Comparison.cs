@@ -7,9 +7,6 @@ namespace Broadside;
 /// <content>Comparing two documents' text and marking the changes up (issue #644).</content>
 public sealed partial class PdfDocument
 {
-    private static readonly PdfDeviceColor InsertionColor = new(1, 0.95, 0.2);
-    private static readonly PdfDeviceColor DeletionColor = new(0.9, 0.1, 0.1);
-
     /// <summary>
     /// Compares this document's words, as the old version, with <paramref name="other"/>'s, as the new one, and returns what was
     /// inserted, deleted and changed, with the words' pages and quads on each side.
@@ -74,6 +71,9 @@ public sealed partial class PdfDocument
             }
         }
 
+        // Made here rather than in static fields, so a trimmed app that never compares keeps none of it.
+        var insertionColor = new PdfDeviceColor(1, 0.95, 0.2);
+        var deletionColor = new PdfDeviceColor(0.9, 0.1, 0.1);
         int added = 0;
         foreach (TextChange change in comparison.Changes)
         {
@@ -94,7 +94,7 @@ public sealed partial class PdfDocument
             }
 
             PdfAnnotationOptions annotation = new PdfAnnotationOptions()
-                .WithColor(isNewSide ? InsertionColor : DeletionColor)
+                .WithColor(isNewSide ? insertionColor : deletionColor)
                 .WithSubject(change.Kind.ToString())
                 .WithContents(counterpart.Length > 0 ? counterpart : null);
             PdfPage target = Pages[page];

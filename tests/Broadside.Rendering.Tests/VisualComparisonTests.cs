@@ -6,6 +6,8 @@ namespace Broadside.Rendering.Tests;
 /// <summary>Visual comparison of two rendered pages (issue #644): changed pixels, their fraction, regions and the overlay.</summary>
 public sealed class VisualComparisonTests
 {
+    private static readonly PdfEngine SnapshotEngine = new(new PdfOptions().UseStandard14Fonts().UseSystemFontResolver(null));
+
     private const double Tolerance = 1.0; // points: a region's bounds are whole pixels at 96 DPI, 0.75 point each
 
     [Fact]
@@ -67,8 +69,9 @@ public sealed class VisualComparisonTests
     [Fact]
     public async Task The_overlay_of_the_corpus_pair_matches_its_reviewed_snapshot()
     {
-        using PdfDocument old = await PdfDocument.OpenAsync(Corpus.Bytes("compare-old.pdf"), TestContext.Current.CancellationToken);
-        using PdfDocument @new = await PdfDocument.OpenAsync(Corpus.Bytes("compare-new.pdf"), TestContext.Current.CancellationToken);
+        // The bundled Standard 14 fonts and no system fonts, so the words render alike on every platform.
+        using PdfDocument old = await SnapshotEngine.OpenAsync(Corpus.Bytes("compare-old.pdf"), TestContext.Current.CancellationToken);
+        using PdfDocument @new = await SnapshotEngine.OpenAsync(Corpus.Bytes("compare-new.pdf"), TestContext.Current.CancellationToken);
 
         using VisualComparison comparison = VisualComparison.Compare(old.Pages[0], @new.Pages[0], new VisualComparisonOptions().WithDpi(72));
 
