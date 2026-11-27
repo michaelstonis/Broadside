@@ -12,13 +12,13 @@
     },
     "osx-arm64": {
       "empty": 1102768,
-      "extract-text": 6622200,
-      "fill-form": 7749744,
-      "open-metadata": 4650824,
-      "open-metadata-no-image-codecs": 3788416,
-      "render": 7799600,
-      "save": 7218928,
-      "sign": 8001136
+      "extract-text": 6655368,
+      "fill-form": 7799472,
+      "open-metadata": 4700504,
+      "open-metadata-no-image-codecs": 3821600,
+      "render": 7849312,
+      "save": 7268624,
+      "sign": 8034320
     },
     "win-x64": {
       "empty": 933376,
