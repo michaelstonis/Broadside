@@ -246,3 +246,36 @@ static Broadside.Text.SearchableText.Create(Broadside.Text.TextPage! page) -> Br
 static Broadside.Text.SearchableText.Empty.get -> Broadside.Text.SearchableText!
 static Broadside.Text.TextQuery.FromRegex(string! pattern) -> Broadside.Text.TextQuery!
 static Broadside.Text.TextQuery.FromRegex(System.Text.RegularExpressions.Regex! regex) -> Broadside.Text.TextQuery!
+static Broadside.Diagnostics.DocumentDiagnostics.InvoiceMetadataInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SavingDiagnostics.InvoiceNotPdfA3.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.PdfDocument.AttachInvoice(System.ReadOnlySpan<byte> invoiceXml, Broadside.PdfInvoiceOptions? options = null) -> Broadside.PdfEmbeddedFileEntry!
+Broadside.PdfDocument.ExtractInvoice() -> Broadside.PdfInvoiceAttachment?
+Broadside.PdfInvoiceAttachment
+Broadside.PdfInvoiceAttachment.File.get -> Broadside.PdfEmbeddedFileEntry!
+Broadside.PdfInvoiceAttachment.GetXml() -> System.ReadOnlyMemory<byte>
+Broadside.PdfInvoiceAttachment.Profile.get -> Broadside.PdfInvoiceProfile?
+Broadside.PdfInvoiceAttachment.Version.get -> string?
+Broadside.PdfInvoiceOptions
+Broadside.PdfInvoiceOptions.FileName.get -> string?
+Broadside.PdfInvoiceOptions.FileName.set -> void
+Broadside.PdfInvoiceOptions.ModificationDate.get -> System.DateTimeOffset?
+Broadside.PdfInvoiceOptions.ModificationDate.set -> void
+Broadside.PdfInvoiceOptions.PdfInvoiceOptions() -> void
+Broadside.PdfInvoiceOptions.Profile.get -> Broadside.PdfInvoiceProfile
+Broadside.PdfInvoiceOptions.Profile.set -> void
+Broadside.PdfInvoiceOptions.Relationship.get -> Broadside.PdfFileRelationship?
+Broadside.PdfInvoiceOptions.Relationship.set -> void
+Broadside.PdfInvoiceOptions.Version.get -> string!
+Broadside.PdfInvoiceOptions.Version.set -> void
+Broadside.PdfInvoiceOptions.WithFileName(string? name) -> Broadside.PdfInvoiceOptions!
+Broadside.PdfInvoiceOptions.WithModificationDate(System.DateTimeOffset? date) -> Broadside.PdfInvoiceOptions!
+Broadside.PdfInvoiceOptions.WithProfile(Broadside.PdfInvoiceProfile profile) -> Broadside.PdfInvoiceOptions!
+Broadside.PdfInvoiceOptions.WithRelationship(Broadside.PdfFileRelationship? relationship) -> Broadside.PdfInvoiceOptions!
+Broadside.PdfInvoiceOptions.WithVersion(string! version) -> Broadside.PdfInvoiceOptions!
+Broadside.PdfInvoiceProfile
+Broadside.PdfInvoiceProfile.Basic = 2 -> Broadside.PdfInvoiceProfile
+Broadside.PdfInvoiceProfile.BasicWl = 1 -> Broadside.PdfInvoiceProfile
+Broadside.PdfInvoiceProfile.EN16931 = 3 -> Broadside.PdfInvoiceProfile
+Broadside.PdfInvoiceProfile.Extended = 4 -> Broadside.PdfInvoiceProfile
+Broadside.PdfInvoiceProfile.Minimum = 0 -> Broadside.PdfInvoiceProfile
+Broadside.PdfInvoiceProfile.XRechnung = 5 -> Broadside.PdfInvoiceProfile

@@ -38,7 +38,21 @@ public sealed partial class PdfDocument
     {
         ArgumentException.ThrowIfNullOrEmpty(fileName);
         options ??= new PdfEmbeddedFileOptions();
+        CosDictionary specification = [];
+        CosStream stream = new(new CosDictionary(), ReadOnlyMemory<byte>.Empty);
+        CosReference streamReference = AddObject(stream);
+        FillEmbeddedFile(specification, stream, streamReference, fileName, contents, options);
+        CosReference reference = AddObject(specification);
+        return new PdfFileSpecification(this, specification, reference);
+    }
 
+    /// <summary>
+    /// Writes the entries of <see cref="CreateEmbeddedFile"/> into an existing file specification and embedded file stream, replacing
+    /// whatever they held, and records the minimum versions they need: so a replaced attachment keeps its object numbers (issue
+    /// #630, where an incremental update could not drop the replaced objects).
+    /// </summary>
+    private void FillEmbeddedFile(CosDictionary specification, CosStream stream, CosReference streamReference, string fileName, ReadOnlySpan<byte> contents, PdfEmbeddedFileOptions options)
+    {
         var parameters = new CosDictionary { [FileAndLayerNames.Size] = new CosInteger(contents.Length) };
         if (options.CreationDate is { } created)
         {
@@ -54,22 +68,18 @@ public sealed partial class PdfDocument
         Md5.HashData(contents, checkSum);
         parameters[FileAndLayerNames.CheckSum] = new CosString(checkSum, hexadecimal: true);
 
-        var streamDictionary = new CosDictionary
-        {
-            [FileAndLayerNames.Type] = FileAndLayerNames.EmbeddedFile,
-            [FileAndLayerNames.Subtype] = new CosName(options.MediaType ?? "application/octet-stream"),
-            [FileAndLayerNames.Params] = parameters,
-        };
-        CosReference stream = AddObject(new CosStream(streamDictionary, contents.ToArray()));
+        stream.Dictionary.Clear();
+        stream.Dictionary[FileAndLayerNames.Type] = FileAndLayerNames.EmbeddedFile;
+        stream.Dictionary[FileAndLayerNames.Subtype] = new CosName(options.MediaType ?? "application/octet-stream");
+        stream.Dictionary[FileAndLayerNames.Params] = parameters;
+        stream.EncodedData = contents.ToArray();
 
         string escaped = fileName.Replace("/", "\\/", StringComparison.Ordinal);
-        var specification = new CosDictionary
-        {
-            [FileAndLayerNames.Type] = FileAndLayerNames.Filespec,
-            [FileAndLayerNames.F] = new CosString(PdfDocFileName(escaped)),
-            [FileAndLayerNames.UF] = new CosString(TextStringEncoder.Encode(escaped)),
-            [FileAndLayerNames.EF] = new CosDictionary { [FileAndLayerNames.F] = stream, [FileAndLayerNames.UF] = stream },
-        };
+        specification.Clear();
+        specification[FileAndLayerNames.Type] = FileAndLayerNames.Filespec;
+        specification[FileAndLayerNames.F] = new CosString(PdfDocFileName(escaped));
+        specification[FileAndLayerNames.UF] = new CosString(TextStringEncoder.Encode(escaped));
+        specification[FileAndLayerNames.EF] = new CosDictionary { [FileAndLayerNames.F] = streamReference, [FileAndLayerNames.UF] = streamReference };
         if (options.Description is { } description)
         {
             specification[FileAndLayerNames.Desc] = new CosString(TextStringEncoder.Encode(description));
@@ -79,8 +89,6 @@ public sealed partial class PdfDocument
         {
             specification[FileAndLayerNames.AFRelationship] = new CosName(relationship.ToString());
         }
-
-        CosReference reference = AddObject(specification);
 
         // The minimum versions a save raises the document to (issue #141).
         RequireFeature(VersionedFeatures.EmbeddedFileStream);
@@ -94,8 +102,6 @@ public sealed partial class PdfDocument
         {
             RequireFeature(VersionedFeatures.AssociatedFiles);
         }
-
-        return new PdfFileSpecification(this, specification, reference);
     }
 
     /// <summary>

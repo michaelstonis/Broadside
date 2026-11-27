@@ -11,6 +11,7 @@ Sample.Start("Accessibility and conformance");
 WriteAccessibleReport();
 TagAnExistingFile();
 WriteArchivalFile();
+AttachAnInvoice();
 ConvertToPdfA();
 Sample.Finish();
 
@@ -86,6 +87,42 @@ static void WriteArchivalFile()
     Sample.Expect(!Problems(document).Any(), $"PDF/A-2b by the library's check: {string.Join("; ", Problems(document))}");
 }
 
+static void AttachAnInvoice()
+{
+    File.WriteAllText("factur-x.xml", """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
+            xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100">
+          <rsm:ExchangedDocument><ram:ID>INV-42</ram:ID><ram:TypeCode>380</ram:TypeCode></rsm:ExchangedDocument>
+        </rsm:CrossIndustryInvoice>
+        """);
+
+    #region einvoice
+    using PdfDocument document = PdfDocument.Create();
+    PdfCanvasFont sans = document.EmbedFont(File.ReadAllBytes("LiberationSans-Regular.ttf"));
+    using (PdfCanvas canvas = document.Pages[0].CreateCanvas())
+    {
+        canvas.BeginText();
+        canvas.SetFont(sans, 14);
+        canvas.MoveText(72, 720);
+        canvas.ShowText("Invoice INV-42"); // the human-readable invoice
+        canvas.EndText();
+    }
+
+    // The CII XML your invoicing system produced: embedded, associated with the document and described in the XMP packet.
+    byte[] xml = File.ReadAllBytes("factur-x.xml");
+    document.AttachInvoice(xml, new PdfInvoiceOptions().WithProfile(PdfInvoiceProfile.EN16931));
+    document.Properties.Title = "Invoice INV-42";
+    document.Save("invoice-pdfa3b.pdf", new PdfSaveOptions().WithPdfAConformance(PdfAConformance.PdfA3b));
+
+    using PdfDocument received = PdfDocument.Open("invoice-pdfa3b.pdf");
+    PdfInvoiceAttachment? invoice = received.ExtractInvoice();
+    Console.WriteLine($"{invoice?.File.Name}: profile {invoice?.Profile}, {invoice?.GetXml().Length} bytes");
+    #endregion
+
+    Sample.Expect(!Problems(document).Any() && invoice?.Profile == PdfInvoiceProfile.EN16931, $"a PDF/A-3b e-invoice: {string.Join("; ", Problems(document))}");
+}
+
 static void ConvertToPdfA()
 {
     #region pdfa-convert
@@ -113,7 +150,7 @@ static void ConvertToPdfA()
 
 // What a PDF/A or PDF/UA save reports when the file does not conform.
 static IEnumerable<string> Problems(PdfDocument document) =>
-    document.Diagnostics.Where(d => d.Code is "PdfANonConformant" or "PdfUANonConformant" or "PdfUANotIdentified").Select(d => d.Message);
+    document.Diagnostics.Where(d => d.Code is "PdfANonConformant" or "PdfUANonConformant" or "PdfUANotIdentified" or "InvoiceNotPdfA3").Select(d => d.Message);
 
 // A small chart image for the report.
 static Broadside.Images.PdfImage Chart(PdfDocument document) => document.CreateImage(

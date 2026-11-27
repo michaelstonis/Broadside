@@ -56,6 +56,7 @@
   encrypted-user-password.pdf,
   encrypted-wrapper.pdf,
   extgstate-params.pdf,
+  factur-x-minimal.pdf,
   filter-chain.pdf,
   flate-stream.pdf,
   form-xobject-nested.pdf,
