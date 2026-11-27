@@ -166,6 +166,7 @@ internal static class SeedWriter
         "mac-token" => MacTokens(file),
         "cms" => SignatureContents(file),
         "timestamp-response" => [TimestampResponseTarget.ValidResponse()],
+        "prepared-signature-state" => [PreparedSignatureStateTarget.ValidState()],
         "ocsp-response" => SignatureContents(file).SelectMany(static contents => Revocation(contents, ocsp: true)),
         "crl" => SignatureContents(file).SelectMany(static contents => Revocation(contents, ocsp: false)),
         "default-appearance" => DefaultAppearances(file),

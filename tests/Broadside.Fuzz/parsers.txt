@@ -97,5 +97,6 @@ Broadside.Rendering.Icc.IccProfile                      icc-profile
 # Signatures
 Broadside.Signatures.Validation.CmsSignature            cms signature-validation public-key
 Broadside.Signatures.TimestampProtocol                  timestamp-response
+Broadside.Signatures.PdfPreparedSignature              prepared-signature-state
 Broadside.Signatures.Validation.OcspResponse            ocsp-response cms
 Broadside.Signatures.Validation.RevocationList          crl cms

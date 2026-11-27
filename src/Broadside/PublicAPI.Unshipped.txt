@@ -328,3 +328,16 @@ Broadside.PdfInvoiceProfile.EN16931 = 3 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.Extended = 4 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.Minimum = 0 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.XRechnung = 5 -> Broadside.PdfInvoiceProfile
+Broadside.PdfDocument.PrepareSignature(System.IO.Stream! stream, System.Security.Cryptography.X509Certificates.X509Certificate2! certificate, System.Collections.Generic.IReadOnlyList<System.Security.Cryptography.X509Certificates.X509Certificate2!>? chain = null, Broadside.Signatures.PdfSignatureOptions? options = null, System.Security.Cryptography.RSASignaturePadding? rsaSignaturePadding = null) -> Broadside.Signatures.PdfPreparedSignature!
+static Broadside.PdfDocument.CompleteSignature(System.IO.Stream! preparedFile, Broadside.Signatures.PdfPreparedSignature! prepared, System.ReadOnlySpan<byte> signatureValue, Broadside.Signatures.PdfTimestampClient? timestampClient = null) -> void
+static Broadside.PdfDocument.CompleteSignatureAsync(System.IO.Stream! preparedFile, Broadside.Signatures.PdfPreparedSignature! prepared, System.ReadOnlyMemory<byte> signatureValue, Broadside.Signatures.PdfTimestampClient? timestampClient = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+static Broadside.PdfDocument.CompleteSignatureWithCms(System.IO.Stream! preparedFile, Broadside.Signatures.PdfPreparedSignature! prepared, System.ReadOnlySpan<byte> cms) -> void
+Broadside.Signatures.PdfPreparedSignature
+Broadside.Signatures.PdfPreparedSignature.DataToSign.get -> System.ReadOnlyMemory<byte>
+Broadside.Signatures.PdfPreparedSignature.DigestAlgorithm.get -> System.Security.Cryptography.HashAlgorithmName
+Broadside.Signatures.PdfPreparedSignature.FieldName.get -> string!
+Broadside.Signatures.PdfPreparedSignature.ReservedLength.get -> int
+Broadside.Signatures.PdfPreparedSignature.RsaSignaturePadding.get -> System.Security.Cryptography.RSASignaturePadding?
+Broadside.Signatures.PdfPreparedSignature.Save(System.IO.Stream! state) -> void
+Broadside.Signatures.PdfPreparedSignature.SignedAttributes.get -> System.ReadOnlyMemory<byte>
+static Broadside.Signatures.PdfPreparedSignature.Open(System.IO.Stream! state) -> Broadside.Signatures.PdfPreparedSignature!
