@@ -370,7 +370,7 @@
     "Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk(File: \"encrypted-user-password.pdf\")": 49696,
     "Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk(File: \"encrypted-wrapper.pdf\")": 29944,
     "Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk(File: \"extgstate-params.pdf\")": 37832,
-    "Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk(File: \"factur-x-minimal.pdf\")": 72808,
+    "Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk(File: \"factur-x-minimal.pdf\")": 73400,
     "Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk(File: \"filter-chain.pdf\")": 21216,
     "Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk(File: \"flate-stream.pdf\")": 20664,
     "Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk(File: \"form-xobject-nested.pdf\")": 30888,
