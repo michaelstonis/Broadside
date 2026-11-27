@@ -328,3 +328,12 @@ Broadside.PdfInvoiceProfile.EN16931 = 3 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.Extended = 4 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.Minimum = 0 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.XRechnung = 5 -> Broadside.PdfInvoiceProfile
+Broadside.PdfDocument.CreateImageFromBmp(System.ReadOnlySpan<byte> bmp) -> Broadside.Images.PdfImage!
+Broadside.PdfDocument.CreateImageFromGif(System.ReadOnlySpan<byte> gif) -> Broadside.Images.PdfImage!
+Broadside.PdfDocument.CreateImageFromTiff(System.ReadOnlySpan<byte> tiff, int pageIndex) -> Broadside.Images.PdfImage!
+Broadside.PdfDocument.CreateImages(System.ReadOnlySpan<byte> encoded) -> System.Collections.Generic.IReadOnlyList<Broadside.Images.PdfImage!>!
+Broadside.PdfDocument.CreateImagesFromTiff(System.ReadOnlySpan<byte> tiff) -> System.Collections.Generic.IReadOnlyList<Broadside.Images.PdfImage!>!
+Broadside.PdfImagePageExtensions
+Broadside.PdfImagePageExtensions.extension(Broadside.PdfDocument!)
+Broadside.PdfImagePageExtensions.extension(Broadside.PdfDocument!).AppendImagePages(System.ReadOnlySpan<byte> encoded) -> void
+static Broadside.Diagnostics.ImageDiagnostics.ImageImportRepaired.get -> Broadside.Diagnostics.DiagnosticCode!

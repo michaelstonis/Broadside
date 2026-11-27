@@ -14,6 +14,7 @@
     <None Include="../../../src/Broadside.Fonts.Standard14/Fonts/LiberationSans-Regular.ttf" Link="LiberationSans-Regular.ttf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../../src/Broadside.Fonts.Standard14/Fonts/LiberationSans-Bold.ttf" Link="LiberationSans-Bold.ttf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../Broadside.BuilderSamples/assets/logo.png" Link="logo.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../../tests/Broadside.Tests/Images/Import/multipage.tif" Link="scans.tif" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

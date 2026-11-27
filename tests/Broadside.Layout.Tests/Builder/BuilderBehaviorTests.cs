@@ -206,6 +206,25 @@ public sealed class BuilderBehaviorTests
     }
 
     [Fact]
+    public void Tiff_gif_and_bmp_sources_draw_their_first_page_or_frame()
+    {
+        byte[] gray = ImportSamples.Pack(8, 4, 8, 1, (x, y, _) => x * y * 8);
+        ImageSource tiff = ImageSource.FromBytes(ImportSamples.Tiff(new TiffPage(8, 4, 1, 8, 1, gray), new TiffPage(8, 4, 1, 8, 1, gray) { Compression = 5 }));
+        ImageSource gif = ImageSource.FromBytes(ImportSamples.Gif(8, 4, new byte[32], new byte[6]));
+        ImageSource bmp = ImageSource.FromBytes(ImportSamples.Bmp24(8, 4, new byte[96]));
+
+        using PdfDocument pdf = PdfDocument.Create(doc => doc.WithTitle("t").WithLanguage("en").Content(c =>
+        {
+            c.Image(tiff, "A scan").Width(20.Mm);
+            c.Image(gif, "A GIF").Width(20.Mm);
+            c.Image(bmp, "A bitmap").Width(20.Mm);
+        }));
+
+        Assert.Equal(3, CountOf(System.Text.Encoding.Latin1.GetString(Save(pdf)), "/Subtype /Image"));
+        Assert.Throws<ArgumentException>(() => ImageSource.FromBytes("not an image"u8.ToArray()));
+    }
+
+    [Fact]
     public void Programming_errors_throw_at_the_call()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => PdfDocument.Create(doc => doc.Content(c => c.Heading(7, "x"))));
