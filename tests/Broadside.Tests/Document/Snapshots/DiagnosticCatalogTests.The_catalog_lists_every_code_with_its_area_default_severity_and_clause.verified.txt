@@ -606,3 +606,8 @@ Layout	DocumentMetadataKept	Information	ISO 32000-2 §14.3.3
 Layout	AnchorNotFound	Warning	ISO 32000-2 §12.3.2.4
 Layout	AnchorDuplicate	Warning	ISO 32000-2 §12.3.2.4
 Layout	ForwardReferencesNotConverged	Warning	ISO 32000-2 §7.7.3.3
+Redaction	RedactionImageRemovedWhole	Warning	ISO 32000-2 §8.9.5
+Redaction	RedactionTextRemovedWhole	Warning	ISO 32000-2 §9.4.3
+Redaction	RedactionFormRemovedWhole	Warning	ISO 32000-2 §8.10.1
+Redaction	RedactionFormCopied	Information	ISO 32000-2 §8.10.1
+Redaction	RedactionInvalidatesSignatures	Information	ISO 32000-2 §12.8

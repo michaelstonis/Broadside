@@ -99,4 +99,7 @@ public enum DiagnosticArea
 
     /// <summary>Flow layout and building documents (<see cref="LayoutDiagnostics"/>; ISO 32000-2 §7.7.3.3, §8.4.2, §14.6).</summary>
     Layout,
+
+    /// <summary>Applying redaction (<see cref="RedactionDiagnostics"/>; ISO 32000-2 §12.5.6.23).</summary>
+    Redaction,
 }
