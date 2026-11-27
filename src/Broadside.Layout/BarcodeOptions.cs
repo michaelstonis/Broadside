@@ -7,6 +7,7 @@ namespace Broadside.Layout.Flow;
 /// How <see cref="BarcodeCanvasExtensions.DrawBarcode"/> paints a barcode: the colors, whether a linear symbol has its text under it, the
 /// font of that text, and whether the quiet zone is kept inside the box. Immutable: each <c>With*</c> returns a new instance.
 /// </summary>
+/// <remarks>ISO 32000-2 §8.5.3 (filling, in the <see cref="Foreground"/> color) and §9.4 (the human-readable text).</remarks>
 public sealed class BarcodeOptions
 {
     private static readonly PdfColor Black = PdfColor.FromGray(0);

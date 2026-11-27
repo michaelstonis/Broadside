@@ -4,6 +4,7 @@ using Broadside.Graphics;
 namespace Broadside.Layout.Flow;
 
 /// <summary>Draws a <see cref="Barcode"/> on any <see cref="PdfCanvas"/>: a page, a form XObject, a drawing callback or a page template.</summary>
+/// <remarks>ISO 32000-2 §8.5.2 and §8.5.3: rectangles (<c>re</c>) filled with <c>f</c>.</remarks>
 [SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "C# 14 extension blocks, which the analyzer sees as nested types.")]
 public static class BarcodeCanvasExtensions
 {

@@ -3,6 +3,7 @@ using System.Text;
 namespace Broadside.Layout.Flow;
 
 /// <summary>A barcode symbology <see cref="Barcode"/> encodes.</summary>
+/// <remarks>ISO/IEC 15417, ISO/IEC 16388, ISO/IEC 15420, ISO/IEC 18004 and ISO/IEC 16022, and the GS1 General Specifications for GS1-128.</remarks>
 public enum BarcodeKind
 {
     /// <summary>Code 128 (ISO/IEC 15417).</summary>
