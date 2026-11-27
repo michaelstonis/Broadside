@@ -1517,6 +1517,7 @@ public sealed partial class PdfDocument : IDisposable
         }
 
         ReportAccessibilityNotWritten(options, accessible);
+        ReportInvoiceSave(options, archival);
 
         // What the save changes from here on is recorded, so a refusal after it (the plan made again over the changed document can
         // still refuse: an information dictionary the dating adds may take a number past the limit, issue #371) leaves the document

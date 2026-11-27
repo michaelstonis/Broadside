@@ -124,6 +124,7 @@ Document	CatalogTypeInvalid	Warning	ISO 32000-2 §7.7.2
 Document	CatalogVersionNotName	Warning	ISO 32000-2 §7.7.2
 Document	CatalogVersionInvalid	Warning	ISO 32000-2 §7.7.2
 Document	PagesMissing	Error	ISO 32000-2 §7.7.2
+Document	InvoiceMetadataInvalid	Information	ISO 19005-3 §6.6; Factur-X 1.0 and ZUGFeRD 2.x
 Page	PageTreeNodeTypeInvalid	Warning	ISO 32000-2 §7.7.3
 Page	PageTreeKidsInvalid	Error	ISO 32000-2 §7.7.3
 Page	PageTreeKidInvalid	Error	ISO 32000-2 §7.7.3
@@ -149,6 +150,7 @@ Saving	PdfUANotIdentified	Information	ISO 14289-1 (PDF/UA-1); veraPDF validation
 Saving	WellTaggedNonConformant	Warning	Well-Tagged PDF 1.0; veraPDF validation profiles
 Saving	WellTaggedNotDeclared	Information	Well-Tagged PDF 1.0; veraPDF validation profiles
 Saving	ConformanceOverridden	Information	ISO 19005 (PDF/A); ISO 14289 (PDF/UA)
+Saving	InvoiceNotPdfA3	Warning	ISO 19005-3 §6.8; Factur-X 1.0 and ZUGFeRD 2.x
 Saving	DuplicateObjectsMerged	Information	ISO 32000-2 §7.3.10, §7.5.3
 Navigation	NameDictionaryInvalid	Warning	ISO 32000-2 §7.7.4
 Navigation	NameTreeNodeInvalid	Warning	ISO 32000-2 §7.9.6 Table 36
