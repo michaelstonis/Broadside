@@ -36,6 +36,7 @@ public sealed class ViewerToolbar : IDisposable
     private readonly bool _honorHideToolbar;
     private DocumentSession? _session;
     private DocumentSearch? _search;
+    private EditHistory? _history;
     private PageLabelTable? _labels;
     private bool _hiddenByDocument;
     private bool _visible = true;
@@ -197,6 +198,18 @@ public sealed class ViewerToolbar : IDisposable
             Glyph = "◐",
             ToolTip = "Smart dark mode",
         },
+        ViewerCommandIds.EditUndo => new ViewerButtonCommand(id, "Undo", () => History?.Undo(), () => History?.CanUndo == true)
+        {
+            Glyph = "↶",
+            ToolTip = "Undo",
+            Shortcut = "Ctrl+Z",
+        },
+        ViewerCommandIds.EditRedo => new ViewerButtonCommand(id, "Redo", () => History?.Redo(), () => History?.CanRedo == true)
+        {
+            Glyph = "↷",
+            ToolTip = "Redo",
+            Shortcut = "Ctrl+Y",
+        },
         _ => throw new ArgumentException($"\"{id}\" is not a built-in toolbar command.", nameof(id)),
     };
 
@@ -248,6 +261,8 @@ public sealed class ViewerToolbar : IDisposable
         Viewer.ViewChanged -= OnViewChanged;
         _search?.Changed -= OnSearchChanged;
         _search = null;
+        _history?.Changed -= OnHistoryChanged;
+        _history = null;
         foreach (ViewerCommand command in _items)
         {
             Detach(command);
@@ -268,6 +283,10 @@ public sealed class ViewerToolbar : IDisposable
         id is ViewerCommandIds.PagePrevious or ViewerCommandIds.PageNext or ViewerCommandIds.PageNumber or ViewerCommandIds.Search;
 
     private bool HasPages => Viewer.Session is not null && Viewer.PageCount > 0;
+
+    private EditHistory? History => Viewer.Annotations?.History;
+
+    private void OnHistoryChanged(object? sender, EventArgs e) => Refresh();
 
     private void Attach(ViewerCommand command)
     {
@@ -322,6 +341,15 @@ public sealed class ViewerToolbar : IDisposable
             _search = search;
             _search?.Changed += OnSearchChanged;
             Revealed = null;
+        }
+
+        // The history the undo and redo commands follow; the view sets it when it opens a document (#638).
+        EditHistory? history = History;
+        if (!ReferenceEquals(history, _history))
+        {
+            _history?.Changed -= OnHistoryChanged;
+            _history = history;
+            _history?.Changed += OnHistoryChanged;
         }
 
         Refresh();
