@@ -136,12 +136,14 @@ Broadside.Text.TextQuery.WithWholeWord(bool wholeWord = true) -> Broadside.Text.
 override Broadside.Text.TextQuery.ToString() -> string!
 Broadside.Diagnostics.DiagnosticArea.Redaction = 32 -> Broadside.Diagnostics.DiagnosticArea
 Broadside.Diagnostics.RedactionDiagnostics
-Broadside.PdfDocument.Redact(Broadside.PdfRedactionOptions? options = null) -> Broadside.PdfRedactionResult!
+Broadside.PdfDocument.Redact() -> Broadside.PdfRedactionResult!
+Broadside.PdfDocument.Redact(Broadside.PdfRedactionOptions? options) -> Broadside.PdfRedactionResult!
 Broadside.PdfPage.AddRedactAnnotation(Broadside.PdfRectangle rect) -> Broadside.Annotations.PdfRedactAnnotation!
 Broadside.PdfPage.AddRedactAnnotation(Broadside.PdfRectangle rect, Broadside.PdfRedactionOptions! options) -> Broadside.Annotations.PdfRedactAnnotation!
 Broadside.PdfPage.AddRedactAnnotation(System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>! quadrilaterals) -> Broadside.Annotations.PdfRedactAnnotation!
 Broadside.PdfPage.AddRedactAnnotation(System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>! quadrilaterals, Broadside.PdfRedactionOptions! options) -> Broadside.Annotations.PdfRedactAnnotation!
-Broadside.PdfPage.Redact(System.Collections.Generic.IReadOnlyList<Broadside.Graphics.Quad>! areas, Broadside.PdfRedactionOptions? options = null) -> Broadside.PdfRedactionResult!
+Broadside.PdfPage.Redact(System.Collections.Generic.IReadOnlyList<Broadside.Graphics.Quad>! areas) -> Broadside.PdfRedactionResult!
+Broadside.PdfPage.Redact(System.Collections.Generic.IReadOnlyList<Broadside.Graphics.Quad>! areas, Broadside.PdfRedactionOptions? options) -> Broadside.PdfRedactionResult!
 Broadside.PdfRedactionImageMode
 Broadside.PdfRedactionImageMode.BlankPixels = 0 -> Broadside.PdfRedactionImageMode
 Broadside.PdfRedactionImageMode.RemoveImage = 1 -> Broadside.PdfRedactionImageMode
@@ -295,6 +297,33 @@ static Broadside.Text.SearchableText.Create(Broadside.Text.TextPage! page) -> Br
 static Broadside.Text.SearchableText.Empty.get -> Broadside.Text.SearchableText!
 static Broadside.Text.TextQuery.FromRegex(string! pattern) -> Broadside.Text.TextQuery!
 static Broadside.Text.TextQuery.FromRegex(System.Text.RegularExpressions.Regex! regex) -> Broadside.Text.TextQuery!
+Broadside.Text.TextQuery.MatchFilter.get -> System.Func<Broadside.Text.TextMatch, bool>?
+Broadside.Text.TextQuery.MatchFilter.set -> void
+Broadside.Text.TextQuery.WithMatchFilter(System.Func<Broadside.Text.TextMatch, bool>? filter) -> Broadside.Text.TextQuery!
+Broadside.Text.TextPatterns
+static Broadside.Text.TextPatterns.CreditCardNumber.get -> Broadside.Text.TextQuery!
+static Broadside.Text.TextPatterns.EmailAddress.get -> Broadside.Text.TextQuery!
+static Broadside.Text.TextPatterns.Iban.get -> Broadside.Text.TextQuery!
+static Broadside.Text.TextPatterns.IPv4Address.get -> Broadside.Text.TextQuery!
+static Broadside.Text.TextPatterns.PhoneNumber.get -> Broadside.Text.TextQuery!
+static Broadside.Text.TextPatterns.Url.get -> Broadside.Text.TextQuery!
+static Broadside.Text.TextPatterns.UsSocialSecurityNumber.get -> Broadside.Text.TextQuery!
+Broadside.PdfDocument.AddRedactAnnotations(Broadside.Text.TextQuery! query, Broadside.PdfRedactionOptions? options = null, System.Range? pages = null) -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfRedactAnnotation!>!
+Broadside.PdfDocument.Redact(Broadside.Text.TextQuery! query) -> Broadside.PdfRedactionResult!
+Broadside.PdfDocument.Redact(Broadside.Text.TextQuery! query, Broadside.PdfRedactionOptions? options) -> Broadside.PdfRedactionResult!
+Broadside.PdfDocument.Redact(Broadside.Text.TextQuery! query, Broadside.PdfRedactionOptions? options, System.Range? pages) -> Broadside.PdfRedactionResult!
+Broadside.PdfDocument.Redact(System.Collections.Generic.IEnumerable<Broadside.Text.TextQuery!>! queries) -> Broadside.PdfRedactionResult!
+Broadside.PdfDocument.Redact(System.Collections.Generic.IEnumerable<Broadside.Text.TextQuery!>! queries, Broadside.PdfRedactionOptions? options) -> Broadside.PdfRedactionResult!
+Broadside.PdfDocument.Redact(System.Collections.Generic.IEnumerable<Broadside.Text.TextQuery!>! queries, Broadside.PdfRedactionOptions? options, System.Range? pages) -> Broadside.PdfRedactionResult!
+Broadside.PdfPage.Redact(System.Collections.Generic.IReadOnlyList<Broadside.Text.TextMatch>! matches) -> Broadside.PdfRedactionResult!
+Broadside.PdfPage.Redact(System.Collections.Generic.IReadOnlyList<Broadside.Text.TextMatch>! matches, Broadside.PdfRedactionOptions? options) -> Broadside.PdfRedactionResult!
+Broadside.PdfRedactionOptions.GlyphsOnly.get -> bool
+Broadside.PdfRedactionOptions.GlyphsOnly.set -> void
+Broadside.PdfRedactionOptions.WithGlyphsOnly(bool glyphsOnly = true) -> Broadside.PdfRedactionOptions!
+Broadside.PdfRedactionOptions.TextExtractionOptions.get -> Broadside.Text.TextExtractionOptions?
+Broadside.PdfRedactionOptions.TextExtractionOptions.set -> void
+Broadside.PdfRedactionOptions.WithTextExtractionOptions(Broadside.Text.TextExtractionOptions? options) -> Broadside.PdfRedactionOptions!
+static Broadside.Diagnostics.RedactionDiagnostics.RedactionMatchNotLocated.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.DocumentDiagnostics.InvoiceMetadataInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.SavingDiagnostics.InvoiceNotPdfA3.get -> Broadside.Diagnostics.DiagnosticCode!
 Broadside.PdfDocument.AttachInvoice(System.ReadOnlySpan<byte> invoiceXml, Broadside.PdfInvoiceOptions? options = null) -> Broadside.PdfEmbeddedFileEntry!

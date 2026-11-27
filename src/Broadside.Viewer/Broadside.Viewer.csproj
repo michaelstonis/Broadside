@@ -9,4 +9,8 @@
     <ProjectReference Include="../Broadside.Rendering/Broadside.Rendering.csproj" />
   </ItemGroup>
 
+  <ItemGroup Label="The core's glyph pairing (issue #633): the viewer cannot see the core's internals, so it compiles the same source">
+    <Compile Include="../Broadside/Text/GlyphMatching.cs" Link="Text/GlyphMatching.cs" />
+  </ItemGroup>
+
 </Project>

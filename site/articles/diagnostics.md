@@ -871,4 +871,5 @@ Codes of `RedactionDiagnostics`, reported under `DiagnosticArea.Redaction`.
 | `RedactionFormRemovedWhole` | Warning | ISO 32000-2 §8.10.1 | A form XObject painted over a redaction area is nested deeper than the content options allow, so it cannot be rewritten. The Do that paints it is removed. |
 | `RedactionFormCopied` | Information | ISO 32000-2 §8.10.1 | A form XObject painted over a redaction area is copied and the copy rewritten; other pages and forms that paint the original keep it. |
 | `RedactionInvalidatesSignatures` | Information | ISO 32000-2 §12.8 | The document is signed. Applying the redaction changes the content the signatures cover, so they no longer verify. |
+| `RedactionMatchNotLocated` | Warning | ISO 32000-2 §9.4.3 | The glyphs of a search match could not all be found again in the page's content (a ToUnicode map that reads differently, or content drawn twice at one spot). Everything under the match's quads is removed instead. |
 <!-- diagnostic-catalog:end -->

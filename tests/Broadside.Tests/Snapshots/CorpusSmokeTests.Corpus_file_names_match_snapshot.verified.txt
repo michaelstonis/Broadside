@@ -129,6 +129,7 @@
   pattern-tiling-uncolored.pdf,
   pdf20-header.pdf,
   png-predictor.pdf,
+  redact-pii.pdf,
   rendering-intents.pdf,
   runlength-stream.pdf,
   separation-special.pdf,
