@@ -16,6 +16,7 @@ public sealed class TextPage
 {
     private readonly TextGlyph[] _glyphs;
     private Assembled? _assembled;
+    private SearchableText? _searchable;
 
     internal TextPage(TextGlyph[] glyphs, string text, int[]? contentOrders = null)
     {
@@ -76,6 +77,29 @@ public sealed class TextPage
     /// <exception cref="ArgumentOutOfRangeException">The line's range is not within <see cref="PlainText"/>.</exception>
     /// <remarks>ISO 32000-2 §9.10.</remarks>
     public ReadOnlySpan<char> GetLineText(in TextLine line) => PlainText.AsSpan(line.PlainTextStart, line.PlainTextLength);
+
+    /// <summary>Finds every occurrence of a query on the page, in reading order.</summary>
+    /// <param name="query">What to find and how to compare.</param>
+    /// <returns>
+    /// The matches, each with <see cref="TextMatch.PageIndex"/> -1 (a text page does not know its page; <see cref="PdfPage.FindText(TextQuery)"/>
+    /// does); empty when there is none.
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="query"/> is <see langword="null"/>.</exception>
+    /// <exception cref="System.Text.RegularExpressions.RegexMatchTimeoutException">A regular expression ran longer than <see cref="TextQuery.RegexTimeout"/>.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §9.10, §14.8.2.6.2 and §14.9.4; the rules are <see cref="TextQuery"/>'s. The page's <see cref="SearchableText"/>
+    /// and its folded forms are made on first use and kept, so searching the page again allocates only the results. Safe to call from
+    /// several threads at once.
+    /// </remarks>
+    public IReadOnlyList<TextMatch> Find(TextQuery query) => Find(query, -1, default);
+
+    /// <summary>Finds a query's matches, reporting <paramref name="pageIndex"/> as their page.</summary>
+    internal IReadOnlyList<TextMatch> Find(TextQuery query, int pageIndex, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        SearchableText searchable = Volatile.Read(ref _searchable) ?? Interlocked.CompareExchange(ref _searchable, SearchableText.Create(this), null) ?? _searchable!;
+        return searchable.Find(query, pageIndex, cancellationToken);
+    }
 
     /// <summary>Returns <see cref="Text"/>.</summary>
     /// <returns>The page's text.</returns>
