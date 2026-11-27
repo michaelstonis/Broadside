@@ -24,18 +24,18 @@ public class ImageImportBenchmarks
     public void Setup()
     {
         const int size = 512;
-        byte[] rgb = ImportSamples.RgbGradient(Size, Size);
+        byte[] rgb = ImportSamples.RgbGradient(size, size);
         _file = Input switch
         {
-            "tiff-lzw" => ImportSamples.Tiff(new TiffPage(Size, Size, 3, 8, 2, rgb) { Compression = 5, Predictor = 2 }),
-            "tiff-deflate" => ImportSamples.Tiff(new TiffPage(Size, Size, 3, 8, 2, rgb) { Compression = 8, RowsPerStrip = 32 }),
-            "tiff-packbits" => ImportSamples.Tiff(new TiffPage(Size, Size, 1, 8, 1, ImportSamples.Pack(Size, Size, 8, 1, (x, y, _) => (x / 8) + (y / 8))) { Compression = 32773 }),
-            "tiff-g4" => ImportSamples.Tiff(new TiffPage(Size, Size, 1, 1, 0, ImportSamples.Bilevel(Size, Size)) { Compression = 4, RowsPerStrip = 16 }),
-            "tiff-planar" => ImportSamples.Tiff(new TiffPage(Size, Size, 4, 8, 2, ImportSamples.Pack(Size, Size, 8, 4, (x, y, c) => (x + (y * c)) & 255)) { Compression = 5, Planar = 2, ExtraSamples = [2] }),
-            "gif" => ImportSamples.Gif(Size, Size, [.. rgb.Where((_, i) => i % 3 == 0)], [.. Enumerable.Range(0, 768).Select(i => (byte)i)]),
-            _ => ImportSamples.Bmp24(Size, Size, rgb),
+            "tiff-lzw" => ImportSamples.Tiff(new TiffPage(size, size, 3, 8, 2, rgb) { Compression = 5, Predictor = 2 }),
+            "tiff-deflate" => ImportSamples.Tiff(new TiffPage(size, size, 3, 8, 2, rgb) { Compression = 8, RowsPerStrip = 32 }),
+            "tiff-packbits" => ImportSamples.Tiff(new TiffPage(size, size, 1, 8, 1, ImportSamples.Pack(size, size, 8, 1, (x, y, _) => (x / 8) + (y / 8))) { Compression = 32773 }),
+            "tiff-g4" => ImportSamples.Tiff(new TiffPage(size, size, 1, 1, 0, ImportSamples.Bilevel(size, size)) { Compression = 4, RowsPerStrip = 16 }),
+            "tiff-planar" => ImportSamples.Tiff(new TiffPage(size, size, 4, 8, 2, ImportSamples.Pack(size, size, 8, 4, (x, y, c) => (x + (y * c)) & 255)) { Compression = 5, Planar = 2, ExtraSamples = [2] }),
+            "gif" => ImportSamples.Gif(size, size, [.. rgb.Where((_, i) => i % 3 == 0)], [.. Enumerable.Range(0, 768).Select(i => (byte)i)]),
+            _ => ImportSamples.Bmp24(size, size, rgb),
         };
-        if (Read() != Size)
+        if (Read() != size)
         {
             throw new InvalidOperationException($"{Input} did not read.");
         }
