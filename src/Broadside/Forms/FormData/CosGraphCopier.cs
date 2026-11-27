@@ -8,7 +8,7 @@ namespace Broadside.Forms.FormData;
 /// one new indirect object of the target (made by <c>add</c>) the first time it is reached, and every later reference names that
 /// copy. Pages are never followed: a reference to a page or page tree node copies as null. A reference to an object whose body is
 /// itself a reference, which no indirect object can be (§7.3.10), copies as null too, and <c>invalid</c> is told which reference
-/// named it, so the caller records the repair (ADR 0005).
+/// named it, so the caller records the repair as a diagnostic rather than throwing.
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §7.3.10 and §12.7.8.3.4 (an FDF annotation names its page by number, not by reference). The walk keeps a stack, so a
