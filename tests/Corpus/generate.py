@@ -3606,6 +3606,65 @@ def gen_associated_files() -> bytes:
     ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
 
 
+FACTURX_INVOICE = (b'<?xml version="1.0" encoding="UTF-8"?>\n'
+                   b'<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"'
+                   b' xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100">\n'
+                   b' <rsm:ExchangedDocumentContext><ram:GuidelineSpecifiedDocumentContextParameter>'
+                   b'<ram:ID>urn:factur-x.eu:1p0:minimum</ram:ID></ram:GuidelineSpecifiedDocumentContextParameter>'
+                   b'</rsm:ExchangedDocumentContext>\n'
+                   b' <rsm:ExchangedDocument><ram:ID>INV-42</ram:ID><ram:TypeCode>380</ram:TypeCode></rsm:ExchangedDocument>\n'
+                   b'</rsm:CrossIndustryInvoice>\n')
+
+FACTURX_XMP = (b'<?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>\n'
+               b'<x:xmpmeta xmlns:x="adobe:ns:meta/">\n'
+               b' <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n'
+               b'  <rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/" pdfaid:part="3" pdfaid:conformance="B"/>\n'
+               b'  <rdf:Description rdf:about="" xmlns:fx="urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#">\n'
+               b'   <fx:DocumentType>INVOICE</fx:DocumentType>\n'
+               b'   <fx:DocumentFileName>factur-x.xml</fx:DocumentFileName>\n'
+               b'   <fx:Version>1.0</fx:Version>\n'
+               b'   <fx:ConformanceLevel>MINIMUM</fx:ConformanceLevel>\n'
+               b'  </rdf:Description>\n'
+               b'  <rdf:Description rdf:about="" xmlns:pdfaExtension="http://www.aiim.org/pdfa/ns/extension/"'
+               b' xmlns:pdfaSchema="http://www.aiim.org/pdfa/ns/schema#" xmlns:pdfaProperty="http://www.aiim.org/pdfa/ns/property#">\n'
+               b'   <pdfaExtension:schemas><rdf:Bag><rdf:li rdf:parseType="Resource">\n'
+               b'    <pdfaSchema:schema>Factur-X PDFA Extension Schema</pdfaSchema:schema>\n'
+               b'    <pdfaSchema:namespaceURI>urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#</pdfaSchema:namespaceURI>\n'
+               b'    <pdfaSchema:prefix>fx</pdfaSchema:prefix>\n'
+               b'    <pdfaSchema:property><rdf:Seq>\n'
+               + b''.join(b'     <rdf:li rdf:parseType="Resource"><pdfaProperty:name>%s</pdfaProperty:name>'
+                          b'<pdfaProperty:valueType>Text</pdfaProperty:valueType><pdfaProperty:category>external</pdfaProperty:category>'
+                          b'<pdfaProperty:description>%s</pdfaProperty:description></rdf:li>\n' % pair for pair in [
+                              (b"DocumentFileName", b"The name of the embedded XML document"),
+                              (b"DocumentType", b"The type of the hybrid document in capital letters, e.g. INVOICE or ORDER"),
+                              (b"Version", b"The actual version of the standard applying to the embedded XML document"),
+                              (b"ConformanceLevel", b"The conformance level of the embedded XML document")])
+               + b'    </rdf:Seq></pdfaSchema:property>\n'
+               b'   </rdf:li></rdf:Bag></pdfaExtension:schemas>\n'
+               b'  </rdf:Description>\n'
+               b' </rdf:RDF>\n'
+               b'</x:xmpmeta>\n'
+               b'<?xpacket end="w"?>')
+
+
+def gen_factur_x_minimal() -> bytes:
+    """Factur-X 1.0 / ZUGFeRD 2.x hybrid invoice, MINIMUM profile: a CII XML file (text/xml, Params ModDate and Size) listed
+    in EmbeddedFiles (7.7.4, 7.11.4) and in the catalog AF with AFRelationship /Data (14.13.3), and a catalog XMP packet
+    (14.3.2) with the fx properties and the PDF/A extension schema describing them (ISO 19005-3 6.6). Not a complete
+    PDF/A-3 file (no output intent): a fixture for reading the invoice back."""
+    return simple_file([
+        (1, catalog(b" /Metadata 4 0 R /Names << /EmbeddedFiles 5 0 R >> /AF [6 0 R]")),
+        (2, pages()),
+        (3, page()),
+        (4, stream(b"/Type /Metadata /Subtype /XML", FACTURX_XMP)),
+        (5, b"<< /Names [(factur-x.xml) 6 0 R] >>"),
+        (6, b"<< /Type /Filespec /F (factur-x.xml) /UF (factur-x.xml) /Desc (Factur-X invoice) /AFRelationship /Data"
+            b" /EF << /F 7 0 R /UF 7 0 R >> >>"),
+        (7, stream(b"/Type /EmbeddedFile /Subtype /text#2Fxml /Params << /Size %d /ModDate (D:20260102030405Z) >>"
+                   % len(FACTURX_INVOICE), FACTURX_INVOICE)),
+    ], version="1.7")
+
+
 def gen_object_metadata() -> bytes:
     """14.3.2 and PDF 2.0 Application Note 003: a Metadata stream, each with a distinct dc:title, on the catalog
     (Document), a page, an image XObject, a form XObject, an ICCBased colour space stream, an embedded TrueType
@@ -7358,6 +7417,7 @@ FILES = {
     "embedded-files.pdf": gen_embedded_files,
     "collection-portfolio.pdf": gen_collection_portfolio,
     "associated-files.pdf": gen_associated_files,
+    "factur-x-minimal.pdf": gen_factur_x_minimal,
     "encrypted-wrapper.pdf": gen_encrypted_wrapper,
     "object-metadata.pdf": gen_object_metadata,
     "declarations.pdf": gen_declarations,

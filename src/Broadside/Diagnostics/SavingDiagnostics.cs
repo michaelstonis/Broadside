@@ -61,6 +61,11 @@ public static class SavingDiagnostics
     public static DiagnosticCode ConformanceOverridden { get; } = new(nameof(ConformanceOverridden), DiagnosticArea.Saving, DiagnosticSeverity.Information, "ISO 19005 (PDF/A); ISO 14289 (PDF/UA)",
         "The PDF/A or PDF/UA conformance options given for a save differ from the document default save options, and the save options take precedence. This records the override.");
 
+    /// <summary>Gets the <c>InvoiceNotPdfA3</c> code.</summary>
+    /// <remarks>ISO 19005-3 §6.8; Factur-X 1.0 and ZUGFeRD 2.x</remarks>
+    public static DiagnosticCode InvoiceNotPdfA3 { get; } = new(nameof(InvoiceNotPdfA3), DiagnosticArea.Saving, DiagnosticSeverity.Warning, "ISO 19005-3 §6.8; Factur-X 1.0 and ZUGFeRD 2.x",
+        "A document with an attached e-invoice is saved without a conformant PDF/A-3 identification. The invoice and its XMP properties are written, but the file is not a valid Factur-X or ZUGFeRD invoice.");
+
     /// <summary>Gets every code of this area, in declaration order.</summary>
     internal static DiagnosticCode[] Codes { get; } =
     [
@@ -75,5 +80,6 @@ public static class SavingDiagnostics
         WellTaggedNonConformant,
         WellTaggedNotDeclared,
         ConformanceOverridden,
+        InvoiceNotPdfA3,
     ];
 }
