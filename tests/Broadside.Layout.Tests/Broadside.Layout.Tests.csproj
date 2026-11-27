@@ -24,6 +24,8 @@
     <None Include="Data/LineBreakTest-16.0.0.txt.gz" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Data/BidiTest-16.0.0.txt.gz" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Data/BidiCharacterTest-16.0.0.txt.gz" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The CommonMark 0.31.2 example suite (issue #645), https://spec.commonmark.org/0.31.2/spec.json, gzipped. -->
+    <None Include="Data/commonmark-spec-0.31.2.json.gz" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
