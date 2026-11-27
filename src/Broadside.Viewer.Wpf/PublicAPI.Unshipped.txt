@@ -12,3 +12,63 @@ Broadside.Viewer.Wpf.PdfToolbar.Viewer.set -> void
 static readonly Broadside.Viewer.Wpf.PdfToolbar.ItemTemplateSelectorProperty -> System.Windows.DependencyProperty!
 static readonly Broadside.Viewer.Wpf.PdfToolbar.OptionsProperty -> System.Windows.DependencyProperty!
 static readonly Broadside.Viewer.Wpf.PdfToolbar.ViewerProperty -> System.Windows.DependencyProperty!
+Broadside.Viewer.Wpf.PdfThumbnailsPanel
+Broadside.Viewer.Wpf.PdfThumbnailsPanel.PdfThumbnailsPanel() -> void
+Broadside.Viewer.Wpf.PdfThumbnailsPanel.Dispose() -> void
+Broadside.Viewer.Wpf.PdfThumbnailsPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Wpf.PdfThumbnailsPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Wpf.PdfThumbnailsPanel.Viewer.set -> void
+Broadside.Viewer.Wpf.PdfThumbnailsPanel.PageCount.get -> int
+Broadside.Viewer.Wpf.PdfThumbnailsPanel.RenderedCount.get -> int
+static readonly Broadside.Viewer.Wpf.PdfThumbnailsPanel.ViewerProperty -> System.Windows.DependencyProperty!
+Broadside.Viewer.Wpf.PdfOutlinePanel
+Broadside.Viewer.Wpf.PdfOutlinePanel.PdfOutlinePanel() -> void
+Broadside.Viewer.Wpf.PdfOutlinePanel.Dispose() -> void
+Broadside.Viewer.Wpf.PdfOutlinePanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Wpf.PdfOutlinePanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Wpf.PdfOutlinePanel.Viewer.set -> void
+Broadside.Viewer.Wpf.PdfOutlinePanel.VisibleCount.get -> int
+static readonly Broadside.Viewer.Wpf.PdfOutlinePanel.ViewerProperty -> System.Windows.DependencyProperty!
+Broadside.Viewer.Wpf.PdfSearchPanel
+Broadside.Viewer.Wpf.PdfSearchPanel.PdfSearchPanel() -> void
+Broadside.Viewer.Wpf.PdfSearchPanel.Dispose() -> void
+Broadside.Viewer.Wpf.PdfSearchPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Wpf.PdfSearchPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Wpf.PdfSearchPanel.Viewer.set -> void
+Broadside.Viewer.Wpf.PdfSearchPanel.ResultCount.get -> int
+Broadside.Viewer.Wpf.PdfSearchPanel.Search(string! query) -> void
+static readonly Broadside.Viewer.Wpf.PdfSearchPanel.ViewerProperty -> System.Windows.DependencyProperty!
+Broadside.Viewer.Wpf.PdfAttachmentsPanel
+Broadside.Viewer.Wpf.PdfAttachmentsPanel.PdfAttachmentsPanel() -> void
+Broadside.Viewer.Wpf.PdfAttachmentsPanel.Dispose() -> void
+Broadside.Viewer.Wpf.PdfAttachmentsPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Wpf.PdfAttachmentsPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Wpf.PdfAttachmentsPanel.Viewer.set -> void
+Broadside.Viewer.Wpf.PdfAttachmentsPanel.Count.get -> int
+Broadside.Viewer.Wpf.PdfAttachmentsPanel.Opening -> System.EventHandler<Broadside.Viewer.AttachmentOpeningEventArgs!>?
+static readonly Broadside.Viewer.Wpf.PdfAttachmentsPanel.ViewerProperty -> System.Windows.DependencyProperty!
+Broadside.Viewer.Wpf.PdfLayersPanel
+Broadside.Viewer.Wpf.PdfLayersPanel.PdfLayersPanel() -> void
+Broadside.Viewer.Wpf.PdfLayersPanel.Dispose() -> void
+Broadside.Viewer.Wpf.PdfLayersPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Wpf.PdfLayersPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Wpf.PdfLayersPanel.Viewer.set -> void
+static readonly Broadside.Viewer.Wpf.PdfLayersPanel.ViewerProperty -> System.Windows.DependencyProperty!
+Broadside.Viewer.Wpf.PdfAnnotationsPanel
+Broadside.Viewer.Wpf.PdfAnnotationsPanel.PdfAnnotationsPanel() -> void
+Broadside.Viewer.Wpf.PdfAnnotationsPanel.Dispose() -> void
+Broadside.Viewer.Wpf.PdfAnnotationsPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Wpf.PdfAnnotationsPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Wpf.PdfAnnotationsPanel.Viewer.set -> void
+Broadside.Viewer.Wpf.PdfAnnotationsPanel.Count.get -> int
+static readonly Broadside.Viewer.Wpf.PdfAnnotationsPanel.ViewerProperty -> System.Windows.DependencyProperty!
+Broadside.Viewer.Wpf.PdfSidebar
+Broadside.Viewer.Wpf.PdfSidebar.PdfSidebar() -> void
+Broadside.Viewer.Wpf.PdfSidebar.Dispose() -> void
+Broadside.Viewer.Wpf.PdfSidebar.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Wpf.PdfSidebar.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Wpf.PdfSidebar.Viewer.set -> void
+Broadside.Viewer.Wpf.PdfSidebar.AttachmentOpening -> System.EventHandler<Broadside.Viewer.AttachmentOpeningEventArgs!>?
+Broadside.Viewer.Wpf.PdfSidebar.SelectedPanel.get -> Broadside.Viewer.SidebarPanels
+Broadside.Viewer.Wpf.PdfSidebar.SelectedPanel.set -> void
+static readonly Broadside.Viewer.Wpf.PdfSidebar.ViewerProperty -> System.Windows.DependencyProperty!

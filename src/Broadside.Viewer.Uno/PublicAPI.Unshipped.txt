@@ -11,3 +11,56 @@ Broadside.Viewer.Uno.PdfToolbar.Viewer.set -> void
 static readonly Broadside.Viewer.Uno.PdfToolbar.ItemTemplateSelectorProperty -> Microsoft.UI.Xaml.DependencyProperty!
 static readonly Broadside.Viewer.Uno.PdfToolbar.OptionsProperty -> Microsoft.UI.Xaml.DependencyProperty!
 static readonly Broadside.Viewer.Uno.PdfToolbar.ViewerProperty -> Microsoft.UI.Xaml.DependencyProperty!
+Broadside.Viewer.Uno.PdfThumbnailsPanel
+Broadside.Viewer.Uno.PdfThumbnailsPanel.PdfThumbnailsPanel() -> void
+Broadside.Viewer.Uno.PdfThumbnailsPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Uno.PdfThumbnailsPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Uno.PdfThumbnailsPanel.Viewer.set -> void
+Broadside.Viewer.Uno.PdfThumbnailsPanel.PageCount.get -> int
+Broadside.Viewer.Uno.PdfThumbnailsPanel.RenderedCount.get -> int
+static readonly Broadside.Viewer.Uno.PdfThumbnailsPanel.ViewerProperty -> Microsoft.UI.Xaml.DependencyProperty!
+Broadside.Viewer.Uno.PdfOutlinePanel
+Broadside.Viewer.Uno.PdfOutlinePanel.PdfOutlinePanel() -> void
+Broadside.Viewer.Uno.PdfOutlinePanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Uno.PdfOutlinePanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Uno.PdfOutlinePanel.Viewer.set -> void
+Broadside.Viewer.Uno.PdfOutlinePanel.VisibleCount.get -> int
+static readonly Broadside.Viewer.Uno.PdfOutlinePanel.ViewerProperty -> Microsoft.UI.Xaml.DependencyProperty!
+Broadside.Viewer.Uno.PdfSearchPanel
+Broadside.Viewer.Uno.PdfSearchPanel.PdfSearchPanel() -> void
+Broadside.Viewer.Uno.PdfSearchPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Uno.PdfSearchPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Uno.PdfSearchPanel.Viewer.set -> void
+Broadside.Viewer.Uno.PdfSearchPanel.ResultCount.get -> int
+Broadside.Viewer.Uno.PdfSearchPanel.Search(string! query) -> void
+static readonly Broadside.Viewer.Uno.PdfSearchPanel.ViewerProperty -> Microsoft.UI.Xaml.DependencyProperty!
+Broadside.Viewer.Uno.PdfAttachmentsPanel
+Broadside.Viewer.Uno.PdfAttachmentsPanel.PdfAttachmentsPanel() -> void
+Broadside.Viewer.Uno.PdfAttachmentsPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Uno.PdfAttachmentsPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Uno.PdfAttachmentsPanel.Viewer.set -> void
+Broadside.Viewer.Uno.PdfAttachmentsPanel.Count.get -> int
+Broadside.Viewer.Uno.PdfAttachmentsPanel.Opening -> System.EventHandler<Broadside.Viewer.AttachmentOpeningEventArgs!>?
+static readonly Broadside.Viewer.Uno.PdfAttachmentsPanel.ViewerProperty -> Microsoft.UI.Xaml.DependencyProperty!
+Broadside.Viewer.Uno.PdfLayersPanel
+Broadside.Viewer.Uno.PdfLayersPanel.PdfLayersPanel() -> void
+Broadside.Viewer.Uno.PdfLayersPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Uno.PdfLayersPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Uno.PdfLayersPanel.Viewer.set -> void
+static readonly Broadside.Viewer.Uno.PdfLayersPanel.ViewerProperty -> Microsoft.UI.Xaml.DependencyProperty!
+Broadside.Viewer.Uno.PdfAnnotationsPanel
+Broadside.Viewer.Uno.PdfAnnotationsPanel.PdfAnnotationsPanel() -> void
+Broadside.Viewer.Uno.PdfAnnotationsPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Uno.PdfAnnotationsPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Uno.PdfAnnotationsPanel.Viewer.set -> void
+Broadside.Viewer.Uno.PdfAnnotationsPanel.Count.get -> int
+static readonly Broadside.Viewer.Uno.PdfAnnotationsPanel.ViewerProperty -> Microsoft.UI.Xaml.DependencyProperty!
+Broadside.Viewer.Uno.PdfSidebar
+Broadside.Viewer.Uno.PdfSidebar.PdfSidebar() -> void
+Broadside.Viewer.Uno.PdfSidebar.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Uno.PdfSidebar.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Uno.PdfSidebar.Viewer.set -> void
+Broadside.Viewer.Uno.PdfSidebar.AttachmentOpening -> System.EventHandler<Broadside.Viewer.AttachmentOpeningEventArgs!>?
+Broadside.Viewer.Uno.PdfSidebar.SelectedPanel.get -> Broadside.Viewer.SidebarPanels
+Broadside.Viewer.Uno.PdfSidebar.SelectedPanel.set -> void
+static readonly Broadside.Viewer.Uno.PdfSidebar.ViewerProperty -> Microsoft.UI.Xaml.DependencyProperty!
