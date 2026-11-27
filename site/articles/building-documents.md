@@ -323,6 +323,37 @@ PdfDocument.Create(doc => doc
 
 Fields are flow blocks: layout places each one and its label, and the AcroForm field is created where it lands. The label is a required argument: it is drawn above the field (beside it with `.LabelBeside()`, and always beside a check box or radio button) and written as the field's alternate name. Each field is tagged `Form` with its label and its widget, pages with fields get `/Tabs /S`, and the appearances come from the forms writer. A field name used twice throws.
 
+## Markdown
+
+`c.Markdown(text)` adds Markdown to any container, and `PdfDocument.CreateFromMarkdown(text)` makes a whole document of it. The parser is managed code in `Broadside.Layout` for CommonMark 0.31 (it passes the spec's 652 examples) with the GitHub tables, `~~strikethrough~~`, bare `www.` and `https://` links and `- [x]` task lists; `WithGitHubExtensions(false)` turns those off.
+
+```csharp
+using PdfDocument pdf = PdfDocument.CreateFromMarkdown(File.ReadAllText("README.md"),
+    new MarkdownOptions().WithBaseDirectory("docs"),          // relative image paths are read from here
+    doc => doc.WithLanguage("en").WithTheme(Theme.Letter));   // runs first: metadata, theme, profile
+
+PdfDocument.Create(doc => doc.WithTitle("Status").WithLanguage("en").Content(c =>
+{
+    c.Heading(1, "Status");
+    c.Markdown(statusMarkdown, new MarkdownOptions().WithImageResolver(path => charts.TryGetValue(path, out byte[]? png) ? ImageSource.FromBytes(png) : null));
+}));
+```
+
+| Markdown | Becomes |
+|---|---|
+| `#` to `######`, or `===` and `---` underlines | `Heading(level, ...)`; the id is the GitHub-style slug (`## Getting started` is `getting-started`, a repeat `getting-started-1`), so `[back](#getting-started)` links to it |
+| `*em*`, `**strong**`, `` `code` ``, `~~struck~~` | italic `Em`, bold `Strong`, monospace `Code` spans, struck-through text |
+| `[text](https://...)`, `<https://...>`, `www.example.com` | links; only absolute `http`, `https`, `mailto` and `ftp` targets and `#anchors` link, other targets (relative paths) stay text |
+| `-`, `*`, `+` and `1.` lists | `List`, numbered from the first item's number; task items get a ☐ or ☑ label (□ or ■ when the font has no ballot box) whose `ActualText` is the state |
+| fenced and indented code | a paragraph in `Theme.MonospaceFont`, whitespace kept, tabs to 4 columns |
+| `>` block quotes | an indented group tagged `Div` (the PDF 2.0 namespace has no quotation grouping) |
+| tables | `Table` with a header row and each column's alignment |
+| `![alt](path)` | `Image(source, alt)` |
+| `---`, `***` | `Rule()` |
+| two trailing spaces or `\` at a line end | `LineBreak()` |
+
+Markdown has no invalid input: every string converts, and what cannot be shown is a diagnostic. Raw HTML blocks and tags are dropped (`MarkdownHtmlIgnored`, once per document). Images are never fetched from the network: the resolver is asked first with the destination as written, then a PNG or JPEG under the base directory is read; a path that leaves the directory is refused. An image that does not resolve is its alternate text in italics (`MarkdownImageNotFound`); one with empty alternate text is a `Figure` without `Alt` (`FigureWithoutAlternateText`). Nesting deeper than 12 block quotes and lists is laid out at that depth. Footnotes, math, front matter and syntax highlighting are not supported.
+
 ## Accessible by default
 
 - **Tagged.** The structure is `Document`, then a `Sect` for each section after the first, then each element's type: `H1` to `H6`, `P`, `L`/`LI`/`Lbl`/`LBody`, `Table`/`THead`/`TBody`/`TR`/`TH`/`TD`, `Figure` with `Alt` and `BBox`, `Caption`, `Link`, a `Div` per column. Headers, footers, backgrounds, watermarks, decorations, rules and decorative images and drawings are artifacts. `WithTagging(false)` writes untagged output.

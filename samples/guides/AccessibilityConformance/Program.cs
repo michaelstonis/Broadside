@@ -9,6 +9,7 @@ using Broadside.Samples;
 Sample.Start("Accessibility and conformance");
 
 WriteAccessibleReport();
+ConvertMarkdown();
 TagAnExistingFile();
 WriteArchivalFile();
 AttachAnInvoice();
@@ -40,6 +41,33 @@ static void WriteAccessibleReport()
     #endregion
 
     Sample.Expect(!Problems(document).Any(), $"PDF/UA-1 by the library's check: {string.Join("; ", Problems(document))}");
+}
+
+static void ConvertMarkdown()
+{
+    #region pdfua-markdown
+    // Markdown goes through the document builder, so headings, emphasis, lists, tables, links and images come out tagged.
+    const string markdown = """
+        # Release notes
+
+        Version 1.1 reads **Markdown**. Highlights:
+
+        - Headings, lists and tables are tagged `H1`, `L` and `Table`.
+        - Links such as [the guide](https://example.com/guide) keep their target.
+
+        | Area   | Change          |
+        |--------|-----------------|
+        | Layout | Markdown to PDF |
+        """;
+
+    // The first level-1 heading becomes the title; the language and the profile come from configure.
+    using PdfDocument document = PdfDocument.CreateFromMarkdown(markdown, configure: doc => doc
+        .WithLanguage("en-US")
+        .WithPdfUAConformance(PdfUAConformance.PdfUA2));
+    document.Save("release-notes-pdfua2.pdf"); // the declared profile is the document's default save options
+    #endregion
+
+    Sample.Expect(!Problems(document).Any(), $"PDF/UA-2 by the library's check: {string.Join("; ", Problems(document))}");
 }
 
 static void TagAnExistingFile()
