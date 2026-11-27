@@ -40,6 +40,9 @@ public sealed class BlockGroup : FlowBlock
     /// false (the default) adds no element.</summary>
     public bool IsTagged { get; init; }
 
+    /// <summary>How far the group's blocks are indented from the left, in points (a Markdown block quote); 0 by default.</summary>
+    internal double Indent { get; init; }
+
     internal override void Validate(int index)
     {
         _depth++;
@@ -61,7 +64,11 @@ public sealed class BlockGroup : FlowBlock
         }
     }
 
-    internal override ContentWidths MeasureWidths(FlowServices services) => Widest(Blocks, services);
+    internal override ContentWidths MeasureWidths(FlowServices services)
+    {
+        ContentWidths widths = Widest(Blocks, services);
+        return Indent > 0 ? new(widths.Min + Indent, widths.Max + Indent) : widths;
+    }
 
     internal override void LayOut(FlowContext context)
     {
@@ -75,7 +82,17 @@ public sealed class BlockGroup : FlowBlock
             context.BeginBlock(this);
         }
 
+        if (Indent > 0)
+        {
+            context.PushIndent(Indent);
+        }
+
         context.LayOutBlocks(Blocks);
+        if (Indent > 0)
+        {
+            context.PopIndent();
+        }
+
         if (IsTagged)
         {
             context.EndBlock();

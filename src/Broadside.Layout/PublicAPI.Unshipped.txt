@@ -48,3 +48,15 @@ static Broadside.Layout.Flow.Barcode.QrCode(string! data, Broadside.Layout.Flow.
 static Broadside.Layout.Flow.Barcode.QrCode(System.ReadOnlySpan<byte> data) -> Broadside.Layout.Flow.Barcode!
 static Broadside.Layout.Flow.Barcode.QrCode(System.ReadOnlySpan<byte> data, Broadside.Layout.Flow.QrErrorCorrection level) -> Broadside.Layout.Flow.Barcode!
 static Broadside.Layout.Flow.Barcode.UpcA(string! digits) -> Broadside.Layout.Flow.Barcode!
+Broadside.Layout.Flow.ContainerBuilder.Markdown(string! markdown, Broadside.Layout.Flow.MarkdownOptions? options = null) -> void
+Broadside.Layout.Flow.MarkdownOptions
+Broadside.Layout.Flow.MarkdownOptions.BaseDirectory.get -> string?
+Broadside.Layout.Flow.MarkdownOptions.GitHubExtensions.get -> bool
+Broadside.Layout.Flow.MarkdownOptions.ImageResolver.get -> System.Func<string!, Broadside.Layout.Flow.ImageSource?>?
+Broadside.Layout.Flow.MarkdownOptions.MarkdownOptions() -> void
+Broadside.Layout.Flow.MarkdownOptions.WithBaseDirectory(string? directory) -> Broadside.Layout.Flow.MarkdownOptions!
+Broadside.Layout.Flow.MarkdownOptions.WithGitHubExtensions(bool enabled) -> Broadside.Layout.Flow.MarkdownOptions!
+Broadside.Layout.Flow.MarkdownOptions.WithImageResolver(System.Func<string!, Broadside.Layout.Flow.ImageSource?>? resolver) -> Broadside.Layout.Flow.MarkdownOptions!
+Broadside.Layout.Flow.PdfDocumentMarkdownExtensions
+Broadside.Layout.Flow.PdfDocumentMarkdownExtensions.extension(Broadside.PdfDocument!)
+static Broadside.Layout.Flow.PdfDocumentMarkdownExtensions.extension(Broadside.PdfDocument!).CreateFromMarkdown(string! markdown, Broadside.Layout.Flow.MarkdownOptions? options = null, System.Action<Broadside.Layout.Flow.DocumentBuilder>? configure = null) -> Broadside.PdfDocument!

@@ -334,6 +334,37 @@ public readonly ref struct ContainerBuilder
         return new RuleElement(context, rule);
     }
 
+    /// <summary>
+    /// Adds the content of <paramref name="markdown"/> (CommonMark 0.31, with the GitHub Flavored Markdown extensions unless
+    /// <paramref name="options"/> turns them off), tagged like the same content described with this builder: headings with GitHub-style
+    /// anchor ids that <c>[text](#anchor)</c> links reach, paragraphs with <c>Em</c>, <c>Strong</c> and <c>Code</c> spans, links, lists,
+    /// tables, images with their alternate text, block quotes as indented <c>Div</c> groups and thematic breaks as rules.
+    /// </summary>
+    /// <param name="markdown">The Markdown. Every string is valid Markdown.</param>
+    /// <param name="options">The options, or null for the defaults.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="markdown"/> is null.</exception>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §14.8.4.3 to §14.8.4.8 (the structure types written) and §14.9.3 (alternate descriptions); ISO 14289-2 §8.2. Raw HTML
+    /// is dropped, reported once per document as <c>MarkdownHtmlIgnored</c>. Images come only from
+    /// <see cref="MarkdownOptions.ImageResolver"/> or <see cref="MarkdownOptions.BaseDirectory"/>, never the network; one that does not
+    /// resolve is its alternate text in italics with <c>MarkdownImageNotFound</c>, and one without alternate text is a <c>Figure</c> that
+    /// tagging reports as <c>FigureWithoutAlternateText</c>. Links other than <c>#anchor</c> and absolute <c>http</c>, <c>https</c>,
+    /// <c>mailto</c> and <c>ftp</c> URIs are written as their text. Task list items show a ballot box (☐, ☑, or □, ■ when the font has no
+    /// ballot box) whose label's <c>ActualText</c> is ☐ or ☑.
+    /// </para>
+    /// <para>The parser is linear in the length of the input and keeps no state between calls.</para>
+    /// </remarks>
+    public void Markdown(string markdown, MarkdownOptions? options = null) => AddMarkdown(markdown, options, titleFromHeading: false);
+
+    /// <summary>Adds <paramref name="markdown"/>; <paramref name="titleFromHeading"/> makes its first level-1 heading the document's title when none is set.</summary>
+    internal void AddMarkdown(string markdown, MarkdownOptions? options, bool titleFromHeading)
+    {
+        ArgumentNullException.ThrowIfNull(markdown);
+        BuildContext context = Context;
+        new MarkdownBuilder(context, options, titleFromHeading).Add(_container!, markdown);
+    }
+
     /// <summary>Adds a flow block built with the engine directly; it is laid out as it is, with the styles it carries.</summary>
     /// <param name="block">The block. Its fonts and images shall come from <see cref="Document"/>.</param>
     /// <exception cref="ArgumentNullException"><paramref name="block"/> is null.</exception>

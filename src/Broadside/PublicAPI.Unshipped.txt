@@ -328,3 +328,5 @@ Broadside.PdfInvoiceProfile.EN16931 = 3 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.Extended = 4 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.Minimum = 0 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.XRechnung = 5 -> Broadside.PdfInvoiceProfile
+static Broadside.Diagnostics.LayoutDiagnostics.MarkdownHtmlIgnored.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.LayoutDiagnostics.MarkdownImageNotFound.get -> Broadside.Diagnostics.DiagnosticCode!

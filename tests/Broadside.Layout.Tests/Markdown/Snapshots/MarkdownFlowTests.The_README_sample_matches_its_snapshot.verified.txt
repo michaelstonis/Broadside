@@ -1,0 +1,147 @@
+﻿== structure ==
+Document
+  H1
+  P
+    Strong
+    Em
+    Code
+    Link
+    Link
+    Link
+  H2
+  P
+  P
+  P
+  P
+  Div
+    P
+  H2
+  L
+    LI
+      Lbl
+      LBody
+        P
+    LI
+      Lbl
+      LBody
+        P
+        L
+          LI
+            Lbl
+            LBody
+              P
+          LI
+            Lbl
+            LBody
+              P
+    LI
+      Lbl
+      LBody
+        P
+  L
+    LI
+      Lbl
+      LBody
+        P
+    LI
+      Lbl
+      LBody
+        P
+  Table
+    THead
+      TR
+        TH
+          P
+        TH
+          P
+        TH
+          P
+    TBody
+      TR
+        TD
+          P
+        TD
+          P
+        TD
+          P
+      TR
+        TD
+          P
+        TD
+          P
+        TD
+          P
+      TR
+        TD
+          P
+        TD
+          P
+        TD
+          P
+  Figure Alt="The Broadside logo"
+  P
+
+== text ==
+--- page 1 ---
+Broadside
+Broadside is a fully managed .NET PDF library: read, write, edit and render. See the guide or
+https://github.com/michaelstonis/Broadside, and www.example.com.
+Getting started
+Install the package:
+dotnet add package Broadside
+Then open a document:
+using PdfDocument document = PdfDocument.Open("in.pdf");
+string text = document.Pages[0].ExtractText().PlainText;
+Every repair is recorded as a diagnostic. Strict mode throws instead.
+Features
+1. Reading and repairing
+2. Writing, with no native code
+• incremental updates
+• linearization
+3. Rendering
+☑ PDF/UA-2 output
+☐ Footnotes
+Feature Status Since
+Read done 1.0
+Render done 1.0
+Sign | verify partial 1.1
+Line one
+line two.
+
+== extracted Markdown ==
+# Broadside
+
+Broadside is a **fully managed** .NET PDF library: *read*, write, edit and render. See the guide or [https://github.com/michaelstonis/Broadside](https://github.com/michaelstonis/Broadside), and [www.example.com](http://www.example.com/).
+
+## Getting started
+
+Install the package:
+
+dotnet add package Broadside
+
+Then open a document:
+
+using PdfDocument document = PdfDocument.Open("in.pdf"); string text = document.Pages\[0\].ExtractText().PlainText;
+
+Every repair is recorded as a diagnostic. Strict mode throws instead.
+
+## Features
+
+1. Reading and repairing
+2. Writing, with no native code
+   - incremental updates
+   - linearization
+3. Rendering
+
+- PDF/UA-2 output
+- Footnotes
+
+| **Feature** | **Status** | **Since** |
+| --- | --- | --- |
+| Read | done | 1.0 |
+| Render | done | 1.0 |
+| Sign \| verify | partial | 1.1 |
+
+![The Broadside logo](page-1-figure-1)
+
+Line one line two.
