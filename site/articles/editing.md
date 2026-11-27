@@ -204,6 +204,53 @@ document.Save("book-stamped.pdf");
 
 A stamp draws over the page's content by default. `WithLayer(PdfStampLayer.Background)` puts it under the content instead, but a page that paints an opaque white background hides it; use the foreground with an opacity below 1 for such pages. `WithFitToPage()` scales the stamp to the box, `WithOptionalContentGroup` lets a viewer hide it, and one image, form or font serves every page it is drawn on. In a PDF 2.0 document, a header or footer that shows the page number is marked with the `PageNum` artifact subtype.
 
+### Bates numbers
+
+`AddBatesNumbers` stamps each page with a sequential identifier, such as `ACME000123`, for a legal production. The `PdfBatesNumbering` counter outlives one document: each call numbers the pages it is given and advances `NextNumber`, and returns the first and last number it used for the production log. Numbers go at the bottom right as the page is viewed, 18 points from the edges, by default. Each one is a pagination artifact with the PDF 2.0 `Bates` subtype, or `Footer` in an older document, so numbering never raises the version. A number that needs more digits than `Digits` throws before any page changes.
+
+<!-- snippet: samples/guides/Editing/Program.cs#bates -->
+```csharp
+var log = new List<string>();
+PdfBatesNumbering? bates = null;
+foreach (string path in (string[])["chapter1.pdf", "chapter2.pdf", "contract.pdf"])
+{
+    using PdfDocument document = PdfDocument.Open(path);
+    // A Standard 14 font serves every document; set Font per document for an embedded one.
+    bates ??= new PdfBatesNumbering(document.GetStandard14Font(Standard14Font.Courier), 9).WithPrefix("ACME").WithDigits(6);
+    PdfBatesRange range = document.AddBatesNumbers(bates);        // bates.NextNumber advances past these pages
+    document.Save(Path.ChangeExtension(path, ".bates.pdf"));
+    log.Add($"{path}: {range.First} to {range.Last}");
+}
+```
+<!-- endsnippet -->
+
+`PdfBatesNumbering` is not thread-safe. To number documents in parallel, give each one its own numbering whose `NextNumber` comes from the page counts of the documents before it:
+
+<!-- snippet: samples/guides/Editing/Program.cs#bates-parallel -->
+```csharp
+// In parallel, each document gets its own numbering, starting where the page counts before it end.
+string[] files = ["chapter1.pdf", "chapter2.pdf", "contract.pdf"];
+long[] starts = new long[files.Length];
+long next = 1;
+for (int i = 0; i < files.Length; i++)
+{
+    starts[i] = next;
+    using PdfDocument counted = PdfDocument.Open(files[i]);
+    next += counted.Pages.Count;
+}
+
+Parallel.For(0, files.Length, i =>
+{
+    using PdfDocument document = PdfDocument.Open(files[i]);
+    var numbering = new PdfBatesNumbering(document.GetStandard14Font(Standard14Font.Courier), 9)
+        .WithPrefix("ACME")
+        .WithNextNumber(starts[i]);
+    document.AddBatesNumbers(numbering);
+    document.Save(Path.ChangeExtension(files[i], ".bates-parallel.pdf"));
+});
+```
+<!-- endsnippet -->
+
 Conformance: [ISO 32000-2 §14.8.2.2 (artifacts)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
 
 ## Forms

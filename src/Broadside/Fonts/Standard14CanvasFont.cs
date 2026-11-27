@@ -36,6 +36,9 @@ internal sealed class Standard14CanvasFont : PdfCanvasFont
     /// <inheritdoc/>
     public override string Name => Standard14Data.PostScriptName(_font);
 
+    /// <summary>Gets which of the 14 fonts this is, so another document can get the same one (<see cref="PdfDocument.GetStandard14Font"/>).</summary>
+    internal Standard14Font Standard14 => _font;
+
     /// <inheritdoc/>
     public override double Ascent => Standard14Data.Metric(_font, Standard14Metric.Ascent);
 
