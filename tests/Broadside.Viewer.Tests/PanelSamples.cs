@@ -96,27 +96,32 @@ internal static class PanelSamples
 }
 
 /// <summary>A viewer that records where the panels sent it.</summary>
-internal sealed class RecordingViewer(DocumentSession session, DocumentSearch? search = null, AnnotationLayer? annotations = null) : IDocumentViewer
+internal sealed class RecordingViewer(DocumentSession? session, DocumentSearch? search = null, AnnotationLayer? annotations = null) : IDocumentViewer
 {
-    public event EventHandler? ViewChanged
-    {
-        add { }
-        remove { }
-    }
+    public event EventHandler? ViewChanged;
 
-    public DocumentSession? Session => session;
+    public DocumentSession? Session { get; private set; } = session;
 
     public int PageIndex { get; private set; }
 
-    public int PageCount => session.PageCount;
+    public int PageCount => Session?.PageCount ?? 0;
 
     public double Zoom => 1;
 
     public TextSelection? Selection => null;
 
-    public DocumentSearch? Search => search;
+    public DocumentSearch? Search { get; private set; } = search;
 
-    public AnnotationLayer? Annotations => annotations;
+    public AnnotationLayer? Annotations { get; private set; } = annotations;
+
+    public bool HasViewChangedHandlers => ViewChanged is not null;
+
+    /// <summary>Shows another document (or none), as a shell's view does when its source changes.</summary>
+    public void Open(DocumentSession? session, DocumentSearch? search = null, AnnotationLayer? annotations = null)
+    {
+        (Session, Search, Annotations, PageIndex) = (session, search, annotations, 0);
+        ViewChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     public PageLabelTable? PageLabels => null;
 
@@ -128,7 +133,11 @@ internal sealed class RecordingViewer(DocumentSession session, DocumentSearch? s
 
     public ViewTarget? Target { get; private set; }
 
-    public void GoToPage(int pageIndex) => PageIndex = pageIndex;
+    public void GoToPage(int pageIndex)
+    {
+        PageIndex = pageIndex;
+        ViewChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     public void NextPage() => PageIndex++;
 
