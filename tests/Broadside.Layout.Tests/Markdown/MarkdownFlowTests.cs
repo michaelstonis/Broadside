@@ -84,11 +84,11 @@ public sealed class MarkdownFlowTests
     }
 
     [Fact]
-    public void Emphasis_strong_code_and_strikethrough_become_Em_Strong_Code_and_spans()
+    public void Emphasis_and_strong_become_Em_and_Strong_and_code_and_strikethrough_plain_spans()
     {
         using PdfDocument document = FromMarkdown("A *b* **c** `d` ~~e~~ ***f***.\n");
 
-        Assert.Equal("Document(P(Em,Strong,Code,Strong))", Shape(document.StructureTree!.Children));
+        Assert.Equal("Document(P(Em,Strong,Strong))", Shape(document.StructureTree!.Children));
         Assert.Equal("A b c d e f.", document.Pages[0].ExtractText().PlainText.Trim());
     }
 

@@ -7,9 +7,9 @@ namespace Broadside.Layout.Flow;
 
 /// <summary>
 /// Maps a parsed Markdown document onto the document builder's nodes, so it is laid out and tagged like content described in C#:
-/// headings <c>H1</c> to <c>H6</c> with GitHub-style slugs as anchor ids, paragraphs with <c>Em</c>, <c>Strong</c>, <c>Code</c> and
-/// <c>Link</c> spans, lists <c>L</c>, tables <c>Table</c>, images <c>Figure</c>, block quotes as indented <c>Div</c>s, thematic breaks
-/// as artifact rules. Raw HTML is dropped. Nesting deeper than <see cref="MaxNesting"/> is laid out at that depth.
+/// headings <c>H1</c> to <c>H6</c> with GitHub-style slugs as anchor ids, paragraphs with <c>Em</c>, <c>Strong</c> and <c>Link</c> spans
+/// (code in the monospace font is a plain span: the PDF 2.0 namespace has no <c>Code</c>), lists <c>L</c>, tables <c>Table</c>, images
+/// <c>Figure</c>, block quotes as indented <c>Div</c>s, thematic breaks as artifact rules. Raw HTML is dropped. Nesting deeper than <see cref="MaxNesting"/> is laid out at that depth.
 /// </summary>
 /// <remarks>ISO 32000-2 §14.8.4.3 to §14.8.4.8 (the structure types written), §14.9.3 (alternate descriptions) and ISO 14289-2 §8.2.</remarks>
 internal sealed class MarkdownBuilder
@@ -30,6 +30,7 @@ internal sealed class MarkdownBuilder
     private readonly Dictionary<string, int> _slugs = new(StringComparer.Ordinal);
     private readonly Style?[] _styles = new Style?[16];
     private readonly StringBuilder _pending = new();
+    private readonly Dictionary<string, ImageSource> _files = new(StringComparer.Ordinal);
 
     public MarkdownBuilder(BuildContext context, MarkdownOptions? options, bool titleFromHeading)
     {
@@ -309,7 +310,7 @@ internal sealed class MarkdownBuilder
                     key = Append(spans, key, Key(flags, link, emphasis), node.Literal);
                     break;
                 case MarkdownKind.Code:
-                    key = Append(spans, key, new SpanKey(flags | Mono, link.Count > 0 ? link.Peek() : default, link.Count > 0 ? null : "Code"), node.Literal);
+                    key = Append(spans, key, new SpanKey(flags | Mono, link.Count > 0 ? link.Peek() : default, null), node.Literal);
                     break;
                 case MarkdownKind.SoftBreak:
                     key = Append(spans, key, Key(flags, link, emphasis), " ");
@@ -477,11 +478,18 @@ internal sealed class MarkdownBuilder
             {
                 reason = "no such file is under the base directory";
             }
+            else if (_files.TryGetValue(full, out ImageSource? read))
+            {
+                // The same file drawn again is the same source, so the document embeds it once.
+                return read;
+            }
             else
             {
                 try
                 {
-                    return ImageSource.FromBytes(File.ReadAllBytes(full));
+                    ImageSource source = ImageSource.FromBytes(File.ReadAllBytes(full));
+                    _files.Add(full, source);
+                    return source;
                 }
                 catch (ArgumentException)
                 {

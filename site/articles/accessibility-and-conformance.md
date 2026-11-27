@@ -47,7 +47,7 @@ The [document builder](building-documents.md) does the same with less code, and 
 
 ### From Markdown
 
-Release notes, READMEs and generated reports written in Markdown convert to PDF/UA-2 in one call. The Markdown maps onto the document builder, so its structure is the builder's: headings `H1` to `H6`, paragraphs with `Em`, `Strong`, `Code` and `Link` spans, lists, tables with header cells, figures with the image's alternate text, block quotes as `Div`.
+Release notes, READMEs and generated reports written in Markdown convert to PDF/UA-2 in one call. The Markdown maps onto the document builder, so its structure is the builder's: headings `H1` to `H6`, paragraphs with `Em`, `Strong` and `Link` spans, lists, tables with header cells, figures with the image's alternate text, block quotes as `Div`.
 
 <!-- snippet: samples/guides/AccessibilityConformance/Program.cs#pdfua-markdown -->
 ```csharp

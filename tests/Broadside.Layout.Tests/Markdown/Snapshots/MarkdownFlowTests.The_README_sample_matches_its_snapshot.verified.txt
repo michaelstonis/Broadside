@@ -4,7 +4,6 @@ Document
   P
     Strong
     Em
-    Code
     Link
     Link
     Link

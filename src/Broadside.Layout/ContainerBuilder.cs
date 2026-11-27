@@ -337,7 +337,7 @@ public readonly ref struct ContainerBuilder
     /// <summary>
     /// Adds the content of <paramref name="markdown"/> (CommonMark 0.31, with the GitHub Flavored Markdown extensions unless
     /// <paramref name="options"/> turns them off), tagged like the same content described with this builder: headings with GitHub-style
-    /// anchor ids that <c>[text](#anchor)</c> links reach, paragraphs with <c>Em</c>, <c>Strong</c> and <c>Code</c> spans, links, lists,
+    /// anchor ids that <c>[text](#anchor)</c> links reach, paragraphs with <c>Em</c> and <c>Strong</c> spans, code in the monospace font, links, lists,
     /// tables, images with their alternate text, block quotes as indented <c>Div</c> groups and thematic breaks as rules.
     /// </summary>
     /// <param name="markdown">The Markdown. Every string is valid Markdown.</param>

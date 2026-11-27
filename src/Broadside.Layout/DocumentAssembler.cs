@@ -263,7 +263,7 @@ internal sealed partial class DocumentAssembler
             {
                 _context.Report(
                     LayoutDiagnostics.HeadingLevelSkipped,
-                    $"The heading \"{Shorten(node.Text)}\" is level {node.Level} after {(_lastHeading == 0 ? "no heading" : $"a level {_lastHeading} heading")}; heading levels should not be skipped (ISO 32000-2 §14.8.4.3.6).");
+                    $"The heading \"{Shorten(node.Text ?? string.Concat(node.Spans?.Select(span => span.Text) ?? []))}\" is level {node.Level} after {(_lastHeading == 0 ? "no heading" : $"a level {_lastHeading} heading")}; heading levels should not be skipped (ISO 32000-2 §14.8.4.3.6).");
             }
 
             _lastHeading = node.Level;

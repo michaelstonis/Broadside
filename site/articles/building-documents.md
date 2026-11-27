@@ -342,7 +342,7 @@ PdfDocument.Create(doc => doc.WithTitle("Status").WithLanguage("en").Content(c =
 | Markdown | Becomes |
 |---|---|
 | `#` to `######`, or `===` and `---` underlines | `Heading(level, ...)`; the id is the GitHub-style slug (`## Getting started` is `getting-started`, a repeat `getting-started-1`), so `[back](#getting-started)` links to it |
-| `*em*`, `**strong**`, `` `code` ``, `~~struck~~` | italic `Em`, bold `Strong`, monospace `Code` spans, struck-through text |
+| `*em*`, `**strong**`, `` `code` ``, `~~struck~~` | italic `Em` and bold `Strong` spans, code in `Theme.MonospaceFont` (a plain span: the PDF 2.0 namespace has no `Code`), struck-through text |
 | `[text](https://...)`, `<https://...>`, `www.example.com` | links; only absolute `http`, `https`, `mailto` and `ftp` targets and `#anchors` link, other targets (relative paths) stay text |
 | `-`, `*`, `+` and `1.` lists | `List`, numbered from the first item's number; task items get a ☐ or ☑ label (□ or ■ when the font has no ballot box) whose `ActualText` is the state |
 | fenced and indented code | a paragraph in `Theme.MonospaceFont`, whitespace kept, tabs to 4 columns |

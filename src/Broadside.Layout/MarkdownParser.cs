@@ -29,6 +29,8 @@ internal sealed class MarkdownParser
     private bool _blank;
     private bool _partiallyConsumedTab;
     private bool _allClosed = true;
+    private int _spacesOnlyFrom = -1;
+    private int _spacesOnlyTo;
 
     private MarkdownParser(bool gfm)
     {
@@ -125,6 +127,7 @@ internal sealed class MarkdownParser
         _partiallyConsumedTab = false;
         _lineNumber++;
         _line = line;
+        _spacesOnlyFrom = -1;
 
         while (container.LastChild is { IsOpen: true } lastChild)
         {
@@ -197,7 +200,7 @@ internal sealed class MarkdownParser
             }
             else if (_offset < _line.Length && !_blank)
             {
-                container = AddChild(MarkdownKind.Paragraph, _offset);
+                container = AddChild(MarkdownKind.Paragraph);
                 AdvanceNextNonspace();
                 AddLine();
             }
@@ -319,7 +322,7 @@ internal sealed class MarkdownParser
             {
                 AdvanceOffset(CodeIndent, true);
                 CloseUnmatchedBlocks();
-                _ = AddChild(MarkdownKind.CodeBlock, _offset);
+                _ = AddChild(MarkdownKind.CodeBlock);
                 return 2;
             }
 
@@ -339,7 +342,7 @@ internal sealed class MarkdownParser
             }
 
             CloseUnmatchedBlocks();
-            _ = AddChild(MarkdownKind.BlockQuote, _nextNonspace);
+            _ = AddChild(MarkdownKind.BlockQuote);
             return 1;
         }
 
@@ -357,7 +360,7 @@ internal sealed class MarkdownParser
                 AdvanceNextNonspace();
                 AdvanceOffset(level, false);
                 CloseUnmatchedBlocks();
-                MarkdownNode heading = AddChild(MarkdownKind.Heading, _nextNonspace);
+                MarkdownNode heading = AddChild(MarkdownKind.Heading);
                 heading.Level = level;
                 heading.Content = new StringBuilder(AtxContent(_line.AsSpan(_offset)).ToString());
                 AdvanceOffset(_line.Length - _offset, false);
@@ -377,7 +380,7 @@ internal sealed class MarkdownParser
             if (fence >= 3 && (first == '~' || !rest[fence..].Contains('`')))
             {
                 CloseUnmatchedBlocks();
-                MarkdownNode code = AddChild(MarkdownKind.CodeBlock, _nextNonspace);
+                MarkdownNode code = AddChild(MarkdownKind.CodeBlock);
                 code.IsFenced = true;
                 code.FenceLength = fence;
                 code.FenceChar = first;
@@ -396,7 +399,7 @@ internal sealed class MarkdownParser
             if (kind > 0)
             {
                 CloseUnmatchedBlocks();
-                MarkdownNode html = AddChild(MarkdownKind.HtmlBlock, _offset);
+                MarkdownNode html = AddChild(MarkdownKind.HtmlBlock);
                 html.HtmlBlockType = kind;
                 return 2;
             }
@@ -435,7 +438,7 @@ internal sealed class MarkdownParser
         if (first is '*' or '_' or '-' && IsThematicBreak(rest))
         {
             CloseUnmatchedBlocks();
-            _ = AddChild(MarkdownKind.ThematicBreak, _nextNonspace);
+            _ = AddChild(MarkdownKind.ThematicBreak);
             AdvanceOffset(_line.Length - _offset, false);
             return 2;
         }
@@ -454,11 +457,11 @@ internal sealed class MarkdownParser
         CloseUnmatchedBlocks();
         if (_tip.Kind != MarkdownKind.List || !_tip.ListData!.Matches(data))
         {
-            MarkdownNode list = AddChild(MarkdownKind.List, _nextNonspace);
+            MarkdownNode list = AddChild(MarkdownKind.List);
             list.ListData = data;
         }
 
-        MarkdownNode item = AddChild(MarkdownKind.Item, _nextNonspace);
+        MarkdownNode item = AddChild(MarkdownKind.Item);
         item.ListData = data;
         return 1;
     }
@@ -768,9 +771,8 @@ internal sealed class MarkdownParser
     /// <summary>Whether a blank line separates <paramref name="block"/> from its next sibling.</summary>
     private static bool EndsWithBlankLine(MarkdownNode block) => block.Next is { } next && block.EndLine != next.StartLine - 1;
 
-    private MarkdownNode AddChild(MarkdownKind kind, int offset)
+    private MarkdownNode AddChild(MarkdownKind kind)
     {
-        _ = offset;
         while (!CanContain(_tip.Kind, kind))
         {
             Finalize(_tip, _lineNumber - 1);
@@ -820,23 +822,37 @@ internal sealed class MarkdownParser
     {
         int index = _offset;
         int columns = _column;
-        while (index < _line.Length)
+        if (!_partiallyConsumedTab && _spacesOnlyFrom >= 0 && _offset >= _spacesOnlyFrom && _offset <= _spacesOnlyTo)
         {
-            char c = _line[index];
-            if (c == ' ')
+            // Only spaces lie between here and the last non-space found on this line, so deep nesting does not rescan them.
+            columns += _spacesOnlyTo - _offset;
+            index = _spacesOnlyTo;
+        }
+        else
+        {
+            bool tab = false;
+            while (index < _line.Length)
             {
-                index++;
-                columns++;
+                char c = _line[index];
+                if (c == ' ')
+                {
+                    index++;
+                    columns++;
+                }
+                else if (c == '\t')
+                {
+                    tab = true;
+                    index++;
+                    columns += 4 - (columns % 4);
+                }
+                else
+                {
+                    break;
+                }
             }
-            else if (c == '\t')
-            {
-                index++;
-                columns += 4 - (columns % 4);
-            }
-            else
-            {
-                break;
-            }
+
+            _spacesOnlyFrom = tab ? -1 : _offset;
+            _spacesOnlyTo = index;
         }
 
         _blank = index >= _line.Length;
