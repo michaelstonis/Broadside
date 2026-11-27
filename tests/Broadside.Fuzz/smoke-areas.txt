@@ -22,6 +22,7 @@ png-reader                  ^src/Broadside/Images/
 jpeg-reader                 ^src/Broadside/(Images|Filters/Dct)/|^src/Broadside/PdfDocument\.ImageWriting\.cs$
 platform-image-eligibility  ^src/Broadside/Images/
 image-decode                ^src/Broadside/(Images|Filters|Graphics)/
+image-optimize              ^src/Broadside/(Images|Filters/Dct)/|^src/Broadside/PdfDocument\.Images\.cs$
 inline-image-end            ^src/Broadside/(Content|Images)/
 encrypted-document          ^src/Broadside/(Security|Parsing)/
 decrypt                     ^src/Broadside/Security/

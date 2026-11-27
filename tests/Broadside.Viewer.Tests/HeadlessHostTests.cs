@@ -29,7 +29,10 @@ public sealed class HeadlessHostTests
         Assert.Equal(tile, presented.Tile);
         using var rasterizer = new SoftwareRasterizer();
         using Bitmap expected = rasterizer.Render(reference.Pages[0], GoldenCorpus.CreateRenderOptions());
-        Assert.Equal(0, ViewerTestSupport.MaxDifference(expected, presented.Pixels));
+        // A viewer decodes images at the resolution they are drawn at (issue #362): image-oversampled.pdf's 1200 x 1200 image drawn
+        // 72 pixels wide is box-averaged by 8 before it is sampled, which rounds a level away from sampling the full decode.
+        int tolerance = fileName == "image-oversampled.pdf" ? 1 : 0;
+        Assert.InRange(ViewerTestSupport.MaxDifference(expected, presented.Pixels), 0, tolerance);
         Assert.Equal(new SessionStatistics(0, 0, 1, 0), session.Statistics);
     }
 

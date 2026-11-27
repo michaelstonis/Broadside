@@ -72,6 +72,7 @@
   image-color-key-mask.pdf,
   image-decode-inverted.pdf,
   image-explicit-mask.pdf,
+  image-oversampled.pdf,
   image-smask-matte.pdf,
   image-smask.pdf,
   image-stencil-mask.pdf,

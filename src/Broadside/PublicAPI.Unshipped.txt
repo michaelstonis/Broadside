@@ -203,23 +203,9 @@ Broadside.Forms.PdfFormDataOptions.WithFormat(Broadside.Forms.PdfFormDataFormat 
 Broadside.Forms.PdfFormDataOptions.WithSourceFile(string? file) -> Broadside.Forms.PdfFormDataOptions!
 Broadside.PdfDocument.ImportFormData(System.IO.Stream! stream, Broadside.Forms.PdfFormDataOptions? options = null) -> Broadside.Forms.PdfFormDataImport!
 Broadside.PdfDocument.SaveFormData(System.IO.Stream! stream, Broadside.Forms.PdfFormDataOptions? options = null) -> void
-static Broadside.Diagnostics.FormDiagnostics.FormDataAnnotationSkipped.get -> Broadside.Diagnostics.DiagnosticCode!
-static Broadside.Diagnostics.FormDiagnostics.FormDataInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
-static Broadside.Diagnostics.FormDiagnostics.FormDataNotApplied.get -> Broadside.Diagnostics.DiagnosticCode!
-static Broadside.Diagnostics.FormDiagnostics.FormDataValueInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
-static Broadside.Diagnostics.RedactionDiagnostics.RedactionFormCopied.get -> Broadside.Diagnostics.DiagnosticCode!
-static Broadside.Diagnostics.RedactionDiagnostics.RedactionFormRemovedWhole.get -> Broadside.Diagnostics.DiagnosticCode!
-static Broadside.Diagnostics.RedactionDiagnostics.RedactionImageRemovedWhole.get -> Broadside.Diagnostics.DiagnosticCode!
-static Broadside.Diagnostics.RedactionDiagnostics.RedactionInvalidatesSignatures.get -> Broadside.Diagnostics.DiagnosticCode!
-static Broadside.Diagnostics.RedactionDiagnostics.RedactionTextRemovedWhole.get -> Broadside.Diagnostics.DiagnosticCode!
-static Broadside.PdfStamp.FromForm(Broadside.Graphics.PdfFormXObject! form) -> Broadside.PdfStamp!
-static Broadside.PdfStamp.FromImage(Broadside.Images.PdfImage! image) -> Broadside.PdfStamp!
-static Broadside.PdfStamp.FromPage(Broadside.PdfPage! page) -> Broadside.PdfStamp!
-static Broadside.PdfStamp.FromText(string! text, Broadside.Fonts.PdfCanvasFont! font, double fontSize) -> Broadside.PdfStamp!
 Broadside.PdfSaveOptions.MergeDuplicateObjects.get -> bool
 Broadside.PdfSaveOptions.MergeDuplicateObjects.set -> void
 Broadside.PdfSaveOptions.WithMergeDuplicateObjects(bool merge) -> Broadside.PdfSaveOptions!
-static Broadside.Diagnostics.SavingDiagnostics.DuplicateObjectsMerged.get -> Broadside.Diagnostics.DiagnosticCode!
 Broadside.Layout.LayoutJsonOptions
 Broadside.Layout.LayoutJsonOptions.IncludeBounds.get -> bool
 Broadside.Layout.LayoutJsonOptions.Indented.get -> bool
@@ -244,6 +230,69 @@ Broadside.Layout.MarkdownTableStyle.Html = 1 -> Broadside.Layout.MarkdownTableSt
 Broadside.Layout.MarkdownTableStyle.Pipe = 0 -> Broadside.Layout.MarkdownTableStyle
 Broadside.PdfDocument.ExtractMarkdown(Broadside.Layout.MarkdownSaveOptions? options = null) -> string!
 Broadside.PdfPage.ExtractMarkdown(Broadside.Layout.MarkdownSaveOptions? options = null) -> string!
+Broadside.Images.PdfImageOptimization
+Broadside.Images.PdfImageOptimization.JpegQuality.get -> int?
+Broadside.Images.PdfImageOptimization.JpegQuality.set -> void
+Broadside.Images.PdfImageOptimization.MaxBitonalResolution.get -> double?
+Broadside.Images.PdfImageOptimization.MaxBitonalResolution.set -> void
+Broadside.Images.PdfImageOptimization.MaxResolution.get -> double?
+Broadside.Images.PdfImageOptimization.MaxResolution.set -> void
+Broadside.Images.PdfImageOptimization.PdfImageOptimization() -> void
+Broadside.Images.PdfImageOptimization.RecompressLossless.get -> bool
+Broadside.Images.PdfImageOptimization.RecompressLossless.set -> void
+Broadside.Images.PdfImageOptimization.ResampleThreshold.get -> double
+Broadside.Images.PdfImageOptimization.ResampleThreshold.set -> void
+Broadside.Images.PdfImageOptimization.WithJpegQuality(int? quality) -> Broadside.Images.PdfImageOptimization!
+Broadside.Images.PdfImageOptimization.WithMaxBitonalResolution(double? dpi) -> Broadside.Images.PdfImageOptimization!
+Broadside.Images.PdfImageOptimization.WithMaxResolution(double? dpi) -> Broadside.Images.PdfImageOptimization!
+Broadside.Images.PdfImageOptimization.WithRecompressLossless(bool allow = true) -> Broadside.Images.PdfImageOptimization!
+Broadside.Images.PdfImageOptimization.WithResampleThreshold(double factor) -> Broadside.Images.PdfImageOptimization!
+Broadside.Images.PdfImageOptimizationActions
+Broadside.Images.PdfImageOptimizationActions.None = 0 -> Broadside.Images.PdfImageOptimizationActions
+Broadside.Images.PdfImageOptimizationActions.Recompress = 2 -> Broadside.Images.PdfImageOptimizationActions
+Broadside.Images.PdfImageOptimizationActions.Resample = 1 -> Broadside.Images.PdfImageOptimizationActions
+Broadside.Images.PdfImageOptimizationReason
+Broadside.Images.PdfImageOptimizationReason.ColorKeyMask = 5 -> Broadside.Images.PdfImageOptimizationReason
+Broadside.Images.PdfImageOptimizationReason.DecodeFailed = 7 -> Broadside.Images.PdfImageOptimizationReason
+Broadside.Images.PdfImageOptimizationReason.InlineImage = 2 -> Broadside.Images.PdfImageOptimizationReason
+Broadside.Images.PdfImageOptimizationReason.Matte = 6 -> Broadside.Images.PdfImageOptimizationReason
+Broadside.Images.PdfImageOptimizationReason.None = 0 -> Broadside.Images.PdfImageOptimizationReason
+Broadside.Images.PdfImageOptimizationReason.NotPlaced = 1 -> Broadside.Images.PdfImageOptimizationReason
+Broadside.Images.PdfImageOptimizationReason.Unsupported = 4 -> Broadside.Images.PdfImageOptimizationReason
+Broadside.Images.PdfImageOptimizationReason.VersionTooLow = 9 -> Broadside.Images.PdfImageOptimizationReason
+Broadside.Images.PdfImageOptimizationReason.WithinLimits = 3 -> Broadside.Images.PdfImageOptimizationReason
+Broadside.Images.PdfImageOptimizationReason.WouldGrow = 8 -> Broadside.Images.PdfImageOptimizationReason
+Broadside.Images.PdfImageOptimizationResult
+Broadside.Images.PdfImageOptimizationResult.Actions.get -> Broadside.Images.PdfImageOptimizationActions
+Broadside.Images.PdfImageOptimizationResult.EffectiveResolution.get -> double?
+Broadside.Images.PdfImageOptimizationResult.Image.get -> Broadside.Images.PdfImage!
+Broadside.Images.PdfImageOptimizationResult.OptimizedLength.get -> long
+Broadside.Images.PdfImageOptimizationResult.OriginalLength.get -> long
+Broadside.Images.PdfImageOptimizationResult.Placements.get -> int
+Broadside.Images.PdfImageOptimizationResult.Reason.get -> Broadside.Images.PdfImageOptimizationReason
+Broadside.Images.PdfImageOptimizationResult.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Images.PdfImageOptimizationResult.TargetFilter.get -> Broadside.Objects.CosName?
+Broadside.Images.PdfImageOptimizationResult.TargetHeight.get -> int
+Broadside.Images.PdfImageOptimizationResult.TargetWidth.get -> int
+Broadside.PdfDocument.PlanImageOptimization(Broadside.Images.PdfImageOptimization! options) -> System.Collections.Generic.IReadOnlyList<Broadside.Images.PdfImageOptimizationResult!>!
+Broadside.PdfSaveOptions.ImageOptimization.get -> Broadside.Images.PdfImageOptimization?
+Broadside.PdfSaveOptions.ImageOptimization.set -> void
+Broadside.PdfSaveOptions.WithImageOptimization(Broadside.Images.PdfImageOptimization? optimization) -> Broadside.PdfSaveOptions!
+static Broadside.Diagnostics.FormDiagnostics.FormDataAnnotationSkipped.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FormDataInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FormDataNotApplied.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FormDataValueInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.ImageDiagnostics.ImageOptimizationSkipped.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.RedactionDiagnostics.RedactionFormCopied.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.RedactionDiagnostics.RedactionFormRemovedWhole.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.RedactionDiagnostics.RedactionImageRemovedWhole.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.RedactionDiagnostics.RedactionInvalidatesSignatures.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.RedactionDiagnostics.RedactionTextRemovedWhole.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SavingDiagnostics.DuplicateObjectsMerged.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.PdfStamp.FromForm(Broadside.Graphics.PdfFormXObject! form) -> Broadside.PdfStamp!
+static Broadside.PdfStamp.FromImage(Broadside.Images.PdfImage! image) -> Broadside.PdfStamp!
+static Broadside.PdfStamp.FromPage(Broadside.PdfPage! page) -> Broadside.PdfStamp!
+static Broadside.PdfStamp.FromText(string! text, Broadside.Fonts.PdfCanvasFont! font, double fontSize) -> Broadside.PdfStamp!
 static Broadside.Text.SearchableText.Create(Broadside.Text.TextPage! page) -> Broadside.Text.SearchableText!
 static Broadside.Text.SearchableText.Empty.get -> Broadside.Text.SearchableText!
 static Broadside.Text.TextQuery.FromRegex(string! pattern) -> Broadside.Text.TextQuery!

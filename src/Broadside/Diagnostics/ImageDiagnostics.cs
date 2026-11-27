@@ -111,6 +111,11 @@ public static class ImageDiagnostics
     public static DiagnosticCode InlineImageFilterNotAllowed { get; } = new(nameof(InlineImageFilterNotAllowed), DiagnosticArea.Image, DiagnosticSeverity.Warning, "ISO 32000-2 §8.9.7",
         "An inline image uses a filter that is not allowed in inline images. The filter is applied anyway.");
 
+    /// <summary>Gets the <c>ImageOptimizationSkipped</c> code.</summary>
+    /// <remarks>ISO 32000-2 §8.9.5.3</remarks>
+    public static DiagnosticCode ImageOptimizationSkipped { get; } = new(nameof(ImageOptimizationSkipped), DiagnosticArea.Image, DiagnosticSeverity.Information, "ISO 32000-2 §8.9.5.3",
+        "The save-time image pass could not decode an image or its mask, or the decoded samples did not match the image dictionary. The image is saved unchanged.");
+
     /// <summary>Gets every code of this area, in declaration order.</summary>
     internal static DiagnosticCode[] Codes { get; } =
     [
@@ -135,5 +140,6 @@ public static class ImageDiagnostics
         PlatformImageVerified,
         PlatformImageMismatch,
         InlineImageFilterNotAllowed,
+        ImageOptimizationSkipped,
     ];
 }

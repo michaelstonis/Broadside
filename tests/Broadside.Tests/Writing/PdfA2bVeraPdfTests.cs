@@ -1,5 +1,6 @@
 using Broadside.Diagnostics;
 using Broadside.Graphics;
+using Broadside.Images;
 using Broadside.TestSupport;
 
 namespace Broadside.Tests.Writing;
@@ -51,10 +52,29 @@ public sealed class PdfA2bVeraPdfTests
         Assert.Empty(VeraPdf.FailedRules(Save(document), "2b"));
     }
 
-    private static byte[] Save(PdfDocument document)
+    [Fact]
+    public void A_document_whose_images_are_resampled_and_recompressed_on_save_passes_verapdf()
+    {
+        // Issue #625: the image pass keeps colour spaces, so the PDF/A check sees no new violation.
+        using PdfDocument document = PdfDocument.Create();
+        document.Properties.Title = "Images";
+        PdfImage photo = document.CreateImage(Tests.Images.ImageOptimizationTests.Noise(600, 600, 3), new PdfImageLayout(600, 600, PdfDeviceRgbColorSpace.Instance), PdfImageCompression.Flate);
+        PdfImage scan = document.CreateImage(Tests.Images.ImageOptimizationTests.Gradient(900, 900, 1), new PdfImageLayout(900, 900, PdfDeviceGrayColorSpace.Instance), PdfImageCompression.Flate);
+        using (PdfCanvas canvas = document.Pages[0].CreateCanvas())
+        {
+            canvas.DrawImage(photo, 72, 400, 144, 144);
+            canvas.DrawImage(scan, 300, 400, 72, 72);
+        }
+
+        var optimization = new PdfImageOptimization().WithMaxResolution(150).WithJpegQuality(75).WithRecompressLossless();
+
+        Assert.Empty(VeraPdf.FailedRules(Save(document, optimization), "2b"));
+    }
+
+    private static byte[] Save(PdfDocument document, PdfImageOptimization? optimization = null)
     {
         using var stream = new MemoryStream();
-        document.Save(stream, new PdfSaveOptions().WithPdfAConformance(PdfAConformance.PdfA2b));
+        document.Save(stream, new PdfSaveOptions().WithPdfAConformance(PdfAConformance.PdfA2b).WithImageOptimization(optimization));
         Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code is "PdfANonConformant" or "PdfANotIdentified");
         return stream.ToArray();
     }
