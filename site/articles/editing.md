@@ -68,6 +68,40 @@ Merged and generated documents often carry the same logo, font program or form X
 
 Conformance: [ISO 32000-2 §7.5 (file structure, incremental updates §7.5.6, cross-reference streams §7.5.8)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
 
+## Reducing file size
+
+Scanned and photo-heavy files are often many times larger than a screen or an email needs, because their images are stored at 300 to 600 dpi, or as losslessly compressed photographs. `PdfSaveOptions.WithImageOptimization` caps image resolution and re-encodes photographs as JPEG during a full save, without touching anything else. `PlanImageOptimization` is the dry run: it reports what the save would do and changes nothing.
+
+<!-- snippet: samples/guides/Editing/Program.cs#reduce-size -->
+```csharp
+using PdfDocument document = PdfDocument.Open("brochure.pdf");
+
+// A dry run first: where each image is painted largest, and what the save would do to it.
+var optimization = new PdfImageOptimization()
+    .WithMaxResolution(150)        // at most 150 pixels per inch where the image is painted largest
+    .WithJpegQuality(80)           // re-encode photographs as JPEG at quality 80
+    .WithRecompressLossless();     // also images stored losslessly (Flate)
+foreach (PdfImageOptimizationResult image in document.PlanImageOptimization(optimization))
+{
+    Console.WriteLine($"{image.Image.Width} x {image.Image.Height} at {image.EffectiveResolution:F0} dpi: {image.Actions} to {image.TargetWidth} x {image.TargetHeight}");
+}
+
+document.Save("brochure-small.pdf", new PdfSaveOptions().WithImageOptimization(optimization));
+```
+<!-- endsnippet -->
+
+How it decides:
+
+- **Effective resolution.** The pass walks every page's content (hidden content, image masks, artifacts, forms and tiling pattern cells included) and every annotation appearance, and takes each image's largest placement. Its pixels divided by the inches of that placement give its effective resolution. An image that is painted nowhere is left alone.
+- **Resampling.** An image above `MaxResolution` times `ResampleThreshold` (1.5 by default, so a 200 dpi image under a 150 dpi cap is kept) is box-filtered down to `MaxResolution`, keeping its aspect ratio. Its soft or explicit mask is resampled by the same factor. 1-bit images and image masks use `MaxBitonalResolution` instead and stay 1-bit.
+- **Re-encoding.** With `JpegQuality`, 8-bit Gray, RGB and CMYK images that are already JPEG are re-encoded at that quality; images stored losslessly become JPEG only with `RecompressLossless`. Everything else that is resampled is written with Flate and PNG predictors.
+- **Never larger.** A new encoding replaces the old one only when it is smaller.
+- **In place.** The image keeps its object number and its colour space, so every page that shows it gets the smaller version, and a PDF/A save stays conformant.
+
+Indexed images, images with a colour key mask or a `Matte`, JPEG 2000 images and inline images are kept as they are; the plan says why for each one. An image that cannot be decoded is kept, with an `ImageOptimizationSkipped` information diagnostic. The option needs a full save: with `IncrementalUpdate`, `Save` throws an `InvalidOperationException`, because the images of earlier, possibly signed, revisions must stay as they were.
+
+Conformance: [ISO 32000-2 §8.9.5.3 (reduction), §7.4.4 (Flate with predictors), §7.4.8 (DCTDecode)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
+
 ## Pages
 
 `Pages` inserts, moves and removes pages, and a page's `Rotation` turns it in quarter turns:
@@ -169,6 +203,53 @@ document.Save("book-stamped.pdf");
 <!-- endsnippet -->
 
 A stamp draws over the page's content by default. `WithLayer(PdfStampLayer.Background)` puts it under the content instead, but a page that paints an opaque white background hides it; use the foreground with an opacity below 1 for such pages. `WithFitToPage()` scales the stamp to the box, `WithOptionalContentGroup` lets a viewer hide it, and one image, form or font serves every page it is drawn on. In a PDF 2.0 document, a header or footer that shows the page number is marked with the `PageNum` artifact subtype.
+
+### Bates numbers
+
+`AddBatesNumbers` stamps each page with a sequential identifier, such as `ACME000123`, for a legal production. The `PdfBatesNumbering` counter outlives one document: each call numbers the pages it is given and advances `NextNumber`, and returns the first and last number it used for the production log. Numbers go at the bottom right as the page is viewed, 18 points from the edges, by default. Each one is a pagination artifact with the PDF 2.0 `Bates` subtype, or `Footer` in an older document, so numbering never raises the version. A number that needs more digits than `Digits` throws before any page changes.
+
+<!-- snippet: samples/guides/Editing/Program.cs#bates -->
+```csharp
+var log = new List<string>();
+PdfBatesNumbering? bates = null;
+foreach (string path in (string[])["chapter1.pdf", "chapter2.pdf", "contract.pdf"])
+{
+    using PdfDocument document = PdfDocument.Open(path);
+    // A Standard 14 font serves every document; set Font per document for an embedded one.
+    bates ??= new PdfBatesNumbering(document.GetStandard14Font(Standard14Font.Courier), 9).WithPrefix("ACME").WithDigits(6);
+    PdfBatesRange range = document.AddBatesNumbers(bates);        // bates.NextNumber advances past these pages
+    document.Save(Path.ChangeExtension(path, ".bates.pdf"));
+    log.Add($"{path}: {range.First} to {range.Last}");
+}
+```
+<!-- endsnippet -->
+
+`PdfBatesNumbering` is not thread-safe. To number documents in parallel, give each one its own numbering whose `NextNumber` comes from the page counts of the documents before it:
+
+<!-- snippet: samples/guides/Editing/Program.cs#bates-parallel -->
+```csharp
+// In parallel, each document gets its own numbering, starting where the page counts before it end.
+string[] files = ["chapter1.pdf", "chapter2.pdf", "contract.pdf"];
+long[] starts = new long[files.Length];
+long next = 1;
+for (int i = 0; i < files.Length; i++)
+{
+    starts[i] = next;
+    using PdfDocument counted = PdfDocument.Open(files[i]);
+    next += counted.Pages.Count;
+}
+
+Parallel.For(0, files.Length, i =>
+{
+    using PdfDocument document = PdfDocument.Open(files[i]);
+    var numbering = new PdfBatesNumbering(document.GetStandard14Font(Standard14Font.Courier), 9)
+        .WithPrefix("ACME")
+        .WithNextNumber(starts[i]);
+    document.AddBatesNumbers(numbering);
+    document.Save(Path.ChangeExtension(files[i], ".bates-parallel.pdf"));
+});
+```
+<!-- endsnippet -->
 
 Conformance: [ISO 32000-2 §14.8.2.2 (artifacts)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
 
@@ -287,6 +368,41 @@ that show it keep it. Annotations under an area are removed, form fields under i
 The overlay (the fill, the `RO` form or the overlay text) is then drawn as a pagination artifact. Whatever cannot be cut exactly,
 such as a curve or an image that an area covers only in part, is removed whole, and a `RedactionDiagnostics` code says so; in
 strict mode that throws and the document is left as it was.
+
+### Search and redact
+
+Most redaction starts from content, not coordinates. `PdfDocument.Redact(TextQuery)` finds every match of a literal or regular
+expression query (see [Extracting text](extracting-text.md)) and removes it at once; `AddRedactAnnotations` marks each match with a
+Redact annotation for review instead, one quadrilateral per line, and `PdfDocument.Redact()` applies them later. `TextPatterns`
+holds presets for email addresses, phone numbers, US Social Security numbers, card numbers (Luhn-checked), IBANs (mod 97
+checked), IPv4 addresses and URLs; several queries share one extraction per page, and overlapping matches merge:
+
+<!-- snippet: samples/guides/Editing/Program.cs#search-redaction -->
+```csharp
+// Review first: one Redact annotation per match, a quadrilateral per line; nothing is removed until document.Redact().
+using PdfDocument review = PdfDocument.Open("contract.pdf");
+IReadOnlyList<PdfRedactAnnotation> marks = review.AddRedactAnnotations(new TextQuery("parties"));
+
+// Or apply at once: the presets and the literal share one extraction per page, and exactly the matched glyphs go.
+using PdfDocument document = PdfDocument.Open("contract.pdf");
+PdfRedactionResult result = document.Redact(
+    [TextPatterns.EmailAddress, TextPatterns.CreditCardNumber, new TextQuery("parties")],
+    new PdfRedactionOptions().WithOverlayText("WITHHELD"));
+document.Save("contract-search-redacted.pdf", result.CreateSaveOptions());
+```
+<!-- endsnippet -->
+
+Applying a match removes exactly the glyphs it names, found again by character code and position, not everything under its box: a
+neighbor that overlaps it through tight kerning or italics stays. A match inside `ActualText` takes every glyph of the replaced
+sequence. The search includes hidden content and artifacts, so an invisible OCR layer (rendering mode 3) is removed with the image
+it lies over; `PdfRedactionOptions.WithTextExtractionOptions` narrows it. Unless `WithGlyphsOnly()` is set, the images, paths and
+annotations under the match quads go too, so text drawn into an image under a match is removed as well. A match whose glyphs cannot
+be found again is removed by area instead and recorded as `RedactionMatchNotLocated`. `PdfPage.Redact(IReadOnlyList<TextMatch>)`
+applies matches you found yourself with `FindText`.
+
+The presets are starting points: they find the common written forms and will miss some values and match a few that are not
+personal data. Review their matches on documents you do not know. `AddRedactAnnotations` writes the matched text into the
+annotation's `Contents` only when overlay text is set, so the value being redacted is not copied into the file by default.
 
 > **Never save a redacted document as an incremental update.** An incremental update appends to the original bytes, which still
 > hold everything the redaction removed. Save with `PdfRedactionResult.CreateSaveOptions()`: a full rewrite that drops the objects

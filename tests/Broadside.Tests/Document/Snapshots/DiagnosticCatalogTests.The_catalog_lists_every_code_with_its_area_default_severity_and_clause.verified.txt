@@ -304,6 +304,7 @@ Image	ImageDecodedManaged	Information	ISO 32000-2 §7.4.8
 Image	PlatformImageVerified	Warning	ISO 32000-2 §7.4.8
 Image	PlatformImageMismatch	Warning	ISO 32000-2 §7.4.8
 Image	InlineImageFilterNotAllowed	Warning	ISO 32000-2 §8.9.7
+Image	ImageOptimizationSkipped	Information	ISO 32000-2 §8.9.5.3
 Font	Type0EncodingMissing	Warning	ISO 32000-2 §9.7.3, §9.7.4, §9.7.6.1
 Font	Type0DescendantFontsInvalid	Warning	ISO 32000-2 §9.7.3, §9.7.4, §9.7.6.1
 Font	Type0IdentityNotEmbedded	Warning	ISO 32000-2 §9.7.3, §9.7.4, §9.7.6.1
@@ -617,3 +618,4 @@ Redaction	RedactionTextRemovedWhole	Warning	ISO 32000-2 §9.4.3
 Redaction	RedactionFormRemovedWhole	Warning	ISO 32000-2 §8.10.1
 Redaction	RedactionFormCopied	Information	ISO 32000-2 §8.10.1
 Redaction	RedactionInvalidatesSignatures	Information	ISO 32000-2 §12.8
+Redaction	RedactionMatchNotLocated	Warning	ISO 32000-2 §9.4.3

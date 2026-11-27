@@ -5,6 +5,7 @@ using Broadside.Annotations;
 using Broadside.Fonts;
 using Broadside.Forms;
 using Broadside.Graphics;
+using Broadside.Images;
 using Broadside.Samples;
 using Broadside.Signatures;
 using Broadside.Text;
@@ -16,15 +17,18 @@ WriteInputs(certificate);
 
 SaveIncrementally(certificate);
 SaveInFull();
+ReduceFileSize();
 EditPages();
 MergeAndSplit();
 DrawAPageOnAnotherPage();
 StampPages();
+BatesNumber();
 FillAForm();
 ExchangeFormData();
 Annotate();
 Redact();
 ExchangeAnnotations();
+SearchAndRedact();
 EditMetadata();
 AttachAFile();
 Encrypt();
@@ -70,6 +74,31 @@ static void SaveInFull()
 
     using PdfDocument saved = PdfDocument.Open("contract-compact.pdf");
     Sample.Expect(saved.Revisions.Count == 1 && saved.Properties.Title == "Contract", "a full save writes one revision");
+}
+
+static void ReduceFileSize()
+{
+    #region reduce-size
+    using PdfDocument document = PdfDocument.Open("brochure.pdf");
+
+    // A dry run first: where each image is painted largest, and what the save would do to it.
+    var optimization = new PdfImageOptimization()
+        .WithMaxResolution(150)        // at most 150 pixels per inch where the image is painted largest
+        .WithJpegQuality(80)           // re-encode photographs as JPEG at quality 80
+        .WithRecompressLossless();     // also images stored losslessly (Flate)
+    foreach (PdfImageOptimizationResult image in document.PlanImageOptimization(optimization))
+    {
+        Console.WriteLine($"{image.Image.Width} x {image.Image.Height} at {image.EffectiveResolution:F0} dpi: {image.Actions} to {image.TargetWidth} x {image.TargetHeight}");
+    }
+
+    document.Save("brochure-small.pdf", new PdfSaveOptions().WithImageOptimization(optimization));
+    #endregion
+
+    long before = new FileInfo("brochure.pdf").Length;
+    long after = new FileInfo("brochure-small.pdf").Length;
+    Console.WriteLine($"{before} bytes before, {after} after");
+    using PdfDocument saved = PdfDocument.Open("brochure-small.pdf");
+    Sample.Expect(after < before && saved.Pages[0].ExtractImages()[0].Image.Width == 300, "the photo is resampled to 150 dpi and the file is smaller");
 }
 
 static void EditPages()
@@ -168,6 +197,52 @@ static void StampPages()
     string all = saved.Pages[1].ExtractText(new TextExtractionOptions().WithArtifacts()).Text;
     Sample.Expect(!body.Contains("CONFIDENTIAL", StringComparison.Ordinal), "stamps are artifacts, left out of extracted text");
     Sample.Expect(all.Contains("Page 2 of 4", StringComparison.Ordinal), "page numbers drawn on every page");
+}
+
+static void BatesNumber()
+{
+    #region bates
+    var log = new List<string>();
+    PdfBatesNumbering? bates = null;
+    foreach (string path in (string[])["chapter1.pdf", "chapter2.pdf", "contract.pdf"])
+    {
+        using PdfDocument document = PdfDocument.Open(path);
+        // A Standard 14 font serves every document; set Font per document for an embedded one.
+        bates ??= new PdfBatesNumbering(document.GetStandard14Font(Standard14Font.Courier), 9).WithPrefix("ACME").WithDigits(6);
+        PdfBatesRange range = document.AddBatesNumbers(bates);        // bates.NextNumber advances past these pages
+        document.Save(Path.ChangeExtension(path, ".bates.pdf"));
+        log.Add($"{path}: {range.First} to {range.Last}");
+    }
+    #endregion
+
+    Sample.Expect(log[^1] == "contract.pdf: ACME000005 to ACME000005", "the counter carries across documents");
+
+    #region bates-parallel
+    // In parallel, each document gets its own numbering, starting where the page counts before it end.
+    string[] files = ["chapter1.pdf", "chapter2.pdf", "contract.pdf"];
+    long[] starts = new long[files.Length];
+    long next = 1;
+    for (int i = 0; i < files.Length; i++)
+    {
+        starts[i] = next;
+        using PdfDocument counted = PdfDocument.Open(files[i]);
+        next += counted.Pages.Count;
+    }
+
+    Parallel.For(0, files.Length, i =>
+    {
+        using PdfDocument document = PdfDocument.Open(files[i]);
+        var numbering = new PdfBatesNumbering(document.GetStandard14Font(Standard14Font.Courier), 9)
+            .WithPrefix("ACME")
+            .WithNextNumber(starts[i]);
+        document.AddBatesNumbers(numbering);
+        document.Save(Path.ChangeExtension(files[i], ".bates-parallel.pdf"));
+    });
+    #endregion
+
+    using PdfDocument saved = PdfDocument.Open("chapter2.bates-parallel.pdf");
+    string text = saved.Pages[1].ExtractText(new TextExtractionOptions().WithArtifacts()).Text;
+    Sample.Expect(text.Contains("ACME000004", StringComparison.Ordinal), "parallel numbering matches the sequential run");
 }
 
 static void FillAForm()
@@ -274,6 +349,27 @@ static void ExchangeAnnotations()
     Sample.Expect(withComments.Pages[0].Annotations.Count == 2, "the two markup annotations; the link is not markup");
 }
 
+static void SearchAndRedact()
+{
+    #region search-redaction
+    // Review first: one Redact annotation per match, a quadrilateral per line; nothing is removed until document.Redact().
+    using PdfDocument review = PdfDocument.Open("contract.pdf");
+    IReadOnlyList<PdfRedactAnnotation> marks = review.AddRedactAnnotations(new TextQuery("parties"));
+
+    // Or apply at once: the presets and the literal share one extraction per page, and exactly the matched glyphs go.
+    using PdfDocument document = PdfDocument.Open("contract.pdf");
+    PdfRedactionResult result = document.Redact(
+        [TextPatterns.EmailAddress, TextPatterns.CreditCardNumber, new TextQuery("parties")],
+        new PdfRedactionOptions().WithOverlayText("WITHHELD"));
+    document.Save("contract-search-redacted.pdf", result.CreateSaveOptions());
+    #endregion
+
+    using PdfDocument saved = PdfDocument.Open("contract-search-redacted.pdf");
+    Sample.Expect(marks.Count == 1, "one mark to review");
+    Sample.Expect(result.GlyphsRemoved == "parties".Length, "only the matched glyphs removed");
+    Sample.Expect(!saved.Pages[0].ExtractText().Text.Contains("parties", StringComparison.Ordinal), "the matched word is gone");
+}
+
 static void EditMetadata()
 {
     #region metadata
@@ -343,6 +439,22 @@ static void WriteInputs(X509Certificate2 certificate)
     form.AddTextField("name", application.Pages[0], new PdfRectangle(72, 700, 372, 724));
     form.AddCheckBox("agree", application.Pages[0], new PdfRectangle(72, 660, 90, 678));
     application.Save("application.pdf");
+
+    // A brochure with a 1200 x 1200 photo painted 2 inches wide: 600 dpi, far more than a screen or an email needs.
+    using PdfDocument brochure = PdfDocument.Create();
+    byte[] photo = new byte[1200 * 1200 * 3];
+    for (int i = 0; i < photo.Length; i++)
+    {
+        photo[i] = (byte)((i / 3 % 1200) * 255 / 1199 ^ (i * 7919 % 23));
+    }
+
+    PdfImage image = brochure.CreateImage(photo, new PdfImageLayout(1200, 1200, PdfDeviceRgbColorSpace.Instance), PdfImageCompression.Flate);
+    using (PdfCanvas canvas = brochure.Pages[0].CreateCanvas())
+    {
+        canvas.DrawImage(image, 72, 500, 144, 144);
+    }
+
+    brochure.Save("brochure.pdf");
 }
 
 static void WriteText(string path, params string[] pages)

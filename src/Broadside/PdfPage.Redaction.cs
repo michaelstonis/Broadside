@@ -8,7 +8,7 @@ namespace Broadside;
 public sealed partial class PdfPage
 {
     /// <summary>
-    /// Marks areas for redaction with a Redact annotation that a reviewer can see and change; <see cref="PdfDocument.Redact"/> applies
+    /// Marks areas for redaction with a Redact annotation that a reviewer can see and change; <see cref="PdfDocument.Redact()"/> applies
     /// it later.
     /// </summary>
     /// <param name="quadrilaterals">The areas, in default user space; at least one. The overlay is a black fill.</param>
@@ -47,7 +47,7 @@ public sealed partial class PdfPage
         return annotation;
     }
 
-    /// <summary>Marks a rectangle for redaction with a Redact annotation, filled black once applied; <see cref="PdfDocument.Redact"/> applies it later.</summary>
+    /// <summary>Marks a rectangle for redaction with a Redact annotation, filled black once applied; <see cref="PdfDocument.Redact()"/> applies it later.</summary>
     /// <param name="rect">The area, in default user space.</param>
     /// <returns>The new annotation.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="rect"/> has a coordinate that is not finite.</exception>
@@ -70,6 +70,14 @@ public sealed partial class PdfPage
         return annotation;
     }
 
+    /// <summary>Applies redaction to areas of this page with the default options: a black fill over each area once its content is removed.</summary>
+    /// <param name="areas">The areas, in default user space; each is taken as the convex hull of its four points. Empty does nothing.</param>
+    /// <returns>What was removed, and the diagnostics recorded.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">An area has a coordinate that is not finite.</exception>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for a fallback to a coarser removal; the page is then unchanged.</exception>
+    /// <remarks>ISO 32000-2 §12.5.6.23. As <see cref="Redact(IReadOnlyList{Quad}, PdfRedactionOptions?)"/>.</remarks>
+    public PdfRedactionResult Redact(IReadOnlyList<Quad> areas) => Redact(areas, null);
+
     /// <summary>
     /// Applies redaction to areas of this page: removes the glyphs, images and subpaths under them from the page's content, removes
     /// the annotations and clears the form fields under them, and draws the overlay the options describe over each.
@@ -90,7 +98,7 @@ public sealed partial class PdfPage
     /// <see cref="PdfRedactionResult.CreateSaveOptions"/>: never save a redacted document as an incremental update.
     /// </para>
     /// </remarks>
-    public PdfRedactionResult Redact(IReadOnlyList<Quad> areas, PdfRedactionOptions? options = null) =>
+    public PdfRedactionResult Redact(IReadOnlyList<Quad> areas, PdfRedactionOptions? options) =>
         RedactionSession.ApplyAreas(this, areas, options);
 
     private static PdfRectangle Bounds(IReadOnlyList<PdfQuadrilateral> quadrilaterals)

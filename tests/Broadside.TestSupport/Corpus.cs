@@ -135,6 +135,7 @@ public static class Corpus
         "image-16bpc.pdf",
         "image-decode-inverted.pdf",
         "image-alternates.pdf",
+        "image-oversampled.pdf",
         "jpx-lossless.pdf",
         "jpx-subsampled.pdf",
         "jpx-smask-in-data.pdf",
@@ -173,6 +174,7 @@ public static class Corpus
         "paths-strokes.pdf",
         "clipping-paths.pdf",
         "duplicate-images.pdf",
+        "redact-pii.pdf",
     ];
 
     private static readonly string[] Malformed =

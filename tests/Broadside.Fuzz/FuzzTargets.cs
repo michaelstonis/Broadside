@@ -105,6 +105,7 @@ internal static class FuzzTargets
         ["inline-image-end"] = ContentObjectsTargets.InlineImageEnd,
         ["text-extraction"] = ContentObjectsTargets.TextExtraction,
         ["image-decode"] = ImageDecodeTarget.Target,
+        ["image-optimize"] = ImageOptimizeTarget.Target,
         ["shading-mesh"] = ShadingMeshTarget.Target,
         ["default-appearance"] = DefaultAppearanceTarget.Target,
         ["form-fill"] = FormFillTarget.Target,

@@ -499,6 +499,38 @@ public sealed class PdfSaveOptions
         return this;
     }
 
+    /// <summary>
+    /// Gets or sets how the save resamples and re-encodes image XObjects to make the file smaller, or <see langword="null"/> (the
+    /// default) to write images as they are.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §8.9.5.3 (reduction), §8.9.6 (masks), §7.4.4 and §7.4.8. Before the file is planned, the save walks every page's
+    /// content and annotation appearances for the largest placement of each image, then resamples images above
+    /// <see cref="Images.PdfImageOptimization.MaxResolution"/> and re-encodes them as <see cref="Images.PdfImageOptimization"/> says,
+    /// keeping each stream's object number, so every placement changes at once. A new encoding replaces the old one only when it is
+    /// smaller. Colour spaces are kept, so a PDF/A save sees the same colour; the pass adds no feature later than the document's version
+    /// (Flate output needs PDF 1.2). See <see cref="PdfDocument.PlanImageOptimization"/> for a dry run.
+    /// </para>
+    /// <para>
+    /// The pass changes the document, like the other changes a save makes, and runs on the saving thread. An image that cannot be
+    /// decoded is left unchanged with an <c>ImageOptimizationSkipped</c> information diagnostic; in strict mode a decoding deviation
+    /// throws as reading does, and the save changes nothing. An incremental update (<see cref="IncrementalUpdate"/>) refuses it: the
+    /// images of signed revisions are not rewritten.
+    /// </para>
+    /// </remarks>
+    public Images.PdfImageOptimization? ImageOptimization { get; set; }
+
+    /// <summary>Sets <see cref="ImageOptimization"/>.</summary>
+    /// <param name="optimization">How to resample and re-encode images, or <see langword="null"/> to write them as they are.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §8.9.5.3, §7.4.4 and §7.4.8.</remarks>
+    public PdfSaveOptions WithImageOptimization(Images.PdfImageOptimization? optimization)
+    {
+        ImageOptimization = optimization;
+        return this;
+    }
+
     /// <summary>Sets <see cref="CompressionLevel"/>.</summary>
     /// <param name="level">How hard to compress.</param>
     /// <returns>These options.</returns>

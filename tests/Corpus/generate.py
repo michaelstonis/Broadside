@@ -6269,6 +6269,30 @@ def gen_jpx_smask_in_data() -> bytes:
     return one_image(b"/Width 15 /Height 11 /SMaskInData 1 /Filter /JPXDecode", data, version="1.5")
 
 
+def gen_image_oversampled() -> bytes:
+    """8.9.5.3 reduction and 8.9.4 placement (issue #625): a 1200 x 1200 DeviceRGB 8-bit image (Flate) painted into a 72 x 72
+    point square, so 1200 pixels per inch at its only placement: what the save-time image pass resamples. Red ramps left to right,
+    green top to bottom, blue is 128."""
+    rows = bytearray()
+    previous = bytes(3600)
+    for y in range(1200):
+        green = y * 255 // 1199
+        row = bytes(b for x in range(1200) for b in (x * 255 // 1199, green, 128))
+        # PNG filter type 2 (Up) on every row: the data is Predictor 15 Flate as a PDF writer makes it, and small.
+        rows.append(2)
+        rows += bytes((a - b) & 0xFF for a, b in zip(row, previous))
+        previous = row
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /XObject << /Im0 5 0 R >> >>")),
+        (4, stream(b"", b"q 72 0 0 72 72 600 cm /Im0 Do Q")),
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 1200 /Height 1200 /ColorSpace /DeviceRGB /BitsPerComponent 8 "
+                   b"/Filter /FlateDecode /DecodeParms << /Predictor 15 /Colors 3 /BitsPerComponent 8 /Columns 1200 >>",
+                   flate(bytes(rows)))),
+    ], binary=True)
+
+
 def gen_jpx_lossless() -> bytes:
     """7.4.9 JPXDecode: a 17 x 13 8-bit RGB image in a JP2 file (enumerated sRGB), coded losslessly: RCT, two levels of the
     5/3 wavelet, one tile, one layer, LRCP. The dictionary's ColorSpace DeviceRGB wins over the file's colour box and its
@@ -7420,6 +7444,22 @@ def gen_duplicate_images() -> bytes:
     ], binary=True)
 
 
+def gen_redact_pii() -> bytes:
+    """Personal data for search and redact (issue #633): an email address, a US Social Security number and a card number split
+    across kerned TJ elements (9.4.3 Table 107), a card number broken across two lines, and an email address and a number in an
+    invisible OCR-style layer (9.3.6 Table 104, mode 3). Every value is a reserved or test value: example.com, the SSN 123-45-6789
+    and 078-05-1120, and the published test card numbers 4111 1111 1111 1111 and 5555 5555 5555 4444."""
+    content = (
+        b"BT /F1 14 Tf 72 720 Td (Customer record) Tj ET\n"
+        b"BT /F1 11 Tf 72 690 Td [(Email: jane.d) -15 (oe@exam) 10 (ple.com) -30 ( \\(primary\\))] TJ ET\n"
+        b"BT /F1 11 Tf 72 670 Td [(SSN: 123-4) -20 (5-6789)] TJ ET\n"
+        b"BT /F1 11 Tf 72 650 Td [(Card: 4111 11) -10 (11 1111 1111)] TJ ET\n"
+        b"BT /F1 11 Tf 72 630 Td (Backup card: 5555 5555) Tj 0 -14 Td (5555 4444 on file) Tj ET\n"
+        b"BT 3 Tr /F1 11 Tf 72 560 Td (Scanned: ocr.copy@example.com 078-05-1120) Tj ET"
+    )
+    return text_file(stream(b"", content))
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -7571,6 +7611,7 @@ FILES = {
     "image-16bpc.pdf": gen_image_16bpc,
     "image-decode-inverted.pdf": gen_image_decode_inverted,
     "image-alternates.pdf": gen_image_alternates,
+    "image-oversampled.pdf": gen_image_oversampled,
     "jpx-lossless.pdf": gen_jpx_lossless,
     "jpx-subsampled.pdf": gen_jpx_subsampled,
     "jpx-smask-in-data.pdf": gen_jpx_smask_in_data,
@@ -7615,6 +7656,7 @@ FILES = {
     "clipping-paths.pdf": gen_clipping_paths,
     "clip-before-path.pdf": gen_clip_before_path,
     "duplicate-images.pdf": gen_duplicate_images,
+    "redact-pii.pdf": gen_redact_pii,
 }
 
 
