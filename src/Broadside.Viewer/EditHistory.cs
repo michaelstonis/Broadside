@@ -13,8 +13,8 @@ namespace Broadside.Viewer;
 /// <para>
 /// Not a spec feature; the built-in steps snapshot the annotation dictionaries (ISO 32000-2 §12.5.2) and field dictionaries
 /// (§12.7.4.1) an edit changed. A snapshot is the containers' entries, with direct dictionaries and arrays deep-copied and indirect
-/// references kept as references: undoing writes the old entries back into the same live dictionaries (ADR 0004), so streams such
-/// as appearances are never copied and the appearance an edit replaced comes back as it was.
+/// references kept as references: undoing writes the old entries back into the same live dictionaries, so the <c>Pdf*</c> views over
+/// them stay valid, streams such as appearances are never copied, and the appearance an edit replaced comes back as it was.
 /// </para>
 /// <para>
 /// Like the document, the history is single-threaded: record, undo and redo on the UI thread. <see cref="Undo"/> and
@@ -25,7 +25,7 @@ namespace Broadside.Viewer;
 /// The history knows only the edits it is told of. An edit made around the layer while the history is set (an app calling
 /// <see cref="PdfPage.AddTextAnnotation(PdfRectangle, string, Annotations.PdfAnnotationOptions?)"/> directly) is not undoable; record
 /// it as an app-defined step if it should be. If such an edit changed what a recorded step restores, undoing that step fails: per
-/// ADR 0005 <see cref="Undo"/> then returns <see langword="false"/>, reports a <see cref="Diagnostic"/> through
+/// the library's leniency rule <see cref="Undo"/> then returns <see langword="false"/>, reports a <see cref="Diagnostic"/> through
 /// <see cref="PdfDocument.ReportDiagnostic"/>, drops the step and clears the redo stack; it does not throw (except in strict mode,
 /// where reporting a warning throws). A step whose page is no longer in the document is dropped, with every older step. Closing the
 /// session clears the history.
@@ -260,7 +260,7 @@ public sealed class EditHistory
             Unapplied(modified);
             return false;
         }
-#pragma warning disable CA1031 // ADR 0005: a step that cannot be restored is reported, never thrown into the shell's key handler
+#pragma warning disable CA1031 // Leniency: a step that cannot be restored is reported, never thrown into the shell's key handler
         catch (Exception exception)
 #pragma warning restore CA1031
         {

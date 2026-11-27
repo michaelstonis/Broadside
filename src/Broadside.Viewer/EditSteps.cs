@@ -8,7 +8,7 @@ namespace Broadside.Viewer;
 /// <summary>
 /// The entries or elements of a set of live COS containers at one moment: direct dictionaries and arrays are deep-copied, indirect
 /// references and streams are kept as they are (an appearance stream is never copied). <see cref="Restore"/> writes them back into
-/// the same containers, in the same order, so the <c>Pdf*</c> views over them stay valid (ADR 0004).
+/// the same containers, in the same order, so the <c>Pdf*</c> views over them stay valid.
 /// </summary>
 /// <remarks>ISO 32000-2 §7.3.7 (dictionaries), §7.3.6 (arrays), §7.3.10 (indirect objects).</remarks>
 internal sealed class CosSnapshot
