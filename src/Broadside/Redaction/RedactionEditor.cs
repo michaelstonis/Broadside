@@ -657,36 +657,7 @@ internal sealed class RedactionEditor : ContentEditor
     /// </summary>
     private void ReplaceWithAdvance(int index, ContentContext context)
     {
-        ref readonly GraphicsState state = ref context.State;
-        _writer.Clear();
-        Matrix start = _textStart;
-        if (_textCode is ContentOperatorCode.NextLineShowText or ContentOperatorCode.NextLineShowTextWithSpacing)
-        {
-            if (_textCode == ContentOperatorCode.NextLineShowTextWithSpacing)
-            {
-                _writer.Number(state.WordSpacing).Operator("Tw").Number(state.CharacterSpacing).Operator("Tc");
-            }
-
-            _writer.Operator("T*");
-            start = context.TextLineMatrix;
-        }
-
-        double adjustment = 0;
-        if (start.TryInvert(out Matrix inverse))
-        {
-            Matrix move = context.TextMatrix * inverse;
-            double size = state.FontSize;
-            double scaling = state.HorizontalScaling;
-            adjustment = _textVertical
-                ? (size == 0 ? 0 : -move.F * 1000 / size)
-                : (size * scaling == 0 ? 0 : -move.E * 1000 / (size * scaling));
-        }
-
-        _writer.Write((byte)'[');
-        _writer.Number(adjustment);
-        _writer.Write((byte)']');
-        _writer.Write((byte)' ');
-        _writer.Operator("TJ");
+        TextAdvance.Write(_writer, _textCode, _textStart, _textVertical, context);
         Replace(index, _writer.Written);
     }
 

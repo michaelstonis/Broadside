@@ -279,3 +279,49 @@ Broadside.PdfInvoiceProfile.EN16931 = 3 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.Extended = 4 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.Minimum = 0 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.XRechnung = 5 -> Broadside.PdfInvoiceProfile
+Broadside.PdfDocument.Sanitize() -> Broadside.PdfSanitization!
+Broadside.PdfDocument.Sanitize(Broadside.PdfSanitizeOptions! options) -> Broadside.PdfSanitization!
+Broadside.PdfSanitization
+Broadside.PdfSanitization.CreateSaveOptions() -> Broadside.PdfSaveOptions!
+Broadside.PdfSanitization.Removed.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.PdfSanitizeActions
+Broadside.PdfSanitizeActions.Default = Broadside.PdfSanitizeActions.JavaScript | Broadside.PdfSanitizeActions.Launch | Broadside.PdfSanitizeActions.SubmitForm | Broadside.PdfSanitizeActions.ImportData | Broadside.PdfSanitizeActions.RemoteGoTo | Broadside.PdfSanitizeActions.Multimedia -> Broadside.PdfSanitizeActions
+Broadside.PdfSanitizeActions.ImportData = 16 -> Broadside.PdfSanitizeActions
+Broadside.PdfSanitizeActions.JavaScript = 1 -> Broadside.PdfSanitizeActions
+Broadside.PdfSanitizeActions.Launch = 2 -> Broadside.PdfSanitizeActions
+Broadside.PdfSanitizeActions.Multimedia = 64 -> Broadside.PdfSanitizeActions
+Broadside.PdfSanitizeActions.None = 0 -> Broadside.PdfSanitizeActions
+Broadside.PdfSanitizeActions.RemoteGoTo = 32 -> Broadside.PdfSanitizeActions
+Broadside.PdfSanitizeActions.SubmitForm = 8 -> Broadside.PdfSanitizeActions
+Broadside.PdfSanitizeActions.Uri = 4 -> Broadside.PdfSanitizeActions
+Broadside.PdfSanitizeOptionalContent
+Broadside.PdfSanitizeOptionalContent.FlattenVisible = 2 -> Broadside.PdfSanitizeOptionalContent
+Broadside.PdfSanitizeOptionalContent.Keep = 0 -> Broadside.PdfSanitizeOptionalContent
+Broadside.PdfSanitizeOptionalContent.RemoveHidden = 1 -> Broadside.PdfSanitizeOptionalContent
+Broadside.PdfSanitizeOptions
+Broadside.PdfSanitizeOptions.Actions.get -> Broadside.PdfSanitizeActions
+Broadside.PdfSanitizeOptions.Actions.set -> void
+Broadside.PdfSanitizeOptions.OptionalContent.get -> Broadside.PdfSanitizeOptionalContent
+Broadside.PdfSanitizeOptions.OptionalContent.set -> void
+Broadside.PdfSanitizeOptions.PdfSanitizeOptions() -> void
+Broadside.PdfSanitizeOptions.RemoveComments.get -> bool
+Broadside.PdfSanitizeOptions.RemoveComments.set -> void
+Broadside.PdfSanitizeOptions.RemoveEmbeddedFiles.get -> bool
+Broadside.PdfSanitizeOptions.RemoveEmbeddedFiles.set -> void
+Broadside.PdfSanitizeOptions.RemoveInvisibleText.get -> bool
+Broadside.PdfSanitizeOptions.RemoveInvisibleText.set -> void
+Broadside.PdfSanitizeOptions.RemoveMetadata.get -> bool
+Broadside.PdfSanitizeOptions.RemoveMetadata.set -> void
+Broadside.PdfSanitizeOptions.RemoveThumbnails.get -> bool
+Broadside.PdfSanitizeOptions.RemoveThumbnails.set -> void
+Broadside.PdfSanitizeOptions.RemoveXfa.get -> bool
+Broadside.PdfSanitizeOptions.RemoveXfa.set -> void
+Broadside.PdfSanitizeOptions.WithActions(Broadside.PdfSanitizeActions actions) -> Broadside.PdfSanitizeOptions!
+Broadside.PdfSanitizeOptions.WithOptionalContent(Broadside.PdfSanitizeOptionalContent mode) -> Broadside.PdfSanitizeOptions!
+Broadside.PdfSanitizeOptions.WithRemoveComments(bool remove) -> Broadside.PdfSanitizeOptions!
+Broadside.PdfSanitizeOptions.WithRemoveEmbeddedFiles(bool remove) -> Broadside.PdfSanitizeOptions!
+Broadside.PdfSanitizeOptions.WithRemoveInvisibleText(bool remove) -> Broadside.PdfSanitizeOptions!
+Broadside.PdfSanitizeOptions.WithRemoveMetadata(bool remove) -> Broadside.PdfSanitizeOptions!
+Broadside.PdfSanitizeOptions.WithRemoveThumbnails(bool remove) -> Broadside.PdfSanitizeOptions!
+Broadside.PdfSanitizeOptions.WithRemoveXfa(bool remove) -> Broadside.PdfSanitizeOptions!
+Broadside.PdfSanitizeActions.All = Broadside.PdfSanitizeActions.Uri | Broadside.PdfSanitizeActions.Default -> Broadside.PdfSanitizeActions
