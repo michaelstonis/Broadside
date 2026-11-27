@@ -154,20 +154,28 @@ public sealed class ViewerToolbar : IDisposable
     {
         ViewerCommandIds.PagePrevious => new ViewerButtonCommand(id, "Previous page", Viewer.PreviousPage, () => HasPages && Viewer.PageIndex > 0)
         {
-            Glyph = "‹", ToolTip = "Previous page", Shortcut = "PageUp",
+            Glyph = "‹",
+            ToolTip = "Previous page",
+            Shortcut = "PageUp",
         },
         ViewerCommandIds.PageNext => new ViewerButtonCommand(id, "Next page", Viewer.NextPage, () => HasPages && Viewer.PageIndex < Viewer.PageCount - 1)
         {
-            Glyph = "›", ToolTip = "Next page", Shortcut = "PageDown",
+            Glyph = "›",
+            ToolTip = "Next page",
+            Shortcut = "PageDown",
         },
         ViewerCommandIds.PageNumber => new ViewerPageCommand(this) { ToolTip = "Go to a page by number or label" },
         ViewerCommandIds.ZoomOut => new ViewerButtonCommand(id, "Zoom out", () => ZoomStepBy(1 / ZoomStep), () => HasPages)
         {
-            Glyph = "−", ToolTip = "Zoom out", Shortcut = "-",
+            Glyph = "−",
+            ToolTip = "Zoom out",
+            Shortcut = "-",
         },
         ViewerCommandIds.ZoomIn => new ViewerButtonCommand(id, "Zoom in", () => ZoomStepBy(ZoomStep), () => HasPages)
         {
-            Glyph = "+", ToolTip = "Zoom in", Shortcut = "+",
+            Glyph = "+",
+            ToolTip = "Zoom in",
+            Shortcut = "+",
         },
         ViewerCommandIds.ZoomMode => new ViewerChoiceCommand(id, "Zoom", ZoomChoices(), SelectedZoom, SelectZoom, () => HasPages, ZoomText)
         {
@@ -180,12 +188,14 @@ public sealed class ViewerToolbar : IDisposable
         },
         ViewerCommandIds.Rotate => new ViewerButtonCommand(id, "Rotate clockwise", RotateView, () => HasPages)
         {
-            Glyph = "⟳", ToolTip = "Rotate the view clockwise (the file is not changed)",
+            Glyph = "⟳",
+            ToolTip = "Rotate the view clockwise (the file is not changed)",
         },
         ViewerCommandIds.Search => new ViewerSearchCommand(this) { ToolTip = "Find in the document", Shortcut = "F3" },
         ViewerCommandIds.DarkMode => new ViewerToggleCommand(id, "Dark mode", IsDark, SetDark, () => Viewer.Session is not null)
         {
-            Glyph = "◐", ToolTip = "Smart dark mode",
+            Glyph = "◐",
+            ToolTip = "Smart dark mode",
         },
         _ => throw new ArgumentException($"\"{id}\" is not a built-in toolbar command.", nameof(id)),
     };
