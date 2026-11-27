@@ -38,6 +38,55 @@ public sealed partial class PdfDocument
         return new PdfFormXObject(this, stream, AddObject(stream));
     }
 
+    /// <summary>Creates a form XObject that draws <paramref name="page"/>'s crop box as a viewer shows it, rotated, with its lower-left corner at the origin.</summary>
+    /// <param name="page">A page of this document or of any other open document.</param>
+    /// <returns>The form; the same form when this document made one from the same page with the same options before.</returns>
+    /// <exception cref="NotSupportedException">A content stream of the page uses a filter this engine does not decode, or its data is encrypted with a key the source was opened without.</exception>
+    /// <remarks>ISO 32000-2 §8.10.1 and §8.10.2, Table 93. As <see cref="CreateFormXObject(PdfPage, PdfPageFormOptions)"/> with the default options.</remarks>
+    public PdfFormXObject CreateFormXObject(PdfPage page) => CreateFormXObject(page, new PdfPageFormOptions());
+
+    /// <summary>Creates a form XObject that draws a box of <paramref name="page"/>, so it can be placed, scaled, on another page (or the same one).</summary>
+    /// <param name="page">A page of this document or of any other open document.</param>
+    /// <param name="options">Which box becomes the form, whether the page's rotation is applied, and what of the page goes with it.</param>
+    /// <returns>
+    /// The form: a new indirect stream whose <c>BBox</c> is the chosen box (intersected with the media box) and whose <c>Matrix</c> applies
+    /// the page's rotation and <c>UserUnit</c> and puts the box's lower-left corner at the origin, so <c>cm</c> with a width and height in
+    /// points places it. The same form when this document made one from the same page with equal options before.
+    /// </returns>
+    /// <exception cref="NotSupportedException">A content stream of the page uses a filter this engine does not decode, or its data is encrypted with a key the source was opened without; this document is unchanged.</exception>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §8.10.1 and §8.10.2, Table 93 (PDF 1.0); §7.7.3.3 and §7.7.3.4 (page attributes, inheritance); §14.11.2 (page
+    /// boundaries). The page's <c>Contents</c> is decoded and joined with a line feed into one Flate stream; a <c>q</c> it leaves
+    /// open is closed with <c>Q</c> (as are a text object and marked content), as the interpreter does. The form's content is a
+    /// snapshot of the page when it is made: drawing it on that same page later is allowed.
+    /// </para>
+    /// <para>
+    /// <b>Resources.</b> For a page of this document the page's own or inherited resource dictionary is referenced, not copied, so a
+    /// later change to those resources shows in the page and in the form alike: the form is a live view of them, not a copy. For a page of another document the
+    /// resources are copied through a <see cref="PdfObjectCopier"/> session that this document keeps per source document, so pages
+    /// that share fonts or images copy them once; the optional content groups copied are listed in this document's
+    /// <c>OCProperties</c> (§8.11.2), ON or OFF as the source's default configuration has them.
+    /// </para>
+    /// <para>
+    /// The page's <c>Group</c> becomes the form's (§8.10.3, §11.6.6; records PDF 1.4 for a transparency group), so its blending is
+    /// kept. Optional content in the content stays as it is. With <see cref="PdfPageFormOptions.IncludeAnnotations"/>, the normal
+    /// appearances of the visible, printable annotations are drawn after the content, as <see cref="Flatten(PdfFlattenOptions)"/>
+    /// draws them, named in a resource dictionary of the form's own. Without <see cref="PdfPageFormOptions.KeepStructure"/>, the
+    /// page's <c>StructParents</c> is not carried over and the <c>MCID</c> entries leave the content's property lists (§14.7.5).
+    /// </para>
+    /// <para>
+    /// Repairs made while reading the source are recorded on the source as usual; making the form records no diagnostic. The source is
+    /// only read. A mutation of this document.
+    /// </para>
+    /// </remarks>
+    public PdfFormXObject CreateFormXObject(PdfPage page, PdfPageFormOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(page);
+        ArgumentNullException.ThrowIfNull(options);
+        return PageFormImporter.Import(this, page, options);
+    }
+
     /// <summary>Creates an ICCBased colour space from an ICC profile, or returns the one this document already has for the same profile.</summary>
     /// <param name="profile">The profile's bytes: an input, display, output or colour space profile of a gray, RGB, CMYK or Lab data colour space, version 2 to 4.</param>
     /// <returns>The space: <c>[/ICCBased stream]</c>, the stream holding the profile with <c>N</c> its number of components; array and stream are indirect objects.</returns>

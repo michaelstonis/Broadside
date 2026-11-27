@@ -246,6 +246,9 @@ public sealed class PdfObjectCopier
     /// <summary>Gets the target references of every indirect object the session has copied or been given (<see cref="Assign"/>).</summary>
     internal IEnumerable<CosReference> Copies => _copies.Values;
 
+    /// <summary>Gets each source reference the session has copied with the target reference of its copy (issue #628).</summary>
+    internal IReadOnlyDictionary<CosReference, CosReference> CopiedObjects => _copies;
+
     /// <summary>
     /// Makes <paramref name="copy"/>, an object of the target the caller fills, the copy of the source object <paramref name="source"/>:
     /// every reference to it the session reaches names <paramref name="copy"/>, and the session never fills it (issue #161: structure

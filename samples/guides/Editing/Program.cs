@@ -17,6 +17,7 @@ SaveIncrementally(certificate);
 SaveInFull();
 EditPages();
 MergeAndSplit();
+DrawAPageOnAnotherPage();
 FillAForm();
 Annotate();
 EditMetadata();
@@ -107,6 +108,33 @@ static void MergeAndSplit()
     Sample.Expect(whole.Pages.Count == 4, "four pages merged");
     using PdfDocument part2 = PdfDocument.Open("book-part2.pdf");
     Sample.Expect(part2.Pages.Count == 3, "the second part has three pages");
+}
+
+static void DrawAPageOnAnotherPage()
+{
+    #region page-as-form
+    using PdfDocument letterhead = PdfDocument.Open("chapter1.pdf");
+    using PdfDocument handout = PdfDocument.Create();
+    PdfPage sheet = handout.Pages[0];
+    using (PdfCanvas canvas = sheet.CreateCanvas())
+    {
+        for (int i = 0; i < 2; i++)
+        {
+            // The page as a form XObject: its crop box, rotated as a viewer shows it, lower-left corner at the origin.
+            PdfFormXObject form = handout.CreateFormXObject(letterhead.Pages[i]);
+            canvas.SaveState();
+            canvas.Transform(new Matrix(0.5, 0, 0, 0.5, 153, 396 - (i * 396)));  // half size, one above the other
+            canvas.DrawForm(form);
+            canvas.RestoreState();
+        }
+    }
+
+    handout.Save("chapter1-2-up.pdf");
+    #endregion
+
+    using PdfDocument saved = PdfDocument.Open("chapter1-2-up.pdf");
+    string text = saved.Pages[0].ExtractText().Text;
+    Sample.Expect(text.Contains("page 1", StringComparison.Ordinal) && text.Contains("page 2", StringComparison.Ordinal), "both pages drawn on one sheet");
 }
 
 static void FillAForm()
