@@ -466,42 +466,10 @@ internal static class AnnotationEditing
             throw new ArgumentOutOfRangeException(double.IsFinite(dx) ? nameof(dy) : nameof(dx), "An offset is a finite number.");
         }
 
-        PdfDocument document = annotation.Document;
-        CosDictionary dictionary = annotation.Dictionary;
         Atomically(() =>
         {
-            PdfRectangle rect = annotation.Rect;
-            dictionary[AnnotationNames.Rect] = Rectangle(new PdfRectangle(rect.Left + dx, rect.Bottom + dy, rect.Right + dx, rect.Top + dy));
-            foreach (CosName key in (CosName[])[AnnotationNames.L, AnnotationNames.Vertices, AnnotationNames.QuadPoints, AnnotationNames.CL])
-            {
-                if (dictionary.TryGetValue(key, out CosObject? value) && document.Resolve(value) is CosArray points)
-                {
-                    dictionary[key] = Translated(document, points, dx, dy);
-                }
-            }
-
-            foreach (CosName key in (CosName[])[AnnotationNames.InkList, AnnotationNames.Path])
-            {
-                if (dictionary.TryGetValue(key, out CosObject? value) && document.Resolve(value) is CosArray lists)
-                {
-                    dictionary[key] = new CosArray(lists.Select(list => document.Resolve(list) is CosArray inner ? Translated(document, inner, dx, dy) : list));
-                }
-            }
-
+            AnnotationGeometry.Map(annotation.Document, annotation.Dictionary, Matrix.CreateTranslation(dx, dy), honorNoZoom: false);
             return true;
         });
-    }
-
-    /// <summary>A copy of a flat coordinate array with every pair moved; an element that is not a number is kept.</summary>
-    private static CosArray Translated(PdfDocument document, CosArray points, double dx, double dy)
-    {
-        var moved = new CosArray();
-        for (int index = 0; index < points.Count; index++)
-        {
-            CosObject element = points[index];
-            moved.Add(document.Resolve(element) is CosNumber number ? Number(number.ToDouble() + (index % 2 == 0 ? dx : dy)) : element);
-        }
-
-        return moved;
     }
 }

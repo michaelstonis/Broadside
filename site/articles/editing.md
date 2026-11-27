@@ -177,6 +177,37 @@ handout.Save("chapter1-2-up.pdf");
 
 Conformance: [ISO 32000-2 §8.10.1 (form XObjects)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
 
+## Reshaping pages
+
+`CreateNUp`, `CreateBooklet` and `CreateTiles` impose pages into a new document: several pages per sheet, a saddle-stitched booklet, or one large page split across several sheets. Each source page is drawn as a form XObject (see above), uniformly scaled into its cell, centered, and turned a quarter when its orientation differs from the cell's. `Resize`, `ScaleContent` and `AddMargins` change a page in place: its content is wrapped in one transformation, its boxes are set, and its annotations move and scale with the content, so a highlight still covers its words.
+
+<!-- snippet: samples/guides/Editing/Program.cs#reshape -->
+```csharp
+using PdfDocument book = PdfDocument.Open("book.pdf");
+using (PdfDocument handout = book.CreateNUp(2, 2, new PdfImpositionOptions().WithMargin(18).WithGutter(12)))
+{
+    handout.Save("book-4-up.pdf");                              // four pages per sheet, in reading order
+}
+
+using (PdfDocument booklet = book.CreateBooklet())
+{
+    booklet.Save("book-booklet.pdf");                           // print double-sided, fold, staple
+}
+
+foreach (PdfPage page in book.Pages)
+{
+    page.Resize(595, 842);                                      // Letter to A4, content scaled to fit
+    page.AddMargins(36, 0, 0, 0);                               // a binding margin; annotations move along
+}
+
+book.Save("book-a4.pdf");
+```
+<!-- endsnippet -->
+
+`PdfImpositionOptions` sets the sheet size (by default derived from the first page: landscape for more columns than rows), the margin at the sheet's edges, the gutter between cells, the order the cells fill (`LeftToRightThenDown`, `RightToLeftThenDown`, `TopToBottomThenRight`), thin frames around the cells, the overlap tiles share, the page box placed, and whether printable annotations are drawn in (the default). A booklet pads the pages to a multiple of four and pairs them for folding: the first sheet's front holds the last and first pages, its back the second and the second-to-last; a document whose viewer preferences read right to left gets the pairs swapped. The imposed documents carry no links, form fields, outline or structure tree: only their appearances, drawn in.
+
+`Resize` takes the new size as the page is displayed and fits the content (`Fit`), covers the page with it (`Fill`), stretches it (`Stretch`) or leaves it unscaled and centered (`None`, which crops a smaller size). `ScaleContent` scales the content about the page's center and keeps the page's size; `AddMargins` grows the page without scaling. Annotations with the `NoZoom` flag, and notes, keep their size and move with their upper-left corner.
+
 ## Stamps, watermarks and page numbers
 
 `Stamp` draws text, an image, a form or another page on existing pages: a watermark, a logo, a letterhead. `AddHeaderFooter` adds up to three texts at the top and three at the bottom. Texts may hold `{page}`, `{pages}` and `{label}` (the page label, or the number when the document has none). Each stamp is marked as an artifact, so text extraction and screen readers skip it, and it is placed in the page's box as the page is viewed, so a rotated page gets an upright stamp.
