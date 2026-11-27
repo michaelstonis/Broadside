@@ -8,21 +8,21 @@
   </PropertyGroup>
 
   <ItemGroup Label="Microsoft-shipped, no native component: allowed in the core (ADR 0001)">
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.12" />
-    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="11.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="11.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="11.0.0" />
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="11.0.0" />
   </ItemGroup>
 
   <ItemGroup Label="Backends (never referenced by the core)">
     <PackageVersion Include="SkiaSharp" Version="4.153.1" />
-    <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.360" />
+    <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.371" />
   </ItemGroup>
 
   <ItemGroup Label="Viewer shells: Microsoft-shipped UI frameworks, never referenced by the core (ADR 0001)">
-    <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="10.0.15" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.15" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="11.0.0" />
   </ItemGroup>
 
   <!--
@@ -45,8 +45,8 @@
 
   <ItemGroup Label="Build and analysis">
     <PackageVersion Include="MinVer" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.401" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="3.3.4" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="11.0.100" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0" />
   </ItemGroup>
 
   <ItemGroup Label="Tests, benchmarks, fuzzing">
@@ -58,27 +58,27 @@
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageVersion Include="SharpFuzz" Version="2.3.0" />
     <!-- Drives a real browser for the Blazor WebAssembly viewer's tests (#221); never in a package. -->
-    <PackageVersion Include="Microsoft.Playwright" Version="1.58.0" />
+    <PackageVersion Include="Microsoft.Playwright" Version="1.65.1" />
     <!-- An independent, fully managed PNG decoder (public domain port of stb_image) that checks the rasterizer's PNG output (#95); never in a package. -->
     <PackageVersion Include="StbImageSharp" Version="2.30.15" />
     <!-- Compiles tiny assemblies with portable PDBs and chosen SourceLink maps for tools/PackageCheck's tests (#265); never in a package. -->
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.12.0" />
     <!-- SkiaSharp's native library for Linux (SkiaSharp itself carries only the Windows and Apple ones), so the Skia backend's tests and
          benchmarks run on the Linux CI legs (#121); same version as SkiaSharp, never in a package: an application picks its own. -->
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
     <!-- The MAUI viewer (#226): MAUI itself and SkiaSharp's MAUI views, the platform libraries ADR 0001 allows that shell. -->
-    <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.110" />
+    <PackageVersion Include="Microsoft.Maui.Controls" Version="11.0.10" />
     <PackageVersion Include="SkiaSharp.Views.Maui.Controls" Version="4.153.1" />
     <!-- The WinUI 3 viewer (#223): the Windows App SDK, the platform library ADR 0001 allows that shell; the version MAUI 10.0.110 uses
          on Windows, so the two shells pin the same one. -->
-    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="1.8.260529003" />
+    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="2.7.0" />
     <!-- UI Automation client for the WinUI viewer's UI tests on the Windows runner (tests only). -->
     <PackageVersion Include="FlaUI.UIA3" Version="5.0.0" />
     <!-- A concrete container, logging pipeline and configuration for the dependency-injection tests (#46); never in the core. -->
-    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="11.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="11.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="11.0.0" />
     <!-- The console logger the hosted reading sample (samples/guides/ReadingHosted, #267) logs diagnostics to; never in a package. -->
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.12" />
   </ItemGroup>
