@@ -58,6 +58,7 @@ The v1 review accepted these breaches of the guarded rules; each is listed in `K
 - **The rendering backend is passed, not registered.** `IRenderingBackend` is handed to `DisplayList.Replay` instead of being registered on an options type: a display list is replayed into whichever backend draws it, and the software rasterizer is the managed default.
 - **Accumulators.** `PdfPublicKeyEncryptionOptions.AddOwner` and `AddRecipient` add one entry per call (one per certificate), which neither `Use*` (select) nor `With*` (set) describes.
 - **Glossary terms.** `IReadingOrderProvider` and `IRemoteTileRenderer` contain nouns the glossary avoids elsewhere, but they are the glossary's own terms ("Reading-order provider", "Remote tile renderer").
+- **Importing form data.** `PdfDocument.ImportFormData` starts with a verb the glossary avoids, but it is ISO 32000-2's own word for applying FDF or XFDF data to an open document (§12.7.6.4, the import-data action; §12.7.8): it is neither Open nor Read of a PDF file.
 
 ## The v1 freeze
 

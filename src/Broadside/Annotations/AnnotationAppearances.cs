@@ -38,7 +38,8 @@ internal static class AnnotationAppearances
     public static bool CanGenerate(PdfAnnotationKind kind) => kind is PdfAnnotationKind.Text or PdfAnnotationKind.Link
         or PdfAnnotationKind.FreeText or PdfAnnotationKind.Line or PdfAnnotationKind.Square or PdfAnnotationKind.Circle
         or PdfAnnotationKind.Polygon or PdfAnnotationKind.PolyLine or PdfAnnotationKind.Ink or PdfAnnotationKind.Highlight
-        or PdfAnnotationKind.Underline or PdfAnnotationKind.Squiggly or PdfAnnotationKind.StrikeOut or PdfAnnotationKind.Stamp;
+        or PdfAnnotationKind.Underline or PdfAnnotationKind.Squiggly or PdfAnnotationKind.StrikeOut or PdfAnnotationKind.Stamp
+        or PdfAnnotationKind.Redact;
 
     /// <summary>The colour a new annotation of <paramref name="kind"/> is given when the caller chooses none.</summary>
     public static PdfDeviceColor? DefaultColor(PdfAnnotationKind kind) => kind switch
@@ -94,6 +95,7 @@ internal static class AnnotationAppearances
             PdfPolyLineAnnotation polyline => polyline.Vertices,
             PdfInkAnnotation ink => ink.InkList.SelectMany(stroke => stroke),
             PdfTextMarkupAnnotation markup => markup.QuadPoints.SelectMany(quad => (PathPoint[])[quad.Point1, quad.Point2, quad.Point3, quad.Point4]),
+            PdfRedactAnnotation redact when redact.QuadPoints.Count > 0 => redact.QuadPoints.SelectMany(quad => (PathPoint[])[quad.Point1, quad.Point2, quad.Point3, quad.Point4]),
             _ => null,
         };
         if (points is null)
@@ -164,6 +166,26 @@ internal static class AnnotationAppearances
             case PdfStampAnnotation stamp:
                 DrawStamp(annotation.Document, canvas, rect, Math.Max(width, 1), stroke ?? Red, stamp.Name);
                 break;
+            case PdfRedactAnnotation redact:
+                DrawRedact(canvas, redact, rect, width, stroke);
+                break;
+        }
+    }
+
+    /// <summary>A Redact annotation before it is applied: the outline of each marked area (§12.5.6.23), or of its rectangle.</summary>
+    private static void DrawRedact(PdfCanvas canvas, PdfRedactAnnotation redact, PdfRectangle rect, double width, PdfDeviceColor? stroke)
+    {
+        IReadOnlyList<PdfQuadrilateral> quads = redact.QuadPoints;
+        if (quads.Count == 0)
+        {
+            DrawFramed(canvas, rect, width, stroke, fill: null, ellipse: false);
+            return;
+        }
+
+        foreach (PdfQuadrilateral quad in quads)
+        {
+            Graphics.Quad hull = Redaction.RedactionGeometry.Hull(new Graphics.Quad(quad.Point1, quad.Point2, quad.Point3, quad.Point4));
+            DrawPath(canvas, [hull.BottomLeft, hull.BottomRight, hull.TopRight, hull.TopLeft], close: true, width, stroke, fill: null, round: false);
         }
     }
 

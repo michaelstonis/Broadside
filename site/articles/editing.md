@@ -64,6 +64,8 @@ document.Save("contract-compact.pdf", options);
 ```
 <!-- endsnippet -->
 
+Merged and generated documents often carry the same logo, font program or form XObject once per source page. `WithMergeDuplicateObjects(true)` writes each such object once: streams that are byte for byte identical (same filters, same `DecodeParms`, same data; `Length` aside), and identical arrays, fonts, font descriptors, encodings, graphics states, shadings and functions, with every reference to a duplicate written as a reference to the copy with the lowest object number. Merging repeats until nothing more merges, so two font dictionaries merge once their font programs have. Pages, annotations, the catalog and other objects whose identity matters are never merged, and the document itself does not change, only what is written. The save records one `DuplicateObjectsMerged` information diagnostic with the counts. It needs a full save: with `IncrementalUpdate`, `Save` throws an `InvalidOperationException`.
+
 Conformance: [ISO 32000-2 §7.5 (file structure, incremental updates §7.5.6, cross-reference streams §7.5.8)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
 
 ## Pages
@@ -189,6 +191,29 @@ document.Save("application-flattened.pdf");
 
 `CreateAcroForm` and its `Add*` methods add text fields, check boxes, radio buttons, combo and list boxes, push buttons and signature fields. Forms that carry XFA are read and preserved, not rendered.
 
+Field values move in and out of a form as FDF (ISO 32000-2 §12.7.8) or XFDF (the XML format of ISO 19444-1), for pre-filling a form from a server, collecting submissions or archiving the data apart from the file. `SaveFormData` writes every field value, XFDF by default; `ImportFormData` matches each entry by its fully qualified name, sets it through the same setters as above, so appearances are regenerated, and reports the names it found no field for. A value of the wrong type for its field, or an option the field does not have, is skipped with a diagnostic in the result, or throws in strict mode:
+
+<!-- snippet: samples/guides/Editing/Program.cs#form-data -->
+```csharp
+using (PdfDocument filled = PdfDocument.Open("application-filled.pdf"))
+using (FileStream xfdf = File.Create("application.xfdf"))
+{
+    filled.SaveFormData(xfdf); // XFDF by default; WithFormat(PdfFormDataFormat.Fdf) writes FDF
+}
+
+using PdfDocument blank = PdfDocument.Open("application.pdf");
+using (FileStream xfdf = File.OpenRead("application.xfdf"))
+{
+    PdfFormDataImport import = blank.ImportFormData(xfdf); // the format is sniffed; values regenerate appearances
+    Console.WriteLine($"{import.FieldsSet.Count} fields set, {import.FieldsNotFound.Count} names not in this form");
+}
+
+blank.Save("application-imported.pdf");
+```
+<!-- endsnippet -->
+
+FDF template pages and scripts are kept in the file but not applied, and an encrypted FDF file is refused.
+
 Conformance: [ISO 32000-2 §12.7 (forms)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
 
 ## Annotations
@@ -212,7 +237,62 @@ document.Save("contract-annotated.pdf");
 
 `PdfPage.Annotations` lists a page's annotations, and `RemoveAnnotation` removes one.
 
+Markup annotations travel the same way, as XFDF (how viewers exchange review comments) or FDF: `WithAnnotations()` adds them to `SaveFormData`, with replies and pop-ups kept together. On import an annotation whose name (`NM`) is already on its page replaces that one in place, so syncing comments twice does not duplicate them; the others are added, and those without an appearance get one:
+
+<!-- snippet: samples/guides/Editing/Program.cs#annotation-data -->
+```csharp
+using (PdfDocument reviewed = PdfDocument.Open("contract-annotated.pdf"))
+using (FileStream comments = File.Create("contract-comments.xfdf"))
+{
+    reviewed.SaveFormData(comments, new PdfFormDataOptions().WithFields(false).WithAnnotations());
+}
+
+using PdfDocument copy = PdfDocument.Open("contract.pdf");
+using (FileStream comments = File.OpenRead("contract-comments.xfdf"))
+{
+    // An annotation whose name (NM) is already on its page replaces that one; the others are added.
+    copy.ImportFormData(comments, new PdfFormDataOptions().WithFields(false).WithAnnotations());
+}
+
+copy.Save("contract-with-comments.pdf");
+```
+<!-- endsnippet -->
+
 Conformance: [ISO 32000-2 §12.5 (annotations)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
+
+## Redacting content
+
+Redaction removes content so that it can no longer be recovered; a box drawn over text is not enough. It takes two steps, as
+ISO 32000-2 §12.5.6.23 describes: `AddRedactAnnotation` marks areas with Redact annotations a reviewer can see and change, and
+`PdfDocument.Redact` applies every mark and removes it. `PdfPage.Redact` applies areas directly, without annotations:
+
+<!-- snippet: samples/guides/Editing/Program.cs#redaction -->
+```csharp
+using PdfDocument document = PdfDocument.Open("contract.pdf");
+PdfPage page = document.Pages[0];
+
+// Mark the area for review, then apply every mark: the glyphs under it leave the content and a black box takes their place.
+page.AddRedactAnnotation(new PdfRectangle(70, 712, 190, 736), new PdfRedactionOptions().WithOverlayText("WITHHELD"));
+PdfRedactionResult result = document.Redact();
+
+// A full save with the result's options: an incremental update would keep the original content in the file.
+document.Save("contract-redacted.pdf", result.CreateSaveOptions());
+```
+<!-- endsnippet -->
+
+Applying a redaction removes the glyphs under each area from their text-showing operators (the glyphs around them keep their
+positions), the images and the subpaths under it (a filled or stroked rectangle is cut exactly), and the replacement text
+(`ActualText`, `Alt`) of what was removed. A form XObject painted over an area is copied and the copy rewritten, so other pages
+that show it keep it. Annotations under an area are removed, form fields under it lose their value, and the page's thumbnail goes.
+The overlay (the fill, the `RO` form or the overlay text) is then drawn as a pagination artifact. Whatever cannot be cut exactly,
+such as a curve or an image that an area covers only in part, is removed whole, and a `RedactionDiagnostics` code says so; in
+strict mode that throws and the document is left as it was.
+
+> **Never save a redacted document as an incremental update.** An incremental update appends to the original bytes, which still
+> hold everything the redaction removed. Save with `PdfRedactionResult.CreateSaveOptions()`: a full rewrite that drops the objects
+> the redaction left unreachable.
+
+Conformance: [ISO 32000-2 §12.5.6.23 (redaction annotations)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
 
 ## Metadata
 

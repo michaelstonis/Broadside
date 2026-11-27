@@ -3,6 +3,8 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Broadside.Layout/Broadside.Layout.csproj" />
     <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <!-- The barcode round trips render with the software rasterizer (issue #631). -->
+    <ProjectReference Include="../../src/Broadside.Rendering/Broadside.Rendering.csproj" />
     <ProjectReference Include="../Broadside.TestSupport/Broadside.TestSupport.csproj" />
     <PackageReference Include="xunit.v3" />
   </ItemGroup>

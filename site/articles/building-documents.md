@@ -149,6 +149,32 @@ c.Drawing(120.Mm, 50.Mm, "Bar chart of units shipped in Q4: North 135, South 104
 
 Alternate text is a required argument; `DecorativeImage` and `DecorativeDrawing` are the explicit way out. A drawing's callback gets the page's canvas with (0, 0) at the box's bottom-left corner, inside the figure's marked content. Whatever it leaves unbalanced (an open `SaveState`, marked content, a text object) is balanced again and reported as a `DrawingStateUnbalanced` diagnostic.
 
+## Barcodes
+
+Barcodes and QR codes are vector drawings: each run of dark modules is one filled rectangle, so they stay sharp at any print resolution and add no image to the file. The encoders are managed code in `Broadside.Layout`; there is nothing else to install.
+
+```csharp
+c.Barcode(Barcode.QrCode("https://example.com/orders/2026-0042"), 30.Mm, 30.Mm);    // Alt: "QR code: https://example.com/orders/2026-0042"
+c.Barcode(Barcode.Gs1128("(01)09501101530003(17)250101(10)ABC123"), 80.Mm, 22.Mm, "Shipping label barcode");
+c.Barcode(Barcode.Ean13("590123412345"), 40.Mm, 25.Mm).AlignRight();               // the check digit is added
+c.Barcode(Barcode.DataMatrix("PO 4500012345"), 15.Mm, 15.Mm, options: new BarcodeOptions().WithQuietZone(false));
+```
+
+- `Barcode.Code128`, `Gs1128`, `Code39`, `Ean13`, `UpcA`, `QrCode` and `DataMatrix` encode when called and throw `ArgumentException` naming the character or length that cannot be encoded, such as a lowercase letter in Code 39 or text too long for the largest QR code.
+- Code 128 switches code sets to keep the symbol short. QR codes take the smallest version that holds the data, mix numeric, alphanumeric and byte segments, and try all eight masks; `QrErrorCorrection` sets the level (Medium by default). Text outside Latin-1 is written as UTF-8 after an ECI header.
+- A barcode is a `Figure`. Its alternate text defaults to the kind and the data; pass your own when the data means nothing read aloud. Linear symbols print their digits under the bars in the current style's font.
+- The box includes the quiet zone, the light margin scanners need, unless `WithQuietZone(false)` says the page already leaves it. A two-dimensional symbol keeps square modules and is centered in its box.
+
+Outside the builder, draw on any canvas: a page, a template's decoration, a form XObject.
+
+```csharp
+using PdfCanvas canvas = page.CreateCanvas();
+canvas.DrawBarcode(Barcode.Code128("INV-2026-0042"), new PdfRectangle(400, 720, 560, 770),
+    new BarcodeOptions().WithFont(font, 8).WithBackground(PdfColor.FromGray(1)));
+```
+
+On a bare canvas the human-readable text needs a font from `WithFont`; without one, only the bars are drawn.
+
 ## Columns, components and themes
 
 `Columns` places blocks side by side, without pretending to be a table: each column is tagged as one `Div`, read in column order.

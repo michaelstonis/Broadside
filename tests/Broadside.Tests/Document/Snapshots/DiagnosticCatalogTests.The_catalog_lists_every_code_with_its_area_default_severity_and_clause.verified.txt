@@ -151,6 +151,7 @@ Saving	WellTaggedNonConformant	Warning	Well-Tagged PDF 1.0; veraPDF validation p
 Saving	WellTaggedNotDeclared	Information	Well-Tagged PDF 1.0; veraPDF validation profiles
 Saving	ConformanceOverridden	Information	ISO 19005 (PDF/A); ISO 14289 (PDF/UA)
 Saving	InvoiceNotPdfA3	Warning	ISO 19005-3 §6.8; Factur-X 1.0 and ZUGFeRD 2.x
+Saving	DuplicateObjectsMerged	Information	ISO 32000-2 §7.3.10, §7.5.3
 Navigation	NameDictionaryInvalid	Warning	ISO 32000-2 §7.7.4
 Navigation	NameTreeNodeInvalid	Warning	ISO 32000-2 §7.9.6 Table 36
 Navigation	NameTreeLimitsInvalid	Warning	ISO 32000-2 §7.9.6 Table 36
@@ -569,6 +570,10 @@ Form	ChoiceOptionsInherited	Warning	ISO 32000-2 §12.7.4, §12.7.5
 Form	ChoiceValueNotInOptions	Warning	ISO 32000-2 §12.7.4, §12.7.5
 Form	ChoiceIndicesInvalid	Warning	ISO 32000-2 §12.7.4, §12.7.5
 Form	SignatureFieldDictNotIndirect	Warning	ISO 32000-2 §12.7.4, §12.7.5
+Form	FormDataInvalid	Warning	ISO 32000-2 §12.7.8; Adobe XFDF 3.0
+Form	FormDataValueInvalid	Warning	ISO 32000-2 §12.7.8.3.2, §12.7.5
+Form	FormDataAnnotationSkipped	Warning	ISO 32000-2 §12.7.8.3.4, §12.5
+Form	FormDataNotApplied	Information	ISO 32000-2 §12.7.8.3.1, §12.7.8.3.3
 Structure	MarkInfoInvalid	Warning	ISO 32000-2 §14.6 to §14.8
 Structure	StructTreeRootInvalid	Warning	ISO 32000-2 §14.6 to §14.8
 Structure	StructElemInvalid	Warning	ISO 32000-2 §14.6 to §14.8
@@ -607,3 +612,8 @@ Layout	DocumentMetadataKept	Information	ISO 32000-2 §14.3.3
 Layout	AnchorNotFound	Warning	ISO 32000-2 §12.3.2.4
 Layout	AnchorDuplicate	Warning	ISO 32000-2 §12.3.2.4
 Layout	ForwardReferencesNotConverged	Warning	ISO 32000-2 §7.7.3.3
+Redaction	RedactionImageRemovedWhole	Warning	ISO 32000-2 §8.9.5
+Redaction	RedactionTextRemovedWhole	Warning	ISO 32000-2 §9.4.3
+Redaction	RedactionFormRemovedWhole	Warning	ISO 32000-2 §8.10.1
+Redaction	RedactionFormCopied	Information	ISO 32000-2 §8.10.1
+Redaction	RedactionInvalidatesSignatures	Information	ISO 32000-2 §12.8

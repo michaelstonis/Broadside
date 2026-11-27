@@ -25,6 +25,20 @@ namespace Broadside.Fuzz;
 /// </summary>
 internal static class FuzzTargets
 {
+    /// <summary>
+    /// The corpus files a target is seeded with besides the PDF files, by file pattern: the targets that read another format than PDF
+    /// (FDF and XFDF, issue #626) start from the corpus files of that format.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> ExtraSeedPatterns { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["fdf-import"] = "*.fdf",
+        ["xfdf-import"] = "*.xfdf",
+    };
+
+    /// <summary>The corpus files that seed <paramref name="target"/>: every PDF file, then the files of its own format.</summary>
+    public static string[] SeedFiles(string target) =>
+        ExtraSeedPatterns.TryGetValue(target, out string? pattern) ? [.. CorpusLocator.CorpusFiles(), .. CorpusLocator.CorpusFiles(pattern)] : CorpusLocator.CorpusFiles();
+
     /// <summary>Every registered target. Names are the stable identifiers used on the command line and in CI.</summary>
     public static IReadOnlyDictionary<string, ReadOnlySpanAction> All { get; } = new Dictionary<string, ReadOnlySpanAction>(StringComparer.Ordinal)
     {
@@ -64,6 +78,8 @@ internal static class FuzzTargets
         ["public-key"] = PublicKey.Target,
         ["xmp"] = Xmp,
         ["xmp-xml"] = XmpXmlTarget.Target,
+        ["fdf-import"] = FormDataTarget.Fdf,
+        ["xfdf-import"] = FormDataTarget.Xfdf,
         ["pdf-date"] = PdfDateTarget,
         ["structure-tree"] = StructureTree.Target,
         ["layout-detection"] = LayoutDetectionTarget.Target,
@@ -95,6 +111,7 @@ internal static class FuzzTargets
         ["flatten"] = FlattenTarget.Target,
         ["display-list"] = DisplayListTarget.Target,
         ["content-rewrite"] = ContentRewriteTarget.Target,
+        ["redact"] = RedactTarget.Target,
         ["icc-profile"] = IccProfileTarget.Target,
         ["rasterize"] = RasterizeTarget.Target,
         ["rasterize-page"] = RasterizePageTarget.Target,

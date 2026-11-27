@@ -29,7 +29,7 @@ namespace Broadside.Viewer.Maui;
 /// </para>
 /// <para>ISO 32000-2 §12.3.2 (destinations), §12.5.6.5 (link annotations), §12.7 (interactive forms), §14.8 and §14.11.2.</para>
 /// </remarks>
-public sealed class PdfView : ContentView, IViewerHost, IDisposable
+public sealed class PdfView : ContentView, IViewerHost, IDocumentViewer, IDisposable
 {
     /// <summary>The <see cref="Source"/> property: a file path or an http(s) address of the document to show.</summary>
     public static readonly BindableProperty SourceProperty =
@@ -41,7 +41,7 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
 
     /// <summary>The <see cref="LayoutOptions"/> property.</summary>
     public static readonly BindableProperty LayoutOptionsProperty =
-        BindableProperty.Create(nameof(LayoutOptions), typeof(PageLayoutOptions), typeof(PdfView), null, propertyChanged: (b, _, n) => ((PdfView)b)._controller.SetLayoutOptions((PageLayoutOptions?)n));
+        BindableProperty.Create(nameof(LayoutOptions), typeof(PageLayoutOptions), typeof(PdfView), null, propertyChanged: (b, _, n) => ((PdfView)b).OnLayoutOptionsChanged((PageLayoutOptions?)n));
 
     /// <summary>The <see cref="ShowAnnotations"/> property.</summary>
     public static readonly BindableProperty ShowAnnotationsProperty =
@@ -76,6 +76,7 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
     private TaskCompletionSource<byte[]>? _capture;
     private int _openGeneration;
     private bool _disposed;
+    private EventHandler? _viewChanged;
 
     /// <summary>Creates an empty view; set <see cref="Source"/> or <see cref="Session"/> to show a document.</summary>
     public PdfView()
@@ -264,6 +265,33 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
         return capture.Task;
     }
 
+    // ---- IDocumentViewer (#632): what a PdfToolbar drives ----
+
+    /// <inheritdoc/>
+    event EventHandler? IDocumentViewer.ViewChanged
+    {
+        add => _viewChanged += value;
+        remove => _viewChanged -= value;
+    }
+
+    /// <inheritdoc/>
+    DocumentSession? IDocumentViewer.Session => CurrentSession;
+
+    /// <inheritdoc/>
+    int IDocumentViewer.PageIndex => State.PageIndex;
+
+    /// <inheritdoc/>
+    int IDocumentViewer.PageCount => State.PageCount;
+
+    /// <inheritdoc/>
+    double IDocumentViewer.Zoom => State.Zoom;
+
+    /// <inheritdoc/>
+    PageLabelTable? IDocumentViewer.PageLabels => null;
+
+    /// <inheritdoc/>
+    void IDocumentViewer.SetLayout(PageLayoutOptions options) => LayoutOptions = options;
+
     /// <summary>Closes the document and releases the tiles and GPU images.</summary>
     public void Dispose()
     {
@@ -276,6 +304,12 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
     }
 
     /// <summary>Routes a key press from the platform (DOM key names); returns whether the viewer used it.</summary>
+    /// <summary>Runs one frame now (tests without a dispatcher): the work the frame timer's next tick would do. Returns whether another is needed.</summary>
+    internal bool RunFrame() => _controller.Frame();
+
+    /// <summary>Gets whether pages are still loading (tests).</summary>
+    internal bool IsLoadingPages => _controller.IsLoadingPages;
+
     internal bool HandleKey(string key, InputModifiers modifiers) => _editorView is null && _controller.KeyDown(key, modifiers);
 
     /// <summary>Routes a platform scroll (trackpad or wheel) in device-independent units.</summary>
@@ -337,7 +371,11 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
         }
     }
 
-    void IViewerHost.StateChanged(PdfViewState state) => StateChanged?.Invoke(this, new PdfViewStateChangedEventArgs(state));
+    void IViewerHost.StateChanged(PdfViewState state)
+    {
+        StateChanged?.Invoke(this, new PdfViewStateChangedEventArgs(state));
+        _viewChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     void IViewerHost.ActionRequested(ViewerActionEventArgs e) => ActionRequested?.Invoke(this, e);
 
@@ -402,6 +440,13 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
         SKColor background = filter == Broadside.Rendering.ColorFilter.DarkMode ? ViewerFrame.DarkBackground : ViewerFrame.Background;
         BackgroundColor = Microsoft.Maui.Graphics.Color.FromRgb(background.Red, background.Green, background.Blue);
         Invalidate();
+        _viewChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnLayoutOptionsChanged(PageLayoutOptions? options)
+    {
+        _controller.SetLayoutOptions(options);
+        _viewChanged?.Invoke(this, EventArgs.Empty);
     }
 
     // ---- Frames and painting ----
@@ -596,6 +641,7 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
             if (generation == _openGeneration)
             {
                 DocumentChanged?.Invoke(this, EventArgs.Empty);
+                _viewChanged?.Invoke(this, EventArgs.Empty);
             }
         }
 #pragma warning disable CA1031 // the host hears why the document did not open

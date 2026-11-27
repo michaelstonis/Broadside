@@ -31,22 +31,34 @@ internal readonly record struct FileHeader(long Offset, PdfVersion? Version)
     /// <param name="source">The file.</param>
     /// <param name="diagnostics">Where to report a missing or malformed header.</param>
     /// <returns>The header.</returns>
-    public static FileHeader Locate(PdfSource source, DiagnosticSink diagnostics)
+    public static FileHeader Locate(PdfSource source, DiagnosticSink diagnostics) => Locate(source, diagnostics, fdf: false);
+
+    /// <summary>
+    /// Finds the header in the first <see cref="SearchLength"/> bytes of <paramref name="source"/>: <c>%PDF-</c>, or with
+    /// <paramref name="fdf"/> the <c>%FDF-</c> header of a forms data format file (ISO 32000-2 §12.7.8.2.2).
+    /// </summary>
+    /// <param name="source">The file.</param>
+    /// <param name="diagnostics">Where to report a missing or malformed header.</param>
+    /// <param name="fdf">Whether the file is an FDF file.</param>
+    /// <returns>The header.</returns>
+    public static FileHeader Locate(PdfSource source, DiagnosticSink diagnostics, bool fdf)
     {
         Span<byte> start = stackalloc byte[SearchLength];
         start = start[..source.Read(0, start)];
-        int marker = start.IndexOf("%PDF-"u8);
+        ReadOnlySpan<byte> markerBytes = fdf ? "%FDF-"u8 : "%PDF-"u8;
+        string markerText = fdf ? "%FDF-" : "%PDF-";
+        int marker = start.IndexOf(markerBytes);
         if (marker < 0)
         {
             diagnostics.Report(
                 FileStructureDiagnostics.HeaderMissing,
                 DiagnosticSeverity.Warning,
-                "The file does not start with a %PDF- header; offsets are counted from byte 0 and the version is taken from the catalog.",
+                $"The file does not start with a {markerText} header; offsets are counted from byte 0 and the version is taken from the catalog.",
                 offset: 0);
             return new FileHeader(0, null);
         }
 
-        ReadOnlySpan<byte> afterMarker = start[(marker + "%PDF-"u8.Length)..];
+        ReadOnlySpan<byte> afterMarker = start[(marker + markerBytes.Length)..];
         int end = afterMarker.IndexOfAnyExcept(VersionCharacters);
         ReadOnlySpan<byte> versionText = end < 0 ? afterMarker : afterMarker[..end];
         if (PdfVersion.TryParse(versionText, out PdfVersion version) && version.Major is 1 or 2)

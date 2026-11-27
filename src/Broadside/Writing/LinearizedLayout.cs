@@ -64,7 +64,13 @@ internal sealed class LinearizedLayout
     private readonly HashSet<CosReference> _pages = [];
     private readonly HashSet<CosReference> _nodes = [];
 
-    private LinearizedLayout(Dictionary<CosReference, CosObject> values) => _values = values;
+    private readonly IReadOnlyDictionary<CosReference, CosReference>? _aliases;
+
+    private LinearizedLayout(Dictionary<CosReference, CosObject> values, IReadOnlyDictionary<CosReference, CosReference>? aliases)
+    {
+        _values = values;
+        _aliases = aliases;
+    }
 
     /// <summary>What uses an object (qpdf's <c>ObjUser</c>).</summary>
     private enum UserKind
@@ -135,13 +141,18 @@ internal sealed class LinearizedLayout
     /// <param name="kept">The objects written, under their old references.</param>
     /// <param name="layout">The cross-reference layout: streams number their sections, and object streams hold part 9 objects.</param>
     /// <param name="canBeCompressed">Whether an object may go in an object stream.</param>
+    /// <param name="aliases">
+    /// The merged duplicates left out of <paramref name="kept"/>, each mapped to the object written in its place (issue #634): a
+    /// reference to one is laid out as a use of that object. <see langword="null"/> for none.
+    /// </param>
     /// <returns>The layout.</returns>
     /// <exception cref="NotSupportedException">The document has no catalog or no page, its page tree lists a page twice or holds a page that is not an indirect object, or a page is used as something else.</exception>
     public static LinearizedLayout Create(
         CosDictionary trailer,
         IReadOnlyList<(CosReference Reference, CosObject Value)> kept,
         PdfCrossReferenceLayout layout,
-        Func<CosObject, bool> canBeCompressed)
+        Func<CosObject, bool> canBeCompressed,
+        IReadOnlyDictionary<CosReference, CosReference>? aliases = null)
     {
         var values = new Dictionary<CosReference, CosObject>(kept.Count);
         foreach ((CosReference reference, CosObject value) in kept)
@@ -149,7 +160,7 @@ internal sealed class LinearizedLayout
             values[reference] = value;
         }
 
-        var plan = new LinearizedLayout(values);
+        var plan = new LinearizedLayout(values, aliases);
         if (!trailer.TryGetValue(KnownNames.Root, out CosObject? rootEntry) || rootEntry is not CosReference root || plan.Lookup(root) is not CosDictionary catalog)
         {
             throw new NotSupportedException("A document without a catalog cannot be linearized.");
@@ -163,7 +174,11 @@ internal sealed class LinearizedLayout
 
     /// <summary>The value written for <paramref name="reference"/>: the layout's copy, the kept object, or <see langword="null"/> when nothing is written for it.</summary>
     private CosObject? Lookup(CosReference reference) =>
-        _substitutes.TryGetValue(reference, out CosObject? copy) ? copy : _values.GetValueOrDefault(reference);
+        _substitutes.TryGetValue(reference, out CosObject? copy) ? copy : _values.GetValueOrDefault(Canonical(reference));
+
+    /// <summary>The object written for <paramref name="reference"/>: itself, or the object a merged duplicate's place went to.</summary>
+    private CosReference Canonical(CosReference reference) =>
+        _aliases is not null && _aliases.TryGetValue(reference, out CosReference? kept) ? kept : reference;
 
     private CosObject? Resolve(CosObject? value) => value is CosReference reference ? Lookup(reference) : value;
 
@@ -321,8 +336,9 @@ internal sealed class LinearizedLayout
         {
             CosObject? value = item.Value;
             bool isPage = false;
-            if (item.Value is CosReference reference)
+            if (item.Value is CosReference used)
             {
+                CosReference reference = Canonical(used);
                 value = Lookup(reference);
                 if (value is null || !visited.Add(reference))
                 {

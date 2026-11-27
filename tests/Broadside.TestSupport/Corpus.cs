@@ -172,6 +172,7 @@ public static class Corpus
         "page-rotation.pdf",
         "paths-strokes.pdf",
         "clipping-paths.pdf",
+        "duplicate-images.pdf",
     ];
 
     private static readonly string[] Malformed =

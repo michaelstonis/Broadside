@@ -36,7 +36,7 @@ namespace Broadside.Viewer.Avalonia;
 /// </para>
 /// <para>ISO 32000-2 §12.3.2 (destinations), §12.5.6.5 (link annotations), §12.7 (interactive forms), §14.8 and §14.11.2.</para>
 /// </remarks>
-public sealed class PdfView : Control, IDisposable
+public sealed class PdfView : Control, IDocumentViewer, IDisposable
 {
     /// <summary>The <see cref="Source"/> property: a file path or an http(s) address of the document to show.</summary>
     public static readonly StyledProperty<string?> SourceProperty = AvaloniaProperty.Register<PdfView, string?>(nameof(Source));
@@ -64,6 +64,7 @@ public sealed class PdfView : Control, IDisposable
     private bool _frameRequested;
     private int _openGeneration;
     private bool _disposed;
+    private EventHandler? _viewChanged;
     private TopLevel? _scalingSource;
     private Cursor? _handCursor;
     private Cursor? _textCursor;
@@ -279,6 +280,30 @@ public sealed class PdfView : Control, IDisposable
         }
     }
 
+    // ---- IDocumentViewer (#632): what a PdfToolbar drives ----
+
+    /// <inheritdoc/>
+    event EventHandler? IDocumentViewer.ViewChanged
+    {
+        add => _viewChanged += value;
+        remove => _viewChanged -= value;
+    }
+
+    /// <inheritdoc/>
+    DocumentSession? IDocumentViewer.Session => CurrentSession;
+
+    /// <inheritdoc/>
+    int IDocumentViewer.PageIndex => State.PageIndex;
+
+    /// <inheritdoc/>
+    int IDocumentViewer.PageCount => State.PageCount;
+
+    /// <inheritdoc/>
+    double IDocumentViewer.Zoom => State.Zoom;
+
+    /// <inheritdoc/>
+    void IDocumentViewer.SetLayout(PageLayoutOptions options) => LayoutOptions = options;
+
     // ---- Avalonia ----
 
     /// <inheritdoc/>
@@ -296,6 +321,7 @@ public sealed class PdfView : Control, IDisposable
         else if (change.Property == LayoutOptionsProperty)
         {
             Controller.SetLayoutOptions(LayoutOptions);
+            _viewChanged?.Invoke(this, EventArgs.Empty);
         }
         else if (change.Property == ShowAnnotationsProperty)
         {
@@ -309,6 +335,7 @@ public sealed class PdfView : Control, IDisposable
         {
             Controller.SetColorFilter(ColorFilter);
             InvalidateVisual();
+            _viewChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -830,7 +857,11 @@ public sealed class PdfView : Control, IDisposable
 
         public void RequestPaint() => viewer.InvalidateVisual();
 
-        public void StateChanged(PdfViewState state) => viewer.StateChanged?.Invoke(viewer, new PdfViewStateChangedEventArgs(state));
+        public void StateChanged(PdfViewState state)
+        {
+            viewer.StateChanged?.Invoke(viewer, new PdfViewStateChangedEventArgs(state));
+            viewer._viewChanged?.Invoke(viewer, EventArgs.Empty);
+        }
 
         public void ActionRequested(ViewerActionEventArgs e) => viewer.ActionRequested?.Invoke(viewer, e);
 

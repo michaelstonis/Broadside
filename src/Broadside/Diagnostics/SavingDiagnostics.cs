@@ -66,6 +66,11 @@ public static class SavingDiagnostics
     public static DiagnosticCode InvoiceNotPdfA3 { get; } = new(nameof(InvoiceNotPdfA3), DiagnosticArea.Saving, DiagnosticSeverity.Warning, "ISO 19005-3 §6.8; Factur-X 1.0 and ZUGFeRD 2.x",
         "A document with an attached e-invoice is saved without a conformant PDF/A-3 identification. The invoice and its XMP properties are written, but the file is not a valid Factur-X or ZUGFeRD invoice.");
 
+    /// <summary>Gets the <c>DuplicateObjectsMerged</c> code.</summary>
+    /// <remarks>ISO 32000-2 §7.3.10, §7.5.3</remarks>
+    public static DiagnosticCode DuplicateObjectsMerged { get; } = new(nameof(DuplicateObjectsMerged), DiagnosticArea.Saving, DiagnosticSeverity.Information, "ISO 32000-2 §7.3.10, §7.5.3",
+        "The save found objects identical to another object it writes and wrote each of them once, with every reference to a duplicate written as a reference to the object kept. This records how many objects merged and the stream data saved.");
+
     /// <summary>Gets every code of this area, in declaration order.</summary>
     internal static DiagnosticCode[] Codes { get; } =
     [
@@ -81,5 +86,6 @@ public static class SavingDiagnostics
         WellTaggedNotDeclared,
         ConformanceOverridden,
         InvoiceNotPdfA3,
+        DuplicateObjectsMerged,
     ];
 }

@@ -32,7 +32,7 @@ namespace Broadside.Viewer.Wpf;
 /// </para>
 /// <para>ISO 32000-2 §12.3.2 (destinations), §12.5.6.5 (link annotations), §12.7 (interactive forms), §14.8, §14.9.3 and §14.11.2.</para>
 /// </remarks>
-public sealed class PdfView : FrameworkElement, IViewerHost, IDisposable
+public sealed class PdfView : FrameworkElement, IViewerHost, IDocumentViewer, IDisposable
 {
     /// <summary>Identifies the <see cref="Source"/> property: a file path or an http(s) address of the document to show.</summary>
     public static readonly DependencyProperty SourceProperty = DependencyProperty.Register(
@@ -44,7 +44,7 @@ public sealed class PdfView : FrameworkElement, IViewerHost, IDisposable
 
     /// <summary>Identifies the <see cref="LayoutOptions"/> property.</summary>
     public static readonly DependencyProperty LayoutOptionsProperty = DependencyProperty.Register(
-        nameof(LayoutOptions), typeof(PageLayoutOptions), typeof(PdfView), new PropertyMetadata(null, (d, e) => ((PdfView)d).Controller.SetLayoutOptions((PageLayoutOptions?)e.NewValue)));
+        nameof(LayoutOptions), typeof(PageLayoutOptions), typeof(PdfView), new PropertyMetadata(null, (d, e) => ((PdfView)d).OnLayoutOptionsChanged((PageLayoutOptions?)e.NewValue)));
 
     /// <summary>Identifies the <see cref="ShowAnnotations"/> property.</summary>
     public static readonly DependencyProperty ShowAnnotationsProperty = DependencyProperty.Register(
@@ -70,6 +70,7 @@ public sealed class PdfView : FrameworkElement, IViewerHost, IDisposable
     private bool _mouseDown;
     private int _openGeneration;
     private bool _disposed;
+    private EventHandler? _viewChanged;
 
     /// <summary>Initializes a new instance of the <see cref="PdfView"/> class; set <see cref="Source"/> or <see cref="Session"/> to show a document.</summary>
     public PdfView()
@@ -243,6 +244,36 @@ public sealed class PdfView : FrameworkElement, IViewerHost, IDisposable
 
         return text;
     }
+
+    // ---- IDocumentViewer (#632): what a PdfToolbar drives ----
+
+    /// <inheritdoc/>
+    event EventHandler? IDocumentViewer.ViewChanged
+    {
+        add => _viewChanged += value;
+        remove => _viewChanged -= value;
+    }
+
+    /// <inheritdoc/>
+    DocumentSession? IDocumentViewer.Session => CurrentSession;
+
+    /// <inheritdoc/>
+    int IDocumentViewer.PageIndex => State.PageIndex;
+
+    /// <inheritdoc/>
+    int IDocumentViewer.PageCount => State.PageCount;
+
+    /// <inheritdoc/>
+    double IDocumentViewer.Zoom => State.Zoom;
+
+    /// <inheritdoc/>
+    PageLabelTable? IDocumentViewer.PageLabels => null;
+
+    /// <inheritdoc/>
+    void IDocumentViewer.GoTo(ViewTarget target) => Controller.GoTo(target);
+
+    /// <inheritdoc/>
+    void IDocumentViewer.SetLayout(PageLayoutOptions options) => LayoutOptions = options;
 
     /// <summary>Closes the document and releases its tiles.</summary>
     public void Dispose()
@@ -494,7 +525,11 @@ public sealed class PdfView : FrameworkElement, IViewerHost, IDisposable
 
     void IViewerHost.RequestPaint() => InvalidateVisual();
 
-    void IViewerHost.StateChanged(PdfViewState state) => StateChanged?.Invoke(this, new PdfViewStateChangedEventArgs(state));
+    void IViewerHost.StateChanged(PdfViewState state)
+    {
+        StateChanged?.Invoke(this, new PdfViewStateChangedEventArgs(state));
+        _viewChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     void IViewerHost.ActionRequested(ViewerActionEventArgs e) => ActionRequested?.Invoke(this, e);
 
@@ -609,6 +644,13 @@ public sealed class PdfView : FrameworkElement, IViewerHost, IDisposable
     {
         Controller.SetColorFilter(filter);
         InvalidateVisual();
+        _viewChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnLayoutOptionsChanged(PageLayoutOptions? options)
+    {
+        Controller.SetLayoutOptions(options);
+        _viewChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private static void SetClipboard(string text)

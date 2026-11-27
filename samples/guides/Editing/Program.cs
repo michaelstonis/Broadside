@@ -21,7 +21,10 @@ MergeAndSplit();
 DrawAPageOnAnotherPage();
 StampPages();
 FillAForm();
+ExchangeFormData();
 Annotate();
+Redact();
+ExchangeAnnotations();
 EditMetadata();
 AttachAFile();
 Encrypt();
@@ -187,6 +190,29 @@ static void FillAForm()
     Sample.Expect(flat.Pages[0].ExtractText().Text.Contains("Ada Lovelace", StringComparison.Ordinal), "the value is page content");
 }
 
+static void ExchangeFormData()
+{
+    #region form-data
+    using (PdfDocument filled = PdfDocument.Open("application-filled.pdf"))
+    using (FileStream xfdf = File.Create("application.xfdf"))
+    {
+        filled.SaveFormData(xfdf); // XFDF by default; WithFormat(PdfFormDataFormat.Fdf) writes FDF
+    }
+
+    using PdfDocument blank = PdfDocument.Open("application.pdf");
+    using (FileStream xfdf = File.OpenRead("application.xfdf"))
+    {
+        PdfFormDataImport import = blank.ImportFormData(xfdf); // the format is sniffed; values regenerate appearances
+        Console.WriteLine($"{import.FieldsSet.Count} fields set, {import.FieldsNotFound.Count} names not in this form");
+    }
+
+    blank.Save("application-imported.pdf");
+    #endregion
+
+    using PdfDocument imported = PdfDocument.Open("application-imported.pdf");
+    Sample.Expect(((PdfTextField)imported.AcroForm!.FindField("name")!).Value == "Ada Lovelace", "the imported value");
+}
+
 static void Annotate()
 {
     #region annotations
@@ -204,6 +230,48 @@ static void Annotate()
 
     using PdfDocument saved = PdfDocument.Open("contract-annotated.pdf");
     Sample.Expect(saved.Pages[0].Annotations.Count == 3, "three annotations");
+}
+
+static void Redact()
+{
+    #region redaction
+    using PdfDocument document = PdfDocument.Open("contract.pdf");
+    PdfPage page = document.Pages[0];
+
+    // Mark the area for review, then apply every mark: the glyphs under it leave the content and a black box takes their place.
+    page.AddRedactAnnotation(new PdfRectangle(70, 712, 190, 736), new PdfRedactionOptions().WithOverlayText("WITHHELD"));
+    PdfRedactionResult result = document.Redact();
+
+    // A full save with the result's options: an incremental update would keep the original content in the file.
+    document.Save("contract-redacted.pdf", result.CreateSaveOptions());
+    #endregion
+
+    using PdfDocument saved = PdfDocument.Open("contract-redacted.pdf");
+    Sample.Expect(result.GlyphsRemoved > 0, "glyphs removed");
+    Sample.Expect(!saved.Pages[0].ExtractText().Text.Contains("Service", StringComparison.Ordinal), "the redacted words are gone");
+}
+
+static void ExchangeAnnotations()
+{
+    #region annotation-data
+    using (PdfDocument reviewed = PdfDocument.Open("contract-annotated.pdf"))
+    using (FileStream comments = File.Create("contract-comments.xfdf"))
+    {
+        reviewed.SaveFormData(comments, new PdfFormDataOptions().WithFields(false).WithAnnotations());
+    }
+
+    using PdfDocument copy = PdfDocument.Open("contract.pdf");
+    using (FileStream comments = File.OpenRead("contract-comments.xfdf"))
+    {
+        // An annotation whose name (NM) is already on its page replaces that one; the others are added.
+        copy.ImportFormData(comments, new PdfFormDataOptions().WithFields(false).WithAnnotations());
+    }
+
+    copy.Save("contract-with-comments.pdf");
+    #endregion
+
+    using PdfDocument withComments = PdfDocument.Open("contract-with-comments.pdf");
+    Sample.Expect(withComments.Pages[0].Annotations.Count == 2, "the two markup annotations; the link is not markup");
 }
 
 static void EditMetadata()

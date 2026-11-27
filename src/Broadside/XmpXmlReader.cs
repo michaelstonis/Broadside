@@ -24,6 +24,21 @@ internal sealed class XmpXmlElement(string namespaceName, string localName, List
     /// <summary>Gets the element's own character data (text and CDATA sections, references resolved), in order; what XMP reads as a simple value.</summary>
     public string Text => _text?.ToString() ?? string.Empty;
 
+    /// <summary>
+    /// Gets the markup between the element's start and end tags as written (line ends normalized, references not resolved), for
+    /// mixed content such as an XFDF rich text value; the empty string for an empty-element tag.
+    /// </summary>
+    public string RawContent => Source is null || ContentEnd <= ContentStart ? string.Empty : Source.Substring(ContentStart, ContentEnd - ContentStart);
+
+    /// <summary>Gets or sets the text the element was read from.</summary>
+    internal string? Source { get; set; }
+
+    /// <summary>Gets or sets where the element's content starts in <see cref="Source"/>.</summary>
+    internal int ContentStart { get; set; }
+
+    /// <summary>Gets or sets where the element's content ends (its end tag's <c>&lt;</c>) in <see cref="Source"/>.</summary>
+    internal int ContentEnd { get; set; }
+
     /// <summary>Returns the first attribute with the given expanded name.</summary>
     public XmpXmlAttribute? Attribute(string namespaceName, string localName)
     {
@@ -110,7 +125,21 @@ internal sealed class XmpXmlReader
     /// <param name="maxCharacters">How many characters may be read; reading past them is an error.</param>
     /// <param name="error">Why the markup is not well-formed, or <see langword="null"/>.</param>
     /// <returns>The <c>rdf:RDF</c> element; <see langword="null"/> when there is none or the markup before its end is malformed.</returns>
-    public static XmpXmlElement? ReadRdf(ReadOnlySpan<char> text, int maxCharacters, out string? error)
+    public static XmpXmlElement? ReadRdf(ReadOnlySpan<char> text, int maxCharacters, out string? error) =>
+        ReadElement(text, maxCharacters, XmpNamespaces.Rdf, "RDF", out error);
+
+    /// <summary>
+    /// Reads the first element of <paramref name="text"/> whose local name is <paramref name="localName"/> and whose namespace is
+    /// <paramref name="namespaceName"/> (any namespace when <see langword="null"/>), under the same rules as <see cref="ReadRdf"/>:
+    /// the root element of an XFDF file (Adobe XFDF 3.0, ISO 19444-1), for one.
+    /// </summary>
+    /// <param name="text">The markup.</param>
+    /// <param name="maxCharacters">How many characters may be read; reading past them is an error.</param>
+    /// <param name="namespaceName">The element's namespace name, or <see langword="null"/> for any.</param>
+    /// <param name="localName">The element's local name.</param>
+    /// <param name="error">Why the markup is not well-formed, or <see langword="null"/>.</param>
+    /// <returns>The element, with every element inside it; <see langword="null"/> when there is none or the markup before its end is malformed.</returns>
+    public static XmpXmlElement? ReadElement(ReadOnlySpan<char> text, int maxCharacters, string? namespaceName, string localName, out string? error)
     {
         bool truncated = text.Length > maxCharacters;
         if (truncated)
@@ -122,7 +151,7 @@ internal sealed class XmpXmlReader
         try
         {
             error = null;
-            return reader.ReadRdf();
+            return reader.ReadRoot(namespaceName, localName);
         }
         catch (MalformedException exception)
         {
@@ -262,7 +291,7 @@ internal sealed class XmpXmlReader
         }
     }
 
-    private XmpXmlElement? ReadRdf()
+    private XmpXmlElement? ReadRoot(string? namespaceName, string localName)
     {
         BindPredefinedPrefixes();
 
@@ -298,10 +327,11 @@ internal sealed class XmpXmlReader
                     break;
                 default:
                     (XmpXmlElement element, bool empty) = ReadStartTag();
-                    if (element.LocalName == "RDF" && element.NamespaceName == XmpNamespaces.Rdf)
+                    if (element.LocalName == localName && (namespaceName is null || element.NamespaceName == namespaceName))
                     {
                         if (!empty)
                         {
+                            element.ContentStart = _position;
                             ReadContent(element);
                         }
 
@@ -341,6 +371,8 @@ internal sealed class XmpXmlReader
             switch (Peek(1))
             {
                 case '/':
+                    current.Source = _text;
+                    current.ContentEnd = _position;
                     ReadEndTag();
                     _ = elements.Pop();
                     if (_open.Count < depth)
@@ -364,6 +396,7 @@ internal sealed class XmpXmlReader
                     }
                     else
                     {
+                        element.ContentStart = _position;
                         elements.Push(element);
                     }
 

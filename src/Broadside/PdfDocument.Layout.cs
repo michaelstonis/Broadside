@@ -26,4 +26,11 @@ public sealed partial class PdfDocument
         ArgumentNullException.ThrowIfNull(options);
         return StructureLayout.Build(this, Pages, options);
     }
+
+    /// <summary>Extracts the document's content as Markdown: its layout tree (<see cref="ExtractLayout()"/>) written by <see cref="LayoutTree.SaveMarkdown"/>.</summary>
+    /// <param name="options">What to write; <see langword="null"/> for the defaults.</param>
+    /// <returns>The Markdown; empty when the document shows no content.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content, its fonts or the structure tree.</exception>
+    /// <remarks>ISO 32000-2 §14.8.4, §14.9.3 and §14.8.2.2 (artifacts are left out); see <see cref="LayoutTree.SaveMarkdown"/>.</remarks>
+    public string ExtractMarkdown(MarkdownSaveOptions? options = null) => ExtractLayout().ToMarkdown(options);
 }

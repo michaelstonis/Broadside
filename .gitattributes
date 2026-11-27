@@ -9,6 +9,7 @@
 *.json text
 *.sh text eol=lf
 *.pdf binary
+*.fdf binary
 *.png binary
 *.jpg binary
 *.ttf binary

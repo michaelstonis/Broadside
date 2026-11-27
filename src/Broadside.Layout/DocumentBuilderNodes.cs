@@ -375,6 +375,11 @@ internal sealed class DrawingNode : BlockNode
     public TextAlignment Alignment { get; set; }
 
     public string? Caption { get; set; }
+
+    /// <summary>The barcode the drawing paints, when <see cref="ContainerBuilder.Barcode"/> added it: its text takes the style's font.</summary>
+    public Barcode? Barcode { get; set; }
+
+    public BarcodeOptions? BarcodeOptions { get; set; }
 }
 
 /// <summary>Columns side by side, each its own scope of content.</summary>

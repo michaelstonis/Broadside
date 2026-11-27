@@ -34,6 +34,8 @@ ocsp-response               ^src/Broadside/Signatures/
 crl                         ^src/Broadside/Signatures/
 xmp                         ^src/Broadside/(Structure|Objects)/|^src/Broadside/[^/]*Xmp[^/]*\.cs$
 xmp-xml                     ^src/Broadside/(Structure|Objects)/|^src/Broadside/[^/]*Xmp[^/]*\.cs$
+fdf-import                  ^src/Broadside/Forms/|^src/Broadside/Parsing/|^src/Broadside/PdfDocument\.FormData\.cs$
+xfdf-import                 ^src/Broadside/Forms/|^src/Broadside/[^/]*Xmp[^/]*\.cs$|^src/Broadside/PdfDocument\.FormData\.cs$
 pdf-date                    ^src/Broadside/(Objects|Structure)/|^src/Broadside/[^/]*Date[^/]*\.cs$
 structure-tree              ^src/Broadside/Structure/
 layout-detection            ^src/Broadside/(Text|Structure)/
@@ -58,6 +60,7 @@ form-fill                   ^src/Broadside/(Forms|Annotations|Writing)/
 flatten                     ^src/Broadside/(Forms|Annotations|Content|Writing)/
 display-list                ^src/Broadside/(Rendering|Graphics|Content)/
 content-rewrite             ^src/Broadside/(Content|Writing)/
+redact                      ^src/Broadside/(Redaction|Content|Annotations)/|^src/Broadside/PdfRedaction
 icc-profile                 ^src/Broadside/Graphics/|^src/Broadside\.Rendering/Icc/
 rasterize                   ^src/Broadside\.Rendering/|^src/Broadside/(Rendering|Graphics)/
 rasterize-page              ^src/Broadside\.Rendering/|^src/Broadside/(Rendering|Graphics|Content|Fonts|Images)/

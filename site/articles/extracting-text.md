@@ -110,6 +110,28 @@ static IEnumerable<LayoutNode> Descendants(LayoutNode node) => node.Children.Sel
 ```
 <!-- endsnippet -->
 
+## Markdown and JSON for LLMs
+
+Plain text loses the structure a language model or a search index needs. `ExtractMarkdown` (on the document or a page) and `LayoutTree.ToMarkdown` write the layout tree as Markdown: headings as `#` by level, paragraphs, bullet and numbered lists nested under their items, tables as pipe tables (a table split over pages becomes one), figures as image references or their alternate text followed by their caption, links with a URI as Markdown links, and notes as footnotes. Bold and italic come from the fonts. Headers, footers and page numbers are artifacts, so they are left out.
+
+`MarkdownSaveOptions` chooses the details: `WithPageBreaks` adds a `<!-- page n -->` comment before each page's first block, `WithImages(false)` writes a figure's alternate text in italics instead of an image reference, `WithInlineEmphasis(false)` drops the bold and italic markers, and `WithTables(MarkdownTableStyle.Html)` writes a table with merged cells or no header row as an HTML table with `rowspan` and `colspan` (by default its text is repeated in each cell it covers).
+
+`SaveJson` writes the tree itself as UTF-8 JSON, schema version 1: each node has its `kind`, its `text`, the `pages` it lies on and its `children`, plus `level` for a heading, `numbering` for a list, the grid for tables and cells, `uri` for a link and `alt` for a figure. `LayoutJsonOptions.WithBounds` adds each node's bounds per page. A later schema version only adds properties.
+
+<!-- snippet: samples/guides/ExtractingText/Program.cs#markdown-json -->
+```csharp
+// Markdown keeps the headings, lists and tables a language model reads better with; JSON keeps the whole tree for a pipeline.
+using PdfDocument document = PdfDocument.Open("layout-tables.pdf");
+string markdown = document.ExtractMarkdown(new MarkdownSaveOptions().WithPageBreaks(true));
+Console.WriteLine(markdown);
+
+LayoutTree layout = document.ExtractLayout();
+using var json = new MemoryStream();
+layout.SaveJson(json, new LayoutJsonOptions().WithBounds(true));
+Console.WriteLine($"{json.Length} bytes of layout JSON");
+```
+<!-- endsnippet -->
+
 The same tree drives [automatic tagging](accessibility-and-conformance.md#tagging-an-existing-file), which writes it into the document as its structure.
 
 ## Searching text

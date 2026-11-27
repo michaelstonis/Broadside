@@ -35,7 +35,7 @@ namespace Broadside.Viewer.Blazor;
 /// <para>Runs in the browser only (it imports a small JavaScript module from <c>_content/Broadside.Viewer.Blazor</c>).</para>
 /// </remarks>
 [SupportedOSPlatform("browser")]
-public sealed class PdfViewer : ComponentBase, IAsyncDisposable
+public sealed class PdfViewer : ComponentBase, IDocumentViewer, IAsyncDisposable
 {
     private bool _dirty = true;
     private string? _renderedClass;
@@ -47,6 +47,12 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
     private bool _attached;
     private string? _error;
     private bool _wasLoading;
+    private EventHandler? _viewChanged;
+    private Broadside.Rendering.ColorFilter? _colorFilter;
+    private Broadside.Rendering.ColorFilter? _appliedColorFilter;
+    private PageLayoutOptions? _layoutOptions;
+    private PageLayoutOptions? _appliedLayoutOptions;
+    private bool _parametersApplied;
 
     /// <summary>Gets or sets the address of the document to open; a relative address is resolved against the application's base address.</summary>
     [Parameter]
@@ -190,6 +196,53 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
     /// <param name="area">The area in the page's default user space.</param>
     public void Reveal(int pageIndex, PdfRectangle area) => _controller?.Reveal(pageIndex, area);
 
+    // ---- IDocumentViewer (#632): what a PdfToolbar drives ----
+
+    /// <inheritdoc/>
+    event EventHandler? IDocumentViewer.ViewChanged
+    {
+        add => _viewChanged += value;
+        remove => _viewChanged -= value;
+    }
+
+    /// <inheritdoc/>
+    DocumentSession? IDocumentViewer.Session => _controller?.Session;
+
+    /// <inheritdoc/>
+    int IDocumentViewer.PageIndex => State.PageIndex;
+
+    /// <inheritdoc/>
+    int IDocumentViewer.PageCount => State.PageCount;
+
+    /// <inheritdoc/>
+    double IDocumentViewer.Zoom => State.Zoom;
+
+    /// <inheritdoc/>
+    PageLabelTable? IDocumentViewer.PageLabels => null;
+
+    /// <inheritdoc/>
+    PageLayoutOptions? IDocumentViewer.LayoutOptions => _layoutOptions;
+
+    /// <inheritdoc/>
+    Broadside.Rendering.ColorFilter? IDocumentViewer.ColorFilter
+    {
+        get => _colorFilter;
+        set
+        {
+            _colorFilter = value;
+            _controller?.SetColorFilter(value);
+            _viewChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <inheritdoc/>
+    void IDocumentViewer.SetLayout(PageLayoutOptions options)
+    {
+        _layoutOptions = options;
+        _controller?.SetLayoutOptions(options);
+        _viewChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
@@ -224,8 +277,23 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
         _controller.AllowAnnotationEditing = AllowAnnotationEditing;
         _controller.TileObserver = TileObserver;
         _controller.SetShowAnnotations(ShowAnnotations);
-        _controller.SetColorFilter(ColorFilter);
-        _controller.SetLayoutOptions(LayoutOptions);
+        // The color filter and the layout follow their parameters when the parent changes them; in between, a toolbar may change them
+        // through IDocumentViewer, and a parent that re-renders with the same values does not undo that.
+        if (!_parametersApplied || ColorFilter != _appliedColorFilter)
+        {
+            _appliedColorFilter = _colorFilter = ColorFilter;
+            _controller.SetColorFilter(ColorFilter);
+            _viewChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        if (!_parametersApplied || !ReferenceEquals(LayoutOptions, _appliedLayoutOptions))
+        {
+            _appliedLayoutOptions = _layoutOptions = LayoutOptions;
+            _controller.SetLayoutOptions(LayoutOptions);
+            _viewChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        _parametersApplied = true;
         if (_attached)
         {
             await OpenIfChangedAsync().ConfigureAwait(true);
@@ -319,6 +387,8 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
         {
             _ = InvokeAsync(() => OnStateChanged.InvokeAsync(state));
         }
+
+        _viewChanged?.Invoke(this, EventArgs.Empty);
     }
 
     internal void RaiseAction(ViewerActionEventArgs action)
