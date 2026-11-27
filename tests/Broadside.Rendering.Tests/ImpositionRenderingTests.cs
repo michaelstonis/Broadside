@@ -49,11 +49,13 @@ public sealed class ImpositionRenderingTests
         await Verify(png, "png");
     }
 
-    /// <summary>Letter pages, each with a filled rectangle of its own gray and a large number, so placement and turning show.</summary>
+    /// <summary>
+    /// Letter pages, each with a filled band of its own color, a triangle in its upper-left corner (so turning shows) and one bar per
+    /// page number. Vector marks only: the Standard 14 fonts resolve to different system fonts on each platform.
+    /// </summary>
     private static PdfDocument Source(int count)
     {
         PdfDocument document = PdfDocument.Create();
-        Fonts.PdfCanvasFont font = document.GetStandard14Font(Fonts.Standard14Font.HelveticaBold);
         for (int index = 0; index < count; index++)
         {
             PdfPage page = index == 0 ? document.Pages[0] : document.Pages.Add(new PdfRectangle(0, 0, 612, 792));
@@ -61,11 +63,17 @@ public sealed class ImpositionRenderingTests
             canvas.SetFillColor(PdfColor.FromRgb(0.2f + (0.2f * index), 0.4f, 0.8f - (0.15f * index)));
             canvas.Rectangle(36, 36, 540, 200);
             canvas.Fill();
-            canvas.BeginText();
-            canvas.SetFont(font, 200);
-            canvas.MoveText(220, 420);
-            canvas.ShowText((index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture));
-            canvas.EndText();
+            canvas.MoveTo(36, 756);
+            canvas.LineTo(196, 756);
+            canvas.LineTo(36, 596);
+            canvas.ClosePath();
+            canvas.Fill();
+            for (int bar = 0; bar <= index; bar++)
+            {
+                canvas.Rectangle(240 + (bar * 60), 400, 36, 160);
+            }
+
+            canvas.Fill();
         }
 
         return document;
