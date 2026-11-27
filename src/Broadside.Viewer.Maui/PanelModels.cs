@@ -129,9 +129,6 @@ internal sealed class TagTree
     }
 }
 
-/// <summary>An annotation of the page in view, as the annotation panel lists it.</summary>
-internal sealed record AnnotationItem(AnnotationTarget Target, string Kind, string? Text, bool Removable, PdfRectangle Rectangle);
-
 /// <summary>The annotation tools: what the annotation panel adds to a page (ISO 32000-2 §12.5.6), through the viewer's annotation layer.</summary>
 internal enum AnnotationTool
 {
@@ -144,24 +141,6 @@ internal enum AnnotationTool
 /// <summary>Lists, adds and removes annotations through the <see cref="AnnotationLayer"/>, so only the overlay tiles they touch redraw.</summary>
 internal static class AnnotationEditing
 {
-    /// <summary>The annotations and form fields of a page.</summary>
-    public static async Task<IReadOnlyList<AnnotationItem>> ListAsync(AnnotationLayer layer, int pageIndex, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(layer);
-        int count = await layer.ReadPageAsync(pageIndex, cancellationToken).ConfigureAwait(true);
-        var items = new List<AnnotationItem>(count);
-        for (int i = 0; i < count; i++)
-        {
-            var target = new AnnotationTarget(pageIndex, i);
-            PdfAnnotation annotation = layer.GetAnnotation(target);
-            AnnotationRole role = layer.GetRole(target);
-            string kind = role == AnnotationRole.Field ? "Form field" : annotation.Subtype?.Value ?? "Annotation";
-            items.Add(new AnnotationItem(target, kind, annotation.Contents ?? layer.GetAccessibleName(target), role != AnnotationRole.Field, layer.GetRectangle(target)));
-        }
-
-        return items;
-    }
-
     /// <summary>
     /// Adds an annotation near the top left of a page, each one (<paramref name="step"/>) a little lower than the last, and selects it.
     /// Returns where it went, or null when the page could not take it.

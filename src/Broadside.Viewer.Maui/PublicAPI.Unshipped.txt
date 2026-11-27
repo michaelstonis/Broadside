@@ -12,3 +12,30 @@ Broadside.Viewer.Maui.PdfToolbar.Viewer.set -> void
 static readonly Broadside.Viewer.Maui.PdfToolbar.ItemTemplateProperty -> Microsoft.Maui.Controls.BindableProperty!
 static readonly Broadside.Viewer.Maui.PdfToolbar.OptionsProperty -> Microsoft.Maui.Controls.BindableProperty!
 static readonly Broadside.Viewer.Maui.PdfToolbar.ViewerProperty -> Microsoft.Maui.Controls.BindableProperty!
+Broadside.Viewer.Maui.PdfAttachmentsPanel
+Broadside.Viewer.Maui.PdfAttachmentsPanel.Count.get -> int
+Broadside.Viewer.Maui.PdfAttachmentsPanel.Opening -> System.EventHandler<Broadside.Viewer.AttachmentOpeningEventArgs!>?
+Broadside.Viewer.Maui.PdfAttachmentsPanel.PdfAttachmentsPanel() -> void
+Broadside.Viewer.Maui.PdfAttachmentsPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Maui.PdfAttachmentsPanel.Viewer.get -> Broadside.Viewer.Maui.PdfView?
+Broadside.Viewer.Maui.PdfAttachmentsPanel.Viewer.set -> void
+Broadside.Viewer.Maui.PdfLayersPanel
+Broadside.Viewer.Maui.PdfLayersPanel.PdfLayersPanel() -> void
+Broadside.Viewer.Maui.PdfLayersPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Maui.PdfLayersPanel.Viewer.get -> Broadside.Viewer.Maui.PdfView?
+Broadside.Viewer.Maui.PdfLayersPanel.Viewer.set -> void
+Broadside.Viewer.Maui.PdfSidebar
+Broadside.Viewer.Maui.PdfSidebar.Annotations.get -> Broadside.Viewer.Maui.PdfAnnotationsPanel!
+Broadside.Viewer.Maui.PdfSidebar.Attachments.get -> Broadside.Viewer.Maui.PdfAttachmentsPanel!
+Broadside.Viewer.Maui.PdfSidebar.Layers.get -> Broadside.Viewer.Maui.PdfLayersPanel!
+Broadside.Viewer.Maui.PdfSidebar.Outline.get -> Broadside.Viewer.Maui.PdfOutlinePanel!
+Broadside.Viewer.Maui.PdfSidebar.PdfSidebar() -> void
+Broadside.Viewer.Maui.PdfSidebar.Search.get -> Broadside.Viewer.Maui.PdfSearchPanel!
+Broadside.Viewer.Maui.PdfSidebar.SelectedIndex.get -> int
+Broadside.Viewer.Maui.PdfSidebar.SelectedIndex.set -> void
+Broadside.Viewer.Maui.PdfSidebar.Thumbnails.get -> Broadside.Viewer.Maui.PdfThumbnailsPanel!
+Broadside.Viewer.Maui.PdfSidebar.Viewer.get -> Broadside.Viewer.Maui.PdfView?
+Broadside.Viewer.Maui.PdfSidebar.Viewer.set -> void
+static readonly Broadside.Viewer.Maui.PdfAttachmentsPanel.ViewerProperty -> Microsoft.Maui.Controls.BindableProperty!
+static readonly Broadside.Viewer.Maui.PdfLayersPanel.ViewerProperty -> Microsoft.Maui.Controls.BindableProperty!
+static readonly Broadside.Viewer.Maui.PdfSidebar.ViewerProperty -> Microsoft.Maui.Controls.BindableProperty!

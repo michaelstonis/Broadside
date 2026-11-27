@@ -25,6 +25,7 @@ public sealed class PdfSearchPanel : ContentView
     private readonly Label _status = PanelKit.Hint(string.Empty, "search-status");
     private readonly CollectionView _results = new() { SelectionMode = SelectionMode.Single, AutomationId = "search-results" };
     private DocumentSearch? _search;
+    private SearchResults? _model;
     private int _updatePosted;
     private int _shownCount = -1;
     private bool _revealFirst;
@@ -127,7 +128,9 @@ public sealed class PdfSearchPanel : ContentView
         if (!ReferenceEquals(search, _search))
         {
             _search?.Changed -= OnSearchChanged;
+            _model?.Dispose();
             _search = search;
+            _model = search is null ? null : new SearchResults(search);
             _search?.Changed += OnSearchChanged;
         }
 
@@ -203,10 +206,15 @@ public sealed class PdfSearchPanel : ContentView
         {
             _shownCount = shown;
             var rows = new List<Row>(shown);
-            for (int i = 0; i < shown; i++)
+            foreach (SearchResultGroup group in _model?.Pages ?? [])
             {
-                SearchMatch match = matches[i];
-                rows.Add(new Row(i, string.Create(CultureInfo.InvariantCulture, $"Page {match.PageIndex + 1}"), match.Context));
+                foreach (SearchResultItem item in group.Items)
+                {
+                    if (rows.Count < shown)
+                    {
+                        rows.Add(new Row(item.MatchIndex, string.Create(CultureInfo.InvariantCulture, $"Page {group.PageIndex + 1}"), item.Before + item.Text + item.After));
+                    }
+                }
             }
 
             _results.ItemsSource = rows;
