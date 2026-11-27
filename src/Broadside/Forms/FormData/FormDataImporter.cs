@@ -303,7 +303,14 @@ internal static class FormDataImporter
         }
 
         // Every annotation's target is known before any is filled, so references between them map to the document's copies.
-        var copier = new CosGraphCopier(set.Resolve, document.AddObject);
+        var copier = new CosGraphCopier(
+            set.Resolve,
+            document.AddObject,
+            reference => diagnostics.Report(
+                FormDiagnostics.FormDataInvalid,
+                DiagnosticSeverity.Warning,
+                "An annotation entry names an object whose body is itself a reference, which no indirect object can be (ISO 32000-2 §7.3.10); the entry is skipped.",
+                objectReference: reference));
         foreach (Plan plan in plans)
         {
             if (plan.Existing is { } existing)
