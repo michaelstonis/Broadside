@@ -173,6 +173,38 @@ Broadside.PdfRedactionResult.FieldsCleared.get -> int
 Broadside.PdfRedactionResult.GlyphsRemoved.get -> int
 Broadside.PdfRedactionResult.ImagesChanged.get -> int
 Broadside.PdfRedactionResult.PathsRemoved.get -> int
+Broadside.Forms.PdfFormDataFormat
+Broadside.Forms.PdfFormDataFormat.Fdf = 0 -> Broadside.Forms.PdfFormDataFormat
+Broadside.Forms.PdfFormDataFormat.Xfdf = 1 -> Broadside.Forms.PdfFormDataFormat
+Broadside.Forms.PdfFormDataImport
+Broadside.Forms.PdfFormDataImport.AnnotationsAdded.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfAnnotation!>!
+Broadside.Forms.PdfFormDataImport.AnnotationsReplaced.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfAnnotation!>!
+Broadside.Forms.PdfFormDataImport.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+Broadside.Forms.PdfFormDataImport.FieldsNotFound.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.Forms.PdfFormDataImport.FieldsSet.get -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfField!>!
+Broadside.Forms.PdfFormDataOptions
+Broadside.Forms.PdfFormDataOptions.FieldNames.get -> System.Collections.Generic.IReadOnlyList<string!>?
+Broadside.Forms.PdfFormDataOptions.FieldNames.set -> void
+Broadside.Forms.PdfFormDataOptions.Format.get -> Broadside.Forms.PdfFormDataFormat
+Broadside.Forms.PdfFormDataOptions.Format.set -> void
+Broadside.Forms.PdfFormDataOptions.IncludeAnnotations.get -> bool
+Broadside.Forms.PdfFormDataOptions.IncludeAnnotations.set -> void
+Broadside.Forms.PdfFormDataOptions.IncludeFields.get -> bool
+Broadside.Forms.PdfFormDataOptions.IncludeFields.set -> void
+Broadside.Forms.PdfFormDataOptions.PdfFormDataOptions() -> void
+Broadside.Forms.PdfFormDataOptions.SourceFile.get -> string?
+Broadside.Forms.PdfFormDataOptions.SourceFile.set -> void
+Broadside.Forms.PdfFormDataOptions.WithAnnotations(bool include = true) -> Broadside.Forms.PdfFormDataOptions!
+Broadside.Forms.PdfFormDataOptions.WithFieldNames(params System.Collections.Generic.IEnumerable<string!>! names) -> Broadside.Forms.PdfFormDataOptions!
+Broadside.Forms.PdfFormDataOptions.WithFields(bool include = true) -> Broadside.Forms.PdfFormDataOptions!
+Broadside.Forms.PdfFormDataOptions.WithFormat(Broadside.Forms.PdfFormDataFormat format) -> Broadside.Forms.PdfFormDataOptions!
+Broadside.Forms.PdfFormDataOptions.WithSourceFile(string? file) -> Broadside.Forms.PdfFormDataOptions!
+Broadside.PdfDocument.ImportFormData(System.IO.Stream! stream, Broadside.Forms.PdfFormDataOptions? options = null) -> Broadside.Forms.PdfFormDataImport!
+Broadside.PdfDocument.SaveFormData(System.IO.Stream! stream, Broadside.Forms.PdfFormDataOptions? options = null) -> void
+static Broadside.Diagnostics.FormDiagnostics.FormDataAnnotationSkipped.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FormDataInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FormDataNotApplied.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.FormDiagnostics.FormDataValueInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.RedactionDiagnostics.RedactionFormCopied.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.RedactionDiagnostics.RedactionFormRemovedWhole.get -> Broadside.Diagnostics.DiagnosticCode!
 static Broadside.Diagnostics.RedactionDiagnostics.RedactionImageRemovedWhole.get -> Broadside.Diagnostics.DiagnosticCode!

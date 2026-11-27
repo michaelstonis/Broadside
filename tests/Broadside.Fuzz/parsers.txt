@@ -31,7 +31,9 @@ Broadside.AssociatedFileReader                          document
 Broadside.Structure.KidReader                           structure-tree
 Broadside.Structure.AttributeReader                     structure-tree
 Broadside.XmpPacketReader                               xmp
-Broadside.XmpXmlReader                                  xmp-xml xmp
+Broadside.XmpXmlReader                                  xmp-xml xmp xfdf-import
+Broadside.Forms.FormData.FdfReader                      fdf-import
+Broadside.Forms.FormData.XfdfReader                     xfdf-import
 Broadside.Forms.PdfDefaultAppearance                    default-appearance form-fill
 
 # Filters and image codecs

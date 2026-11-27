@@ -18,7 +18,7 @@ internal static class SmokeRunner
 
     public static int Run(string targetName, ReadOnlySpanAction target, TimeSpan duration, int seed)
     {
-        string[] files = CorpusLocator.CorpusFiles();
+        string[] files = FuzzTargets.SeedFiles(targetName);
         byte[][] seeds = new byte[files.Length][];
         for (int i = 0; i < files.Length; i++)
         {

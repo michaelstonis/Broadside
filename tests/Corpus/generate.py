@@ -3265,6 +3265,105 @@ def gen_acroform_xfa() -> bytes:
     return simple_file(objects)
 
 
+def fdf_file(objects: list[tuple[int, bytes]], xref: bool = False) -> bytes:
+    """12.7.8.2 FDF file structure: a %FDF-1.2 header (12.7.8.2.2), the body, an optional cross-reference table (12.7.8.1)
+    and a trailer whose Root is the catalog (12.7.8.2.4, Table 244). Without ``xref`` the file ends as Acrobat writes it:
+    the trailer and %%EOF, no table and no startxref."""
+    buf = bytearray(b"%FDF-1.2\n%\xe2\xe3\xcf\xd3\n")
+    offsets: dict[int, int] = {}
+    for num, body in objects:
+        offsets[num] = len(buf)
+        buf += obj(num, body)
+    if not xref:
+        buf += b"trailer\n<< /Root 1 0 R >>\n%%EOF\n"
+        return bytes(buf)
+    start = len(buf)
+    size = max(offsets) + 1
+    buf += xref_table(offsets, size, b"<< /Size %d /Root 1 0 R >>" % size, 0)
+    buf += b"startxref\n%d\n%%%%EOF\n" % start
+    return bytes(buf)
+
+
+def gen_form_data_fdf() -> bytes:
+    """12.7.8 Forms data format, as an interactive PDF processor exports it: no cross-reference table (12.7.8.1). The
+    FDF dictionary (Table 246) names the source file (F) and holds Fields (Table 249: a hierarchy through direct Kids,
+    a text value, check box and radio button states, a combo box export value, two list box values, and a field the
+    target form does not have) and Annots (12.7.8.3.4, Table 254: a text annotation with its pop-up and a highlight
+    that replies to it, each with its 0-based Page). Fits FormDataFixture in the tests."""
+    return fdf_file([
+        (1, b"<< /FDF << /F (form.pdf) /Fields ["
+            b" << /T (person) /Kids [ << /T (name) /V (Ada Lovelace) >> << /T (address) /Kids [ << /T (city) /V (London) >> ] >> ] >>"
+            b" << /T (check) /V /Yes >> << /T (radio) /V /Blue >> << /T (combo) /V (ca) >>"
+            b" << /T (list) /V [ (Olives) (Peppers) ] >> << /T (unknown) /V (not in the form) >> ]"
+            b" /Annots [ 2 0 R 3 0 R 4 0 R ] >> >>"),
+        (2, b"<< /Type /Annot /Subtype /Text /Rect [300 700 320 720] /Page 0 /NM (note-1) /T (Ada)"
+            b" /Contents (Check the totals.) /C [1 1 0] /F 28 /Name /Comment /M (D:20250101120000Z) /Popup 3 0 R >>"),
+        (3, b"<< /Type /Annot /Subtype /Popup /Rect [320 600 500 700] /Page 0 /Parent 2 0 R /Open false /F 28 >>"),
+        (4, b"<< /Type /Annot /Subtype /Highlight /Rect [72 740 272 760] /Page 0 /NM (highlight-1) /T (Bob)"
+            b" /Contents (Agreed.) /C [1 1 0] /F 4 /QuadPoints [72 760 272 760 72 740 272 740] /IRT 2 0 R >>"),
+    ])
+
+
+XFDF_SAMPLE = """<?xml version="1.0" encoding="UTF-8"?>
+<xfdf xmlns="http://ns.adobe.com/xfdf/" xml:space="preserve">
+  <f href="form.pdf"/>
+  <ids original="0123456789ABCDEF0123456789ABCDEF" modified="FEDCBA9876543210FEDCBA9876543210"/>
+  <fields>
+    <field name="person">
+      <field name="name">
+        <value>Ada Lovelace</value>
+      </field>
+      <field name="address">
+        <field name="city">
+          <value>London</value>
+        </field>
+      </field>
+    </field>
+    <field name="check">
+      <value>Yes</value>
+    </field>
+    <field name="radio">
+      <value>Blue</value>
+    </field>
+    <field name="combo">
+      <value>ca</value>
+    </field>
+    <field name="list">
+      <value>Olives</value>
+      <value>Peppers</value>
+    </field>
+    <field name="unknown">
+      <value>not in the form</value>
+    </field>
+  </fields>
+  <annots>
+    <text page="0" rect="300,700,320,720" name="note-1" title="Ada" subject="Comment" color="#FFFF00" date="D:20250101120000Z" creationdate="D:20250101115500Z" flags="print,nozoom,norotate" icon="Comment">
+      <contents>Check the totals.</contents>
+      <popup page="0" rect="320,600,500,700" open="no" flags="print,nozoom,norotate"/>
+    </text>
+    <text page="0" rect="300,700,320,720" name="reply-1" title="Bob" color="#FFFF00" flags="print,nozoom,norotate" icon="Comment" inreplyto="note-1">
+      <contents>Done.</contents>
+    </text>
+    <highlight page="0" rect="72,740,272,760" name="highlight-1" title="Bob" color="#FFFF00" flags="print" coords="72,760,272,760,72,740,272,740">
+      <contents-richtext><body xmlns="http://www.w3.org/1999/xhtml"><p>Agreed, <b>see</b> page 2.</p></body></contents-richtext>
+    </highlight>
+    <ink page="0" rect="98,98,142,132" name="ink-1" title="Ada" color="#FF0000" width="2" flags="print">
+      <inklist>
+        <gesture>100,100;120,130;140,100</gesture>
+      </inklist>
+    </ink>
+  </annots>
+</xfdf>
+"""
+
+
+def gen_form_data_xfdf() -> bytes:
+    """XFDF (ISO 19444-1; Adobe XFDF 3.0) in the shape of Adobe's samples: the same field values as form-data.fdf as nested
+    field elements, and markup annotations: a text note with its pop-up, a reply to it named by inreplyto, a highlight
+    with rich text contents, and an ink annotation with one gesture. UTF-8, no byte order mark."""
+    return XFDF_SAMPLE.encode("utf-8")
+
+
 def gen_metadata_xmp() -> bytes:
     return simple_file([
         (1, catalog(b" /Metadata 4 0 R")),
@@ -7383,6 +7482,8 @@ FILES = {
     "acroform-fields.pdf": gen_acroform_fields,
     "acroform-filling.pdf": gen_acroform_filling,
     "acroform-xfa.pdf": gen_acroform_xfa,
+    "form-data.fdf": gen_form_data_fdf,
+    "form-data.xfdf": gen_form_data_xfdf,
     "colorspace-families.pdf": gen_colorspace_families,
     "color-operators.pdf": gen_color_operators,
     "default-colorspaces.pdf": gen_default_colorspaces,
