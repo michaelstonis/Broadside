@@ -77,6 +77,43 @@ public sealed class PdfSaveOptions
     public bool RemoveUnreachableObjects { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether objects that are identical to another object the save writes are left out, and every
+    /// reference to them is written as a reference to that object. The default is <see langword="false"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §7.3.10 and §7.5.3. Merged and generated documents often carry the same image, font program or form XObject once
+    /// per source page; one definition serves every reference to it without changing what any page shows. The candidates are the
+    /// indirect streams (images, form XObjects, font programs, ICC profiles, embedded files, content streams), the indirect arrays
+    /// (color spaces, widths) and the indirect fonts, font descriptors, encodings, graphics state parameter dictionaries, halftones,
+    /// shading patterns, shadings and functions. Pages, page tree nodes, the catalog, annotations and every other dictionary whose
+    /// identity matters are never merged.
+    /// </para>
+    /// <para>
+    /// Two objects merge when they are equal under the rules of <see cref="Objects.CosObject.DeepEquals"/> (a stream's <c>Length</c>
+    /// aside; its filters, <c>DecodeParms</c> and encoded bytes all equal), with references to merged objects counted as equal; the
+    /// one with the lowest object number is written. Merging repeats until nothing more merges, so two font dictionaries whose font
+    /// programs merge merge in turn. The document itself does not change: only what is written does. A save that merged anything
+    /// records one <c>DuplicateObjectsMerged</c> diagnostic (Information) with the counts.
+    /// </para>
+    /// <para>
+    /// A full save only: an incremental update (<see cref="IncrementalUpdate"/>) cannot change the objects earlier revisions hold,
+    /// and refuses this option.
+    /// </para>
+    /// </remarks>
+    public bool MergeDuplicateObjects { get; set; }
+
+    /// <summary>Sets <see cref="MergeDuplicateObjects"/>.</summary>
+    /// <param name="merge">Whether identical objects are written once.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §7.3.10, §7.5.3.</remarks>
+    public PdfSaveOptions WithMergeDuplicateObjects(bool merge)
+    {
+        MergeDuplicateObjects = merge;
+        return this;
+    }
+
+    /// <summary>
     /// Gets or sets a value indicating whether the save appends an incremental update to the document's file instead of writing a
     /// complete new one. The default is <see langword="false"/>.
     /// </summary>

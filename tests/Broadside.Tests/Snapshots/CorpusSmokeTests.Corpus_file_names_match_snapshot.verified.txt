@@ -35,6 +35,7 @@
   declarations.pdf,
   default-colorspaces.pdf,
   destinations-all.pdf,
+  duplicate-images.pdf,
   embedded-files.pdf,
   empty-page.pdf,
   encrypted-aes-128.pdf,

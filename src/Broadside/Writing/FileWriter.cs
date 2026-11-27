@@ -192,6 +192,12 @@ internal sealed partial class FileWriter
     public IntegrityCodeWriter? Integrity { get; init; }
 
     /// <summary>
+    /// Gets what the save merged (<see cref="PdfSaveOptions.MergeDuplicateObjects"/>, issue #634), or <see langword="null"/> when it
+    /// did not look for duplicates.
+    /// </summary>
+    public DuplicateMergeResult? Merged { get; init; }
+
+    /// <summary>
     /// Gets or sets the signature dictionary of a signed revision the writer writes, whose signature carries the PDF MAC token as an
     /// unsigned attribute (ISO/TS 32004 §6.5.2): the trailer's <c>AuthCode</c> is then <c>MACLocation</c> <c>AttachedToSig</c> with
     /// <c>SigObjRef</c> (Table 6), and the signer composes the token. <see langword="null"/> writes a standalone token.

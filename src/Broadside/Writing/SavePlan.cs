@@ -167,6 +167,10 @@ internal static class SavePlan
             freeGenerations.Remove(oldEncryption.ObjectNumber);
         }
 
+        // Issue #634: duplicates are left out of what is written, and every reference to one is written as one to the object kept.
+        DuplicateMergeResult? merged = options.MergeDuplicateObjects ? DuplicateMerge.Apply(kept, encryption.HoldsLockedData) : null;
+        IReadOnlyDictionary<CosReference, CosReference>? aliases = merged is { Aliases.Count: > 0 } ? merged.Aliases : null;
+
         bool exhausted = false;
         if (encryption.NewDictionary is { } dictionary)
         {
@@ -191,12 +195,13 @@ internal static class SavePlan
         // A linearized file (Annex F) orders and numbers its objects by part; nothing is freed. Its writer carries the PDF MAC token
         // (ISO/TS 32004 §5.2.3) in the first-page trailer, the document's trailer (F.3.4), over the whole file (§6.5.1).
         LinearizedLayout? linearized = options.Linearize
-            ? LinearizedLayout.Create(trailer, kept, options.CrossReferenceLayout, value => value is not (CosStream or CosReference))
+            ? LinearizedLayout.Create(trailer, kept, options.CrossReferenceLayout, value => value is not (CosStream or CosReference), aliases)
             : null;
         Dictionary<CosReference, CosReference>? references = null;
         if (linearized is not null)
         {
             references = linearized.References;
+            AddAliases(references, aliases);
             kept = [.. linearized.Objects];
             freeGenerations.Clear();
         }
@@ -229,13 +234,17 @@ internal static class SavePlan
                     references[kept[index].Reference] = new CosReference(index + 1, 0);
                 }
 
+                AddAliases(references, aliases);
+
                 freeGenerations.Clear();
             }
-            else if (options.RemoveUnreachableObjects)
+            else if (options.RemoveUnreachableObjects || aliases is not null)
             {
                 // The numbers are kept, but a serialized object must not keep a reference to a dropped object (its number is free and
-                // an update could reuse it), and an object whose bytes hold one is serialized rather than copied.
+                // an update could reuse it), and an object whose bytes hold one is serialized rather than copied. A reference to a
+                // merged duplicate is written as one to the object kept in its place.
                 references = keptReferences.ToDictionary(reference => reference);
+                AddAliases(references, aliases);
             }
         }
 
@@ -302,7 +311,22 @@ internal static class SavePlan
             Linearized = linearized,
             CompressHintStream = options.StreamCompression != PdfStreamCompression.None,
             Integrity = encryption.Integrity,
+            Merged = merged,
         };
+    }
+
+    /// <summary>Writes each merged duplicate's references (§7.3.10) as references to the object written in its place.</summary>
+    private static void AddAliases(Dictionary<CosReference, CosReference> references, IReadOnlyDictionary<CosReference, CosReference>? aliases)
+    {
+        if (aliases is null)
+        {
+            return;
+        }
+
+        foreach ((CosReference duplicate, CosReference keeper) in aliases)
+        {
+            references[duplicate] = references[keeper];
+        }
     }
 
     /// <summary>

@@ -61,6 +61,11 @@ public static class SavingDiagnostics
     public static DiagnosticCode ConformanceOverridden { get; } = new(nameof(ConformanceOverridden), DiagnosticArea.Saving, DiagnosticSeverity.Information, "ISO 19005 (PDF/A); ISO 14289 (PDF/UA)",
         "The PDF/A or PDF/UA conformance options given for a save differ from the document default save options, and the save options take precedence. This records the override.");
 
+    /// <summary>Gets the <c>DuplicateObjectsMerged</c> code.</summary>
+    /// <remarks>ISO 32000-2 §7.3.10, §7.5.3</remarks>
+    public static DiagnosticCode DuplicateObjectsMerged { get; } = new(nameof(DuplicateObjectsMerged), DiagnosticArea.Saving, DiagnosticSeverity.Information, "ISO 32000-2 §7.3.10, §7.5.3",
+        "The save found objects identical to another object it writes and wrote each of them once, with every reference to a duplicate written as a reference to the object kept. This records how many objects merged and the stream data saved.");
+
     /// <summary>Gets every code of this area, in declaration order.</summary>
     internal static DiagnosticCode[] Codes { get; } =
     [
@@ -75,5 +80,6 @@ public static class SavingDiagnostics
         WellTaggedNonConformant,
         WellTaggedNotDeclared,
         ConformanceOverridden,
+        DuplicateObjectsMerged,
     ];
 }
