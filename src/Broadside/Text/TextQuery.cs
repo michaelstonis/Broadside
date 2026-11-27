@@ -90,6 +90,18 @@ public sealed class TextQuery
         }
     }
 
+    /// <summary>
+    /// Gets or sets a test each match must pass to be returned, or <see langword="null"/> (the default) to return every match: a
+    /// validator such as a check digit, which a pattern cannot express. <see cref="TextPatterns"/> sets one on the presets that have a
+    /// checksum.
+    /// </summary>
+    /// <remarks>
+    /// The test runs on each match once it is found, and a match it rejects is dropped; the search still goes on after that match's
+    /// end, so a rejected match does not make room for an overlapping one. It may run on several threads at once when the query is
+    /// shared.
+    /// </remarks>
+    public Func<TextMatch, bool>? MatchFilter { get; set; }
+
     /// <summary>Creates a query for a regular expression (<see cref="System.Text.RegularExpressions"/>).</summary>
     /// <param name="pattern">The pattern.</param>
     /// <returns>The query; case is ignored until <see cref="MatchCase"/> is set.</returns>
@@ -159,6 +171,15 @@ public sealed class TextQuery
     public TextQuery WithRegexTimeout(TimeSpan timeout)
     {
         RegexTimeout = timeout;
+        return this;
+    }
+
+    /// <summary>Sets <see cref="MatchFilter"/>.</summary>
+    /// <param name="filter">The test each match must pass, or <see langword="null"/> for none.</param>
+    /// <returns>This query.</returns>
+    public TextQuery WithMatchFilter(Func<TextMatch, bool>? filter)
+    {
+        MatchFilter = filter;
         return this;
     }
 
