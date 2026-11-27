@@ -45,8 +45,8 @@ public sealed partial class PdfDocument
     /// ISO 32000-2 §12.8.1, §12.8.3.3 and §12.8.3.4; ISO/TS 32002 §5.1.4. Everything <see cref="Sign"/> does before it asks the
     /// signer is done the same way: the field is placed, the appearance drawn, the update written with the reserved <c>Contents</c>,
     /// the <c>ByteRange</c> filled in and the byte ranges hashed into the CMS signed attributes. The signer later signs
-    /// <see cref="PdfPreparedSignature.DataToSign"/> as <see cref="IPdfSigner.SignDigest"/> would (ADR 0011: the same contract,
-    /// split in time).
+    /// <see cref="PdfPreparedSignature.DataToSign"/> as <see cref="IPdfSigner.SignDigest"/> would: the same
+    /// contract, split in time.
     /// </para>
     /// <para>
     /// Once written, the document reads from the prepared file, as after <see cref="Sign"/>; its signature field then has a
@@ -193,7 +193,7 @@ public sealed partial class PdfDocument
     /// <exception cref="InvalidOperationException">The file changed after preparation, the signature was already completed, or the object does not fit the room reserved.</exception>
     /// <remarks>
     /// ISO 32000-2 §12.8.1, §12.8.3.3.1 and §12.8.3.4. A post-processing path for services that return a CMS object instead of a
-    /// signature value (ADR 0011 keeps the signature value the primary contract): the object's signed attributes need not be the
+    /// signature value (the signature value stays the primary contract): the object's signed attributes need not be the
     /// prepared ones, but their message digest must be the prepared byte ranges' digest. The object is written as it is.
     /// </remarks>
     public static void CompleteSignatureWithCms(Stream preparedFile, PdfPreparedSignature prepared, ReadOnlySpan<byte> cms)

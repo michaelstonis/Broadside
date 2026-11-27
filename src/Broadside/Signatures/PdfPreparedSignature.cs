@@ -12,8 +12,8 @@ namespace Broadside.Signatures;
 /// </summary>
 /// <remarks>
 /// <para>
-/// ISO 32000-2 §12.8.1 and §12.8.3.3; ISO/TS 32002 §5.1.4. Deferred signing is the <see cref="IPdfSigner"/> contract split in time
-/// (ADR 0011): the document builds every byte, the signer signs <see cref="DataToSign"/>, the digest of the DER-encoded
+/// ISO 32000-2 §12.8.1 and §12.8.3.3; ISO/TS 32002 §5.1.4. Deferred signing is the <see cref="IPdfSigner"/> contract split in
+/// time: the document builds every byte, the signer signs <see cref="DataToSign"/>, the digest of the DER-encoded
 /// <see cref="SignedAttributes"/>, and the document builds the CMS object around the value it returns.
 /// </para>
 /// <para>
@@ -102,7 +102,7 @@ public sealed class PdfPreparedSignature
     /// Gets the signature scheme the signer must use with an RSA key (<see cref="RSASignaturePadding.Pkcs1"/> or
     /// <see cref="RSASignaturePadding.Pss"/>), or <see langword="null"/> for an ECDSA key.
     /// </summary>
-    /// <remarks>RFC 4056 §2; ADR 0011 amendment.</remarks>
+    /// <remarks>RFC 4056 §2, as <see cref="IPdfSigner.RsaSignaturePadding"/>.</remarks>
     public RSASignaturePadding? RsaSignaturePadding => Key.Type == SigningKeyType.Ecdsa ? null : Padding;
 
     /// <summary>Gets the fully qualified name of the signature field the signature was reserved in.</summary>
