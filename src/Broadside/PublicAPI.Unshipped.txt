@@ -381,3 +381,51 @@ Broadside.PdfDocument.CreateFormXObjectFromSvg(System.IO.Stream! svg) -> Broadsi
 Broadside.PdfDocument.CreateFormXObjectFromSvg(System.IO.Stream! svg, Broadside.Graphics.SvgImportOptions? options) -> Broadside.Graphics.PdfFormXObject!
 Broadside.PdfDocument.CreateFormXObjectFromSvg(System.ReadOnlySpan<byte> svg) -> Broadside.Graphics.PdfFormXObject!
 Broadside.PdfDocument.CreateFormXObjectFromSvg(System.ReadOnlySpan<byte> svg, Broadside.Graphics.SvgImportOptions? options) -> Broadside.Graphics.PdfFormXObject!
+Broadside.PdfBatesNumbering
+Broadside.PdfBatesNumbering.PdfBatesNumbering(Broadside.Fonts.PdfCanvasFont! font, double fontSize) -> void
+Broadside.PdfBatesNumbering.Boundary.get -> Broadside.PdfPageBoundary
+Broadside.PdfBatesNumbering.Boundary.set -> void
+Broadside.PdfBatesNumbering.Digits.get -> int
+Broadside.PdfBatesNumbering.Digits.set -> void
+Broadside.PdfBatesNumbering.Font.get -> Broadside.Fonts.PdfCanvasFont!
+Broadside.PdfBatesNumbering.Font.set -> void
+Broadside.PdfBatesNumbering.FontSize.get -> double
+Broadside.PdfBatesNumbering.FontSize.set -> void
+Broadside.PdfBatesNumbering.Format(long number) -> string!
+Broadside.PdfBatesNumbering.HorizontalAlignment.get -> Broadside.PdfStampAlignment
+Broadside.PdfBatesNumbering.HorizontalAlignment.set -> void
+Broadside.PdfBatesNumbering.Margin.get -> double
+Broadside.PdfBatesNumbering.Margin.set -> void
+Broadside.PdfBatesNumbering.NextNumber.get -> long
+Broadside.PdfBatesNumbering.NextNumber.set -> void
+Broadside.PdfBatesNumbering.Prefix.get -> string!
+Broadside.PdfBatesNumbering.Prefix.set -> void
+Broadside.PdfBatesNumbering.Suffix.get -> string!
+Broadside.PdfBatesNumbering.Suffix.set -> void
+Broadside.PdfBatesNumbering.TextColor.get -> Broadside.Graphics.PdfColor
+Broadside.PdfBatesNumbering.TextColor.set -> void
+Broadside.PdfBatesNumbering.VerticalAlignment.get -> Broadside.PdfStampAlignment
+Broadside.PdfBatesNumbering.VerticalAlignment.set -> void
+Broadside.PdfBatesNumbering.WithBoundary(Broadside.PdfPageBoundary boundary) -> Broadside.PdfBatesNumbering!
+Broadside.PdfBatesNumbering.WithDigits(int digits) -> Broadside.PdfBatesNumbering!
+Broadside.PdfBatesNumbering.WithFont(Broadside.Fonts.PdfCanvasFont! font) -> Broadside.PdfBatesNumbering!
+Broadside.PdfBatesNumbering.WithFontSize(double fontSize) -> Broadside.PdfBatesNumbering!
+Broadside.PdfBatesNumbering.WithHorizontalAlignment(Broadside.PdfStampAlignment alignment) -> Broadside.PdfBatesNumbering!
+Broadside.PdfBatesNumbering.WithMargin(double margin) -> Broadside.PdfBatesNumbering!
+Broadside.PdfBatesNumbering.WithNextNumber(long number) -> Broadside.PdfBatesNumbering!
+Broadside.PdfBatesNumbering.WithPrefix(string! prefix) -> Broadside.PdfBatesNumbering!
+Broadside.PdfBatesNumbering.WithSuffix(string! suffix) -> Broadside.PdfBatesNumbering!
+Broadside.PdfBatesNumbering.WithTextColor(Broadside.Graphics.PdfColor color) -> Broadside.PdfBatesNumbering!
+Broadside.PdfBatesNumbering.WithVerticalAlignment(Broadside.PdfStampAlignment alignment) -> Broadside.PdfBatesNumbering!
+Broadside.PdfBatesRange
+Broadside.PdfBatesRange.PdfBatesRange() -> void
+Broadside.PdfBatesRange.PdfBatesRange(long FirstNumber, long LastNumber, string! First, string! Last) -> void
+Broadside.PdfBatesRange.First.get -> string!
+Broadside.PdfBatesRange.First.init -> void
+Broadside.PdfBatesRange.FirstNumber.get -> long
+Broadside.PdfBatesRange.FirstNumber.init -> void
+Broadside.PdfBatesRange.Last.get -> string!
+Broadside.PdfBatesRange.Last.init -> void
+Broadside.PdfBatesRange.LastNumber.get -> long
+Broadside.PdfBatesRange.LastNumber.init -> void
+Broadside.PdfDocument.AddBatesNumbers(Broadside.PdfBatesNumbering! numbering, System.Range? pages = null) -> Broadside.PdfBatesRange
