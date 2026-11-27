@@ -1,5 +1,6 @@
 using System.Text;
 using Broadside.Diagnostics;
+using Broadside.Objects;
 using Broadside.Writing;
 
 namespace Broadside;
@@ -71,8 +72,8 @@ public sealed partial class PdfDocument
     /// </para>
     /// <para>
     /// Attaching again replaces the invoice: the previous file leaves the tree and the catalog's <c>AF</c>, and the <c>fx</c>
-    /// properties and schema are rewritten. The XML is checked to be well-formed with Broadside's own reader (no <c>System.Xml</c>,
-    /// ADR 0001); a document type declaration is refused. ZUGFeRD 1.0 and UBL invoices are not supported. A mutation: no read may run
+    /// properties and schema are rewritten. The XML is checked to be well-formed with Broadside's own reader (no <c>System.Xml</c>);
+    /// a document type declaration is refused. ZUGFeRD 1.0 and UBL invoices are not supported. A mutation: no read may run
     /// concurrently with it.
     /// </para>
     /// </remarks>
@@ -83,19 +84,28 @@ public sealed partial class PdfDocument
         (string level, string defaultFileName, PdfFileRelationship defaultRelationship) = InvoiceProfiles[options.Profile];
         string fileName = options.FileName ?? defaultFileName;
 
+        PdfEmbeddedFileOptions fileOptions = new PdfEmbeddedFileOptions()
+            .WithMediaType("text/xml")
+            .WithRelationship(options.Relationship ?? defaultRelationship)
+            .WithModificationDate(options.ModificationDate ?? TimeProvider.GetLocalNow());
+        PdfFileSpecification? file = null;
         if (FindInvoice(report: false) is { } previous)
         {
             _ = RemoveEmbeddedFile(previous.File.Name);
-            _ = RemoveAssociatedFile(Catalog, previous.File.File);
+            if (ReusableInvoiceObjects(previous.File.File) is { } reused)
+            {
+                // The previous invoice's objects take the new one, keeping their numbers: an incremental update cannot drop them, and
+                // an unreferenced embedded file left in the file breaks ISO 19005-3 §6.8 (veraPDF rule 6.8-4).
+                FillEmbeddedFile(reused.Specification, reused.Stream, reused.StreamReference, fileName, invoiceXml, fileOptions);
+                file = new PdfFileSpecification(this, reused.Specification, reused.Reference);
+            }
+            else
+            {
+                _ = RemoveAssociatedFile(Catalog, previous.File.File);
+            }
         }
 
-        PdfFileSpecification file = CreateEmbeddedFile(
-            fileName,
-            invoiceXml,
-            new PdfEmbeddedFileOptions()
-                .WithMediaType("text/xml")
-                .WithRelationship(options.Relationship ?? defaultRelationship)
-                .WithModificationDate(options.ModificationDate ?? TimeProvider.GetLocalNow()));
+        file ??= CreateEmbeddedFile(fileName, invoiceXml, fileOptions);
         PdfEmbeddedFileEntry entry = AddEmbeddedFile(fileName, file);
         AddAssociatedFile(Catalog, file);
 
@@ -179,6 +189,25 @@ public sealed partial class PdfDocument
         }
 
         return new PdfInvoiceAttachment(entry, profile, version);
+    }
+
+    /// <summary>
+    /// The previous invoice's file specification and embedded file stream, when both are indirect objects of this document and the
+    /// specification is in the catalog's <c>AF</c> by reference, so <see cref="FillEmbeddedFile"/> can write the new invoice into them.
+    /// </summary>
+    private (CosDictionary Specification, CosReference Reference, CosStream Stream, CosReference StreamReference)? ReusableInvoiceObjects(PdfFileSpecification previous)
+    {
+        if (previous.Dictionary is not { } specification
+            || Resolve(Catalog.GetValueOrDefault(FileAndLayerNames.AF)) is not CosArray associated
+            || associated.OfType<CosReference>().FirstOrDefault(item => ReferenceEquals(Resolve(item), specification)) is not { } reference
+            || Resolve(specification.GetValueOrDefault(FileAndLayerNames.EF)) is not CosDictionary embedded
+            || (embedded.GetValueOrDefault(FileAndLayerNames.UF) ?? embedded.GetValueOrDefault(FileAndLayerNames.F)) is not CosReference streamReference
+            || Resolve(streamReference) is not CosStream stream)
+        {
+            return null;
+        }
+
+        return (specification, reference, stream, streamReference);
     }
 
     /// <summary>Records, before a save changes anything, that an invoice attached in this session is saved without a conformant PDF/A-3 identification.</summary>

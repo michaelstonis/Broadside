@@ -133,7 +133,7 @@ internal sealed class XmpXmlReader
 
     /// <summary>
     /// Checks that <paramref name="text"/> is one well-formed XML document, by the same rules as <see cref="ReadRdf(ReadOnlySpan{char}, int, out string?)"/>, and returns
-    /// the expanded name of its root element (issue #630: an embedded e-invoice is checked without <c>System.Xml</c>, ADR 0001).
+    /// the expanded name of its root element (issue #630: an embedded e-invoice is checked without <c>System.Xml</c>).
     /// </summary>
     /// <param name="text">The document, its byte order mark already removed.</param>
     /// <param name="error">Why the text is not a well-formed document, or <see langword="null"/>.</param>

@@ -130,6 +130,25 @@ public sealed class InvoiceAttachmentTests
     }
 
     [Fact]
+    public void Replacing_an_opened_files_invoice_rewrites_its_objects_so_an_incremental_update_leaves_no_orphaned_embedded_file()
+    {
+        using PdfDocument document = PdfDocument.Create();
+        document.AttachInvoice(Invoice("first"));
+        using PdfDocument reopened = PdfDocument.Open(PdfA2u3bConformanceTests.Save(document, PdfAConformance.PdfA3b));
+        CosReference before = Assert.Single(reopened.AssociatedFiles).Reference!;
+
+        reopened.AttachInvoice(Invoice("second"), new PdfInvoiceOptions().WithProfile(PdfInvoiceProfile.Minimum));
+        using PdfDocument updated = PdfDocument.Open(PdfA2u3bConformanceTests.Save(reopened, PdfAConformance.PdfA3b, incremental: true));
+
+        PdfFileSpecification associated = Assert.Single(updated.AssociatedFiles);
+        Assert.Equal(before, associated.Reference);
+        Assert.Equal(PdfFileRelationship.Data, associated.Relationship);
+        Assert.Equal(Invoice("second"), associated.EmbeddedFile!.Decode().ToArray());
+        Assert.Same(Assert.Single(updated.EmbeddedFiles).File.Dictionary, associated.Dictionary);
+        Assert.Equal(PdfInvoiceProfile.Minimum, updated.ExtractInvoice()!.Profile);
+    }
+
+    [Fact]
     public void Extract_invoice_round_trips_the_file_profile_and_version()
     {
         using PdfDocument document = PdfDocument.Create();
