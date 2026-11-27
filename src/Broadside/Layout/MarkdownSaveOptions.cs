@@ -27,9 +27,9 @@ public sealed class MarkdownSaveOptions
     public bool IncludePageBreaks { get; private init; }
 
     /// <summary>
-    /// Gets a value indicating whether a figure is written as an image reference <c>![alt](page-n-figure-k)</c>, k counting the figures
-    /// of page n from 1; when <see langword="false"/>, a figure is its alternate description as an italic line, and nothing when it
-    /// has none. Default <see langword="true"/>.
+    /// Gets a value indicating whether a figure is written as a Markdown image whose text is its alternate description and whose
+    /// destination is the name <c>page-n-figure-k</c>, k counting the figures of page n from 1; when <see langword="false"/>, a figure
+    /// is its alternate description as an italic line, and nothing when it has none. Default <see langword="true"/>.
     /// </summary>
     /// <remarks>ISO 32000-2 §14.8.4.8.5 and §14.9.3.</remarks>
     public bool IncludeImages { get; private init; } = true;
