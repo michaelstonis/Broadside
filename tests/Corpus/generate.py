@@ -5765,6 +5765,33 @@ def gen_image_smask_matte() -> bytes:
     ])
 
 
+def compare_page(first: bytes, second: bytes, image_x: int) -> bytes:
+    """A Letter page of two Helvetica 12 lines at (72, 700) and a 4 x 4 RGB ramp image XObject painted 100 x 100 at
+    (``image_x``, 400): one version of the pair compare-old.pdf and compare-new.pdf."""
+    content = (b"BT /F1 12 Tf 14 TL 72 700 Td (" + first + b") Tj T* (" + second + b") Tj ET "
+               b"q 100 0 0 100 %d 400 cm /Im0 Do Q" % image_x)
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /Font << /F1 5 0 R >> /XObject << /Im0 6 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, HELVETICA),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 4 /Height 4 /ColorSpace /DeviceRGB /BitsPerComponent 8",
+                   pack_samples(rgb_ramp_4x4(), 8))),
+    ], binary=True)
+
+
+def gen_compare_old() -> bytes:
+    """The old version of a document pair to compare (issue #644): 14.8.2.6.2 words, 8.9.5 an image XObject. Against
+    compare-new.pdf, "brown" changes to "red", "very" is deleted, "exactly" is inserted and the image moves from x = 72 to 300."""
+    return compare_page(b"The quick brown fox jumps over the very lazy dog.", b"Second line stays the same.", 72)
+
+
+def gen_compare_new() -> bytes:
+    """The new version of compare-old.pdf: one change, one deletion and one insertion of words, and the image moved."""
+    return compare_page(b"The quick red fox jumps over the lazy dog.", b"Second line stays exactly the same.", 300)
+
+
 def gen_image_1bpc() -> bytes:
     """8.9.3 sample layout at 1 bit: a 10 x 3 DeviceGray image, 2 bytes per row with 6 padding bits (set to 1); also
     /Interpolate true (8.9.5.3) and /Intent /Perceptual (8.6.5.8)."""
@@ -7596,6 +7623,8 @@ FILES = {
     "image-decode-inverted.pdf": gen_image_decode_inverted,
     "image-alternates.pdf": gen_image_alternates,
     "image-oversampled.pdf": gen_image_oversampled,
+    "compare-old.pdf": gen_compare_old,
+    "compare-new.pdf": gen_compare_new,
     "jpx-lossless.pdf": gen_jpx_lossless,
     "jpx-subsampled.pdf": gen_jpx_subsampled,
     "jpx-smask-in-data.pdf": gen_jpx_smask_in_data,

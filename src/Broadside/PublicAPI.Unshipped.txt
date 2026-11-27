@@ -328,3 +328,44 @@ Broadside.PdfInvoiceProfile.EN16931 = 3 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.Extended = 4 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.Minimum = 0 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.XRechnung = 5 -> Broadside.PdfInvoiceProfile
+Broadside.PdfDocument.AddComparisonMarkup(Broadside.Text.TextComparison! comparison, bool isNewSide) -> int
+Broadside.PdfDocument.CompareText(Broadside.PdfDocument! other, Broadside.Text.TextComparisonOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Broadside.Text.TextComparison!
+Broadside.Text.TextChange
+Broadside.Text.TextChange.Kind.get -> Broadside.Text.TextChangeKind
+Broadside.Text.TextChange.Kind.init -> void
+Broadside.Text.TextChange.NewPageIndex.get -> int
+Broadside.Text.TextChange.NewPageIndex.init -> void
+Broadside.Text.TextChange.NewQuads.get -> System.Collections.Generic.IReadOnlyList<Broadside.Graphics.Quad>!
+Broadside.Text.TextChange.NewQuads.init -> void
+Broadside.Text.TextChange.NewText.get -> string!
+Broadside.Text.TextChange.NewText.init -> void
+Broadside.Text.TextChange.OldPageIndex.get -> int
+Broadside.Text.TextChange.OldPageIndex.init -> void
+Broadside.Text.TextChange.OldQuads.get -> System.Collections.Generic.IReadOnlyList<Broadside.Graphics.Quad>!
+Broadside.Text.TextChange.OldQuads.init -> void
+Broadside.Text.TextChange.OldText.get -> string!
+Broadside.Text.TextChange.OldText.init -> void
+Broadside.Text.TextChange.TextChange(Broadside.Text.TextChangeKind Kind, int OldPageIndex, string! OldText, System.Collections.Generic.IReadOnlyList<Broadside.Graphics.Quad>! OldQuads, int NewPageIndex, string! NewText, System.Collections.Generic.IReadOnlyList<Broadside.Graphics.Quad>! NewQuads) -> void
+Broadside.Text.TextChangeKind
+Broadside.Text.TextChangeKind.Changed = 2 -> Broadside.Text.TextChangeKind
+Broadside.Text.TextChangeKind.Deleted = 1 -> Broadside.Text.TextChangeKind
+Broadside.Text.TextChangeKind.Inserted = 0 -> Broadside.Text.TextChangeKind
+Broadside.Text.TextComparison
+Broadside.Text.TextComparison.Changes.get -> System.Collections.Generic.IReadOnlyList<Broadside.Text.TextChange!>!
+Broadside.Text.TextComparison.ComparedByPage.get -> bool
+Broadside.Text.TextComparison.IsIdentical.get -> bool
+Broadside.Text.TextComparisonOptions
+Broadside.Text.TextComparisonOptions.IgnorePunctuation.get -> bool
+Broadside.Text.TextComparisonOptions.IgnorePunctuation.set -> void
+Broadside.Text.TextComparisonOptions.IncludeArtifacts.get -> bool
+Broadside.Text.TextComparisonOptions.IncludeArtifacts.set -> void
+Broadside.Text.TextComparisonOptions.MatchCase.get -> bool
+Broadside.Text.TextComparisonOptions.MatchCase.set -> void
+Broadside.Text.TextComparisonOptions.MaxEditDistance.get -> int
+Broadside.Text.TextComparisonOptions.MaxEditDistance.set -> void
+Broadside.Text.TextComparisonOptions.TextComparisonOptions() -> void
+Broadside.Text.TextComparisonOptions.WithArtifacts(bool include = true) -> Broadside.Text.TextComparisonOptions!
+Broadside.Text.TextComparisonOptions.WithIgnorePunctuation(bool ignore = true) -> Broadside.Text.TextComparisonOptions!
+Broadside.Text.TextComparisonOptions.WithMatchCase(bool matchCase = true) -> Broadside.Text.TextComparisonOptions!
+Broadside.Text.TextComparisonOptions.WithMaxEditDistance(int words) -> Broadside.Text.TextComparisonOptions!
+const Broadside.Text.TextComparisonOptions.DefaultMaxEditDistance = 100000 -> int

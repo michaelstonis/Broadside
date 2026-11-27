@@ -20,7 +20,7 @@ namespace Broadside.Viewer.Blazor.Sample;
 /// SIMD opcodes and can be slower than scalar), and checks that both give the same bytes there. The browser tests run it in both builds
 /// and write the figures to the measurement log. A kernel PR adds its case to <see cref="Cases"/>, linking the kernel's source file
 /// into this project (as <c>SimdExampleKernel</c> is linked from tests/Broadside.TestSupport, <c>JpegColor</c>, <c>InverseDct</c>, <c>JpxLifting</c>, <c>JpxLevelShift</c> and
-/// <c>CmykCharacterization</c> from src/Broadside and <c>CompositingRows</c> and <c>BoxFilter</c> from src/Broadside.Rendering).
+/// <c>CmykCharacterization</c> from src/Broadside and <c>CompositingRows</c>, <c>BoxFilter</c> and <c>PixelDifference</c> from src/Broadside.Rendering).
 /// </summary>
 [SupportedOSPlatform("browser")]
 public static partial class KernelBenchmarks
@@ -62,6 +62,7 @@ public static partial class KernelBenchmarks
         new("jpx-ict", 12, 12, IctScalar, IctVector),
         new("jpx-shift", 4, 2, ShiftScalar, ShiftVector),
         new("jpx-round-shift", 4, 2, RoundShiftScalar, RoundShiftVector),
+        new("pixel-difference", 8, 1, PixelDifferenceScalar, PixelDifferenceVector),
     ];
 
     /// <summary>The CMYK components of <c>cmyk-to-rgb</c>'s items, filled from the bytes by both methods alike.</summary>
@@ -129,6 +130,13 @@ public static partial class KernelBenchmarks
     private static void PackRgbaScalar(ReadOnlySpan<byte> rows, Span<byte> pixels) => PixelPacking.PackRgbaScalar(rows[..(3 * (rows.Length / 4))], rows[(3 * (rows.Length / 4))..], pixels);
 
     private static void PackRgbaVector(ReadOnlySpan<byte> rows, Span<byte> pixels) => PixelPacking.PackRgbaVector(rows[..(3 * (rows.Length / 4))], rows[(3 * (rows.Length / 4))..], pixels);
+
+    // The visual comparison's per-pixel difference (#644), one pixel per item: the source holds the first row, then the second.
+    private static void PixelDifferenceScalar(ReadOnlySpan<byte> rows, Span<byte> differences) =>
+        PixelDifference.MaxChannelDifferenceScalar(rows[..(rows.Length / 2)], rows[(rows.Length / 2)..], differences);
+
+    private static void PixelDifferenceVector(ReadOnlySpan<byte> rows, Span<byte> differences) =>
+        PixelDifference.MaxChannelDifferenceVector(rows[..(rows.Length / 2)], rows[(rows.Length / 2)..], differences);
 
     // The compositing rows (#473), one pixel per item. Over: the source holds the source pixels, then the backdrop, which is copied
     // into the destination first (both methods pay the copy); full coverage, as a transparency group composites onto its parent.

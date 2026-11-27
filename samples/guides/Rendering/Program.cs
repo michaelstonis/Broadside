@@ -250,6 +250,22 @@ using (PdfDocument document = PdfDocument.Open("text-standard14.pdf", new PdfOpt
     Console.WriteLine($"Selected: {selected}");
 }
 
+#region visual-compare
+using (PdfDocument old = PdfDocument.Open("compare-old.pdf"))
+using (PdfDocument @new = PdfDocument.Open("compare-new.pdf"))
+using (VisualComparison comparison = VisualComparison.Compare(old.Pages[0], @new.Pages[0], new VisualComparisonOptions().WithDpi(96)))
+{
+    Console.WriteLine($"{comparison.ChangedFraction:P1} of the pixels changed");
+    foreach (PdfRectangle region in comparison.ChangedRegions)
+    {
+        Console.WriteLine($"Changed: {region}"); // in the new page's user space, ready for a Square annotation
+    }
+
+    comparison.Overlay.SavePng("compare-overlay.png"); // the old page in red, the new one in cyan, the rest in light gray
+    Sample.Expect(comparison.ChangedRegions.Count(region => region.Top < 600) == 2, "the moved image: where it was and where it is");
+}
+#endregion
+
 using (PdfDocument document = PdfDocument.Open("annotations-link.pdf"))
 {
     HitTestIndex index = document.Pages[0].CreateHitTestIndex();

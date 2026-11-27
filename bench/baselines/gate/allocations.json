@@ -717,6 +717,9 @@
     "Broadside.Benchmarks.Type3RenderingBenchmarks.Build(Dpi: 300)": 337832,
     "Broadside.Benchmarks.Type3RenderingBenchmarks.Build(Dpi: 72)": 337832,
     "Broadside.Benchmarks.Type3RenderingBenchmarks.Replay(Dpi: 300)": 0,
-    "Broadside.Benchmarks.Type3RenderingBenchmarks.Replay(Dpi: 72)": 0
+    "Broadside.Benchmarks.Type3RenderingBenchmarks.Replay(Dpi: 72)": 0,
+    "Broadside.Benchmarks.VisualComparisonBenchmarks.CompareRows": 0,
+    "Broadside.Benchmarks.VisualComparisonBenchmarks.Difference": 0,
+    "Broadside.Benchmarks.VisualComparisonBenchmarks.DifferenceScalar": 0
   }
 }

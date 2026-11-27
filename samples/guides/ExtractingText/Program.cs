@@ -13,6 +13,7 @@ FindTables();
 WriteMarkdownAndJson();
 SearchText();
 SearchWithARegularExpression();
+CompareDocuments();
 Sample.Finish();
 
 static void ExtractPlainText()
@@ -152,4 +153,27 @@ static void SearchWithARegularExpression()
 
     string[] words = [.. document.Pages[0].FindText(query).Select(match => match.Text)];
     Sample.Expect(words.SequenceEqual(["Ninety", "Thirty"]), $"the words ending in \"ty\" (found {string.Join(", ", words)})");
+}
+
+static void CompareDocuments()
+{
+    #region compare
+    using PdfDocument old = PdfDocument.Open("compare-old.pdf");
+    using PdfDocument @new = PdfDocument.Open("compare-new.pdf");
+    TextComparison comparison = old.CompareText(@new);
+    foreach (TextChange change in comparison.Changes)
+    {
+        // Inserted, Deleted or Changed, with each side's page, text and one quad per line (-1, "" and none on a side without words).
+        Console.WriteLine($"{change.Kind}: \"{change.OldText}\" -> \"{change.NewText}\"");
+    }
+
+    // Strike the old words out on the old version and highlight the new ones on the new version, then save both.
+    old.AddComparisonMarkup(comparison, isNewSide: false);
+    @new.AddComparisonMarkup(comparison, isNewSide: true);
+    #endregion
+
+    string[] kinds = [.. comparison.Changes.Select(change => $"{change.Kind} {change.OldText}|{change.NewText}")];
+    Sample.Expect(
+        kinds.SequenceEqual(["Changed brown|red", "Deleted very|", "Inserted |exactly"]),
+        $"one change, one deletion and one insertion (found {string.Join(", ", kinds)})");
 }
