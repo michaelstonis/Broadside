@@ -36,6 +36,14 @@ public static class RedactionDiagnostics
     public static DiagnosticCode RedactionInvalidatesSignatures { get; } = new(nameof(RedactionInvalidatesSignatures), DiagnosticArea.Redaction, DiagnosticSeverity.Information, "ISO 32000-2 §12.8",
         "The document is signed. Applying the redaction changes the content the signatures cover, so they no longer verify.");
 
+    /// <summary>
+    /// Gets the <c>RedactionMatchNotLocated</c> code: the glyphs of a search match could not all be found again in the content, so
+    /// everything under the match's quads was removed instead, neighbors included.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.4.3</remarks>
+    public static DiagnosticCode RedactionMatchNotLocated { get; } = new(nameof(RedactionMatchNotLocated), DiagnosticArea.Redaction, DiagnosticSeverity.Warning, "ISO 32000-2 §9.4.3",
+        "The glyphs of a search match could not all be found again in the page's content (a ToUnicode map that reads differently, or content drawn twice at one spot). Everything under the match's quads is removed instead.");
+
     /// <summary>Gets every code of this area, in declaration order.</summary>
     internal static DiagnosticCode[] Codes { get; } =
     [
@@ -44,5 +52,6 @@ public static class RedactionDiagnostics
         RedactionFormRemovedWhole,
         RedactionFormCopied,
         RedactionInvalidatesSignatures,
+        RedactionMatchNotLocated,
     ];
 }

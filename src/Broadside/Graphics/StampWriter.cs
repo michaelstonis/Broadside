@@ -71,6 +71,27 @@ internal static class StampWriter
         }
     }
 
+    /// <summary>
+    /// Draws the text stamp <paramref name="stamp"/> on <paramref name="texts"/>.Length pages from <paramref name="first"/>, page
+    /// <c>first + i</c> showing <paramref name="texts"/>[i] as given (no tokens), attached to <paramref name="edges"/>. Every text is
+    /// laid out before any page changes, so a text the font cannot show changes nothing (issue #646).
+    /// </summary>
+    public static void StampTexts(PdfDocument document, PdfStamp stamp, int first, string[] texts, PdfArtifactEdges edges, string parameter)
+    {
+        CheckOwner(document, stamp.Font!.Document, parameter, "font");
+        CheckColor(document, stamp.TextColor, parameter);
+        var blocks = new TextBlock[texts.Length];
+        for (int index = 0; index < texts.Length; index++)
+        {
+            blocks[index] = TextBlock.Lay(stamp.Font!, stamp.FontSize, texts[index], stamp.HorizontalAlignment, parameter);
+        }
+
+        for (int index = 0; index < texts.Length; index++)
+        {
+            Draw(document, document.Pages[first + index], stamp, blocks[index], form: null, edges);
+        }
+    }
+
     public static void AddHeaderFooter(PdfDocument document, PdfHeaderFooter headerFooter, Range? pages)
     {
         (int first, int count) = Pages(document, pages);
@@ -138,7 +159,7 @@ internal static class StampWriter
         }
     }
 
-    private static void Draw(PdfDocument document, PdfPage page, PdfStamp stamp, TextBlock? text, PdfFormXObject? form)
+    private static void Draw(PdfDocument document, PdfPage page, PdfStamp stamp, TextBlock? text, PdfFormXObject? form, PdfArtifactEdges edges = PdfArtifactEdges.None)
     {
         Frame frame = Frame.Of(page, stamp.Boundary, stamp.FollowPageRotation);
         (double width, double height, Matrix content) = stamp.Kind switch
@@ -174,7 +195,7 @@ internal static class StampWriter
             canvas.BeginOptionalContent(group);
         }
 
-        canvas.BeginArtifact(stamp.ArtifactType, stamp.ArtifactSubtype, PdfArtifactEdges.None, Bounds(placement, width, height));
+        canvas.BeginArtifact(stamp.ArtifactType, stamp.ArtifactSubtype, edges, Bounds(placement, width, height));
         canvas.SaveState();
         if (stamp.Opacity < 1)
         {
