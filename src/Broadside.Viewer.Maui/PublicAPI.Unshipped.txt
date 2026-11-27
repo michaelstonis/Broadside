@@ -39,3 +39,4 @@ Broadside.Viewer.Maui.PdfSidebar.Viewer.set -> void
 static readonly Broadside.Viewer.Maui.PdfAttachmentsPanel.ViewerProperty -> Microsoft.Maui.Controls.BindableProperty!
 static readonly Broadside.Viewer.Maui.PdfLayersPanel.ViewerProperty -> Microsoft.Maui.Controls.BindableProperty!
 static readonly Broadside.Viewer.Maui.PdfSidebar.ViewerProperty -> Microsoft.Maui.Controls.BindableProperty!
+Broadside.Viewer.Maui.PdfSidebar.AttachmentOpening -> System.EventHandler<Broadside.Viewer.AttachmentOpeningEventArgs!>?

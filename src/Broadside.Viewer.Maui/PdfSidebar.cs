@@ -245,6 +245,7 @@ public sealed class PdfSidebar : ContentView
         Layers = new PdfLayersPanel();
         Annotations = new PdfAnnotationsPanel();
         _panels = [Thumbnails, Outline, Search, Attachments, Layers, Annotations];
+        Attachments.Opening += (_, e) => AttachmentOpening?.Invoke(this, e);
         string[] names = ["Pages", "Outline", "Search", "Attachments", "Layers", "Comments"];
         string[] ids = ["thumbnails", "outline", "search", "attachments", "layers", "annotations"];
         for (int i = 0; i < names.Length; i++)
@@ -259,6 +260,9 @@ public sealed class PdfSidebar : ContentView
         Content = root;
         SelectedIndex = 0;
     }
+
+    /// <summary>Raised with an attachment's decoded bytes when the user opens or saves it in the attachments tab.</summary>
+    public event EventHandler<AttachmentOpeningEventArgs>? AttachmentOpening;
 
     /// <summary>Gets or sets the view the panels follow.</summary>
     public PdfView? Viewer

@@ -139,4 +139,28 @@ model.Find(ViewerCommandIds.Search)!.Placement = ViewerCommandPlacement.Overflow
 
 To restyle items without forking the control, give it a template: `ItemTemplate` in Avalonia, MAUI and Blazor, `ItemTemplateSelector` in WPF, WinUI and Uno. The template's data is the command; commands raise `PropertyChanged`, and a button command is an `ICommand`, so XAML bindings work. In Blazor, a template falls back to the default markup with `<PdfToolbarItem Command="context" />`. Typed input that names no page leaves the view where it is and sets the page command's `Error`; nothing throws.
 
+## Side panels
+
+Every shell also ships the side panels a reader expects, bound to the view the same way as the toolbar: `PdfThumbnailsPanel` (page thumbnails with their page labels), `PdfOutlinePanel` (the bookmarks as a tree that expands and collapses), `PdfSearchPanel` (a query box and the matches grouped by page, with the text around each), `PdfAttachmentsPanel` (embedded files and file attachment annotations, with size, type and checksum status), `PdfLayersPanel` (the optional content groups as the file's own tree, with a check box each) and `PdfAnnotationsPanel` (every comment, page by page, with its author and reply count). `PdfSidebar` puts all six behind one row of tabs. A click in a panel moves the view: a thumbnail shows its page, an outline entry its destination, a result its match, a comment its annotation.
+
+```xml
+<viewer:PdfSidebar Viewer="{Binding ElementName=View}" AttachmentOpening="OnAttachment" />
+```
+
+```razor
+<PdfViewer @ref="_viewer" Source="report.pdf" />
+<PdfSidebar Viewer="_viewer" AttachmentOpening="OnAttachmentAsync" />
+```
+
+The logic lives once in `Broadside.Viewer`, framework-free: `ViewerSidebar` follows an `IDocumentViewer` and reads the panel models of the open document, `DocumentOutline`, `SearchResults`, `DocumentAttachments`, `DocumentLayers` and `AnnotationList`, again for each document; each shell only lays them out. A panel never throws: a model that cannot be read shows why, and a broken file specification, a missing embedded stream or a bad checksum still lists the file with its status.
+
+The viewer never opens or launches an attachment. Open and Save raise `AttachmentOpening` (`Opening` on the attachments panel) with the decoded bytes, and the app decides what to do with them, such as a save dialog or a download.
+
+Showing or hiding a layer sets the session's `OptionalContentState`: the display lists are built again under the new state, every tile is drawn again, and annotations whose layer is hidden stop taking part. Locked layers cannot be switched, a radio-button set keeps one layer on, and Reset returns to the file's own states. The same property is there for an app that switches layers itself:
+
+```csharp
+PdfOptionalContentProperties layers = session.Document.OptionalContent!;
+session.OptionalContentState = layers.GetDefaultStates().With(layers.Groups[0], false);
+```
+
 Each control's full API (state and error events, layout options, selection, search and the rest) is in the [API reference](../api/readme.md).
