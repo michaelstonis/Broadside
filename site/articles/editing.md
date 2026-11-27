@@ -189,6 +189,29 @@ document.Save("application-flattened.pdf");
 
 `CreateAcroForm` and its `Add*` methods add text fields, check boxes, radio buttons, combo and list boxes, push buttons and signature fields. Forms that carry XFA are read and preserved, not rendered.
 
+Field values move in and out of a form as FDF (ISO 32000-2 §12.7.8) or XFDF (the XML format of ISO 19444-1), for pre-filling a form from a server, collecting submissions or archiving the data apart from the file. `SaveFormData` writes every field value, XFDF by default; `ImportFormData` matches each entry by its fully qualified name, sets it through the same setters as above, so appearances are regenerated, and reports the names it found no field for. A value of the wrong type for its field, or an option the field does not have, is skipped with a diagnostic in the result, or throws in strict mode:
+
+<!-- snippet: samples/guides/Editing/Program.cs#form-data -->
+```csharp
+using (PdfDocument filled = PdfDocument.Open("application-filled.pdf"))
+using (FileStream xfdf = File.Create("application.xfdf"))
+{
+    filled.SaveFormData(xfdf); // XFDF by default; WithFormat(PdfFormDataFormat.Fdf) writes FDF
+}
+
+using PdfDocument blank = PdfDocument.Open("application.pdf");
+using (FileStream xfdf = File.OpenRead("application.xfdf"))
+{
+    PdfFormDataImport import = blank.ImportFormData(xfdf); // the format is sniffed; values regenerate appearances
+    Console.WriteLine($"{import.FieldsSet.Count} fields set, {import.FieldsNotFound.Count} names not in this form");
+}
+
+blank.Save("application-imported.pdf");
+```
+<!-- endsnippet -->
+
+FDF template pages and scripts are kept in the file but not applied, and an encrypted FDF file is refused.
+
 Conformance: [ISO 32000-2 §12.7 (forms)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
 
 ## Annotations
@@ -211,6 +234,27 @@ document.Save("contract-annotated.pdf");
 <!-- endsnippet -->
 
 `PdfPage.Annotations` lists a page's annotations, and `RemoveAnnotation` removes one.
+
+Markup annotations travel the same way, as XFDF (how viewers exchange review comments) or FDF: `WithAnnotations()` adds them to `SaveFormData`, with replies and pop-ups kept together. On import an annotation whose name (`NM`) is already on its page replaces that one in place, so syncing comments twice does not duplicate them; the others are added, and those without an appearance get one:
+
+<!-- snippet: samples/guides/Editing/Program.cs#annotation-data -->
+```csharp
+using (PdfDocument reviewed = PdfDocument.Open("contract-annotated.pdf"))
+using (FileStream comments = File.Create("contract-comments.xfdf"))
+{
+    reviewed.SaveFormData(comments, new PdfFormDataOptions().WithFields(false).WithAnnotations());
+}
+
+using PdfDocument copy = PdfDocument.Open("contract.pdf");
+using (FileStream comments = File.OpenRead("contract-comments.xfdf"))
+{
+    // An annotation whose name (NM) is already on its page replaces that one; the others are added.
+    copy.ImportFormData(comments, new PdfFormDataOptions().WithFields(false).WithAnnotations());
+}
+
+copy.Save("contract-with-comments.pdf");
+```
+<!-- endsnippet -->
 
 Conformance: [ISO 32000-2 §12.5 (annotations)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
 

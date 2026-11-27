@@ -567,6 +567,10 @@ Form	ChoiceOptionsInherited	Warning	ISO 32000-2 §12.7.4, §12.7.5
 Form	ChoiceValueNotInOptions	Warning	ISO 32000-2 §12.7.4, §12.7.5
 Form	ChoiceIndicesInvalid	Warning	ISO 32000-2 §12.7.4, §12.7.5
 Form	SignatureFieldDictNotIndirect	Warning	ISO 32000-2 §12.7.4, §12.7.5
+Form	FormDataInvalid	Warning	ISO 32000-2 §12.7.8; Adobe XFDF 3.0
+Form	FormDataValueInvalid	Warning	ISO 32000-2 §12.7.8.3.2, §12.7.5
+Form	FormDataAnnotationSkipped	Warning	ISO 32000-2 §12.7.8.3.4, §12.5
+Form	FormDataNotApplied	Information	ISO 32000-2 §12.7.8.3.1, §12.7.8.3.3
 Structure	MarkInfoInvalid	Warning	ISO 32000-2 §14.6 to §14.8
 Structure	StructTreeRootInvalid	Warning	ISO 32000-2 §14.6 to §14.8
 Structure	StructElemInvalid	Warning	ISO 32000-2 §14.6 to §14.8

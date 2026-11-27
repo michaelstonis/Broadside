@@ -26,9 +26,12 @@ internal static class CorpusLocator
     public static string? RealWorldCorpusDirectory { get; } = FindRealWorldCorpusDirectory();
 
     /// <summary>Every <c>.pdf</c> in the corpus directory, sorted by ordinal file name.</summary>
-    public static string[] CorpusFiles()
+    public static string[] CorpusFiles() => CorpusFiles("*.pdf");
+
+    /// <summary>Every file of the corpus directory that <paramref name="pattern"/> matches (such as <c>*.fdf</c>), sorted by ordinal file name.</summary>
+    public static string[] CorpusFiles(string pattern)
     {
-        string[] files = Directory.GetFiles(CorpusDirectory, "*.pdf");
+        string[] files = Directory.GetFiles(CorpusDirectory, pattern);
         Array.Sort(files, StringComparer.Ordinal);
         return files;
     }

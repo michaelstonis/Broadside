@@ -48,6 +48,11 @@ internal static class CrossReferenceReconstructor
     /// <see langword="false"/> when the caller already reported why the trailer is unusable, so only a file with no trailer at all
     /// adds a diagnostic.
     /// </param>
+    /// <param name="isRoot">
+    /// Decides whether an object is the catalog a trailer's <c>Root</c> leads to; <see langword="null"/> for a PDF catalog with a
+    /// page tree. An FDF file's catalog has an <c>FDF</c> dictionary instead (ISO 32000-2 §12.7.8.3.1); with a predicate, a file
+    /// without a usable trailer finds its catalog among every object the scan indexed, newest number first.
+    /// </param>
     /// <returns>The cross-reference information, or <see langword="null"/> when the file holds no catalog.</returns>
     public static CrossReference? Reconstruct(
         PdfSource source,
@@ -55,8 +60,11 @@ internal static class CrossReferenceReconstructor
         FileScan scan,
         StreamDecoder streams,
         DiagnosticSink diagnostics,
-        bool reportMissingTrailer = true)
+        bool reportMissingTrailer = true,
+        Func<ObjectLoader, CosObject, bool>? isRoot = null)
     {
+        bool customRoot = isRoot is not null;
+        isRoot ??= IsCatalog;
         // 1. File-body objects: the last copy of each number wins. Every object indexed, here and in object streams, takes from one
         //    entry budget, as cross-reference streams do (issue #48).
         var budget = XrefEntryBudget.For(source);
@@ -86,7 +94,7 @@ internal static class CrossReferenceReconstructor
         OrderedDictionary<CosName, CosObject>? chosen = null;
         foreach ((long _, CosDictionary candidate) in trailers)
         {
-            if (candidate.TryGetValue(KnownNames.Root, out CosObject? root) && IsCatalog(loader, loader.Resolve(root)))
+            if (candidate.TryGetValue(KnownNames.Root, out CosObject? root) && isRoot(loader, loader.Resolve(root)))
             {
                 chosen = Without(candidate, KnownNames.Prev, KnownNames.XRefStm, KnownNames.Size);
                 break;
@@ -95,7 +103,7 @@ internal static class CrossReferenceReconstructor
 
         if (chosen is null)
         {
-            if (FindCatalog(scan, loader, entries) is not { } catalog)
+            if ((customRoot ? FindRoot(loader, entries, isRoot) : FindCatalog(scan, loader, entries)) is not { } catalog)
             {
                 return null;
             }
@@ -273,6 +281,21 @@ internal static class CrossReferenceReconstructor
                 && dictionary.TryGetValue(KnownNames.Type, out CosObject? type)
                 && KnownNames.Catalog.Equals(type)
                 && IsCatalog(loader, dictionary))
+            {
+                return reference;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Finds the object, of every in-use or compressed entry, that <paramref name="isRoot"/> accepts, newest number first.</summary>
+    private static CosReference? FindRoot(ObjectLoader loader, Dictionary<int, XrefEntry> entries, Func<ObjectLoader, CosObject, bool> isRoot)
+    {
+        foreach (KeyValuePair<int, XrefEntry> entry in entries.OrderByDescending(static entry => entry.Key))
+        {
+            var reference = new CosReference(entry.Key, entry.Value.Kind == XrefEntryKind.Compressed ? 0 : entry.Value.Generation);
+            if (isRoot(loader, loader.Load(reference)))
             {
                 return reference;
             }

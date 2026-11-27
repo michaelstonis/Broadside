@@ -207,6 +207,26 @@ public static class FormDiagnostics
         "A signature field entry that should be an indirect reference is a direct dictionary; it is read anyway.");
 
     /// <summary>Gets every code of this area, in declaration order.</summary>
+    /// <summary>Gets the <c>FormDataInvalid</c> code.</summary>
+    /// <remarks>ISO 32000-2 §12.7.8; Adobe XFDF 3.0</remarks>
+    public static DiagnosticCode FormDataInvalid { get; } = new(nameof(FormDataInvalid), DiagnosticArea.Form, DiagnosticSeverity.Warning, "ISO 32000-2 §12.7.8; Adobe XFDF 3.0",
+        "An FDF or XFDF file deviates from its format: an entry or attribute has the wrong type or value, or an element or dictionary lacks a required part; what can be read is imported and the rest is skipped.");
+
+    /// <summary>Gets the <c>FormDataValueInvalid</c> code.</summary>
+    /// <remarks>ISO 32000-2 §12.7.8.3.2, §12.7.5</remarks>
+    public static DiagnosticCode FormDataValueInvalid { get; } = new(nameof(FormDataValueInvalid), DiagnosticArea.Form, DiagnosticSeverity.Warning, "ISO 32000-2 §12.7.8.3.2, §12.7.5",
+        "A field value in an FDF or XFDF file has the wrong type for its field, or names an option or state the field does not have; the value is skipped and the field keeps its own.");
+
+    /// <summary>Gets the <c>FormDataAnnotationSkipped</c> code.</summary>
+    /// <remarks>ISO 32000-2 §12.7.8.3.4, §12.5</remarks>
+    public static DiagnosticCode FormDataAnnotationSkipped { get; } = new(nameof(FormDataAnnotationSkipped), DiagnosticArea.Form, DiagnosticSeverity.Warning, "ISO 32000-2 §12.7.8.3.4, §12.5",
+        "An annotation in an FDF or XFDF file cannot be imported: its page does not exist, its subtype is not one a forms data file may carry, or its entries are malformed; it is skipped.");
+
+    /// <summary>Gets the <c>FormDataNotApplied</c> code.</summary>
+    /// <remarks>ISO 32000-2 §12.7.8.3.1, §12.7.8.3.3</remarks>
+    public static DiagnosticCode FormDataNotApplied { get; } = new(nameof(FormDataNotApplied), DiagnosticArea.Form, DiagnosticSeverity.Information, "ISO 32000-2 §12.7.8.3.1, §12.7.8.3.3",
+        "An FDF file carries template pages (Pages), ECMAScript (JavaScript) or embedded FDF files. This is recorded only; they need template instantiation or script execution, which are out of scope, and are not applied.");
+
     internal static DiagnosticCode[] Codes { get; } =
     [
         AcroFormInvalid,
@@ -249,5 +269,9 @@ public static class FormDiagnostics
         ChoiceValueNotInOptions,
         ChoiceIndicesInvalid,
         SignatureFieldDictNotIndirect,
+        FormDataInvalid,
+        FormDataValueInvalid,
+        FormDataAnnotationSkipped,
+        FormDataNotApplied,
     ];
 }

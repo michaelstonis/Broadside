@@ -180,7 +180,7 @@ internal static class AnnotationEditing
     }
 
     /// <summary>Records the versioned features the new annotation's entries use, as <see cref="CarriedFeatures"/> finds them in a copy.</summary>
-    private static void RequireFeatures(PdfDocument document, CosDictionary dictionary, PdfAnnotationKind kind)
+    public static void RequireFeatures(PdfDocument document, CosDictionary dictionary, PdfAnnotationKind kind)
     {
         document.RequireFeature(VersionedFeatures.AnnotationEntries11);
         if (kind is PdfAnnotationKind.Squiggly || dictionary.ContainsKey(AnnotationNames.IC) || dictionary.ContainsKey(AnnotationNames.NM))
@@ -332,7 +332,7 @@ internal static class AnnotationEditing
     private static string Format(double value) => Math.Round(value, 4).ToString("0.####", CultureInfo.InvariantCulture);
 
     /// <summary>Adds the annotation to the page's <c>Annots</c>, keeping the annotations it reads from a page tree node above it.</summary>
-    private static void AddToPage(PdfPage page, CosReference annotation)
+    public static void AddToPage(PdfPage page, CosReference annotation)
     {
         PdfDocument document = page.Document;
         if (document.Resolve(page.Dictionary.TryGetValue(AnnotationNames.Annots, out CosObject? own) ? own : null) is CosArray array)
