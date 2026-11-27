@@ -2,13 +2,13 @@
   "Probes": {
     "linux-x64": {
       "empty": 1147424,
-      "extract-text": 7290800,
-      "fill-form": 8428192,
-      "open-metadata": 5255088,
-      "open-metadata-no-image-codecs": 4345216,
-      "render": 8619376,
-      "save": 7879288,
-      "sign": 8576056
+      "extract-text": 7319936,
+      "fill-form": 8478016,
+      "open-metadata": 5284208,
+      "open-metadata-no-image-codecs": 4374336,
+      "render": 8656832,
+      "save": 7920808,
+      "sign": 8621688
     },
     "osx-arm64": {
       "empty": 1102768,
@@ -22,13 +22,13 @@
     },
     "win-x64": {
       "empty": 933376,
-      "extract-text": 6885888,
-      "fill-form": 8395776,
-      "open-metadata": 4669440,
-      "open-metadata-no-image-codecs": 3806720,
-      "render": 8269824,
-      "save": 7785472,
-      "sign": 8706560
+      "extract-text": 6919168,
+      "fill-form": 8447488,
+      "open-metadata": 4701184,
+      "open-metadata-no-image-codecs": 3836928,
+      "render": 8309248,
+      "save": 7831552,
+      "sign": 8756224
     }
   }
 }
