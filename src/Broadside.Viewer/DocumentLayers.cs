@@ -13,8 +13,8 @@ namespace Broadside.Viewer;
 /// <c>Order</c> array the groups are listed flat, in <c>OCGs</c> order.
 /// </para>
 /// <para>
-/// A view over the live document (ADR 0004): items hold the groups, and a toggle changes only the content options the session builds
-/// display lists with (ADR 0006). Use it on the UI thread; <see cref="ReadAsync"/> reads through the session's worker reads.
+/// A view over the live document: items hold the groups, and a toggle changes only the content options the session builds
+/// display lists with; nothing renders from operators. Use it on the UI thread; <see cref="ReadAsync"/> reads through the session's worker reads.
 /// </para>
 /// </remarks>
 public sealed class DocumentLayers

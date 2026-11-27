@@ -159,7 +159,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     /// <remarks>
     /// <para>
     /// ISO 32000-2 §8.11.2 (groups) and §8.11.4 (configurations). Layer toggles change only the content options of the display-list
-    /// build (ADR 0006): a change drops the lists built under the old state, paused builds included, and every
+    /// build: a change drops the lists built under the old state, paused builds included, and every
     /// <see cref="TileScheduler"/> of the session invalidates all its tiles, so they draw again under the new state; every
     /// <see cref="AnnotationLayer"/> reads its loaded pages again, so an annotation whose <c>OC</c> is now hidden stops taking part
     /// (<see cref="Broadside.Annotations.PdfAnnotation.IsVisible(PdfOptionalContentState)"/>). The document's own list cache keeps no

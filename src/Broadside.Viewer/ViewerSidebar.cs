@@ -12,7 +12,7 @@ namespace Broadside.Viewer;
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §12.3.3 (outline), §12.4.2 (page labels), §7.11.4 and §12.5.6.15 (attachments), §8.11.4 (layers) and §12.5.6.2
-/// (comments). The models are views over the live document (ADR 0004): <see cref="Outline"/>, <see cref="SearchResults"/>,
+/// (comments). The models are views over the live document, never copies: <see cref="Outline"/>, <see cref="SearchResults"/>,
 /// <see cref="Attachments"/>, <see cref="Layers"/> and <see cref="Annotations"/>. Each is read again when the viewer opens another
 /// document; a model that cannot be read stays <see langword="null"/> and <see cref="GetError"/> says why (the sidebar never throws).
 /// </para>

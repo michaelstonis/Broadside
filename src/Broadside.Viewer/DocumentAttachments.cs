@@ -16,7 +16,7 @@ namespace Broadside.Viewer;
 /// (<see cref="AttachmentOpeningEventArgs"/>), which decides what to do with them.
 /// </para>
 /// <para>
-/// Lenient (ADR 0005): a broken file specification, a missing <c>EF</c> stream or a bad checksum still lists the item, with
+/// Lenient: a broken file specification, a missing <c>EF</c> stream or a bad checksum still lists the item, with
 /// <see cref="AttachmentItem.IsEmbedded"/> and <see cref="AttachmentItem.CheckSum"/> saying so; the diagnostic comes from the library.
 /// A remote document whose parts could not be read lists what it could and reports <see cref="IsComplete"/> as
 /// <see langword="false"/>. The reads run through the session's worker reads.
