@@ -637,7 +637,15 @@ internal sealed partial class DocumentAssembler
         CheckAlternateText(node.AlternateText);
         Style full = Resolve(null, scope, node.Local);
         Style box = node.Local ?? Style.Empty;
-        return new DrawingBlock(width, height, node.Draw)
+        Action<PdfCanvas, PdfRectangle> draw = node.Draw;
+        if (node.Barcode is { } barcode && node.BarcodeOptions is { Font: null, ShowText: true } options && barcode.HumanReadableText is not null)
+        {
+            // The human-readable line of a linear symbol is set in the style's font, embedded only when one is drawn.
+            BarcodeOptions styled = options.WithFont(Face(full.FontFamily!, FaceOf(full)), full.FontSize!.Value);
+            draw = (canvas, area) => canvas.DrawBarcode(barcode, area, styled);
+        }
+
+        return new DrawingBlock(width, height, draw)
         {
             AlternateText = node.AlternateText,
             IsDecorative = node.AlternateText is null,
