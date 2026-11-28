@@ -121,26 +121,26 @@ internal sealed class TextFontEncoder
         switch (_font)
         {
             case PdfSimpleFont simple:
-            {
-                ToUnicodeMap? map = simple.ToUnicodeMap;
-                for (int code = 0; code < 256; code++)
                 {
-                    string name = simple.GetGlyphName((byte)code);
-                    bool mapped = map is not null && map.TryMap((uint)code, 1, buffer, out _, out _);
-                    if (!mapped && (string.IsNullOrEmpty(name) || name == ".notdef"))
+                    ToUnicodeMap? map = simple.ToUnicodeMap;
+                    for (int code = 0; code < 256; code++)
                     {
-                        continue;
+                        string name = simple.GetGlyphName((byte)code);
+                        bool mapped = map is not null && map.TryMap((uint)code, 1, buffer, out _, out _);
+                        if (!mapped && (string.IsNullOrEmpty(name) || name == ".notdef"))
+                        {
+                            continue;
+                        }
+
+                        int written = simple.GetUnicode(new CharacterCode((uint)code, 1, true), buffer, out UnicodeSource source);
+                        if (source != UnicodeSource.Unmapped && Single(buffer[..written]) is int scalar)
+                        {
+                            _reverse.TryAdd(scalar, (uint)code);
+                        }
                     }
 
-                    int written = simple.GetUnicode(new CharacterCode((uint)code, 1, true), buffer, out UnicodeSource source);
-                    if (source != UnicodeSource.Unmapped && Single(buffer[..written]) is int scalar)
-                    {
-                        _reverse.TryAdd(scalar, (uint)code);
-                    }
+                    break;
                 }
-
-                break;
-            }
 
             case PdfType0Font type0 when type0.Encoding.IsIdentity && type0.ToUnicodeMap is { } map:
                 for (uint code = 0; code <= 0xFFFF; code++)
@@ -196,21 +196,21 @@ internal sealed class TextFontEncoder
             case PdfType3Font type3:
                 return code.Length == 1 && type3.GetCharProc((byte)code.Value) is not null;
             case PdfType0Font type0:
-            {
-                if (type0.DescendantFont is not { } descendant)
                 {
-                    return false;
-                }
+                    if (type0.DescendantFont is not { } descendant)
+                    {
+                        return false;
+                    }
 
-                if (descendant.Program is not { } program)
-                {
-                    return true;
-                }
+                    if (descendant.Program is not { } program)
+                    {
+                        return true;
+                    }
 
-                byte[] bytes = Bytes(code);
-                int cid = type0.Encoding.GetCid(type0.Encoding.ReadCode(bytes));
-                return descendant.TryGetGlyphId(cid, out int glyph) && HasOutline(program, glyph, blank);
-            }
+                    byte[] bytes = Bytes(code);
+                    int cid = type0.Encoding.GetCid(type0.Encoding.ReadCode(bytes));
+                    return descendant.TryGetGlyphId(cid, out int glyph) && HasOutline(program, glyph, blank);
+                }
 
             case PdfTrueTypeFont trueType:
                 return trueType.Program is not { } trueTypeProgram || HasOutline(trueTypeProgram, trueType.GetGlyphId((byte)code.Value), blank);

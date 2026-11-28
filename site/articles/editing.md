@@ -410,6 +410,55 @@ annotation's `Contents` only when overlay text is set, so the value being redact
 
 Conformance: [ISO 32000-2 §12.5.6.23 (redaction annotations)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
 
+## Editing text
+
+`PdfDocument.ReplaceText` finds every match of a query and puts other text in its place, in the content stream that shows it;
+`PdfPage.ReplaceText` does the same for one match from `FindText`, and the `DeleteText` methods remove matches. A regular expression
+query's replacement may name its groups (`$1`, `${name}`), as `Regex.Replace` does:
+
+<!-- snippet: samples/guides/Editing/Program.cs#text-replace -->
+```csharp
+using PdfDocument document = PdfDocument.Open("contract.pdf");
+
+// Every match on every page: the glyphs go, the new text takes the first one's place in the same font and size.
+PdfTextEditResult result = document.ReplaceText(new TextQuery("Service"), "Support");
+
+// One match, deleted; ShiftLine closes the gap by moving the rest of the line.
+PdfPage page = document.Pages[0];
+TextMatch below = page.FindText(new TextQuery("below"))[0];
+page.DeleteText(below, new PdfTextReplaceOptions().WithFit(PdfTextFit.ShiftLine));
+
+document.Save("contract-edited.pdf", new PdfSaveOptions().WithIncrementalUpdate(false));
+```
+<!-- endsnippet -->
+
+The matched glyphs are found again by character code and position, as search and redact finds them, and the text-showing operator
+that holds the first of them is rewritten: its glyphs before the match stay, the replacement follows in the same font, size and
+text state (rendering mode included), then its glyphs after the match. A match that spans several operators is replaced in the first
+and removed from the others. Text in a form XObject that other pages also paint is replaced in a copy, so those pages keep the
+original. `PdfTextReplaceOptions.Fit` says where the rest of the line goes when the new text is wider or narrower:
+`KeepPosition` (the default) leaves it in place, `Compress` squeezes a wider replacement with horizontal scaling (down to half its
+width) to fit, and `ShiftLine` moves the later glyphs of the line by the difference.
+
+**Subset fonts and the fallback font.** A replacement is shown in the original font only when that font can draw each of its
+characters: the font's encoding must have a code for the character, and the embedded program a glyph for that code. Most PDFs embed
+fonts as subsets holding only the glyphs the document used, so a replacement with a new letter often cannot be drawn in the
+original font. Those characters are shown in a fallback font instead, switched to inside the same text object at the same size and
+baseline: `PdfTextReplaceOptions.FallbackFont` when you set one (an embedded font such as `EmbedTrueTypeFont` returns gives the best
+match), otherwise the font resolver's match for the original font's family, weight and style, otherwise Helvetica. An embedded
+fallback font gets only the glyphs it shows. `PdfTextEditResult.UsedFallbackFont` counts the matches that needed one, and each is
+recorded as `TextEditFallbackFont`. A Type 0 font whose program still has the glyph (its "cmap" maps the character) is used
+directly, and its ToUnicode CMap gains the new codes so extraction reads the new text (`TextEditToUnicodeExtended`).
+
+The `ActualText`, `Alt` and `E` entries of the marked content and structure elements around a match have the old text replaced, so
+assistive technology reads the new text too; an entry that does not hold the old text is removed (`TextEditReplacementTextRemoved`)
+rather than left to contradict the page. `WithUpdateReplacementText(false)` leaves them alone. A match that cannot be found again,
+or whose replacement no font can show, is left as it was and recorded; in strict mode the first diagnostic throws and the document
+is unchanged. Reflowing a paragraph, changing the font, size or color of existing text, and text in annotation appearances and form
+fields are out of scope. As with redaction, the old text stays in the original bytes of the file until a full save.
+
+Conformance: [ISO 32000-2 §9.10.3 (ToUnicode), §9.9.2 (font subsets) and §14.9.4 (replacement text)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
+
 ## Metadata
 
 `Properties` holds the title, author, subject, keywords, creator, producer and dates. A save writes them to the document information dictionary and to the XMP metadata stream together, so the two agree:

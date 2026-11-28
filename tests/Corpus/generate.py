@@ -7460,6 +7460,68 @@ def gen_redact_pii() -> bytes:
     return text_file(stream(b"", content))
 
 
+def replace_program(kept: str | None) -> bytes:
+    """A TrueType program whose cmap maps printable ASCII 32-126 to glyphs 1-95, each a rectangle of its own height, the space
+    empty; with ``kept``, only those characters have outlines (the others are empty, as a subset that keeps glyph ids leaves them)."""
+    glyphs = [TtfGlyph()]
+    for code in range(32, 127):
+        keep = code != 32 and (kept is None or chr(code) in kept)
+        glyphs.append(ttf_rect(60, 0, 440, 500 + (code % 6) * 40) if keep else TtfGlyph())
+    metrics = [(500, 0)] + [(500, 60)] * 95
+    cmap = cmap_table([(3, 1, cmap_format4([(32, 126, 1 - 32, None)]))])
+    return ttf_font(glyphs, metrics, len(metrics), cmap, post_table(0x00030000), "BroadsideReplace")
+
+
+def gen_text_replace() -> bytes:
+    """Find and replace in existing content (issue #641). Page 1: a heading in a kerned TJ (9.4.3 Table 107) and a total under a
+    Span whose ActualText repeats it (14.9.4), both in /F1, a TrueType font with WinAnsiEncoding whose embedded program has
+    outlines only for the characters the file shows (a subset, 9.9.2); a customer line in /F2, a Type 0 font (Identity-H,
+    9.7.6.1) over the full program with CIDToGIDMap Identity (9.7.4.2) and a ToUnicode CMap for the shown codes only (9.10.3);
+    and a form XObject (8.10) that page 2 paints too, showing a status in /F1."""
+    shown = "Invoice No. 1234Total: 99 USDStatus: Draft"
+    subset = replace_program(shown)
+    full = replace_program(None)
+    customer = "Customer: Jane Doe"
+    codes = "".join("%04X" % (ord(c) - 31) for c in customer)
+    used = sorted(set(customer))
+    tu = to_unicode(b"1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n",
+                    b"%d beginbfchar\n" % len(used)
+                    + b"".join(b"<%04X> <%04X>\n" % (ord(c) - 31, ord(c)) for c in used) + b"endbfchar\n")
+    widths = b" ".join([b"500"] * 95)
+    content = (
+        b"BT /F1 14 Tf 72 720 Td [(Invoice ) -40 (No. 1234)] TJ ET\n"
+        b"BT /F2 12 Tf 72 690 Td <" + codes.encode() + b"> Tj ET\n"
+        b"/Span << /ActualText (Total: 99 USD) >> BDC BT /F1 12 Tf 72 660 Td (Total: 99 USD) Tj ET EMC\n"
+        b"q 1 0 0 1 72 600 cm /Fx Do Q"
+    )
+    resources = b"/Font << /F1 6 0 R /F2 9 0 R >> /XObject << /Fx 15 0 R >>"
+    objects = [
+        (1, catalog()),
+        (2, pages([3, 4])),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 5 0 R /Resources << %s >> >>" % (LETTER, resources)),
+        (4, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 14 0 R /Resources << %s >> >>" % (LETTER, resources)),
+        (5, stream(b"", content)),
+        (6, b"<< /Type /Font /Subtype /TrueType /BaseFont /ABCDEF+BroadsideReplace /FirstChar 32 /LastChar 126 /Widths [" + widths
+            + b"] /Encoding /WinAnsiEncoding /FontDescriptor 7 0 R >>"),
+        (7, b"<< /Type /FontDescriptor /FontName /ABCDEF+BroadsideReplace /Flags 32 /FontBBox [0 0 500 740] /ItalicAngle 0 "
+            b"/Ascent 800 /Descent -200 /CapHeight 700 /StemV 80 /FontFile2 8 0 R >>"),
+        (8, stream(b"/Length1 %d" % len(subset), subset)),
+        (9, b"<< /Type /Font /Subtype /Type0 /BaseFont /BroadsideReplace /Encoding /Identity-H /DescendantFonts [10 0 R] "
+            b"/ToUnicode 13 0 R >>"),
+        (10, b"<< /Type /Font /Subtype /CIDFontType2 /BaseFont /BroadsideReplace "
+             b"/CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 11 0 R /DW 500 "
+             b"/CIDToGIDMap /Identity >>"),
+        (11, b"<< /Type /FontDescriptor /FontName /BroadsideReplace /Flags 32 /FontBBox [0 0 500 740] /ItalicAngle 0 "
+             b"/Ascent 800 /Descent -200 /CapHeight 700 /StemV 80 /FontFile2 12 0 R >>"),
+        (12, stream(b"/Length1 %d" % len(full), full)),
+        (13, tu),
+        (14, stream(b"", b"q 1 0 0 1 72 600 cm /Fx Do Q")),
+        (15, stream(b"/Type /XObject /Subtype /Form /BBox [0 -5 300 20] /Resources << /Font << /F1 6 0 R >> >>",
+                    b"BT /F1 12 Tf 0 0 Td (Status: Draft) Tj ET")),
+    ]
+    return simple_file(objects, binary=True)
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -7657,6 +7719,7 @@ FILES = {
     "clip-before-path.pdf": gen_clip_before_path,
     "duplicate-images.pdf": gen_duplicate_images,
     "redact-pii.pdf": gen_redact_pii,
+    "text-replace.pdf": gen_text_replace,
 }
 
 

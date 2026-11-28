@@ -3,8 +3,8 @@ using System.Text;
 using Broadside.Diagnostics;
 using Broadside.Fonts;
 using Broadside.Objects;
-using Broadside.TestSupport;
 using Broadside.Tests.Content;
+using Broadside.TestSupport;
 using Broadside.Text;
 
 namespace Broadside.Tests.Fonts;

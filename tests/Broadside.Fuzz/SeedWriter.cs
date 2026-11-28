@@ -171,6 +171,7 @@ internal static class SeedWriter
         "default-appearance" => DefaultAppearances(file),
         "content-lexer" or "content-interpreter" or "content-objects" or "display-list" or "filter-encode" or "text-extraction" or "rasterize" or "content-rewrite" => ContentStreams(file),
         "redact" => ContentStreams(file).Concat(RedactTarget.QuerySeeds()),
+        "text-replace" => ContentStreams(file).Concat(RedactTarget.QuerySeeds()),
         "xmp" => Streams(file).Where(stream => Metadata.Equals(stream.Value.Dictionary.TryGetValue(Type, out CosObject? type) ? type : null))
             .Select(stream => stream.Document.DecodeStream(stream.Value).ToArray()),
         "decrypt" => EncryptedBodies(file),

@@ -17,6 +17,17 @@ namespace Broadside.Text.Editing;
 /// <param name="Text">The extracted text the match indexes.</param>
 internal sealed record TextEditMatch(TextMatch Match, string Replacement, TextPage Text)
 {
+    /// <summary>A located match of one glyph, by its code and box corner in page space, replaced by "y": for benchmarks and tests.</summary>
+    internal static TextEditMatch OfGlyph(uint code, PathPoint corner, TextPage text) =>
+        new(new TextMatch(0, "x", 0, 0, 1, [], new PdfRectangle(corner.X - 1, corner.Y - 1, corner.X + 1, corner.Y + 1)), "y", text)
+        {
+            Keys = [GlyphMatching.Key(code, corner)],
+            Located = true,
+        };
+
+    /// <summary>Gets or sets the text the match's glyphs show instead: the replacement, or a whole <c>ActualText</c> sequence's new text.</summary>
+    public string Shown { get; set; } = Replacement;
+
     /// <summary>Gets or sets the glyph keys of the match, in its glyph order.</summary>
     public List<GlyphMatching.GlyphKey> Keys { get; set; } = [];
 
@@ -120,8 +131,9 @@ internal sealed class TextEditSession
         foreach ((TextMatch match, string replacement) in matches.OrderBy(static entry => entry.Match.GlyphStart))
         {
             var entry = new TextEditMatch(match, replacement, text);
+            (int first, int count, entry.Shown) = Shown(text, match, replacement);
             bool overlaps = false;
-            for (int glyph = match.GlyphStart; glyph < match.GlyphStart + match.GlyphCount && glyph < text.Glyphs.Count; glyph++)
+            for (int glyph = first; glyph < first + count && glyph < text.Glyphs.Count; glyph++)
             {
                 overlaps |= !used.Add(glyph);
                 TextGlyph value = text.Glyphs[glyph];
@@ -138,6 +150,57 @@ internal sealed class TextEditSession
         {
             _pages.Add((page, text, list));
         }
+    }
+
+    /// <summary>
+    /// The glyphs a match changes and the text they show instead. A match inside an <c>ActualText</c> sequence covers every glyph of the
+    /// sequence (§14.9.4), whose text is the replacement's, not the glyphs': when the glyphs read, through their font, as text that holds
+    /// the match, only the glyphs of that part change; otherwise every glyph of the sequence shows the sequence's new replacement text,
+    /// so what is drawn and what is read agree.
+    /// </summary>
+    private static (int First, int Count, string Shown) Shown(TextPage text, TextMatch match, string replacement)
+    {
+        IReadOnlyList<TextGlyph> glyphs = text.Glyphs;
+        int end = Math.Min(match.GlyphStart + match.GlyphCount, glyphs.Count);
+        if (match.GlyphStart < 0 || match.GlyphStart >= end)
+        {
+            return (match.GlyphStart, match.GlyphCount, replacement);
+        }
+
+        for (int glyph = match.GlyphStart; glyph < end; glyph++)
+        {
+            if ((glyphs[glyph].Flags & TextGlyphFlags.ActualText) == 0)
+            {
+                return (match.GlyphStart, match.GlyphCount, replacement);
+            }
+        }
+
+        var shown = new StringBuilder();
+        var starts = new List<int>();
+        Span<char> buffer = stackalloc char[FontUnicode.MaxLength];
+        for (int glyph = match.GlyphStart; glyph < end; glyph++)
+        {
+            TextGlyph value = glyphs[glyph];
+            starts.Add(shown.Length);
+            int written = value.Font.GetUnicode(new CharacterCode(value.CharacterCode, value.CodeLength, true), buffer, out _);
+            shown.Append(buffer[..written]);
+        }
+
+        starts.Add(shown.Length);
+        int at = shown.ToString().IndexOf(match.Text, StringComparison.Ordinal);
+        if (at >= 0)
+        {
+            int first = starts.IndexOf(at), last = starts.IndexOf(at + match.Text.Length);
+            if (first >= 0 && last > first)
+            {
+                return (match.GlyphStart + first, last - first, replacement);
+            }
+        }
+
+        string actual = text.GetGlyphText(glyphs[match.GlyphStart]).ToString();
+        int inside = actual.IndexOf(match.Text, StringComparison.Ordinal);
+        string whole = inside < 0 ? replacement : string.Concat(actual.AsSpan(0, inside), replacement, actual.AsSpan(inside + match.Text.Length));
+        return (match.GlyphStart, end - match.GlyphStart, whole);
     }
 
     /// <summary>Applies every page's matches under one change log.</summary>
@@ -216,7 +279,7 @@ internal sealed class TextEditSession
         double units = 0;
         bool fallback = false;
         Span<byte> code = stackalloc byte[4];
-        foreach (Rune rune in match.Replacement.EnumerateRunes())
+        foreach (Rune rune in match.Shown.EnumerateRunes())
         {
             string text = rune.ToString();
             if (encoder.TryEncode(rune.Value, out EncodedCode encoded))
@@ -445,12 +508,13 @@ internal sealed class TextEditSession
         _ => null,
     };
 
-    private void EditPage(PdfPage page, TextPage text, List<TextEditMatch> matches)
+    /// <summary>
+    /// Makes <paramref name="matches"/> the current page's: the glyphs of the located ones become the targets the editor looks for, and
+    /// their bounds the area forms are rewritten in. Returns whether there is anything to look for.
+    /// </summary>
+    internal bool Prepare(List<TextEditMatch> matches)
     {
         _current = matches;
-        _currentText = text;
-        _encoders.Clear();
-        Locate(page, matches);
         _targets.Clear();
         double left = double.PositiveInfinity, bottom = double.PositiveInfinity, right = double.NegativeInfinity, top = double.NegativeInfinity;
         for (int index = 0; index < matches.Count; index++)
@@ -458,10 +522,6 @@ internal sealed class TextEditSession
             TextEditMatch match = matches[index];
             if (!match.Located)
             {
-                Report(
-                    TextEditDiagnostics.TextEditMatchNotLocated,
-                    $"A match on page {Document.Pages.IndexOf(page) + 1} could not be found again glyph by glyph in the content; it is left as it was.",
-                    page.Reference);
                 continue;
             }
 
@@ -483,12 +543,28 @@ internal sealed class TextEditSession
             top = Math.Max(top, bounds.Top);
         }
 
-        if (_targets.Count == 0)
+        TargetBounds = _targets.Count == 0 ? default : new PdfRectangle(left - 1, bottom - 1, right + 1, top + 1);
+        return _targets.Count > 0;
+    }
+
+    private void EditPage(PdfPage page, TextPage text, List<TextEditMatch> matches)
+    {
+        _currentText = text;
+        _encoders.Clear();
+        Locate(page, matches);
+        foreach (TextEditMatch match in matches.Where(static match => !match.Located))
+        {
+            Report(
+                TextEditDiagnostics.TextEditMatchNotLocated,
+                $"A match on page {Document.Pages.IndexOf(page) + 1} could not be found again glyph by glyph in the content; it is left as it was.",
+                page.Reference);
+        }
+
+        if (!Prepare(matches))
         {
             return;
         }
 
-        TargetBounds = new PdfRectangle(left - 1, bottom - 1, right + 1, top + 1);
         TextEditEditor editor = _pageEditor ??= new TextEditEditor(this);
         editor.Configure(page.Dictionary, page.Resources);
         page.RewriteContent(editor, ContentOptions);

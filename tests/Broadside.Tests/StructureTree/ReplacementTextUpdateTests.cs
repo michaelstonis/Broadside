@@ -2,8 +2,8 @@ using System.Text;
 using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Structure;
-using Broadside.TestSupport;
 using Broadside.Tests.Content;
+using Broadside.TestSupport;
 using Broadside.Text;
 
 namespace Broadside.Tests.StructureTree;
