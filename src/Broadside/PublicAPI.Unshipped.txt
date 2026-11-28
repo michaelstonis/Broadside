@@ -405,3 +405,24 @@ Broadside.PdfBatesRange.Last.init -> void
 Broadside.PdfBatesRange.LastNumber.get -> long
 Broadside.PdfBatesRange.LastNumber.init -> void
 Broadside.PdfDocument.AddBatesNumbers(Broadside.PdfBatesNumbering! numbering, System.Range? pages = null) -> Broadside.PdfBatesRange
+Broadside.PdfDocument.ValidatePdfUA(Broadside.PdfUAConformance? conformance = null) -> Broadside.PdfUAValidation!
+Broadside.PdfUARuleViolation
+Broadside.PdfUARuleViolation.Checkpoint.get -> string?
+Broadside.PdfUARuleViolation.Checkpoint.init -> void
+Broadside.PdfUARuleViolation.Message.get -> string!
+Broadside.PdfUARuleViolation.Message.init -> void
+Broadside.PdfUARuleViolation.PdfUARuleViolation() -> void
+Broadside.PdfUARuleViolation.PdfUARuleViolation(string! Rule, string! Message) -> void
+Broadside.PdfUARuleViolation.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfUARuleViolation.Reference.init -> void
+Broadside.PdfUARuleViolation.Rule.get -> string!
+Broadside.PdfUARuleViolation.Rule.init -> void
+Broadside.PdfUAValidation
+Broadside.PdfUAValidation.CheckpointsNotChecked.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.PdfUAValidation.Conformance.get -> Broadside.PdfUAConformance
+Broadside.PdfUAValidation.IsClaimed.get -> bool
+Broadside.PdfUAValidation.IsConformant.get -> bool
+Broadside.PdfUAValidation.MachineUncheckable.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.PdfUAValidation.Violations.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfUARuleViolation>!
+Broadside.PdfUAValidation.WellTagged.get -> Broadside.PdfWellTaggedConformance
+Broadside.PdfUAValidation.WellTaggedConformant.get -> Broadside.PdfWellTaggedConformance

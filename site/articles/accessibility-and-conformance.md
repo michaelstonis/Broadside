@@ -68,6 +68,36 @@ document.Save("two-columns-pdfua1-pdfa2u.pdf", conversion.CreateSaveOptions().Wi
 
 Here the file uses fonts it does not embed, which PDF/UA does not allow; the PDF/A conversion embeds them, so the file is saved as both PDF/UA-1 and PDF/A-2u.
 
+## Validating PDF/UA
+
+`ValidatePdfUA` checks a document as it is, without saving it, so an incoming file can be checked before anyone relies on it. It runs the checks a PDF/UA save runs, and checks what a save would write (the `pdfuaid` identification, the metadata stream, `MarkInfo`, `DisplayDocTitle`, page `Tabs`) on the file's own values. It changes nothing. The level comes from the file's claim, or from the argument; a file claiming PDF/UA-1 can be checked as PDF/UA-2, and is then not claimed.
+
+<!-- snippet: samples/guides/AccessibilityConformance/Program.cs#pdfua-validate -->
+```csharp
+// Checks a file as it is, without saving it: the level comes from its pdfuaid claim, or pass one.
+using PdfDocument document = PdfDocument.Open("annual-results-pdfua1.pdf");
+PdfUAValidation validation = document.ValidatePdfUA();
+Console.WriteLine($"{validation.Conformance}: claimed {validation.IsClaimed}, {validation.Violations.Count} violations");
+foreach (PdfUARuleViolation violation in validation.Violations)
+{
+    Console.WriteLine($"  rule {violation.Rule} (Matterhorn {violation.Checkpoint}): {violation.Message}");
+}
+
+// Machine checks are necessary, not sufficient: these need a person, and these are not checked yet.
+Console.WriteLine($"For manual review: {string.Join(", ", validation.MachineUncheckable)}");
+Console.WriteLine($"Not checked yet: {string.Join(", ", validation.CheckpointsNotChecked)}");
+```
+<!-- endsnippet -->
+
+Each violation names its veraPDF rule. For PDF/UA-1 it also names its [Matterhorn Protocol 1.1](https://pdfa.org/resource/the-matterhorn-protocol/) checkpoint, such as `13-004` for a figure with no alternate text; PDF/UA-2 rules cite ISO 14289-2 clauses. A structure tree repaired on reading is reported under the rule the damage breaks. Well-Tagged PDF levels the file declares are checked with the PDF/UA-2 rules: `WellTaggedConformant` lists the ones that pass.
+
+Passing is necessary for PDF/UA, not sufficient. `IsConformant` means no rule that was checked fails:
+
+- `MachineUncheckable` lists the Matterhorn failure conditions only a person can judge. Examples: whether alternate text describes its figure, whether the reading order is logical, and whether the title identifies the document.
+- `CheckpointsNotChecked` lists what software could check and this does not yet: Matterhorn checkpoints for PDF/UA-1, ISO 14289-2 clauses for PDF/UA-2.
+
+A full check still needs a person, or a validator such as veraPDF for the rules not covered.
+
 ## Writing PDF/A
 
 A PDF/A save adds what the profile needs (an output intent and XMP metadata with the PDF/A identification) and checks the rest, such as embedded fonts, and identifies the file only when it conforms:

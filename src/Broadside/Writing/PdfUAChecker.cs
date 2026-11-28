@@ -101,7 +101,9 @@ internal sealed partial class PdfUAChecker
         ["7.1-4"] = null,
         ["7.1-5"] = "8.2.4-1",
         ["7.1-7"] = "8.2.4-4",
+        ["7.1-8"] = "8.11.1-2",
         ["7.1-9"] = "8.11.1-1",
+        ["7.1-10"] = "8.11.2-1",
         ["7.1-11"] = "8.2.1-1",
         ["7.2-11"] = "Table 5. Table-THead-1",
         ["7.2-12"] = "Table 5. Table-TFoot-1",
@@ -123,6 +125,7 @@ internal sealed partial class PdfUAChecker
         ["7.18.1-1"] = "8.9.2.3-1",
         ["7.18.1-2"] = null,
         ["7.18.2-1"] = "8.9.2.4.15-1",
+        ["7.18.3-1"] = "8.9.3.3-1",
         ["7.18.4-1"] = "8.10.1-1",
         ["7.18.5-1"] = "8.2.5.20-1",
         ["7.18.5-2"] = null,
@@ -141,9 +144,13 @@ internal sealed partial class PdfUAChecker
     private static readonly CosName ListOwner = new("List");
     private static readonly CosName ListNumbering = new("ListNumbering");
 
+    private static readonly CosName Tabs = new("Tabs");
+    private static readonly CosName DisplayDocTitle = new("DisplayDocTitle");
+
     private readonly PdfDocument _document;
     private readonly int _part;
-    private readonly List<PdfAViolation> _violations = [];
+    private readonly bool _validate;
+    private readonly List<PdfUAFinding> _violations = [];
     private readonly HashSet<(string, string)> _reported = [];
     private readonly HashSet<CosObject> _visited = new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<CosObject> _fonts = new(ReferenceEqualityComparer.Instance);
@@ -154,10 +161,11 @@ internal sealed partial class PdfUAChecker
     private bool _usesH;
     private bool _usesHn;
 
-    private PdfUAChecker(PdfDocument document, int part)
+    private PdfUAChecker(PdfDocument document, int part, bool validate)
     {
         _document = document;
         _part = part;
+        _validate = validate;
     }
 
     /// <summary>
@@ -166,18 +174,55 @@ internal sealed partial class PdfUAChecker
     /// </summary>
     /// <param name="document">The document, as it is: nothing is changed.</param>
     /// <param name="part">The part of ISO 14289: 1 or 2.</param>
-    public static IReadOnlyList<PdfAViolation> Check(PdfDocument document, int part = 1)
+    public static IReadOnlyList<PdfAViolation> Check(PdfDocument document, int part = 1) =>
+        [.. new PdfUAChecker(document, part, validate: false).Walk().Select(finding => new PdfAViolation(finding.Rule, finding.Message, finding.Reference))];
+
+    /// <summary>
+    /// The read mode of <see cref="PdfDocument.ValidatePdfUA"/> (issue #652): the failure conditions of the document as read, with what
+    /// a save would write checked on the file's own values instead (<c>MarkInfo</c> <c>Marked</c>, 6.2-1; the metadata stream, 7.1-8;
+    /// <c>dc:title</c> in it, never the information dictionary's <c>Title</c>, 7.1-9; <c>DisplayDocTitle</c>, 7.1-10; <c>Tabs</c>,
+    /// 7.18.3-1), the PDF/UA identification when <paramref name="identification"/> (5-1 to 5-5), and every repair of the structure tree
+    /// made while reading it as a violation of the rule it breaks. An untagged document is one violation (7.1-11) and no walk of
+    /// marked content or annotations. Each PDF/UA-1 finding cites its Matterhorn Protocol 1.1 checkpoint.
+    /// </summary>
+    /// <param name="document">The document, as read: nothing is changed.</param>
+    /// <param name="part">The part of ISO 14289: 1 or 2.</param>
+    /// <param name="identification">Whether to check <c>pdfuaid</c> (not for a WTPDF check, which a declaration identifies).</param>
+    public static IReadOnlyList<PdfUAFinding> Validate(PdfDocument document, int part, bool identification)
     {
-        var checker = new PdfUAChecker(document, part);
-        checker.CheckCatalog();
-        checker.CheckStructure();
-        foreach (PdfPage page in document.Pages)
+        var checker = new PdfUAChecker(document, part, validate: true);
+        if (identification)
         {
-            checker.CheckPage(page);
+            checker.CheckIdentification();
         }
 
-        return checker._violations;
+        IReadOnlyList<PdfUAFinding> findings = checker.Walk();
+        checker.CheckRepairs();
+        return findings;
     }
+
+    private List<PdfUAFinding> Walk()
+    {
+        CheckCatalog();
+        CheckStructure();
+        foreach (PdfPage page in _document.Pages)
+        {
+            CheckPage(page);
+        }
+
+        return _violations;
+    }
+
+    /// <summary>
+    /// The veraPDF rule identifiers a validation can report for a part of ISO 14289 (the agreement tests compare exactly these with
+    /// veraPDF): PDF/UA-1's are the keys of the Matterhorn mapping; PDF/UA-2's are the translations of the PDF/UA-1 rules it shares,
+    /// the identification and file entries, and the rules PDF/UA-2 adds. ISO/TS 32005 containment rules (<c>Table 5.</c>) are not listed.
+    /// </summary>
+    public static IReadOnlySet<string> RulesReported(int part) => part == 1
+        ? MatterhornProtocol.CheckpointOfRule.Keys.ToHashSet(StringComparer.Ordinal)
+        : PdfUA2Rules.Values.OfType<string>().Where(rule => !rule.StartsWith("Table 5.", StringComparison.Ordinal))
+            .Concat(["5-1", "5-2", "5-3", "5-4", "5-5", "6.2-1", "8.2.5.2-1", "8.2.5.2-2", "8.2.5.12-1", "8.2.5.14-1", "8.2.5.25-1"])
+            .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Whether <paramref name="language"/> is a well-formed language tag, as veraPDF's rule 7.2-29 tests it.</summary>
     public static bool IsLanguageTag(string language) => LanguageTag().IsMatch(language);
@@ -185,8 +230,17 @@ internal sealed partial class PdfUAChecker
     [GeneratedRegex("^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$", RegexOptions.CultureInvariant)]
     private static partial Regex LanguageTag();
 
-    private void Report(string rule, string message, CosReference? reference = null)
+    private void Report(string rule, string message, CosReference? reference = null, string? checkpoint = null)
     {
+        if (_part == 1)
+        {
+            checkpoint ??= MatterhornProtocol.CheckpointOfRule.GetValueOrDefault(rule);
+        }
+        else
+        {
+            checkpoint = null;
+        }
+
         if (_part == 2 && rule[0] == '7')
         {
             if (PdfUA2Rules[rule] is not { } translated)
@@ -199,7 +253,7 @@ internal sealed partial class PdfUAChecker
 
         if (_reported.Add((rule, message)))
         {
-            _violations.Add(new PdfAViolation(rule, message, reference));
+            _violations.Add(new PdfUAFinding(rule, message, reference, checkpoint));
         }
     }
 
@@ -232,7 +286,13 @@ internal sealed partial class PdfUAChecker
             Report("7.1-4", "the catalog's MarkInfo has Suspects true");
         }
 
-        if (string.IsNullOrWhiteSpace(_document.Properties.Title))
+        if (_validate)
+        {
+            CheckFileEntries();
+        }
+
+        // A save writes the title it finds to dc:title; a file as read must have it there (ISO 14289-1 §7.1: a reader ignores Info).
+        if (string.IsNullOrWhiteSpace(_validate ? _document.Metadata?.Packet?.Title : _document.Properties.Title))
         {
             Report("7.1-9", "the document has no title (dc:title), which a viewer shows in its window");
         }
@@ -244,7 +304,7 @@ internal sealed partial class PdfUAChecker
         }
         else if (!IsLanguageTag(language))
         {
-            Report("7.2-29", $"the catalog's Lang '{language}' is not a well-formed language tag");
+            Report("7.2-29", $"the catalog's Lang '{language}' is not a well-formed language tag", checkpoint: "11-006");
         }
 
         if (Resolve(_document.Catalog.GetValueOrDefault(NeedsRendering)) is CosBoolean { Value: true })
@@ -353,7 +413,7 @@ internal sealed partial class PdfUAChecker
                 int level = type[1] - '0';
                 if (level > _headingLevel + 1)
                 {
-                    Report("7.4.2-1", string.Create(CultureInfo.InvariantCulture, $"an {type} follows {(_headingLevel == 0 ? "no heading" : $"an H{_headingLevel}")}: heading levels are skipped"), reference);
+                    Report("7.4.2-1", string.Create(CultureInfo.InvariantCulture, $"an {type} follows {(_headingLevel == 0 ? "no heading" : $"an H{_headingLevel}")}: heading levels are skipped"), reference, _headingLevel == 0 ? "14-002" : "14-003");
                 }
 
                 _headingLevel = level;
@@ -483,6 +543,11 @@ internal sealed partial class PdfUAChecker
 
     private void CheckPage(PdfPage page)
     {
+        if (_validate)
+        {
+            CheckTabs(page);
+        }
+
         IReadOnlyDictionary<int, PdfStructureElement>? tagged = _root?.GetMarkedContentElements(page);
         var scan = new ContentState(page.Reference, tagged);
         switch (Resolve(page.Dictionary.GetValueOrDefault(KnownNames.Contents)))
@@ -503,7 +568,8 @@ internal sealed partial class PdfUAChecker
                 break;
         }
 
-        if (Resolve(page.Dictionary.GetValueOrDefault(Annots)) is CosArray annotations)
+        // Validating an untagged document reports 7.1-11 once, not every annotation outside the structure tree it does not have.
+        if (!(_validate && _root is null) && Resolve(page.Dictionary.GetValueOrDefault(Annots)) is CosArray annotations)
         {
             foreach (CosObject item in annotations)
             {
@@ -709,7 +775,7 @@ internal sealed partial class PdfUAChecker
 
     private void Paint(ContentState state)
     {
-        if (!state.Tagged && !state.Artifact)
+        if (!state.Tagged && !state.Artifact && !(_validate && _root is null))
         {
             Report("7.1-3", "content on a page is neither tagged (in the structure tree) nor marked as an Artifact", state.Page);
         }
@@ -743,7 +809,8 @@ internal sealed partial class PdfUAChecker
             && !(Resolve(descriptor.GetValueOrDefault(FlagsKey)) is CosInteger { Value: var flags } && (flags & 4) != 0))
         {
             // ISO 14289-1 §7.21.6: a non-symbolic TrueType font names MacRomanEncoding or WinAnsiEncoding (Differences, if any, in AGL names).
-            string? encoding = Resolve(font.GetValueOrDefault(EncodingKey)) switch
+            CosObject entry = Resolve(font.GetValueOrDefault(EncodingKey));
+            string? encoding = entry switch
             {
                 CosName name => name.Value,
                 CosDictionary dictionary => NameOf(dictionary, BaseEncoding),
@@ -751,7 +818,9 @@ internal sealed partial class PdfUAChecker
             };
             if (encoding is not ("MacRomanEncoding" or "WinAnsiEncoding"))
             {
-                Report("7.21.6-2", $"the non-symbolic TrueType font {NameOf(font, BaseFont) ?? "(unnamed)"} has no MacRomanEncoding or WinAnsiEncoding encoding", value as CosReference);
+                // Matterhorn 31-019: no Encoding; 31-020: an Encoding dictionary without BaseEncoding; 31-021: another encoding.
+                string checkpoint = entry switch { CosName => "31-021", CosDictionary when encoding is not null => "31-021", CosDictionary => "31-020", _ => "31-019" };
+                Report("7.21.6-2", $"the non-symbolic TrueType font {NameOf(font, BaseFont) ?? "(unnamed)"} has no MacRomanEncoding or WinAnsiEncoding encoding", value as CosReference, checkpoint);
             }
         }
     }
@@ -773,13 +842,145 @@ internal sealed partial class PdfUAChecker
             }
             else if (buffer[..written].IndexOfAny('\0', '﻿', '￾') >= 0)
             {
-                Report("7.21.7-2", string.Create(CultureInfo.InvariantCulture, $"the font {resourceName}{Named(font)} maps the character code {glyph.Code} to U+0000, U+FEFF or U+FFFE"), font.Reference);
+                Report("7.21.7-2", string.Create(CultureInfo.InvariantCulture, $"the font {resourceName}{Named(font)} maps the character code {glyph.Code} to U+0000, U+FEFF or U+FFFE"), font.Reference, buffer[..written].Contains('\0') ? "31-028" : "31-029");
             }
 
             text = text[Math.Clamp(glyph.Length, 1, text.Length)..];
         }
 
         static string Named(PdfFont font) => font.BaseFont is { } name ? $" ({name})" : string.Empty;
+    }
+
+    /// <summary>
+    /// What a save writes, checked on the file as read (validation only): <c>MarkInfo</c> <c>Marked</c> (veraPDF rule 6.2-1, both
+    /// parts; not for an untagged document, which 7.1-11 reports), the catalog's metadata stream (7.1-8, PDF/UA-2 8.11.1-2) and
+    /// <c>DisplayDocTitle</c> true (7.1-10, PDF/UA-2 8.11.2-1; Matterhorn 07-001 when absent, 07-002 when false).
+    /// </summary>
+    private void CheckFileEntries()
+    {
+        if (_root is not null && !_document.MarkInfo.Marked)
+        {
+            Report("6.2-1", "the catalog's MarkInfo does not have Marked true: the file does not say it is tagged");
+        }
+
+        if (_document.Metadata is null)
+        {
+            Report("7.1-8", "the catalog has no Metadata stream (XMP)");
+        }
+
+        CosDictionary? preferences = Dictionary(_document.Catalog, new CosName("ViewerPreferences"));
+        switch (preferences is null ? null : Resolve(preferences.GetValueOrDefault(DisplayDocTitle)))
+        {
+            case CosBoolean { Value: true }:
+                break;
+            case CosBoolean:
+                Report("7.1-10", "the catalog's ViewerPreferences has DisplayDocTitle false: a viewer shows the file name, not the title", checkpoint: "07-002");
+                break;
+            default:
+                Report("7.1-10", "the catalog's ViewerPreferences has no DisplayDocTitle entry: a viewer shows the file name, not the title", checkpoint: "07-001");
+                break;
+        }
+    }
+
+    /// <summary>
+    /// A page with annotations has a <c>Tabs</c> entry (validation only): <c>S</c> in PDF/UA-1 (ISO 14289-1 §7.18.3, rule 7.18.3-1;
+    /// Matterhorn 28-008 when absent, 28-009 when another value), <c>A</c>, <c>W</c> or <c>S</c> in PDF/UA-2 (ISO 14289-2 §8.9.3.3).
+    /// </summary>
+    private void CheckTabs(PdfPage page)
+    {
+        if (Resolve(page.Dictionary.GetValueOrDefault(Annots)) is not CosArray { Count: > 0 })
+        {
+            return;
+        }
+
+        string? tabs = NameOf(page.Dictionary, Tabs);
+        if (tabs is null)
+        {
+            Report("7.18.3-1", "a page with annotations has no Tabs entry", page.Reference, "28-008");
+        }
+        else if (_part == 1 ? tabs != "S" : tabs is not ("A" or "W" or "S"))
+        {
+            Report("7.18.3-1", $"a page with annotations has Tabs {tabs}, not {(_part == 1 ? "S" : "A, W or S")}", page.Reference, "28-009");
+        }
+    }
+
+    /// <summary>
+    /// The PDF/UA identification in the XMP metadata (validation only). PDF/UA-1 (ISO 14289-1 clause 5): <c>pdfuaid:part</c> present
+    /// (veraPDF rule 5-1) and 1 (5-2), Matterhorn 06-002. PDF/UA-2 (ISO 14289-2 clause 5, Table 1): an identification (5-1),
+    /// <c>pdfuaid:part</c> 2 (5-2) and present (5-3), <c>pdfuaid:rev</c> present (5-4) and the four-digit year of an edition, 2024 or
+    /// later (5-5).
+    /// </summary>
+    private void CheckIdentification()
+    {
+        XmpPacket? packet = _document.Metadata?.Packet;
+        string? part = packet?.GetText(XmpNamespaces.PdfUAIdentification, "part")?.Trim();
+        if (_part == 1)
+        {
+            if (part is null)
+            {
+                Report("5-1", "the XMP metadata has no PDF/UA identification (pdfuaid:part)");
+            }
+            else if (part != "1")
+            {
+                Report("5-2", $"the XMP metadata identifies PDF/UA part {part}, not 1 (pdfuaid:part)");
+            }
+
+            return;
+        }
+
+        string? revision = packet?.GetText(XmpNamespaces.PdfUAIdentification, "rev")?.Trim();
+        if (part is null && revision is null)
+        {
+            Report("5-1", "the XMP metadata has no PDF/UA identification (pdfuaid:part and pdfuaid:rev)");
+            return;
+        }
+
+        if (part is null)
+        {
+            Report("5-3", "the XMP metadata has no pdfuaid:part");
+        }
+        else if (part != "2")
+        {
+            Report("5-2", $"the XMP metadata identifies PDF/UA part {part}, not 2 (pdfuaid:part)");
+        }
+
+        if (revision is null)
+        {
+            Report("5-4", "the XMP metadata has no pdfuaid:rev");
+        }
+        else if (revision.Length != 4 || !int.TryParse(revision, NumberStyles.None, CultureInfo.InvariantCulture, out int year) || year < 2024)
+        {
+            Report("5-5", $"the XMP metadata's pdfuaid:rev '{revision}' is not the four-digit year of an edition of ISO 14289-2 (2024 or later)");
+        }
+    }
+
+    /// <summary>
+    /// Reports each repair of the structure tree made while reading it (ADR 0005, <see cref="Diagnostics.StructureDiagnostics"/>) as a
+    /// violation of the rule it breaks (validation only): a broken tree or element is no structure hierarchy (7.1-11), a broken parent
+    /// tree or MCID leaves content untagged (7.1-3), an unknown or unresolved structure type is not standard (7.1-5), and an invalid
+    /// <c>MarkInfo</c> does not say the file is tagged (6.2-1). Repairs of IDs, attributes and conflicts break no rule by themselves.
+    /// </summary>
+    private void CheckRepairs()
+    {
+        foreach (Diagnostics.Diagnostic diagnostic in _document.Diagnostics)
+        {
+            string? rule = diagnostic.Code switch
+            {
+                nameof(Diagnostics.StructureDiagnostics.StructTreeRootInvalid) or nameof(Diagnostics.StructureDiagnostics.StructElemInvalid)
+                    or nameof(Diagnostics.StructureDiagnostics.StructElemParentMismatch) or nameof(Diagnostics.StructureDiagnostics.StructTreeCycle)
+                    or nameof(Diagnostics.StructureDiagnostics.StructTreeDepthExceeded) => "7.1-11",
+                nameof(Diagnostics.StructureDiagnostics.ParentTreeMissing) or nameof(Diagnostics.StructureDiagnostics.ParentTreeEntryInvalid)
+                    or nameof(Diagnostics.StructureDiagnostics.McidDuplicate) or nameof(Diagnostics.StructureDiagnostics.StructElemPageMissing) => "7.1-3",
+                nameof(Diagnostics.StructureDiagnostics.StructElemTypeUnknown) or nameof(Diagnostics.StructureDiagnostics.StructureTypeUnresolved)
+                    or nameof(Diagnostics.StructureDiagnostics.NamespaceInvalid) or nameof(Diagnostics.StructureDiagnostics.NamespaceNotDeclared) => "7.1-5",
+                nameof(Diagnostics.StructureDiagnostics.MarkInfoInvalid) => "6.2-1",
+                _ => null,
+            };
+            if (rule is not null)
+            {
+                Report(rule, $"the structure was repaired on reading ({diagnostic.Code}): {diagnostic.Message}", diagnostic.ObjectReference);
+            }
+        }
     }
 
     /// <summary>The marked content open at a point of a content stream, and the MCIDs its structure tree knows.</summary>
@@ -811,3 +1012,6 @@ internal sealed partial class PdfUAChecker
         public ContentState Inherited(IReadOnlyDictionary<int, PdfStructureElement>? formTree) => new(Page, formTree, Tagged, Artifact);
     }
 }
+
+/// <summary>A PDF/UA rule a document fails: the rule, what fails, the object, and the Matterhorn Protocol 1.1 checkpoint (PDF/UA-1).</summary>
+internal readonly record struct PdfUAFinding(string Rule, string Message, CosReference? Reference, string? Checkpoint);

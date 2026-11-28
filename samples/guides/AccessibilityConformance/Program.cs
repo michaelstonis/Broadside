@@ -10,6 +10,7 @@ Sample.Start("Accessibility and conformance");
 
 WriteAccessibleReport();
 TagAnExistingFile();
+ValidateAnExistingFile();
 WriteArchivalFile();
 AttachAnInvoice();
 ConvertToPdfA();
@@ -59,6 +60,26 @@ static void TagAnExistingFile()
 
     Sample.Expect(result.IsTagged && conversion.IsConformant, "tagged and converted");
     Sample.Expect(!Problems(document).Any(), $"PDF/UA-1 and PDF/A-2u by the library's check: {string.Join("; ", Problems(document))}");
+}
+
+static void ValidateAnExistingFile()
+{
+    #region pdfua-validate
+    // Checks a file as it is, without saving it: the level comes from its pdfuaid claim, or pass one.
+    using PdfDocument document = PdfDocument.Open("annual-results-pdfua1.pdf");
+    PdfUAValidation validation = document.ValidatePdfUA();
+    Console.WriteLine($"{validation.Conformance}: claimed {validation.IsClaimed}, {validation.Violations.Count} violations");
+    foreach (PdfUARuleViolation violation in validation.Violations)
+    {
+        Console.WriteLine($"  rule {violation.Rule} (Matterhorn {violation.Checkpoint}): {violation.Message}");
+    }
+
+    // Machine checks are necessary, not sufficient: these need a person, and these are not checked yet.
+    Console.WriteLine($"For manual review: {string.Join(", ", validation.MachineUncheckable)}");
+    Console.WriteLine($"Not checked yet: {string.Join(", ", validation.CheckpointsNotChecked)}");
+    #endregion
+
+    Sample.Expect(validation.IsClaimed && validation.IsConformant, $"PDF/UA-1 by validation: {string.Join("; ", validation.Violations.Select(v => v.Message))}");
 }
 
 static void WriteArchivalFile()
