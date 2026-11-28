@@ -26,7 +26,6 @@ internal sealed partial class DocumentAssembler
     private readonly PdfDocument _document;
     private readonly Dictionary<FaceKey, PdfCanvasFont> _fonts = [];
     private readonly Dictionary<ImageSource, PdfImage> _images = new(ReferenceEqualityComparer.Instance);
-    private readonly Dictionary<ImageSource, PdfFormXObject> _svgs = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<MergeKey, Style> _merged = [];
     private readonly Dictionary<TextKey, TextStyle> _textStyles = [];
     private readonly Dictionary<ParagraphKey, ParagraphStyle> _paragraphStyles = [];
@@ -647,17 +646,8 @@ internal sealed partial class DocumentAssembler
         return image;
     }
 
-    /// <summary>The form XObject of an SVG source in the document, imported on first use.</summary>
-    private PdfFormXObject EmbedSvg(ImageSource source)
-    {
-        if (!_svgs.TryGetValue(source, out PdfFormXObject? form))
-        {
-            form = source.EmbedSvg(_document);
-            _svgs.Add(source, form);
-        }
-
-        return form;
-    }
+    /// <summary>The form XObject of an SVG source in the document, imported on first use (the source keeps it per document).</summary>
+    private PdfFormXObject EmbedSvg(ImageSource source) => source.EmbedSvg(_document);
 
     private DrawingBlock BuildDrawing(DrawingNode node, Style scope, string? language)
     {

@@ -27,6 +27,7 @@ public sealed class ImageSource
     private readonly Lock _gate = new();
     private ReadOnlyMemory<byte> _bytes;
     private bool _loaded;
+    private System.Runtime.CompilerServices.ConditionalWeakTable<PdfDocument, PdfFormXObject>? _forms;
 
     private ImageSource(string? path, ReadOnlyMemory<byte> bytes, PdfImage? image)
     {
@@ -89,8 +90,22 @@ public sealed class ImageSource
     /// <summary>Gets a value indicating whether the source holds SVG (issue #643); reads a file source the first time.</summary>
     internal bool IsSvg => _image is null && IsSvgData(Bytes.Span);
 
-    /// <summary>Imports the SVG of the source as a form XObject of <paramref name="document"/> (the caller caches per document).</summary>
-    internal PdfFormXObject EmbedSvg(PdfDocument document) => document.CreateFormXObjectFromSvg(Bytes.Span, null);
+    /// <summary>Imports the SVG of the source as a form XObject of <paramref name="document"/>, once per document however often it is drawn.</summary>
+    internal PdfFormXObject EmbedSvg(PdfDocument document)
+    {
+        ReadOnlyMemory<byte> bytes = Bytes;
+        lock (_gate)
+        {
+            _forms ??= [];
+            if (!_forms.TryGetValue(document, out PdfFormXObject? form))
+            {
+                form = document.CreateFormXObjectFromSvg(bytes.Span, null);
+                _forms.Add(document, form);
+            }
+
+            return form;
+        }
+    }
 
     /// <summary>True for SVG or SVGZ: a gzip signature, or markup that starts with <c>&lt;svg</c>, <c>&lt;?xml</c> or a comment, after a byte order mark and white space.</summary>
     private static bool IsSvgData(ReadOnlySpan<byte> bytes)
