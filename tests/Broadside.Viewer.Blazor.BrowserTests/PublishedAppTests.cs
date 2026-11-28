@@ -14,8 +14,11 @@ public sealed class PublishedAppTests
     /// </summary>
     public const long CompressedBudget = 10 * 1024 * 1024;
 
-    /// <summary>The budget for the files as they lie on disk (32 MB measured for #221, 38.3 MB for the demo, documents excluded): the AOT-compiled runtime module is two thirds of it.</summary>
-    public const long UncompressedBudget = 40 * 1024 * 1024;
+    /// <summary>
+    /// The budget for the files as they lie on disk (32 MB measured for #221, 38.3 MB for the demo, 40.05 MiB with the edit history of
+    /// #638, documents excluded): the AOT-compiled runtime module is two thirds of it.
+    /// </summary>
+    public const long UncompressedBudget = 42 * 1024 * 1024;
 
     /// <summary>
     /// The most files the site may have (a static host and a phone fetch each one): #221's 80, plus the demo's allowance (#338) of 10
