@@ -3364,6 +3364,69 @@ def gen_form_data_xfdf() -> bytes:
     return XFDF_SAMPLE.encode("utf-8")
 
 
+SVG_FEATURES = """<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="200" height="120" viewBox="0 0 200 120">
+  <defs>
+    <linearGradient id="lin" x1="0" y1="0" x2="1" y2="0" spreadMethod="reflect">
+      <stop offset="0" stop-color="#0a5fff"/>
+      <stop offset="1" stop-color="white" stop-opacity="0.5"/>
+    </linearGradient>
+    <radialGradient id="rad" href="#lin" cx="0.5" cy="0.5" r="0.5" fx="0.3" fy="0.3"/>
+    <pattern id="dots" width="10" height="10" patternUnits="userSpaceOnUse">
+      <circle cx="5" cy="5" r="2" fill="crimson"/>
+    </pattern>
+    <clipPath id="clip" clipPathUnits="objectBoundingBox"><circle cx="0.5" cy="0.5" r="0.5"/></clipPath>
+    <mask id="mask"><rect width="200" height="120" fill="white"/><circle cx="160" cy="90" r="10" fill="black"/></mask>
+    <symbol id="tick" viewBox="0 0 10 10"><path d="M1 5l3 3 5-7" fill="none" stroke="green" stroke-width="2"/></symbol>
+  </defs>
+  <rect width="200" height="120" fill="url(#lin)"/>
+  <circle cx="40" cy="40" r="30" fill="url(#rad)" stroke="navy" stroke-width="2" stroke-dasharray="4 2"/>
+  <rect x="80" y="10" width="50" height="50" fill="url(#dots)" clip-path="url(#clip)"/>
+  <g opacity="0.7" transform="translate(140 10) rotate(10)">
+    <ellipse cx="20" cy="20" rx="20" ry="10" fill="orange"/>
+    <polygon points="0,40 40,40 20,10" fill="purple" fill-rule="evenodd"/>
+  </g>
+  <path d="M10 100 Q 40 70 70 100 T 130 100 A 20 20 0 0 1 150 80" fill="none" stroke="black" stroke-linecap="round"/>
+  <rect x="140" y="70" width="40" height="40" fill="teal" mask="url(#mask)" style="mix-blend-mode: multiply"/>
+  <use xlink:href="#tick" x="10" y="60" width="20" height="20"/>
+  <text x="100" y="115" font-family="sans-serif" font-size="10" text-anchor="middle">SVG <tspan font-weight="bold" fill="red">import</tspan></text>
+</svg>
+"""
+
+SVG_STYLED = """<svg xmlns="http://www.w3.org/2000/svg" width="120" height="60">
+  <style type="text/css"><![CDATA[
+    /* type, class, id, attribute, descendant and child selectors */
+    rect { fill: #cccccc; stroke: black }
+    .warn { fill: orange !important }
+    #main { stroke-width: 3 }
+    g.row > rect[data-state="on"] { fill: lime }
+    g text { font: italic bold 12px serif; fill: #333 }
+    rect:first-child { stroke: blue }
+    @media print { rect { fill: white } }
+  ]]></style>
+  <g class="row">
+    <rect x="5" y="5" width="20" height="20"/>
+    <rect x="30" y="5" width="20" height="20" data-state="on"/>
+    <rect id="main" class="warn" x="55" y="5" width="20" height="20" style="fill: red"/>
+    <text x="5" y="50">Styled</text>
+  </g>
+</svg>
+"""
+
+
+def gen_svg_features() -> bytes:
+    """An SVG 1.1 image using every element group the importer supports (issue #643): gradients with href inheritance,
+    reflect spread and stop opacity, a tiling pattern, a clip path in bounding box units, a luminance mask, group opacity
+    with transforms, path data with quadratic, smooth and arc commands, a blend mode, use of a symbol, and text."""
+    return SVG_FEATURES.encode("utf-8")
+
+
+def gen_svg_styled() -> bytes:
+    """An SVG styled by a style sheet (issue #643): type, class, id, attribute, descendant and child selectors,
+    :first-child, !important against the style attribute, the font shorthand, and an @media block the importer skips."""
+    return SVG_STYLED.encode("utf-8")
+
+
 def gen_metadata_xmp() -> bytes:
     return simple_file([
         (1, catalog(b" /Metadata 4 0 R")),
@@ -7584,6 +7647,8 @@ FILES = {
     "acroform-xfa.pdf": gen_acroform_xfa,
     "form-data.fdf": gen_form_data_fdf,
     "form-data.xfdf": gen_form_data_xfdf,
+    "svg-features.svg": gen_svg_features,
+    "svg-styled.svg": gen_svg_styled,
     "colorspace-families.pdf": gen_colorspace_families,
     "color-operators.pdf": gen_color_operators,
     "default-colorspaces.pdf": gen_default_colorspaces,

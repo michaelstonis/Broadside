@@ -147,6 +147,17 @@ c.Drawing(120.Mm, 50.Mm, "Bar chart of units shipped in Q4: North 135, South 104
 .Caption("Figure 1. Units shipped in Q4");
 ```
 
+SVG stays vector. `Svg` imports the file once per document as a form XObject and places it as a figure, at its own size or scaled to a width or height you give; an SVG `ImageSource` passed to `Image` or `DecorativeImage` is drawn the same way (sources are recognized by their bytes: PNG, JPEG, or markup starting with `<svg` or `<?xml`):
+
+```csharp
+ImageSource chart = ImageSource.FromFile("assets/q4-chart.svg");
+
+c.Svg(chart, "Bar chart of units shipped in Q4: North 135, South 104, East 151, West 112.", width: 120.Mm)
+    .Caption("Figure 2. Units shipped in Q4");
+```
+
+What the importer skips or repairs is recorded on the document as `SvgDiagnostics` codes; see [Writing](writing.md#svg) for the supported subset.
+
 Alternate text is a required argument; `DecorativeImage` and `DecorativeDrawing` are the explicit way out. A drawing's callback gets the page's canvas with (0, 0) at the box's bottom-left corner, inside the figure's marked content. Whatever it leaves unbalanced (an open `SaveState`, marked content, a text object) is balanced again and reported as a `DrawingStateUnbalanced` diagnostic.
 
 ## Barcodes

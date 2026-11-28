@@ -48,3 +48,4 @@ static Broadside.Layout.Flow.Barcode.QrCode(string! data, Broadside.Layout.Flow.
 static Broadside.Layout.Flow.Barcode.QrCode(System.ReadOnlySpan<byte> data) -> Broadside.Layout.Flow.Barcode!
 static Broadside.Layout.Flow.Barcode.QrCode(System.ReadOnlySpan<byte> data, Broadside.Layout.Flow.QrErrorCorrection level) -> Broadside.Layout.Flow.Barcode!
 static Broadside.Layout.Flow.Barcode.UpcA(string! digits) -> Broadside.Layout.Flow.Barcode!
+Broadside.Layout.Flow.ContainerBuilder.Svg(Broadside.Layout.Flow.ImageSource! source, string! alternateText, Broadside.Layout.Flow.Length? width = null, Broadside.Layout.Flow.Length? height = null) -> Broadside.Layout.Flow.DrawingElement

@@ -12,6 +12,7 @@ DrawText();
 EmbedAFont();
 DrawImages();
 DrawTransparency();
+ImportSvg();
 FlowAReport();
 Sample.Finish();
 
@@ -150,6 +151,40 @@ static void DrawTransparency()
 
     using PdfDocument saved = PdfDocument.Open("transparency.pdf");
     Sample.Expect(saved.Version >= new PdfVersion(1, 4), "transparency raises the version to PDF 1.4");
+}
+
+static void ImportSvg()
+{
+    File.WriteAllText("badge.svg", """
+        <svg xmlns="http://www.w3.org/2000/svg" width="160" height="80" viewBox="0 0 160 80">
+          <linearGradient id="g"><stop offset="0" stop-color="#1e5bd6"/><stop offset="1" stop-color="#20b8a0"/></linearGradient>
+          <rect width="160" height="80" rx="12" fill="url(#g)"/>
+          <text x="80" y="50" font-family="sans-serif" font-size="24" fill="white" text-anchor="middle">Approved</text>
+        </svg>
+        """);
+
+    #region svg
+    using PdfDocument document = PdfDocument.Create();
+    PdfFormXObject badge = document.CreateFormXObjectFromSvg(File.ReadAllBytes("badge.svg")); // 160 x 80 px is 120 x 60 points
+
+    using (PdfCanvas canvas = document.Pages[0].CreateCanvas())
+    {
+        canvas.SaveState();
+        canvas.Transform(new Matrix(2, 0, 0, 2, 72, 600)); // twice its size, lower-left corner at (72, 600)
+        canvas.DrawForm(badge);
+        canvas.RestoreState();
+    }
+
+    foreach (Broadside.Diagnostics.Diagnostic diagnostic in document.Diagnostics)
+    {
+        Console.WriteLine(diagnostic); // what the importer skipped or repaired, if anything
+    }
+
+    document.Save("svg.pdf");
+    #endregion
+
+    using PdfDocument saved = PdfDocument.Open("svg.pdf");
+    Sample.Expect(saved.Pages[0].ExtractText().Text.Contains("Approved", StringComparison.Ordinal), "SVG text is real text");
 }
 
 static void FlowAReport()

@@ -182,6 +182,28 @@ internal sealed partial class DocumentAssembler
 
                     add(Kept(table, BuildTable(table, scope, language)));
                     break;
+                case ImageNode image when image.Source.IsSvg:
+                    // An SVG source drawn through Image or DecorativeImage is a vector drawing of the same size and tagging (issue #643).
+                    var svgDrawing = new DrawingNode
+                    {
+                        Width = Length.Points(1),
+                        Height = Length.Points(1),
+                        Draw = static (_, _) => { },
+                        AlternateText = image.AlternateText,
+                        Svg = image.Source,
+                        SvgWidth = image.Width,
+                        SvgHeight = image.Height,
+                        FillWidth = image.FillWidth,
+                        Alignment = image.Alignment,
+                        Caption = image.Caption,
+                        Local = image.Local,
+                        Id = image.Id,
+                        KeepWithNext = image.KeepWithNext,
+                        KeepTogether = image.KeepTogether,
+                    };
+                    FlowBlock builtSvg = BuildDrawing(svgDrawing, scope, language);
+                    add(Kept(image, image.Caption is { } svgCaption ? new BlockGroup(builtSvg, Caption(svgCaption, scope, language)) { KeepTogether = true } : builtSvg));
+                    break;
                 case ImageNode image:
                     FlowBlock builtImage = BuildImage(image, scope, language);
                     add(Kept(image, image.Caption is { } imageCaption ? new BlockGroup(builtImage, Caption(imageCaption, scope, language)) { KeepTogether = true } : builtImage));
@@ -624,10 +646,33 @@ internal sealed partial class DocumentAssembler
         return image;
     }
 
+    /// <summary>The form XObject of an SVG source in the document, imported on first use (the source keeps it per document).</summary>
+    private PdfFormXObject EmbedSvg(ImageSource source) => source.EmbedSvg(_document);
+
     private DrawingBlock BuildDrawing(DrawingNode node, Style scope, string? language)
     {
         double width = node.Width.ToPoints();
         double height = node.Height.ToPoints();
+        Action<PdfCanvas, PdfRectangle> draw = node.Draw;
+        if (node.Svg is { } svg)
+        {
+            PdfFormXObject form = EmbedSvg(svg);
+            PdfRectangle bounds = form.BoundingBox ?? new PdfRectangle(0, 0, 1, 1);
+            double aspect = bounds.Height / bounds.Width;
+            (width, height) = (node.SvgWidth, node.SvgHeight) switch
+            {
+                ({ } w, { } h) => (w.ToPoints(), h.ToPoints()),
+                ({ } w, null) => (w.ToPoints(), w.ToPoints() * aspect),
+                (null, { } h) => (h.ToPoints() / aspect, h.ToPoints()),
+                _ => (bounds.Width, bounds.Height),
+            };
+            draw = (canvas, area) =>
+            {
+                canvas.Transform(new Matrix(area.Width / bounds.Width, 0, 0, area.Height / bounds.Height, area.Left - (bounds.Left * area.Width / bounds.Width), area.Bottom - (bounds.Bottom * area.Height / bounds.Height)));
+                canvas.DrawForm(form);
+            };
+        }
+
         if (node.FillWidth)
         {
             height *= _contentWidth / width;
@@ -637,7 +682,6 @@ internal sealed partial class DocumentAssembler
         CheckAlternateText(node.AlternateText);
         Style full = Resolve(null, scope, node.Local);
         Style box = node.Local ?? Style.Empty;
-        Action<PdfCanvas, PdfRectangle> draw = node.Draw;
         if (node.Barcode is { } barcode && node.BarcodeOptions is { Font: null, ShowText: true } options && barcode.HumanReadableText is not null)
         {
             // The human-readable line of a linear symbol is set in the style's font, embedded only when one is drawn.

@@ -33,6 +33,8 @@ internal static class FuzzTargets
     {
         ["fdf-import"] = "*.fdf",
         ["xfdf-import"] = "*.xfdf",
+        ["svg"] = "*.svg",
+        ["svg-css"] = "*.svg",
     };
 
     /// <summary>The corpus files that seed <paramref name="target"/>: every PDF file, then the files of its own format.</summary>
@@ -78,6 +80,8 @@ internal static class FuzzTargets
         ["public-key"] = PublicKey.Target,
         ["xmp"] = Xmp,
         ["xmp-xml"] = XmpXmlTarget.Target,
+        ["svg"] = SvgTargets.Svg,
+        ["svg-css"] = SvgTargets.Css,
         ["fdf-import"] = FormDataTarget.Fdf,
         ["xfdf-import"] = FormDataTarget.Xfdf,
         ["pdf-date"] = PdfDateTarget,

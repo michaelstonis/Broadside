@@ -380,6 +380,15 @@ internal sealed class DrawingNode : BlockNode
     public Barcode? Barcode { get; set; }
 
     public BarcodeOptions? BarcodeOptions { get; set; }
+
+    /// <summary>The SVG the drawing paints, when <see cref="ContainerBuilder.Svg"/> added it (or an image source holds SVG); its size comes from the SVG unless given.</summary>
+    public ImageSource? Svg { get; init; }
+
+    /// <summary>The width asked for an SVG drawing, or null for the SVG's own (or its height times the SVG's aspect ratio).</summary>
+    public Length? SvgWidth { get; init; }
+
+    /// <summary>The height asked for an SVG drawing, or null for the SVG's own (or its width over the SVG's aspect ratio).</summary>
+    public Length? SvgHeight { get; init; }
 }
 
 /// <summary>Columns side by side, each its own scope of content.</summary>

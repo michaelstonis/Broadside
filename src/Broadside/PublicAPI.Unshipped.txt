@@ -357,6 +357,30 @@ Broadside.PdfInvoiceProfile.EN16931 = 3 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.Extended = 4 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.Minimum = 0 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.XRechnung = 5 -> Broadside.PdfInvoiceProfile
+Broadside.Diagnostics.DiagnosticArea.Svg = 33 -> Broadside.Diagnostics.DiagnosticArea
+Broadside.Diagnostics.SvgDiagnostics
+static Broadside.Diagnostics.SvgDiagnostics.SvgFeatureUnsupported.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SvgDiagnostics.SvgFontNotFound.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SvgDiagnostics.SvgImageInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SvgDiagnostics.SvgReferenceCycle.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SvgDiagnostics.SvgReferenceMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SvgDiagnostics.SvgSizeMissing.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SvgDiagnostics.SvgStyleInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SvgDiagnostics.SvgTextNotEncodable.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.SvgDiagnostics.SvgValueInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.Graphics.SvgImportOptions
+Broadside.Graphics.SvgImportOptions.DefaultFont.get -> Broadside.Fonts.FontQuery?
+Broadside.Graphics.SvgImportOptions.Height.get -> double?
+Broadside.Graphics.SvgImportOptions.ResourceResolver.get -> System.Func<string!, System.ReadOnlyMemory<byte>?>?
+Broadside.Graphics.SvgImportOptions.SvgImportOptions() -> void
+Broadside.Graphics.SvgImportOptions.Width.get -> double?
+Broadside.Graphics.SvgImportOptions.WithDefaultFont(Broadside.Fonts.FontQuery! query) -> Broadside.Graphics.SvgImportOptions!
+Broadside.Graphics.SvgImportOptions.WithResourceResolver(System.Func<string!, System.ReadOnlyMemory<byte>?>! resolver) -> Broadside.Graphics.SvgImportOptions!
+Broadside.Graphics.SvgImportOptions.WithSize(double width, double height) -> Broadside.Graphics.SvgImportOptions!
+Broadside.PdfDocument.CreateFormXObjectFromSvg(System.IO.Stream! svg) -> Broadside.Graphics.PdfFormXObject!
+Broadside.PdfDocument.CreateFormXObjectFromSvg(System.IO.Stream! svg, Broadside.Graphics.SvgImportOptions? options) -> Broadside.Graphics.PdfFormXObject!
+Broadside.PdfDocument.CreateFormXObjectFromSvg(System.ReadOnlySpan<byte> svg) -> Broadside.Graphics.PdfFormXObject!
+Broadside.PdfDocument.CreateFormXObjectFromSvg(System.ReadOnlySpan<byte> svg, Broadside.Graphics.SvgImportOptions? options) -> Broadside.Graphics.PdfFormXObject!
 Broadside.PdfBatesNumbering
 Broadside.PdfBatesNumbering.PdfBatesNumbering(Broadside.Fonts.PdfCanvasFont! font, double fontSize) -> void
 Broadside.PdfBatesNumbering.Boundary.get -> Broadside.PdfPageBoundary

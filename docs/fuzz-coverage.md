@@ -108,6 +108,8 @@ Measured on macOS arm64 with the seeds `--seeds` writes from `tests/Corpus` (no 
 | `save` | 190 | (owns no parser) | | | n/a | 10.0% |
 | `shading-mesh` | 190 | MeshBitReader, MeshDecoder, ShadingReader | 261 | 51.7% | below | 0.2% |
 | `signature-validation` | 191 | (owns no parser) | | | n/a | 5.9% |
+| `svg` | 194 | SvgColorParser, SvgDocument, SvgPathParser, SvgTransformParser | 411 | 64.2% | meets | 8.6% |
+| `svg-css` | 194 | CssSelector, CssStyleSheet | 319 | 86.8% | meets | 0.4% |
 | `structure-tree` | 190 | AttributeReader, KidReader | 141 | 54.6% | below | 16.0% |
 | `table-detection` | 190 | (owns no parser) | | | n/a | 10.9% |
 | `text-extraction` | 129 | (owns no parser) | | | n/a | 11.4% |
