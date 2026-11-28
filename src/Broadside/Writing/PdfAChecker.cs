@@ -239,15 +239,17 @@ internal sealed partial class PdfAChecker
     /// <param name="document">The document, as it is: nothing is changed.</param>
     /// <param name="options">The save's options.</param>
     /// <returns>The rules not met, in document order; empty when the save can conform.</returns>
-    public static IReadOnlyList<PdfAViolation> Check(PdfDocument document, PdfSaveOptions options) => Check(document, options, asRead: false);
+    public static IReadOnlyList<PdfAViolation> Check(PdfDocument document, PdfSaveOptions options) => Check(document, options, readMode: null);
 
     /// <summary>
-    /// Runs the checks of a save (<paramref name="asRead"/> false), or of the file as it was read (true, issue #651): see
-    /// <see cref="Validate"/>.
+    /// Runs the checks of a save, or with <paramref name="readMode"/> those of the file as it was read (issue #651, see
+    /// <see cref="Validate"/>). The read mode is installed through a delegate so a save does not reach its code, which trimming then
+    /// leaves out of apps that never validate.
     /// </summary>
-    private static List<PdfAViolation> Check(PdfDocument document, PdfSaveOptions options, bool asRead)
+    private static List<PdfAViolation> Check(PdfDocument document, PdfSaveOptions options, Action<PdfAChecker>? readMode)
     {
-        var checker = new PdfAChecker(document, options.PdfAConformance) { _asRead = asRead };
+        var checker = new PdfAChecker(document, options.PdfAConformance);
+        readMode?.Invoke(checker);
         checker.CheckFile(options);
         checker.CheckOutputIntents();
         checker.CheckCatalog();
@@ -260,7 +262,7 @@ internal sealed partial class PdfAChecker
         checker.CheckOptionalContent();
         checker.CheckEveryObject();
         checker.CheckEmbeddedFiles();
-        checker.CheckRepairs();
+        checker._readRepairs?.Invoke(checker);
         return checker._violations;
     }
 
@@ -335,9 +337,9 @@ internal sealed partial class PdfAChecker
 
     private void CheckFile(PdfSaveOptions options)
     {
-        if (_asRead)
+        if (_readFile is { } readFile)
         {
-            CheckFileAsRead();
+            readFile(this);
             return;
         }
 
@@ -372,10 +374,7 @@ internal sealed partial class PdfAChecker
 
     private void CheckOutputIntents()
     {
-        if (_asRead)
-        {
-            CheckOutputIntentsAsRead(Resolve(_document.Catalog.GetValueOrDefault(OutputIntents)) as CosArray);
-        }
+        _readOutputIntents?.Invoke(this, Resolve(_document.Catalog.GetValueOrDefault(OutputIntents)) as CosArray);
 
         if (Resolve(_document.Catalog.GetValueOrDefault(OutputIntents)) is not CosArray intents)
         {

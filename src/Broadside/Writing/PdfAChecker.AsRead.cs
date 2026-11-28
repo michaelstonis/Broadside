@@ -50,6 +50,9 @@ internal sealed partial class PdfAChecker
     private static readonly CosName StrokeAlpha = new("CA");
 
     private bool _asRead;
+    private Action<PdfAChecker>? _readFile;
+    private Action<PdfAChecker, CosArray?>? _readOutputIntents;
+    private Action<PdfAChecker>? _readRepairs;
 
     /// <summary>Whether the page being checked uses transparency: a constant alpha below 1, a soft mask or a blend mode other than Normal.</summary>
     private bool _transparency;
@@ -84,7 +87,13 @@ internal sealed partial class PdfAChecker
     /// <param name="conformance">The level: any but <see cref="PdfAConformance.None"/>.</param>
     /// <returns>The rules not met, the file's first; empty when no rule checked is broken.</returns>
     public static IReadOnlyList<PdfAViolation> Validate(PdfDocument document, PdfAConformance conformance) =>
-        Check(document, new PdfSaveOptions().WithPdfAConformance(conformance), asRead: true);
+        Check(document, new PdfSaveOptions().WithPdfAConformance(conformance), static checker =>
+        {
+            checker._asRead = true;
+            checker._readFile = static self => self.CheckFileAsRead();
+            checker._readOutputIntents = static (self, intents) => self.CheckOutputIntentsAsRead(intents);
+            checker._readRepairs = static self => self.CheckRepairs();
+        });
 
     /// <summary>What breaks rule 6.2.4.3-2 or -3: device colour of a model the PDF/A output intent does not have, or no such intent (as read).</summary>
     private string Uncovered(string space) => _outputSpace is null
@@ -342,11 +351,6 @@ internal sealed partial class PdfAChecker
     /// </summary>
     private void CheckRepairs()
     {
-        if (!_asRead)
-        {
-            return;
-        }
-
         foreach (Diagnostic diagnostic in _document.Diagnostics)
         {
             if (diagnostic.Severity == DiagnosticSeverity.Information || !DiagnosticCatalog.TryGet(diagnostic.Code, out DiagnosticCode? code)
