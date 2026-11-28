@@ -75,6 +75,7 @@ internal static class FuzzTargets
         ["decrypt"] = Decrypt,
         ["mac-token"] = MacToken,
         ["timestamp-response"] = TimestampResponseTarget.Target,
+        ["prepared-signature-state"] = PreparedSignatureStateTarget.Target,
         ["public-key"] = PublicKey.Target,
         ["xmp"] = Xmp,
         ["xmp-xml"] = XmpXmlTarget.Target,

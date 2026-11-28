@@ -131,7 +131,7 @@ public sealed partial class PdfDocument
     {
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(signer);
-        PendingSignature pending = PrepareSignature(signer, options ?? new PdfSignatureOptions());
+        PendingSignature pending = PreparePending(signer, options ?? new PdfSignatureOptions());
         byte[] signature;
         try
         {
@@ -147,7 +147,7 @@ public sealed partial class PdfDocument
             throw;
         }
 
-        UpdateResult update = CompleteSignature(pending, signature);
+        UpdateResult update = CompletePending(pending, signature);
         CopySource(stream);
         stream.Write(update.Bytes.Span);
         Rebase(update);
@@ -181,7 +181,7 @@ public sealed partial class PdfDocument
     {
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(signer);
-        PendingSignature pending = PrepareSignature(signer, options ?? new PdfSignatureOptions());
+        PendingSignature pending = PreparePending(signer, options ?? new PdfSignatureOptions());
         byte[] signature;
         try
         {
@@ -198,7 +198,7 @@ public sealed partial class PdfDocument
             throw;
         }
 
-        UpdateResult update = CompleteSignature(pending, signature);
+        UpdateResult update = CompletePending(pending, signature);
         long length = _source.Length;
         for (long position = 0; position < length;)
         {
@@ -211,20 +211,35 @@ public sealed partial class PdfDocument
         Rebase(update);
     }
 
+    /// <summary>As <see cref="PreparePending(X509Certificate2, IReadOnlyList{X509Certificate2}, RSASignaturePadding, PdfSignatureOptions, bool)"/>, with what <paramref name="signer"/> says.</summary>
+    private PendingSignature PreparePending(IPdfSigner signer, PdfSignatureOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(signer.Certificate);
+        return PreparePending(
+            signer.Certificate,
+            signer.CertificateChain ?? [],
+            signer.RsaSignaturePadding ?? RSASignaturePadding.Pkcs1,
+            options,
+            fingerprint: false);
+    }
+
     /// <summary>
     /// Places the signature dictionary in its field, writes the incremental update with placeholders, fills in the byte ranges and
     /// hashes them; the document is changed in memory only, and <see cref="PendingSignature.Undo"/> reverts it.
     /// </summary>
-    private PendingSignature PrepareSignature(IPdfSigner signer, PdfSignatureOptions options)
+    /// <param name="certificate">The signer's certificate.</param>
+    /// <param name="chain">The other certificates to embed.</param>
+    /// <param name="padding">For an RSA key, the signature scheme.</param>
+    /// <param name="options">The field, the signature properties and the digest algorithm.</param>
+    /// <param name="fingerprint">Whether to also take the SHA-256 digest of the byte ranges, which deferred signing keeps (#640).</param>
+    private PendingSignature PreparePending(
+        X509Certificate2 certificate, IReadOnlyList<X509Certificate2> chain, RSASignaturePadding padding, PdfSignatureOptions options, bool fingerprint)
     {
-        ArgumentNullException.ThrowIfNull(signer.Certificate);
-        SigningKey key = CmsSignedData.ReadKey(signer.Certificate);
-        RSASignaturePadding padding = signer.RsaSignaturePadding ?? RSASignaturePadding.Pkcs1;
+        SigningKey key = CmsSignedData.ReadKey(certificate);
         HashAlgorithmName digestAlgorithm = options.DigestAlgorithm ?? CmsSignedData.DefaultDigest(key);
         CmsSignedData.RequireCompatible(key, digestAlgorithm, padding);
-        IReadOnlyList<X509Certificate2> chain = signer.CertificateChain ?? [];
         PdfTimestampClient? timestamp = options.TimestampClient;
-        int reserved = CmsSignedData.EstimateLength(key, signer.Certificate, chain, timestamp?.TokenSizeEstimate ?? 0);
+        int reserved = CmsSignedData.EstimateLength(key, certificate, chain, timestamp?.TokenSizeEstimate ?? 0);
         if (Security is { } security && (security.Integrity != PdfIntegrityStatus.None || security.RequiresIntegrityCode))
         {
             // ISO/TS 32004 §6.5.2: the save keeps the document's MAC, as a pdfMacData unsigned attribute of this signature.
@@ -255,13 +270,13 @@ public sealed partial class PdfDocument
             CosDictionary signature = SignatureDictionary(options, signingTime, reserved, pdf20);
             CosReference signatureReference = AddObject(signature);
             undo.Add(() => RemoveObject(signatureReference));
-            CosDictionary field = PlaceSignature(options.FieldName, signatureReference, undo, options.Appearance);
+            CosDictionary field = PlaceSignature(options.FieldName, signatureReference, undo, out string fieldName, options.Appearance);
             if (options.Appearance is { } visible)
             {
                 // Issue #200: the appearance is part of the signed update, so it is drawn before the save lays out the byte range.
                 var appearanceChanges = new CosChangeLog();
                 undo.Add(appearanceChanges.Revert);
-                DrawSignatureAppearance(field, visible, options, signer.Certificate, signingTime, appearanceChanges);
+                DrawSignatureAppearance(field, visible, options, certificate, signingTime, appearanceChanges);
             }
 
             ApplyModificationDetection(modificationDetection, signature, signatureReference, field, digestAlgorithm, undo);
@@ -296,11 +311,13 @@ public sealed partial class PdfDocument
 
             using IncrementalDigest digest = IncrementalDigest.Create(digestAlgorithm);
             using IncrementalDigest? macDigest = integrity is null ? null : IntegrityCodeWriter.CreateDigest();
+            using IncrementalDigest? rangeDigest = fingerprint ? IncrementalDigest.Create(HashAlgorithmName.SHA256) : null;
             for (long position = 0; position < sourceLength;)
             {
                 ReadOnlyMemory<byte> window = SourceWindow(position, sourceLength);
                 digest.AppendData(window.Span);
                 macDigest?.AppendData(window.Span);
+                rangeDigest?.AppendData(window.Span);
                 position += window.Length;
             }
 
@@ -308,17 +325,21 @@ public sealed partial class PdfDocument
             digest.AppendData(bytes.AsSpan(placeholders.ContentsEnd));
             macDigest?.AppendData(bytes.AsSpan(0, placeholders.ContentsStart));
             macDigest?.AppendData(bytes.AsSpan(placeholders.ContentsEnd));
-            byte[] signedAttributes = CmsSignedData.SignedAttributes(digest.GetHashAndReset(), digestAlgorithm, signer.Certificate);
+            rangeDigest?.AppendData(bytes.AsSpan(0, placeholders.ContentsStart));
+            rangeDigest?.AppendData(bytes.AsSpan(placeholders.ContentsEnd));
+            byte[] signedAttributes = CmsSignedData.SignedAttributes(digest.GetHashAndReset(), digestAlgorithm, certificate);
 
             // ISO/TS 32002 §5.1.4: the signed attributes are digested with the message digest's algorithm.
             byte[] toSign = IncrementalDigest.HashData(digestAlgorithm, signedAttributes);
 
             return new PendingSignature(
-                signer, chain, key, padding, digestAlgorithm, signature, update with { Bytes = bytes }, placeholders, byteRange, signedAttributes, toSign, reserved, undo)
+                certificate, chain, key, padding, digestAlgorithm, signature, update with { Bytes = bytes }, placeholders, byteRange, signedAttributes, toSign, reserved, undo)
             {
                 Integrity = integrity,
                 IntegrityDataDigest = macDigest?.GetHashAndReset(),
                 Timestamp = timestamp,
+                FieldName = fieldName,
+                RangeFingerprint = rangeDigest?.GetHashAndReset(),
             };
         }
         catch
@@ -329,7 +350,7 @@ public sealed partial class PdfDocument
     }
 
     /// <summary>Writes the CMS object into the reserved <c>Contents</c> and records the final values in the signature dictionary.</summary>
-    private static UpdateResult CompleteSignature(PendingSignature pending, byte[] signature)
+    private static UpdateResult CompletePending(PendingSignature pending, byte[] signature)
     {
         byte[] cms;
         try
@@ -347,16 +368,11 @@ public sealed partial class PdfDocument
                 pending.Padding,
                 pending.SignedAttributes,
                 value,
-                pending.Signer.Certificate,
+                pending.Certificate,
                 pending.Chain,
                 macToken,
                 pending.TimestampToken);
-            if (cms.Length > pending.Reserved)
-            {
-                throw new InvalidOperationException(pending.TimestampToken is null
-                    ? $"The signature takes {cms.Length} bytes, more than the {pending.Reserved} reserved for it; the signer returned an unexpectedly long signature value."
-                    : $"The signature with its {pending.TimestampToken.Length}-byte time-stamp token takes {cms.Length} bytes, more than the {pending.Reserved} reserved for it; raise {nameof(PdfTimestampClient)}.{nameof(PdfTimestampClient.TokenSizeEstimate)} ({pending.Timestamp!.TokenSizeEstimate}).");
-            }
+            RequireFits(cms, pending.Reserved, pending.TimestampToken, pending.Timestamp?.TokenSizeEstimate ?? 0);
         }
         catch
         {
@@ -373,6 +389,17 @@ public sealed partial class PdfDocument
         cms.CopyTo(contents, 0);
         pending.Signature[ContentsName] = new CosString(contents, hexadecimal: true);
         return pending.Update with { Bytes = bytes };
+    }
+
+    /// <summary>Throws when the encoded signature does not fit the room reserved in <c>Contents</c>, before anything is written.</summary>
+    private static void RequireFits(byte[] cms, int reserved, byte[]? timestampToken, int timestampEstimate)
+    {
+        if (cms.Length > reserved)
+        {
+            throw new InvalidOperationException(timestampToken is null
+                ? $"The signature takes {cms.Length} bytes, more than the {reserved} reserved for it; the signer returned an unexpectedly long signature value."
+                : $"The signature with its {timestampToken.Length}-byte time-stamp token takes {cms.Length} bytes, more than the {reserved} reserved for it; raise {nameof(PdfTimestampClient)}.{nameof(PdfTimestampClient.TokenSizeEstimate)} ({timestampEstimate}).");
+        }
     }
 
     /// <summary>
@@ -485,7 +512,8 @@ public sealed partial class PdfDocument
     /// Makes <paramref name="signature"/> the value of the signature field: the unsigned one <paramref name="fieldName"/> names, or a
     /// new invisible one; sets SignaturesExist and AppendOnly (§12.7.3, Table 225).
     /// </summary>
-    private CosDictionary PlaceSignature(string? fieldName, CosReference signature, List<Action> undo, PdfSignatureAppearance? appearance = null)
+    private CosDictionary PlaceSignature(
+        string? fieldName, CosReference signature, List<Action> undo, out string placedName, PdfSignatureAppearance? appearance = null)
     {
         if (fieldName is not null && fieldName.Length == 0)
         {
@@ -508,10 +536,12 @@ public sealed partial class PdfDocument
             }
 
             field = signatureField.Dictionary;
+            placedName = signatureField.FullyQualifiedName;
         }
         else
         {
-            field = NewSignatureField(form, fieldName ?? UnusedFieldName(view), undo, appearance);
+            placedName = fieldName ?? UnusedFieldName(view);
+            field = NewSignatureField(form, placedName, undo, appearance);
         }
 
         Set(field, FormNames.V, signature, undo);
@@ -659,7 +689,7 @@ public sealed partial class PdfDocument
 
     /// <summary>A signature written with placeholders and hashed, waiting for its signature value.</summary>
     private sealed record PendingSignature(
-        IPdfSigner Signer,
+        X509Certificate2 Certificate,
         IReadOnlyList<X509Certificate2> Chain,
         SigningKey Key,
         RSASignaturePadding Padding,
@@ -684,6 +714,12 @@ public sealed partial class PdfDocument
 
         /// <summary>Gets or sets the signature time-stamp token, once the authority issued it.</summary>
         public byte[]? TimestampToken { get; set; }
+
+        /// <summary>Gets the fully qualified name of the field the signature went into.</summary>
+        public string FieldName { get; init; } = string.Empty;
+
+        /// <summary>Gets the SHA-256 digest of the byte ranges, when asked for (deferred signing, #640).</summary>
+        public byte[]? RangeFingerprint { get; init; }
 
         public void Undo() => Revert(UndoActions);
     }

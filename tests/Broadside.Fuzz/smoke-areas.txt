@@ -29,6 +29,7 @@ decrypt                     ^src/Broadside/Security/
 public-key                  ^src/Broadside/(Security|Signatures)/
 mac-token                   ^src/Broadside/(Security|Signatures)/
 timestamp-response          ^src/Broadside/Signatures/
+prepared-signature-state    ^src/Broadside/(Signatures/|PdfDocument\.(DeferredSigning|Signatures)\.cs)
 signature-validation        ^src/Broadside/Signatures/
 cms                         ^src/Broadside/Signatures/
 ocsp-response               ^src/Broadside/Signatures/
