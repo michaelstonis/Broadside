@@ -1,7 +1,10 @@
 namespace Broadside;
 
 /// <summary>A PDF/A rule a document does not meet, as veraPDF's validation profile identifies it.</summary>
-/// <param name="Rule">The rule: the ISO 19005 clause and veraPDF test number, such as <c>6.2.11.4.1-1</c>.</param>
+/// <param name="Rule">
+/// The rule: the ISO 19005 clause and veraPDF test number, such as <c>6.2.11.4.1-1</c>; for a level A check Broadside makes beyond
+/// veraPDF's profile (issue #650), the ISO 32000-2 clause it names, such as <c>ISO 32000-2 14.9.3-1</c>.
+/// </param>
 /// <param name="Message">What in the document breaks it.</param>
 /// <remarks>ISO 19005-2, -3 and -4, cited by veraPDF validation-profile rule identifiers (the standard is not in the repository).</remarks>
 public readonly record struct PdfARuleViolation(string Rule, string Message);
@@ -11,7 +14,7 @@ public readonly record struct PdfARuleViolation(string Rule, string Message);
 /// still does not meet, and the save options that write the conversion.
 /// </summary>
 /// <remarks>
-/// ISO 19005-2, -3 and -4 (veraPDF PDF/A-2B, -2U, -3B, -3U, -4 and -4F validation profiles). The same lists are recorded on
+/// ISO 19005-2, -3 and -4 (veraPDF PDF/A-2B, -2U, -2A, -3B, -3U, -3A, -4, -4E and -4F validation profiles). The same lists are recorded on
 /// <see cref="PdfDocument.Diagnostics"/>: <c>PdfAConverted</c> and <c>PdfANotConverted</c> (Information) and <c>PdfANonConformant</c>
 /// (Warning).
 /// <para>ISO 19005-2 §6.1.7, §6.2.11, §6.3, §6.4, §6.5, §6.6, §6.8 and §6.9.</para>

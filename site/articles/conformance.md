@@ -29,9 +29,9 @@ These counts are generated from the maps by `tools/ConformanceCheck`, and the do
 | ICC.1:2022 colour profile format (reading, for ICCBased colour spaces) | `icc-1-2022.md` | 16 | 2 | 1 | 34 | 53 |
 | ISO 14289-1:2014 PDF/UA-1 | `iso-14289-1.md` | 9 | 4 | 10 | 9 | 32 |
 | ISO 14289-2:2024 PDF/UA-2 | `iso-14289-2.md` | 7 | 5 | 6 | 1 | 19 |
-| ISO 19005-2:2011 PDF/A-2 output, cited by veraPDF rule identifiers | `iso-19005-2.md` | 10 | 10 | 0 | 0 | 20 |
-| ISO 19005-3:2012 PDF/A-3 output: what it changes from PDF/A-2, cited by veraPDF rule identifiers | `iso-19005-3.md` | 3 | 1 | 0 | 0 | 4 |
-| ISO 19005-4:2020 PDF/A-4 and PDF/A-4f output, based on PDF 2.0, cited by veraPDF rule identifiers | `iso-19005-4.md` | 12 | 8 | 0 | 0 | 20 |
+| ISO 19005-2:2011 PDF/A-2 output, cited by veraPDF rule identifiers | `iso-19005-2.md` | 11 | 10 | 0 | 0 | 21 |
+| ISO 19005-3:2012 PDF/A-3 output: what it changes from PDF/A-2, cited by veraPDF rule identifiers | `iso-19005-3.md` | 4 | 1 | 0 | 0 | 5 |
+| ISO 19005-4:2020 PDF/A-4 and PDF/A-4f output, based on PDF 2.0, cited by veraPDF rule identifiers | `iso-19005-4.md` | 13 | 8 | 0 | 0 | 21 |
 | ISO 32000-2:2020 PDF 2.0 | `iso-32000-2.md` | 308 | 39 | 19 | 72 | 438 |
 | ISO/TS 32001:2022 Extensions to hash algorithms | `iso-ts-32001.md` | 1 | 2 | 2 | 0 | 5 |
 | ISO/TS 32002:2022 Extensions to digital signatures (ECC) | `iso-ts-32002.md` | 2 | 2 | 1 | 0 | 5 |
@@ -43,7 +43,7 @@ These counts are generated from the maps by `tools/ConformanceCheck`, and the do
 | Application Note 002 Associated Files | `pdf20-an002.md` | 4 | 0 | 0 | 1 | 5 |
 | Application Note 003 Object Metadata Locations | `pdf20-an003.md` | 3 | 0 | 0 | 0 | 3 |
 | Well-Tagged PDF 1.0 | `wtpdf-1.0.md` | 5 | 3 | 8 | 0 | 16 |
-| **Total** |  | 396 | 83 | 50 | 122 | 651 |
+| **Total** |  | 399 | 83 | 50 | 122 | 654 |
 <!-- conformance-counts:end -->
 
 Every row is resolved for v1. A `done` row names the tests that cover it. An `n/a` row says why: introductory or informative text, a heading split into sub-clauses, viewer or printer behavior, or a feature kept as parse-and-preserve (multimedia, 3D, rich media, XFA and JavaScript are never interpreted, and a round-trip test shows they survive a save unchanged). A `partial` or `not started` row names the open issue that tracks the rest of it (`Tracked by #N`), and the checker fails a row that names none.

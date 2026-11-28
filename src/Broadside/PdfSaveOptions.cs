@@ -287,8 +287,10 @@ public sealed class PdfSaveOptions
     /// <remarks>
     /// <para>
     /// ISO 19005-2 (PDF/A-2), ISO 19005-3 (PDF/A-3) and ISO 19005-4 (PDF/A-4), cited by the rule identifiers of veraPDF's validation
-    /// profiles, the reference the output is validated with: see <see cref="PdfAConformance"/> for the levels (2b, 2u, 3b, 3u, 4, 4f). Level U also checks that every
-    /// glyph shown maps to Unicode; PDF/A-3 allows embedded files of any kind when each is an associated file with a relationship. The save first checks the document, changing nothing: each rule it cannot meet (a font
+    /// profiles, the reference the output is validated with: see <see cref="PdfAConformance"/> for the levels (2b, 2u, 2a, 3b, 3u, 3a, 4, 4f, 4e). Level U also checks that every
+    /// glyph shown maps to Unicode; level A adds tagged logical structure (a save sets <c>MarkInfo</c> <c>Marked</c> when the
+    /// structure tree is there), which is not an accessibility claim (see <see cref="PdfUAConformance"/>); PDF/A-4e allows 3D and
+    /// RichMedia annotations, kept as stored; PDF/A-3 allows embedded files of any kind when each is an associated file with a relationship. The save first checks the document, changing nothing: each rule it cannot meet (a font
     /// program not embedded, encryption, an action PDF/A forbids, an annotation without an appearance, a device colour space the output
     /// intent does not cover, a feature later than PDF 1.7, ...) is reported as a <c>PdfANonConformant</c> warning naming the rule. In
     /// strict mode the first one throws and nothing is written or changed. In lenient mode the file is saved without the PDF/A changes
@@ -315,7 +317,7 @@ public sealed class PdfSaveOptions
     /// <param name="conformance">The PDF/A conformance level, or <see cref="PdfAConformance.None"/>.</param>
     /// <returns>These options.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="conformance"/> is not a defined level.</exception>
-    /// <remarks>ISO 19005-2, ISO 19005-3 and ISO 19005-4 (veraPDF PDF/A-2B, -2U, -3B, -3U, -4 and -4F validation profiles).</remarks>
+    /// <remarks>ISO 19005-2, ISO 19005-3 and ISO 19005-4 (veraPDF PDF/A-2B, -2U, -2A, -3B, -3U, -3A, -4, -4E and -4F validation profiles).</remarks>
     public PdfSaveOptions WithPdfAConformance(PdfAConformance conformance)
     {
         PdfAConformance = conformance;

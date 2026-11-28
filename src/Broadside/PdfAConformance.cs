@@ -55,4 +55,34 @@ public enum PdfAConformance
     /// </summary>
     /// <remarks>ISO 19005-4, 6.7.3 and 6.9 (veraPDF PDF/A-4F validation profile, rules 6.9-1, 6.9-2, 6.9-4 and 6.9-5).</remarks>
     PdfA4f,
+
+    /// <summary>
+    /// PDF/A-2a (ISO 19005-2, level A, accessible): PDF/A-2u, and tagged logical structure. The catalog has a structure tree and
+    /// <c>MarkInfo</c> <c>Marked</c> true (a save sets <c>Marked</c> when the tree is there), every structure type is standard or
+    /// role-mapped to one, no standard type is remapped and no mapping is circular, every <c>Lang</c> is a language identifier, and a
+    /// glyph mapped to the Unicode Private Use Area has <c>ActualText</c>. A save also checks, beyond veraPDF's profile, that the
+    /// content is tagged or an artifact, that the language is known, and that figures, formulas and forms have alternate text. Level
+    /// A is not an accessibility claim: check PDF/UA (<see cref="PdfSaveOptions.PdfUAConformance"/>) for that.
+    /// </summary>
+    /// <remarks>
+    /// ISO 19005-2, 6.2.11.7.3 and 6.7 (veraPDF PDF/A-2A validation profile, rules 6.2.11.7.3-1, 6.7.2.2-1, 6.7.3.3-1, 6.7.3.4-1 to
+    /// 6.7.3.4-3 and 6.7.4-1); ISO 32000-2 §14.8, §14.9.2, §14.9.3.
+    /// </remarks>
+    PdfA2a = 7,
+
+    /// <summary>PDF/A-3a (ISO 19005-3, level A): PDF/A-3u with the tagged logical structure of <see cref="PdfA2a"/>.</summary>
+    /// <remarks>ISO 19005-3, 6.2.11.7.3, 6.7 and 6.8 (veraPDF PDF/A-3A validation profile).</remarks>
+    PdfA3a = 8,
+
+    /// <summary>
+    /// PDF/A-4e (ISO 19005-4:2020, Annex B, engineering): PDF/A-4 that also allows 3D and RichMedia annotations, whose 3D streams are
+    /// U3D or PRC, the SetOCGState and GoTo3DView actions, and embedded files of any kind (each with <c>F</c> and <c>UF</c>, an
+    /// <c>AFRelationship</c> and a MIME type, as for PDF/A-4f, but without an <c>EmbeddedFiles</c> tree being required); the
+    /// identification states <c>pdfaid:conformance</c> E. Broadside keeps 3D and RichMedia content as stored and does not render it.
+    /// </summary>
+    /// <remarks>
+    /// ISO 19005-4, 6.1.6.1, 6.3.1, 6.6.1, 6.7.3, 6.9 and Annex B (veraPDF PDF/A-4E validation profile, rules 6.1.6.1-3, 6.3.1-1,
+    /// 6.6.1-1, 6.7.3-3); ISO 32000-2 §13.6 and §13.7.
+    /// </remarks>
+    PdfA4e = 9,
 }

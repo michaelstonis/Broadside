@@ -1,0 +1,46 @@
+%PDF-2.0
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /Version /2.0 >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << >> /Annots [5 0 R] >>
+endobj
+4 0 obj
+<<  /Length 27 >>
+stream
+0 0 1 rg 72 72 100 100 re f
+endstream
+endobj
+5 0 obj
+<< /Type /Annot /Subtype /3D /Rect [72 500 272 700] /P 3 0 R /F 4 /Contents (A 3D model) /3DD 6 0 R /3DA << /A /PO /D /PC >> /AP << /N 7 0 R >> >>
+endobj
+6 0 obj
+<< /Type /3D /Subtype /U3D /Length 25 >>
+stream
+U3D stand-in: not a scene
+endstream
+endobj
+7 0 obj
+<< /Type /XObject /Subtype /Form /BBox [0 0 200 200] /Resources << >> /Length 26 >>
+stream
+q 0.8 g 0 0 200 200 re f Q
+endstream
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000072 00000 n 
+0000000129 00000 n 
+0000000249 00000 n 
+0000000327 00000 n 
+0000000489 00000 n 
+0000000588 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R /ID [<ab233c88bc3f9b67f1a26e1bc999d8ce> <ab233c88bc3f9b67f1a26e1bc999d8ce>] >>
+startxref
+731
+%%EOF

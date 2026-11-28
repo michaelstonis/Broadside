@@ -116,6 +116,15 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
     /// <remarks>ISO 32000-2 §14.7.3 (cycles are permitted, NOTE 2), §14.7.4.2, §14.8.6.2. Empty when the element has no type.</remarks>
     public IReadOnlyList<PdfStructureType> RoleMapping => StructureType is { } type ? _context.ResolveRole(type, Namespace).Chain : [];
 
+    /// <summary>
+    /// The standard type <see cref="StandardType"/> resolves to, without its <c>StructureTypeUnresolved</c> diagnostic: for checks that
+    /// report an unresolved type under their own rule (issue #650).
+    /// </summary>
+    internal PdfStructureType? ResolvedStandardType => StructureType is { } type ? _context.ResolveRole(type, Namespace).Standard : null;
+
+    /// <summary>Whether <see cref="RoleMapping"/> returns to a type it has already visited (§14.7.3, NOTE 2), which PDF/A level A forbids.</summary>
+    internal bool RoleMappingEndsInCycle => StructureType is { } type && _context.ResolveRole(type, Namespace).EndsInCycle;
+
     /// <summary>Gets or sets the element identifier (<c>ID</c>), a byte string unique in the document, or <see langword="null"/>; setting keeps the root's <c>IDTree</c> in step.</summary>
     /// <remarks>ISO 32000-2 Table 355; looked up through <see cref="PdfStructureTreeRoot.FindElementById(ReadOnlySpan{byte})"/>.</remarks>
     public CosString? Id

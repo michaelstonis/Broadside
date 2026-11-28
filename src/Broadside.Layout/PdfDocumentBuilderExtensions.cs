@@ -163,7 +163,7 @@ public static class PdfDocumentBuilderExtensions
                 unmet.Add($"{name} cannot append to an untagged document, whose earlier pages would stay untagged; tag them first with AutoTag (ISO 32000-2 §14.8).");
             }
 
-            bool part4 = a is PdfAConformance.PdfA4 or PdfAConformance.PdfA4f;
+            bool part4 = a is PdfAConformance.PdfA4 or PdfAConformance.PdfA4f or PdfAConformance.PdfA4e;
             if (a != PdfAConformance.None && (ua == PdfUAConformance.PdfUA1) == part4)
             {
                 unmet.Add(ua == PdfUAConformance.PdfUA1
@@ -173,9 +173,24 @@ public static class PdfDocumentBuilderExtensions
         }
 
         if (a != PdfAConformance.None && context.Attachments.Count > 0
-            && a is not (PdfAConformance.PdfA3b or PdfAConformance.PdfA3u or PdfAConformance.PdfA4f))
+            && a is not (PdfAConformance.PdfA3b or PdfAConformance.PdfA3u or PdfAConformance.PdfA3a or PdfAConformance.PdfA4f or PdfAConformance.PdfA4e))
         {
-            unmet.Add($"PDF/A-{(a is PdfAConformance.PdfA4 ? "4" : "2")} does not allow attaching files of any kind; use PDF/A-3 or PDF/A-4f to attach {context.Attachments[0].FileName} (ISO 19005-3, 6.8; ISO 19005-4, 6.9).");
+            unmet.Add($"PDF/A-{(a is PdfAConformance.PdfA4 ? "4" : "2")} does not allow attaching files of any kind; use PDF/A-3, PDF/A-4f or PDF/A-4e to attach {context.Attachments[0].FileName} (ISO 19005-3, 6.8; ISO 19005-4, 6.9).");
+        }
+
+        if (a is PdfAConformance.PdfA2a or PdfAConformance.PdfA3a)
+        {
+            // Level A (issue #650): the logical structure of ISO 19005-2 and -3 clause 6.7, and the language a level A save checks.
+            string level = a == PdfAConformance.PdfA2a ? "PDF/A-2a" : "PDF/A-3a";
+            if (!context.Tagging)
+            {
+                unmet.Add($"{level} needs tagged output; remove WithTagging(false) (ISO 19005-2, 6.7; ISO 32000-2 §14.8).");
+            }
+
+            if (ua == PdfUAConformance.None && context.Language is null && (!context.Appending || document.Language is not { Length: > 0 }))
+            {
+                unmet.Add($"{level} needs the document's language; set it with WithLanguage (ISO 32000-2 §14.9.2).");
+            }
         }
 
         return unmet;
@@ -278,11 +293,12 @@ public static class PdfDocumentBuilderExtensions
         FlowTagging tagging = FlowTagging.Default.WithLanguage(language).WithTitle(title);
 
         // The namespace the declared profile reads: PDF 1.7 for PDF/UA-1, PDF/A-2 and PDF/A-3; PDF 2.0 for PDF/UA-2 and PDF/A-4 (§14.8.6).
-        if (context.PdfUA == PdfUAConformance.PdfUA1 || context.PdfA is PdfAConformance.PdfA2b or PdfAConformance.PdfA2u or PdfAConformance.PdfA3b or PdfAConformance.PdfA3u)
+        if (context.PdfUA == PdfUAConformance.PdfUA1 || context.PdfA is PdfAConformance.PdfA2b or PdfAConformance.PdfA2u or PdfAConformance.PdfA2a
+            or PdfAConformance.PdfA3b or PdfAConformance.PdfA3u or PdfAConformance.PdfA3a)
         {
             tagging = tagging.WithNamespace(FlowStructureNamespace.Pdf17);
         }
-        else if (context.PdfUA == PdfUAConformance.PdfUA2 || context.PdfA is PdfAConformance.PdfA4 or PdfAConformance.PdfA4f)
+        else if (context.PdfUA == PdfUAConformance.PdfUA2 || context.PdfA is PdfAConformance.PdfA4 or PdfAConformance.PdfA4f or PdfAConformance.PdfA4e)
         {
             tagging = tagging.WithNamespace(FlowStructureNamespace.Pdf20);
         }

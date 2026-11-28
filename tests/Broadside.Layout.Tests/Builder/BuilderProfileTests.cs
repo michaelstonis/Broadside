@@ -206,7 +206,7 @@ public sealed class BuilderProfileTests
     public void Declaring_a_profile_refuses_undefined_values_at_the_call()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => PdfDocument.Create(doc => doc.WithPdfUAConformance((PdfUAConformance)9)));
-        Assert.Throws<ArgumentOutOfRangeException>(() => PdfDocument.Create(doc => doc.WithPdfAConformance((PdfAConformance)9)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PdfDocument.Create(doc => doc.WithPdfAConformance((PdfAConformance)99)));
         Assert.Throws<ArgumentException>(() => PdfDocument.Create(doc => doc.AttachFile("", "x", PdfFileRelationship.Data)));
     }
 

@@ -128,6 +128,7 @@
   pattern-tiling-colored.pdf,
   pattern-tiling-uncolored.pdf,
   pdf20-header.pdf,
+  pdfa4e-3d.pdf,
   png-predictor.pdf,
   redact-pii.pdf,
   rendering-intents.pdf,

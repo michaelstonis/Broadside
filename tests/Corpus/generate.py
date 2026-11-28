@@ -2594,6 +2594,25 @@ def gen_page_tree_inherited() -> bytes:
     ])
 
 
+def gen_pdfa4e_3d() -> bytes:
+    """A PDF 2.0 page with a 3D annotation (ISO 32000-2 13.6.2 Table 309, 13.6.3 Table 311), the content PDF/A-4e keeps (ISO 19005-4
+    Annex B, issue #650). The 3D stream's Subtype is U3D (13.6.3; veraPDF PDF/A-4E rule 6.1.6.1-3) and its data a stand-in, not a
+    U3D scene: nothing in Broadside reads it. The annotation is printed (F 4) and has a normal appearance, the poster a viewer shows
+    when the 3D content is not active (13.6.2), as PDF/A requires (6.3.2, 6.3.3). The page draws a blue square in DeviceRGB."""
+    poster = b"q 0.8 g 0 0 200 200 re f Q"
+    id0 = file_id("pdfa4e-3d").hex().encode()
+    return simple_file([
+        (1, catalog(b" /Version /2.0")),
+        (2, pages()),
+        (3, page(contents=4, extra=b" /Annots [5 0 R]")),
+        (4, stream(b"", b"0 0 1 rg 72 72 100 100 re f")),
+        (5, b"<< /Type /Annot /Subtype /3D /Rect [72 500 272 700] /P 3 0 R /F 4 /Contents (A 3D model) "
+            b"/3DD 6 0 R /3DA << /A /PO /D /PC >> /AP << /N 7 0 R >> >>"),
+        (6, stream(b"/Type /3D /Subtype /U3D", b"U3D stand-in: not a scene")),
+        (7, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 200 200] /Resources << >>", poster)),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
 def gen_annotations_link() -> bytes:
     return simple_file([
         (1, catalog()),
@@ -7657,6 +7676,7 @@ FILES = {
     "clip-before-path.pdf": gen_clip_before_path,
     "duplicate-images.pdf": gen_duplicate_images,
     "redact-pii.pdf": gen_redact_pii,
+    "pdfa4e-3d.pdf": gen_pdfa4e_3d,
 }
 
 
