@@ -87,6 +87,19 @@ public static class LayoutDiagnostics
     public static DiagnosticCode ForwardReferencesNotConverged { get; } = new(nameof(ForwardReferencesNotConverged), DiagnosticArea.Layout, DiagnosticSeverity.Warning, "ISO 32000-2 §7.7.3.3",
         "The page numbers shown by forward references still changed after the maximum number of layout passes. The last pass's numbers are shown, and some may be wrong.");
 
+    /// <summary>Gets the <c>MarkdownHtmlIgnored</c> code: Markdown converted by the document builder holds raw HTML (an HTML block or
+    /// inline HTML), which is never rendered; it is dropped and the conversion continues. Reported once per document.</summary>
+    /// <remarks>CommonMark 0.31, "HTML blocks" and "Raw HTML"</remarks>
+    public static DiagnosticCode MarkdownHtmlIgnored { get; } = new(nameof(MarkdownHtmlIgnored), DiagnosticArea.Layout, DiagnosticSeverity.Information, "CommonMark 0.31 §4.6, §6.6",
+        "Markdown converted to the document holds raw HTML, which is not rendered. The HTML is dropped.");
+
+    /// <summary>Gets the <c>MarkdownImageNotFound</c> code: an image in Markdown converted by the document builder was not supplied by
+    /// the image resolver or found under the base directory (remote images are never fetched, and a path that leaves the base directory
+    /// is refused), or is not a PNG or JPEG; its alternate text is written in italics instead.</summary>
+    /// <remarks>ISO 32000-2 §14.9.3</remarks>
+    public static DiagnosticCode MarkdownImageNotFound { get; } = new(nameof(MarkdownImageNotFound), DiagnosticArea.Layout, DiagnosticSeverity.Warning, "ISO 32000-2 §14.9.3",
+        "An image in Markdown converted to the document could not be resolved to a PNG or JPEG. Its alternate text is written in italics instead.");
+
     /// <summary>Gets every code of this area, in declaration order.</summary>
     internal static DiagnosticCode[] Codes { get; } =
     [
@@ -104,5 +117,7 @@ public static class LayoutDiagnostics
         AnchorNotFound,
         AnchorDuplicate,
         ForwardReferencesNotConverged,
+        MarkdownHtmlIgnored,
+        MarkdownImageNotFound,
     ];
 }

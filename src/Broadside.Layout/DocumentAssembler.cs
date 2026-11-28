@@ -206,6 +206,7 @@ internal sealed partial class DocumentAssembler
                         KeepWithNext = group.KeepWithNext,
                         IsTagged = group.Role is not null,
                         StructureType = group.Role ?? "Div",
+                        Indent = group.Indent?.ToPoints() ?? 0,
                     });
                     break;
                 case SpacerNode spacer:
@@ -262,7 +263,7 @@ internal sealed partial class DocumentAssembler
             {
                 _context.Report(
                     LayoutDiagnostics.HeadingLevelSkipped,
-                    $"The heading \"{Shorten(node.Text)}\" is level {node.Level} after {(_lastHeading == 0 ? "no heading" : $"a level {_lastHeading} heading")}; heading levels should not be skipped (ISO 32000-2 §14.8.4.3.6).");
+                    $"The heading \"{Shorten(node.Text ?? string.Concat(node.Spans?.Select(span => span.Text) ?? []))}\" is level {node.Level} after {(_lastHeading == 0 ? "no heading" : $"a level {_lastHeading} heading")}; heading levels should not be skipped (ISO 32000-2 §14.8.4.3.6).");
             }
 
             _lastHeading = node.Level;
@@ -284,7 +285,7 @@ internal sealed partial class DocumentAssembler
         string? language = string.Equals(full.Language, parentLanguage, StringComparison.OrdinalIgnoreCase) ? null : full.Language;
         if (text is not null)
         {
-            List<InlineElement>? runs = AddRuns(null, text, full, NeedsStyle(full) ? TextStyleOf(full, full.Color) : null, style, null, null, null);
+            List<InlineElement>? runs = AddRuns(null, text, full, NeedsStyle(full) ? TextStyleOf(full, full.Color) : null, style, null, null, null, null);
             return runs is null
                 ? new Paragraph(text, style) { StructureType = structureType, Language = language, Id = id }
                 : new Paragraph(runs, style) { StructureType = structureType, Language = language, Id = id };
@@ -308,7 +309,7 @@ internal sealed partial class DocumentAssembler
                 continue;
             }
 
-            _ = AddRuns(content, span.Text, spanFull, spanStyle, style, span.Link, span.Destination, spanLanguage);
+            _ = AddRuns(content, span.Text, spanFull, spanStyle, style, span.Link, span.Destination, spanLanguage, span.StructureType);
         }
 
         return new Paragraph(content, style) { StructureType = structureType, Language = language, Id = id };
@@ -319,16 +320,16 @@ internal sealed partial class DocumentAssembler
     /// else one per stretch of a face from the family's fallbacks, with characters no face encodes replaced and reported. Leaves
     /// <paramref name="runs"/> null for plain text that needs no run of its own.
     /// </summary>
-    private List<InlineElement>? AddRuns(List<InlineElement>? runs, string text, Style full, TextStyle? style, ParagraphStyle paragraph, Uri? link, string? destination, string? language)
+    private List<InlineElement>? AddRuns(List<InlineElement>? runs, string text, Style full, TextStyle? style, ParagraphStyle paragraph, Uri? link, string? destination, string? language, string? structureType)
     {
         PdfCanvasFont primary = (style ?? paragraph.TextStyle).Font;
         FontFamily family = full.FontFamily!;
         if (Encodes(primary, text))
         {
-            if (runs is not null || style is not null || link is not null || destination is not null || language is not null)
+            if (runs is not null || style is not null || link is not null || destination is not null || language is not null || structureType is not null)
             {
                 runs ??= [];
-                runs.Add(Run(text, style, link, destination, language));
+                runs.Add(Run(text, style, link, destination, language, structureType));
             }
 
             return runs;
@@ -347,7 +348,7 @@ internal sealed partial class DocumentAssembler
             PdfCanvasFont font = Skipped(rune) ? current ?? primary : FontFor(family, face, primary, character, rune);
             if (current is not null && !ReferenceEquals(font, current))
             {
-                runs.Add(Run(segment.ToString(), ReferenceEquals(current, primary) ? style : baseStyle.WithFont(current), link, destination, language));
+                runs.Add(Run(segment.ToString(), ReferenceEquals(current, primary) ? style : baseStyle.WithFont(current), link, destination, language, structureType));
                 segment.Clear();
             }
 
@@ -364,16 +365,20 @@ internal sealed partial class DocumentAssembler
 
         if (segment.Length > 0)
         {
-            runs.Add(Run(segment.ToString(), ReferenceEquals(current, primary) ? style : baseStyle.WithFont(current!), link, destination, language));
+            runs.Add(Run(segment.ToString(), ReferenceEquals(current, primary) ? style : baseStyle.WithFont(current!), link, destination, language, structureType));
         }
 
         return runs;
     }
 
-    private static TextRun Run(string text, TextStyle? style, Uri? link, string? destination, string? language) =>
-        style is null
-            ? new TextRun(text) { Link = link, Destination = destination, Language = language }
-            : new TextRun(text, style) { Link = link, Destination = destination, Language = language };
+    /// <summary>A run of <paramref name="text"/>; <paramref name="structureType"/> overrides its default <c>Span</c> (a Markdown <c>Em</c>, <c>Strong</c> or <c>Code</c>), never a link's <c>Link</c>.</summary>
+    private static TextRun Run(string text, TextStyle? style, Uri? link, string? destination, string? language, string? structureType)
+    {
+        string type = link is not null || destination is not null ? "Link" : structureType ?? "Span";
+        return style is null
+            ? new TextRun(text) { Link = link, Destination = destination, Language = language, StructureType = type }
+            : new TextRun(text, style) { Link = link, Destination = destination, Language = language, StructureType = type };
+    }
 
     private PdfCanvasFont FontFor(FontFamily family, FontFace face, PdfCanvasFont primary, ReadOnlySpan<char> character, Rune rune)
     {
@@ -451,7 +456,8 @@ internal sealed partial class DocumentAssembler
             }
             else
             {
-                list.Add(new ListItem(Blocks(item.Content!, inner, itemLanguage)));
+                string? marker = item.Marker is { } own && item.MarkerFallback is { } fallback && !style.MarkerStyle.Font.CanEncode(own) ? fallback : item.Marker;
+                list.Add(new ListItem(Blocks(item.Content!, inner, itemLanguage)) { Marker = marker, MarkerActualText = item.MarkerActualText });
             }
         }
 
@@ -725,8 +731,8 @@ internal sealed partial class DocumentAssembler
             SpaceBefore = box.SpaceBefore?.ToPoints() ?? 0,
             SpaceAfter = box.SpaceAfter?.ToPoints() ?? _root.SpaceAfter?.ToPoints() ?? 0,
             Id = node.Id,
-            StructureType = node.AlternateText is null ? "Artifact" : "Figure",
-            Language = node.AlternateText is null ? null : blockLanguage,
+            StructureType = node.AlternateText is null && !node.Figure ? "Artifact" : "Figure",
+            Language = node.AlternateText is null && !node.Figure ? null : blockLanguage,
         };
     }
 

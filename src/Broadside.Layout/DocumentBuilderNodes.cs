@@ -64,6 +64,9 @@ internal sealed class BuildContext(PdfDocument document, bool appending)
     /// <summary>True once the build has finished: a handle used after that throws.</summary>
     public bool Closed { get; set; }
 
+    /// <summary>True once a Markdown conversion reported the raw HTML it ignored, so the document reports it once.</summary>
+    public bool MarkdownHtmlReported { get; set; }
+
     public static BuildContext Check(BuildContext? context)
     {
         if (context is null)
@@ -183,6 +186,9 @@ internal sealed class SpanNode
     public string? PageOf { get; init; }
 
     public bool LineBreak { get; init; }
+
+    /// <summary>The span's structure type instead of <c>Span</c> (<c>Em</c>, <c>Strong</c>, <c>Code</c>), or null; a link stays <c>Link</c>.</summary>
+    public string? StructureType { get; init; }
 }
 
 /// <summary>A list and its items.</summary>
@@ -209,6 +215,15 @@ internal sealed class ItemNode
     public string? Text { get; init; }
 
     public ContainerNode? Content { get; init; }
+
+    /// <summary>The item's marker instead of the list's, or null.</summary>
+    public string? Marker { get; init; }
+
+    /// <summary>The marker used when the list's marker font cannot encode <see cref="Marker"/>, or null.</summary>
+    public string? MarkerFallback { get; init; }
+
+    /// <summary>The replacement text of the item's label (<c>ActualText</c>), or null.</summary>
+    public string? MarkerActualText { get; init; }
 }
 
 /// <summary>An image, described or decorative.</summary>
@@ -217,6 +232,9 @@ internal sealed class ImageNode : BlockNode
     public required ImageSource Source { get; init; }
 
     public string? AlternateText { get; init; }
+
+    /// <summary>Whether the image is a <c>Figure</c> even without alternate text (a Markdown image with empty alt text), so tagging reports it; otherwise such an image is an artifact.</summary>
+    public bool Figure { get; init; }
 
     public Length? Width { get; set; }
 
@@ -238,6 +256,9 @@ internal sealed class GroupNode : BlockNode
 
     /// <summary>The structure type the group is tagged as, or null for a group that adds no element.</summary>
     public string? Role { get; set; }
+
+    /// <summary>How far the group's content is indented from the left, or null for none.</summary>
+    public Length? Indent { get; set; }
 }
 
 /// <summary>A table: columns, header rows, body rows and its options.</summary>

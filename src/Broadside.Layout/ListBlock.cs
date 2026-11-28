@@ -231,6 +231,10 @@ public sealed class ListItem
 
     /// <summary>A marker for this item instead of the list style's, or null.</summary>
     public string? Marker { get; init; }
+
+    /// <summary>The replacement text of the item's label for tagged output (a task list checkbox's state), or null.</summary>
+    /// <remarks>ISO 32000-2 §14.9.4.</remarks>
+    internal string? MarkerActualText { get; init; }
 }
 
 /// <summary>

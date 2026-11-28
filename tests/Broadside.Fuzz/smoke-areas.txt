@@ -65,3 +65,4 @@ redact                      ^src/Broadside/(Redaction|Content|Annotations)/|^src
 icc-profile                 ^src/Broadside/Graphics/|^src/Broadside\.Rendering/Icc/
 rasterize                   ^src/Broadside\.Rendering/|^src/Broadside/(Rendering|Graphics)/
 rasterize-page              ^src/Broadside\.Rendering/|^src/Broadside/(Rendering|Graphics|Content|Fonts|Images)/
+markdown                    ^src/Broadside\.Layout/(Markdown[^/]*|ContainerBuilder|DocumentAssembler|DocumentBuilderNodes|PdfDocumentMarkdownExtensions)\.cs$

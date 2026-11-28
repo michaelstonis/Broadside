@@ -364,6 +364,10 @@ internal sealed class FlowStructure : IStructureSink
             case TableCell cell:
                 DescribeCell(node, element, cell);
                 break;
+            case ListItem { MarkerActualText: { } actualText } when node.Type == "Lbl":
+                // §14.9.4: what the label stands for, such as the state of a task list checkbox.
+                element.ActualText = actualText;
+                break;
             case ListBlock list:
                 // §14.8.5.5, Table 382: how the labels number the items; PDF/UA-2 requires it on lists with labels (ISO 14289-2 §8.2.5.25).
                 element.AddAttributes(ListOwner).SetValue(ListNumberingKey, new CosName(NumberingOf(list.Style)));

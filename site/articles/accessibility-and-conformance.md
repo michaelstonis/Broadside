@@ -45,6 +45,38 @@ document.Save("annual-results-pdfua1.pdf", new PdfSaveOptions().WithPdfUAConform
 
 The [document builder](building-documents.md) does the same with less code, and checks the PDF/UA preconditions (language, title, heading levels) before it lays anything out.
 
+### From Markdown
+
+Release notes, READMEs and generated reports written in Markdown convert to PDF/UA-2 in one call. The Markdown maps onto the document builder, so its structure is the builder's: headings `H1` to `H6`, paragraphs with `Em`, `Strong` and `Link` spans, lists, tables with header cells, figures with the image's alternate text, block quotes as `Div`.
+
+<!-- snippet: samples/guides/AccessibilityConformance/Program.cs#pdfua-markdown -->
+```csharp
+// Markdown goes through the document builder, so headings, emphasis, lists, tables, links and images come out tagged.
+const string markdown = """
+    # Release notes
+
+    Version 1.1 reads **Markdown**. Highlights:
+
+    - Headings, lists and tables are tagged `H1`, `L` and `Table`.
+    - Links such as [the guide](https://example.com/guide) keep their target.
+
+    | Area   | Change          |
+    |--------|-----------------|
+    | Layout | Markdown to PDF |
+    """;
+
+// The first level-1 heading becomes the title; the language and the profile come from configure.
+using PdfDocument document = PdfDocument.CreateFromMarkdown(markdown, configure: doc => doc
+    .WithLanguage("en-US")
+    .WithPdfUAConformance(PdfUAConformance.PdfUA2));
+document.Save("release-notes-pdfua2.pdf"); // the declared profile is the document's default save options
+```
+<!-- endsnippet -->
+
+- The first level-1 heading becomes the title unless `configure` sets one. PDF/UA still needs `WithLanguage`.
+- An image without alternate text (`![](chart.png)`) is a `Figure` without `Alt`, reported as `FigureWithoutAlternateText`, which PDF/UA-2 does not allow: write the alternate text in the brackets.
+- Raw HTML is dropped (`MarkdownHtmlIgnored`), and images are never fetched from the network: they come from `MarkdownOptions.WithImageResolver` or a file under `WithBaseDirectory`. See [Markdown](building-documents.md#markdown) in the builder guide.
+
 Conformance: [ISO 14289-1 (PDF/UA-1)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-14289-1.md), [ISO 14289-2 (PDF/UA-2)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-14289-2.md), [Well-Tagged PDF 1.0](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/wtpdf-1.0.md) and [ISO 32000-2 §14.7, §14.8](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
 
 ## Tagging an existing file
