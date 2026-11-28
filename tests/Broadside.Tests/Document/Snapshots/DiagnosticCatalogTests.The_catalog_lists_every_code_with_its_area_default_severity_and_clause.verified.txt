@@ -305,6 +305,7 @@ Image	PlatformImageVerified	Warning	ISO 32000-2 §7.4.8
 Image	PlatformImageMismatch	Warning	ISO 32000-2 §7.4.8
 Image	InlineImageFilterNotAllowed	Warning	ISO 32000-2 §8.9.7
 Image	ImageOptimizationSkipped	Information	ISO 32000-2 §8.9.5.3
+Image	ImageImportRepaired	Warning	ISO 32000-2 §8.9.5
 Font	Type0EncodingMissing	Warning	ISO 32000-2 §9.7.3, §9.7.4, §9.7.6.1
 Font	Type0DescendantFontsInvalid	Warning	ISO 32000-2 §9.7.3, §9.7.4, §9.7.6.1
 Font	Type0IdentityNotEmbedded	Warning	ISO 32000-2 §9.7.3, §9.7.4, §9.7.6.1

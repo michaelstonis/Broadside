@@ -139,6 +139,32 @@ document.Save("images.pdf");
 
 Conformance: [ISO 32000-2 §8.9 (images), §11.6.5 (soft masks)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
 
+## Images from scans (TIFF)
+
+`CreateImagesFromTiff` makes one image per page of a TIFF file, and `CreateImageFromGif` and `CreateImageFromBmp` read the other common formats; `CreateImages` takes any of JPEG, PNG, TIFF, GIF and BMP by its signature. `AppendImagePages` turns a file into pages in one call, each page the size of its image at the file's resolution, with a TIFF `Orientation` applied by the page's matrix:
+
+<!-- snippet: samples/guides/Writing/Program.cs#scans -->
+```csharp
+using PdfDocument document = PdfDocument.Create();
+
+// One page per TIFF page, sized by its resolution; CCITT G4 and JPEG data are kept as they are.
+document.AppendImagePages(File.ReadAllBytes("scans.tif"));
+
+// Or make the images and place them yourself: CreateImages reads JPEG, PNG, TIFF, GIF and BMP.
+IReadOnlyList<PdfImage> pages = document.CreateImagesFromTiff(File.ReadAllBytes("scans.tif"));
+using (PdfCanvas canvas = document.Pages[0].CreateCanvas())
+{
+    canvas.DrawImage(pages[0], 72, 72, 200, 200 * pages[0].Height / pages[0].Width);
+}
+
+document.Save("scans.pdf");
+```
+<!-- endsnippet -->
+
+Fax data (CCITT Group 3 and Group 4) is kept as it is, as `CCITTFaxDecode` data, when the page is one strip, so a bitonal scan stays as small as the TIFF; so is JPEG data (compression 7) in one strip. Other data (LZW, Deflate, PackBits, uncompressed, and CCITT or JPEG in several strips) is decoded and compressed again with Flate. An alpha channel becomes a soft mask, a palette an `Indexed` color space, an embedded ICC profile an `ICCBased` space. Malformed files are refused with an `ArgumentException` that says why; old-style JPEG (compression 6), BigTIFF and floating-point samples throw `NotSupportedException`. A repaired oddity, such as a wrong strip byte count, is recorded as an `ImageImportRepaired` diagnostic.
+
+Conformance: [ISO 32000-2 §7.4.6 (CCITTFaxDecode), §8.9.5 (image dictionaries)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
+
 ## Gradients and transparency
 
 Shadings paint gradients; `CreateAxialShading` and `CreateRadialShading` take color stops. `SetFillAlpha`, `SetStrokeAlpha` and `SetBlendMode` set transparency for what follows, and `SetSoftMask` applies a mask made with `CreateSoftMask`:

@@ -56,6 +56,11 @@ Broadside.Filters.Dct.JpegBitReader                     filter-dct
 Broadside.Filters.Dct.ArithmeticDecoder                 filter-dct
 Broadside.Images.JpegInfo                               jpeg-reader
 Broadside.Images.Png.PngReader                          png-reader
+Broadside.Images.Import.TiffReader                      tiff
+Broadside.Images.Import.TiffDirectory                   tiff
+Broadside.Images.Import.ImportLzwDecoder                tiff gif
+Broadside.Images.Import.GifReader                       gif
+Broadside.Images.Import.BmpReader                       bmp
 Broadside.Filters.Jbig2DecodeFilter                     filter-jbig2
 Broadside.Filters.Jbig2.Jbig2PageDecoder                filter-jbig2
 Broadside.Filters.Jbig2.Jbig2IntegerDecoder             filter-jbig2

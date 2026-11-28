@@ -11,6 +11,7 @@ DrawPaths();
 DrawText();
 EmbedAFont();
 DrawImages();
+ScanToPdf();
 DrawTransparency();
 FlowAReport();
 Sample.Finish();
@@ -119,6 +120,28 @@ static void DrawImages()
 
     using PdfDocument saved = PdfDocument.Open("images.pdf");
     Sample.Expect(saved.Pages[0].ExtractImages().Count == 2, "two images on the page");
+}
+
+static void ScanToPdf()
+{
+    #region scans
+    using PdfDocument document = PdfDocument.Create();
+
+    // One page per TIFF page, sized by its resolution; CCITT G4 and JPEG data are kept as they are.
+    document.AppendImagePages(File.ReadAllBytes("scans.tif"));
+
+    // Or make the images and place them yourself: CreateImages reads JPEG, PNG, TIFF, GIF and BMP.
+    IReadOnlyList<PdfImage> pages = document.CreateImagesFromTiff(File.ReadAllBytes("scans.tif"));
+    using (PdfCanvas canvas = document.Pages[0].CreateCanvas())
+    {
+        canvas.DrawImage(pages[0], 72, 72, 200, 200 * pages[0].Height / pages[0].Width);
+    }
+
+    document.Save("scans.pdf");
+    #endregion
+
+    using PdfDocument saved = PdfDocument.Open("scans.pdf");
+    Sample.Expect(saved.Pages.Count == 4, "a blank first page and three scanned pages");
 }
 
 static void DrawTransparency()

@@ -116,6 +116,11 @@ public static class ImageDiagnostics
     public static DiagnosticCode ImageOptimizationSkipped { get; } = new(nameof(ImageOptimizationSkipped), DiagnosticArea.Image, DiagnosticSeverity.Information, "ISO 32000-2 §8.9.5.3",
         "The save-time image pass could not decode an image or its mask, or the decoded samples did not match the image dictionary. The image is saved unchanged.");
 
+    /// <summary>Gets the <c>ImageImportRepaired</c> code.</summary>
+    /// <remarks>ISO 32000-2 §8.9.5</remarks>
+    public static DiagnosticCode ImageImportRepaired { get; } = new(nameof(ImageImportRepaired), DiagnosticArea.Image, DiagnosticSeverity.Warning, "ISO 32000-2 §8.9.5",
+        "An imported TIFF, GIF or BMP file deviates from its format in a way that was repaired, such as a wrong strip byte count or image data that ends early. The image is created from what could be read.");
+
     /// <summary>Gets every code of this area, in declaration order.</summary>
     internal static DiagnosticCode[] Codes { get; } =
     [
@@ -141,5 +146,6 @@ public static class ImageDiagnostics
         PlatformImageMismatch,
         InlineImageFilterNotAllowed,
         ImageOptimizationSkipped,
+        ImageImportRepaired,
     ];
 }

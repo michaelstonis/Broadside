@@ -108,11 +108,19 @@ internal static class SeedWriter
         {
             "jpeg-reader" or "filter-dct" => Path.Combine(CorpusLocator.RepositoryRoot, "tests", "Broadside.Tests", "Filters", "Dct"),
             "png-reader" => Path.Combine(CorpusLocator.RepositoryRoot, "tests", "Broadside.Tests", "Graphics", "Png"),
+            "tiff" or "gif" or "bmp" => Path.Combine(CorpusLocator.RepositoryRoot, "tests", "Broadside.Tests", "Images", "Import"),
             _ => null,
         };
         if (images is not null && Directory.Exists(images))
         {
-            string pattern = target == "png-reader" ? "*.png" : "*.jpg";
+            string pattern = target switch
+            {
+                "png-reader" => "*.png",
+                "tiff" => "*.tif",
+                "gif" => "*.gif",
+                "bmp" => "*.bmp",
+                _ => "*.jpg",
+            };
             files.AddRange(Directory.EnumerateFiles(images, pattern, SearchOption.AllDirectories).Order(StringComparer.Ordinal));
         }
 

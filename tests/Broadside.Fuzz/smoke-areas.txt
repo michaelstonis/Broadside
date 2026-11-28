@@ -19,6 +19,9 @@ object-stream               ^src/Broadside/(Parsing|Objects|Writing)/
 repair                      ^src/Broadside/(Parsing|IO|Objects)/
 filter-*                    ^src/Broadside/(Filters|Images)/
 png-reader                  ^src/Broadside/Images/
+tiff                        ^src/Broadside/(Images|Filters/Ccitt|Filters/Dct)/|^src/Broadside/PdfDocument\.ImageImport\.cs$
+gif                         ^src/Broadside/Images/|^src/Broadside/PdfDocument\.ImageImport\.cs$
+bmp                         ^src/Broadside/Images/|^src/Broadside/PdfDocument\.ImageImport\.cs$
 jpeg-reader                 ^src/Broadside/(Images|Filters/Dct)/|^src/Broadside/PdfDocument\.ImageWriting\.cs$
 platform-image-eligibility  ^src/Broadside/Images/
 image-decode                ^src/Broadside/(Images|Filters|Graphics)/
