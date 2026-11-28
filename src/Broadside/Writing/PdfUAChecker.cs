@@ -955,7 +955,7 @@ internal sealed partial class PdfUAChecker
     }
 
     /// <summary>
-    /// Reports each repair of the structure tree made while reading it (ADR 0005, <see cref="Diagnostics.StructureDiagnostics"/>) as a
+    /// Reports each repair of the structure tree made while reading it (<see cref="Diagnostics.StructureDiagnostics"/>) as a
     /// violation of the rule it breaks (validation only): a broken tree or element is no structure hierarchy (7.1-11), a broken parent
     /// tree or MCID leaves content untagged (7.1-3), an unknown or unresolved structure type is not standard (7.1-5), and an invalid
     /// <c>MarkInfo</c> does not say the file is tagged (6.2-1). Repairs of IDs, attributes and conflicts break no rule by themselves.

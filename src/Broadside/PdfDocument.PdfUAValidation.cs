@@ -15,7 +15,7 @@ public sealed partial class PdfDocument
     /// Checks the document, as read, against PDF/UA-1 or PDF/UA-2 and lists the rules it does not meet, by veraPDF rule identifier and,
     /// for PDF/UA-1, Matterhorn Protocol 1.1 checkpoint. Nothing is changed and nothing is saved: the entries a PDF/UA save would write
     /// (the <c>pdfuaid</c> identification, the metadata stream, <c>MarkInfo</c> <c>Marked</c>, <c>DisplayDocTitle</c>, page
-    /// <c>Tabs</c>) are checked as the file has them. Repairs made while reading the structure tree (ADR 0005) are reported as
+    /// <c>Tabs</c>) are checked as the file has them. Repairs made while reading the structure tree (lenient reading) are reported as
     /// violations of the rule each breaks. Well-Tagged PDF levels the file declares are checked with the PDF/UA-2 rules.
     /// </summary>
     /// <remarks>
