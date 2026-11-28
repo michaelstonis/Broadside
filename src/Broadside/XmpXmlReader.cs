@@ -5,7 +5,7 @@ namespace Broadside;
 
 /// <summary>An element of the XML an XMP packet is written in: its expanded name, attributes, child elements and text.</summary>
 /// <remarks>ISO 16684-1 §7 (XMP is serialized as RDF/XML in XML 1.0); ISO 32000-2 §14.3.2.</remarks>
-internal sealed class XmpXmlElement(string namespaceName, string localName, List<XmpXmlAttribute> attributes)
+internal class XmpXmlElement(string namespaceName, string localName, List<XmpXmlAttribute> attributes)
 {
     private StringBuilder? _text;
 
@@ -69,32 +69,44 @@ internal sealed class XmpXmlElement(string namespaceName, string localName, List
 
     /// <summary>
     /// Gets the character data in order with the child elements (issue #643: SVG text is mixed content): each run with the number of
-    /// child elements read before it. Kept only when the reader was asked to keep text runs; otherwise empty.
+    /// child elements read before it. Kept only by elements of a reader asked to keep text runs; otherwise empty.
     /// </summary>
-    internal IReadOnlyList<(int Before, string Text)> TextRuns => (IReadOnlyList<(int Before, string Text)>?)_runs ?? [];
+    internal virtual IReadOnlyList<(int Before, string Text)> TextRuns => [];
 
-    /// <summary>Gets or sets a value indicating whether <see cref="TextRuns"/> is kept.</summary>
-    internal bool KeepsTextRuns { get; set; }
-
-    private List<(int Before, string Text)>? _runs;
-
-    internal void AppendText(ReadOnlySpan<char> text)
+    internal virtual void AppendText(ReadOnlySpan<char> text)
     {
         if (!text.IsEmpty)
         {
             _ = (_text ??= new StringBuilder()).Append(text);
-            if (KeepsTextRuns)
-            {
-                _runs ??= [];
-                if (_runs.Count > 0 && _runs[^1].Before == Children.Count)
-                {
-                    _runs[^1] = (Children.Count, _runs[^1].Text + text.ToString());
-                }
-                else
-                {
-                    _runs.Add((Children.Count, text.ToString()));
-                }
-            }
+        }
+    }
+}
+
+/// <summary>An element that also keeps its character data in order with its children (<see cref="XmpXmlElement.TextRuns"/>); only a reader asked to keep text runs makes it, so XMP elements stay as small as before.</summary>
+internal sealed class XmpXmlTextRunElement(string namespaceName, string localName, List<XmpXmlAttribute> attributes)
+    : XmpXmlElement(namespaceName, localName, attributes)
+{
+    private List<(int Before, string Text)>? _runs;
+
+    /// <inheritdoc/>
+    internal override IReadOnlyList<(int Before, string Text)> TextRuns => (IReadOnlyList<(int Before, string Text)>?)_runs ?? [];
+
+    internal override void AppendText(ReadOnlySpan<char> text)
+    {
+        base.AppendText(text);
+        if (text.IsEmpty)
+        {
+            return;
+        }
+
+        _runs ??= [];
+        if (_runs.Count > 0 && _runs[^1].Before == Children.Count)
+        {
+            _runs[^1] = (Children.Count, _runs[^1].Text + text.ToString());
+        }
+        else
+        {
+            _runs.Add((Children.Count, text.ToString()));
         }
     }
 }
@@ -367,7 +379,6 @@ internal sealed class XmpXmlReader
                     break;
                 default:
                     (XmpXmlElement element, bool empty) = ReadStartTag();
-                    element.KeepsTextRuns = _keepTextRuns;
                     if (element.LocalName == localName && (namespaceName is null || element.NamespaceName == namespaceName))
                     {
                         if (!empty)
@@ -430,7 +441,6 @@ internal sealed class XmpXmlReader
                     break;
                 default:
                     (XmpXmlElement element, bool empty) = ReadStartTag();
-                    element.KeepsTextRuns = _keepTextRuns;
                     current.Children.Add(element);
                     if (empty)
                     {
@@ -879,7 +889,8 @@ internal sealed class XmpXmlReader
         }
 
         _open.Add((qualifiedName, bindings));
-        return (new XmpXmlElement(Resolve(prefix ?? string.Empty), localName, attributes), empty);
+        string elementNamespace = Resolve(prefix ?? string.Empty);
+        return (_keepTextRuns ? new XmpXmlTextRunElement(elementNamespace, localName, attributes) : new XmpXmlElement(elementNamespace, localName, attributes), empty);
     }
 
     private void Declare(string prefix, string namespaceName)
