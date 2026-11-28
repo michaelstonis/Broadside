@@ -102,4 +102,7 @@ public enum DiagnosticArea
 
     /// <summary>Applying redaction (<see cref="RedactionDiagnostics"/>; ISO 32000-2 §12.5.6.23).</summary>
     Redaction,
+
+    /// <summary>Replacing and deleting text in existing page content (<see cref="TextEditDiagnostics"/>; ISO 32000-2 §9.4.3 and §14.9.4).</summary>
+    TextEdit,
 }

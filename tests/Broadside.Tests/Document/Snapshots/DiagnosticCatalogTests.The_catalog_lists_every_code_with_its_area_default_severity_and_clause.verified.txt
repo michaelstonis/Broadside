@@ -619,3 +619,8 @@ Redaction	RedactionFormRemovedWhole	Warning	ISO 32000-2 §8.10.1
 Redaction	RedactionFormCopied	Information	ISO 32000-2 §8.10.1
 Redaction	RedactionInvalidatesSignatures	Information	ISO 32000-2 §12.8
 Redaction	RedactionMatchNotLocated	Warning	ISO 32000-2 §9.4.3
+TextEdit	TextEditFallbackFont	Warning	ISO 32000-2 §9.9.2
+TextEdit	TextEditReplacementTextRemoved	Warning	ISO 32000-2 §14.9.4
+TextEdit	TextEditToUnicodeExtended	Warning	ISO 32000-2 §9.10.3
+TextEdit	TextEditMatchNotLocated	Warning	ISO 32000-2 §9.4.3
+TextEdit	TextEditNotEncodable	Warning	ISO 32000-2 §9.4.3

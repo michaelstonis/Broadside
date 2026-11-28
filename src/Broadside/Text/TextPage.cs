@@ -97,9 +97,11 @@ public sealed class TextPage
     internal IReadOnlyList<TextMatch> Find(TextQuery query, int pageIndex, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);
-        SearchableText searchable = Volatile.Read(ref _searchable) ?? Interlocked.CompareExchange(ref _searchable, SearchableText.Create(this), null) ?? _searchable!;
-        return searchable.Find(query, pageIndex, cancellationToken);
+        return Searchable.Find(query, pageIndex, cancellationToken);
     }
+
+    /// <summary>Gets the page's searchable text, made on first use and kept.</summary>
+    internal SearchableText Searchable => Volatile.Read(ref _searchable) ?? Interlocked.CompareExchange(ref _searchable, SearchableText.Create(this), null) ?? _searchable!;
 
     /// <summary>Returns <see cref="Text"/>.</summary>
     /// <returns>The page's text.</returns>

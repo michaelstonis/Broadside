@@ -29,6 +29,7 @@ Annotate();
 Redact();
 ExchangeAnnotations();
 SearchAndRedact();
+ReplaceText();
 EditMetadata();
 AttachAFile();
 Encrypt();
@@ -368,6 +369,29 @@ static void SearchAndRedact()
     Sample.Expect(marks.Count == 1, "one mark to review");
     Sample.Expect(result.GlyphsRemoved == "parties".Length, "only the matched glyphs removed");
     Sample.Expect(!saved.Pages[0].ExtractText().Text.Contains("parties", StringComparison.Ordinal), "the matched word is gone");
+}
+
+static void ReplaceText()
+{
+    #region text-replace
+    using PdfDocument document = PdfDocument.Open("contract.pdf");
+
+    // Every match on every page: the glyphs go, the new text takes the first one's place in the same font and size.
+    PdfTextEditResult result = document.ReplaceText(new TextQuery("Service"), "Support");
+
+    // One match, deleted; ShiftLine closes the gap by moving the rest of the line.
+    PdfPage page = document.Pages[0];
+    TextMatch below = page.FindText(new TextQuery("below"))[0];
+    page.DeleteText(below, new PdfTextReplaceOptions().WithFit(PdfTextFit.ShiftLine));
+
+    document.Save("contract-edited.pdf", new PdfSaveOptions().WithIncrementalUpdate(false));
+    #endregion
+
+    using PdfDocument saved = PdfDocument.Open("contract-edited.pdf");
+    string text = saved.Pages[0].ExtractText().Text;
+    Sample.Expect(result.Replaced == 1, "one match replaced");
+    Sample.Expect(text.StartsWith("Support contract", StringComparison.Ordinal), "the new word reads back");
+    Sample.Expect(!text.Contains("below", StringComparison.Ordinal), "the deleted word is gone");
 }
 
 static void EditMetadata()
