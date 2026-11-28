@@ -27,6 +27,8 @@
     <None Include="$(CorpusDirectory)optional-content.pdf" Link="optional-content.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="$(CorpusDirectory)icc-rgb-matrix.pdf" Link="icc-rgb-matrix.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="$(CorpusDirectory)output-intent-cmyk.pdf" Link="output-intent-cmyk.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(CorpusDirectory)compare-old.pdf" Link="compare-old.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(CorpusDirectory)compare-new.pdf" Link="compare-new.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="$(GoldenDirectory)paths-fill-rules.page0.verified.png" Link="golden/paths-fill-rules.page0.verified.png" CopyToOutputDirectory="PreserveNewest" />
     <None Include="$(GoldenDirectory)text-standard14.page0.verified.png" Link="golden/text-standard14.page0.verified.png" CopyToOutputDirectory="PreserveNewest" />
     <None Include="$(GoldenDirectory)text-cidcff-predefined-cmap.page0.verified.png" Link="golden/text-cidcff-predefined-cmap.page0.verified.png" CopyToOutputDirectory="PreserveNewest" />

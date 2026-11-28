@@ -29,6 +29,8 @@
   collection-portfolio.pdf,
   color-operators.pdf,
   colorspace-families.pdf,
+  compare-new.pdf,
+  compare-old.pdf,
   dct-baseline.pdf,
   dct-cmyk.pdf,
   dct-progressive.pdf,

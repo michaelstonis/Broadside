@@ -165,3 +165,29 @@ foreach (TextMatch match in document.Pages[0].FindText(query))
 <!-- endsnippet -->
 
 To search the same pages many times, keep `SearchableText.Create(page)` for each page instead of the `TextPage`: it holds only what search needs.
+
+## Comparing documents
+
+`PdfDocument.CompareText` compares this document's words, as the old version, with another's, as the new one. Each document's pages are extracted in reading order and flattened into one sequence of words, so text that only moves to the next page is not a change, and the shortest edit script between the two sequences is found with Myers' diff. A run of deleted words next to a run of inserted words is one `Changed`; a change whose words are on more than one page is split per page. Each `TextChange` has its `Kind` (`Inserted`, `Deleted` or `Changed`) and, for each side, the page, the text and one quad per line, with -1, an empty text and no quads on a side that has no words.
+
+<!-- snippet: samples/guides/ExtractingText/Program.cs#compare -->
+```csharp
+using PdfDocument old = PdfDocument.Open("compare-old.pdf");
+using PdfDocument @new = PdfDocument.Open("compare-new.pdf");
+TextComparison comparison = old.CompareText(@new);
+foreach (TextChange change in comparison.Changes)
+{
+    // Inserted, Deleted or Changed, with each side's page, text and one quad per line (-1, "" and none on a side without words).
+    Console.WriteLine($"{change.Kind}: \"{change.OldText}\" -> \"{change.NewText}\"");
+}
+
+// Strike the old words out on the old version and highlight the new ones on the new version, then save both.
+old.AddComparisonMarkup(comparison, isNewSide: false);
+@new.AddComparisonMarkup(comparison, isNewSide: true);
+```
+<!-- endsnippet -->
+
+`TextComparisonOptions` sets how words compare. Case counts unless `WithMatchCase(false)`, which folds words as a search does (compatibility characters and case; diacritics still count). `WithIgnorePunctuation` compares words without their punctuation and skips words that are only punctuation. Artifacts, such as running heads and page numbers, are left out unless `WithArtifacts`. `WithMaxEditDistance` (100,000 words by default) bounds the whole-document diff: past it, which is the sign of reordered documents, each page is compared with the page of the same index instead and `TextComparison.ComparedByPage` is set.
+
+`AddComparisonMarkup` adds one StrikeOut annotation per deletion or change on the old side, or one Highlight per insertion or change on the new side, with a quadrilateral per line, the kind in `Subj` and the other side's text in `Contents`. For changes text cannot show, such as moved images and color changes, compare the rendered pages with `VisualComparison` (see [Rendering](rendering.md#comparing-pages)).
+

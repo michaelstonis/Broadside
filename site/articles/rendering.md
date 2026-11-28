@@ -257,6 +257,30 @@ foreach (HitTestItem item in index.Find(selection, HitTestKinds.Glyphs))
 
 Matches come by kind and then in content order, and enumerating them allocates nothing. A link match carries its annotation, destination and action.
 
+## Comparing pages
+
+`VisualComparison.Compare` renders two pages with the software rasterizer at the same resolution, each with its own rotation, onto a canvas the size of the larger one, and compares their pixels: changes text comparison cannot show, such as a moved image, a color change or a redrawn figure. A pixel changed when one of its channels differs by more than the tolerance (16 levels of 255 by default, which absorbs anti-aliasing noise). `Overlay` shows what only the old page has in red, what only the new page has in cyan and the rest in light gray; `Difference` holds the changed pixels alone. `ChangedRegions` groups the changed pixels that touch on a grid of 8 x 8 pixel cells and gives each group's bounds in the new page's user space, dropping groups of fewer than `MinRegionArea` pixels.
+
+<!-- snippet: samples/guides/Rendering/Program.cs#visual-compare -->
+```csharp
+using (PdfDocument old = PdfDocument.Open("compare-old.pdf"))
+using (PdfDocument @new = PdfDocument.Open("compare-new.pdf"))
+using (VisualComparison comparison = VisualComparison.Compare(old.Pages[0], @new.Pages[0], new VisualComparisonOptions().WithDpi(96)))
+{
+    Console.WriteLine($"{comparison.ChangedFraction:P1} of the pixels changed");
+    foreach (PdfRectangle region in comparison.ChangedRegions)
+    {
+        Console.WriteLine($"Changed: {region}"); // in the new page's user space, ready for a Square annotation
+    }
+
+    comparison.Overlay.SavePng("compare-overlay.png"); // the old page in red, the new one in cyan, the rest in light gray
+    Sample.Expect(comparison.ChangedRegions.Count(region => region.Top < 600) == 2, "the moved image: where it was and where it is");
+}
+```
+<!-- endsnippet -->
+
+Pages of different sizes are placed at the top-left corner of the canvas, or centered with `WithAlignment(VisualAlignment.Center)`. The caller pairs the pages: a page one document has and the other does not is not compared. Comparing only reads both documents, so several pairs can be compared at once on different threads; dispose the comparison to return its bitmaps to the pool.
+
 ## Color management
 
 By default, colors in ICC-based color spaces are converted through their alternate device spaces. `UseIccColorManagement` converts them through their embedded ICC profiles instead, with the managed ICC engine in `Broadside.Rendering`. It also converts device colors through a document's output intent profile, as a print-oriented viewer does.

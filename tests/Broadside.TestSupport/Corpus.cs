@@ -136,6 +136,8 @@ public static class Corpus
         "image-decode-inverted.pdf",
         "image-alternates.pdf",
         "image-oversampled.pdf",
+        "compare-old.pdf",
+        "compare-new.pdf",
         "jpx-lossless.pdf",
         "jpx-subsampled.pdf",
         "jpx-smask-in-data.pdf",

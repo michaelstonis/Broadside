@@ -1,1 +1,28 @@
 #nullable enable
+Broadside.Rendering.VisualAlignment
+Broadside.Rendering.VisualAlignment.Center = 1 -> Broadside.Rendering.VisualAlignment
+Broadside.Rendering.VisualAlignment.TopLeft = 0 -> Broadside.Rendering.VisualAlignment
+Broadside.Rendering.VisualComparison
+Broadside.Rendering.VisualComparison.ChangedFraction.get -> double
+Broadside.Rendering.VisualComparison.ChangedRegions.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfRectangle>!
+Broadside.Rendering.VisualComparison.Difference.get -> Broadside.Rendering.Bitmap!
+Broadside.Rendering.VisualComparison.Dispose() -> void
+Broadside.Rendering.VisualComparison.Overlay.get -> Broadside.Rendering.Bitmap!
+Broadside.Rendering.VisualComparisonOptions
+Broadside.Rendering.VisualComparisonOptions.Alignment.get -> Broadside.Rendering.VisualAlignment
+Broadside.Rendering.VisualComparisonOptions.Alignment.set -> void
+Broadside.Rendering.VisualComparisonOptions.Dpi.get -> double
+Broadside.Rendering.VisualComparisonOptions.Dpi.set -> void
+Broadside.Rendering.VisualComparisonOptions.MinRegionArea.get -> int
+Broadside.Rendering.VisualComparisonOptions.MinRegionArea.set -> void
+Broadside.Rendering.VisualComparisonOptions.Tolerance.get -> int
+Broadside.Rendering.VisualComparisonOptions.Tolerance.set -> void
+Broadside.Rendering.VisualComparisonOptions.VisualComparisonOptions() -> void
+Broadside.Rendering.VisualComparisonOptions.WithAlignment(Broadside.Rendering.VisualAlignment alignment) -> Broadside.Rendering.VisualComparisonOptions!
+Broadside.Rendering.VisualComparisonOptions.WithDpi(double dpi) -> Broadside.Rendering.VisualComparisonOptions!
+Broadside.Rendering.VisualComparisonOptions.WithMinRegionArea(int pixels) -> Broadside.Rendering.VisualComparisonOptions!
+Broadside.Rendering.VisualComparisonOptions.WithTolerance(int levels) -> Broadside.Rendering.VisualComparisonOptions!
+const Broadside.Rendering.VisualComparisonOptions.DefaultDpi = 96 -> double
+const Broadside.Rendering.VisualComparisonOptions.DefaultMinRegionArea = 16 -> int
+const Broadside.Rendering.VisualComparisonOptions.DefaultTolerance = 16 -> int
+static Broadside.Rendering.VisualComparison.Compare(Broadside.PdfPage! oldPage, Broadside.PdfPage! newPage, Broadside.Rendering.VisualComparisonOptions? options = null) -> Broadside.Rendering.VisualComparison!

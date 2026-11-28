@@ -177,6 +177,28 @@ public sealed class SearchableText
         }
     }
 
+    /// <summary>
+    /// Folds a word as a literal query with <see cref="TextQuery.MatchDiacritics"/> set folds the text: compatibility characters to
+    /// what they stand for, case lowered, diacritics kept (for <see cref="TextComparisonOptions.MatchCase"/>).
+    /// </summary>
+    internal static string FoldWord(string word)
+    {
+        var folded = new CharBuffer(word.Length * 2);
+        try
+        {
+            foreach (char c in word)
+            {
+                Fold(c, matchCase: false, matchDiacritics: true, ref folded);
+            }
+
+            return folded.Span.SequenceEqual(word) ? word : new string(folded.Span);
+        }
+        finally
+        {
+            folded.Dispose();
+        }
+    }
+
     private static ReadOnlySpan<char> Decompose(ref readonly char c)
     {
         int index = SearchFoldingData.Keys.BinarySearch(c);
