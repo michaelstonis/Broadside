@@ -28,6 +28,39 @@ public sealed class ViewerTests
     });
 
     [Fact]
+    public Task Undo_and_redo_keys_drive_the_views_edit_history() => Ui.RunAsync(async () =>
+    {
+        // Ctrl+Z (Cmd+Z) undoes the latest edit; Ctrl+Y and Ctrl+Shift+Z redo it (#638).
+        string path = Path.Combine(Path.GetTempPath(), $"broadside-undo-{Guid.NewGuid():N}.pdf");
+        await File.WriteAllBytesAsync(path, AnnotationSamples.Grid(3, 1), TestContext.Current.CancellationToken);
+        try
+        {
+            using ViewerHarness viewer = await ViewerHarness.OpenAsync(path);
+            AnnotationLayer layer = viewer.Viewer.Annotations!;
+            Assert.NotNull(layer.History);
+            await layer.ReadPageAsync(0, TestContext.Current.CancellationToken);
+            AnnotationTarget square = Assert.NotNull(layer.HitTest(new PagePoint(0, 234, 30)));
+            PdfRectangle rect = layer.GetRectangle(square);
+            Assert.True(layer.Move(square, 20, 0));
+            viewer.Viewer.Focus();
+
+            viewer.Key(Key.Z, RawInputModifiers.Control);
+            Assert.Equal(rect, layer.GetRectangle(square));
+            viewer.Key(Key.Y, RawInputModifiers.Control);
+            Assert.Equal(rect.Left + 20, layer.GetRectangle(square).Left, 6);
+            viewer.Key(Key.Z, RawInputModifiers.Meta);
+            Assert.Equal(rect, layer.GetRectangle(square));
+            viewer.Key(Key.Z, RawInputModifiers.Meta | RawInputModifiers.Shift);
+            Assert.Equal(rect.Left + 20, layer.GetRectangle(square).Left, 6);
+            Assert.False(layer.History.CanRedo);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    });
+
+    [Fact]
     public Task A_copy_still_loading_its_pages_when_the_document_is_replaced_or_the_view_closes_copies_nothing_and_does_not_throw() => Ui.RunAsync(async () =>
     {
         // Select all of a long document, then Copy: its pages load one by one. Opening another document, or closing the view, stops

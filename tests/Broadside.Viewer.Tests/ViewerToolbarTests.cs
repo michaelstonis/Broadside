@@ -423,6 +423,38 @@ public sealed class ViewerToolbarTests
         Assert.False(viewer.HasViewChangedHandlers);
     }
 
+    [Fact]
+    public async Task The_undo_and_redo_commands_follow_the_views_edit_history()
+    {
+        Assert.DoesNotContain(ViewerCommandIds.EditUndo, ViewerCommandIds.All);
+        var viewer = new FakeViewer();
+        using var toolbar = new ViewerToolbar(viewer, new ViewerToolbarOptions().WithItems([.. ViewerCommandIds.All, .. ViewerCommandIds.Editing]));
+        var undo = (ViewerButtonCommand)toolbar.Find(ViewerCommandIds.EditUndo)!;
+        var redo = (ViewerButtonCommand)toolbar.Find(ViewerCommandIds.EditRedo)!;
+        Assert.False(undo.IsEnabled || redo.IsEnabled);
+
+        await using DocumentSession session = Open(AnnotationSamples.Grid(3, 1));
+        var layer = new AnnotationLayer(session) { History = new EditHistory(session) };
+        await layer.ReadPageAsync(0, Token);
+        viewer.Annotations = layer;
+        viewer.Open(session);
+        Assert.False(undo.IsEnabled);
+
+        AnnotationTarget square = Assert.NotNull(layer.HitTest(new PagePoint(0, 234, 30)));
+        PdfRectangle rect = layer.GetRectangle(square);
+        Assert.True(layer.Move(square, 10, 0));
+        Assert.True(undo.IsEnabled);
+        Assert.False(redo.IsEnabled);
+
+        undo.Execute();
+        Assert.Equal(rect, layer.GetRectangle(square));
+        Assert.False(undo.IsEnabled);
+        Assert.True(redo.IsEnabled);
+        redo.Execute();
+        Assert.Equal(rect.Left + 10, layer.GetRectangle(square).Left, 6);
+        Assert.True(undo.IsEnabled);
+    }
+
     private static DocumentSession Open(byte[] bytes, ViewerThreading threading = ViewerThreading.Cooperative) =>
         DocumentSession.Open(bytes, new ViewerOptions().WithDocumentOptions(new PdfOptions().UseStandard14Fonts()).WithThreading(threading));
 
@@ -480,7 +512,7 @@ public sealed class ViewerToolbarTests
 
         public DocumentSearch? Search { get; private set; }
 
-        public AnnotationLayer? Annotations => null;
+        public AnnotationLayer? Annotations { get; set; }
 
         public PageLabelTable? PageLabels { get; set; }
 

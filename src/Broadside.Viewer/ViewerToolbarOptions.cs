@@ -33,7 +33,7 @@ public sealed class ViewerToolbarOptions
     public bool HonorHideToolbar { get; set; } = true;
 
     /// <summary>Sets <see cref="Items"/>: the built-in commands to show, in order; the others are left out.</summary>
-    /// <param name="ids">Identifiers from <see cref="ViewerCommandIds"/>, each once.</param>
+    /// <param name="ids">Identifiers from <see cref="ViewerCommandIds"/> (<see cref="ViewerCommandIds.All"/> and <see cref="ViewerCommandIds.Editing"/>), each once.</param>
     /// <returns>These options.</returns>
     /// <exception cref="ArgumentException">An identifier is not a built-in one, or appears twice.</exception>
     public ViewerToolbarOptions WithItems(params string[] ids)
@@ -42,7 +42,7 @@ public sealed class ViewerToolbarOptions
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (string id in ids)
         {
-            if (!ViewerCommandIds.All.Contains(id, StringComparer.Ordinal))
+            if (!ViewerCommandIds.All.Contains(id, StringComparer.Ordinal) && !ViewerCommandIds.Editing.Contains(id, StringComparer.Ordinal))
             {
                 throw new ArgumentException($"\"{id}\" is not a built-in toolbar command; add an app's own with ViewerToolbar.Insert.", nameof(ids));
             }

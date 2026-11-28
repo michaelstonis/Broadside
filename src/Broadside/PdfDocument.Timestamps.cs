@@ -164,7 +164,7 @@ public sealed partial class PdfDocument
             };
             CosReference reference = AddObject(dictionary);
             undo.Add(() => RemoveObject(reference));
-            PlaceSignature(fieldName, reference, undo);
+            PlaceSignature(fieldName, reference, undo, out _);
 
             // Issue #306: what the save changes (the dating, the metadata layout, completed font subsets, the catalog's version and
             // extensions) is reverted with the rest when the signer or the authority fails.

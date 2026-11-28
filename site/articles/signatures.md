@@ -125,6 +125,43 @@ await document.SignAsync(output, signer, new PdfSignatureOptions().WithSubFilter
 
 For an RSA key, `RsaSignaturePadding` chooses PKCS #1 v1.5 (the default) or PSS; an ECDSA signer returns the DER-encoded signature value.
 
+## Deferred signing
+
+Some signing services answer minutes or days later, in another process: a qualified signature creation device, a cloud signing service, a smart card in the user's browser, an approval workflow. `PrepareSignature` does everything `Sign` does before it asks the signer: it places the field, draws the appearance, writes the prepared file with the signature's `Contents` zero-filled, and returns a `PdfPreparedSignature`. Send its `DataToSign` (the digest of the CMS signed attributes, what `IPdfSigner.SignDigest` receives) to the service, and save its state with `Save`. The state is a small, versioned, opaque blob with the certificates and the byte ranges' digest; it holds no private key and none of the document.
+
+<!-- snippet: samples/guides/Signatures/Program.cs#deferred-prepare -->
+```csharp
+// Step 1: reserve the signature and keep the prepared file and the state; neither holds a private key.
+using (PdfDocument document = PdfDocument.Open("text-standard14.pdf"))
+using (FileStream prepared = File.Create("signed-deferred.pdf"))
+using (FileStream state = File.Create("signed-deferred.state"))
+{
+    PdfPreparedSignature signature = document.PrepareSignature(prepared, publicOnly, [root]);
+    signature.Save(state);
+    // Send signature.DataToSign (with signature.DigestAlgorithm) to the signing service.
+}
+```
+<!-- endsnippet -->
+
+When the value comes back, `Open` the state and call `CompleteSignature` (or `CompleteSignatureAsync`) on the prepared file, opened for reading and writing. It hashes the byte ranges again and refuses a file that changed after preparation or was already completed, checks the value against the certificate, builds the CMS object, and writes it in place. Nothing is written unless every check passes.
+
+<!-- snippet: samples/guides/Signatures/Program.cs#deferred-complete -->
+```csharp
+// Step 2, later and anywhere: open the state, and write the value the service returned into the prepared file in place.
+PdfPreparedSignature pending;
+using (FileStream state = File.OpenRead("signed-deferred.state"))
+{
+    pending = PdfPreparedSignature.Open(state);
+}
+
+byte[] signatureValue = remoteKey.SignHash(pending.DataToSign.ToArray(), pending.DigestAlgorithm, pending.RsaSignaturePadding!);
+await using FileStream file = new("signed-deferred.pdf", FileMode.Open, FileAccess.ReadWrite);
+await PdfDocument.CompleteSignatureAsync(file, pending, signatureValue);
+```
+<!-- endsnippet -->
+
+To time-stamp the signature (PAdES B-T), set `PdfSignatureOptions.TimestampClient` when preparing, which reserves the room, and pass the client to `CompleteSignature`, which asks the authority. A service that returns a whole CMS `SignedData` instead of a signature value goes through `CompleteSignatureWithCms`, which checks that the object signs the prepared byte ranges' digest with the prepared certificate. A document protected by an ISO/TS 32004 integrity MAC cannot be signed in two steps; sign it with `Sign`.
+
 ## Validation
 
 `ValidateSignatures` checks every signature and document timestamp: the digest over the signed bytes, the signature value, the certificate path to a trust anchor you choose, revocation, the time-stamp, and every change made after the signature (each listed in `Modifications`, permitted or not). There are no trust anchors by default, so no certificate path is trusted until you pass the anchors you trust.

@@ -140,3 +140,26 @@ model.Find(ViewerCommandIds.Search)!.Placement = ViewerCommandPlacement.Overflow
 To restyle items without forking the control, give it a template: `ItemTemplate` in Avalonia, MAUI and Blazor, `ItemTemplateSelector` in WPF, WinUI and Uno. The template's data is the command; commands raise `PropertyChanged`, and a button command is an `ICommand`, so XAML bindings work. In Blazor, a template falls back to the default markup with `<PdfToolbarItem Command="context" />`. Typed input that names no page leaves the view where it is and sets the page command's `Error`; nothing throws.
 
 Each control's full API (state and error events, layout options, selection, search and the rest) is in the [API reference](../api/readme.md).
+
+## Undo and redo
+
+Every view keeps an undo history of the edits made through it: annotations added, edited, moved (a drag is one step) or deleted through its `AnnotationLayer`, and form field values committed, toggled or reset. Ctrl+Z (Cmd+Z on Apple platforms) undoes the latest edit; Ctrl+Y and Ctrl+Shift+Z redo it. Typing in a field that is not yet committed is abandoned by the first undo. The history is the `EditHistory` on the view's `Annotations.History` (which `FormFilling.History` reads too), and a toolbar shows Undo and Redo buttons when you add `ViewerCommandIds.Editing` to its items:
+
+```csharp
+EditHistory history = view.Annotations!.History!;
+saveMenu.IsEnabled = history.IsModified;    // relative to the last MarkSaved()
+undoMenu.Header = history.UndoName is { } name ? $"Undo {name}" : "Undo";
+
+toolbar.Options = new ViewerToolbarOptions().WithItems([.. ViewerCommandIds.All, .. ViewerCommandIds.Editing]);
+```
+
+An app records its own edits as `IEditStep`s, and groups several steps into one with `BeginGroup`:
+
+```csharp
+using (history.BeginGroup("Stamp pages"))
+{
+    history.Record(new StampStep(page)); // Undo and Redo change the document and return what to redraw
+}
+```
+
+A step restores what it captured: the entries of the annotation and field dictionaries the edit changed, written back into the same live dictionaries, with appearance streams kept by reference rather than copied. The history knows only the edits it is told of. An edit made around the layer, such as `PdfPage.AddTextAnnotation` called directly, is not undoable. If such an edit changed what a step restores, undoing that step returns false, reports a `ViewerEditHistoryRestoreFailed` warning in `PdfDocument.Diagnostics`, and clears the redo stack. A step whose page was removed is dropped with every older step, and closing the session clears the history. `EditHistoryOptions` sets the step limit (100 by default; the oldest steps drop) and the merge window in which value edits of one field merge into one step (one second by default).

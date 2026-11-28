@@ -46,6 +46,8 @@ public sealed class FormFilling
         _layer = layer;
         layer.Changed += (_, _) => Sync();
         layer.ActionRequested += OnActionRequested;
+        layer.HistoryRestoring += () => Cancel();
+        layer.HistoryRestored += OnHistoryRestored;
         Sync();
     }
 
@@ -54,6 +56,19 @@ public sealed class FormFilling
 
     /// <summary>Gets the annotation layer.</summary>
     public AnnotationLayer Layer => _layer;
+
+    /// <summary>
+    /// Gets or sets the undo and redo history each <see cref="Commit"/>, toggle and reset is recorded in: the layer's
+    /// <see cref="AnnotationLayer.History"/>, which this property reads and sets. Undoing or redoing abandons the edit not yet committed
+    /// and restarts the focused field's edit from its restored value.
+    /// </summary>
+    /// <exception cref="ArgumentException">The history is for another session.</exception>
+    /// <remarks>Not a spec feature; the steps capture field dictionaries (ISO 32000-2 §12.7.4.1).</remarks>
+    public EditHistory? History
+    {
+        get => _layer.History;
+        set => _layer.History = value;
+    }
 
     /// <summary>Gets the focused widget when it belongs to a form field, or <see langword="null"/>.</summary>
     public AnnotationTarget? Target { get; private set; }
@@ -336,6 +351,16 @@ public sealed class FormFilling
     {
         // A reset-form action is the form's own: performed here, never a script (§12.7.6.3). Submit and import stay with the shell.
         if (e.Action is PdfResetFormAction reset && _layer.ResetFields(reset.SelectFields()) > 0 && Target is { } target)
+        {
+            Begin(target, keepCaret: false);
+            Raise();
+        }
+    }
+
+    private void OnHistoryRestored()
+    {
+        // The focused field's value may be the one restored: its edit starts again from it.
+        if (Target is { } target && _layer.Focused == target && _layer.GetAnnotation(target) is PdfWidgetAnnotation { Field: not null })
         {
             Begin(target, keepCaret: false);
             Raise();
