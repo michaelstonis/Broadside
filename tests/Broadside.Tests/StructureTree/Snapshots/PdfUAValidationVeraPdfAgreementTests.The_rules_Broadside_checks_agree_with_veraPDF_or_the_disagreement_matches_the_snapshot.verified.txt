@@ -1,0 +1,31 @@
+﻿262 files compared, 232 agree, 30 disagree; 172 files test rules Broadside does not check
+PDF/UA-1 | 7.18.1-2 | veraPDF pass, Broadside fail | PDF_UA-1/7.18 Annotations/7.18.1 General/7.18.1-t02-pass-a.pdf
+PDF/UA-1 | 7.18.1-2 | veraPDF pass, Broadside fail | PDF_UA-1/7.18 Annotations/7.18.1 General/7.18.1-t02-pass-b.pdf
+PDF/UA-1 | 7.18.1-2 | veraPDF pass, Broadside fail | PDF_UA-1/7.18 Annotations/7.18.1 General/7.18.1-t02-pass-c.pdf
+PDF/UA-1 | 7.18.1-2 | veraPDF pass, Broadside fail | PDF_UA-1/7.18 Annotations/7.18.1 General/7.18.1-t02-pass-d.pdf
+PDF/UA-1 | 7.18.1-2 | veraPDF pass, Broadside fail | PDF_UA-1/7.18 Annotations/7.18.1 General/7.18.1-t02-pass-h.pdf
+PDF/UA-1 | 7.18.1-3 | veraPDF fail, Broadside pass | PDF_UA-1/7.18 Annotations/7.18.1 General/7.18.1-t03-fail-d.pdf
+PDF/UA-1 | 7.18.1-3 | veraPDF pass, Broadside fail | PDF_UA-1/7.18 Annotations/7.18.1 General/7.18.1-t03-pass-d.pdf
+PDF/UA-1 | 7.2-3 | veraPDF fail, Broadside pass | PDF_UA-1/7.2 Text/7.2-t03-fail-b.pdf
+PDF/UA-1 | 7.2-3 | veraPDF fail, Broadside pass | PDF_UA-1/7.2 Text/7.2-t03-fail-c.pdf
+PDF/UA-1 | 7.2-19 | veraPDF fail, Broadside pass | PDF_UA-1/7.2 Text/7.2-t19-fail-a.pdf
+PDF/UA-1 | 7.2-19 | veraPDF fail, Broadside pass | PDF_UA-1/7.2 Text/7.2-t19-fail-c.pdf
+PDF/UA-1 | 7.2-27 | veraPDF fail, Broadside pass | PDF_UA-1/7.2 Text/7.2-t27-fail-a.pdf
+PDF/UA-1 | 7.2-27 | veraPDF fail, Broadside pass | PDF_UA-1/7.2 Text/7.2-t27-fail-b.pdf
+PDF/UA-1 | 7.2-29 | veraPDF fail, Broadside pass | PDF_UA-1/7.2 Text/7.2-t29-fail-g.pdf
+PDF/UA-1 | 7.2-29 | veraPDF fail, Broadside pass | PDF_UA-1/7.2 Text/7.2-t29-fail-h.pdf
+PDF/UA-1 | 7.2-29 | veraPDF fail, Broadside pass | PDF_UA-1/7.2 Text/7.2-t29-fail-i.pdf
+PDF/UA-1 | 7.2-29 | veraPDF fail, Broadside pass | PDF_UA-1/7.2 Text/7.2-t29-fail-n.pdf
+PDF/UA-1 | 7.2-29 | veraPDF fail, Broadside pass | PDF_UA-1/7.2 Text/7.2-t29-fail-p.pdf
+PDF/UA-1 | 7.2-33 | veraPDF pass, Broadside fail | PDF_UA-1/7.2 Text/7.2-t33-pass-b.pdf
+PDF/UA-1 | 7.21.6-2 | veraPDF fail, Broadside pass | PDF_UA-1/7.21 Fonts/7.21.6 Character encodings/7.21.6-t02-fail-d.pdf
+PDF/UA-1 | 7.21.7-1 | veraPDF pass, Broadside fail | PDF_UA-1/7.21 Fonts/7.21.7 Unicode character maps/7.21.7-t01-pass-a.pdf
+PDF/UA-1 | 7.9-1 | veraPDF fail, Broadside pass | PDF_UA-1/7.9 Notes and references/7.9-t01-fail-b.pdf
+PDF/UA-2 | 5-3 | veraPDF fail, Broadside pass | PDF_UA-2/5 Version identification/5-t03-fail-a.pdf
+PDF/UA-2 | 5-4 | veraPDF fail, Broadside pass | PDF_UA-2/5 Version identification/5-t04-fail-a.pdf
+PDF/UA-2 | 8.4.4-2 | veraPDF fail, Broadside pass | PDF_UA-2/8.4 Text representation for content/8.4.4 Declaring natural language/8.4.4-t02-fail-g.pdf
+PDF/UA-2 | 8.4.4-2 | veraPDF fail, Broadside pass | PDF_UA-2/8.4 Text representation for content/8.4.4 Declaring natural language/8.4.4-t02-fail-h.pdf
+PDF/UA-2 | 8.4.4-2 | veraPDF fail, Broadside pass | PDF_UA-2/8.4 Text representation for content/8.4.4 Declaring natural language/8.4.4-t02-fail-i.pdf
+PDF/UA-2 | 8.4.4-2 | veraPDF fail, Broadside pass | PDF_UA-2/8.4 Text representation for content/8.4.4 Declaring natural language/8.4.4-t02-fail-n.pdf
+PDF/UA-2 | 8.4.4-2 | veraPDF fail, Broadside pass | PDF_UA-2/8.4 Text representation for content/8.4.4 Declaring natural language/8.4.4-t02-fail-p.pdf
+PDF/UA-2 | 8.4.5.8-1 | veraPDF pass, Broadside fail | PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.8 Unicode character maps/8.4.5.8-t01-pass-a.pdf
