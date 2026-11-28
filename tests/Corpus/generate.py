@@ -3364,6 +3364,83 @@ def gen_form_data_xfdf() -> bytes:
     return XFDF_SAMPLE.encode("utf-8")
 
 
+HOCR_SAMPLE = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+ <head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <meta name='ocr-system' content='tesseract 5.3.0' />
+  <meta name='ocr-capabilities' content='ocr_page ocr_carea ocr_par ocr_line ocrx_word ocrp_wconf'/>
+ </head>
+ <body>
+  <div class='ocr_page' id='page_1' title='image "scan.png"; bbox 0 0 2480 3508; ppageno 0; scan_res 300 300'>
+   <div class='ocr_carea' id='block_1_1' title="bbox 300 400 1200 520">
+    <p class='ocr_par' id='par_1_1' lang='eng' title="bbox 300 400 1200 520">
+     <span class='ocr_line' id='line_1_1' title="bbox 300 400 1200 450; baseline 0 -10; x_size 50; x_descenders 10; x_ascenders 12">
+      <span class='ocrx_word' id='word_1_1' title='bbox 300 400 520 450; x_wconf 96'>Invoice</span>
+      <span class='ocrx_word' id='word_1_2' title='bbox 540 400 700 450; x_wconf 91'><strong>No.</strong></span>
+      <span class='ocrx_word' id='word_1_3' title='bbox 720 400 800 450; x_wconf 42'>A&amp;B</span>
+     </span>
+     <span class='ocr_line' id='line_1_2' title="bbox 300 470 1200 520; textangle 90; x_size 50">
+      <span class='ocrx_word' id='word_1_4' title='bbox 300 470 340 520; x_wconf 88'>vertical</span>
+     </span>
+    </p>
+   </div>
+  </div>
+ </body>
+</html>
+"""
+
+
+def gen_ocr_page_hocr() -> bytes:
+    """hOCR 1.2 in the shape Tesseract 5 writes (tesseract scan.png out hocr), cut down to one page of two lines: an
+    ocr_page with bbox, ocr_carea and ocr_par (lang eng), ocr_line elements with baseline and x_size, the second with
+    textangle 90, and ocrx_word elements with bbox and x_wconf, one wrapped in strong and one with an entity. XHTML 1.0,
+    UTF-8, no byte order mark. Issue #649."""
+    return HOCR_SAMPLE.encode("utf-8")
+
+
+ALTO_SAMPLE = """<?xml version="1.0" encoding="UTF-8"?>
+<alto xmlns="http://www.loc.gov/standards/alto/ns-v2#" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <Description>
+    <MeasurementUnit>pixel</MeasurementUnit>
+    <sourceImageInformation><fileName>scan.tif</fileName></sourceImageInformation>
+    <OCRProcessing ID="OCR_0"><ocrProcessingStep><processingSoftware><softwareCreator>ABBYY</softwareCreator><softwareName>ABBYY FineReader Engine</softwareName><softwareVersion>12</softwareVersion></processingSoftware></ocrProcessingStep></OCRProcessing>
+  </Description>
+  <Styles><TextStyle ID="font0" FONTFAMILY="Times New Roman" FONTSIZE="11"/></Styles>
+  <Layout>
+    <Page ID="Page1" PHYSICAL_IMG_NR="1" HEIGHT="3300" WIDTH="2550">
+      <TopMargin HPOS="0" VPOS="0" WIDTH="2550" HEIGHT="200"/>
+      <PrintSpace HPOS="200" VPOS="200" WIDTH="2150" HEIGHT="2900">
+        <TextBlock ID="TB1" HPOS="200" VPOS="200" WIDTH="1000" HEIGHT="120" LANG="de">
+          <TextLine HPOS="200" VPOS="200" WIDTH="1000" HEIGHT="50">
+            <String STYLEREFS="font0" HPOS="200" VPOS="200" WIDTH="240" HEIGHT="50" CONTENT="Rechnung" WC="0.97"/>
+            <SP HPOS="440" VPOS="200" WIDTH="20"/>
+            <String HPOS="460" VPOS="200" WIDTH="120" HEIGHT="50" CONTENT="Nr." WC="0.81"/>
+            <SP HPOS="580" VPOS="200" WIDTH="20"/>
+            <String HPOS="600" VPOS="200" WIDTH="100" HEIGHT="50" CONTENT="17&amp;4"/>
+            <HYP CONTENT="-"/>
+          </TextLine>
+          <TextLine HPOS="200" VPOS="270" WIDTH="1000" HEIGHT="50" LANG="en">
+            <String HPOS="200" VPOS="270" WIDTH="200" HEIGHT="50" CONTENT="Invoice"/>
+          </TextLine>
+        </TextBlock>
+      </PrintSpace>
+    </Page>
+  </Layout>
+</alto>
+"""
+
+
+def gen_ocr_page_alto() -> bytes:
+    """ALTO 2 (http://www.loc.gov/standards/alto/ns-v2#) in the shape ABBYY FineReader writes, pixel units, cut down to one
+    page: Description with MeasurementUnit and OCRProcessing, Styles, a Page with WIDTH and HEIGHT, TopMargin, PrintSpace,
+    one TextBlock (LANG de) of two TextLines (the second LANG en) whose String elements carry HPOS, VPOS, WIDTH, HEIGHT,
+    CONTENT and WC, with SP and HYP between them and an entity in one CONTENT. UTF-8. Issue #649."""
+    return ALTO_SAMPLE.encode("utf-8")
+
+
 def gen_metadata_xmp() -> bytes:
     return simple_file([
         (1, catalog(b" /Metadata 4 0 R")),
@@ -7584,6 +7661,8 @@ FILES = {
     "acroform-xfa.pdf": gen_acroform_xfa,
     "form-data.fdf": gen_form_data_fdf,
     "form-data.xfdf": gen_form_data_xfdf,
+    "ocr-page.hocr": gen_ocr_page_hocr,
+    "ocr-page.alto.xml": gen_ocr_page_alto,
     "colorspace-families.pdf": gen_colorspace_families,
     "color-operators.pdf": gen_color_operators,
     "default-colorspaces.pdf": gen_default_colorspaces,

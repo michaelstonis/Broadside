@@ -37,6 +37,8 @@ xmp                         ^src/Broadside/(Structure|Objects)/|^src/Broadside/[
 xmp-xml                     ^src/Broadside/(Structure|Objects)/|^src/Broadside/[^/]*Xmp[^/]*\.cs$
 fdf-import                  ^src/Broadside/Forms/|^src/Broadside/Parsing/|^src/Broadside/PdfDocument\.FormData\.cs$
 xfdf-import                 ^src/Broadside/Forms/|^src/Broadside/[^/]*Xmp[^/]*\.cs$|^src/Broadside/PdfDocument\.FormData\.cs$
+hocr                        ^src/Broadside/Text/(Hocr|Ocr|TextLayer|Glyphless)|^src/Broadside/PdfPage\.TextLayer\.cs$
+alto                        ^src/Broadside/Text/(Alto|Ocr|TextLayer|Glyphless)|^src/Broadside/PdfPage\.TextLayer\.cs$
 pdf-date                    ^src/Broadside/(Objects|Structure)/|^src/Broadside/[^/]*Date[^/]*\.cs$
 structure-tree              ^src/Broadside/Structure/
 layout-detection            ^src/Broadside/(Text|Structure)/

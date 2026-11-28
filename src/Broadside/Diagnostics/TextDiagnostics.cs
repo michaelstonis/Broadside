@@ -1,6 +1,6 @@
 namespace Broadside.Diagnostics;
 
-/// <summary>The codes of the diagnostics about mapping character codes to Unicode.</summary>
+/// <summary>The codes of the diagnostics about mapping character codes to Unicode and about reading OCR output (hOCR, ALTO).</summary>
 /// <remarks>
 /// <para>ISO 32000-2 §9.10. Each code is reported under <see cref="DiagnosticArea.Text"/>; see <see cref="DiagnosticCatalog"/> for every area.</para>
 /// </remarks>
@@ -56,6 +56,21 @@ public static class TextDiagnostics
     public static DiagnosticCode CidToUnicodeResourceInvalid { get; } = new(nameof(CidToUnicodeResourceInvalid), DiagnosticArea.Text, DiagnosticSeverity.Information, "ISO 32000-2 §9.10.2",
         "A CID to Unicode table supplied by the font resolver deviates from the CMap file format. What could be read is used.");
 
+    /// <summary>Gets the <c>OcrBoundsInvalid</c> code.</summary>
+    /// <remarks>hOCR 1.2, the <c>bbox</c> property; ALTO, the <c>HPOS</c>, <c>VPOS</c>, <c>WIDTH</c> and <c>HEIGHT</c> of a <c>String</c>.</remarks>
+    public static DiagnosticCode OcrBoundsInvalid { get; } = new(nameof(OcrBoundsInvalid), DiagnosticArea.Text, DiagnosticSeverity.Warning, "hOCR 1.2 bbox; ALTO String",
+        "A word of hOCR or ALTO input has a box or coordinate that is missing or not a number. The word is skipped.");
+
+    /// <summary>Gets the <c>OcrPageSizeInvalid</c> code.</summary>
+    /// <remarks>hOCR 1.2, the <c>bbox</c> of an <c>ocr_page</c>; ALTO, the <c>WIDTH</c> and <c>HEIGHT</c> of a <c>Page</c>.</remarks>
+    public static DiagnosticCode OcrPageSizeInvalid { get; } = new(nameof(OcrPageSizeInvalid), DiagnosticArea.Text, DiagnosticSeverity.Warning, "hOCR 1.2 bbox; ALTO Page",
+        "A page of hOCR or ALTO input gives no valid image size. The size is taken from the extent of its words.");
+
+    /// <summary>Gets the <c>OcrConfidenceInvalid</c> code.</summary>
+    /// <remarks>hOCR 1.2, the <c>x_wconf</c> property; ALTO, the <c>WC</c> attribute.</remarks>
+    public static DiagnosticCode OcrConfidenceInvalid { get; } = new(nameof(OcrConfidenceInvalid), DiagnosticArea.Text, DiagnosticSeverity.Information, "hOCR 1.2 x_wconf; ALTO WC",
+        "A word of hOCR or ALTO input has a confidence that is not a number in range. The word is read with confidence 1.");
+
     /// <summary>Gets every code of this area, in declaration order.</summary>
     internal static DiagnosticCode[] Codes { get; } =
     [
@@ -69,5 +84,8 @@ public static class TextDiagnostics
         TextUcs2CmapMissing,
         TextUnicodeUnmapped,
         CidToUnicodeResourceInvalid,
+        OcrBoundsInvalid,
+        OcrPageSizeInvalid,
+        OcrConfidenceInvalid,
     ];
 }

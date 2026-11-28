@@ -4,6 +4,7 @@ using Broadside.Graphics;
 using Broadside.Images;
 using Broadside.Layout.Flow;
 using Broadside.Samples;
+using Broadside.Text;
 
 Sample.Start("Writing");
 
@@ -11,6 +12,7 @@ DrawPaths();
 DrawText();
 EmbedAFont();
 DrawImages();
+MakeAScanSearchable();
 DrawTransparency();
 FlowAReport();
 Sample.Finish();
@@ -119,6 +121,57 @@ static void DrawImages()
 
     using PdfDocument saved = PdfDocument.Open("images.pdf");
     Sample.Expect(saved.Pages[0].ExtractImages().Count == 2, "two images on the page");
+}
+
+static void MakeAScanSearchable()
+{
+    WriteAScan();
+
+    #region ocr
+    using PdfDocument document = PdfDocument.Open("scan.pdf"); // one scanned image per page, no text
+    using FileStream hocr = File.OpenRead("scan.hocr");        // tesseract scan.png scan hocr (or OcrPage.FromAlto for ALTO)
+    IReadOnlyList<OcrPage> pages = OcrPage.FromHocr(hocr);
+    for (int index = 0; index < pages.Count; index++)
+    {
+        // Invisible text over each word's box: search, selection and copy work, and the page looks the same.
+        document.Pages[index].AddTextLayer(pages[index], new TextLayerOptions().WithMinConfidence(0.5));
+    }
+
+    document.Save("searchable.pdf");
+    #endregion
+
+    using PdfDocument saved = PdfDocument.Open("searchable.pdf");
+    Sample.Expect(saved.Pages[0].ExtractText().Text.Contains("Quarterly report", StringComparison.Ordinal), "the OCR words read back");
+    Sample.Expect(!saved.Pages[0].ExtractText().Text.Contains("smudge", StringComparison.Ordinal), "a low-confidence word is left out");
+}
+
+/// <summary>Writes scan.pdf, a page that is one grey image, and scan.hocr, the hOCR an OCR engine would give for its 1275 x 1650 pixel scan.</summary>
+static void WriteAScan()
+{
+    using (PdfDocument scan = PdfDocument.Create())
+    {
+        byte[] gray = new byte[85 * 110];
+        Array.Fill(gray, (byte)235);
+        PdfImage image = scan.CreateImage(gray, new PdfImageLayout(85, 110, PdfDeviceGrayColorSpace.Instance), PdfImageCompression.Flate);
+        using (PdfCanvas canvas = scan.Pages[0].CreateCanvas())
+        {
+            canvas.DrawImage(image, 0, 0, 612, 792);
+        }
+
+        scan.Save("scan.pdf");
+    }
+
+    File.WriteAllText("scan.hocr", """
+        <html><body>
+        <div class='ocr_page' title='image "scan.png"; bbox 0 0 1275 1650'>
+         <span class='ocr_line' title='bbox 150 150 700 200'>
+          <span class='ocrx_word' title='bbox 150 150 420 200; x_wconf 95'>Quarterly</span>
+          <span class='ocrx_word' title='bbox 440 150 640 200; x_wconf 93'>report</span>
+          <span class='ocrx_word' title='bbox 660 150 700 200; x_wconf 12'>smudge</span>
+         </span>
+        </div>
+        </body></html>
+        """);
 }
 
 static void DrawTransparency()

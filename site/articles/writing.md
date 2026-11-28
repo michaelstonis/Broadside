@@ -112,6 +112,29 @@ A font whose license forbids embedding (its `OS/2` `fsType`) is refused with an 
 
 Conformance: [ISO 32000-2 §9.7 (Type 0 fonts), §9.8 (font descriptors), §9.9 (embedded font programs), §9.10 (ToUnicode)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
 
+## Searchable scans with your own OCR
+
+Broadside does not run OCR, but it puts the output of the engine you use under a scan, so the page can be searched, selected and copied while it looks the same. Read hOCR (what Tesseract writes) or ALTO (ABBYY, Tesseract, library digitization tools) into `OcrPage`s, or build them from any engine's word boxes, and add one to each page:
+
+<!-- snippet: samples/guides/Writing/Program.cs#ocr -->
+```csharp
+using PdfDocument document = PdfDocument.Open("scan.pdf"); // one scanned image per page, no text
+using FileStream hocr = File.OpenRead("scan.hocr");        // tesseract scan.png scan hocr (or OcrPage.FromAlto for ALTO)
+IReadOnlyList<OcrPage> pages = OcrPage.FromHocr(hocr);
+for (int index = 0; index < pages.Count; index++)
+{
+    // Invisible text over each word's box: search, selection and copy work, and the page looks the same.
+    document.Pages[index].AddTextLayer(pages[index], new TextLayerOptions().WithMinConfidence(0.5));
+}
+
+document.Save("searchable.pdf");
+```
+<!-- endsnippet -->
+
+Each word becomes invisible text (rendering mode 3) sized and stretched to its box, in a built-in glyphless font that covers every script in a few hundred bytes. OCR coordinates (pixels, top-left origin) map onto the crop box as the page is displayed, so a rotated page works; `WithTarget` maps them onto another area. `WithTagging(true)` makes each line a `P` element with its language. Words the reader cannot use are skipped and listed in `OcrPage.Diagnostics`. A page with a layer saves as PDF/A-2b and 2u.
+
+Conformance: [ISO 32000-2 §9.3.6 (text rendering mode), §14.8.2.4 (invisible content)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md).
+
 ## Images
 
 `CreateImageFromPng` and `CreateImageFromJpeg` make an image from a file's bytes; a PNG's alpha channel becomes a soft mask, and JPEG data is kept as it is. `CreateImage` takes raw samples with their layout. `DrawImage` places an image in a rectangle:
