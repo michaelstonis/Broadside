@@ -18,6 +18,7 @@ Archive(http);
 await SignExternally(certificate, root);
 await SignDeferred(certificate, root);
 Validate(root, services.Requests);
+RemoveSignatures();
 Sample.Finish();
 
 static void SignBaseline(X509Certificate2 certificate, X509Certificate2 root)
@@ -158,6 +159,23 @@ static void Validate(X509Certificate2 root, int requests)
         using PdfDocument signed = PdfDocument.Open(file);
         Sample.Expect(signed.ValidateSignatures(new PdfSignatureValidationOptions().WithTrustAnchors(root))[0].Status == PdfSignatureStatus.Valid, file);
     }
+}
+
+static void RemoveSignatures()
+{
+    #region remove
+    using PdfDocument document = PdfDocument.Open("signed-b-lta.pdf");
+    PdfSignatureRemoval removal = document.RemoveSignatures(); // keeps the emptied fields; WithRemoveFields(true) removes them
+
+    // A full rewrite without unreachable objects: an incremental save would keep the signatures in the earlier revision.
+    using FileStream output = File.Create("unsigned.pdf");
+    document.Save(output, removal.CreateSaveOptions());
+    #endregion
+
+    Sample.Expect(removal.SignaturesRemoved == 2, "the signature and the document timestamp");
+    output.Close();
+    using PdfDocument unsigned = PdfDocument.Open("unsigned.pdf");
+    Sample.Expect(unsigned.ValidateSignatures().Count == 0, "no signature is left");
 }
 
 #region external-signer-class

@@ -301,6 +301,34 @@ public abstract class PdfField
         return null;
     }
 
+    /// <summary>
+    /// Returns the dictionary that holds the inheritable entry <paramref name="key"/> as stored (present, whatever its value): the
+    /// field's, an unnamed dictionary's above it, or the nearest ancestor's; <see langword="null"/> when none has it.
+    /// </summary>
+    internal CosDictionary? Holder(CosName key)
+    {
+        for (PdfField? current = this; current is not null; current = current.Parent)
+        {
+            if (current.Dictionary.ContainsKey(key))
+            {
+                return current.Dictionary;
+            }
+
+            for (int index = current._intermediates.Length - 1; index >= 0; index--)
+            {
+                if (current._intermediates[index].ContainsKey(key))
+                {
+                    return current._intermediates[index];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Gets the dictionaries whose <c>Kids</c> may list the field: its parent's and the unnamed levels between them.</summary>
+    internal IEnumerable<CosDictionary> Containers => Parent is null ? _intermediates : [Parent.Dictionary, .. _intermediates];
+
     /// <summary>Returns the field's own entry <paramref name="key"/>, resolved; <see langword="null"/> when absent or null.</summary>
     internal CosObject? Own(CosName key) => FieldTree.Get(Document, Dictionary, key);
 

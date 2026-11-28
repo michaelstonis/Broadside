@@ -187,4 +187,21 @@ foreach (PdfSignatureValidation signature in document.ValidateSignatures(options
 
 `Status` is `Valid`, `Invalid` (the file was changed or the signature is wrong) or `Indeterminate` (it could not be decided, for example without a trusted path or revocation status), and `Problems` says why. `ValidateSignaturesAsync` does the same without blocking while it fetches revocation data through `UseOnlineRevocation`.
 
+## Removing signatures
+
+To reuse a signed contract as a template, strip a test signature, or remove a certification so a form can be edited again, `RemoveSignatures` clears every signed field: the field's value goes, its widgets get the empty appearance of a new signature field, the catalog's certification (`Perms` `DocMDP`) goes with its signature, and the form's `SigFlags` is recomputed. The fields stay, ready to be signed again, unless `WithRemoveFields(true)` removes them with their widgets. Document timestamps are removed too unless `WithIncludeDocumentTimestamps(false)` keeps them, and the document security store (`DSS`) goes once no signature is left. For one field, call `PdfSignatureField.ClearSignature` or `PdfAcroForm.RemoveField`.
+
+<!-- snippet: samples/guides/Signatures/Program.cs#remove -->
+```csharp
+using PdfDocument document = PdfDocument.Open("signed-b-lta.pdf");
+PdfSignatureRemoval removal = document.RemoveSignatures(); // keeps the emptied fields; WithRemoveFields(true) removes them
+
+// A full rewrite without unreachable objects: an incremental save would keep the signatures in the earlier revision.
+using FileStream output = File.Create("unsigned.pdf");
+document.Save(output, removal.CreateSaveOptions());
+```
+<!-- endsnippet -->
+
+Removing a signature does not remove its bytes from the file you opened. An incremental save appends to that file, so the earlier revision still holds every signature and a validator can still find them; save with `CreateSaveOptions`, a full rewrite that leaves out the objects nothing reaches any more. A certification that permits no changes does not prevent removal: it is your copy, and modification detection is a validation concern.
+
 Conformance: [ISO 32000-2 §12.8 (digital signatures), §12.7.5.5 (signature fields)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-32000-2.md), [ISO/TS 32001 (SHA-3)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-ts-32001.md) and [ISO/TS 32002 (ECDSA)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-ts-32002.md).

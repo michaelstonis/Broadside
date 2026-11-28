@@ -57,6 +57,30 @@ public sealed class PdfSignatureField : PdfTerminalField
     /// <remarks>ISO 32000-2 §12.7.5.5, Tables 235 and 237; shall be an indirect reference, else read with <c>SignatureFieldDictNotIndirect</c>.</remarks>
     public CosDictionary? SeedValue => ReadIndirectDictionary(FormNames.SV);
 
+    /// <summary>Removes the field's signature: the field stays, unsigned and ready to be signed again.</summary>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §12.7.5.5 (Tables 235 and 236), §12.8.1 (Table 255), §12.8.2.2 (Table 263) and §12.7.3 (Table 225). The field's
+    /// value (<c>V</c>) is removed, so the signature dictionary is no longer reachable from it, and each widget's normal appearance
+    /// becomes an empty form of the widget's size that draws its background and border, as a field
+    /// <see cref="PdfAcroForm.AddSignatureField"/> creates has. Another signature field whose value is the same signature dictionary
+    /// (a malformed file) is cleared too; a value that is not a dictionary is removed all the same. When the catalog's
+    /// permissions dictionary (<c>Perms</c>) names the signature as the document's certification (<c>DocMDP</c>), that entry is
+    /// removed, and <c>Perms</c> with it when nothing else is left. The field's lock dictionary (<c>Lock</c>) is kept: it describes
+    /// what the next signature locks. The form's <c>SigFlags</c> loses AppendOnly when no signed field remains; SignaturesExist
+    /// stays while a signature field exists. An unsigned field is left as it is.
+    /// </para>
+    /// <para>
+    /// The signature's bytes are still in the file the document was opened from, and an incremental save keeps them in the earlier
+    /// revision: save with a full rewrite that leaves out unreachable objects
+    /// (<see cref="PdfSaveOptions.RemoveUnreachableObjects"/>, as <see cref="Signatures.PdfSignatureRemoval.CreateSaveOptions"/>
+    /// returns) to drop them. A certification that permits no changes does not prevent clearing: modification detection is a
+    /// validation concern. Removal never raises the document's version. The view stays valid: <see cref="IsSigned"/> reads
+    /// <see langword="false"/> afterwards. A mutation: no read may run concurrently with it; on failure nothing is changed.
+    /// </para>
+    /// </remarks>
+    public void ClearSignature() => SignatureRemoval.Clear(this);
+
     private CosDictionary? ReadIndirectDictionary(CosName key)
     {
         switch (Own(key))

@@ -418,3 +418,24 @@ Broadside.PdfBatesRange.Last.init -> void
 Broadside.PdfBatesRange.LastNumber.get -> long
 Broadside.PdfBatesRange.LastNumber.init -> void
 Broadside.PdfDocument.AddBatesNumbers(Broadside.PdfBatesNumbering! numbering, System.Range? pages = null) -> Broadside.PdfBatesRange
+Broadside.Forms.PdfAcroForm.RemoveField(Broadside.Forms.PdfSignatureField! field) -> void
+Broadside.Forms.PdfSignatureField.ClearSignature() -> void
+Broadside.PdfDocument.RemoveSignatures() -> Broadside.Signatures.PdfSignatureRemoval!
+Broadside.PdfDocument.RemoveSignatures(Broadside.Signatures.PdfSignatureRemovalOptions! options) -> Broadside.Signatures.PdfSignatureRemoval!
+Broadside.Signatures.PdfSignatureRemoval
+Broadside.Signatures.PdfSignatureRemoval.CertificationRemoved.get -> bool
+Broadside.Signatures.PdfSignatureRemoval.CreateSaveOptions() -> Broadside.PdfSaveOptions!
+Broadside.Signatures.PdfSignatureRemoval.FieldsRemoved.get -> int
+Broadside.Signatures.PdfSignatureRemoval.SecurityStoreRemoved.get -> bool
+Broadside.Signatures.PdfSignatureRemoval.SignaturesRemoved.get -> int
+Broadside.Signatures.PdfSignatureRemovalOptions
+Broadside.Signatures.PdfSignatureRemovalOptions.IncludeDocumentTimestamps.get -> bool
+Broadside.Signatures.PdfSignatureRemovalOptions.IncludeDocumentTimestamps.set -> void
+Broadside.Signatures.PdfSignatureRemovalOptions.PdfSignatureRemovalOptions() -> void
+Broadside.Signatures.PdfSignatureRemovalOptions.RemoveFields.get -> bool
+Broadside.Signatures.PdfSignatureRemovalOptions.RemoveFields.set -> void
+Broadside.Signatures.PdfSignatureRemovalOptions.RemoveSecurityStore.get -> bool
+Broadside.Signatures.PdfSignatureRemovalOptions.RemoveSecurityStore.set -> void
+Broadside.Signatures.PdfSignatureRemovalOptions.WithIncludeDocumentTimestamps(bool include) -> Broadside.Signatures.PdfSignatureRemovalOptions!
+Broadside.Signatures.PdfSignatureRemovalOptions.WithRemoveFields(bool remove) -> Broadside.Signatures.PdfSignatureRemovalOptions!
+Broadside.Signatures.PdfSignatureRemovalOptions.WithRemoveSecurityStore(bool remove) -> Broadside.Signatures.PdfSignatureRemovalOptions!
