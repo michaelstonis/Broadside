@@ -192,7 +192,7 @@ internal sealed partial class PdfUAChecker
     /// <c>dc:title</c> in it, never the information dictionary's <c>Title</c>, 7.1-9; <c>DisplayDocTitle</c>, 7.1-10; <c>Tabs</c>,
     /// 7.18.3-1), the PDF/UA identification when <paramref name="identification"/> (5-1 to 5-5), and every repair of the structure tree
     /// made while reading it as a violation of the rule it breaks. An untagged document is one violation (7.1-11) and no walk of
-    /// marked content or annotations. Each PDF/UA-1 finding cites its Matterhorn Protocol 1.1 checkpoint.
+    /// marked content or annotations. A PDF/UA-1 finding names its Matterhorn checkpoint where the rule covers several; the caller looks up the rest.
     /// </summary>
     /// <param name="document">The document, as read: nothing is changed.</param>
     /// <param name="part">The part of ISO 14289: 1 or 2.</param>
@@ -205,7 +205,13 @@ internal sealed partial class PdfUAChecker
             checker.CheckIdentification();
         }
 
-        IReadOnlyList<PdfUAFinding> findings = checker.Walk();
+        checker.CheckFileEntries();
+        List<PdfUAFinding> findings = checker.Walk();
+        foreach (PdfPage page in document.Pages)
+        {
+            checker.CheckTabs(page);
+        }
+
         checker.CheckRepairs();
         return findings;
     }
@@ -241,8 +247,9 @@ internal sealed partial class PdfUAChecker
 
     private void Report(string rule, string message, CosReference? reference = null, string? checkpoint = null)
     {
-        // Only a validation cites checkpoints: a save never reads the Matterhorn table.
-        checkpoint = _validate && _part == 1 ? checkpoint ?? MatterhornProtocol.CheckpointOfRule.GetValueOrDefault(rule) : null;
+        // Only a PDF/UA-1 validation cites checkpoints; the rest come from the Matterhorn table in PdfDocument.ValidatePdfUA, which a
+        // save never reaches (the size of a trimmed save stays as it was).
+        checkpoint = _validate && _part == 1 ? checkpoint : null;
 
         if (_part == 2 && rule[0] == '7')
         {
@@ -287,11 +294,6 @@ internal sealed partial class PdfUAChecker
         if (_document.MarkInfo.Suspects)
         {
             Report("7.1-4", "the catalog's MarkInfo has Suspects true");
-        }
-
-        if (_validate)
-        {
-            CheckFileEntries();
         }
 
         // A save writes the title it finds to dc:title; a file as read must have it there (ISO 14289-1 §7.1: a reader ignores Info).
@@ -546,11 +548,6 @@ internal sealed partial class PdfUAChecker
 
     private void CheckPage(PdfPage page)
     {
-        if (_validate)
-        {
-            CheckTabs(page);
-        }
-
         IReadOnlyDictionary<int, PdfStructureElement>? tagged = _root?.GetMarkedContentElements(page);
         var scan = new ContentState(page.Reference, tagged);
         switch (Resolve(page.Dictionary.GetValueOrDefault(KnownNames.Contents)))
@@ -861,7 +858,7 @@ internal sealed partial class PdfUAChecker
     /// </summary>
     private void CheckFileEntries()
     {
-        if (_root is not null && !_document.MarkInfo.Marked)
+        if (_document.StructureTree is not null && !_document.MarkInfo.Marked)
         {
             Report("6.2-1", "the catalog's MarkInfo does not have Marked true: the file does not say it is tagged");
         }

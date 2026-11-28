@@ -82,7 +82,11 @@ public sealed partial class PdfDocument
         return new PdfUAValidation(
             level,
             isClaimed: claimedPart == partNumber,
-            [.. findings.Select(finding => new PdfUARuleViolation(finding.Rule, finding.Message) { Checkpoint = finding.Checkpoint, Reference = finding.Reference })],
+            [.. findings.Select(finding => new PdfUARuleViolation(finding.Rule, finding.Message)
+            {
+                Checkpoint = partNumber == 1 ? finding.Checkpoint ?? MatterhornProtocol.CheckpointOfRule.GetValueOrDefault(finding.Rule) : null,
+                Reference = finding.Reference,
+            })],
             declared,
             conformant,
             partNumber == 1 ? MatterhornProtocol.NotChecked : PdfUA2ClausesNotChecked,
