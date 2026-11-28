@@ -13,7 +13,7 @@ namespace Broadside.Text;
 /// search, selection and copy work on the scan. Coordinates are in the units of the source image, top-left origin, y down.
 /// </para>
 /// <para>
-/// The readers are lenient (ADR 0005): unknown elements are ignored, and a word whose box or coordinates cannot be read is skipped
+/// The readers are lenient: unknown elements are ignored, and a word whose box or coordinates cannot be read is skipped
 /// and recorded in <see cref="Diagnostics"/>. Input that is not markup at all throws <see cref="FormatException"/>. hOCR 1.2:
 /// http://kba.github.io/hocr-spec/1.2/; ALTO 2.0 to 4.4: https://www.loc.gov/standards/alto/.
 /// </para>
