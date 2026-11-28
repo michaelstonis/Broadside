@@ -53,7 +53,7 @@ internal readonly record struct PdfAViolation(string Rule, string Message, CosRe
 /// always meets (6.1.2-2, 6.1.3-1, 6.1.3-3, 6.1.4, 6.1.6, 6.1.7.1-1/-2, 6.1.9), implementation limits (6.1.13), font program internals
 /// (6.2.11.2, 6.2.11.3.1, 6.2.11.3.3, 6.2.11.6-1/-2/-4, 6.2.11.7), ICC profile versions (6.2.4.2), JPEG 2000 data (6.2.8.3) and the
 /// XMP extension schemas of the catalog's existing packet (6.6.2.3; a conversion rewrites it). A device colour space under a
-/// <c>Default*</c> colour space is still reported (conservative). <see cref="PdfAConverter"/> converts an existing file (issue #229).
+/// device-independent <c>Default*</c> colour space of the same resource dictionary is not reported (issue #651). <see cref="PdfAConverter"/> converts an existing file (issue #229).
 /// </para>
 /// <para>
 /// Issue #229 added the rules veraPDF finds broken in real-world files: every indirect stream's filters (6.1.7.1-3, 6.1.7.2-1, a
@@ -227,7 +227,7 @@ internal sealed partial class PdfAChecker
     private readonly HashSet<(string, string)> _reported = [];
     private readonly HashSet<CosObject> _visited = new(ReferenceEqualityComparer.Instance);
     private readonly OperandArena _arena = new();
-    private string _outputSpace = "RGB ";
+    private string? _outputSpace = "RGB ";
 
     private PdfAChecker(PdfDocument document, PdfAConformance conformance)
     {
@@ -239,9 +239,17 @@ internal sealed partial class PdfAChecker
     /// <param name="document">The document, as it is: nothing is changed.</param>
     /// <param name="options">The save's options.</param>
     /// <returns>The rules not met, in document order; empty when the save can conform.</returns>
-    public static IReadOnlyList<PdfAViolation> Check(PdfDocument document, PdfSaveOptions options)
+    public static IReadOnlyList<PdfAViolation> Check(PdfDocument document, PdfSaveOptions options) => Check(document, options, readMode: null);
+
+    /// <summary>
+    /// Runs the checks of a save, or with <paramref name="readMode"/> those of the file as it was read (issue #651, see
+    /// <see cref="Validate"/>). The read mode is installed through a delegate so a save does not reach its code, which trimming then
+    /// leaves out of apps that never validate.
+    /// </summary>
+    private static List<PdfAViolation> Check(PdfDocument document, PdfSaveOptions options, Action<PdfAChecker>? readMode)
     {
         var checker = new PdfAChecker(document, options.PdfAConformance);
+        readMode?.Invoke(checker);
         checker.CheckFile(options);
         checker.CheckOutputIntents();
         checker.CheckCatalog();
@@ -254,6 +262,7 @@ internal sealed partial class PdfAChecker
         checker.CheckOptionalContent();
         checker.CheckEveryObject();
         checker.CheckEmbeddedFiles();
+        checker._readRepairs?.Invoke(checker);
         return checker._violations;
     }
 
@@ -328,6 +337,12 @@ internal sealed partial class PdfAChecker
 
     private void CheckFile(PdfSaveOptions options)
     {
+        if (_readFile is { } readFile)
+        {
+            readFile(this);
+            return;
+        }
+
         if (options.Encryption is not null || options.PublicKeyEncryption is not null || (_document.Security is not null && !options.RemoveEncryption))
         {
             Report("6.1.3-2", "the file would be encrypted (PDF/A forbids the Encrypt entry)");
@@ -359,6 +374,8 @@ internal sealed partial class PdfAChecker
 
     private void CheckOutputIntents()
     {
+        _readOutputIntents?.Invoke(this, Resolve(_document.Catalog.GetValueOrDefault(OutputIntents)) as CosArray);
+
         if (Resolve(_document.Catalog.GetValueOrDefault(OutputIntents)) is not CosArray intents)
         {
             return;
@@ -384,7 +401,7 @@ internal sealed partial class PdfAChecker
             Report("6.2.3-2", "the output intents have different destination profiles");
         }
 
-        if (profiles.Length > 0)
+        if (profiles.Length > 0 && !_asRead)
         {
             ReadOnlySpan<byte> data = _document.DecodeStream(profiles[0]).Span;
             _outputSpace = data.Length >= 20 ? System.Text.Encoding.ASCII.GetString(data[16..20]) : string.Empty;
@@ -688,6 +705,7 @@ internal sealed partial class PdfAChecker
     private void CheckPage(PdfPage page)
     {
         CosDictionary dictionary = page.Dictionary;
+        _transparency = false;
         CheckAdditionalActions(dictionary, "6.5.2-2", "a page", page.Reference);
 
         if (dictionary.ContainsKey(PresSteps))
@@ -716,6 +734,8 @@ internal sealed partial class PdfAChecker
                 }
             }
         }
+
+        CheckPageTransparency(page);
     }
 
     private void CheckAnnotation(CosDictionary annotation, CosReference? reference)
@@ -898,6 +918,8 @@ internal sealed partial class PdfAChecker
 
         _arena.Clear();
         _arena.Overflowed = false;
+        CosDictionary? outer = _resources;
+        _resources = resources;
         var reader = new ContentReader(data.Span, _arena);
         bool unicode = _conformance.NeedsUnicode();
         (PdfFont Font, string Name)? font = null;
@@ -953,6 +975,9 @@ internal sealed partial class PdfAChecker
                 case ContentOperatorCode.SetFillCmyk or ContentOperatorCode.SetStrokeCmyk:
                     CheckDeviceSpace("DeviceCMYK");
                     break;
+                case ContentOperatorCode.SetFillGray or ContentOperatorCode.SetStrokeGray:
+                    CheckDeviceSpace("DeviceGray");
+                    break;
                 case ContentOperatorCode.SetFillColorSpace or ContentOperatorCode.SetStrokeColorSpace when operands.Count > 0 && operands[operands.Count - 1].Kind == ContentOperandKind.Name:
                     CheckDeviceSpace(System.Text.Encoding.ASCII.GetString(operands[operands.Count - 1].Bytes));
                     break;
@@ -965,6 +990,7 @@ internal sealed partial class PdfAChecker
         }
 
         _arena.Trim();
+        _resources = outer;
     }
 
     /// <summary>
@@ -1265,13 +1291,22 @@ internal sealed partial class PdfAChecker
 
     private void CheckDeviceSpace(string name)
     {
+        if (HasDefaultSpace(name))
+        {
+            return;
+        }
+
         switch (name)
         {
             case "DeviceRGB" when _outputSpace != "RGB ":
-                Report("6.2.4.3-2", $"DeviceRGB is used, which the output intent's {_outputSpace.Trim()} profile does not cover");
+                Report("6.2.4.3-2", Uncovered("DeviceRGB"));
                 break;
             case "DeviceCMYK" when _outputSpace != "CMYK":
-                Report("6.2.4.3-3", $"DeviceCMYK is used, which the output intent's {_outputSpace.Trim()} profile does not cover");
+                Report("6.2.4.3-3", Uncovered("DeviceCMYK"));
+                break;
+            case "DeviceGray" when _outputSpace is null:
+                // Only as read (issue #651): a save adds an output intent when the file has none.
+                Report("6.2.4.3-4", "DeviceGray is used, and the file has no PDF/A output intent");
                 break;
         }
     }
@@ -1307,6 +1342,8 @@ internal sealed partial class PdfAChecker
             return;
         }
 
+        CosDictionary? outer = _resources;
+        _resources = resources;
         foreach (CosObject font in Values(resources, Font))
         {
             CheckFont(font);
@@ -1353,6 +1390,8 @@ internal sealed partial class PdfAChecker
         {
             CheckShading(shading);
         }
+
+        _resources = outer;
     }
 
     private IEnumerable<CosObject> Values(CosDictionary resources, CosName category) =>
@@ -1429,6 +1468,7 @@ internal sealed partial class PdfAChecker
 
         CheckStream(image);
         CosDictionary dictionary = image.Dictionary;
+        _transparency |= dictionary.ContainsKey(SMask) || Resolve(dictionary.GetValueOrDefault(SMaskInData)) is CosInteger { Value: > 0 };
         if (_conformance.AllowsAssociatedFiles())
         {
             AddAssociatedFiles(dictionary);
@@ -1492,6 +1532,7 @@ internal sealed partial class PdfAChecker
             return;
         }
 
+        _transparency |= IsTransparent(state);
         if (state.ContainsKey(TR))
         {
             Report("6.2.5-1", "a graphics state has a TR (transfer function) entry", reference);

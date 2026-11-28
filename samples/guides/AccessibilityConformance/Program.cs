@@ -13,6 +13,7 @@ TagAnExistingFile();
 WriteArchivalFile();
 AttachAnInvoice();
 ConvertToPdfA();
+ValidatePdfA();
 Sample.Finish();
 
 static void WriteAccessibleReport()
@@ -146,6 +147,23 @@ static void ConvertToPdfA()
 
     Sample.Expect(conversion.IsConformant, "the conversion succeeds");
     Sample.Expect(!Problems(document).Any(), $"PDF/A-2b by the library's check: {string.Join("; ", Problems(document))}");
+}
+
+static void ValidatePdfA()
+{
+    #region pdfa-validate
+    using PdfDocument document = PdfDocument.Open("text-standard14-pdfa2b.pdf");
+    PdfAValidation validation = document.ValidatePdfA(); // the level the file claims; pass one to check another
+    Console.WriteLine($"{validation.Conformance}: claimed {validation.IsClaimed}, conformant {validation.IsConformant}");
+    foreach (PdfARuleViolation violation in validation.Violations)
+    {
+        Console.WriteLine($"Rule {violation.Rule}: {violation.Message} {violation.Reference}");
+    }
+
+    Console.WriteLine($"Left to a full validator: {string.Join(", ", validation.RulesNotChecked)}");
+    #endregion
+
+    Sample.Expect(validation.IsClaimed && validation.IsConformant, $"the converted file validates as PDF/A-2b: {string.Join("; ", validation.Violations.Select(v => v.Rule))}");
 }
 
 // What a PDF/A or PDF/UA save reports when the file does not conform.

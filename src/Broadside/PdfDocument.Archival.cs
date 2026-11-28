@@ -248,7 +248,7 @@ public sealed partial class PdfDocument
             ReportNonConformance(options, violation);
         }
 
-        return new PdfAConversion(conformance, changed, unfixed, [.. violations.Select(violation => new PdfARuleViolation(violation.Rule, violation.Message))], Security is not null);
+        return new PdfAConversion(conformance, changed, unfixed, [.. violations.Select(violation => new PdfARuleViolation(violation.Rule, violation.Message) { Reference = violation.Reference })], Security is not null);
     }
 
     /// <summary>Adds the PDF/A output intent (ISO 32000-2 §14.11.5, Table 401) unless the catalog already has a <c>GTS_PDFA1</c> one with a profile.</summary>
