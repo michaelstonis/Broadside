@@ -128,7 +128,7 @@ public sealed class TextLayerTests
         document.Pages[0].AddTextLayer(new OcrPage(100, 100, [new OcrLine([Word(" ", 1, 1, 5, 5)])]));
 
         Assert.Equal(before, Content(document, document.Pages[0]));
-        Assert.Null(document.GlyphlessFont);
+        Assert.Null(GlyphlessFont.Find(document));
     }
 
     [Theory]

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO.Compression;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Broadside.Filters;
 using Broadside.Fonts;
@@ -33,6 +34,9 @@ internal sealed class GlyphlessFont : PdfCanvasFont
 
     private const int Replacement = 0xFFFD;
 
+    /// <summary>Each document's glyphless font, kept outside the document so documents that never get a text layer carry nothing for it.</summary>
+    private static readonly ConditionalWeakTable<PdfDocument, GlyphlessFont> Fonts = [];
+
     private GlyphlessFont(PdfDocument document, CosReference reference)
         : base(document, reference)
     {
@@ -64,7 +68,7 @@ internal sealed class GlyphlessFont : PdfCanvasFont
     /// <returns>The font.</returns>
     public static GlyphlessFont For(PdfDocument document)
     {
-        if (document.GlyphlessFont is { } existing && document.Resolve(existing.Reference) is CosDictionary)
+        if (Find(document) is { } existing)
         {
             return existing;
         }
@@ -114,9 +118,15 @@ internal sealed class GlyphlessFont : PdfCanvasFont
         });
         document.RequireFeature(Writing.VersionedFeatures.EmbeddedTrueTypeFont);
         var created = new GlyphlessFont(document, font);
-        document.GlyphlessFont = created;
+        Fonts.AddOrUpdate(document, created);
         return created;
     }
+
+    /// <summary>The document's glyphless font, or <see langword="null"/> when it has none yet (or its font dictionary was removed).</summary>
+    /// <param name="document">The document.</param>
+    /// <returns>The font, or <see langword="null"/>.</returns>
+    public static GlyphlessFont? Find(PdfDocument document) =>
+        Fonts.TryGetValue(document, out GlyphlessFont? font) && document.Resolve(font.Reference) is CosDictionary ? font : null;
 
     /// <inheritdoc/>
     internal override bool TryGetGlyph(int scalar, out CanvasGlyph glyph)
