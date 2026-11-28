@@ -407,6 +407,9 @@ Text	GlyphNameNonStandard	Information	ISO 32000-2 §9.10.2
 Text	TextUcs2CmapMissing	Information	ISO 32000-2 §9.10.2
 Text	TextUnicodeUnmapped	Information	ISO 32000-2 §9.10.2
 Text	CidToUnicodeResourceInvalid	Information	ISO 32000-2 §9.10.2
+Text	OcrBoundsInvalid	Warning	hOCR 1.2 bbox; ALTO String
+Text	OcrPageSizeInvalid	Warning	hOCR 1.2 bbox; ALTO Page
+Text	OcrConfidenceInvalid	Information	hOCR 1.2 x_wconf; ALTO WC
 Content	ContentFontMissing	Warning	ISO 32000-2 §9.3, §9.4
 Content	ContentExtGStateMissing	Warning	ISO 32000-2 §8.4.5 Table 57
 Content	ContentExtGStateInvalid	Warning	ISO 32000-2 §8.4.5 Table 57

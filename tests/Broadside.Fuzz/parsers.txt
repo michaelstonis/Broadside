@@ -34,6 +34,8 @@ Broadside.XmpPacketReader                               xmp
 Broadside.XmpXmlReader                                  xmp-xml xmp xfdf-import
 Broadside.Forms.FormData.FdfReader                      fdf-import
 Broadside.Forms.FormData.XfdfReader                     xfdf-import
+Broadside.Text.HocrReader                               hocr
+Broadside.Text.AltoReader                               alto
 Broadside.Forms.PdfDefaultAppearance                    default-appearance form-fill
 
 # Filters and image codecs

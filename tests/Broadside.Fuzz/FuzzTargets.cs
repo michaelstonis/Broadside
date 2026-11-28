@@ -33,6 +33,8 @@ internal static class FuzzTargets
     {
         ["fdf-import"] = "*.fdf",
         ["xfdf-import"] = "*.xfdf",
+        ["hocr"] = "*.hocr",
+        ["alto"] = "*.alto.xml",
     };
 
     /// <summary>The corpus files that seed <paramref name="target"/>: every PDF file, then the files of its own format.</summary>
@@ -80,6 +82,8 @@ internal static class FuzzTargets
         ["xmp-xml"] = XmpXmlTarget.Target,
         ["fdf-import"] = FormDataTarget.Fdf,
         ["xfdf-import"] = FormDataTarget.Xfdf,
+        ["hocr"] = OcrTarget.Hocr,
+        ["alto"] = OcrTarget.Alto,
         ["pdf-date"] = PdfDateTarget,
         ["structure-tree"] = StructureTree.Target,
         ["layout-detection"] = LayoutDetectionTarget.Target,

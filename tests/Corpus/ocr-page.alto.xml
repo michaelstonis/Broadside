@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<alto xmlns="http://www.loc.gov/standards/alto/ns-v2#" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <Description>
+    <MeasurementUnit>pixel</MeasurementUnit>
+    <sourceImageInformation><fileName>scan.tif</fileName></sourceImageInformation>
+    <OCRProcessing ID="OCR_0"><ocrProcessingStep><processingSoftware><softwareCreator>ABBYY</softwareCreator><softwareName>ABBYY FineReader Engine</softwareName><softwareVersion>12</softwareVersion></processingSoftware></ocrProcessingStep></OCRProcessing>
+  </Description>
+  <Styles><TextStyle ID="font0" FONTFAMILY="Times New Roman" FONTSIZE="11"/></Styles>
+  <Layout>
+    <Page ID="Page1" PHYSICAL_IMG_NR="1" HEIGHT="3300" WIDTH="2550">
+      <TopMargin HPOS="0" VPOS="0" WIDTH="2550" HEIGHT="200"/>
+      <PrintSpace HPOS="200" VPOS="200" WIDTH="2150" HEIGHT="2900">
+        <TextBlock ID="TB1" HPOS="200" VPOS="200" WIDTH="1000" HEIGHT="120" LANG="de">
+          <TextLine HPOS="200" VPOS="200" WIDTH="1000" HEIGHT="50">
+            <String STYLEREFS="font0" HPOS="200" VPOS="200" WIDTH="240" HEIGHT="50" CONTENT="Rechnung" WC="0.97"/>
+            <SP HPOS="440" VPOS="200" WIDTH="20"/>
+            <String HPOS="460" VPOS="200" WIDTH="120" HEIGHT="50" CONTENT="Nr." WC="0.81"/>
+            <SP HPOS="580" VPOS="200" WIDTH="20"/>
+            <String HPOS="600" VPOS="200" WIDTH="100" HEIGHT="50" CONTENT="17&amp;4"/>
+            <HYP CONTENT="-"/>
+          </TextLine>
+          <TextLine HPOS="200" VPOS="270" WIDTH="1000" HEIGHT="50" LANG="en">
+            <String HPOS="200" VPOS="270" WIDTH="200" HEIGHT="50" CONTENT="Invoice"/>
+          </TextLine>
+        </TextBlock>
+      </PrintSpace>
+    </Page>
+  </Layout>
+</alto>

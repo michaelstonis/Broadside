@@ -405,3 +405,41 @@ Broadside.PdfBatesRange.Last.init -> void
 Broadside.PdfBatesRange.LastNumber.get -> long
 Broadside.PdfBatesRange.LastNumber.init -> void
 Broadside.PdfDocument.AddBatesNumbers(Broadside.PdfBatesNumbering! numbering, System.Range? pages = null) -> Broadside.PdfBatesRange
+static Broadside.Diagnostics.TextDiagnostics.OcrBoundsInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.TextDiagnostics.OcrConfidenceInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+static Broadside.Diagnostics.TextDiagnostics.OcrPageSizeInvalid.get -> Broadside.Diagnostics.DiagnosticCode!
+Broadside.PdfPage.AddTextLayer(Broadside.Text.OcrPage! ocr, Broadside.Text.TextLayerOptions? options = null) -> void
+Broadside.Text.OcrLine
+Broadside.Text.OcrLine.BaselineAngle.get -> double
+Broadside.Text.OcrLine.BaselineAngle.init -> void
+Broadside.Text.OcrLine.Language.get -> string?
+Broadside.Text.OcrLine.Language.init -> void
+Broadside.Text.OcrLine.OcrLine(System.Collections.Generic.IReadOnlyList<Broadside.Text.OcrWord!>! Words, double BaselineAngle = 0, string? Language = null) -> void
+Broadside.Text.OcrLine.Words.get -> System.Collections.Generic.IReadOnlyList<Broadside.Text.OcrWord!>!
+Broadside.Text.OcrLine.Words.init -> void
+Broadside.Text.OcrPage
+Broadside.Text.OcrPage.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+Broadside.Text.OcrPage.Height.get -> double
+Broadside.Text.OcrPage.Lines.get -> System.Collections.Generic.IReadOnlyList<Broadside.Text.OcrLine!>!
+Broadside.Text.OcrPage.OcrPage(double width, double height, System.Collections.Generic.IReadOnlyList<Broadside.Text.OcrLine!>! lines) -> void
+Broadside.Text.OcrPage.Width.get -> double
+Broadside.Text.OcrWord
+Broadside.Text.OcrWord.Angle.get -> double
+Broadside.Text.OcrWord.Angle.init -> void
+Broadside.Text.OcrWord.Bounds.get -> Broadside.PdfRectangle
+Broadside.Text.OcrWord.Bounds.init -> void
+Broadside.Text.OcrWord.Confidence.get -> double
+Broadside.Text.OcrWord.Confidence.init -> void
+Broadside.Text.OcrWord.OcrWord(string! Text, Broadside.PdfRectangle Bounds, double Confidence = 1, double Angle = 0) -> void
+Broadside.Text.OcrWord.Text.get -> string!
+Broadside.Text.OcrWord.Text.init -> void
+Broadside.Text.TextLayerOptions
+Broadside.Text.TextLayerOptions.MinConfidence.get -> double
+Broadside.Text.TextLayerOptions.Tag.get -> bool
+Broadside.Text.TextLayerOptions.Target.get -> Broadside.PdfRectangle?
+Broadside.Text.TextLayerOptions.TextLayerOptions() -> void
+Broadside.Text.TextLayerOptions.WithMinConfidence(double confidence) -> Broadside.Text.TextLayerOptions!
+Broadside.Text.TextLayerOptions.WithTagging(bool tag) -> Broadside.Text.TextLayerOptions!
+Broadside.Text.TextLayerOptions.WithTarget(Broadside.PdfRectangle area) -> Broadside.Text.TextLayerOptions!
+static Broadside.Text.OcrPage.FromAlto(System.IO.Stream! alto) -> System.Collections.Generic.IReadOnlyList<Broadside.Text.OcrPage!>!
+static Broadside.Text.OcrPage.FromHocr(System.IO.Stream! hocr) -> System.Collections.Generic.IReadOnlyList<Broadside.Text.OcrPage!>!

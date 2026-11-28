@@ -34,6 +34,7 @@ internal static class OptionsGuard
         [typeof(CancellationToken)] = [CancellationToken.None, new CancellationTokenSource().Token],
         [typeof(PdfCredentials)] = [new PdfPassword("secret")],
         [typeof(string)] = ["sample", "text/plain", "1.0", null],
+        [typeof(PdfRectangle)] = [new PdfRectangle(0, 0, 612, 792)],
     };
 
     /// <summary>
