@@ -37,7 +37,7 @@ namespace Broadside.Writing;
 /// </para>
 /// <para>ISO 19005-2 §6.1.7, §6.2.2, §6.2.11, §6.3, §6.4, §6.5, §6.6, §6.8 and §6.9.</para>
 /// <para>ISO 19005-3 §6.8.</para>
-/// <para>ISO 19005-4 §6.2.10 and §6.10.</para>
+/// <para>ISO 19005-4 §6.2.10, §6.10 and Annex B (PDF/A-4e keeps 3D and RichMedia annotations, issue #650).</para>
 /// </remarks>
 internal sealed class PdfAConverter
 {
@@ -113,7 +113,11 @@ internal sealed class PdfAConverter
     ];
 
     private static readonly HashSet<string> ActionTypes = ["GoTo", "GoToR", "GoToE", "Thread", "URI", "Named", "SubmitForm"];
-    private static readonly HashSet<string> PdfA4ActionTypes = ["JavaScript", "GoToDp"];
+    private static readonly HashSet<string> PdfA4ActionTypes = ["JavaScript", "GoToDp", "RichMediaExecute"];
+
+    /// <summary>What PDF/A-4e keeps that PDF/A-4 removes (ISO 19005-4 Annex B; veraPDF PDF/A-4E rules 6.3.1-1 and 6.6.1-1, issue #650).</summary>
+    private static readonly HashSet<string> EngineeringAnnotationTypes = ["3D", "RichMedia"];
+    private static readonly HashSet<string> EngineeringActionTypes = ["SetOCGState", "GoTo3DView"];
     private static readonly HashSet<string> NamedActions = ["NextPage", "PrevPage", "FirstPage", "LastPage"];
     private static readonly HashSet<string> PdfA4Triggers = ["E", "X", "D", "U", "Fo", "Bl"];
 
@@ -742,7 +746,8 @@ internal sealed class PdfAConverter
 
     private bool IsAllowed(CosDictionary action) =>
         NameOf(action, S) is { } type
-        && (ActionTypes.Contains(type) || (_level.Part() == 4 && PdfA4ActionTypes.Contains(type)))
+        && (ActionTypes.Contains(type) || (_level.Part() == 4 && PdfA4ActionTypes.Contains(type))
+            || (_level.AllowsEngineeringContent() && EngineeringActionTypes.Contains(type)))
         && (type != "Named" || (NameOf(action, N) is { } named && NamedActions.Contains(named)));
 
     /// <summary>
@@ -1019,7 +1024,7 @@ internal sealed class PdfAConverter
     private bool ConvertAnnotation(CosDictionary annotation)
     {
         string subtype = NameOf(annotation, Subtype) ?? "typeless";
-        if (!AnnotationTypes.Contains(subtype))
+        if (!AnnotationTypes.Contains(subtype) && !(_level.AllowsEngineeringContent() && EngineeringAnnotationTypes.Contains(subtype)))
         {
             Changed($"a {subtype} annotation (multimedia, 3D or a type ISO 32000-1 does not define) is removed with its content (rule 6.3.1-1)");
             return false;

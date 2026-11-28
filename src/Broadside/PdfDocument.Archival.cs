@@ -73,7 +73,9 @@ public sealed partial class PdfDocument
         _diagnostics.Report(
             SavingDiagnostics.PdfANonConformant,
             DiagnosticSeverity.Warning,
-            $"The file cannot conform to {options.PdfAConformance.Describe()}: {violation.Message} (veraPDF rule {violation.Rule}, ISO 19005-{options.PdfAConformance.Part()} clause {violation.Rule[..violation.Rule.LastIndexOf('-')]}).",
+            PdfAChecker.IsVeraPdfRule(violation.Rule)
+                ? $"The file cannot conform to {options.PdfAConformance.Describe()}: {violation.Message} (veraPDF rule {violation.Rule}, ISO 19005-{options.PdfAConformance.Part()} clause {violation.Rule[..violation.Rule.LastIndexOf('-')]})."
+                : $"The file cannot conform to {options.PdfAConformance.Describe()}: {violation.Message} (rule {violation.Rule}, a level A check Broadside makes beyond veraPDF's profile, {violation.Rule[..violation.Rule.LastIndexOf('-')]}).",
             objectReference: violation.Reference);
 
     /// <summary>Records that a lenient save does not claim the conformance it could not meet.</summary>
@@ -107,7 +109,8 @@ public sealed partial class PdfDocument
     /// one (issue #306): adds a <c>GTS_PDFA1</c> output intent with Broadside's sRGB profile unless an output intent already has a
     /// destination profile (which it then shares, veraPDF rule 6.2.3-2), and writes the XMP packet with the PDF/A identification of
     /// the level, its part and conformance (rules 6.6.2.1-1, 6.6.4-1 to 6.6.4-5), without <c>pdf:Trapped</c> (6.6.2.3.1-1) in the
-    /// layout of the PDF 1.7 file the save writes. A PDF/A-4 save (issue #203) identifies the part, the revision and, for 4f, the
+    /// layout of the PDF 1.7 file the save writes; a level A save (issue #650) also sets <c>MarkInfo</c> <c>Marked</c> on a document
+    /// with a structure tree (rule 6.7.2.2-1). A PDF/A-4 save (issue #203) identifies the part, the revision and, for 4e and 4f, the
     /// conformance (ISO 19005-4 rules 6.7.3-2 to 6.7.3-5) in the PDF 2.0 layout, keeps <c>pdf:Trapped</c> (PDF/A-4 needs no
     /// extension schema), takes the document information dictionary out of the trailer once its entries are in the packet, or keeps
     /// only its <c>ModDate</c> when the catalog has <c>PieceInfo</c> (rules 6.1.3-4, 6.1.3-5), and drops a catalog <c>Version</c>
@@ -119,6 +122,12 @@ public sealed partial class PdfDocument
     private bool ApplyArchivalSave(PdfSaveOptions options, AccessibleSave accessible)
     {
         AddPdfAOutputIntent();
+        if (options.PdfAConformance.NeedsLogicalStructure() && StructureTree is not null && !MarkInfo.Marked)
+        {
+            // Level A (issue #650): a document with a structure tree is marked tagged (ISO 19005-2, veraPDF rule 6.7.2.2-1).
+            MarkInfo.Marked = true;
+        }
+
         var writer = new DocumentMetadataWriter(this);
         PdfAConformance level = options.PdfAConformance;
         if (accessible.Any)
@@ -208,6 +217,13 @@ public sealed partial class PdfDocument
     /// annotations without appearance streams (6.3.3-1), PostScript XObjects (6.2.9-3), inline images (6.1.10-1), external streams
     /// (6.1.7.1-3) and embedded files PDF/A-2 and PDF/A-4 cannot verify (6.8-5, ISO 19005-4 6.9-3).
     /// </para>
+    /// <para>
+    /// Level A (PDF/A-2a, PDF/A-3a, issue #650; ISO 19005-2 §6.7 and ISO 19005-3 §6.7): an untagged document is tagged first with
+    /// <see cref="AutoTag()"/> (rule 6.7.3.3-1), and converted as for level U; when tagging fails, the conversion says so in
+    /// <see cref="PdfAConversion.NotConverted"/>. A document with a structure tree keeps it. Auto-tagging gives figures a
+    /// placeholder alternate text, which the level A check reports until it is replaced. PDF/A-4e keeps 3D and RichMedia annotations
+    /// and the SetOCGState and GoTo3DView actions.
+    /// </para>
     /// </remarks>
     public PdfAConversion ConvertToPdfA(PdfAConformance conformance)
     {
@@ -218,9 +234,26 @@ public sealed partial class PdfDocument
 
         var changes = new CosChangeLog();
         IReadOnlyList<string> changed, unfixed;
-        using (changes.Record())
+        try
         {
-            (changed, unfixed) = PdfAConverter.Convert(this, conformance);
+            using (changes.Record())
+            {
+                List<string> tagged = [], untagged = [];
+                if (conformance.NeedsLogicalStructure())
+                {
+                    TagForLevelA(tagged, untagged);
+                }
+
+                (changed, unfixed) = PdfAConverter.Convert(this, conformance);
+                changed = [.. tagged, .. changed];
+                unfixed = [.. untagged, .. unfixed];
+            }
+        }
+        catch (DiagnosticException) when (conformance.NeedsLogicalStructure())
+        {
+            // Strict mode: auto-tagging refused the content; the document is left as it was.
+            changes.Revert();
+            throw;
         }
 
         var conversion = new PdfAConversion(conformance, changed, unfixed, [], removeEncryption: Security is not null);
@@ -249,6 +282,32 @@ public sealed partial class PdfDocument
         }
 
         return new PdfAConversion(conformance, changed, unfixed, [.. violations.Select(violation => new PdfARuleViolation(violation.Rule, violation.Message))], Security is not null);
+    }
+
+    /// <summary>
+    /// Tags an untagged document for a level A conversion (issue #650) with <see cref="AutoTag()"/>: its structure tree is what
+    /// ISO 19005-2 and -3 level A requires (veraPDF rules 6.7.2.2-1, 6.7.3.3-1). A document with a structure tree is left as it is.
+    /// </summary>
+    /// <exception cref="DiagnosticException">In strict mode, when tagging reports a deviation (the caller undoes the conversion).</exception>
+    private void TagForLevelA(List<string> tagged, List<string> untagged)
+    {
+        if (StructureTree is not null)
+        {
+            return;
+        }
+
+        Layout.AutoTaggingResult result = AutoTag();
+
+        if (result.IsTagged && StructureTree is not null)
+        {
+            tagged.Add(result.Figures.Count > 0
+                ? string.Create(CultureInfo.InvariantCulture, $"the untagged content is tagged from its detected layout (AutoTag; rule 6.7.3.3-1); replace the placeholder alternate text of its {result.Figures.Count} figures")
+                : "the untagged content is tagged from its detected layout (AutoTag; rule 6.7.3.3-1)");
+        }
+        else
+        {
+            untagged.Add("the document could not be tagged from its layout, so it has no structure tree (rule 6.7.3.3-1)");
+        }
     }
 
     /// <summary>Adds the PDF/A output intent (ISO 32000-2 §14.11.5, Table 401) unless the catalog already has a <c>GTS_PDFA1</c> one with a profile.</summary>

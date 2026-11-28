@@ -15,7 +15,7 @@ internal readonly record struct PdfAViolation(string Rule, string Message, CosRe
 
 /// <summary>
 /// The check step of a PDF/A save (issues #201, #202, #203): walks what the file will hold and lists every rule of veraPDF's validation
-/// profile for the level (PDF/A-2B, -2U, -3B, -3U, -4, -4F) the save cannot meet by itself. It reads and changes nothing in the document.
+/// profile for the level (PDF/A-2B, -2U, -2A, -3B, -3U, -3A, -4, -4E, -4F) the save cannot meet by itself. It reads and changes nothing in the document.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -65,9 +65,9 @@ internal readonly record struct PdfAViolation(string Rule, string Message, CosRe
 /// normal appearance is a stream (6.3.3-3), XMP metadata of any object but the catalog (6.6.2.3.1-1, not verified: reported),
 /// optional content configurations (6.9-1 to 6.9-4), PDF/A-3's F and UF (6.8-2) and a document with no pages (6.1.1-1).
 /// </para>
-/// <para>ISO 19005-2 §6.1.2, §6.1.3, §6.1.7, §6.1.10, §6.2.2, §6.2.3, §6.2.4.3, §6.2.5, §6.2.8, §6.2.9, §6.2.10, §6.2.11, §6.3, §6.4, §6.5, §6.8, §6.9, §6.10 and §6.11.</para>
-/// <para>ISO 19005-3 §6.1.2, §6.2.11 and §6.8.</para>
-/// <para>ISO 19005-4 §6.1.2, §6.1.3, §6.1.6, §6.1.9, §6.2.3, §6.2.4.3, §6.2.5, §6.2.7, §6.2.8, §6.2.9, §6.2.10, §6.3, §6.4, §6.6, §6.9, §6.10, §6.11 and §6.12.</para>
+/// <para>ISO 19005-2 §6.1.2, §6.1.3, §6.1.7, §6.1.10, §6.2.2, §6.2.3, §6.2.4.3, §6.2.5, §6.2.8, §6.2.9, §6.2.10, §6.2.11, §6.3, §6.4, §6.5, §6.7, §6.8, §6.9, §6.10 and §6.11.</para>
+/// <para>ISO 19005-3 §6.1.2, §6.2.11, §6.7 and §6.8.</para>
+/// <para>ISO 19005-4 §6.1.2, §6.1.3, §6.1.6, §6.1.9, §6.2.3, §6.2.4.3, §6.2.5, §6.2.7, §6.2.8, §6.2.9, §6.2.10, §6.3, §6.4, §6.6, §6.9, §6.10, §6.11, §6.12 and Annex B.</para>
 /// </remarks>
 internal sealed partial class PdfAChecker
 {
@@ -160,8 +160,8 @@ internal sealed partial class PdfAChecker
     /// <summary>The named actions PDF/A-2 allows (6.5.1-2).</summary>
     private static readonly HashSet<string> NamedActions = ["NextPage", "PrevPage", "FirstPage", "LastPage"];
 
-    /// <summary>The action types PDF/A-4 adds to <see cref="ActionTypes"/>: it forbids neither (ISO 19005-4, veraPDF rule 6.6.1-1).</summary>
-    private static readonly HashSet<string> PdfA4ActionTypes = ["JavaScript", "GoToDp"];
+    /// <summary>The action types PDF/A-4 adds to <see cref="ActionTypes"/>: it forbids none of them (ISO 19005-4, veraPDF rule 6.6.1-1).</summary>
+    private static readonly HashSet<string> PdfA4ActionTypes = ["JavaScript", "GoToDp", "RichMediaExecute"];
 
     /// <summary>The triggers an additional-actions dictionary of the catalog or a page may have in PDF/A-4 (veraPDF rule 6.6.3-1).</summary>
     private static readonly HashSet<string> PdfA4Triggers = ["E", "X", "D", "U", "Fo", "Bl"];
@@ -254,6 +254,7 @@ internal sealed partial class PdfAChecker
         checker.CheckOptionalContent();
         checker.CheckEveryObject();
         checker.CheckEmbeddedFiles();
+        checker.CheckLogicalStructure();
         return checker._violations;
     }
 
@@ -657,7 +658,7 @@ internal sealed partial class PdfAChecker
             }
 
             string? type = NameOf(current, S);
-            if (type is null || !(ActionTypes.Contains(type) || (_conformance.Part() == 4 && PdfA4ActionTypes.Contains(type))))
+            if (type is null || !IsAllowedAction(type))
             {
                 Report("6.5.1-1", $"a {type ?? "typeless"} action, which PDF/A forbids", currentReference);
             }
@@ -730,10 +731,12 @@ internal sealed partial class PdfAChecker
             }
         }
 
-        if (!AnnotationTypes.Contains(subtype))
+        if (!IsAllowedAnnotation(subtype))
         {
             Report("6.3.1-1", $"a {subtype} annotation, which PDF/A forbids", reference);
         }
+
+        CheckEngineeringAnnotation(annotation, subtype, reference);
 
         CosObject flags = Resolve(annotation.GetValueOrDefault(F));
         if (flags is CosInteger { Value: long value })

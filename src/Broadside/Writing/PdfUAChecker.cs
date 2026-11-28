@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.RegularExpressions;
 using Broadside.Content;
 using Broadside.Fonts;
 using Broadside.Objects;
@@ -38,21 +37,15 @@ namespace Broadside.Writing;
 /// <para>ISO 14289-2 §8.1, §8.3, §8.4, §8.9, §8.10 and §8.11.</para>
 /// <para>Well-Tagged PDF 1.0 §8.2, §8.3, §8.4, §8.9 and §8.11.</para>
 /// </remarks>
-internal sealed partial class PdfUAChecker
+internal sealed class PdfUAChecker : ITaggedContentVisitor
 {
     private static readonly CosName Contents = new("Contents");
     private static readonly CosName F = new("F");
-    private static readonly CosName TU = new("TU");
-    private static readonly CosName ParentKey = new("Parent");
-    private static readonly CosName Font = new("Font");
     private static readonly CosName Headers = new("Headers");
-    private static readonly CosName MCID = new("MCID");
     private static readonly CosName NeedsRendering = new("NeedsRendering");
-    private static readonly CosName Properties = new("Properties");
     private static readonly CosName Scope = new("Scope");
     private static readonly CosName Subtype = new("Subtype");
     private static readonly CosName Table = new("Table");
-    private static readonly CosName XObject = new("XObject");
     private static readonly CosName Annots = new("Annots");
     private static readonly CosName DescendantFonts = new("DescendantFonts");
     private static readonly CosName FontDescriptor = new("FontDescriptor");
@@ -145,11 +138,10 @@ internal sealed partial class PdfUAChecker
     private readonly int _part;
     private readonly List<PdfAViolation> _violations = [];
     private readonly HashSet<(string, string)> _reported = [];
-    private readonly HashSet<CosObject> _visited = new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<CosObject> _fonts = new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<string> _noteIds = new(StringComparer.Ordinal);
-    private readonly OperandArena _arena = new();
     private PdfStructureTreeRoot? _root;
+    private TaggedContentWalker? _walker;
     private int _headingLevel;
     private bool _usesH;
     private bool _usesHn;
@@ -180,10 +172,7 @@ internal sealed partial class PdfUAChecker
     }
 
     /// <summary>Whether <paramref name="language"/> is a well-formed language tag, as veraPDF's rule 7.2-29 tests it.</summary>
-    public static bool IsLanguageTag(string language) => LanguageTag().IsMatch(language);
-
-    [GeneratedRegex("^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$", RegexOptions.CultureInvariant)]
-    private static partial Regex LanguageTag();
+    public static bool IsLanguageTag(string language) => TaggedPdfChecks.IsLanguageTag(language);
 
     private void Report(string rule, string message, CosReference? reference = null)
     {
@@ -204,11 +193,6 @@ internal sealed partial class PdfUAChecker
     }
 
     private CosObject Resolve(CosObject? value) => _document.Resolve(value);
-
-    /// <summary>Whether a widget's field (the widget itself when merged, else its parent) has a non-empty <c>TU</c> (ISO 32000-2 §12.7.4.1, Table 226).</summary>
-    private bool HasToolTip(CosDictionary widget) =>
-        Resolve(widget.GetValueOrDefault(TU)) is CosString { Bytes.Length: > 0 }
-        || (Dictionary(widget, ParentKey) is { } field && Resolve(field.GetValueOrDefault(TU)) is CosString { Bytes.Length: > 0 });
 
     private CosDictionary? Dictionary(CosDictionary owner, CosName key) => Resolve(owner.GetValueOrDefault(key)) switch
     {
@@ -260,15 +244,9 @@ internal sealed partial class PdfUAChecker
             return;
         }
 
-        if (_root.RoleMap is { } roleMap)
+        foreach (string type in TaggedPdfChecks.RemappedStandardTypes(_root))
         {
-            foreach ((CosName type, CosObject _) in roleMap)
-            {
-                if (PdfStructureNamespace.Pdf17.IsStandardType(type.Value))
-                {
-                    Report("7.1-7", $"the role map remaps the standard structure type {type.Value}");
-                }
-            }
+            Report("7.1-7", $"the role map remaps the standard structure type {type}");
         }
 
         if (_part == 2)
@@ -320,12 +298,11 @@ internal sealed partial class PdfUAChecker
         List<string?> kidTypes = [.. kids.Select(kid => kid.StandardType?.Name)];
         switch (type)
         {
-            case "Figure" when string.IsNullOrEmpty(element.AlternateDescription) && element.ActualText is null:
+            case "Figure" when TaggedPdfChecks.Describe(_document, element) == TaggedPdfChecks.Description.Missing:
                 Report("7.3-1", "a Figure has no alternate text (Alt) or replacement text (ActualText)", reference);
                 break;
-            case "Figure" when element.ActualText is null && _document.PlaceholderAlternateText is { } placeholders
-                && placeholders.TryGetValue(element.Dictionary, out string? placeholder) && element.AlternateDescription == placeholder:
-                Report("7.3-1", $"a Figure still has auto-tagging's placeholder alternate text '{placeholder}', not a description", reference);
+            case "Figure" when TaggedPdfChecks.Describe(_document, element) == TaggedPdfChecks.Description.Placeholder:
+                Report("7.3-1", $"a Figure still has auto-tagging's placeholder alternate text '{element.AlternateDescription}', not a description", reference);
                 break;
             case "Note":
                 string? id = element.Id is { } value ? System.Text.Encoding.Latin1.GetString(value.Bytes) : null;
@@ -483,26 +460,8 @@ internal sealed partial class PdfUAChecker
 
     private void CheckPage(PdfPage page)
     {
-        IReadOnlyDictionary<int, PdfStructureElement>? tagged = _root?.GetMarkedContentElements(page);
-        var scan = new ContentState(page.Reference, tagged);
-        switch (Resolve(page.Dictionary.GetValueOrDefault(KnownNames.Contents)))
-        {
-            case CosStream stream:
-                ScanContent(stream, page.Resources, scan);
-                break;
-            case CosArray parts:
-                // The parts of a page's content are one stream (ISO 32000-2 §7.8.2): marked content may span them.
-                foreach (CosObject part in parts)
-                {
-                    if (Resolve(part) is CosStream stream)
-                    {
-                        ScanContent(stream, page.Resources, scan);
-                    }
-                }
-
-                break;
-        }
-
+        _walker ??= new TaggedContentWalker(_document, _root, this);
+        _walker.WalkPage(page);
         if (Resolve(page.Dictionary.GetValueOrDefault(Annots)) is CosArray annotations)
         {
             foreach (CosObject item in annotations)
@@ -541,7 +500,7 @@ internal sealed partial class PdfUAChecker
                     Report("7.18.4-1", "a widget annotation is not nested in a Form structure element", reference);
                 }
 
-                if (_part == 1 && string.IsNullOrEmpty(parent?.AlternateDescription) && !HasToolTip(annotation))
+                if (_part == 1 && string.IsNullOrEmpty(parent?.AlternateDescription) && !TaggedPdfChecks.HasToolTip(_document, annotation))
                 {
                     Report("7.18.1-3", "a form field has no TU entry and its widget annotation no alternate description (Alt) in the enclosing structure element", reference);
                 }
@@ -580,121 +539,10 @@ internal sealed partial class PdfUAChecker
         }
     }
 
-    /// <summary>
-    /// Reads a content stream's marked content and painting operators (7.1-1 to 7.1-3) and the fonts its text is shown in (7.21.4.1-1,
-    /// 7.21.7-1, 7.21.7-2), following the form XObjects it draws with the marked content they are drawn in.
-    /// </summary>
-    private void ScanContent(CosStream stream, CosDictionary? resources, ContentState state)
+    /// <inheritdoc/>
+    /// <remarks>Artifacts and tagged content not mixed (7.1-1, 7.1-2).</remarks>
+    void ITaggedContentVisitor.MarkedContentBegun(TaggedContentState state, CosDictionary? properties, bool artifact, bool tagged)
     {
-        ReadOnlyMemory<byte> data;
-        try
-        {
-            data = _document.DecodeStream(stream);
-        }
-        catch (Exception exception) when (exception is not OutOfMemoryException)
-        {
-            return;
-        }
-
-        var forms = new List<(CosStream Form, ContentState State)>();
-        _arena.Clear();
-        _arena.Overflowed = false;
-        var reader = new ContentReader(data.Span, _arena);
-        PdfFont? font = null;
-        string fontName = string.Empty;
-        while (reader.Next(out ReadOperator op))
-        {
-            ContentOperands operands = _arena.Operands;
-            switch (op.Code)
-            {
-                case ContentOperatorCode.BeginMarkedContent or ContentOperatorCode.BeginMarkedContentWithProperties:
-                    BeginMarkedContent(state, operands, resources);
-                    break;
-                case ContentOperatorCode.EndMarkedContent:
-                    state.End();
-                    break;
-                case ContentOperatorCode.SetFont when operands.Count > 0 && operands[0].Kind == ContentOperandKind.Name:
-                    fontName = System.Text.Encoding.ASCII.GetString(operands[0].Bytes);
-                    CosObject? fontObject = resources is null ? null : Dictionary(resources, Font)?.GetValueOrDefault(new CosName(fontName));
-                    font = _document.GetFont(fontObject);
-                    if (fontObject is not null)
-                    {
-                        CheckFontEmbedded(fontObject);
-                    }
-
-                    break;
-                case ContentOperatorCode.ShowText or ContentOperatorCode.NextLineShowText or ContentOperatorCode.NextLineShowTextWithSpacing:
-                    Paint(state);
-                    if (font is not null && operands.Count > 0 && operands[operands.Count - 1].Kind == ContentOperandKind.String)
-                    {
-                        CheckUnicode(font, fontName, operands[operands.Count - 1].Bytes);
-                    }
-
-                    break;
-                case ContentOperatorCode.ShowTextAdjusted:
-                    Paint(state);
-                    if (font is not null && operands.Count > 0 && operands[0].Kind == ContentOperandKind.Array)
-                    {
-                        foreach (ContentOperand item in operands[0].Items)
-                        {
-                            if (item.Kind == ContentOperandKind.String)
-                            {
-                                CheckUnicode(font, fontName, item.Bytes);
-                            }
-                        }
-                    }
-
-                    break;
-                case ContentOperatorCode.Stroke or ContentOperatorCode.CloseAndStroke or ContentOperatorCode.Fill or ContentOperatorCode.FillObsolete
-                    or ContentOperatorCode.FillEvenOdd or ContentOperatorCode.FillAndStroke or ContentOperatorCode.FillEvenOddAndStroke
-                    or ContentOperatorCode.CloseFillAndStroke or ContentOperatorCode.CloseFillEvenOddAndStroke or ContentOperatorCode.PaintShading
-                    or ContentOperatorCode.BeginInlineImage:
-                    Paint(state);
-                    break;
-                case ContentOperatorCode.PaintXObject when operands.Count > 0 && operands[0].Kind == ContentOperandKind.Name && resources is not null:
-                    CosObject? xobject = Dictionary(resources, XObject)?.GetValueOrDefault(new CosName(System.Text.Encoding.ASCII.GetString(operands[0].Bytes)));
-                    if (Resolve(xobject) is CosStream drawn)
-                    {
-                        if (NameOf(drawn.Dictionary, Subtype) == "Form")
-                        {
-                            forms.Add((drawn, state.Inherited(_root?.GetMarkedContentElements(drawn))));
-                        }
-                        else
-                        {
-                            Paint(state);
-                        }
-                    }
-
-                    break;
-            }
-
-            _arena.Clear();
-        }
-
-        _arena.Trim();
-        foreach ((CosStream form, ContentState inherited) in forms)
-        {
-            if (_visited.Add(form))
-            {
-                ScanContent(form, Dictionary(form.Dictionary, KnownNames.Resources) ?? resources, inherited);
-                _visited.Remove(form);
-            }
-        }
-    }
-
-    private void BeginMarkedContent(ContentState state, ContentOperands operands, CosDictionary? resources)
-    {
-        string tag = operands.Count > 0 && operands[0].Kind == ContentOperandKind.Name ? System.Text.Encoding.ASCII.GetString(operands[0].Bytes) : string.Empty;
-        CosDictionary? properties = null;
-        if (operands.Count > 1)
-        {
-            properties = operands[1].Kind == ContentOperandKind.Name
-                ? (resources is null ? null : Dictionary(resources, Properties) is { } named ? Resolve(named.GetValueOrDefault(new CosName(System.Text.Encoding.ASCII.GetString(operands[1].Bytes)))) as CosDictionary : null)
-                : operands[1].ToCosObject() as CosDictionary;
-        }
-
-        bool artifact = tag == "Artifact";
-        bool tagged = !artifact && properties is not null && Resolve(properties.GetValueOrDefault(MCID)) is CosInteger mcid && state.IsInTree((int)mcid.Value);
         if (artifact && state.Tagged)
         {
             Report("7.1-1", "content marked as Artifact is inside tagged content", state.Page);
@@ -703,17 +551,26 @@ internal sealed partial class PdfUAChecker
         {
             Report("7.1-2", "tagged content is inside content marked as Artifact", state.Page);
         }
-
-        state.Begin(artifact, tagged);
     }
 
-    private void Paint(ContentState state)
+    /// <inheritdoc/>
+    /// <remarks>Real content tagged (7.1-3).</remarks>
+    void ITaggedContentVisitor.Painted(TaggedContentState state)
     {
         if (!state.Tagged && !state.Artifact)
         {
             Report("7.1-3", "content on a page is neither tagged (in the structure tree) nor marked as an Artifact", state.Page);
         }
     }
+
+    /// <inheritdoc/>
+    /// <remarks>Every font used embedded (7.21.4.1-1).</remarks>
+    void ITaggedContentVisitor.FontSet(CosObject font) => CheckFontEmbedded(font);
+
+    /// <inheritdoc/>
+    /// <remarks>Every glyph shown mapped to Unicode (7.21.7-1, 7.21.7-2).</remarks>
+    void ITaggedContentVisitor.TextShown(PdfFont font, string resourceName, ReadOnlySpan<byte> text, TaggedContentState state) =>
+        CheckUnicode(font, resourceName, text);
 
     private void CheckFontEmbedded(CosObject value)
     {
@@ -780,34 +637,5 @@ internal sealed partial class PdfUAChecker
         }
 
         static string Named(PdfFont font) => font.BaseFont is { } name ? $" ({name})" : string.Empty;
-    }
-
-    /// <summary>The marked content open at a point of a content stream, and the MCIDs its structure tree knows.</summary>
-    private sealed class ContentState(CosReference? page, IReadOnlyDictionary<int, PdfStructureElement>? tree, bool tagged = false, bool artifact = false)
-    {
-        private readonly List<(bool Artifact, bool Tagged)> _open = [];
-        private readonly bool _baseTagged = tagged;
-        private readonly bool _baseArtifact = artifact;
-
-        public CosReference? Page { get; } = page;
-
-        public bool Tagged => _baseTagged || _open.Exists(mark => mark.Tagged);
-
-        public bool Artifact => _baseArtifact || _open.Exists(mark => mark.Artifact);
-
-        public bool IsInTree(int mcid) => tree is not null && tree.ContainsKey(mcid);
-
-        public void Begin(bool artifact, bool tagged) => _open.Add((artifact, tagged));
-
-        public void End()
-        {
-            if (_open.Count > 0)
-            {
-                _open.RemoveAt(_open.Count - 1);
-            }
-        }
-
-        /// <summary>The state a form XObject drawn here starts in: inside what is open, with its own MCIDs.</summary>
-        public ContentState Inherited(IReadOnlyDictionary<int, PdfStructureElement>? formTree) => new(Page, formTree, Tagged, Artifact);
     }
 }

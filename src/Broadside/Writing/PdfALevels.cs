@@ -1,9 +1,10 @@
 namespace Broadside.Writing;
 
-/// <summary>What each <see cref="PdfAConformance"/> level stands for: the part of ISO 19005 and the conformance level (issues #201, #202, #203).</summary>
+/// <summary>What each <see cref="PdfAConformance"/> level stands for: the part of ISO 19005 and the conformance level (issues #201, #202, #203, #650).</summary>
 /// <remarks>
-/// ISO 19005-2 and ISO 19005-3, 6.6.4 (veraPDF rules 6.6.4-2 and 6.6.4-3: <c>pdfaid:part</c>, <c>pdfaid:conformance</c>); ISO 19005-4,
-/// 6.7.3 (rules 6.7.3-2, 6.7.3-3 and 6.7.3-5: <c>pdfaid:part</c>, <c>pdfaid:conformance</c> only for 4e and 4f, <c>pdfaid:rev</c>).
+/// ISO 19005-2 and ISO 19005-3, 6.6.4 (veraPDF rules 6.6.4-2 and 6.6.4-3: <c>pdfaid:part</c>, <c>pdfaid:conformance</c> A, B or U);
+/// ISO 19005-4, 6.7.3 (rules 6.7.3-2, 6.7.3-3 and 6.7.3-5: <c>pdfaid:part</c>, <c>pdfaid:conformance</c> only for 4e and 4f,
+/// <c>pdfaid:rev</c>); ISO 19005-4 Annex B (PDF/A-4e).
 /// </remarks>
 internal static class PdfALevels
 {
@@ -13,20 +14,22 @@ internal static class PdfALevels
     /// <summary>The part of ISO 19005 the level belongs to: 2, 3 or 4.</summary>
     public static int Part(this PdfAConformance conformance) => conformance switch
     {
-        PdfAConformance.PdfA3b or PdfAConformance.PdfA3u => 3,
-        PdfAConformance.PdfA4 or PdfAConformance.PdfA4f => 4,
+        PdfAConformance.PdfA3b or PdfAConformance.PdfA3u or PdfAConformance.PdfA3a => 3,
+        PdfAConformance.PdfA4 or PdfAConformance.PdfA4f or PdfAConformance.PdfA4e => 4,
         _ => 2,
     };
 
     /// <summary>
-    /// The conformance level, as <c>pdfaid:conformance</c> states it: <c>B</c>, <c>U</c> or <c>F</c>; <see langword="null"/> for
+    /// The conformance level, as <c>pdfaid:conformance</c> states it: <c>A</c>, <c>B</c>, <c>U</c>, <c>E</c> or <c>F</c>; <see langword="null"/> for
     /// PDF/A-4, which states none (6.7.3-3).
     /// </summary>
     public static string? Level(this PdfAConformance conformance) => conformance switch
     {
         PdfAConformance.PdfA2u or PdfAConformance.PdfA3u => "U",
+        PdfAConformance.PdfA2a or PdfAConformance.PdfA3a => "A",
         PdfAConformance.PdfA4 => null,
         PdfAConformance.PdfA4f => "F",
+        PdfAConformance.PdfA4e => "E",
         _ => "B",
     };
 
@@ -36,17 +39,32 @@ internal static class PdfALevels
     /// <summary>The PDF version the part is based on, the latest a conformant file may be: 1.7 for PDF/A-2 and -3, 2.0 for PDF/A-4.</summary>
     public static PdfVersion BaseVersion(this PdfAConformance conformance) => conformance.Part() == 4 ? Pdf20 : Pdf17;
 
-    /// <summary>Whether the level needs a Unicode value for every glyph shown (level U, 6.2.11.7.2).</summary>
-    public static bool NeedsUnicode(this PdfAConformance conformance) => conformance.Level() == "U";
+    /// <summary>Whether the level needs a Unicode value for every glyph shown (levels U and A, 6.2.11.7.2).</summary>
+    public static bool NeedsUnicode(this PdfAConformance conformance) => conformance.Level() is "U" or "A";
+
+    /// <summary>
+    /// Whether the level needs tagged logical structure (level A of PDF/A-2 and PDF/A-3, ISO 19005-2 and -3 clause 6.7, and
+    /// 6.2.11.7.3).
+    /// </summary>
+    public static bool NeedsLogicalStructure(this PdfAConformance conformance) => conformance.Level() == "A";
+
+    /// <summary>
+    /// Whether the level allows 3D and RichMedia annotations and the SetOCGState and GoTo3DView actions: PDF/A-4e (ISO 19005-4,
+    /// Annex B; veraPDF PDF/A-4E rules 6.3.1-1 and 6.6.1-1).
+    /// </summary>
+    public static bool AllowsEngineeringContent(this PdfAConformance conformance) => conformance == PdfAConformance.PdfA4e;
 
     /// <summary>
     /// Whether the level allows <c>AF</c> arrays: PDF/A-3 (6.8) on its PDF 1.7 base, and PDF/A-4, whose PDF 2.0 base defines them.
     /// </summary>
     public static bool AllowsAssociatedFiles(this PdfAConformance conformance) => conformance.Part() >= 3;
 
-    /// <summary>Whether the level allows an embedded file of any kind (PDF/A-3, 6.8; PDF/A-4f, 6.9), each with its relationship and MIME type.</summary>
+    /// <summary>
+    /// Whether the level allows an embedded file of any kind (PDF/A-3, 6.8; PDF/A-4f and PDF/A-4e, 6.9: veraPDF's PDF/A-4E profile has
+    /// no rule 6.9-3), each with its relationship and MIME type.
+    /// </summary>
     public static bool AllowsAnyEmbeddedFile(this PdfAConformance conformance) =>
-        conformance.Part() == 3 || conformance == PdfAConformance.PdfA4f;
+        conformance.Part() == 3 || conformance is PdfAConformance.PdfA4f or PdfAConformance.PdfA4e;
 
     /// <summary>The level's name, as in <c>PDF/A-2b</c> or <c>PDF/A-4</c>.</summary>
     public static string Describe(this PdfAConformance conformance) =>

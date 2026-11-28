@@ -405,3 +405,6 @@ Broadside.PdfBatesRange.Last.init -> void
 Broadside.PdfBatesRange.LastNumber.get -> long
 Broadside.PdfBatesRange.LastNumber.init -> void
 Broadside.PdfDocument.AddBatesNumbers(Broadside.PdfBatesNumbering! numbering, System.Range? pages = null) -> Broadside.PdfBatesRange
+Broadside.PdfAConformance.PdfA2a = 7 -> Broadside.PdfAConformance
+Broadside.PdfAConformance.PdfA3a = 8 -> Broadside.PdfAConformance
+Broadside.PdfAConformance.PdfA4e = 9 -> Broadside.PdfAConformance

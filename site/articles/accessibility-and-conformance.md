@@ -95,7 +95,20 @@ foreach (Diagnostic diagnostic in document.Diagnostics.Where(d => d.Code == "Pdf
 ```
 <!-- endsnippet -->
 
-Files of any kind may be attached at PDF/A-3 and PDF/A-4f only; PDF/A-2 and PDF/A-4 allow attached PDF/A files.
+Files of any kind may be attached at PDF/A-3, PDF/A-4f and PDF/A-4e only; PDF/A-2 and PDF/A-4 allow attached PDF/A files.
+
+The levels `PdfAConformance` offers:
+
+| Level | Standard | Adds to the level before it |
+|---|---|---|
+| `PdfA2b`, `PdfA3b` | ISO 19005-2, -3, level B | Reliable visual reproduction: fonts embedded, an output intent, XMP identification, no encryption, JavaScript or forbidden actions, an appearance for every annotation. PDF/A-3 allows attached files of any kind as associated files. |
+| `PdfA2u`, `PdfA3u` | level U | Every glyph shown maps to Unicode, so the text can be searched and extracted. |
+| `PdfA2a`, `PdfA3a` | level A | Tagged logical structure: a structure tree with `Marked` true, structure types standard or role-mapped to one, well-formed `Lang` values, and `ActualText` for Private Use Area glyphs. The save also checks, beyond veraPDF's profile, that the content is tagged or an artifact, that its language is known, and that figures, formulas and forms have alternate text. |
+| `PdfA4` | ISO 19005-4 | PDF 2.0 based: no document information dictionary, `pdfaid:rev` 2020, no conformance letter. |
+| `PdfA4f` | ISO 19005-4, F | Attached files of any kind, in an `EmbeddedFiles` tree. |
+| `PdfA4e` | ISO 19005-4, E (Annex B) | 3D and RichMedia annotations, kept as stored (Broadside does not render them), with U3D or PRC 3D streams; attached files of any kind. |
+
+A flow document with tagging on (the default) is already level A, so it saves as `PdfA2a` or `PdfA3a` once it has a language. `ConvertToPdfA(PdfAConformance.PdfA2a)` tags an untagged document with `AutoTag` first; replace the placeholder alternate text of the figures it finds. Level A is an archival level, not an accessibility claim: veraPDF checks only a few structure rules for it. Use PDF/UA (`WithPdfUAConformance`), which can be combined with PDF/A-2a or -3a, when the file must be accessible.
 
 ### E-invoices (Factur-X and ZUGFeRD)
 
