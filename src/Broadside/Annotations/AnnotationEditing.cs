@@ -437,6 +437,39 @@ internal static class AnnotationEditing
         });
     }
 
+    /// <summary>
+    /// Removes a form field's widget annotations from the pages that list them and from the structure tree (§14.7.5.3, §14.7.5.4);
+    /// the caller removes the field from the field tree. Not atomic on its own: the caller runs it inside <see cref="Atomically"/>.
+    /// </summary>
+    public static void RemoveWidgets(PdfDocument document, IReadOnlyList<PdfWidgetAnnotation> widgets)
+    {
+        var removed = new HashSet<CosDictionary>(widgets.Select(static widget => widget.Dictionary), ReferenceEqualityComparer.Instance);
+        if (removed.Count == 0)
+        {
+            return;
+        }
+
+        foreach (PdfPage page in widgets.Select(static widget => widget.Page).OfType<PdfPage>().Distinct())
+        {
+            CosObject? own = page.Dictionary.TryGetValue(AnnotationNames.Annots, out CosObject? value) ? value : null;
+            CosArray array = document.Resolve(own) as CosArray ?? InheritedCopy(page, own);
+            for (int index = array.Count - 1; index >= 0; index--)
+            {
+                if (document.Resolve(array[index]) is CosDictionary entry && removed.Contains(entry))
+                {
+                    array.RemoveAt(index);
+                }
+            }
+
+            if (document.Resolve(own) is not CosArray)
+            {
+                page.Dictionary[AnnotationNames.Annots] = array;
+            }
+        }
+
+        RemoveFromStructure(document, removed);
+    }
+
     private static void RemoveFromStructure(PdfDocument document, HashSet<CosDictionary> removed)
     {
         if (!document.Catalog.ContainsKey(StructureNames.StructTreeRoot) || document.StructureTree is not { } tree)

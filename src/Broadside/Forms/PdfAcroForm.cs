@@ -459,6 +459,30 @@ public sealed class PdfAcroForm
     public PdfSignatureField AddSignatureField(string name, PdfPage page, PdfRectangle rectangle, PdfFieldOptions? options = null) =>
         FieldCreation.Add<PdfSignatureField>(this, name, FieldCreation.Kind.Signature, [(page, rectangle, null)], [], options ?? new PdfFieldOptions());
 
+    /// <summary>Removes a signature field with its widgets, clearing its signature first when it is signed.</summary>
+    /// <param name="field">A signature field of this form.</param>
+    /// <exception cref="ArgumentException"><paramref name="field"/> is not one of this form's fields.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §12.7.5.5, §12.7.3 (Tables 224 and 225), §12.7.4.1 and §14.7.5. A signed field is first cleared as
+    /// <see cref="PdfSignatureField.ClearSignature"/> describes (its certification goes from the catalog's <c>Perms</c>). The field
+    /// leaves the form's <c>Fields</c> (or its parent's <c>Kids</c>) and <c>CO</c>; its widgets leave the <c>Annots</c> of the pages
+    /// that list them, and the structure tree keeps no object reference or parent-tree entry for them. Its lock and seed value
+    /// dictionaries go with it. The form's <c>SigFlags</c> then loses AppendOnly when no signed field remains and SignaturesExist
+    /// when no signature field does. A parent left without kids is kept. The removed objects stay objects of the document until a
+    /// save with <see cref="PdfSaveOptions.RemoveUnreachableObjects"/> drops them, and an incremental save keeps them in the earlier
+    /// revision. A mutation: no read may run concurrently with it; on failure nothing is changed.
+    /// </remarks>
+    public void RemoveField(PdfSignatureField field)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+        if (!ReferenceEquals(field.Form, this) || FindField(field.Dictionary) is not PdfSignatureField current)
+        {
+            throw new ArgumentException("The field is not one of this form's fields.", nameof(field));
+        }
+
+        SignatureRemoval.Remove(current);
+    }
+
     /// <summary>Returns the field <paramref name="widget"/> belongs to, recording a widget that the tree from <c>Fields</c> does not reach.</summary>
     internal PdfTerminalField? FieldOf(PdfWidgetAnnotation widget)
     {
