@@ -8,9 +8,10 @@ public sealed class SearchMatch
 {
     private readonly Quad[] _quads;
 
-    internal SearchMatch(int pageIndex, Quad[] quads, string text, string context)
+    internal SearchMatch(int pageIndex, Quad[] quads, string text, string context, int textStart = -1)
     {
         PageIndex = pageIndex;
+        TextStart = textStart;
         _quads = quads;
         Text = text;
         Context = context;
@@ -46,4 +47,7 @@ public sealed class SearchMatch
     public string Context { get; }
 
     internal ReadOnlySpan<Quad> QuadSpan => _quads;
+
+    /// <summary>Gets where the match starts in its page's searchable text, or -1 when unknown.</summary>
+    internal int TextStart { get; }
 }

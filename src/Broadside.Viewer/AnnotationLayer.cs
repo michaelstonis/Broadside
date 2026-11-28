@@ -62,6 +62,7 @@ public sealed class AnnotationLayer : IAccessibleElementSource
         Session = session;
         _scheduler = scheduler;
         _pages = new AnnotationPage?[session.PageCount];
+        session.OptionalContentChanged += OnOptionalContentChanged;
     }
 
     /// <summary>Raised when the hovered, selected or focused annotation changes, or a dragged annotation moves: redraw the chrome.</summary>
@@ -159,7 +160,7 @@ public sealed class AnnotationLayer : IAccessibleElementSource
         ArgumentNullException.ThrowIfNull(destination);
         ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, _pages.Length);
-        AnnotationPage model = _pages[pageIndex] ??= AnnotationPage.Create(Session.Document, page);
+        AnnotationPage model = _pages[pageIndex] ??= AnnotationPage.Create(Session.Document, page, Session.OptionalContentState);
         foreach (int index in model.Order)
         {
             PdfAnnotation annotation = model.Entries[index].Annotation;
@@ -223,7 +224,7 @@ public sealed class AnnotationLayer : IAccessibleElementSource
                 return await Session.ReadAsync(
                     _ =>
                     {
-                        AnnotationPage model = AnnotationPage.Create(Session.Document, page);
+                        AnnotationPage model = AnnotationPage.Create(Session.Document, page, Session.OptionalContentState);
                         if (Interlocked.Exchange(ref _xfaChecked, 1) == 0)
                         {
                             _xfaForm = XfaFormEventArgs.For(Session.Document);
@@ -262,6 +263,9 @@ public sealed class AnnotationLayer : IAccessibleElementSource
         ArgumentNullException.ThrowIfNull(dictionary);
         return (uint)pageIndex < (uint)_pages.Length && _pages[pageIndex] is not null ? Find(pageIndex, dictionary) : null;
     }
+
+    /// <summary>Gets whether <see cref="ReadPageAsync"/> has loaded a page.</summary>
+    internal bool IsLoaded(int pageIndex) => (uint)pageIndex < (uint)_pages.Length && _pages[pageIndex] is not null;
 
     /// <summary>Gets how many annotations of a page take part: 0 until <see cref="ReadPageAsync"/> loaded it.</summary>
     /// <param name="pageIndex">The zero-based page.</param>
@@ -1280,10 +1284,23 @@ public sealed class AnnotationLayer : IAccessibleElementSource
         return Session.Document.Pages[pageIndex];
     }
 
+    // The session's layers changed (ISO 32000-2 §8.11.3.3): an annotation whose OC is now hidden stops taking part, one now shown joins.
+    private void OnOptionalContentChanged(object? sender, EventArgs e)
+    {
+        for (int pageIndex = 0; pageIndex < _pages.Length; pageIndex++)
+        {
+            if (_pages[pageIndex] is not null)
+            {
+                Reload(pageIndex, Session.Document.Pages[pageIndex]);
+                Accessibility?.InvalidatePage(pageIndex);
+            }
+        }
+    }
+
     private void Reload(int pageIndex, PdfPage page)
     {
         AnnotationPage old = _pages[pageIndex]!;
-        AnnotationPage model = AnnotationPage.Create(Session.Document, page);
+        AnnotationPage model = AnnotationPage.Create(Session.Document, page, Session.OptionalContentState);
         _pages[pageIndex] = model;
         Hovered = Remap(Hovered);
         Selected = Remap(Selected);
@@ -1345,10 +1362,10 @@ public sealed class AnnotationLayer : IAccessibleElementSource
 
         public int[] Order { get; } = order;
 
-        public static AnnotationPage Create(PdfDocument document, PdfPage page)
+        public static AnnotationPage Create(PdfDocument document, PdfPage page, PdfOptionalContentState? state)
         {
             IReadOnlyList<PdfAnnotation> annotations = page.Annotations;
-            PdfOptionalContentState? state = document.OptionalContent?.GetDefaultStates();
+            state ??= document.OptionalContent?.GetDefaultStates();
             var entries = new List<Entry>(annotations.Count);
             var quads = new List<PdfQuadrilateral>();
 

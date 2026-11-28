@@ -12,3 +12,63 @@ Broadside.Viewer.WinUI.PdfToolbar.Viewer.set -> void
 static readonly Broadside.Viewer.WinUI.PdfToolbar.ItemTemplateSelectorProperty -> Microsoft.UI.Xaml.DependencyProperty!
 static readonly Broadside.Viewer.WinUI.PdfToolbar.OptionsProperty -> Microsoft.UI.Xaml.DependencyProperty!
 static readonly Broadside.Viewer.WinUI.PdfToolbar.ViewerProperty -> Microsoft.UI.Xaml.DependencyProperty!
+Broadside.Viewer.WinUI.PdfThumbnailsPanel
+Broadside.Viewer.WinUI.PdfThumbnailsPanel.PdfThumbnailsPanel() -> void
+Broadside.Viewer.WinUI.PdfThumbnailsPanel.Dispose() -> void
+Broadside.Viewer.WinUI.PdfThumbnailsPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.WinUI.PdfThumbnailsPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.WinUI.PdfThumbnailsPanel.Viewer.set -> void
+Broadside.Viewer.WinUI.PdfThumbnailsPanel.PageCount.get -> int
+Broadside.Viewer.WinUI.PdfThumbnailsPanel.RenderedCount.get -> int
+static readonly Broadside.Viewer.WinUI.PdfThumbnailsPanel.ViewerProperty -> Microsoft.UI.Xaml.DependencyProperty!
+Broadside.Viewer.WinUI.PdfOutlinePanel
+Broadside.Viewer.WinUI.PdfOutlinePanel.PdfOutlinePanel() -> void
+Broadside.Viewer.WinUI.PdfOutlinePanel.Dispose() -> void
+Broadside.Viewer.WinUI.PdfOutlinePanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.WinUI.PdfOutlinePanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.WinUI.PdfOutlinePanel.Viewer.set -> void
+Broadside.Viewer.WinUI.PdfOutlinePanel.VisibleCount.get -> int
+static readonly Broadside.Viewer.WinUI.PdfOutlinePanel.ViewerProperty -> Microsoft.UI.Xaml.DependencyProperty!
+Broadside.Viewer.WinUI.PdfSearchPanel
+Broadside.Viewer.WinUI.PdfSearchPanel.PdfSearchPanel() -> void
+Broadside.Viewer.WinUI.PdfSearchPanel.Dispose() -> void
+Broadside.Viewer.WinUI.PdfSearchPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.WinUI.PdfSearchPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.WinUI.PdfSearchPanel.Viewer.set -> void
+Broadside.Viewer.WinUI.PdfSearchPanel.ResultCount.get -> int
+Broadside.Viewer.WinUI.PdfSearchPanel.Search(string! query) -> void
+static readonly Broadside.Viewer.WinUI.PdfSearchPanel.ViewerProperty -> Microsoft.UI.Xaml.DependencyProperty!
+Broadside.Viewer.WinUI.PdfAttachmentsPanel
+Broadside.Viewer.WinUI.PdfAttachmentsPanel.PdfAttachmentsPanel() -> void
+Broadside.Viewer.WinUI.PdfAttachmentsPanel.Dispose() -> void
+Broadside.Viewer.WinUI.PdfAttachmentsPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.WinUI.PdfAttachmentsPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.WinUI.PdfAttachmentsPanel.Viewer.set -> void
+Broadside.Viewer.WinUI.PdfAttachmentsPanel.Count.get -> int
+Broadside.Viewer.WinUI.PdfAttachmentsPanel.Opening -> System.EventHandler<Broadside.Viewer.AttachmentOpeningEventArgs!>?
+static readonly Broadside.Viewer.WinUI.PdfAttachmentsPanel.ViewerProperty -> Microsoft.UI.Xaml.DependencyProperty!
+Broadside.Viewer.WinUI.PdfLayersPanel
+Broadside.Viewer.WinUI.PdfLayersPanel.PdfLayersPanel() -> void
+Broadside.Viewer.WinUI.PdfLayersPanel.Dispose() -> void
+Broadside.Viewer.WinUI.PdfLayersPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.WinUI.PdfLayersPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.WinUI.PdfLayersPanel.Viewer.set -> void
+static readonly Broadside.Viewer.WinUI.PdfLayersPanel.ViewerProperty -> Microsoft.UI.Xaml.DependencyProperty!
+Broadside.Viewer.WinUI.PdfAnnotationsPanel
+Broadside.Viewer.WinUI.PdfAnnotationsPanel.PdfAnnotationsPanel() -> void
+Broadside.Viewer.WinUI.PdfAnnotationsPanel.Dispose() -> void
+Broadside.Viewer.WinUI.PdfAnnotationsPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.WinUI.PdfAnnotationsPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.WinUI.PdfAnnotationsPanel.Viewer.set -> void
+Broadside.Viewer.WinUI.PdfAnnotationsPanel.Count.get -> int
+static readonly Broadside.Viewer.WinUI.PdfAnnotationsPanel.ViewerProperty -> Microsoft.UI.Xaml.DependencyProperty!
+Broadside.Viewer.WinUI.PdfSidebar
+Broadside.Viewer.WinUI.PdfSidebar.PdfSidebar() -> void
+Broadside.Viewer.WinUI.PdfSidebar.Dispose() -> void
+Broadside.Viewer.WinUI.PdfSidebar.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.WinUI.PdfSidebar.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.WinUI.PdfSidebar.Viewer.set -> void
+Broadside.Viewer.WinUI.PdfSidebar.AttachmentOpening -> System.EventHandler<Broadside.Viewer.AttachmentOpeningEventArgs!>?
+Broadside.Viewer.WinUI.PdfSidebar.SelectedPanel.get -> Broadside.Viewer.SidebarPanels
+Broadside.Viewer.WinUI.PdfSidebar.SelectedPanel.set -> void
+static readonly Broadside.Viewer.WinUI.PdfSidebar.ViewerProperty -> Microsoft.UI.Xaml.DependencyProperty!

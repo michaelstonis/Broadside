@@ -16,7 +16,7 @@ public sealed class PublishedAppTests
 
     /// <summary>
     /// The budget for the files as they lie on disk (32 MB measured for #221, 38.3 MB for the demo, 40.05 MiB with the edit history of
-    /// #638, documents excluded): the AOT-compiled runtime module is two thirds of it.
+    /// #638, 40.3 MiB with the side panels of #636, documents excluded): the AOT-compiled runtime module is two thirds of it.
     /// </summary>
     public const long UncompressedBudget = 42 * 1024 * 1024;
 

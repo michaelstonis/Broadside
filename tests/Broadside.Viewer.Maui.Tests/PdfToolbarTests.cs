@@ -75,7 +75,7 @@ public sealed class PdfToolbarTests
         Assert.Empty(bar.BarItems);
     }
 
-    private static async Task<PdfView> ShowAsync(DocumentSession session)
+    internal static async Task<PdfView> ShowAsync(DocumentSession session)
     {
         ManualDispatcher.Install();
         var view = new PdfView();
@@ -88,7 +88,7 @@ public sealed class PdfToolbarTests
         return view;
     }
 
-    private static async Task SettleAsync(PdfView view)
+    internal static async Task SettleAsync(PdfView view)
     {
         var watch = System.Diagnostics.Stopwatch.StartNew();
         int quiet = 0;

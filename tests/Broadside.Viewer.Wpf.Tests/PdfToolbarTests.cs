@@ -92,7 +92,7 @@ public sealed class PdfToolbarTests
     private static FrameworkElement Item(PdfToolbar bar, string id) =>
         bar.Bar.Items.Cast<FrameworkElement>().Single(item => AutomationProperties.GetAutomationId(item) == id);
 
-    private static async Task<PdfView> ShowAsync(DocumentSession session)
+    internal static async Task<PdfView> ShowAsync(DocumentSession session)
     {
         var view = new PdfView();
         view.Measure(new Size(400, 600));
@@ -104,7 +104,7 @@ public sealed class PdfToolbarTests
         return view;
     }
 
-    private static async Task SettleAsync(PdfView view)
+    internal static async Task SettleAsync(PdfView view)
     {
         var watch = System.Diagnostics.Stopwatch.StartNew();
         int quiet = 0;

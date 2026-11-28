@@ -100,6 +100,173 @@ const Broadside.Viewer.ViewerCommandIds.ZoomMode = "zoom.mode" -> string!
 const Broadside.Viewer.ViewerCommandIds.ZoomOut = "zoom.out" -> string!
 static Broadside.Viewer.ViewerCommandIds.All.get -> System.Collections.Generic.IReadOnlyList<string!>!
 static Broadside.Viewer.ViewerToolbarOptions.DefaultZoomPresets.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Viewer.AnnotationList
+Broadside.Viewer.AnnotationList.AnnotationList(Broadside.Viewer.AnnotationLayer! layer) -> void
+Broadside.Viewer.AnnotationList.Changed -> System.EventHandler?
+Broadside.Viewer.AnnotationList.FindItem(Broadside.Viewer.AnnotationTarget target) -> Broadside.Viewer.AnnotationListItem?
+Broadside.Viewer.AnnotationList.IsComplete.get -> bool
+Broadside.Viewer.AnnotationList.Items.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.AnnotationListItem!>!
+Broadside.Viewer.AnnotationList.Layer.get -> Broadside.Viewer.AnnotationLayer!
+Broadside.Viewer.AnnotationList.RefreshAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Broadside.Viewer.AnnotationList.Reveal(Broadside.Viewer.AnnotationListItem! item, Broadside.Viewer.IDocumentViewer? viewer) -> void
+Broadside.Viewer.AnnotationListItem
+Broadside.Viewer.AnnotationListItem.AnnotationListItem(Broadside.Viewer.AnnotationTarget Target, Broadside.Viewer.AnnotationRole Role, string! Kind, string? Author, string? Text, string? Modified, int ReplyCount, Broadside.PdfRectangle Rectangle) -> void
+Broadside.Viewer.AnnotationListItem.Author.get -> string?
+Broadside.Viewer.AnnotationListItem.Author.init -> void
+Broadside.Viewer.AnnotationListItem.IsRemovable.get -> bool
+Broadside.Viewer.AnnotationListItem.Kind.get -> string!
+Broadside.Viewer.AnnotationListItem.Kind.init -> void
+Broadside.Viewer.AnnotationListItem.Modified.get -> string?
+Broadside.Viewer.AnnotationListItem.Modified.init -> void
+Broadside.Viewer.AnnotationListItem.Rectangle.get -> Broadside.PdfRectangle
+Broadside.Viewer.AnnotationListItem.Rectangle.init -> void
+Broadside.Viewer.AnnotationListItem.ReplyCount.get -> int
+Broadside.Viewer.AnnotationListItem.ReplyCount.init -> void
+Broadside.Viewer.AnnotationListItem.Role.get -> Broadside.Viewer.AnnotationRole
+Broadside.Viewer.AnnotationListItem.Role.init -> void
+Broadside.Viewer.AnnotationListItem.Target.get -> Broadside.Viewer.AnnotationTarget
+Broadside.Viewer.AnnotationListItem.Target.init -> void
+Broadside.Viewer.AnnotationListItem.Text.get -> string?
+Broadside.Viewer.AnnotationListItem.Text.init -> void
+Broadside.Viewer.AttachmentAction
+Broadside.Viewer.AttachmentAction.Open = 0 -> Broadside.Viewer.AttachmentAction
+Broadside.Viewer.AttachmentAction.Save = 1 -> Broadside.Viewer.AttachmentAction
+Broadside.Viewer.AttachmentItem
+Broadside.Viewer.AttachmentItem.Annotation.get -> Broadside.Viewer.AnnotationTarget?
+Broadside.Viewer.AttachmentItem.Annotation.init -> void
+Broadside.Viewer.AttachmentItem.AttachmentItem(string! FileName, string? Description, string? MediaType, long? Size, int? PageIndex, Broadside.Viewer.AnnotationTarget? Annotation, Broadside.PdfCheckSumStatus CheckSum) -> void
+Broadside.Viewer.AttachmentItem.CheckSum.get -> Broadside.PdfCheckSumStatus
+Broadside.Viewer.AttachmentItem.CheckSum.init -> void
+Broadside.Viewer.AttachmentItem.Description.get -> string?
+Broadside.Viewer.AttachmentItem.Description.init -> void
+Broadside.Viewer.AttachmentItem.FileName.get -> string!
+Broadside.Viewer.AttachmentItem.FileName.init -> void
+Broadside.Viewer.AttachmentItem.IsEmbedded.get -> bool
+Broadside.Viewer.AttachmentItem.IsEmbedded.init -> void
+Broadside.Viewer.AttachmentItem.MediaType.get -> string?
+Broadside.Viewer.AttachmentItem.MediaType.init -> void
+Broadside.Viewer.AttachmentItem.PageIndex.get -> int?
+Broadside.Viewer.AttachmentItem.PageIndex.init -> void
+Broadside.Viewer.AttachmentItem.Size.get -> long?
+Broadside.Viewer.AttachmentItem.Size.init -> void
+Broadside.Viewer.AttachmentItem.Specification.get -> Broadside.PdfFileSpecification?
+Broadside.Viewer.AttachmentItem.Specification.init -> void
+Broadside.Viewer.AttachmentOpeningEventArgs
+Broadside.Viewer.AttachmentOpeningEventArgs.Action.get -> Broadside.Viewer.AttachmentAction
+Broadside.Viewer.AttachmentOpeningEventArgs.AttachmentOpeningEventArgs(Broadside.Viewer.AttachmentItem! item, System.ReadOnlyMemory<byte> data, Broadside.Viewer.AttachmentAction action) -> void
+Broadside.Viewer.AttachmentOpeningEventArgs.Data.get -> System.ReadOnlyMemory<byte>
+Broadside.Viewer.AttachmentOpeningEventArgs.Item.get -> Broadside.Viewer.AttachmentItem!
+Broadside.Viewer.DocumentAttachments
+Broadside.Viewer.DocumentAttachments.ExtractAsync(Broadside.Viewer.AttachmentItem! item, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.ReadOnlyMemory<byte>>
+Broadside.Viewer.DocumentAttachments.IsComplete.get -> bool
+Broadside.Viewer.DocumentAttachments.IsEmpty.get -> bool
+Broadside.Viewer.DocumentAttachments.Items.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.AttachmentItem!>!
+Broadside.Viewer.DocumentLayers
+Broadside.Viewer.DocumentLayers.Changed -> System.EventHandler?
+Broadside.Viewer.DocumentLayers.IsEmpty.get -> bool
+Broadside.Viewer.DocumentLayers.Reset() -> void
+Broadside.Viewer.DocumentLayers.Roots.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.LayerItem!>!
+Broadside.Viewer.DocumentLayers.SetVisible(Broadside.Viewer.LayerItem! item, bool visible) -> bool
+Broadside.Viewer.DocumentSession.OptionalContentState.get -> Broadside.PdfOptionalContentState?
+Broadside.Viewer.DocumentSession.OptionalContentState.set -> void
+Broadside.Viewer.LayerItem
+Broadside.Viewer.LayerItem.Children.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.LayerItem!>!
+Broadside.Viewer.LayerItem.Children.init -> void
+Broadside.Viewer.LayerItem.Group.get -> Broadside.PdfOptionalContentGroup?
+Broadside.Viewer.LayerItem.Group.init -> void
+Broadside.Viewer.LayerItem.IsLocked.get -> bool
+Broadside.Viewer.LayerItem.IsLocked.init -> void
+Broadside.Viewer.LayerItem.IsVisible.get -> bool
+Broadside.Viewer.LayerItem.IsVisible.init -> void
+Broadside.Viewer.LayerItem.LayerItem(string! Title, Broadside.PdfOptionalContentGroup? Group, System.Collections.Generic.IReadOnlyList<Broadside.Viewer.LayerItem!>! Children, bool IsVisible, bool IsLocked) -> void
+Broadside.Viewer.LayerItem.Title.get -> string!
+Broadside.Viewer.LayerItem.Title.init -> void
+Broadside.Viewer.SearchResultGroup
+Broadside.Viewer.SearchResultGroup.Items.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.SearchResultItem!>!
+Broadside.Viewer.SearchResultGroup.Items.init -> void
+Broadside.Viewer.SearchResultGroup.PageIndex.get -> int
+Broadside.Viewer.SearchResultGroup.PageIndex.init -> void
+Broadside.Viewer.SearchResultGroup.SearchResultGroup(int PageIndex, System.Collections.Generic.IReadOnlyList<Broadside.Viewer.SearchResultItem!>! Items) -> void
+Broadside.Viewer.SearchResultItem
+Broadside.Viewer.SearchResultItem.After.get -> string!
+Broadside.Viewer.SearchResultItem.After.init -> void
+Broadside.Viewer.SearchResultItem.Before.get -> string!
+Broadside.Viewer.SearchResultItem.Before.init -> void
+Broadside.Viewer.SearchResultItem.Match.get -> Broadside.Viewer.SearchMatch!
+Broadside.Viewer.SearchResultItem.Match.init -> void
+Broadside.Viewer.SearchResultItem.MatchIndex.get -> int
+Broadside.Viewer.SearchResultItem.MatchIndex.init -> void
+Broadside.Viewer.SearchResultItem.SearchResultItem(int MatchIndex, Broadside.Viewer.SearchMatch! Match, string! Before, string! After) -> void
+Broadside.Viewer.SearchResultItem.Text.get -> string!
+Broadside.Viewer.SearchResults
+Broadside.Viewer.SearchResults.Changed -> System.EventHandler?
+Broadside.Viewer.SearchResults.Count.get -> int
+Broadside.Viewer.SearchResults.Dispose() -> void
+Broadside.Viewer.SearchResults.Pages.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.SearchResultGroup!>!
+Broadside.Viewer.SearchResults.Search.get -> Broadside.Viewer.DocumentSearch!
+Broadside.Viewer.SearchResults.SearchResults(Broadside.Viewer.DocumentSearch! search, int contextCharacters = 40) -> void
+Broadside.Viewer.SearchResults.Show(Broadside.Viewer.SearchResultItem! item, Broadside.Viewer.IDocumentViewer? viewer) -> void
+static Broadside.Viewer.DocumentAttachments.ReadAsync(Broadside.Viewer.AnnotationLayer! layer, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.DocumentAttachments!>
+static Broadside.Viewer.DocumentAttachments.ReadAsync(Broadside.Viewer.DocumentSession! session, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.DocumentAttachments!>
+static Broadside.Viewer.DocumentLayers.ReadAsync(Broadside.Viewer.DocumentSession! session, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.DocumentLayers!>
+Broadside.Viewer.SidebarChange
+Broadside.Viewer.SidebarChange.Content = 1 -> Broadside.Viewer.SidebarChange
+Broadside.Viewer.SidebarChange.CurrentPage = 2 -> Broadside.Viewer.SidebarChange
+Broadside.Viewer.SidebarChange.Document = 0 -> Broadside.Viewer.SidebarChange
+Broadside.Viewer.SidebarChange.Thumbnail = 3 -> Broadside.Viewer.SidebarChange
+Broadside.Viewer.SidebarChangedEventArgs
+Broadside.Viewer.SidebarChangedEventArgs.Change.get -> Broadside.Viewer.SidebarChange
+Broadside.Viewer.SidebarChangedEventArgs.PageIndex.get -> int
+Broadside.Viewer.SidebarChangedEventArgs.Panels.get -> Broadside.Viewer.SidebarPanels
+Broadside.Viewer.SidebarChangedEventArgs.SidebarChangedEventArgs(Broadside.Viewer.SidebarPanels panels, Broadside.Viewer.SidebarChange change, int pageIndex) -> void
+Broadside.Viewer.SidebarPanels
+Broadside.Viewer.SidebarPanels.All = Broadside.Viewer.SidebarPanels.Thumbnails | Broadside.Viewer.SidebarPanels.Outline | Broadside.Viewer.SidebarPanels.Search | Broadside.Viewer.SidebarPanels.Attachments | Broadside.Viewer.SidebarPanels.Layers | Broadside.Viewer.SidebarPanels.Annotations -> Broadside.Viewer.SidebarPanels
+Broadside.Viewer.SidebarPanels.Annotations = 32 -> Broadside.Viewer.SidebarPanels
+Broadside.Viewer.SidebarPanels.Attachments = 8 -> Broadside.Viewer.SidebarPanels
+Broadside.Viewer.SidebarPanels.Layers = 16 -> Broadside.Viewer.SidebarPanels
+Broadside.Viewer.SidebarPanels.None = 0 -> Broadside.Viewer.SidebarPanels
+Broadside.Viewer.SidebarPanels.Outline = 2 -> Broadside.Viewer.SidebarPanels
+Broadside.Viewer.SidebarPanels.Search = 4 -> Broadside.Viewer.SidebarPanels
+Broadside.Viewer.SidebarPanels.Thumbnails = 1 -> Broadside.Viewer.SidebarPanels
+Broadside.Viewer.SidebarThumbnail
+Broadside.Viewer.SidebarThumbnail.EncodePng() -> byte[]!
+Broadside.Viewer.SidebarThumbnail.Height.get -> int
+Broadside.Viewer.SidebarThumbnail.PageIndex.get -> int
+Broadside.Viewer.SidebarThumbnail.Pixels.get -> System.ReadOnlyMemory<byte>
+Broadside.Viewer.SidebarThumbnail.Width.get -> int
+Broadside.Viewer.ViewerSidebar
+Broadside.Viewer.ViewerSidebar.Annotations.get -> Broadside.Viewer.AnnotationList?
+Broadside.Viewer.ViewerSidebar.AttachmentOpening -> System.EventHandler<Broadside.Viewer.AttachmentOpeningEventArgs!>?
+Broadside.Viewer.ViewerSidebar.Attachments.get -> Broadside.Viewer.DocumentAttachments?
+Broadside.Viewer.ViewerSidebar.Changed -> System.EventHandler<Broadside.Viewer.SidebarChangedEventArgs!>?
+Broadside.Viewer.ViewerSidebar.CurrentOutlineEntry.get -> Broadside.Viewer.OutlineEntry?
+Broadside.Viewer.ViewerSidebar.Dispose() -> void
+Broadside.Viewer.ViewerSidebar.GetError(Broadside.Viewer.SidebarPanels panel) -> string?
+Broadside.Viewer.ViewerSidebar.GetPageLabel(int pageIndex) -> string!
+Broadside.Viewer.ViewerSidebar.GetThumbnail(int pageIndex) -> Broadside.Viewer.SidebarThumbnail?
+Broadside.Viewer.ViewerSidebar.GetVisibleOutline() -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.OutlineEntry!>!
+Broadside.Viewer.ViewerSidebar.GoTo(Broadside.Viewer.OutlineEntry! entry) -> bool
+Broadside.Viewer.ViewerSidebar.GoToPage(int pageIndex) -> void
+Broadside.Viewer.ViewerSidebar.IsOpen(Broadside.Viewer.OutlineEntry! entry) -> bool
+Broadside.Viewer.ViewerSidebar.Layers.get -> Broadside.Viewer.DocumentLayers?
+Broadside.Viewer.ViewerSidebar.Loading.get -> System.Threading.Tasks.Task!
+Broadside.Viewer.ViewerSidebar.OpenAttachmentAsync(Broadside.Viewer.AttachmentItem! item, Broadside.Viewer.AttachmentAction action, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Broadside.Viewer.ViewerSidebar.Outline.get -> Broadside.Viewer.DocumentOutline?
+Broadside.Viewer.ViewerSidebar.PageCount.get -> int
+Broadside.Viewer.ViewerSidebar.PageIndex.get -> int
+Broadside.Viewer.ViewerSidebar.Panels.get -> Broadside.Viewer.SidebarPanels
+Broadside.Viewer.ViewerSidebar.RenderThumbnailsAsync(int firstPage, int count, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Broadside.Viewer.ViewerSidebar.ResetLayers() -> void
+Broadside.Viewer.ViewerSidebar.Reveal(Broadside.Viewer.AnnotationListItem! item) -> void
+Broadside.Viewer.ViewerSidebar.Reveal(Broadside.Viewer.AttachmentItem! item) -> bool
+Broadside.Viewer.ViewerSidebar.Search(string! query, Broadside.Viewer.TextSearchOptions? options = null) -> void
+Broadside.Viewer.ViewerSidebar.SearchResults.get -> Broadside.Viewer.SearchResults?
+Broadside.Viewer.ViewerSidebar.Session.get -> Broadside.Viewer.DocumentSession?
+Broadside.Viewer.ViewerSidebar.SetLayerVisible(Broadside.Viewer.LayerItem! item, bool visible) -> bool
+Broadside.Viewer.ViewerSidebar.Show(Broadside.Viewer.SearchResultItem! item) -> void
+Broadside.Viewer.ViewerSidebar.Toggle(Broadside.Viewer.OutlineEntry! entry) -> void
+Broadside.Viewer.ViewerSidebar.Viewer.get -> Broadside.Viewer.IDocumentViewer!
+Broadside.Viewer.ViewerSidebar.ViewerSidebar(Broadside.Viewer.IDocumentViewer! viewer, Broadside.Viewer.SidebarPanels panels = Broadside.Viewer.SidebarPanels.All, Broadside.Viewer.ThumbnailOptions? thumbnailOptions = null) -> void
 Broadside.Viewer.AnnotationLayer.History.get -> Broadside.Viewer.EditHistory?
 Broadside.Viewer.AnnotationLayer.History.set -> void
 Broadside.Viewer.EditHistory

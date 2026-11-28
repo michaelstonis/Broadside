@@ -340,6 +340,64 @@ public sealed class DocumentSessionTests
         Assert.Equal(TaggedLinearizedFile.NamedPage, request.Destination?.PageIndex);
     }
 
+    [Theory]
+    [InlineData(ViewerThreading.Background)]
+    [InlineData(ViewerThreading.Cooperative)]
+    public async Task Changing_the_optional_content_state_hides_a_group_in_the_next_tile_and_shows_it_again_on_reset(ViewerThreading threading)
+    {
+        // Page 1 of optional-content-pages.pdf fills 0 0 10 10 inside /OC Base (ON by default, ISO 32000-2 §8.11.4.5).
+        await using DocumentSession session = DocumentSession.Open(Corpus.Bytes("optional-content-pages.pdf"), new ViewerOptions().WithThreading(threading));
+        PdfOptionalContentProperties properties = session.Document.OptionalContent!;
+        PdfOptionalContentGroup baseGroup = properties.Groups.Single(g => g.Name == "Base");
+
+        Assert.True(await CornerIsPaintedAsync());
+        session.OptionalContentState = properties.GetDefaultStates().With(baseGroup, false);
+        Assert.False(await CornerIsPaintedAsync());
+        Assert.False(await CornerIsPaintedAsync()); // the session's kept list
+        session.OptionalContentState = null;
+        Assert.True(await CornerIsPaintedAsync());
+
+        async Task<bool> CornerIsPaintedAsync()
+        {
+            using var surface = new HeadlessSurface();
+            await session.RenderPageAsync(0, 1, surface, Token);
+            Bitmap pixels = Assert.Single(surface.Tiles).Pixels;
+            return pixels.GetRow(pixels.Height - 5)[5 * 4] < 64;
+        }
+    }
+
+    [Fact]
+    public async Task Changing_the_optional_content_state_redraws_every_tile_and_the_annotation_layer_drops_hidden_annotations()
+    {
+        // Page 3 of optional-content-pages.pdf has a Square annotation with /OC Draft (ON by default).
+        await using DocumentSession session = DocumentSession.Open(Corpus.Bytes("optional-content-pages.pdf"), new ViewerOptions().WithThreading(ViewerThreading.Cooperative));
+        var events = new List<TileSchedulerEvent>();
+        using var surface = new HeadlessSurface();
+        PageLayout layout = await PageLayout.CreateAsync(session, cancellationToken: Token);
+        using var scheduler = new TileScheduler(session, layout, surface, new TileSchedulerOptions().WithRenderAhead(0).WithNearMargin(0).WithPlaceholderScale(0).UseObserver(events.Add));
+        scheduler.Update(new Viewport(0, 0, 612, 792, 1));
+        while (scheduler.RunFrame(Timeout.InfiniteTimeSpan))
+        {
+        }
+
+        int presented = events.Count(e => e.Kind == TileEventKind.Presented);
+        Assert.True(presented > 0);
+        var layer = new AnnotationLayer(session, scheduler);
+        Assert.Equal(1, await layer.ReadPageAsync(2, Token));
+        int layerChanges = 0;
+        layer.Changed += (_, _) => layerChanges++;
+        events.Clear();
+
+        PdfOptionalContentProperties properties = session.Document.OptionalContent!;
+        session.OptionalContentState = properties.GetDefaultStates().With(properties.Groups.Single(g => g.Name == "Draft"), false);
+
+        Assert.Equal(presented, events.Count(e => e.Kind == TileEventKind.Invalidated));
+        Assert.Equal(0, layer.GetCount(2));
+        Assert.True(layerChanges > 0);
+        session.OptionalContentState = null;
+        Assert.Equal(1, layer.GetCount(2));
+    }
+
     [Fact]
     public async Task Invalid_tiles_and_pages_are_refused()
     {

@@ -18,3 +18,67 @@ Broadside.Viewer.Blazor.PdfToolbarItem.Command.get -> Broadside.Viewer.ViewerCom
 Broadside.Viewer.Blazor.PdfToolbarItem.Command.set -> void
 Broadside.Viewer.Blazor.PdfToolbarItem.Dispose() -> void
 Broadside.Viewer.Blazor.PdfToolbarItem.PdfToolbarItem() -> void
+Broadside.Viewer.Blazor.PdfThumbnailsPanel
+Broadside.Viewer.Blazor.PdfThumbnailsPanel.PdfThumbnailsPanel() -> void
+Broadside.Viewer.Blazor.PdfThumbnailsPanel.Dispose() -> void
+Broadside.Viewer.Blazor.PdfThumbnailsPanel.Model.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Blazor.PdfThumbnailsPanel.Model.set -> void
+Broadside.Viewer.Blazor.PdfThumbnailsPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Blazor.PdfThumbnailsPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Blazor.PdfThumbnailsPanel.Viewer.set -> void
+Broadside.Viewer.Blazor.PdfOutlinePanel
+Broadside.Viewer.Blazor.PdfOutlinePanel.PdfOutlinePanel() -> void
+Broadside.Viewer.Blazor.PdfOutlinePanel.Dispose() -> void
+Broadside.Viewer.Blazor.PdfOutlinePanel.Model.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Blazor.PdfOutlinePanel.Model.set -> void
+Broadside.Viewer.Blazor.PdfOutlinePanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Blazor.PdfOutlinePanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Blazor.PdfOutlinePanel.Viewer.set -> void
+Broadside.Viewer.Blazor.PdfSearchPanel
+Broadside.Viewer.Blazor.PdfSearchPanel.PdfSearchPanel() -> void
+Broadside.Viewer.Blazor.PdfSearchPanel.Dispose() -> void
+Broadside.Viewer.Blazor.PdfSearchPanel.Model.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Blazor.PdfSearchPanel.Model.set -> void
+Broadside.Viewer.Blazor.PdfSearchPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Blazor.PdfSearchPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Blazor.PdfSearchPanel.Viewer.set -> void
+Broadside.Viewer.Blazor.PdfAttachmentsPanel
+Broadside.Viewer.Blazor.PdfAttachmentsPanel.PdfAttachmentsPanel() -> void
+Broadside.Viewer.Blazor.PdfAttachmentsPanel.Dispose() -> void
+Broadside.Viewer.Blazor.PdfAttachmentsPanel.Model.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Blazor.PdfAttachmentsPanel.Model.set -> void
+Broadside.Viewer.Blazor.PdfAttachmentsPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Blazor.PdfAttachmentsPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Blazor.PdfAttachmentsPanel.Viewer.set -> void
+Broadside.Viewer.Blazor.PdfAttachmentsPanel.Opening.get -> Microsoft.AspNetCore.Components.EventCallback<Broadside.Viewer.AttachmentOpeningEventArgs!>
+Broadside.Viewer.Blazor.PdfAttachmentsPanel.Opening.set -> void
+Broadside.Viewer.Blazor.PdfLayersPanel
+Broadside.Viewer.Blazor.PdfLayersPanel.PdfLayersPanel() -> void
+Broadside.Viewer.Blazor.PdfLayersPanel.Dispose() -> void
+Broadside.Viewer.Blazor.PdfLayersPanel.Model.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Blazor.PdfLayersPanel.Model.set -> void
+Broadside.Viewer.Blazor.PdfLayersPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Blazor.PdfLayersPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Blazor.PdfLayersPanel.Viewer.set -> void
+Broadside.Viewer.Blazor.PdfAnnotationsPanel
+Broadside.Viewer.Blazor.PdfAnnotationsPanel.PdfAnnotationsPanel() -> void
+Broadside.Viewer.Blazor.PdfAnnotationsPanel.Dispose() -> void
+Broadside.Viewer.Blazor.PdfAnnotationsPanel.Model.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Blazor.PdfAnnotationsPanel.Model.set -> void
+Broadside.Viewer.Blazor.PdfAnnotationsPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Blazor.PdfAnnotationsPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Blazor.PdfAnnotationsPanel.Viewer.set -> void
+Broadside.Viewer.Blazor.PdfSidebar
+Broadside.Viewer.Blazor.PdfSidebar.PdfSidebar() -> void
+Broadside.Viewer.Blazor.PdfSidebar.Dispose() -> void
+Broadside.Viewer.Blazor.PdfSidebar.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Blazor.PdfSidebar.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Blazor.PdfSidebar.Viewer.set -> void
+Broadside.Viewer.Blazor.PdfSidebar.AttachmentOpening.get -> Microsoft.AspNetCore.Components.EventCallback<Broadside.Viewer.AttachmentOpeningEventArgs!>
+Broadside.Viewer.Blazor.PdfSidebar.AttachmentOpening.set -> void
+Broadside.Viewer.Blazor.PdfSidebar.Class.get -> string?
+Broadside.Viewer.Blazor.PdfSidebar.Class.set -> void
+Broadside.Viewer.Blazor.PdfSidebar.SelectedPanel.get -> Broadside.Viewer.SidebarPanels
+Broadside.Viewer.Blazor.PdfSidebar.SelectedPanel.set -> void
+Broadside.Viewer.Blazor.PdfSidebar.SelectedPanelChanged.get -> Microsoft.AspNetCore.Components.EventCallback<Broadside.Viewer.SidebarPanels>
+Broadside.Viewer.Blazor.PdfSidebar.SelectedPanelChanged.set -> void

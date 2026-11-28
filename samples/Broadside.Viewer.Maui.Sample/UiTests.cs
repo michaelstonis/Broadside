@@ -114,7 +114,11 @@ public static class UiTests
         Click(page, "annotate-note");
         await WaitAsync(() => page.Document.IsEdited, "the document is marked edited");
         Check(layer.GetCount(0) == before + 1, "a note was added to page 1");
-        await WaitAsync(() => Find<Label>(page, "annotation-count").Text?.Contains(string.Create(CultureInfo.InvariantCulture, $"{before + 1} on this page"), StringComparison.Ordinal) == true, "the list shows it");
+        // The panel lists every page's annotations (#636): the new note's row appears among them.
+        await WaitAsync(
+            () => ((IVisualTreeElement)page).GetVisualTreeDescendants().OfType<Button>()
+                .Any(b => b.AutomationId == "annotation-item" && b.Text?.Contains("A note added in the Broadside viewer.", StringComparison.Ordinal) == true),
+            "the list shows it");
         Check(Find<VisualElement>(page, "document-edited").IsVisible, "the top bar shows the edit");
 
         byte[] saved = await page.Document.SaveAsync() ?? throw new InvalidOperationException("The document did not save.");

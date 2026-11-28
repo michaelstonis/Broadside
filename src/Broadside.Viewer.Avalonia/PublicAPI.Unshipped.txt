@@ -12,3 +12,63 @@ Broadside.Viewer.Avalonia.PdfToolbar.Viewer.set -> void
 static readonly Broadside.Viewer.Avalonia.PdfToolbar.ItemTemplateProperty -> Avalonia.StyledProperty<Avalonia.Controls.Templates.IDataTemplate?>!
 static readonly Broadside.Viewer.Avalonia.PdfToolbar.OptionsProperty -> Avalonia.StyledProperty<Broadside.Viewer.ViewerToolbarOptions?>!
 static readonly Broadside.Viewer.Avalonia.PdfToolbar.ViewerProperty -> Avalonia.StyledProperty<Broadside.Viewer.IDocumentViewer?>!
+Broadside.Viewer.Avalonia.PdfThumbnailsPanel
+Broadside.Viewer.Avalonia.PdfThumbnailsPanel.PdfThumbnailsPanel() -> void
+Broadside.Viewer.Avalonia.PdfThumbnailsPanel.Dispose() -> void
+Broadside.Viewer.Avalonia.PdfThumbnailsPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Avalonia.PdfThumbnailsPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Avalonia.PdfThumbnailsPanel.Viewer.set -> void
+Broadside.Viewer.Avalonia.PdfThumbnailsPanel.PageCount.get -> int
+Broadside.Viewer.Avalonia.PdfThumbnailsPanel.RenderedCount.get -> int
+static readonly Broadside.Viewer.Avalonia.PdfThumbnailsPanel.ViewerProperty -> Avalonia.StyledProperty<Broadside.Viewer.IDocumentViewer?>!
+Broadside.Viewer.Avalonia.PdfOutlinePanel
+Broadside.Viewer.Avalonia.PdfOutlinePanel.PdfOutlinePanel() -> void
+Broadside.Viewer.Avalonia.PdfOutlinePanel.Dispose() -> void
+Broadside.Viewer.Avalonia.PdfOutlinePanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Avalonia.PdfOutlinePanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Avalonia.PdfOutlinePanel.Viewer.set -> void
+Broadside.Viewer.Avalonia.PdfOutlinePanel.VisibleCount.get -> int
+static readonly Broadside.Viewer.Avalonia.PdfOutlinePanel.ViewerProperty -> Avalonia.StyledProperty<Broadside.Viewer.IDocumentViewer?>!
+Broadside.Viewer.Avalonia.PdfSearchPanel
+Broadside.Viewer.Avalonia.PdfSearchPanel.PdfSearchPanel() -> void
+Broadside.Viewer.Avalonia.PdfSearchPanel.Dispose() -> void
+Broadside.Viewer.Avalonia.PdfSearchPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Avalonia.PdfSearchPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Avalonia.PdfSearchPanel.Viewer.set -> void
+Broadside.Viewer.Avalonia.PdfSearchPanel.ResultCount.get -> int
+Broadside.Viewer.Avalonia.PdfSearchPanel.Search(string! query) -> void
+static readonly Broadside.Viewer.Avalonia.PdfSearchPanel.ViewerProperty -> Avalonia.StyledProperty<Broadside.Viewer.IDocumentViewer?>!
+Broadside.Viewer.Avalonia.PdfAttachmentsPanel
+Broadside.Viewer.Avalonia.PdfAttachmentsPanel.PdfAttachmentsPanel() -> void
+Broadside.Viewer.Avalonia.PdfAttachmentsPanel.Dispose() -> void
+Broadside.Viewer.Avalonia.PdfAttachmentsPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Avalonia.PdfAttachmentsPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Avalonia.PdfAttachmentsPanel.Viewer.set -> void
+Broadside.Viewer.Avalonia.PdfAttachmentsPanel.Count.get -> int
+Broadside.Viewer.Avalonia.PdfAttachmentsPanel.Opening -> System.EventHandler<Broadside.Viewer.AttachmentOpeningEventArgs!>?
+static readonly Broadside.Viewer.Avalonia.PdfAttachmentsPanel.ViewerProperty -> Avalonia.StyledProperty<Broadside.Viewer.IDocumentViewer?>!
+Broadside.Viewer.Avalonia.PdfLayersPanel
+Broadside.Viewer.Avalonia.PdfLayersPanel.PdfLayersPanel() -> void
+Broadside.Viewer.Avalonia.PdfLayersPanel.Dispose() -> void
+Broadside.Viewer.Avalonia.PdfLayersPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Avalonia.PdfLayersPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Avalonia.PdfLayersPanel.Viewer.set -> void
+static readonly Broadside.Viewer.Avalonia.PdfLayersPanel.ViewerProperty -> Avalonia.StyledProperty<Broadside.Viewer.IDocumentViewer?>!
+Broadside.Viewer.Avalonia.PdfAnnotationsPanel
+Broadside.Viewer.Avalonia.PdfAnnotationsPanel.PdfAnnotationsPanel() -> void
+Broadside.Viewer.Avalonia.PdfAnnotationsPanel.Dispose() -> void
+Broadside.Viewer.Avalonia.PdfAnnotationsPanel.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Avalonia.PdfAnnotationsPanel.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Avalonia.PdfAnnotationsPanel.Viewer.set -> void
+Broadside.Viewer.Avalonia.PdfAnnotationsPanel.Count.get -> int
+static readonly Broadside.Viewer.Avalonia.PdfAnnotationsPanel.ViewerProperty -> Avalonia.StyledProperty<Broadside.Viewer.IDocumentViewer?>!
+Broadside.Viewer.Avalonia.PdfSidebar
+Broadside.Viewer.Avalonia.PdfSidebar.PdfSidebar() -> void
+Broadside.Viewer.Avalonia.PdfSidebar.Dispose() -> void
+Broadside.Viewer.Avalonia.PdfSidebar.Sidebar.get -> Broadside.Viewer.ViewerSidebar?
+Broadside.Viewer.Avalonia.PdfSidebar.Viewer.get -> Broadside.Viewer.IDocumentViewer?
+Broadside.Viewer.Avalonia.PdfSidebar.Viewer.set -> void
+Broadside.Viewer.Avalonia.PdfSidebar.AttachmentOpening -> System.EventHandler<Broadside.Viewer.AttachmentOpeningEventArgs!>?
+Broadside.Viewer.Avalonia.PdfSidebar.SelectedPanel.get -> Broadside.Viewer.SidebarPanels
+Broadside.Viewer.Avalonia.PdfSidebar.SelectedPanel.set -> void
+static readonly Broadside.Viewer.Avalonia.PdfSidebar.ViewerProperty -> Avalonia.StyledProperty<Broadside.Viewer.IDocumentViewer?>!

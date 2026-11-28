@@ -52,7 +52,9 @@ public sealed class PanelModelTests
     {
         using Shell shell = await Shell.OpenAsync(ManyPagesDocument.Create(3));
         AnnotationLayer layer = shell.Controller.Annotations!;
-        Assert.Empty(await AnnotationEditing.ListAsync(layer, 1, CancellationToken.None));
+        var list = new AnnotationList(layer);
+        await list.RefreshAsync(CancellationToken.None);
+        Assert.Empty(OnPage(1));
 
         AnnotationTarget note = Assert.NotNull(AnnotationEditing.Add(layer, 1, AnnotationTool.Note, 0));
         Assert.Equal(note, layer.Selected);
@@ -60,15 +62,18 @@ public sealed class PanelModelTests
         Assert.NotNull(AnnotationEditing.Add(layer, 1, AnnotationTool.Text, 2));
         Assert.NotNull(AnnotationEditing.Add(layer, 1, AnnotationTool.Stamp, 3));
 
-        IReadOnlyList<AnnotationItem> items = await AnnotationEditing.ListAsync(layer, 1, CancellationToken.None);
+        List<AnnotationListItem> items = OnPage(1);
         Assert.Equal(["Text", "Square", "FreeText", "Stamp"], items.Select(i => i.Kind));
-        Assert.All(items, i => Assert.True(i.Removable));
+        Assert.All(items, i => Assert.True(i.IsRemovable));
         Assert.Equal("A note added in the Broadside viewer.", items[0].Text);
+        Assert.Equal("Broadside", items[0].Author);
         Assert.True(items[1].Rectangle.Top < items[0].Rectangle.Top);
 
         Assert.True(layer.Remove(items[0].Target));
-        Assert.Equal(3, (await AnnotationEditing.ListAsync(layer, 1, CancellationToken.None)).Count);
+        Assert.Equal(3, OnPage(1).Count);
         await shell.SettleAsync();
+
+        List<AnnotationListItem> OnPage(int page) => [.. list.Items.Where(i => i.Target.PageIndex == page)];
     });
 
     [Fact]

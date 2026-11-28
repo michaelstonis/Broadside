@@ -70,14 +70,14 @@ public sealed class PdfToolbarTests
         Assert.Equal(ColorFilter.DarkMode, shell.Controller.Session!.ColorFilter);
     });
 
-    private static async Task SettleAsync(Shell shell, ControllerViewer viewer)
+    internal static async Task SettleAsync(Shell shell, ControllerViewer viewer)
     {
         await shell.SettleAsync();
         viewer.Raise();
     }
 
     /// <summary>What the shell's <c>PdfView</c> does for <see cref="IDocumentViewer"/>, over the controller the test hosts.</summary>
-    private sealed class ControllerViewer(Shell shell) : IDocumentViewer
+    internal sealed class ControllerViewer(Shell shell) : IDocumentViewer
     {
         private ColorFilter? _colorFilter;
 
