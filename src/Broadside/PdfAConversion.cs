@@ -4,7 +4,11 @@ namespace Broadside;
 /// <param name="Rule">The rule: the ISO 19005 clause and veraPDF test number, such as <c>6.2.11.4.1-1</c>.</param>
 /// <param name="Message">What in the document breaks it.</param>
 /// <remarks>ISO 19005-2, -3 and -4, cited by veraPDF validation-profile rule identifiers (the standard is not in the repository).</remarks>
-public readonly record struct PdfARuleViolation(string Rule, string Message);
+public readonly record struct PdfARuleViolation(string Rule, string Message)
+{
+    /// <summary>Gets the indirect object the rule fails on, when known; <see langword="null"/> otherwise (issue #651).</summary>
+    public Objects.CosReference? Reference { get; init; }
+}
 
 /// <summary>
 /// The outcome of <see cref="PdfDocument.ConvertToPdfA"/>: what the conversion changed, what it could not fix, the rules the document

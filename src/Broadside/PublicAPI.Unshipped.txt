@@ -405,3 +405,12 @@ Broadside.PdfBatesRange.Last.init -> void
 Broadside.PdfBatesRange.LastNumber.get -> long
 Broadside.PdfBatesRange.LastNumber.init -> void
 Broadside.PdfDocument.AddBatesNumbers(Broadside.PdfBatesNumbering! numbering, System.Range? pages = null) -> Broadside.PdfBatesRange
+Broadside.PdfARuleViolation.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfARuleViolation.Reference.init -> void
+Broadside.PdfAValidation
+Broadside.PdfAValidation.Conformance.get -> Broadside.PdfAConformance
+Broadside.PdfAValidation.IsClaimed.get -> bool
+Broadside.PdfAValidation.IsConformant.get -> bool
+Broadside.PdfAValidation.RulesNotChecked.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.PdfAValidation.Violations.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfARuleViolation>!
+Broadside.PdfDocument.ValidatePdfA(Broadside.PdfAConformance? conformance = null) -> Broadside.PdfAValidation!

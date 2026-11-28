@@ -155,4 +155,24 @@ if (conversion.IsConformant)
 
 `CreateSaveOptions` returns the save options for the profile the conversion targeted.
 
+## Validating PDF/A
+
+`ValidatePdfA` checks any file against PDF/A without converting or changing it, for files you did not create: archive intake, document management, e-filing. With no argument it checks the level the file claims in its XMP metadata (`pdfaid:part` and `pdfaid:conformance`), and throws when the file claims none, or a level Broadside cannot check; pass a level to check another:
+
+<!-- snippet: samples/guides/AccessibilityConformance/Program.cs#pdfa-validate -->
+```csharp
+using PdfDocument document = PdfDocument.Open("text-standard14-pdfa2b.pdf");
+PdfAValidation validation = document.ValidatePdfA(); // the level the file claims; pass one to check another
+Console.WriteLine($"{validation.Conformance}: claimed {validation.IsClaimed}, conformant {validation.IsConformant}");
+foreach (PdfARuleViolation violation in validation.Violations)
+{
+    Console.WriteLine($"Rule {violation.Rule}: {violation.Message} {violation.Reference}");
+}
+
+Console.WriteLine($"Left to a full validator: {string.Join(", ", validation.RulesNotChecked)}");
+```
+<!-- endsnippet -->
+
+The rules are those a PDF/A save checks, cited by veraPDF rule identifier, and the file is checked as it is: its header and binary comment, its trailer `ID`, encryption, the bytes after `%%EOF`, its output intents and its XMP identification. Every repair the parser made while reading is a violation, so a damaged file is never reported conformant: a wrong stream `Length` breaks rule 6.1.7.1-1, and a repair without a veraPDF rule of its own (a cross-reference table rebuilt by scanning) is reported under the ISO 32000-2 clause it breaks, as `ISO 32000-2 7.5.5-1`. An encrypted file reports the encryption rule and is still checked. `RulesNotChecked` lists the veraPDF rules left to a full validator such as veraPDF, so you know what the result does not cover. Validation is a read: it never throws for a non-conforming file and may run while other threads render the document.
+
 Conformance: [ISO 19005-2 (PDF/A-2)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-19005-2.md), [ISO 19005-3 (PDF/A-3)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-19005-3.md) and [ISO 19005-4 (PDF/A-4)](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/iso-19005-4.md), by veraPDF rule.

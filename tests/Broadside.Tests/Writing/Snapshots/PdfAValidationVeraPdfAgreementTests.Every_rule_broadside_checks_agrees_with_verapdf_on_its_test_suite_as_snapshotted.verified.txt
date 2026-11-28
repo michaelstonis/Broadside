@@ -1,0 +1,129 @@
+﻿PDF_A-2b: 986 files, 19 clauses checked, 179 of 213 verdicts agree
+PDF_A-2u: 22 files, 2 clauses checked, 18 of 21 verdicts agree
+PDF_A-3b: 12 files, 1 clauses checked, 0 of 0 verdicts agree
+PDF_A-4: 485 files, 19 clauses checked, 262 of 316 verdicts agree
+PDF_A-4f: 11 files, 2 clauses checked, 2 of 2 verdicts agree
+missed 6.2.10 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.10 Transparency/veraPDF test suite 6-2-10-t01-fail-f.pdf
+missed 6.2.10 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.10 Transparency/veraPDF test suite 6-2-10-t01-fail-g.pdf
+missed 6.2.10 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.10 Transparency/veraPDF test suite 6-2-10-t03-fail-g.pdf
+missed 6.2.10 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.10 Transparency/veraPDF test suite 6-2-10-t03-fail-h.pdf
+missed 6.2.10 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.10 Transparency/veraPDF test suite 6-2-10-t04-fail-e.pdf
+missed 6.2.10 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.10 Transparency/veraPDF test suite 6-2-10-t04-fail-g.pdf
+missed 6.2.10 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.10 Transparency/veraPDF test suite 6-2-10-t04-fail-h.pdf
+missed 6.2.10 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.10 Transparency/veraPDF test suite 6-2-10-t05-fail-e.pdf
+missed 6.2.10 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.10 Transparency/veraPDF test suite 6-2-10-t05-fail-g.pdf
+missed 6.2.10 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.10 Transparency/veraPDF test suite 6-2-10-t05-fail-h.pdf
+missed 6.2.10 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.10 Transparency/veraPDF test suite 6-2-10-t05-fail-i.pdf
+missed 6.2.10 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.10 Transparency/veraPDF test suite 6-2-10-t06-fail-f.pdf
+missed 6.2.10 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.10 Transparency/veraPDF test suite 6-2-10-t06-fail-g.pdf
+missed 6.2.10 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.10 Transparency/veraPDF test suite 6-2-10-t07-fail-f.pdf
+missed 6.2.10 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.10 Transparency/veraPDF test suite 6-2-10-t07-fail-g.pdf
+missed 6.2.10.4.1 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.4 Embedding/6.2.10.4.1 General/veraPDF test suite 6-2-10-4-1-t02-fail-c.pdf
+missed 6.2.10.4.1 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.4 Embedding/6.2.10.4.1 General/veraPDF test suite 6-2-10-4-1-t02-fail-d.pdf
+missed 6.2.10.4.1 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.4 Embedding/6.2.10.4.1 General/veraPDF test suite 6-2-10-4-1-t02-fail-e.pdf
+missed 6.2.10.5 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.5 Font metrics/veraPDF test suite 6-2-10-5-t01-fail-c.pdf
+missed 6.2.10.5 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.5 Font metrics/veraPDF test suite 6-2-10-5-t01-fail-e.pdf
+missed 6.2.10.5 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.5 Font metrics/veraPDF test suite 6-2-10-5-t01-fail-f.pdf
+missed 6.2.10.5 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.5 Font metrics/veraPDF test suite 6-2-10-5-t01-fail-h.pdf
+missed 6.2.10.9 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.9 Use of .notdef glyph/veraPDF test suite 6-2-10-9-t01-fail-a.pdf
+missed 6.2.10.9 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.9 Use of .notdef glyph/veraPDF test suite 6-2-10-9-t01-fail-b.pdf
+missed 6.2.11.4.1 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.4 Embedding/6.2.11.4.1 General/veraPDF test suite 6-2-11-4-1-t02-fail-c.pdf
+missed 6.2.11.4.1 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.4 Embedding/6.2.11.4.1 General/veraPDF test suite 6-2-11-4-1-t02-fail-d.pdf
+missed 6.2.11.4.1 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.4 Embedding/6.2.11.4.1 General/veraPDF test suite 6-2-11-4-1-t02-fail-e.pdf
+missed 6.2.11.5 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.5 Font metrics/veraPDF test suite 6-2-11-5-t01-fail-c.pdf
+missed 6.2.11.5 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.5 Font metrics/veraPDF test suite 6-2-11-5-t01-fail-e.pdf
+missed 6.2.11.5 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.5 Font metrics/veraPDF test suite 6-2-11-5-t01-fail-f.pdf
+missed 6.2.11.8 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.8 Use of .notdef glyph/veraPDF test suite 6-2-11-8-t01-fail-a.pdf
+missed 6.2.11.8 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.8 Use of .notdef glyph/veraPDF test suite 6-2-11-8-t01-fail-b.pdf
+missed 6.2.2 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2-2-t01-fail-a.pdf
+missed 6.2.2 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2-2-t01-fail-b.pdf
+missed 6.2.2 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2-2-t01-fail-c.pdf
+missed 6.2.2 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2-2-t02-fail-a.pdf
+missed 6.2.2 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2-2-t02-fail-b.pdf
+missed 6.2.2 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2-2-t02-fail-d.pdf
+missed 6.2.2 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2-2-t03-fail-a.pdf
+missed 6.2.2 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2-2-t04-fail-a.pdf
+missed 6.2.2 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2-2-t04-fail-b.pdf
+missed 6.2.3 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.3 Output intent/veraPDF test suite 6-2-3-t01-fail-a.pdf
+missed 6.2.3 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.3 Output intent/veraPDF test suite 6-2-3-t01-fail-c.pdf
+missed 6.2.3 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.3 Output intent/veraPDF test suite 6-2-3-t01-fail-a.pdf
+missed 6.2.3 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.3 Output intent/veraPDF test suite 6-2-3-t01-fail-c.pdf
+missed 6.2.3 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.3 Output intent/veraPDF test suite 6-2-3-t05-fail-a.pdf
+missed 6.2.4.3 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t03-fail-c.pdf
+missed 6.2.4.3 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t03-fail-d.pdf
+missed 6.2.4.3 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t03-fail-c.pdf
+missed 6.2.4.3 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t03-fail-d.pdf
+missed 6.2.9 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.9 Transparency/veraPDF test suite 6-2-9-t01-fail-f.pdf
+missed 6.2.9 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.9 Transparency/veraPDF test suite 6-2-9-t01-fail-g.pdf
+missed 6.2.9 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.9 Transparency/veraPDF test suite 6-2-9-t02-fail-c.pdf
+missed 6.2.9 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.9 Transparency/veraPDF test suite 6-2-9-t03-fail-g.pdf
+missed 6.2.9 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.9 Transparency/veraPDF test suite 6-2-9-t03-fail-h.pdf
+missed 6.2.9 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.9 Transparency/veraPDF test suite 6-2-9-t04-fail-e.pdf
+missed 6.2.9 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.9 Transparency/veraPDF test suite 6-2-9-t04-fail-g.pdf
+missed 6.2.9 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.9 Transparency/veraPDF test suite 6-2-9-t04-fail-h.pdf
+missed 6.2.9 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.9 Transparency/veraPDF test suite 6-2-9-t05-fail-e.pdf
+missed 6.2.9 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.9 Transparency/veraPDF test suite 6-2-9-t05-fail-g.pdf
+missed 6.2.9 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.9 Transparency/veraPDF test suite 6-2-9-t05-fail-h.pdf
+missed 6.2.9 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.9 Transparency/veraPDF test suite 6-2-9-t05-fail-i.pdf
+missed 6.2.9 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.9 Transparency/veraPDF test suite 6-2-9-t06-fail-f.pdf
+missed 6.2.9 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.9 Transparency/veraPDF test suite 6-2-9-t06-fail-g.pdf
+missed 6.2.9 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.9 Transparency/veraPDF test suite 6-2-9-t07-fail-f.pdf
+missed 6.2.9 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.9 Transparency/veraPDF test suite 6-2-9-t07-fail-g.pdf
+missed 6.3.1 | verapdf-corpus/PDF_A-4/6.3 Annotations/6.3.1 Annotation types/veraPDF test suite 6-3-1-t01-fail-f.pdf
+missed 6.5.1 | verapdf-corpus/PDF_A-2b/6.5 Action/6.5.1 General/veraPDF test suite 6-5-1-t01-fail-e.pdf
+missed 6.5.1 | verapdf-corpus/PDF_A-2b/6.5 Action/6.5.1 General/veraPDF test suite 6-5-1-t01-fail-g.pdf
+missed 6.5.1 | verapdf-corpus/PDF_A-2b/6.5 Action/6.5.1 General/veraPDF test suite 6-5-1-t01-fail-k.pdf
+missed 6.5.2 | verapdf-corpus/PDF_A-2b/6.5 Action/6.5.2 Trigger events/veraPDF test suite 6-5-2-t01-fail-a.pdf
+missed 6.6.1 | verapdf-corpus/PDF_A-4/6.6 Action/6.6.1 General/veraPDF test suite 6-6-1-t01-fail-m.pdf
+missed 6.6.3 | verapdf-corpus/PDF_A-4/6.6 Action/6.6.3 Trigger events/veraPDF test suite 6-6-3-t01-fail-c.pdf
+reported 6.2.10.4.1 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.4 Embedding/6.2.10.4.1 General/veraPDF test suite 6-2-10-4-1-t01-pass-a.pdf
+reported 6.2.10.5 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.5 Font metrics/veraPDF test suite 6-2-10-5-t01-pass-a.pdf
+reported 6.2.11.4.2 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.4 Embedding/6.2.11.4.2 Subset embedding/veraPDF test suite 6-2-11-4-2-t01-pass-a.pdf
+reported 6.2.11.4.2 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.4 Embedding/6.2.11.4.2 Subset embedding/veraPDF test suite 6-2-11-4-2-t02-pass-a.pdf
+reported 6.2.11.7.2 | verapdf-corpus/PDF_A-2u/6.2 Graphics/6.2.11 Fonts/6.2.11.7 Unicode character maps/6.2.11.7.2 Level A and Level U conformance/veraPDF test suite 6-2-11-7-2-t01-pass-h.pdf
+reported 6.2.11.7.2 | verapdf-corpus/PDF_A-2u/6.2 Graphics/6.2.11 Fonts/6.2.11.7 Unicode character maps/6.2.11.7.2 Level A and Level U conformance/veraPDF test suite 6-2-11-7-2-t01-pass-i.pdf
+reported 6.2.11.7.2 | verapdf-corpus/PDF_A-2u/6.2 Graphics/6.2.11 Fonts/6.2.11.7 Unicode character maps/6.2.11.7.2 Level A and Level U conformance/veraPDF test suite 6-2-11-7-2-t01-pass-j.pdf
+reported 6.2.4.3 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t02-pass-b.pdf
+reported 6.2.4.3 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t02-pass-b.pdf
+reported 6.2.4.3 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t04-pass-a.pdf
+reported 6.2.4.3 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t04-pass-b.pdf
+reported 6.2.4.3 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t04-pass-c.pdf
+reported 6.2.4.3 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t04-pass-d.pdf
+reported 6.2.4.3 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t04-pass-e.pdf
+reported 6.2.4.3 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t04-pass-f.pdf
+reported 6.2.4.3 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t04-pass-g.pdf
+reported 6.2.4.3 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t04-pass-h.pdf
+reported 6.2.4.3 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t04-pass-i.pdf
+reported on a compliant file 6.2.10.5-1 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.3 Composite fonts/6.2.10.3.2 CIDFonts/veraPDF test suite 6-2-10-3-2-t01-pass-a.pdf
+reported on a compliant file 6.2.10.5-1 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.3 Composite fonts/6.2.10.3.2 CIDFonts/veraPDF test suite 6-2-10-3-2-t01-pass-b.pdf
+reported on a compliant file 6.2.11.4.2-1 | verapdf-corpus/PDF_A-2u/6.2 Graphics/6.2.11 Fonts/6.2.11.7 Unicode character maps/6.2.11.7.2 Level A and Level U conformance/veraPDF test suite 6-2-11-7-2-t01-pass-b.pdf
+reported on a compliant file 6.2.11.4.2-1 | verapdf-corpus/PDF_A-2u/6.2 Graphics/6.2.11 Fonts/6.2.11.7 Unicode character maps/6.2.11.7.2 Level A and Level U conformance/veraPDF test suite 6-2-11-7-2-t01-pass-c.pdf
+reported on a compliant file 6.2.11.4.2-1 | verapdf-corpus/PDF_A-2u/6.2 Graphics/6.2.11 Fonts/6.2.11.7 Unicode character maps/6.2.11.7.2 Level A and Level U conformance/veraPDF test suite 6-2-11-7-2-t01-pass-d.pdf
+reported on a compliant file 6.2.11.4.2-1 | verapdf-corpus/PDF_A-2u/6.2 Graphics/6.2.11 Fonts/6.2.11.7 Unicode character maps/6.2.11.7.2 Level A and Level U conformance/veraPDF test suite 6-2-11-7-2-t01-pass-e.pdf
+reported on a compliant file 6.2.11.4.2-2 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.3 Composite fonts/6.2.11.3.1 General/veraPDF test suite 6-2-11-3-1-t01-pass-a.pdf
+reported on a compliant file 6.2.11.4.2-2 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.3 Composite fonts/6.2.11.3.1 General/veraPDF test suite 6-2-11-3-1-t01-pass-b.pdf
+reported on a compliant file 6.2.11.4.2-2 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.3 Composite fonts/6.2.11.3.1 General/veraPDF test suite 6-2-11-3-1-t01-pass-c.pdf
+reported on a compliant file 6.2.11.4.2-2 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.3 Composite fonts/6.2.11.3.1 General/veraPDF test suite 6-2-11-3-1-t01-pass-d.pdf
+reported on a compliant file 6.2.11.4.2-2 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.3 Composite fonts/6.2.11.3.3 CMaps/veraPDF test suite 6-2-11-3-3-t01-pass-a.pdf
+reported on a compliant file 6.2.11.4.2-2 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.3 Composite fonts/6.2.11.3.3 CMaps/veraPDF test suite 6-2-11-3-3-t02-pass-a.pdf
+reported on a compliant file 6.2.11.4.2-2 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.3 Composite fonts/6.2.11.3.3 CMaps/veraPDF test suite 6-2-11-3-3-t03-pass-a.pdf
+reported on a compliant file 6.2.11.4.2-2 | verapdf-corpus/PDF_A-2u/6.2 Graphics/6.2.11 Fonts/6.2.11.7 Unicode character maps/6.2.11.7.2 Level A and Level U conformance/veraPDF test suite 6-2-11-7-2-t01-pass-h.pdf
+reported on a compliant file 6.2.11.4.2-2 | verapdf-corpus/PDF_A-2u/6.2 Graphics/6.2.11 Fonts/6.2.11.7 Unicode character maps/6.2.11.7.2 Level A and Level U conformance/veraPDF test suite 6-2-11-7-2-t01-pass-i.pdf
+reported on a compliant file 6.2.11.4.2-2 | verapdf-corpus/PDF_A-2u/6.2 Graphics/6.2.11 Fonts/6.2.11.7 Unicode character maps/6.2.11.7.2 Level A and Level U conformance/veraPDF test suite 6-2-11-7-2-t01-pass-j.pdf
+reported on a compliant file 6.2.11.5-1 | verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.3 Composite fonts/6.2.11.3.2 CIDFonts/veraPDF test suite 6-2-11-3-2-t01-pass-a.pdf
+reported on a compliant file 6.2.4.3-2 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.3 Output intent/veraPDF test suite 6-2-3-t05-pass-a.pdf
+reported on a compliant file 6.2.4.3-2 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.4 Separation and DeviceN colour spaces/veraPDF test suite 6-2-4-4-t01-pass-g.pdf
+reported on a compliant file 6.2.4.3-2 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.4 Separation and DeviceN colour spaces/veraPDF test suite 6-2-4-4-t01-pass-h.pdf
+reported on a compliant file 6.2.4.3-2 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.5 Indexed and Pattern colour spaces/veraPDF test suite 6-2-4-5-t01-pass-e.pdf
+reported on a compliant file 6.2.4.3-4 | verapdf-corpus/PDF_A-3b/6.8 Embedded files/veraPDF test suite 6-8-t02-pass-b.pdf
+reported on a compliant file 6.2.4.3-4 | verapdf-corpus/PDF_A-3b/6.8 Embedded files/veraPDF test suite 6-8-t02-pass-f.pdf
+reported on a compliant file 6.2.4.3-4 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.9 Transparency/veraPDF test suite 6-2-9-t01-pass-c.pdf
+reported on a compliant file 6.2.4.3-4 | verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.9 Transparency/veraPDF test suite 6-2-9-t01-pass-d.pdf
+reported on a compliant file 6.3.1-1 | verapdf-corpus/PDF_A-4/6.3 Annotations/6.3.3 Annotation appearances/veraPDF test suite 6-3-3-t01-pass-d.pdf
+reported on a compliant file 6.6.2.3.1-1 | verapdf-corpus/PDF_A-2b/6.6 Metadata/6.6.2 Metadata streams/6.6.2.3 Schemas/6.6.2.3.2 Extension schemas/veraPDF test suite 6-6-2-3-2-t01-pass-b.pdf
+reported on a compliant file 6.6.2.3.1-1 | verapdf-corpus/PDF_A-2b/6.6 Metadata/6.6.2 Metadata streams/6.6.2.3 Schemas/6.6.2.3.2 Extension schemas/veraPDF test suite 6-6-2-3-2-t01-pass-c.pdf
+reported on a compliant file 6.6.2.3.1-1 | verapdf-corpus/PDF_A-2b/6.6 Metadata/6.6.2 Metadata streams/6.6.2.3 Schemas/6.6.2.3.2 Extension schemas/veraPDF test suite 6-6-2-3-2-t01-pass-d.pdf
+reported on a compliant file 6.6.2.3.1-1 | verapdf-corpus/PDF_A-3b/6.8 Embedded files/veraPDF test suite 6-8-t02-pass-e.pdf
+reported on a compliant file ISO 32000-2 7.5.5-1 | verapdf-corpus/PDF_A-2b/6.6 Metadata/6.6.2 Metadata streams/6.6.2.3 Schemas/6.6.2.3.2 Extension schemas/veraPDF test suite 6-6-2-3-2-t01-pass-c.pdf
+reported on a compliant file ISO 32000-2 7.5.5-1 | verapdf-corpus/PDF_A-4/6.1 File structure/6.1.4 Cross reference table/veraPDF test suite 6-1-4-t02-pass-a.pdf
+reported on a compliant file ISO 32000-2 7.5.5-1 | verapdf-corpus/PDF_A-4/6.1 File structure/6.1.4 Cross reference table/veraPDF test suite 6-1-4-t02-pass-b.pdf
