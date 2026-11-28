@@ -232,6 +232,7 @@ internal sealed class ViewerController : IDisposable
         _selection = new TextSelection(session);
         _selection.Changed += (_, _) => Wake();
         _annotations = new AnnotationLayer(session, _scheduler);
+        _annotations.History = new EditHistory(session); // Ctrl+Z and Ctrl+Y undo and redo the view's edits (#638)
         _annotations.ActionRequested += OnActionRequested;
         _annotations.Changed += OnAnnotationsChanged;
         _bridge = new AccessibilityBridge(session, _annotations) { Viewer = _zoom, Observer = OnAccessibilityChange };
@@ -1450,6 +1451,35 @@ internal sealed class ViewerController : IDisposable
         return _clicks;
     }
 
+    // Ctrl+Z (Cmd+Z) undoes the latest edit, Ctrl+Y and Ctrl+Shift+Z redo (#638); typing not yet committed is abandoned first.
+
+    private bool UndoKey(bool redo)
+
+    {
+
+        if (_annotations?.History is not { } history)
+
+        {
+
+            return false;
+
+        }
+
+
+        if (!redo && _filling is { IsDirty: true } filling)
+
+        {
+
+            return filling.Cancel();
+
+        }
+
+
+        return redo ? history.Redo() : history.Undo();
+
+    }
+
+
     private bool HandleKey(string key, bool shift, bool command, InputModifiers modifiers)
     {
         switch (key)
@@ -1467,6 +1497,10 @@ internal sealed class ViewerController : IDisposable
                 _annotations!.Focus(null);
                 _bridge!.SetFocus(null);
                 return true;
+            case "z" or "Z" when command:
+                return UndoKey(redo: shift);
+            case "y" or "Y" when command:
+                return UndoKey(redo: true);
             case "a" or "A" when command:
                 _selection!.SelectAll();
                 return true;

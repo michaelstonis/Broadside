@@ -267,3 +267,46 @@ Broadside.Viewer.ViewerSidebar.Show(Broadside.Viewer.SearchResultItem! item) -> 
 Broadside.Viewer.ViewerSidebar.Toggle(Broadside.Viewer.OutlineEntry! entry) -> void
 Broadside.Viewer.ViewerSidebar.Viewer.get -> Broadside.Viewer.IDocumentViewer!
 Broadside.Viewer.ViewerSidebar.ViewerSidebar(Broadside.Viewer.IDocumentViewer! viewer, Broadside.Viewer.SidebarPanels panels = Broadside.Viewer.SidebarPanels.All, Broadside.Viewer.ThumbnailOptions? thumbnailOptions = null) -> void
+Broadside.Viewer.AnnotationLayer.History.get -> Broadside.Viewer.EditHistory?
+Broadside.Viewer.AnnotationLayer.History.set -> void
+Broadside.Viewer.EditHistory
+Broadside.Viewer.EditHistory.BeginGroup(string! name) -> System.IDisposable!
+Broadside.Viewer.EditHistory.CanRedo.get -> bool
+Broadside.Viewer.EditHistory.CanUndo.get -> bool
+Broadside.Viewer.EditHistory.Changed -> System.EventHandler?
+Broadside.Viewer.EditHistory.Clear() -> void
+Broadside.Viewer.EditHistory.EditHistory(Broadside.Viewer.DocumentSession! session, Broadside.Viewer.EditHistoryOptions? options = null) -> void
+Broadside.Viewer.EditHistory.IsModified.get -> bool
+Broadside.Viewer.EditHistory.MarkSaved() -> void
+Broadside.Viewer.EditHistory.Record(Broadside.Viewer.IEditStep! step) -> void
+Broadside.Viewer.EditHistory.Redo() -> bool
+Broadside.Viewer.EditHistory.RedoName.get -> string?
+Broadside.Viewer.EditHistory.Session.get -> Broadside.Viewer.DocumentSession!
+Broadside.Viewer.EditHistory.Undo() -> bool
+Broadside.Viewer.EditHistory.UndoName.get -> string?
+Broadside.Viewer.EditHistoryOptions
+Broadside.Viewer.EditHistoryOptions.EditHistoryOptions() -> void
+Broadside.Viewer.EditHistoryOptions.Limit.get -> int
+Broadside.Viewer.EditHistoryOptions.MergeWindow.get -> System.TimeSpan
+Broadside.Viewer.EditHistoryOptions.TimeProvider.get -> System.TimeProvider!
+Broadside.Viewer.EditHistoryOptions.UseTimeProvider(System.TimeProvider! timeProvider) -> Broadside.Viewer.EditHistoryOptions!
+Broadside.Viewer.EditHistoryOptions.WithLimit(int steps) -> Broadside.Viewer.EditHistoryOptions!
+Broadside.Viewer.EditHistoryOptions.WithMergeWindow(System.TimeSpan window) -> Broadside.Viewer.EditHistoryOptions!
+Broadside.Viewer.FormFilling.History.get -> Broadside.Viewer.EditHistory?
+Broadside.Viewer.FormFilling.History.set -> void
+Broadside.Viewer.IEditStep
+Broadside.Viewer.IEditStep.Name.get -> string!
+Broadside.Viewer.IEditStep.Redo(Broadside.PdfDocument! document) -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.PageInvalidation>!
+Broadside.Viewer.IEditStep.Undo(Broadside.PdfDocument! document) -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.PageInvalidation>!
+Broadside.Viewer.PageInvalidation
+Broadside.Viewer.PageInvalidation.Area.get -> Broadside.PdfRectangle?
+Broadside.Viewer.PageInvalidation.Area.init -> void
+Broadside.Viewer.PageInvalidation.Layers.get -> Broadside.Rendering.DisplayLayers
+Broadside.Viewer.PageInvalidation.Layers.init -> void
+Broadside.Viewer.PageInvalidation.PageIndex.get -> int
+Broadside.Viewer.PageInvalidation.PageIndex.init -> void
+Broadside.Viewer.PageInvalidation.PageInvalidation() -> void
+Broadside.Viewer.PageInvalidation.PageInvalidation(int PageIndex, Broadside.PdfRectangle? Area, Broadside.Rendering.DisplayLayers Layers) -> void
+const Broadside.Viewer.ViewerCommandIds.EditRedo = "edit.redo" -> string!
+const Broadside.Viewer.ViewerCommandIds.EditUndo = "edit.undo" -> string!
+static Broadside.Viewer.ViewerCommandIds.Editing.get -> System.Collections.Generic.IReadOnlyList<string!>!

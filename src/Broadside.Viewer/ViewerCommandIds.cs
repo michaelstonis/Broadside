@@ -35,7 +35,23 @@ public static class ViewerCommandIds
     /// <summary>Smart dark mode on or off (a <see cref="ViewerToggleCommand"/>).</summary>
     public const string DarkMode = "darkMode";
 
-    /// <summary>Gets every built-in identifier, in the default order.</summary>
+    /// <summary>
+    /// Undoes the latest edit of the view's <see cref="EditHistory"/> (<see cref="AnnotationLayer.History"/>; a
+    /// <see cref="ViewerButtonCommand"/>). Not in <see cref="All"/>: an app that edits adds it (<see cref="Editing"/>).
+    /// </summary>
+    public const string EditUndo = "edit.undo";
+
+    /// <summary>Redoes the latest undone edit of the view's <see cref="EditHistory"/> (a <see cref="ViewerButtonCommand"/>). Not in <see cref="All"/>.</summary>
+    public const string EditRedo = "edit.redo";
+
+    /// <summary>Gets every built-in identifier of the default toolbar, in the default order.</summary>
     public static IReadOnlyList<string> All { get; } =
         [PagePrevious, PageNext, PageNumber, ZoomOut, ZoomIn, ZoomMode, LayoutMode, Rotate, Search, DarkMode];
+
+    /// <summary>
+    /// Gets the built-in editing commands, <see cref="EditUndo"/> and <see cref="EditRedo"/>: left out of the default toolbar, since a
+    /// view records no edits until its history is set, and accepted by <see cref="ViewerToolbarOptions.WithItems"/> and
+    /// <see cref="ViewerToolbar.CreateBuiltIn"/>.
+    /// </summary>
+    public static IReadOnlyList<string> Editing { get; } = [EditUndo, EditRedo];
 }

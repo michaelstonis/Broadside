@@ -16,6 +16,7 @@ SignWithTimestamp(certificate, root, http);
 AddLongTermValidation(root, http);
 Archive(http);
 await SignExternally(certificate, root);
+await SignDeferred(certificate, root);
 Validate(root, services.Requests);
 Sample.Finish();
 
@@ -89,6 +90,46 @@ static async Task SignExternally(X509Certificate2 certificate, X509Certificate2 
     #endregion
 }
 
+static async Task SignDeferred(X509Certificate2 certificate, X509Certificate2 root)
+{
+    // The key is with a remote signing service that answers minutes or days later, in another process.
+    using RSA remoteKey = certificate.GetRSAPrivateKey()!;
+    using X509Certificate2 publicOnly = X509CertificateLoader.LoadCertificate(certificate.RawData);
+    PrepareDeferred(publicOnly, root);
+    await CompleteDeferred(remoteKey);
+}
+
+static void PrepareDeferred(X509Certificate2 publicOnly, X509Certificate2 root)
+{
+    #region deferred-prepare
+    // Step 1: reserve the signature and keep the prepared file and the state; neither holds a private key.
+    using (PdfDocument document = PdfDocument.Open("text-standard14.pdf"))
+    using (FileStream prepared = File.Create("signed-deferred.pdf"))
+    using (FileStream state = File.Create("signed-deferred.state"))
+    {
+        PdfPreparedSignature signature = document.PrepareSignature(prepared, publicOnly, [root]);
+        signature.Save(state);
+        // Send signature.DataToSign (with signature.DigestAlgorithm) to the signing service.
+    }
+    #endregion
+}
+
+static async Task CompleteDeferred(RSA remoteKey)
+{
+    #region deferred-complete
+    // Step 2, later and anywhere: open the state, and write the value the service returned into the prepared file in place.
+    PdfPreparedSignature pending;
+    using (FileStream state = File.OpenRead("signed-deferred.state"))
+    {
+        pending = PdfPreparedSignature.Open(state);
+    }
+
+    byte[] signatureValue = remoteKey.SignHash(pending.DataToSign.ToArray(), pending.DigestAlgorithm, pending.RsaSignaturePadding!);
+    await using FileStream file = new("signed-deferred.pdf", FileMode.Open, FileAccess.ReadWrite);
+    await PdfDocument.CompleteSignatureAsync(file, pending, signatureValue);
+    #endregion
+}
+
 static void Validate(X509Certificate2 root, int requests)
 {
     #region validate
@@ -112,7 +153,7 @@ static void Validate(X509Certificate2 root, int requests)
     Sample.Expect(results.Count == 2, "the signature and the document timestamp");
     Sample.Expect(results.All(result => result.Status == PdfSignatureStatus.Valid), string.Join("; ", results.SelectMany(result => result.Problems)));
     Sample.Expect(requests > 0, "the in-process services answered");
-    foreach (string file in new[] { "signed-b-b.pdf", "signed-external.pdf" })
+    foreach (string file in new[] { "signed-b-b.pdf", "signed-external.pdf", "signed-deferred.pdf" })
     {
         using PdfDocument signed = PdfDocument.Open(file);
         Sample.Expect(signed.ValidateSignatures(new PdfSignatureValidationOptions().WithTrustAnchors(root))[0].Status == PdfSignatureStatus.Valid, file);

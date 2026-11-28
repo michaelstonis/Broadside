@@ -204,6 +204,7 @@ internal sealed class ViewerController : IAsyncDisposable
         _search = new DocumentSearch(session);
         _search.Changed += (_, _) => Wake();
         _annotations = new AnnotationLayer(session, _scheduler);
+        _annotations.History = new EditHistory(session); // Ctrl+Z and Ctrl+Y undo and redo the view's edits (#638)
         _annotations.ActionRequested += OnActionRequested;
         _annotations.Changed += (_, _) => Wake();
         _bridge = new AccessibilityBridge(session, _annotations) { Viewer = _zoom, Observer = OnAccessibilityChange };
@@ -574,6 +575,35 @@ internal sealed class ViewerController : IAsyncDisposable
         return handled;
     }
 
+    // Ctrl+Z (Cmd+Z) undoes the latest edit, Ctrl+Y and Ctrl+Shift+Z redo (#638); typing not yet committed is abandoned first.
+
+    private bool UndoKey(bool redo)
+
+    {
+
+        if (_annotations?.History is not { } history)
+
+        {
+
+            return false;
+
+        }
+
+
+        if (!redo && _filling is { IsDirty: true } filling)
+
+        {
+
+            return filling.Cancel();
+
+        }
+
+
+        return redo ? history.Redo() : history.Undo();
+
+    }
+
+
     private bool HandleKey(string key, bool shift, bool command, InputModifiers modifiers)
     {
         // Form fields first (#218): Tab commits the field's edit and moves on, Space toggles, arrows pick options, Enter commits.
@@ -610,6 +640,10 @@ internal sealed class ViewerController : IAsyncDisposable
                 _bridge!.SetFocus(null);
                 _focusHost = true;
                 return true;
+            case "z" or "Z" when command:
+                return UndoKey(redo: shift);
+            case "y" or "Y" when command:
+                return UndoKey(redo: true);
             case "a" or "A" when command:
                 _selection!.SelectAll();
                 return true;

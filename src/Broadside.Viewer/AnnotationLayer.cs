@@ -50,6 +50,7 @@ public sealed class AnnotationLayer : IAccessibleElementSource
     private bool _dragging;
     private double _dragX;
     private double _dragY;
+    private EditHistory? _history;
 
     /// <summary>Initializes a new instance of the <see cref="AnnotationLayer"/> class.</summary>
     /// <param name="session">The session whose document the layer works on.</param>
@@ -89,6 +90,52 @@ public sealed class AnnotationLayer : IAccessibleElementSource
 
     /// <summary>Gets the session.</summary>
     public DocumentSession Session { get; }
+
+    /// <summary>
+    /// Gets or sets the undo and redo history the layer's edits are recorded in, or <see langword="null"/> (the default) to record
+    /// nothing. While it is set, <see cref="Add"/>, <see cref="Edit(AnnotationTarget, Action{PdfAnnotation}, bool)"/>, <see cref="Move"/> (and so a drag), <see cref="Remove"/>,
+    /// <see cref="SetFieldText(AnnotationTarget, string?)"/>, <see cref="SetFieldChoice(AnnotationTarget, string?)"/>,
+    /// <see cref="SetFieldSelection(AnnotationTarget, IEnumerable{int})"/>, <see cref="ToggleField"/>, <see cref="ResetFields"/> and
+    /// so <see cref="FormFilling.Commit"/> each record one step; an undo or redo re-reads the pages it touched (the
+    /// <see cref="AnnotationTarget"/> indexes may shift) and raises <see cref="Invalidated"/> for the areas it changed.
+    /// </summary>
+    /// <exception cref="ArgumentException">The history is for another session.</exception>
+    /// <remarks>Not a spec feature; the steps capture annotation dictionaries (ISO 32000-2 §12.5.2) and field dictionaries (§12.7.4.1).</remarks>
+    public EditHistory? History
+    {
+        get => _history;
+        set
+        {
+            if (value is not null && !ReferenceEquals(value.Session, Session))
+            {
+                throw new ArgumentException("The history belongs to another session.", nameof(value));
+            }
+
+            if (ReferenceEquals(value, _history))
+            {
+                return;
+            }
+
+            if (_history is { } old)
+            {
+                old.Restoring -= OnHistoryRestoring;
+                old.Restored -= OnHistoryRestored;
+            }
+
+            _history = value;
+            if (value is not null)
+            {
+                value.Restoring += OnHistoryRestoring;
+                value.Restored += OnHistoryRestored;
+            }
+        }
+    }
+
+    /// <summary>Raised before the history undoes or redoes a step (the form filling abandons its uncommitted edit).</summary>
+    internal event Action? HistoryRestoring;
+
+    /// <summary>Raised after the history undid or redid a step and the layer re-read the pages it touched.</summary>
+    internal event Action? HistoryRestored;
 
     /// <summary>
     /// Gets or sets the accessibility bridge built over this layer (<c>new AccessibilityBridge(session, layer)</c>), so the layer keeps
@@ -648,7 +695,9 @@ public sealed class AnnotationLayer : IAccessibleElementSource
 
         using (Session.BeginEdit())
         {
+            CosSnapshot? before = CaptureFields(field);
             field.SetValue(value);
+            RecordFields(FieldEditName, before, [field], mergeKey: field.Dictionary);
         }
 
         InvalidateField(field);
@@ -675,7 +724,9 @@ public sealed class AnnotationLayer : IAccessibleElementSource
 
         using (Session.BeginEdit())
         {
+            CosSnapshot? before = CaptureFields(field);
             field.SetValue(value);
+            RecordFields(FieldEditName, before, [field], mergeKey: field.Dictionary);
         }
 
         InvalidateField(field);
@@ -703,7 +754,9 @@ public sealed class AnnotationLayer : IAccessibleElementSource
 
         using (Session.BeginEdit())
         {
+            CosSnapshot? before = CaptureFields(field);
             field.SetSelectedIndices(indices);
+            RecordFields(FieldEditName, before, [field], mergeKey: field.Dictionary);
         }
 
         InvalidateField(field);
@@ -735,15 +788,22 @@ public sealed class AnnotationLayer : IAccessibleElementSource
     public int ResetFields(IEnumerable<PdfTerminalField> fields)
     {
         ArgumentNullException.ThrowIfNull(fields);
+        PdfTerminalField[] all = [.. fields];
         var changed = new List<PdfTerminalField>();
         using (Session.BeginEdit())
         {
-            foreach (PdfTerminalField field in fields)
+            CosSnapshot? before = CaptureFields(all);
+            foreach (PdfTerminalField field in all)
             {
                 if (Reset(field))
                 {
                     changed.Add(field);
                 }
+            }
+
+            if (changed.Count > 0)
+            {
+                RecordFields("Reset form", before, all, mergeKey: null);
             }
         }
 
@@ -773,7 +833,9 @@ public sealed class AnnotationLayer : IAccessibleElementSource
         PdfAnnotation annotation;
         using (Session.BeginEdit())
         {
+            CosSnapshot? before = CapturePage(page);
             annotation = create(page);
+            RecordPage("Add annotation", before, page, AreaOf(annotation, annotation.Rect), annotation.Dictionary);
         }
 
         Reload(pageIndex, page);
@@ -790,7 +852,7 @@ public sealed class AnnotationLayer : IAccessibleElementSource
     /// <returns>Whether it moved.</returns>
     /// <remarks>ISO 32000-2 §12.5.2, through <see cref="PdfAnnotation.Move"/> (the appearance is kept).</remarks>
     public bool Move(AnnotationTarget target, double dx, double dy) =>
-        Edit(target, annotation => annotation.Move(dx, dy), regenerateAppearance: false);
+        Edit(target, annotation => annotation.Move(dx, dy), regenerateAppearance: false, "Move annotation");
 
     /// <summary>
     /// Edits an annotation (not a widget or a locked one) through its setters and redraws it; the appearance is regenerated after a
@@ -801,7 +863,10 @@ public sealed class AnnotationLayer : IAccessibleElementSource
     /// <param name="regenerateAppearance">Whether to call <see cref="PdfAnnotation.RegenerateAppearance"/> afterwards.</param>
     /// <returns>Whether the annotation could be edited.</returns>
     /// <remarks>ISO 32000-2 §12.5.2 and §12.5.5.</remarks>
-    public bool Edit(AnnotationTarget target, Action<PdfAnnotation> edit, bool regenerateAppearance = true)
+    public bool Edit(AnnotationTarget target, Action<PdfAnnotation> edit, bool regenerateAppearance = true) =>
+        Edit(target, edit, regenerateAppearance, "Edit annotation");
+
+    private bool Edit(AnnotationTarget target, Action<PdfAnnotation> edit, bool regenerateAppearance, string stepName)
     {
         ArgumentNullException.ThrowIfNull(edit);
         Entry entry = Get(target);
@@ -812,13 +877,17 @@ public sealed class AnnotationLayer : IAccessibleElementSource
 
         PdfAnnotation annotation = entry.Annotation;
         PdfRectangle before = entry.Rect;
+        PdfPage page = PageOf(target.PageIndex);
         using (Session.BeginEdit())
         {
+            CosSnapshot? state = CapturePage(page);
             edit(annotation);
             if (regenerateAppearance)
             {
                 annotation.RegenerateAppearance();
             }
+
+            RecordPage(stepName, state, page, AreaOf(annotation, Union(before, annotation.Rect)));
         }
 
         Reload(target.PageIndex, PageOf(target.PageIndex));
@@ -842,7 +911,9 @@ public sealed class AnnotationLayer : IAccessibleElementSource
         PdfPage page = PageOf(target.PageIndex);
         using (Session.BeginEdit())
         {
+            CosSnapshot? before = CapturePage(page);
             page.RemoveAnnotation(entry.Annotation);
+            RecordPage("Delete annotation", before, page, area: null);
         }
 
         Reload(target.PageIndex, page);
@@ -1047,6 +1118,7 @@ public sealed class AnnotationLayer : IAccessibleElementSource
     {
         using (Session.BeginEdit())
         {
+            CosSnapshot? before = CaptureFields(field);
             if (field is PdfCheckBoxField checkBox && checkBox.IsChecked)
             {
                 checkBox.SetChecked(false);
@@ -1055,6 +1127,8 @@ public sealed class AnnotationLayer : IAccessibleElementSource
             {
                 field.Select(widget);
             }
+
+            RecordFields("Toggle field", before, [field], mergeKey: null);
         }
 
         InvalidateField(field);
@@ -1071,11 +1145,85 @@ public sealed class AnnotationLayer : IAccessibleElementSource
         }
     }
 
-    private void InvalidateAnnotation(int pageIndex, PdfAnnotation annotation, PdfRectangle area, DisplayLayers layers = DisplayLayers.Annotations)
+    private void InvalidateAnnotation(int pageIndex, PdfAnnotation annotation, PdfRectangle area, DisplayLayers layers = DisplayLayers.Annotations) =>
+        Invalidate(new PageInvalidatedEventArgs(pageIndex, AreaOf(annotation, area), layers));
+
+    // NoZoom and NoRotate appearances leave their rectangle (ISO 32000-2 §12.5.3): the whole page's layer redraws.
+    private static PdfRectangle? AreaOf(PdfAnnotation annotation, PdfRectangle area) =>
+        (annotation.Flags & (PdfAnnotationFlags.NoZoom | PdfAnnotationFlags.NoRotate)) != 0 || annotation.Kind == PdfAnnotationKind.Text ? null : area;
+
+    // ---- History ----
+
+    private const string FieldEditName = "Edit field";
+
+    private bool Records => _history is { IsRestoring: false };
+
+    private CosSnapshot? CapturePage(PdfPage page) => Records ? StateEditStep.CapturePage(Session.Document, page) : null;
+
+    private CosSnapshot? CaptureFields(params PdfTerminalField[] fields) => Records ? StateEditStep.CaptureFields(Session.Document, fields) : null;
+
+    private void RecordPage(string name, CosSnapshot? before, PdfPage page, PdfRectangle? area, params CosDictionary[] added)
     {
-        // NoZoom and NoRotate appearances leave their rectangle (ISO 32000-2 §12.5.3): the whole page's layer redraws.
-        bool placedElsewhere = (annotation.Flags & (PdfAnnotationFlags.NoZoom | PdfAnnotationFlags.NoRotate)) != 0 || annotation.Kind == PdfAnnotationKind.Text;
-        Invalidate(new PageInvalidatedEventArgs(pageIndex, placedElsewhere ? null : area, layers));
+        if (before is not null && _history is { } history)
+        {
+            CosSnapshot after = StateEditStep.CapturePage(Session.Document, page, added);
+            history.Record(new StateEditStep(name, before, after, [new StepArea(page, area, DisplayLayers.Annotations, Required: true)]));
+        }
+    }
+
+    private void RecordFields(string name, CosSnapshot? before, PdfTerminalField[] fields, object? mergeKey)
+    {
+        if (before is null || _history is not { } history)
+        {
+            return;
+        }
+
+        var areas = new List<StepArea>();
+        foreach (PdfTerminalField field in fields)
+        {
+            foreach (PdfWidgetAnnotation widget in field.Widgets)
+            {
+                if (widget.Page is { } page)
+                {
+                    areas.Add(new StepArea(page, AreaOf(widget, widget.Rect), DisplayLayers.FormFields, Required: false));
+                }
+            }
+        }
+
+        history.Record(new StateEditStep(name, before, StateEditStep.CaptureFields(Session.Document, fields), areas, mergeKey));
+    }
+
+    private void OnHistoryRestoring() => HistoryRestoring?.Invoke();
+
+    private void OnHistoryRestored(IReadOnlyList<PageInvalidation> invalidations)
+    {
+        var reloaded = new HashSet<int>();
+        foreach (PageInvalidation invalidation in invalidations)
+        {
+            if (reloaded.Add(invalidation.PageIndex))
+            {
+                ReloadPage(invalidation.PageIndex);
+            }
+        }
+
+        foreach (PageInvalidation invalidation in invalidations)
+        {
+            if ((uint)invalidation.PageIndex < (uint)_pages.Length)
+            {
+                Invalidate(new PageInvalidatedEventArgs(invalidation.PageIndex, invalidation.Area, invalidation.Layers));
+            }
+        }
+
+        HistoryRestored?.Invoke();
+    }
+
+    /// <summary>Re-reads a loaded page's annotation list after an undo or redo changed it (the targets' indexes may shift).</summary>
+    internal void ReloadPage(int pageIndex)
+    {
+        if ((uint)pageIndex < (uint)_pages.Length && _pages[pageIndex] is not null)
+        {
+            Reload(pageIndex, Session.Document.Pages[pageIndex]);
+        }
     }
 
     private void Invalidate(PageInvalidatedEventArgs invalidation)

@@ -279,6 +279,30 @@ public sealed class ViewerControllerTests
     });
 
     [Fact]
+    public void Undo_and_redo_keys_drive_the_views_edit_history() => UiThread.Run(async () =>
+    {
+        // Ctrl+Z (Cmd+Z) undoes the latest edit; Ctrl+Y and Ctrl+Shift+Z redo it (#638).
+        using Shell shell = await Shell.OpenAsync(AnnotationSamples.Grid(3, 1));
+        AnnotationLayer layer = shell.Controller.Annotations!;
+        Assert.NotNull(layer.History);
+        Assert.False(shell.Controller.KeyDown("z", InputModifiers.Control)); // nothing to undo yet
+        await layer.ReadPageAsync(0, TestContext.Current.CancellationToken);
+        AnnotationTarget square = Assert.NotNull(layer.HitTest(new PagePoint(0, 234, 30)));
+        PdfRectangle rect = layer.GetRectangle(square);
+        Assert.True(layer.Move(square, 20, 0));
+
+        Assert.True(shell.Controller.KeyDown("z", InputModifiers.Control));
+        Assert.Equal(rect, layer.GetRectangle(square));
+        Assert.True(shell.Controller.KeyDown("y", InputModifiers.Control));
+        Assert.Equal(rect.Left + 20, layer.GetRectangle(square).Left, 6);
+        Assert.True(shell.Controller.KeyDown("z", InputModifiers.Meta));
+        Assert.Equal(rect, layer.GetRectangle(square));
+        Assert.True(shell.Controller.KeyDown("Z", InputModifiers.Meta | InputModifiers.Shift));
+        Assert.Equal(rect.Left + 20, layer.GetRectangle(square).Left, 6);
+        Assert.False(shell.Controller.KeyDown("y", InputModifiers.Control)); // nothing left to redo
+    });
+
+    [Fact]
     public void Select_all_and_copy_put_the_text_on_the_hosts_clipboard() => UiThread.Run(async () =>
     {
         using Shell shell = await Shell.OpenAsync(Shell.CorpusFile("text-render-modes.pdf"));

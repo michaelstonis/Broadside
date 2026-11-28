@@ -438,6 +438,43 @@ public sealed class AnnotationLayerTests
         Assert.Equal(0, layer.GetCount(5));
     }
 
+    [Fact]
+    public async Task Undoing_a_remove_puts_the_annotation_back_and_reindexes_the_targets()
+    {
+        await using DocumentSession session = Cooperative(AnnotationSamples.Grid(3, 1));
+        var layer = new AnnotationLayer(session) { History = new EditHistory(session) };
+        await layer.ReadPageAsync(0, Token);
+
+        // Model order: the two squares, then the widget (widgets come after the other annotations).
+        AnnotationTarget first = Assert.NotNull(layer.HitTest(new PagePoint(0, 234, 30)));
+        AnnotationTarget second = Assert.NotNull(layer.HitTest(new PagePoint(0, 438, 30)));
+        Assert.Equal((0, 1), (first.Index, second.Index));
+        Assert.Equal(3, layer.GetCount(0));
+        var removed = layer.GetAnnotation(first).Dictionary;
+        var kept = layer.GetAnnotation(second).Dictionary;
+
+        Assert.True(layer.Remove(first));
+        Assert.Equal(2, layer.GetCount(0));
+        layer.Select(new AnnotationTarget(0, 0));
+        Assert.Same(kept, layer.GetAnnotation(layer.Selected!.Value).Dictionary);
+
+        int changed = 0;
+        layer.Changed += (_, _) => changed++;
+        Assert.True(layer.History!.Undo());
+        Assert.True(changed > 0);
+        Assert.Equal(3, layer.GetCount(0));
+        Assert.Same(removed, layer.GetAnnotation(new AnnotationTarget(0, 0)).Dictionary);
+        Assert.Equal(new AnnotationTarget(0, 1), layer.Selected); // the selection follows its annotation to its new index
+        Assert.Same(kept, layer.GetAnnotation(layer.Selected!.Value).Dictionary);
+        Assert.Equal(first, layer.HitTest(new PagePoint(0, 234, 30)));
+        Assert.Equal(first, layer.FindTarget(0, removed));
+
+        Assert.True(layer.History.Redo());
+        Assert.Equal(2, layer.GetCount(0));
+        Assert.Null(layer.FindTarget(0, removed));
+        Assert.Equal(new AnnotationTarget(0, 0), layer.Selected);
+    }
+
     private static DocumentSession Open(string fileName) => TextSelectionTests.Open(fileName);
 
     private static DocumentSession Open(byte[] file) => DocumentSession.Open(file, new ViewerOptions().WithThreading(ViewerThreading.Background));
