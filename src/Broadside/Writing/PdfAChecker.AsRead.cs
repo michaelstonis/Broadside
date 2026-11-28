@@ -9,7 +9,7 @@ namespace Broadside.Writing;
 /// The read mode of the PDF/A check (issue #651): the file as it is, not as a save would write it. Where a save writes something
 /// conformant by itself (the header, the binary comment, the trailer's <c>ID</c>, the bytes after <c>%%EOF</c>, the output intent, the
 /// XMP identification, PDF/A-4's document information dictionary and catalog version), the read mode checks what the file holds, and
-/// every repair the parser made of the file structure is a violation: leniency never hides non-conformance (ADR 0005).
+/// every repair the parser made of the file structure is a violation: lenient reading never hides non-conformance.
 /// </summary>
 /// <remarks>
 /// <para>

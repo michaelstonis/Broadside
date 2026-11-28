@@ -29,7 +29,7 @@ public sealed partial class PdfDocument
     /// An incremental update is checked as its last revision, as veraPDF does.
     /// </para>
     /// <para>
-    /// Leniency never hides non-conformance (ADR 0005): every repair the parser made of the file structure or the object syntax is a
+    /// Lenient reading never hides non-conformance: every repair the parser made of the file structure or the object syntax is a
     /// violation, a wrong stream <c>Length</c> under 6.1.7.1-1 and the others (a cross-reference table rebuilt by scanning, a wrong
     /// <c>startxref</c>) under the ISO 32000-2 clause their diagnostic cites, as <c>ISO 32000-2 7.5.5-1</c>. A repaired file is never
     /// conformant. The byte-level rules read the bytes the document was read from: changes not yet saved are checked as objects only.
