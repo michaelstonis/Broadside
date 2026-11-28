@@ -21,6 +21,7 @@ ReduceFileSize();
 EditPages();
 MergeAndSplit();
 DrawAPageOnAnotherPage();
+ReshapePages();
 StampPages();
 BatesNumber();
 FillAForm();
@@ -169,6 +170,37 @@ static void DrawAPageOnAnotherPage()
     using PdfDocument saved = PdfDocument.Open("chapter1-2-up.pdf");
     string text = saved.Pages[0].ExtractText().Text;
     Sample.Expect(text.Contains("page 1", StringComparison.Ordinal) && text.Contains("page 2", StringComparison.Ordinal), "both pages drawn on one sheet");
+}
+
+static void ReshapePages()
+{
+    #region reshape
+    using PdfDocument book = PdfDocument.Open("book.pdf");
+    using (PdfDocument handout = book.CreateNUp(2, 2, new PdfImpositionOptions().WithMargin(18).WithGutter(12)))
+    {
+        handout.Save("book-4-up.pdf");                              // four pages per sheet, in reading order
+    }
+
+    using (PdfDocument booklet = book.CreateBooklet())
+    {
+        booklet.Save("book-booklet.pdf");                           // print double-sided, fold, staple
+    }
+
+    foreach (PdfPage page in book.Pages)
+    {
+        page.Resize(595, 842);                                      // Letter to A4, content scaled to fit
+        page.AddMargins(36, 0, 0, 0);                               // a binding margin; annotations move along
+    }
+
+    book.Save("book-a4.pdf");
+    #endregion
+
+    using PdfDocument handoutSaved = PdfDocument.Open("book-4-up.pdf");
+    using PdfDocument bookletSaved = PdfDocument.Open("book-booklet.pdf");
+    using PdfDocument a4 = PdfDocument.Open("book-a4.pdf");
+    Sample.Expect(handoutSaved.Pages.Count == 1, "four pages on one sheet");
+    Sample.Expect(bookletSaved.Pages.Count == 2, "a four-page booklet is one sheet, front and back");
+    Sample.Expect(a4.Pages[0].MediaBox.Width == 631, "A4 plus a 36-point binding margin");
 }
 
 static void StampPages()

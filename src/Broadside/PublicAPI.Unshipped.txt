@@ -357,6 +357,47 @@ Broadside.PdfInvoiceProfile.EN16931 = 3 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.Extended = 4 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.Minimum = 0 -> Broadside.PdfInvoiceProfile
 Broadside.PdfInvoiceProfile.XRechnung = 5 -> Broadside.PdfInvoiceProfile
+Broadside.PdfContentFit
+Broadside.PdfContentFit.Fill = 1 -> Broadside.PdfContentFit
+Broadside.PdfContentFit.Fit = 0 -> Broadside.PdfContentFit
+Broadside.PdfContentFit.None = 3 -> Broadside.PdfContentFit
+Broadside.PdfContentFit.Stretch = 2 -> Broadside.PdfContentFit
+Broadside.PdfDocument.CreateBooklet(Broadside.PdfImpositionOptions? options = null, System.Range? pages = null) -> Broadside.PdfDocument!
+Broadside.PdfDocument.CreateNUp(int columns, int rows, Broadside.PdfImpositionOptions? options = null, System.Range? pages = null) -> Broadside.PdfDocument!
+Broadside.PdfDocument.CreateTiles(int columns, int rows, Broadside.PdfImpositionOptions? options = null, System.Range? pages = null) -> Broadside.PdfDocument!
+Broadside.PdfImpositionOptions
+Broadside.PdfImpositionOptions.Boundary.get -> Broadside.PdfPageBoundary
+Broadside.PdfImpositionOptions.Boundary.set -> void
+Broadside.PdfImpositionOptions.DrawCellFrames.get -> bool
+Broadside.PdfImpositionOptions.DrawCellFrames.set -> void
+Broadside.PdfImpositionOptions.Gutter.get -> double
+Broadside.PdfImpositionOptions.Gutter.set -> void
+Broadside.PdfImpositionOptions.IncludeAnnotations.get -> bool
+Broadside.PdfImpositionOptions.IncludeAnnotations.set -> void
+Broadside.PdfImpositionOptions.Margin.get -> double
+Broadside.PdfImpositionOptions.Margin.set -> void
+Broadside.PdfImpositionOptions.Order.get -> Broadside.PdfImpositionOrder
+Broadside.PdfImpositionOptions.Order.set -> void
+Broadside.PdfImpositionOptions.Overlap.get -> double
+Broadside.PdfImpositionOptions.Overlap.set -> void
+Broadside.PdfImpositionOptions.PdfImpositionOptions() -> void
+Broadside.PdfImpositionOptions.SheetSize.get -> Broadside.PdfRectangle?
+Broadside.PdfImpositionOptions.SheetSize.set -> void
+Broadside.PdfImpositionOptions.WithAnnotations(bool include = true) -> Broadside.PdfImpositionOptions!
+Broadside.PdfImpositionOptions.WithBoundary(Broadside.PdfPageBoundary boundary) -> Broadside.PdfImpositionOptions!
+Broadside.PdfImpositionOptions.WithCellFrames(bool draw = true) -> Broadside.PdfImpositionOptions!
+Broadside.PdfImpositionOptions.WithGutter(double gutter) -> Broadside.PdfImpositionOptions!
+Broadside.PdfImpositionOptions.WithMargin(double margin) -> Broadside.PdfImpositionOptions!
+Broadside.PdfImpositionOptions.WithOrder(Broadside.PdfImpositionOrder order) -> Broadside.PdfImpositionOptions!
+Broadside.PdfImpositionOptions.WithOverlap(double overlap) -> Broadside.PdfImpositionOptions!
+Broadside.PdfImpositionOptions.WithSheetSize(Broadside.PdfRectangle? sheetSize) -> Broadside.PdfImpositionOptions!
+Broadside.PdfImpositionOrder
+Broadside.PdfImpositionOrder.LeftToRightThenDown = 0 -> Broadside.PdfImpositionOrder
+Broadside.PdfImpositionOrder.RightToLeftThenDown = 1 -> Broadside.PdfImpositionOrder
+Broadside.PdfImpositionOrder.TopToBottomThenRight = 2 -> Broadside.PdfImpositionOrder
+Broadside.PdfPage.AddMargins(double left, double bottom, double right, double top) -> void
+Broadside.PdfPage.Resize(double width, double height, Broadside.PdfContentFit fit = Broadside.PdfContentFit.Fit) -> void
+Broadside.PdfPage.ScaleContent(double factor) -> void
 Broadside.PdfDocument.PrepareSignature(System.IO.Stream! stream, System.Security.Cryptography.X509Certificates.X509Certificate2! certificate, System.Collections.Generic.IReadOnlyList<System.Security.Cryptography.X509Certificates.X509Certificate2!>? chain = null, Broadside.Signatures.PdfSignatureOptions? options = null, System.Security.Cryptography.RSASignaturePadding? rsaSignaturePadding = null) -> Broadside.Signatures.PdfPreparedSignature!
 static Broadside.PdfDocument.CompleteSignature(System.IO.Stream! preparedFile, Broadside.Signatures.PdfPreparedSignature! prepared, System.ReadOnlySpan<byte> signatureValue, Broadside.Signatures.PdfTimestampClient? timestampClient = null) -> void
 static Broadside.PdfDocument.CompleteSignatureAsync(System.IO.Stream! preparedFile, Broadside.Signatures.PdfPreparedSignature! prepared, System.ReadOnlyMemory<byte> signatureValue, Broadside.Signatures.PdfTimestampClient? timestampClient = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
