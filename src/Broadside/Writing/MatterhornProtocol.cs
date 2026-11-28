@@ -1,5 +1,3 @@
-using System.Collections.Frozen;
-
 namespace Broadside.Writing;
 
 /// <summary>
@@ -76,7 +74,7 @@ internal static class MatterhornProtocol
     /// <see langword="null"/> for a rule with no Matterhorn condition (6.2-1, <c>MarkInfo</c> <c>Marked</c>). Where one rule covers
     /// several conditions, the checker names the precise one when it reports (7.1-10, 7.2-29, 7.4.2-1, 7.18.3-1, 7.21.6-2, 7.21.7-2).
     /// </summary>
-    public static readonly FrozenDictionary<string, string?> CheckpointOfRule = new Dictionary<string, string?>(StringComparer.Ordinal)
+    public static readonly IReadOnlyDictionary<string, string?> CheckpointOfRule = new Dictionary<string, string?>(StringComparer.Ordinal)
     {
         ["5-1"] = "06-002",
         ["5-2"] = "06-002",
@@ -137,19 +135,19 @@ internal static class MatterhornProtocol
         ["7.21.6-2"] = "31-021",
         ["7.21.7-1"] = "31-027",
         ["7.21.7-2"] = "31-028",
-    }.ToFrozenDictionary(StringComparer.Ordinal);
+    };
 
     /// <summary>
     /// The machine conditions a validation checks in full. 10-001 and 17-003 (character codes mapped to Unicode) are the check of
     /// 31-027; 31-019 and 31-020 are reported under rule 7.21.6-2 with 31-021.
     /// </summary>
-    public static readonly FrozenSet<string> Checked = new[]
+    public static readonly IReadOnlySet<string> Checked = new HashSet<string>(StringComparer.Ordinal)
     {
         "01-003", "01-004", "01-005", "01-007", "02-001", "02-004", "06-001", "06-002", "06-003", "07-001", "07-002", "09-004", "09-005",
         "09-006", "10-001", "11-006", "13-004", "14-002", "14-003", "14-006", "14-007", "15-003", "17-003", "19-003", "19-004", "25-001",
         "28-002", "28-004", "28-005", "28-007", "28-008", "28-009", "28-010", "28-011", "28-012", "31-009", "31-019", "31-020", "31-021",
         "31-027", "31-028", "31-029",
-    }.ToFrozenSet(StringComparer.Ordinal);
+    };
 
     /// <summary>The machine conditions not checked yet (issue #527), in protocol order.</summary>
     public static readonly IReadOnlyList<string> NotChecked =

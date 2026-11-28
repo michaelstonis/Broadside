@@ -174,8 +174,17 @@ internal sealed partial class PdfUAChecker
     /// </summary>
     /// <param name="document">The document, as it is: nothing is changed.</param>
     /// <param name="part">The part of ISO 14289: 1 or 2.</param>
-    public static IReadOnlyList<PdfAViolation> Check(PdfDocument document, int part = 1) =>
-        [.. new PdfUAChecker(document, part, validate: false).Walk().Select(finding => new PdfAViolation(finding.Rule, finding.Message, finding.Reference))];
+    public static IReadOnlyList<PdfAViolation> Check(PdfDocument document, int part = 1)
+    {
+        List<PdfUAFinding> findings = new PdfUAChecker(document, part, validate: false).Walk();
+        var violations = new List<PdfAViolation>(findings.Count);
+        foreach (PdfUAFinding finding in findings)
+        {
+            violations.Add(new PdfAViolation(finding.Rule, finding.Message, finding.Reference));
+        }
+
+        return violations;
+    }
 
     /// <summary>
     /// The read mode of <see cref="PdfDocument.ValidatePdfUA"/> (issue #652): the failure conditions of the document as read, with what
@@ -232,14 +241,8 @@ internal sealed partial class PdfUAChecker
 
     private void Report(string rule, string message, CosReference? reference = null, string? checkpoint = null)
     {
-        if (_part == 1)
-        {
-            checkpoint ??= MatterhornProtocol.CheckpointOfRule.GetValueOrDefault(rule);
-        }
-        else
-        {
-            checkpoint = null;
-        }
+        // Only a validation cites checkpoints: a save never reads the Matterhorn table.
+        checkpoint = _validate && _part == 1 ? checkpoint ?? MatterhornProtocol.CheckpointOfRule.GetValueOrDefault(rule) : null;
 
         if (_part == 2 && rule[0] == '7')
         {
