@@ -132,6 +132,32 @@ Passwords and certificates are given with `PdfOptions.WithPassword` or `WithCred
 an enforcement: anyone who can open a file can read all of it. Respect them in your application if you must, but do not rely on
 them to protect content.
 
+## Sanitizing before you pass a file on
+
+Reading a file runs nothing in it: Broadside never executes JavaScript, launches applications or follows submit actions. The next
+reader of the file may. A mail gateway, an upload portal or a records system that stores or forwards files from strangers can
+remove what is active or hidden first with `PdfDocument.Sanitize`:
+
+```csharp
+using PdfDocument document = PdfDocument.Open(upload);
+PdfSanitization result = document.Sanitize();
+document.Save(output, result.CreateSaveOptions());
+```
+
+The defaults remove JavaScript (actions, the document-level scripts and form field scripts), launch, submit-form, import-data,
+remote go-to and multimedia actions, the XFA form, embedded and associated files, the Info dictionary and every XMP metadata
+stream, page-piece data, thumbnails, and the content of optional content layers that are off. URI links, invisible text (OCR
+layers over scanned pages) and comments stay; `PdfSanitizeOptions` turns each removal on or off (`WithActions(PdfSanitizeActions.All)`
+also removes URI links). `result.Removed` lists what went, one line per kind with its count.
+
+Always save with `result.CreateSaveOptions()`. An incremental update appends to the original bytes, so everything removed would
+still be in the file for anyone who reads it. The save options write the whole file again, drop every object left unreachable and
+do not write the modification date back into new metadata.
+
+Sanitizing changes the document, so it invalidates any signatures (`Removed` then says `signatures invalidated`), and a PDF/A-3
+file loses its associated files, such as a ZUGFeRD invoice, and with them its PDF/A-3 claim. An encrypted file must be opened with
+the owner password. Sanitizing does not redact visible content: use `Redact` for that.
+
 ## Process isolation
 
 The limits make every single operation bounded, but no in-process limit can bound everything a process does. When you process

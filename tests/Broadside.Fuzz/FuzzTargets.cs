@@ -113,6 +113,7 @@ internal static class FuzzTargets
         ["display-list"] = DisplayListTarget.Target,
         ["content-rewrite"] = ContentRewriteTarget.Target,
         ["redact"] = RedactTarget.Target,
+        ["sanitize"] = SanitizeTarget.Target,
         ["icc-profile"] = IccProfileTarget.Target,
         ["rasterize"] = RasterizeTarget.Target,
         ["rasterize-page"] = RasterizePageTarget.Target,

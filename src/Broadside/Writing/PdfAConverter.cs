@@ -751,52 +751,17 @@ internal sealed class PdfAConverter
     /// </summary>
     private void ConvertAction(CosDictionary owner, CosName key, string ownerName)
     {
-        if (Resolve(owner.GetValueOrDefault(key)) is not CosDictionary action)
+        if (Resolve(owner.GetValueOrDefault(key)) is not CosDictionary)
         {
             return;
         }
 
-        if (!IsAllowed(action))
-        {
-            _ = Remove(owner, key, $"{ownerName}'s {NameOf(action, S) ?? "typeless"} action is removed (rule 6.5.1-1)");
-            return;
-        }
-
-        var seen = new HashSet<CosObject>(ReferenceEqualityComparer.Instance) { action };
-        var pending = new Stack<CosDictionary>([action]);
-        while (pending.Count > 0)
-        {
-            CosDictionary current = pending.Pop();
-            switch (Resolve(current.GetValueOrDefault(Next)))
-            {
-                case CosDictionary next when !IsAllowed(next):
-                    _ = Remove(current, Next, $"{ownerName}'s {NameOf(next, S) ?? "typeless"} action is removed (rule 6.5.1-1)");
-                    break;
-                case CosDictionary next when seen.Add(next):
-                    pending.Push(next);
-                    break;
-                case CosArray nexts:
-                    for (int i = nexts.Count - 1; i >= 0; i--)
-                    {
-                        if (Resolve(nexts[i]) is not CosDictionary next)
-                        {
-                            continue;
-                        }
-
-                        if (!IsAllowed(next))
-                        {
-                            nexts.RemoveAt(i);
-                            Changed($"{ownerName}'s {NameOf(next, S) ?? "typeless"} action is removed (rule 6.5.1-1)");
-                        }
-                        else if (seen.Add(next))
-                        {
-                            pending.Push(next);
-                        }
-                    }
-
-                    break;
-            }
-        }
+        var pruner = new ActionPruner(
+            _document,
+            IsAllowed,
+            action => Changed($"{ownerName}'s {(action is null ? null : NameOf(action, S)) ?? "typeless"} action is removed (rule 6.5.1-1)"),
+            splice: false);
+        _ = pruner.Prune(owner, key);
     }
 
     private void ConvertFields(CosArray fields)

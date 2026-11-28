@@ -62,6 +62,7 @@ flatten                     ^src/Broadside/(Forms|Annotations|Content|Writing)/
 display-list                ^src/Broadside/(Rendering|Graphics|Content)/
 content-rewrite             ^src/Broadside/(Content|Writing)/
 redact                      ^src/Broadside/(Redaction|Content|Annotations)/|^src/Broadside/PdfRedaction|^src/Broadside/Pdf(Document|Page)\.SearchRedaction|^src/Broadside/Text/(TextPatterns|GlyphMatching|SearchableText)
+sanitize                    ^src/Broadside/(Sanitizing|Content)/|^src/Broadside/(ActionPruner|PdfSanitiz|PdfDocument\.Sanitize)
 icc-profile                 ^src/Broadside/Graphics/|^src/Broadside\.Rendering/Icc/
 rasterize                   ^src/Broadside\.Rendering/|^src/Broadside/(Rendering|Graphics)/
 rasterize-page              ^src/Broadside\.Rendering/|^src/Broadside/(Rendering|Graphics|Content|Fonts|Images)/
