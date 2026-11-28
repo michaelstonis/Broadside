@@ -332,7 +332,7 @@ internal sealed partial class SvgImporter
     private Gradient ReadGradient(SvgElement server)
     {
         var chain = new List<SvgElement>();
-        for (SvgElement? current = server; current is not null && chain.Count < MaxReferenceDepth && !chain.Contains(current); )
+        for (SvgElement? current = server; current is not null && chain.Count < MaxReferenceDepth && !chain.Contains(current);)
         {
             chain.Add(current);
             current = current.Attribute("href") is { } href && SvgReference.Id(href) is { } id && _svg.Find(id) is { Name: "linearGradient" or "radialGradient" } next ? next : null;
@@ -605,7 +605,7 @@ internal sealed partial class SvgImporter
     private void PaintWithPattern(SvgElement element, SvgElement server, double opacity, SvgRect bounds, bool stroke, Action<PdfCanvas> draw)
     {
         var chain = new List<SvgElement>();
-        for (SvgElement? current = server; current is not null && chain.Count < MaxReferenceDepth && !chain.Contains(current); )
+        for (SvgElement? current = server; current is not null && chain.Count < MaxReferenceDepth && !chain.Contains(current);)
         {
             chain.Add(current);
             current = current.Attribute("href") is { } href && SvgReference.Id(href) is { } id && _svg.Find(id) is { Name: "pattern" } next ? next : null;
