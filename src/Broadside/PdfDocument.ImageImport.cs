@@ -21,9 +21,6 @@ public sealed partial class PdfDocument
     private static readonly CosName CcittEncodedByteAlign = new("EncodedByteAlign");
     private static readonly CosName CcittEndOfLine = new("EndOfLine");
 
-    // What the files said about each imported image's resolution and orientation, for AppendImagePages, by the image's object.
-    private Dictionary<CosReference, ImportedPlacement>? _importPlacements;
-
     /// <summary>Creates one image XObject per page of a TIFF file, or returns the ones this document already has for the same file.</summary>
     /// <param name="tiff">The TIFF file: baseline TIFF 6.0 with the common extensions (see the remarks).</param>
     /// <returns>The images, one per page (image file directory) in file order; reduced-resolution images (thumbnails) are skipped.</returns>
@@ -217,17 +214,21 @@ public sealed partial class PdfDocument
     /// <summary>The images of an encoded file with what the file says about their resolution and orientation (for <see cref="PdfImagePageExtensions"/>).</summary>
     internal List<(PdfImage Image, ImportedPlacement Placement)> CreatePlacedImages(ReadOnlySpan<byte> encoded)
     {
+        // The placement is read again from the file's headers rather than kept per image, so the document carries no state for it.
         IReadOnlyList<PdfImage> images = CreateImages(encoded);
         var placed = new List<(PdfImage, ImportedPlacement)>(images.Count);
-        foreach (PdfImage image in images)
+        ImageFormat format = SniffImage(encoded);
+        List<long>? pages = format == ImageFormat.Tiff ? ListTiffPages(encoded, out _) : null;
+        bool little = encoded is [(byte)'I', ..];
+        for (int i = 0; i < images.Count; i++)
         {
-            ImportedPlacement placement = default;
-            if (_importPlacements is not null && image.Reference is { } reference)
+            ImportedPlacement placement = format switch
             {
-                _importPlacements.TryGetValue(reference, out placement);
-            }
-
-            placed.Add((image, placement));
+                ImageFormat.Tiff => TiffReader.ReadPlacement(encoded, pages![i], little),
+                ImageFormat.Bmp => BmpReader.ReadPlacement(encoded),
+                _ => default,
+            };
+            placed.Add((images[i], placement));
         }
 
         return placed;
@@ -364,7 +365,6 @@ public sealed partial class PdfDocument
 
         RequireImageFeatures(image.BitsPerComponent);
         CosReference reference = Drawing.Add(key, stream);
-        (_importPlacements ??= [])[reference] = new ImportedPlacement(image.DpiX, image.DpiY, image.Orientation);
         return GetImage(reference)!;
     }
 }

@@ -102,6 +102,27 @@ internal static class TiffReader
         return page.Read();
     }
 
+    /// <summary>Reads what the directory at <paramref name="offset"/> says about its page's resolution and orientation.</summary>
+    /// <exception cref="InvalidDataException">The directory is malformed.</exception>
+    public static ImportedPlacement ReadPlacement(ReadOnlySpan<byte> tiff, long offset, bool little) =>
+        Placement(tiff, TiffDirectory.Read(tiff, offset, little));
+
+    /// <summary>XResolution, YResolution and ResolutionUnit (TIFF 6.0 §8) in pixels per inch, 0 when absent or unitless, and the Orientation.</summary>
+    private static ImportedPlacement Placement(ReadOnlySpan<byte> tiff, TiffDirectory d)
+    {
+        double x = d.Rational(tiff, TiffTag.XResolution);
+        double y = d.Rational(tiff, TiffTag.YResolution);
+        double scale = d.Value(tiff, TiffTag.ResolutionUnit, 2) switch
+        {
+            2 => 1,
+            3 => 2.54,
+            _ => 0,
+        };
+        long orientation = d.Value(tiff, TiffTag.Orientation, 1);
+        bool known = x > 0 && y > 0 && scale > 0;
+        return new ImportedPlacement(known ? x * scale : 0, known ? y * scale : 0, orientation is >= 1 and <= 8 ? (int)orientation : 1);
+    }
+
     private static byte[] BuildReversedBits()
     {
         byte[] table = new byte[256];
@@ -165,20 +186,9 @@ internal static class TiffReader
                 image.Repairs.Add(Invariant($"The value of TIFF tag {tag} lies outside the file and was ignored."));
             }
 
-            double x = _d.Rational(_tiff, TiffTag.XResolution);
-            double y = _d.Rational(_tiff, TiffTag.YResolution);
-            long unit = _d.Value(_tiff, TiffTag.ResolutionUnit, 2);
-            double scale = unit switch
-            {
-                2 => 1,
-                3 => 2.54,
-                _ => 0,
-            };
-            if (x > 0 && y > 0 && scale > 0)
-            {
-                image.DpiX = x * scale;
-                image.DpiY = y * scale;
-            }
+            ImportedPlacement placement = Placement(_tiff, _d);
+            image.DpiX = placement.DpiX;
+            image.DpiY = placement.DpiY;
 
             long orientation = _d.Value(_tiff, TiffTag.Orientation, 1);
             image.Orientation = orientation is >= 1 and <= 8 ? (int)orientation : 1;

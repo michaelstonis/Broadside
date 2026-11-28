@@ -86,16 +86,7 @@ internal static class BmpReader
             : ReadTrueColor(bmp, header, headerSize, layout, compression, pixelOffset);
         try
         {
-            if (!core && headerSize >= 32)
-            {
-                double x = BinaryPrimitives.ReadInt32LittleEndian(header[24..]) * 0.0254;
-                double y = BinaryPrimitives.ReadInt32LittleEndian(header[28..]) * 0.0254;
-                if (x > 0 && y > 0)
-                {
-                    image.DpiX = x;
-                    image.DpiY = y;
-                }
-            }
+            (image.DpiX, image.DpiY, _) = ReadPlacement(bmp);
 
             if (headerSize >= 124 && BinaryPrimitives.ReadUInt32LittleEndian(header[56..]) == 0x4D424544)
             {
@@ -115,6 +106,25 @@ internal static class BmpReader
             image.Dispose();
             throw;
         }
+    }
+
+    /// <summary>The bitmap's resolution in pixels per inch (from pixels per metre; 0 when it states none). Never throws.</summary>
+    public static ImportedPlacement ReadPlacement(ReadOnlySpan<byte> bmp)
+    {
+        if (!IsBmp(bmp))
+        {
+            return new ImportedPlacement(0, 0, 1);
+        }
+
+        int headerSize = (int)BinaryPrimitives.ReadUInt32LittleEndian(bmp[14..]);
+        if (headerSize < 32 || 14 + 32 > bmp.Length)
+        {
+            return new ImportedPlacement(0, 0, 1);
+        }
+
+        double x = BinaryPrimitives.ReadInt32LittleEndian(bmp[(14 + 24)..]) * 0.0254;
+        double y = BinaryPrimitives.ReadInt32LittleEndian(bmp[(14 + 28)..]) * 0.0254;
+        return x > 0 && y > 0 ? new ImportedPlacement(x, y, 1) : new ImportedPlacement(0, 0, 1);
     }
 
     private static ImportedImage ReadIndexed(ReadOnlySpan<byte> bmp, ReadOnlySpan<byte> header, int headerSize, Layout layout, int compression, long pixelOffset)
